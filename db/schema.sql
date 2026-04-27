@@ -1,5 +1,5 @@
 -- ============================================================
---  Schema Fundacional v1.0Atlas 
+--  Schema Fundacional v1.0 - Atlas 
 -- Baseado no Documento Mestre v3.0, Lei 6 (Dataset Sagrado)
 -- ============================================================
 
@@ -39,15 +39,16 @@ CREATE INDEX idx_notes_created ON notes(created_at DESC);
 
 CREATE TABLE note_links (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  source_id U  source_id U  source_id U  source_id U  sourceNULL,
-  target_id UUID REFERENCES notes  target_id UUID REFERENCES notes  target_id TEXT DEFAULT 'reference',
+  source_id UUID REFERENCES notes(id) NOT NULL,
+  target_id UUID REFERENCES notes(id) NOT NULL,
+  link_type TEXT DEFAULT 'reference',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(source_id, target_id, link_type)
 );
 
 CREATE TABLE timeline_events (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  operat  operat  operat  oES operators(id) NOT NULL,
+  operator_id UUID REFERENCES operators(id) NOT NULL,
   ts TIMESTAMPTZ NOT NULL DEFAULT now(),
   source TEXT NOT NULL,
   entity_type TEXT,
@@ -81,7 +82,7 @@ CREATE INDEX idx_metrics_source ON metrics(source);
 CREATE TABLE cognitive_state (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   operator_id UUID REFERENCES operators(id) NOT NULL,
-  ts TIMESTA  ts TIMESTA  ts AULT now(),
+  ts TIMESTAMPTZ NOT NULL DEFAULT now(),
   state TEXT NOT NULL,
   energy INT CHECK (energy >= 1 AND energy <= 5),
   source TEXT DEFAULT 'manual_checkin'
@@ -114,7 +115,8 @@ CREATE TABLE insight_triggers (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATCREATCREATCREATCREATCREATCREATCREARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE insights (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   operator_id UUID REFERENCES operators(id) NOT NULL,
   trigger_id UUID REFERENCES insight_triggers(id),
   title TEXT NOT NULL,
@@ -143,7 +145,8 @@ CREATE TABLE ai_interactions (
 CREATE TABLE sop_executions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   operator_id UUID REFERENCES operators(id) NOT NULL,
-  sop_note_id UUI  sop_note_id UUI  sop_note_ TIMESTAMPTZ NOT NULL DEFAULT now(),
+  sop_note_id UUID REFERENCES notes(id) NOT NULL,
+  ts TIMESTAMPTZ NOT NULL DEFAULT now(),
   outcome TEXT,
   duration_seconds INT,
   notes TEXT
@@ -182,10 +185,11 @@ CREATE TABLE experiments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE schema_migrationsCREATE TABID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE schema_migrations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   version INT UNIQUE NOT NULL,
   description TEXT,
   applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-INSERT INTO schema_migrations (version, description) VAINSERT INTO schemaundacional v1.0 - Atlas V1');
+INSERT INTO schema_migrations (version, description) VALUES (1, 'Fundacional v1.0 - Atlas V1');
