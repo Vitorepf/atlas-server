@@ -1,0 +1,44 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: atlas-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: atlas_local_2026
+      POSTGRES_DB: atlas
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atlas-backend
+    restart: unless-stopped
+    ports:
+      - "3737:3737"
+    environment:
+      DATABASE_URL: postgresql://atlas:atlas_local_2026@db:5432/atlas
+      VAULT_PATH: /app/vault
+      PORT: "3737"
+      LOG_LEVEL: info
+      NODE_ENV: production
+    volumes:
+      - ~/atlas:/app/vault
+      - atlas-audio:/app/audio-temp
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  pgdata:
+    driver: local
+  atlas-audio:
+    driver: local
