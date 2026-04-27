@@ -1,5 +1,6 @@
 {
   "name": "atlas-server",
+  "type": "module",
   "version": "1.0.0",
   "description": "Atlas server - Backend Fastify + PostgreSQL + Docker",
   "main": "dist/server.js",

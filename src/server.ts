@@ -1,8 +1,10 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
-import { Client } from 'pg';
+import pg from 'pg';
 import 'dotenv/config';
+
+const { Client } = pg;
 
 const fastify = Fastify({
   logger: {
