@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\AiInteractionController;
+use App\Http\Controllers\AiJobController;
+use App\Http\Controllers\AiProviderController;
 use App\Http\Controllers\BehaviorController;
 use App\Http\Controllers\BehaviorLogController;
 use App\Http\Controllers\CaptureController;
@@ -66,6 +69,19 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/semantic/cognitive-games/today', [CognitiveGameController::class, 'today']);
     Route::post('/semantic/cognitive-games', [CognitiveGameController::class, 'start']);
     Route::post('/semantic/cognitive-games/{game}/answer', [CognitiveGameController::class, 'answer']);
+
+    Route::get('/ai/interactions', [AiInteractionController::class, 'index']);
+    Route::post('/ai/interactions', [AiInteractionController::class, 'store']);
+    Route::get('/ai/interactions/{trace}', [AiInteractionController::class, 'show']);
+    Route::post('/ai/interactions/{trace}/feedback', [AiInteractionController::class, 'feedback']);
+
+    Route::get('/ai/jobs', [AiJobController::class, 'index']);
+    Route::get('/ai/jobs/{job}', [AiJobController::class, 'show']);
+    Route::post('/ai/jobs/{job}/retry', [AiJobController::class, 'retry']);
+    Route::post('/ai/jobs/{job}/cancel', [AiJobController::class, 'cancel']);
+
+    Route::get('/ai/providers/status', [AiProviderController::class, 'status']);
+    Route::post('/ai/providers/check', [AiProviderController::class, 'check']);
 
     Route::post('/sync', SyncController::class);
 });

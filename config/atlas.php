@@ -21,4 +21,35 @@ return [
         'activation_daily_limit' => (int) env('ATLAS_SEMANTIC_ACTIVATION_DAILY_LIMIT', 2),
         'curation_min_content_chars' => (int) env('ATLAS_SEMANTIC_CURATION_MIN_CONTENT_CHARS', 160),
     ],
+
+    'ai' => [
+        'enabled' => (bool) env('ATLAS_AI_ENABLED', true),
+        'default_provider' => env('ATLAS_AI_DEFAULT_PROVIDER', 'claude_cli'),
+        'default_agent' => env('ATLAS_AI_DEFAULT_AGENT', 'orquestrador'),
+        'workdir' => env('ATLAS_AI_WORKDIR', dirname(base_path())),
+        'worker_id' => env('ATLAS_AI_WORKER_ID', gethostname() ?: 'atlas-worker'),
+        'timeout_seconds' => (int) env('ATLAS_AI_TIMEOUT_SECONDS', 300),
+        'max_attempts' => (int) env('ATLAS_AI_MAX_ATTEMPTS', 2),
+        'retry_delay_seconds' => (int) env('ATLAS_AI_RETRY_DELAY_SECONDS', 300),
+        'context_note_limit' => (int) env('ATLAS_AI_CONTEXT_NOTE_LIMIT', 5),
+        'context_excerpt_chars' => (int) env('ATLAS_AI_CONTEXT_EXCERPT_CHARS', 1200),
+        'schedule_worker' => (bool) env('ATLAS_AI_SCHEDULE_WORKER', false),
+        'providers' => [
+            'claude_cli' => [
+                'binary' => env('ATLAS_AI_CLAUDE_BIN', 'claude'),
+                'model' => env('ATLAS_AI_CLAUDE_MODEL', null),
+                'args' => env('ATLAS_AI_CLAUDE_ARGS')
+                    ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_CLAUDE_ARGS'))), fn (string $arg): bool => $arg !== ''))
+                    : ['-p', '--output-format', 'json', '--no-session-persistence'],
+            ],
+            'codex_cli' => [
+                'binary' => env('ATLAS_AI_CODEX_BIN', 'codex'),
+                'model' => env('ATLAS_AI_CODEX_MODEL', null),
+                'sandbox' => env('ATLAS_AI_CODEX_SANDBOX', 'read-only'),
+                'args' => env('ATLAS_AI_CODEX_ARGS')
+                    ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_CODEX_ARGS'))), fn (string $arg): bool => $arg !== ''))
+                    : ['exec', '--skip-git-repo-check'],
+            ],
+        ],
+    ],
 ];

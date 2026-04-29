@@ -60,6 +60,7 @@ class VaultFileStore
             ->map(fn ($file): string => str_replace('\\', '/', $file->getRelativePathname()))
             ->reject(fn (string $path): bool => str_starts_with($path, '.obsidian/'))
             ->reject(fn (string $path): bool => str_starts_with($path, '_templates/'))
+            ->reject(fn (string $path): bool => str_starts_with($path, '_skills/'))
             ->values();
     }
 
@@ -117,7 +118,12 @@ class VaultFileStore
 
         File::ensureDirectoryExists($path);
 
-        return rtrim($path, DIRECTORY_SEPARATOR);
+        $realPath = realpath($path);
+        if ($realPath === false) {
+            throw new RuntimeException('Atlas vault path could not be resolved.');
+        }
+
+        return rtrim($realPath, DIRECTORY_SEPARATOR);
     }
 
     private function normalizeRelativePath(string $path): string

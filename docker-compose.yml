@@ -23,7 +23,7 @@ services:
       dockerfile: Dockerfile
     container_name: atlas-backend
     restart: unless-stopped
-    command: sh -c "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=3737"
+    command: sh -c "php artisan config:clear && php artisan migrate --force && php -S 0.0.0.0:3737 -t public public/index.php"
     ports:
       - "3737:3737"
     environment:
@@ -63,8 +63,11 @@ services:
       RIZE_SESSIONS_QUERY_PATH: ${RIZE_SESSIONS_QUERY_PATH:-}
       RIZE_SESSIONS_ROOT_PATH: ${RIZE_SESSIONS_ROOT_PATH:-sessions.nodes}
       RIZE_SESSIONS_PAGE_INFO_PATH: ${RIZE_SESSIONS_PAGE_INFO_PATH:-sessions.pageInfo}
+      ATLAS_VAULT_PATH: /atlas-vault
     volumes:
+      - .:/app
       - atlas-storage:/var/atlas/storage
+      - ../AtlasVault:/atlas-vault
     depends_on:
       db:
         condition: service_healthy
@@ -75,7 +78,7 @@ services:
       dockerfile: Dockerfile
     container_name: atlas-queue
     restart: unless-stopped
-    command: php artisan queue:work --queue=transcription,default --tries=3 --timeout=600
+    command: sh -c "php artisan config:clear && php artisan queue:work --queue=transcription,default --tries=3 --timeout=600"
     environment:
       APP_NAME: Atlas
       APP_ENV: production
@@ -111,8 +114,11 @@ services:
       RIZE_SESSIONS_QUERY_PATH: ${RIZE_SESSIONS_QUERY_PATH:-}
       RIZE_SESSIONS_ROOT_PATH: ${RIZE_SESSIONS_ROOT_PATH:-sessions.nodes}
       RIZE_SESSIONS_PAGE_INFO_PATH: ${RIZE_SESSIONS_PAGE_INFO_PATH:-sessions.pageInfo}
+      ATLAS_VAULT_PATH: /atlas-vault
     volumes:
+      - .:/app
       - atlas-storage:/var/atlas/storage
+      - ../AtlasVault:/atlas-vault
     depends_on:
       db:
         condition: service_healthy
@@ -127,7 +133,7 @@ services:
       dockerfile: Dockerfile
     container_name: atlas-scheduler
     restart: unless-stopped
-    command: php artisan schedule:work
+    command: sh -c "php artisan config:clear && php artisan schedule:work"
     environment:
       APP_NAME: Atlas
       APP_ENV: production
@@ -157,8 +163,11 @@ services:
       RIZE_SESSIONS_QUERY_PATH: ${RIZE_SESSIONS_QUERY_PATH:-}
       RIZE_SESSIONS_ROOT_PATH: ${RIZE_SESSIONS_ROOT_PATH:-sessions.nodes}
       RIZE_SESSIONS_PAGE_INFO_PATH: ${RIZE_SESSIONS_PAGE_INFO_PATH:-sessions.pageInfo}
+      ATLAS_VAULT_PATH: /atlas-vault
     volumes:
+      - .:/app
       - atlas-storage:/var/atlas/storage
+      - ../AtlasVault:/atlas-vault
     depends_on:
       db:
         condition: service_healthy

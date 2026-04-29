@@ -1,5 +1,9 @@
 <?php
 
+use App\Console\Commands\AiBootstrapSkillsCommand;
+use App\Console\Commands\AiEnqueueCommand;
+use App\Console\Commands\AiHealthCommand;
+use App\Console\Commands\AiWorkCommand;
 use App\Console\Commands\RizeInspectCommand;
 use App\Console\Commands\RizeSyncCommand;
 use App\Console\Commands\SemanticActivateCommand;
@@ -20,6 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
         apiPrefix: '',
     )
     ->withCommands([
+        AiBootstrapSkillsCommand::class,
+        AiEnqueueCommand::class,
+        AiHealthCommand::class,
+        AiWorkCommand::class,
         RizeInspectCommand::class,
         RizeSyncCommand::class,
         SemanticActivateCommand::class,
@@ -44,6 +52,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('atlas:semantic:govern')
             ->dailyAt('03:20')
             ->withoutOverlapping();
+
+        $schedule->command('atlas:ai:health')
+            ->hourly()
+            ->withoutOverlapping();
+
+        if (config('atlas.ai.schedule_worker')) {
+            $schedule->command('atlas:ai:work --once --limit=3')
+                ->everyMinute()
+                ->withoutOverlapping();
+        }
 
         if (config('services.rize.sync_enabled') && config('services.rize.api_key')) {
             $lookbackDays = (int) config('services.rize.sync_lookback_days', 2);

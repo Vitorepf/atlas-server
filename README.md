@@ -75,6 +75,78 @@ Em outro terminal, para processar transcricoes:
 php artisan queue:work --queue=transcription,default --tries=3 --timeout=600
 ```
 
+## Atlas AI Gateway
+
+O Atlas AI Gateway e a camada propria do Atlas para chamar IA sem prender o sistema a um provider. A fundacao continua sendo Laravel + PostgreSQL + AtlasVault. Claude CLI e Codex CLI sao apenas motores locais plugaveis, usando as contas ja autenticadas no Mac.
+
+Principios operacionais:
+
+- O app nunca conversa direto com Claude, Codex ou OpenAI.
+- O app cria uma interacao em `POST /ai/interactions`.
+- O servidor registra `ai_traces` e `ai_jobs`.
+- O worker local roda no Mac, chama `claude` ou `codex`, salva tentativas, stdout/stderr, erro, latencia e resposta.
+- O painel de configuracoes do app mostra fila, health dos providers e ultimo evento do worker.
+- Multi-agente e excecao deliberada; o padrao e um agente/skill por intent.
+
+Configure no `.env` se quiser sobrescrever os defaults:
+
+```bash
+ATLAS_AI_ENABLED=true
+ATLAS_AI_DEFAULT_PROVIDER=claude_cli
+ATLAS_AI_DEFAULT_AGENT=orquestrador
+ATLAS_AI_WORKDIR=/Users/vitorepf/Develop/atlas
+ATLAS_AI_WORKER_ID=vitors-macbook-pro-1
+ATLAS_AI_TIMEOUT_SECONDS=300
+ATLAS_AI_MAX_ATTEMPTS=2
+ATLAS_AI_RETRY_DELAY_SECONDS=300
+ATLAS_AI_CLAUDE_BIN=claude
+ATLAS_AI_CODEX_BIN=codex
+ATLAS_AI_CODEX_SANDBOX=read-only
+```
+
+Inicialize o master prompt e as skills no AtlasVault:
+
+```bash
+php artisan atlas:ai:bootstrap-skills
+```
+
+Arquivos criados:
+
+- `AtlasVault/00-constituicao/master-prompt-atlas-ai.md`
+- `AtlasVault/_skills/orquestrador/SKILL.md`
+- `AtlasVault/_skills/vault-curador/SKILL.md`
+- `AtlasVault/_skills/blackink/SKILL.md`
+- `AtlasVault/_skills/financas/SKILL.md`
+- `AtlasVault/_skills/saude/SKILL.md`
+
+Checar se os providers locais estao disponiveis:
+
+```bash
+php artisan atlas:ai:health
+```
+
+Processar jobs pendentes:
+
+```bash
+php artisan atlas:ai:work
+# ou uma rodada pequena para diagnostico:
+php artisan atlas:ai:work --once --limit=1
+```
+
+Enfileirar uma interacao manual:
+
+```bash
+php artisan atlas:ai:enqueue "Analise minha prontidao de hoje" --agent=saude --provider=claude_cli
+```
+
+Se quiser que o scheduler processe jobs automaticamente, ative `ATLAS_AI_SCHEDULE_WORKER=true` e mantenha o scheduler rodando:
+
+```bash
+php artisan schedule:work
+```
+
+Para diagnostico sem consumir chamadas de IA, use apenas `atlas:ai:health` ou `GET /ai/providers/status`.
+
 ## Docker
 
 ```bash
@@ -132,6 +204,16 @@ Protegidos por `X-Atlas-Token`:
 - `POST /procrastination-events`
 - `GET /mission/today`
 - `PUT /mission/today`
+- `POST /ai/interactions`
+- `GET /ai/interactions`
+- `GET /ai/interactions/{id}`
+- `POST /ai/interactions/{id}/feedback`
+- `GET /ai/jobs`
+- `GET /ai/jobs/{id}`
+- `POST /ai/jobs/{id}/retry`
+- `POST /ai/jobs/{id}/cancel`
+- `GET /ai/providers/status`
+- `POST /ai/providers/check`
 - `POST /sync`
 
 Integracao Rize:
