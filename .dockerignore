@@ -1,6 +1,11 @@
-node_modules
-dist
 .env
 .git
-*.md
-audio-temp
+.phpunit.cache
+node_modules
+vendor
+storage/atlas
+storage/logs/*.log
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*

@@ -1,16 +1,61 @@
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package.json ./
-RUN npm install
-COPY . .
-RUN npm run build
+FROM debian:bookworm-slim AS whisper-builder
 
-FROM node:20-alpine
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    cmake \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+
+RUN git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git \
+    && cd whisper.cpp \
+    && cmake -B build -DGGML_NATIVE=OFF -DBUILD_SHARED_LIBS=OFF \
+    && cmake --build build --config Release -j --target whisper-cli \
+    && bash ./models/download-ggml-model.sh base
+
+FROM php:8.4-cli-bookworm AS app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    ffmpeg \
+    git \
+    libgomp1 \
+    libpq-dev \
+    unzip \
+    wget \
+    && docker-php-ext-install pcntl pdo_pgsql \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=whisper-builder /opt/whisper.cpp/build/bin/whisper-cli /usr/local/bin/whisper-cli
+COPY --from=whisper-builder /opt/whisper.cpp/models/ggml-base.bin /opt/whisper-models/ggml-base.bin
+
 WORKDIR /app
-COPY package.json ./
-RUN npm install --omit=dev
-COPY --from=builder /app/dist ./dist
+
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
+
+COPY . .
+
+RUN mkdir -p \
+    bootstrap/cache \
+    storage/app/private \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/testing \
+    storage/framework/transcriptions \
+    storage/framework/views \
+    storage/logs \
+    /var/atlas/storage \
+    && composer dump-autoload --optimize \
+    && php artisan package:discover --ansi
+
 EXPOSE 3737
+
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3737/health || exit 1
-CMD ["node", "dist/server.js"]
+
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=3737"]

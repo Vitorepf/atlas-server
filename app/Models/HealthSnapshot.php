@@ -1,0 +1,115 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class HealthSnapshot extends Model
+{
+    use HasUuids;
+    use SoftDeletes;
+
+    protected $fillable = [
+        'client_id',
+        'source',
+        'snapshot_date',
+        'snapshot_timezone',
+        'computed_at',
+        'signal_count',
+        'readiness_score',
+        'current_score',
+        'body_score',
+        'mind_score',
+        'drive_score',
+        'sleep_score',
+        'autonomic_score',
+        'load_score',
+        'subjective_score',
+        'stability_score',
+        'confidence',
+        'sleep_duration_hours',
+        'sleep_efficiency',
+        'hrv_ms',
+        'resting_heart_rate_bpm',
+        'respiratory_rate',
+        'wrist_temperature_c',
+        'active_energy_kcal',
+        'basal_energy_kcal',
+        'exercise_minutes',
+        'stand_minutes',
+        'steps',
+        'walking_running_distance_m',
+        'vo2max',
+        'body_mass_kg',
+        'body_fat_percentage',
+        'lean_body_mass_kg',
+        'muscle_mass_percentage',
+        'body_mass_index',
+        'waist_circumference_cm',
+        'energy_level',
+        'mood_level',
+        'state',
+        'metrics',
+        'readiness',
+        'sleep',
+        'recovery',
+        'load',
+        'subjective',
+        'body',
+        'metadata',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'snapshot_date' => 'immutable_date',
+            'computed_at' => 'immutable_datetime',
+            'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
+            'deleted_at' => 'immutable_datetime',
+            'signal_count' => 'integer',
+            'readiness_score' => 'integer',
+            'current_score' => 'integer',
+            'body_score' => 'integer',
+            'mind_score' => 'integer',
+            'drive_score' => 'integer',
+            'sleep_score' => 'integer',
+            'autonomic_score' => 'integer',
+            'load_score' => 'integer',
+            'subjective_score' => 'integer',
+            'stability_score' => 'integer',
+            'confidence' => 'float',
+            'sleep_duration_hours' => 'float',
+            'sleep_efficiency' => 'float',
+            'hrv_ms' => 'float',
+            'resting_heart_rate_bpm' => 'float',
+            'respiratory_rate' => 'float',
+            'wrist_temperature_c' => 'float',
+            'active_energy_kcal' => 'float',
+            'basal_energy_kcal' => 'float',
+            'exercise_minutes' => 'float',
+            'stand_minutes' => 'float',
+            'steps' => 'float',
+            'walking_running_distance_m' => 'float',
+            'vo2max' => 'float',
+            'body_mass_kg' => 'float',
+            'body_fat_percentage' => 'float',
+            'lean_body_mass_kg' => 'float',
+            'muscle_mass_percentage' => 'float',
+            'body_mass_index' => 'float',
+            'waist_circumference_cm' => 'float',
+            'energy_level' => 'integer',
+            'mood_level' => 'integer',
+            'metrics' => 'array',
+            'readiness' => 'array',
+            'sleep' => 'array',
+            'recovery' => 'array',
+            'load' => 'array',
+            'subjective' => 'array',
+            'body' => 'array',
+            'metadata' => 'array',
+        ];
+    }
+}

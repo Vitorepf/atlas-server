@@ -11,34 +11,164 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: atlas-backend
     restart: unless-stopped
+    command: sh -c "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=3737"
     ports:
       - "3737:3737"
     environment:
-      DATABASE_URL: postgresql://atlas:atlas_local_2026@db:5432/atlas
-      VAULT_PATH: /app/vault
-      PORT: "3737"
+      APP_NAME: Atlas
+      APP_ENV: production
+      APP_KEY: ${APP_KEY}
+      APP_DEBUG: "false"
+      APP_URL: http://localhost:3737
+      APP_VERSION: "1.0.0"
+      LOG_CHANNEL: stderr
       LOG_LEVEL: info
-      NODE_ENV: production
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: atlas
+      DB_USERNAME: atlas
+      DB_PASSWORD: atlas_local_2026
+      SESSION_DRIVER: array
+      CACHE_STORE: file
+      QUEUE_CONNECTION: database
+      FILESYSTEM_DISK: atlas
+      ATLAS_TOKEN: ${ATLAS_TOKEN}
+      ATLAS_STORAGE_PATH: /var/atlas/storage
+      ATLAS_MAX_UPLOAD_BYTES: "104857600"
+      TRANSCRIPTION_ENABLED: ${TRANSCRIPTION_ENABLED:-true}
+      WHISPER_BIN_PATH: /usr/local/bin/whisper-cli
+      WHISPER_MODEL_PATH: /opt/whisper-models/ggml-base.bin
+      FFMPEG_BIN_PATH: /usr/bin/ffmpeg
+      WHISPER_LANGUAGE: pt
+      WHISPER_ENGINE: whisper-cpp-base
+      RIZE_API_KEY: ${RIZE_API_KEY:-}
+      RIZE_GRAPHQL_ENDPOINT: ${RIZE_GRAPHQL_ENDPOINT:-https://api.rize.io/api/v1/graphql}
+      RIZE_TIMEZONE: ${RIZE_TIMEZONE:-America/Sao_Paulo}
+      RIZE_SYNC_ENABLED: ${RIZE_SYNC_ENABLED:-true}
+      RIZE_SYNC_LOOKBACK_DAYS: ${RIZE_SYNC_LOOKBACK_DAYS:-2}
+      RIZE_SYNC_PAGE_SIZE: ${RIZE_SYNC_PAGE_SIZE:-100}
+      RIZE_SESSIONS_QUERY_PATH: ${RIZE_SESSIONS_QUERY_PATH:-}
+      RIZE_SESSIONS_ROOT_PATH: ${RIZE_SESSIONS_ROOT_PATH:-sessions.nodes}
+      RIZE_SESSIONS_PAGE_INFO_PATH: ${RIZE_SESSIONS_PAGE_INFO_PATH:-sessions.pageInfo}
     volumes:
-      - ~/atlas:/app/vault
-      - atlas-audio:/app/audio-temp
+      - atlas-storage:/var/atlas/storage
     depends_on:
       db:
         condition: service_healthy
+
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atlas-queue
+    restart: unless-stopped
+    command: php artisan queue:work --queue=transcription,default --tries=3 --timeout=600
+    environment:
+      APP_NAME: Atlas
+      APP_ENV: production
+      APP_KEY: ${APP_KEY}
+      APP_DEBUG: "false"
+      APP_URL: http://localhost:3737
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: info
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: atlas
+      DB_USERNAME: atlas
+      DB_PASSWORD: atlas_local_2026
+      SESSION_DRIVER: array
+      CACHE_STORE: file
+      QUEUE_CONNECTION: database
+      FILESYSTEM_DISK: atlas
+      ATLAS_TOKEN: ${ATLAS_TOKEN}
+      ATLAS_STORAGE_PATH: /var/atlas/storage
+      TRANSCRIPTION_ENABLED: ${TRANSCRIPTION_ENABLED:-true}
+      WHISPER_BIN_PATH: /usr/local/bin/whisper-cli
+      WHISPER_MODEL_PATH: /opt/whisper-models/ggml-base.bin
+      FFMPEG_BIN_PATH: /usr/bin/ffmpeg
+      WHISPER_LANGUAGE: pt
+      WHISPER_ENGINE: whisper-cpp-base
+      RIZE_API_KEY: ${RIZE_API_KEY:-}
+      RIZE_GRAPHQL_ENDPOINT: ${RIZE_GRAPHQL_ENDPOINT:-https://api.rize.io/api/v1/graphql}
+      RIZE_TIMEZONE: ${RIZE_TIMEZONE:-America/Sao_Paulo}
+      RIZE_SYNC_ENABLED: ${RIZE_SYNC_ENABLED:-true}
+      RIZE_SYNC_LOOKBACK_DAYS: ${RIZE_SYNC_LOOKBACK_DAYS:-2}
+      RIZE_SYNC_PAGE_SIZE: ${RIZE_SYNC_PAGE_SIZE:-100}
+      RIZE_SESSIONS_QUERY_PATH: ${RIZE_SESSIONS_QUERY_PATH:-}
+      RIZE_SESSIONS_ROOT_PATH: ${RIZE_SESSIONS_ROOT_PATH:-sessions.nodes}
+      RIZE_SESSIONS_PAGE_INFO_PATH: ${RIZE_SESSIONS_PAGE_INFO_PATH:-sessions.pageInfo}
+    volumes:
+      - atlas-storage:/var/atlas/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atlas-scheduler
+    restart: unless-stopped
+    command: php artisan schedule:work
+    environment:
+      APP_NAME: Atlas
+      APP_ENV: production
+      APP_KEY: ${APP_KEY}
+      APP_DEBUG: "false"
+      APP_URL: http://localhost:3737
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: info
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: atlas
+      DB_USERNAME: atlas
+      DB_PASSWORD: atlas_local_2026
+      SESSION_DRIVER: array
+      CACHE_STORE: file
+      QUEUE_CONNECTION: database
+      FILESYSTEM_DISK: atlas
+      ATLAS_TOKEN: ${ATLAS_TOKEN}
+      ATLAS_STORAGE_PATH: /var/atlas/storage
+      RIZE_API_KEY: ${RIZE_API_KEY:-}
+      RIZE_GRAPHQL_ENDPOINT: ${RIZE_GRAPHQL_ENDPOINT:-https://api.rize.io/api/v1/graphql}
+      RIZE_TIMEZONE: ${RIZE_TIMEZONE:-America/Sao_Paulo}
+      RIZE_SYNC_ENABLED: ${RIZE_SYNC_ENABLED:-true}
+      RIZE_SYNC_LOOKBACK_DAYS: ${RIZE_SYNC_LOOKBACK_DAYS:-2}
+      RIZE_SYNC_PAGE_SIZE: ${RIZE_SYNC_PAGE_SIZE:-100}
+      RIZE_SESSIONS_QUERY_PATH: ${RIZE_SESSIONS_QUERY_PATH:-}
+      RIZE_SESSIONS_ROOT_PATH: ${RIZE_SESSIONS_ROOT_PATH:-sessions.nodes}
+      RIZE_SESSIONS_PAGE_INFO_PATH: ${RIZE_SESSIONS_PAGE_INFO_PATH:-sessions.pageInfo}
+    volumes:
+      - atlas-storage:/var/atlas/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
 volumes:
   pgdata:
     driver: local
-  atlas-audio:
+  atlas-storage:
     driver: local
