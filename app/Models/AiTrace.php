@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -13,6 +14,8 @@ class AiTrace extends Model
 
     protected $fillable = [
         'trace_key',
+        'thread_id',
+        'session_id',
         'source_type',
         'source_id',
         'status',
@@ -38,6 +41,8 @@ class AiTrace extends Model
     {
         return [
             'source_id' => 'string',
+            'thread_id' => 'string',
+            'session_id' => 'string',
             'skill_versions' => 'array',
             'context_refs' => 'array',
             'latency_ms' => 'integer',
@@ -54,8 +59,53 @@ class AiTrace extends Model
         return $this->hasOne(AiJob::class, 'trace_id');
     }
 
+    public function qualityEvaluation(): HasOne
+    {
+        return $this->hasOne(AiQualityEvaluation::class, 'trace_id');
+    }
+
+    public function qualityActions(): HasMany
+    {
+        return $this->hasMany(AiQualityAction::class, 'trace_id')->latest('created_at');
+    }
+
+    public function routerDecision(): HasOne
+    {
+        return $this->hasOne(AiRouterDecision::class, 'trace_id');
+    }
+
+    public function remediationSourceActions(): HasMany
+    {
+        return $this->hasMany(AiQualityAction::class, 'remediation_trace_id')->latest('created_at');
+    }
+
     public function jobs(): HasMany
     {
         return $this->hasMany(AiJob::class, 'trace_id');
+    }
+
+    public function streamEvents(): HasMany
+    {
+        return $this->hasMany(AiStreamEvent::class, 'trace_id')->orderBy('sequence');
+    }
+
+    public function toolEvents(): HasMany
+    {
+        return $this->hasMany(AiToolEvent::class, 'trace_id')->orderBy('created_at');
+    }
+
+    public function thread(): BelongsTo
+    {
+        return $this->belongsTo(AiThread::class, 'thread_id');
+    }
+
+    public function session(): BelongsTo
+    {
+        return $this->belongsTo(AiSession::class, 'session_id');
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(AiMessage::class, 'trace_id');
     }
 }

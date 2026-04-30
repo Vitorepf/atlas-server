@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\AtlasDomainRegistry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,7 +24,7 @@ class SemanticSearchRequest extends FormRequest
             'filters.status' => ['nullable', 'array'],
             'filters.status.*' => ['string', Rule::in(['inbox', 'draft', 'active', 'testing', 'validated', 'archived', 'invalid'])],
             'filters.domains' => ['nullable', 'array'],
-            'filters.domains.*' => ['string', 'max:80'],
+            'filters.domains.*' => ['string', 'max:80', Rule::in(app(AtlasDomainRegistry::class)->activeSlugs())],
             'filters.trigger_signal' => ['nullable', 'string', 'max:120'],
         ];
     }

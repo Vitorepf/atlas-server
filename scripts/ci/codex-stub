@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${1:-}" = "--version" ]; then
+  echo "codex-cli-ci 0.0.0"
+  exit 0
+fi
+
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--output-last-message" ]; then
+    shift
+    out="${1:-}"
+  fi
+  shift || true
+done
+
+if [ -n "$out" ]; then
+  printf "atlas ci codex stub\n" > "$out"
+fi
+
+printf "atlas ci codex stub\n"

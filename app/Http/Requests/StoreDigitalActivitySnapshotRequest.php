@@ -3,8 +3,10 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesMetadata;
+use App\Services\Digital\DigitalActivityQuality;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreDigitalActivitySnapshotRequest extends FormRequest
 {
@@ -62,6 +64,22 @@ class StoreDigitalActivitySnapshotRequest extends FormRequest
             'raw_rize_data' => ['array'],
             'raw_screentime_data' => ['array'],
             'metadata' => ['array'],
+        ];
+    }
+
+    /**
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $errors = app(DigitalActivityQuality::class)->consistencyErrors($this->all());
+
+                foreach ($errors as $field => $message) {
+                    $validator->errors()->add($field, $message);
+                }
+            },
         ];
     }
 }

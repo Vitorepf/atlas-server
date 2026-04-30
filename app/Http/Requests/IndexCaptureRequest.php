@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesAtlasDomain;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class IndexCaptureRequest extends FormRequest
 {
+    use ValidatesAtlasDomain;
+
     public function authorize(): bool
     {
         return true;
@@ -16,7 +19,7 @@ class IndexCaptureRequest extends FormRequest
     {
         return [
             'since' => ['sometimes', 'date'],
-            'domain' => ['sometimes', Rule::in(['blackink', 'saude', 'financas', 'outro'])],
+            'domain' => $this->atlasDomainRule(required: false),
             'kind' => ['sometimes', Rule::in(['audio', 'text', 'photo'])],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:200'],
             'cursor' => ['sometimes', 'uuid'],

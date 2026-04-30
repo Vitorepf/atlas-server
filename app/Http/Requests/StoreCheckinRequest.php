@@ -3,12 +3,14 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesMetadata;
+use App\Http\Requests\Concerns\RejectsFutureCheckinRecordedAt;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreCheckinRequest extends FormRequest
 {
     use NormalizesMetadata;
+    use RejectsFutureCheckinRecordedAt;
 
     protected function prepareForValidation(): void
     {
@@ -36,5 +38,12 @@ class StoreCheckinRequest extends FormRequest
             'recorded_timezone' => ['required', 'string', 'max:128'],
             'metadata' => ['array'],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $this->rejectFutureCheckinRecordedAt($validator, 'recorded_at', $this->input('recorded_at'));
+        });
     }
 }

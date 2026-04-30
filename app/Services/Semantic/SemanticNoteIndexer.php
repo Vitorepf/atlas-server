@@ -59,7 +59,9 @@ class SemanticNoteIndexer
         $type = $this->validType((string) ($frontmatter['type'] ?? 'source_note'));
         $status = $errors ? 'invalid' : $this->validStatus((string) ($frontmatter['status'] ?? 'draft'));
         $textForEmbedding = $this->textForEmbedding($frontmatter, $body);
-        $embedding = $this->embeddings->vectorLiteral($this->embeddings->embedText($textForEmbedding));
+        $embeddingVector = $this->embeddings->embedText($textForEmbedding);
+        $embedding = $this->embeddings->vectorLiteral($embeddingVector);
+        $embeddingInfo = $this->embeddings->lastInfo();
 
         $payload = [
             'note_key' => $noteKey,
@@ -83,7 +85,7 @@ class SemanticNoteIndexer
             'validation_errors' => Metadata::forStorage($errors),
             'metadata' => Metadata::forStorage([
                 'indexer' => 'semantic-note-indexer-v1',
-                'embedding' => 'local-hash-v1',
+                'embedding' => $embeddingInfo,
             ]),
         ];
 

@@ -37,6 +37,7 @@ class StorePassiveSignalRequest extends FormRequest
             'ended_at' => ['nullable', 'date', 'after_or_equal:started_at'],
             'recorded_timezone' => ['required', 'string', 'max:128'],
             'metadata' => ['array'],
+            'deleted_at' => ['nullable', 'date'],
         ];
     }
 }

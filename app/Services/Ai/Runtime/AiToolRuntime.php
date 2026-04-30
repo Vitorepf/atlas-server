@@ -1,0 +1,885 @@
+<?php
+
+namespace App\Services\Ai\Runtime;
+
+use App\Models\AiToolEvent;
+use App\Services\Ai\Search\SessionSearchService;
+use App\Support\AtlasSecurity;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
+
+class AiToolRuntime
+{
+    /**
+     * @return array<int,string>
+     */
+    public static function availableTools(): array
+    {
+        return [
+            'workspace.profile',
+            'package.detect',
+            'file.read',
+            'file.write',
+            'file.patch',
+            'session.search',
+            'search.rg',
+            'shell.run',
+            'git.status',
+            'git.diff',
+            'git.apply_patch',
+            'checkpoint.restore',
+            'test.run',
+        ];
+    }
+
+    public function __construct(
+        private readonly AiToolPermissionEngine $permissions,
+        private readonly WorkspaceProfiler $profiler,
+        private readonly SessionSearchService $sessionSearch,
+    ) {}
+
+    public function execute(ToolInvocation $invocation): ToolResult
+    {
+        $permission = $this->permissions->authorize($invocation);
+        if (! $permission->allowed) {
+            $result = ToolResult::failure($invocation, $permission->requiresApproval ? 'approval_required' : 'permission_denied', $permission->message(), [
+                'permission' => $permission->toArray(),
+            ]);
+
+            $this->recordToolEvent($invocation, $result, $permission->request->risk, $permission->requiresApproval ? 'denied' : 'denied');
+
+            return $result;
+        }
+
+        $started = hrtime(true);
+
+        try {
+            $result = match ($invocation->tool) {
+                'workspace.profile' => $this->workspaceProfile($invocation),
+                'package.detect' => $this->packageDetect($invocation),
+                'file.read' => $this->fileRead($invocation),
+                'file.write' => $this->fileWrite($invocation),
+                'file.patch' => $this->filePatch($invocation),
+                'session.search' => $this->sessionSearch($invocation),
+                'search.rg' => $this->searchRg($invocation),
+                'shell.run' => $this->shellRun($invocation),
+                'git.status' => $this->gitStatus($invocation),
+                'git.diff' => $this->gitDiffTool($invocation),
+                'git.apply_patch' => $this->gitApplyPatch($invocation),
+                'checkpoint.restore' => $this->checkpointRestore($invocation),
+                'test.run' => $this->testRun($invocation),
+                default => ToolResult::failure($invocation, 'unknown_tool', "Ferramenta desconhecida: {$invocation->tool}."),
+            };
+        } catch (\Throwable $exception) {
+            $result = ToolResult::failure($invocation, 'runtime_exception', $exception->getMessage());
+            $this->recordToolEvent($invocation, $result, $this->riskFor($invocation), 'approved');
+
+            return $result;
+        }
+
+        $result = $this->withDuration($result, (int) ((hrtime(true) - $started) / 1_000_000));
+        $this->recordToolEvent($invocation, $result, $this->riskFor($invocation), $this->permissionStatus($invocation));
+
+        return $result;
+    }
+
+    private function recordToolEvent(ToolInvocation $invocation, ToolResult $result, string $risk, string $permissionStatus): void
+    {
+        $traceId = data_get($invocation->metadata, 'trace_id');
+        if (! is_string($traceId) || $traceId === '' || ! Schema::hasTable('ai_tool_events')) {
+            return;
+        }
+
+        AiToolEvent::query()->create([
+            'trace_id' => $traceId,
+            'session_id' => $invocation->sessionId ?: data_get($invocation->metadata, 'session_id'),
+            'thread_id' => data_get($invocation->metadata, 'thread_id'),
+            'tool' => $invocation->tool,
+            'risk' => $risk,
+            'permission_status' => $permissionStatus,
+            'approval_source' => is_string(data_get($invocation->metadata, 'approval_source')) ? data_get($invocation->metadata, 'approval_source') : null,
+            'input_summary' => $this->inputSummary($invocation),
+            'output_summary' => $this->outputSummary($result),
+            'changed_files' => $result->changedFiles ?: null,
+            'checkpoint_id' => $result->checkpointPath ? basename($result->checkpointPath) : null,
+            'exit_code' => $result->exitCode,
+            'duration_ms' => $result->durationMs,
+            'error' => $result->errorMessage,
+            'created_at' => now(),
+        ]);
+    }
+
+    private function riskFor(ToolInvocation $invocation): string
+    {
+        return match ($invocation->permissionMode) {
+            'danger' => 'high',
+            'write' => 'medium',
+            default => in_array($invocation->tool, ['shell.run', 'test.run'], true) ? 'medium' : 'low',
+        };
+    }
+
+    private function permissionStatus(ToolInvocation $invocation): string
+    {
+        if ((bool) data_get($invocation->metadata, 'approved', false)) {
+            return 'approved';
+        }
+
+        return $invocation->permissionMode === 'read' ? 'auto' : 'approved';
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function inputSummary(ToolInvocation $invocation): array
+    {
+        $arguments = $invocation->arguments;
+
+        if (isset($arguments['content']) && is_string($arguments['content'])) {
+            $arguments['content'] = [
+                'bytes' => strlen($arguments['content']),
+                'lines' => substr_count($arguments['content'], "\n") + 1,
+                'sha256' => hash('sha256', $arguments['content']),
+            ];
+        }
+
+        if (isset($arguments['patch']) && is_string($arguments['patch'])) {
+            $arguments['patch'] = [
+                'bytes' => strlen($arguments['patch']),
+                'lines' => substr_count($arguments['patch'], "\n") + 1,
+                'sha256' => hash('sha256', $arguments['patch']),
+            ];
+        }
+
+        if (isset($arguments['command']) && is_string($arguments['command'])) {
+            $arguments['command'] = Str::limit(AtlasSecurity::redactString($arguments['command']), 200, '...[truncated]');
+        }
+
+        return [
+            'invocation_id' => $invocation->id,
+            'workspace_hash' => hash('sha256', $invocation->workspace),
+            'arguments' => AtlasSecurity::redactArray($arguments),
+            'dry_run' => $invocation->dryRun,
+            'source' => $invocation->source,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function outputSummary(ToolResult $result): array
+    {
+        $text = $result->output !== '' ? $result->output : trim($result->stdout."\n".$result->stderr);
+
+        return [
+            'ok' => $result->ok,
+            'summary' => $result->summary,
+            'output_bytes' => strlen($text),
+            'output_sha256' => $text !== '' ? hash('sha256', $text) : null,
+            'diff_sha256' => $result->diff ? hash('sha256', $result->diff) : null,
+        ];
+    }
+
+    private function workspaceProfile(ToolInvocation $invocation): ToolResult
+    {
+        $profile = $this->profiler->profile($invocation->workspace, (bool) $invocation->argument('refresh', false));
+
+        return new ToolResult(
+            ok: true,
+            invocationId: $invocation->id,
+            tool: $invocation->tool,
+            summary: 'Workspace profile gerado.',
+            output: json_encode($profile->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '',
+            metadata: ['profile' => $profile->toArray()],
+        );
+    }
+
+    private function packageDetect(ToolInvocation $invocation): ToolResult
+    {
+        $profile = $this->profiler->profile($invocation->workspace, (bool) $invocation->argument('refresh', false));
+        $payload = [
+            'stack' => $profile->stack,
+            'package_manager' => $profile->packageManager,
+            'scripts' => $profile->scripts,
+            'test_commands' => $profile->testCommands,
+            'important_files' => $profile->importantFiles,
+        ];
+
+        return new ToolResult(
+            ok: true,
+            invocationId: $invocation->id,
+            tool: $invocation->tool,
+            summary: 'Pacotes e scripts detectados.',
+            output: json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '',
+            metadata: $payload,
+        );
+    }
+
+    private function fileRead(ToolInvocation $invocation): ToolResult
+    {
+        $path = $this->workspacePath($invocation, (string) $invocation->argument('path'));
+        if (! File::isFile($path)) {
+            return ToolResult::failure($invocation, 'file_not_found', "Arquivo nao encontrado: {$path}.");
+        }
+
+        return new ToolResult(
+            ok: true,
+            invocationId: $invocation->id,
+            tool: $invocation->tool,
+            summary: 'Arquivo lido.',
+            output: AtlasSecurity::redactString(File::get($path)),
+            metadata: ['path' => $path, 'relative_path' => $this->relativePath($invocation->workspace, $path)],
+        );
+    }
+
+    private function fileWrite(ToolInvocation $invocation): ToolResult
+    {
+        $path = $this->workspacePath($invocation, (string) $invocation->argument('path'), allowMissing: true);
+        $content = (string) $invocation->argument('content', '');
+        $before = File::exists($path) ? File::get($path) : '';
+        $diff = $this->unifiedDiff($before, $content, $this->relativePath($invocation->workspace, $path));
+
+        if ($invocation->dryRun) {
+            return new ToolResult(
+                ok: true,
+                invocationId: $invocation->id,
+                tool: $invocation->tool,
+                summary: 'Dry-run de escrita concluido.',
+                changedFiles: [$this->relativePath($invocation->workspace, $path)],
+                diff: AtlasSecurity::redactString($diff),
+                metadata: ['dry_run' => true],
+            );
+        }
+
+        $checkpoint = $this->checkpoint($invocation->workspace, [$path], 'file.write');
+        File::ensureDirectoryExists(dirname($path));
+        File::put($path, $content);
+
+        return new ToolResult(
+            ok: true,
+            invocationId: $invocation->id,
+            tool: $invocation->tool,
+            summary: 'Arquivo escrito.',
+            changedFiles: [$this->relativePath($invocation->workspace, $path)],
+            diff: AtlasSecurity::redactString($this->gitDiff($invocation->workspace, [$path]) ?: $diff),
+            checkpointPath: $checkpoint,
+        );
+    }
+
+    private function filePatch(ToolInvocation $invocation): ToolResult
+    {
+        $path = $this->workspacePath($invocation, (string) $invocation->argument('path'));
+        $search = (string) $invocation->argument('search', '');
+        $replace = (string) $invocation->argument('replace', '');
+        $all = (bool) $invocation->argument('all', false);
+
+        if ($search === '') {
+            return ToolResult::failure($invocation, 'missing_search', 'file.patch exige search.');
+        }
+
+        $before = File::get($path);
+        if (! str_contains($before, $search)) {
+            return ToolResult::failure($invocation, 'search_not_found', 'Texto de busca nao encontrado no arquivo.');
+        }
+
+        if ($all) {
+            $after = str_replace($search, $replace, $before);
+        } else {
+            $position = strpos($before, $search);
+            $after = $position === false
+                ? $before
+                : substr($before, 0, $position).$replace.substr($before, $position + strlen($search));
+        }
+        $diff = $this->unifiedDiff($before, $after, $this->relativePath($invocation->workspace, $path));
+
+        if ($invocation->dryRun) {
+            return new ToolResult(
+                ok: true,
+                invocationId: $invocation->id,
+                tool: $invocation->tool,
+                summary: 'Dry-run de patch concluido.',
+                changedFiles: [$this->relativePath($invocation->workspace, $path)],
+                diff: AtlasSecurity::redactString($diff),
+                metadata: ['dry_run' => true],
+            );
+        }
+
+        $checkpoint = $this->checkpoint($invocation->workspace, [$path], 'file.patch');
+        File::put($path, $after);
+
+        return new ToolResult(
+            ok: true,
+            invocationId: $invocation->id,
+            tool: $invocation->tool,
+            summary: 'Patch aplicado.',
+            changedFiles: [$this->relativePath($invocation->workspace, $path)],
+            diff: AtlasSecurity::redactString($this->gitDiff($invocation->workspace, [$path]) ?: $diff),
+            checkpointPath: $checkpoint,
+        );
+    }
+
+    private function searchRg(ToolInvocation $invocation): ToolResult
+    {
+        $query = (string) $invocation->argument('query', '');
+        if ($query === '') {
+            return ToolResult::failure($invocation, 'missing_query', 'search.rg exige query.');
+        }
+
+        $args = ['rg', '--line-number', '--hidden', '--glob', '!.git', '--glob', '!node_modules', '--glob', '!vendor', $query];
+        $path = $invocation->argument('path');
+        if (is_string($path) && $path !== '') {
+            $args[] = $path;
+        }
+
+        return $this->processResult($invocation, $this->runProcess($args, $invocation->workspace, 20), 'Busca concluida.');
+    }
+
+    private function sessionSearch(ToolInvocation $invocation): ToolResult
+    {
+        $query = trim((string) $invocation->argument('query', ''));
+        if ($query === '') {
+            return ToolResult::failure($invocation, 'missing_query', 'session.search exige query.');
+        }
+
+        $workspace = (string) ($invocation->argument('workspace', $invocation->workspace) ?: $invocation->workspace);
+        $resolvedWorkspace = realpath($workspace);
+        if ($resolvedWorkspace && is_dir($resolvedWorkspace)) {
+            $workspace = $resolvedWorkspace;
+        }
+
+        $topN = max(1, min(10, (int) $invocation->argument('top_n', 3)));
+        $summarize = (bool) $invocation->argument('summarize', false);
+        $results = $this->sessionSearch->search($workspace, $query, $topN, $summarize);
+        $payload = [
+            'query' => $query,
+            'workspace' => $workspace,
+            'top_n' => $topN,
+            'summarize' => $summarize,
+            'count' => count($results),
+            'results' => array_map(fn ($result): array => $result->toArray(), $results),
+        ];
+
+        return new ToolResult(
+            ok: true,
+            invocationId: $invocation->id,
+            tool: $invocation->tool,
+            summary: 'Session search retornou '.count($results).' thread(s).',
+            output: json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '',
+            metadata: $payload,
+        );
+    }
+
+    private function shellRun(ToolInvocation $invocation): ToolResult
+    {
+        $command = (string) $invocation->argument('command', '');
+        if ($command === '') {
+            return ToolResult::failure($invocation, 'missing_command', 'shell.run exige command.');
+        }
+
+        if ($invocation->dryRun) {
+            $redactedCommand = AtlasSecurity::redactString($command);
+
+            return new ToolResult(
+                ok: true,
+                invocationId: $invocation->id,
+                tool: $invocation->tool,
+                summary: 'Dry-run de shell concluido.',
+                output: $redactedCommand,
+                metadata: [
+                    'dry_run' => true,
+                    'command' => $redactedCommand,
+                    'command_display' => $redactedCommand,
+                ],
+            );
+        }
+
+        $before = $this->gitStatusOutput($invocation->workspace);
+        $result = $this->processResult($invocation, $this->runShell($command, $invocation->workspace, (int) $invocation->argument('timeout', 600)), 'Comando executado.');
+        $after = $this->gitStatusOutput($invocation->workspace);
+
+        return $this->withRuntimeMutationMetadata($result, $before, $after);
+    }
+
+    private function gitStatus(ToolInvocation $invocation): ToolResult
+    {
+        return $this->processResult($invocation, $this->runProcess(['git', 'status', '--short'], $invocation->workspace), 'Git status concluido.');
+    }
+
+    private function gitDiffTool(ToolInvocation $invocation): ToolResult
+    {
+        $args = ['git', 'diff'];
+        $path = $invocation->argument('path');
+        if (is_string($path) && $path !== '') {
+            $args[] = '--';
+            $args[] = $path;
+        }
+
+        return $this->processResult($invocation, $this->runProcess($args, $invocation->workspace), 'Git diff concluido.');
+    }
+
+    private function gitApplyPatch(ToolInvocation $invocation): ToolResult
+    {
+        $patch = (string) $invocation->argument('patch', '');
+        if ($patch === '') {
+            return ToolResult::failure($invocation, 'missing_patch', 'git.apply_patch exige patch.');
+        }
+
+        $paths = $this->patchPaths($patch, $invocation->workspace);
+        $check = $this->runProcessWithInput(['git', 'apply', '--check', '-'], $patch, $invocation->workspace);
+        if ($check['exit_code'] !== 0) {
+            return $this->processResult($invocation, $check, 'Patch rejeitado pelo git apply --check.');
+        }
+
+        if ($invocation->dryRun) {
+            return new ToolResult(
+                ok: true,
+                invocationId: $invocation->id,
+                tool: $invocation->tool,
+                summary: 'Dry-run de git apply concluido.',
+                changedFiles: array_map(fn (string $path): string => $this->relativePath($invocation->workspace, $path), $paths),
+                diff: AtlasSecurity::redactString($patch),
+                metadata: ['dry_run' => true],
+            );
+        }
+
+        $checkpoint = $this->checkpoint($invocation->workspace, $paths, 'git.apply_patch');
+        $apply = $this->runProcessWithInput(['git', 'apply', '--whitespace=nowarn', '-'], $patch, $invocation->workspace);
+        $result = $this->processResult($invocation, $apply, $apply['exit_code'] === 0 ? 'Patch git aplicado.' : 'Falha ao aplicar patch git.');
+
+        return new ToolResult(
+            ok: $result->ok,
+            invocationId: $result->invocationId,
+            tool: $result->tool,
+            summary: $result->summary,
+            output: $result->output,
+            stdout: $result->stdout,
+            stderr: $result->stderr,
+            exitCode: $result->exitCode,
+            durationMs: $result->durationMs,
+            changedFiles: array_map(fn (string $path): string => $this->relativePath($invocation->workspace, $path), $paths),
+            diff: AtlasSecurity::redactString($this->gitDiff($invocation->workspace, $paths) ?: $patch),
+            checkpointPath: $checkpoint,
+            errorCode: $result->errorCode,
+            errorMessage: $result->errorMessage,
+            events: $result->events,
+            metadata: $result->metadata,
+        );
+    }
+
+    private function testRun(ToolInvocation $invocation): ToolResult
+    {
+        $command = (string) $invocation->argument('command', '');
+        if ($command === '') {
+            $profile = $this->profiler->profile($invocation->workspace);
+            $command = $this->preferredTestCommand($profile->testCommands);
+        }
+
+        if ($command === '') {
+            return ToolResult::failure($invocation, 'no_test_command', 'Nenhum comando de teste detectado.');
+        }
+
+        $runtimeInvocation = $invocation->withMetadata(['test_command' => $command]);
+        $before = $this->gitStatusOutput($invocation->workspace);
+        $result = $this->processResult($runtimeInvocation, $this->runTestShell($command, $invocation->workspace, (int) $invocation->argument('timeout', 900)), 'Teste executado.');
+        $after = $this->gitStatusOutput($invocation->workspace);
+
+        return $this->withRuntimeMutationMetadata($result, $before, $after);
+    }
+
+    private function checkpointRestore(ToolInvocation $invocation): ToolResult
+    {
+        $checkpoint = (string) $invocation->argument('checkpoint', '');
+        if ($checkpoint === '') {
+            return ToolResult::failure($invocation, 'missing_checkpoint', 'checkpoint.restore exige checkpoint.');
+        }
+
+        $checkpoint = realpath($checkpoint) ?: $checkpoint;
+        $metadataPath = $checkpoint.'/checkpoint.json';
+        if (! File::exists($metadataPath)) {
+            return ToolResult::failure($invocation, 'checkpoint_not_found', "Checkpoint invalido: {$checkpoint}.");
+        }
+
+        $metadata = json_decode(File::get($metadataPath), true);
+        if (! is_array($metadata)) {
+            return ToolResult::failure($invocation, 'checkpoint_invalid', 'checkpoint.json invalido.');
+        }
+
+        $workspace = (string) ($metadata['workspace'] ?? $invocation->workspace);
+        if (realpath($workspace) !== realpath($invocation->workspace)) {
+            return ToolResult::failure($invocation, 'workspace_mismatch', 'Checkpoint pertence a outro workspace.');
+        }
+
+        $files = is_array($metadata['files'] ?? null) ? $metadata['files'] : [];
+        $changed = [];
+        $before = $this->gitStatusOutput($invocation->workspace);
+
+        foreach ($files as $file) {
+            if (! is_array($file) || ! is_string($file['path'] ?? null)) {
+                continue;
+            }
+
+            $relative = $file['path'];
+            $target = $this->workspacePath($invocation, $relative, allowMissing: true);
+            $source = $checkpoint.DIRECTORY_SEPARATOR.$relative;
+            $existed = (bool) ($file['existed'] ?? false);
+
+            if ($existed && File::exists($source)) {
+                File::ensureDirectoryExists(dirname($target));
+                File::copy($source, $target);
+                $changed[] = $relative;
+            } elseif (! $existed && File::exists($target)) {
+                File::delete($target);
+                $changed[] = $relative;
+            }
+        }
+
+        $after = $this->gitStatusOutput($invocation->workspace);
+
+        return new ToolResult(
+            ok: true,
+            invocationId: $invocation->id,
+            tool: $invocation->tool,
+            summary: 'Checkpoint restaurado.',
+            changedFiles: array_values(array_unique($changed)),
+            diff: $changed === []
+                ? null
+                : AtlasSecurity::redactString($this->gitDiff($invocation->workspace, array_map(fn (string $path): string => $this->workspacePath($invocation, $path, allowMissing: true), $changed))),
+            metadata: [
+                'checkpoint' => $checkpoint,
+                'git_status_before_hash' => hash('sha256', $before),
+                'git_status_after_hash' => hash('sha256', $after),
+            ],
+        );
+    }
+
+    /**
+     * @param  array{exit_code:int,stdout:string,stderr:string,duration_ms:int,command?:array<int,string>|string}  $process
+     */
+    private function processResult(ToolInvocation $invocation, array $process, string $summary): ToolResult
+    {
+        $ok = $process['exit_code'] === 0;
+        $stdout = AtlasSecurity::redactString($process['stdout']);
+        $stderr = AtlasSecurity::redactString($process['stderr']);
+        $output = trim($stdout) !== '' ? $stdout : $stderr;
+        $error = trim($stderr) ?: trim($stdout) ?: 'Process failed.';
+        $command = $process['command'] ?? null;
+
+        return new ToolResult(
+            ok: $ok,
+            invocationId: $invocation->id,
+            tool: $invocation->tool,
+            summary: $ok ? $summary : 'Ferramenta terminou com erro.',
+            output: $output,
+            stdout: $stdout,
+            stderr: $stderr,
+            exitCode: $process['exit_code'],
+            durationMs: $process['duration_ms'],
+            errorCode: $ok ? null : 'tool_process_failed',
+            errorMessage: $ok ? null : $error,
+            metadata: [
+                'command' => AtlasSecurity::redactCommandValue($command),
+                'command_display' => AtlasSecurity::commandLineForDisplay($command),
+            ],
+        );
+    }
+
+    private function withRuntimeMutationMetadata(ToolResult $result, string $before, string $after): ToolResult
+    {
+        $changed = $before !== $after;
+        $changedFiles = $changed ? $this->parseStatusChangedFiles($after) : [];
+
+        return new ToolResult(
+            ok: $result->ok,
+            invocationId: $result->invocationId,
+            tool: $result->tool,
+            summary: $result->summary,
+            output: $result->output,
+            stdout: $result->stdout,
+            stderr: $result->stderr,
+            exitCode: $result->exitCode,
+            durationMs: $result->durationMs,
+            changedFiles: $changedFiles,
+            diff: null,
+            checkpointPath: $result->checkpointPath,
+            errorCode: $result->errorCode,
+            errorMessage: $result->errorMessage,
+            events: $result->events,
+            metadata: array_merge($result->metadata, [
+                'git_status_before_hash' => hash('sha256', $before),
+                'git_status_after_hash' => hash('sha256', $after),
+                'git_status_after_count' => count($changedFiles),
+                'workspace_mutated' => $changed,
+            ]),
+        );
+    }
+
+    private function withDuration(ToolResult $result, int $durationMs): ToolResult
+    {
+        return new ToolResult(
+            ok: $result->ok,
+            invocationId: $result->invocationId,
+            tool: $result->tool,
+            summary: $result->summary,
+            output: $result->output,
+            stdout: $result->stdout,
+            stderr: $result->stderr,
+            exitCode: $result->exitCode,
+            durationMs: $result->durationMs > 0 ? $result->durationMs : $durationMs,
+            changedFiles: $result->changedFiles,
+            diff: $result->diff,
+            checkpointPath: $result->checkpointPath,
+            errorCode: $result->errorCode,
+            errorMessage: $result->errorMessage,
+            events: $result->events,
+            metadata: $result->metadata,
+        );
+    }
+
+    private function workspacePath(ToolInvocation $invocation, string $path, bool $allowMissing = false): string
+    {
+        if ($path === '') {
+            throw new \InvalidArgumentException('Path vazio.');
+        }
+
+        $resolved = AtlasSecurity::canonicalPath($path, $invocation->workspace, $allowMissing);
+
+        if ($resolved === '' || (! $allowMissing && ! File::exists($resolved))) {
+            throw new \RuntimeException("Path nao encontrado: {$path}.");
+        }
+
+        if (! AtlasSecurity::pathIsInside($resolved, $invocation->workspace)) {
+            throw new \RuntimeException("Path fora do workspace: {$path}.");
+        }
+
+        return $resolved;
+    }
+
+    /**
+     * @param  array<int,string>  $paths
+     */
+    private function checkpoint(string $workspace, array $paths, string $reason): ?string
+    {
+        $dir = storage_path('app/ai/checkpoints/'.now()->format('Ymd-His').'-'.Str::lower(Str::random(6)));
+        $metadata = [
+            'workspace' => $workspace,
+            'reason' => $reason,
+            'created_at' => now()->toJSON(),
+            'files' => [],
+        ];
+
+        foreach ($paths as $path) {
+            if (! AtlasSecurity::pathIsInside($path, $workspace)) {
+                continue;
+            }
+
+            $relative = $this->relativePath($workspace, $path);
+            $metadata['files'][] = [
+                'path' => $relative,
+                'existed' => File::exists($path),
+            ];
+
+            if (File::isFile($path)) {
+                $target = $dir.DIRECTORY_SEPARATOR.$relative;
+                File::ensureDirectoryExists(dirname($target));
+                File::copy($path, $target);
+            }
+        }
+
+        File::ensureDirectoryExists($dir);
+        File::put($dir.'/checkpoint.json', json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        return $dir;
+    }
+
+    /**
+     * @param  array<int,string>  $paths
+     */
+    private function gitDiff(string $workspace, array $paths): string
+    {
+        $args = ['git', 'diff', '--'];
+        foreach ($paths as $path) {
+            $args[] = $this->relativePath($workspace, $path);
+        }
+
+        return $this->runProcess($args, $workspace)['stdout'];
+    }
+
+    private function unifiedDiff(string $before, string $after, string $label): string
+    {
+        $old = tempnam(sys_get_temp_dir(), 'atlas-old-');
+        $new = tempnam(sys_get_temp_dir(), 'atlas-new-');
+        if (! $old || ! $new) {
+            return $before === $after ? '' : "--- {$label}\n+++ {$label}\n";
+        }
+
+        File::put($old, $before);
+        File::put($new, $after);
+        $result = $this->runProcess(['diff', '-u', $old, $new], getcwd() ?: base_path());
+        File::delete($old);
+        File::delete($new);
+
+        return str_replace([$old, $new], ["a/{$label}", "b/{$label}"], $result['stdout']);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function patchPaths(string $patch, string $workspace): array
+    {
+        preg_match_all('/^(?:---|\+\+\+)\s+(?:a|b)\/(.+)$/m', $patch, $matches);
+
+        return collect($matches[1] ?? [])
+            ->map(fn (string $path): string => trim($path))
+            ->reject(fn (string $path): bool => $path === '' || $path === '/dev/null')
+            ->map(fn (string $path): string => $this->workspacePath(ToolInvocation::make('git.apply_patch', $workspace), $path, allowMissing: true))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function parseStatusChangedFiles(string $status): array
+    {
+        return collect(explode("\n", $status))
+            ->map(fn (string $line): string => trim(substr($line, 3)))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function gitStatusOutput(string $workspace): string
+    {
+        return $this->runProcess(['git', 'status', '--short'], $workspace)['stdout'];
+    }
+
+    /**
+     * @param  array<int,string>  $commands
+     */
+    private function preferredTestCommand(array $commands): string
+    {
+        return in_array('php artisan test', $commands, true)
+            ? 'php artisan test'
+            : ($commands[0] ?? '');
+    }
+
+    /**
+     * @param  array<int,string>  $command
+     * @return array{exit_code:int,stdout:string,stderr:string,duration_ms:int,command:array<int,string>}
+     */
+    private function runProcess(array $command, string $cwd, int $timeout = 60): array
+    {
+        $started = hrtime(true);
+        $process = new Process($command, $cwd, AtlasSecurity::processEnv(profile: 'tool'));
+        $process->setTimeout($timeout);
+        $process->run();
+
+        return [
+            'exit_code' => $process->getExitCode() ?? 1,
+            'stdout' => AtlasSecurity::redactString($process->getOutput()),
+            'stderr' => AtlasSecurity::redactString($process->getErrorOutput()),
+            'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
+            'command' => $command,
+        ];
+    }
+
+    /**
+     * @return array{exit_code:int,stdout:string,stderr:string,duration_ms:int,command:string}
+     */
+    private function runShell(string $command, string $cwd, int $timeout = 600): array
+    {
+        $started = hrtime(true);
+        $process = Process::fromShellCommandline($command, $cwd, AtlasSecurity::processEnv(profile: 'tool'));
+        $process->setTimeout($timeout);
+        $process->run();
+
+        return [
+            'exit_code' => $process->getExitCode() ?? 1,
+            'stdout' => AtlasSecurity::redactString($process->getOutput()),
+            'stderr' => AtlasSecurity::redactString($process->getErrorOutput()),
+            'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
+            'command' => AtlasSecurity::redactString($command),
+        ];
+    }
+
+    /**
+     * @return array{exit_code:int,stdout:string,stderr:string,duration_ms:int,command:string}
+     */
+    private function runTestShell(string $command, string $cwd, int $timeout = 900): array
+    {
+        $started = hrtime(true);
+        $process = Process::fromShellCommandline($command, $cwd, AtlasSecurity::processEnv($this->testEnvironment(), 'tool'));
+        $process->setTimeout($timeout);
+        $process->run();
+
+        return [
+            'exit_code' => $process->getExitCode() ?? 1,
+            'stdout' => AtlasSecurity::redactString($process->getOutput()),
+            'stderr' => AtlasSecurity::redactString($process->getErrorOutput()),
+            'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
+            'command' => AtlasSecurity::redactString($command),
+        ];
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function testEnvironment(): array
+    {
+        return [
+            'APP_ENV' => 'testing',
+            'ATLAS_TOKEN' => 'testing-atlas-token-with-enough-length',
+            'APP_MAINTENANCE_DRIVER' => 'file',
+            'BCRYPT_ROUNDS' => '4',
+            'BROADCAST_CONNECTION' => 'null',
+            'CACHE_STORE' => 'array',
+            'DB_CONNECTION' => 'sqlite',
+            'DB_DATABASE' => ':memory:',
+            'DB_URL' => '',
+            'MAIL_MAILER' => 'array',
+            'QUEUE_CONNECTION' => 'sync',
+            'SESSION_DRIVER' => 'array',
+            'PULSE_ENABLED' => 'false',
+            'TELESCOPE_ENABLED' => 'false',
+            'NIGHTWATCH_ENABLED' => 'false',
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $command
+     * @return array{exit_code:int,stdout:string,stderr:string,duration_ms:int,command:array<int,string>}
+     */
+    private function runProcessWithInput(array $command, string $input, string $cwd, int $timeout = 60): array
+    {
+        $started = hrtime(true);
+        $process = new Process($command, $cwd, AtlasSecurity::processEnv(profile: 'tool'));
+        $process->setInput($input);
+        $process->setTimeout($timeout);
+        $process->run();
+
+        return [
+            'exit_code' => $process->getExitCode() ?? 1,
+            'stdout' => AtlasSecurity::redactString($process->getOutput()),
+            'stderr' => AtlasSecurity::redactString($process->getErrorOutput()),
+            'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
+            'command' => $command,
+        ];
+    }
+
+    private function relativePath(string $workspace, string $path): string
+    {
+        $workspace = rtrim(AtlasSecurity::canonicalPath($workspace), DIRECTORY_SEPARATOR);
+        $path = AtlasSecurity::canonicalPath($path, allowMissing: true);
+
+        return str_starts_with($path, $workspace.DIRECTORY_SEPARATOR)
+            ? substr($path, strlen($workspace) + 1)
+            : $path;
+    }
+
+    private function pathIsInside(string $path, string $root): bool
+    {
+        return AtlasSecurity::pathIsInside($path, $root);
+    }
+}

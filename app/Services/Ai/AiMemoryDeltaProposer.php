@@ -1,0 +1,99 @@
+<?php
+
+namespace App\Services\Ai;
+
+use App\Models\AiMemoryDelta;
+use App\Models\AiQualityEvaluation;
+use App\Models\AiSessionState;
+use App\Models\AiTrace;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+
+class AiMemoryDeltaProposer
+{
+    /**
+     * @return array<int,AiMemoryDelta>
+     */
+    public function proposeForWorkspace(string $workspace, int $limit = 5): array
+    {
+        if (! Schema::hasTable('ai_memory_deltas')) {
+            return [];
+        }
+
+        $workspace = realpath($workspace) ?: $workspace;
+        $trace = AiTrace::query()
+            ->where(function ($query) use ($workspace): void {
+                $query->where('metadata->context_pack->surface->workspace', $workspace)
+                    ->orWhere('metadata->dev_execution_plan->workspace', $workspace);
+            })
+            ->latest()
+            ->first();
+
+        $state = AiSessionState::query()
+            ->when($trace?->thread_id, fn ($query) => $query->where('thread_id', $trace->thread_id))
+            ->latest('updated_at')
+            ->first();
+
+        $proposals = [];
+        foreach (collect($state?->decisions ?? [])->take($limit) as $decision) {
+            $text = is_array($decision) ? (string) ($decision['text'] ?? '') : (string) $decision;
+            if ($text !== '') {
+                $proposals[] = $this->firstOrCreate($workspace, 'process', $text, $trace?->id, $trace?->session_id, [
+                    ['kind' => 'session_state', 'ref' => (string) $state?->id, 'excerpt' => Str::limit($text, 500)],
+                ]);
+            }
+        }
+
+        if (count($proposals) < $limit && $trace) {
+            $plan = data_get($trace->metadata, 'dev_execution_plan');
+            if (is_array($plan) && ($plan['objective'] ?? null)) {
+                $claim = 'Neste workspace, o Atlas deve preservar o objetivo tecnico recente: '.Str::limit((string) $plan['objective'], 220, '');
+                $proposals[] = $this->firstOrCreate($workspace, 'process', $claim, $trace->id, $trace->session_id, [
+                    ['kind' => 'trace', 'ref' => $trace->id, 'excerpt' => Str::limit((string) $trace->operator_input, 500)],
+                ]);
+            }
+        }
+
+        if (count($proposals) < $limit && $trace && Schema::hasTable('ai_quality_evaluations')) {
+            $evaluation = AiQualityEvaluation::query()
+                ->where('trace_id', $trace->id)
+                ->where('status', '!=', 'passed')
+                ->latest()
+                ->first();
+
+            if ($evaluation) {
+                $flags = collect($evaluation->flags)->pluck('code')->filter()->implode(', ');
+                $claim = 'Quando houver flags de qualidade neste workspace, o Atlas deve reparar antes de declarar conclusao. Flags recentes: '.($flags ?: $evaluation->status).'.';
+                $proposals[] = $this->firstOrCreate($workspace, 'error_pattern', $claim, $trace->id, $trace->session_id, [
+                    ['kind' => 'quality_evaluation', 'ref' => $evaluation->id, 'excerpt' => $flags ?: $evaluation->status],
+                ]);
+            }
+        }
+
+        return array_values(array_filter($proposals));
+    }
+
+    /**
+     * @param  array<int,array<string,string>>  $evidence
+     */
+    private function firstOrCreate(string $workspace, string $type, string $claim, ?string $traceId, ?string $sessionId, array $evidence): AiMemoryDelta
+    {
+        return AiMemoryDelta::query()->firstOrCreate([
+            'claim' => $claim,
+            'scope' => 'workspace:'.$workspace,
+            'status' => 'pending',
+        ], [
+            'source_trace_id' => $traceId,
+            'source_session_id' => $sessionId,
+            'source_workspace' => $workspace,
+            'type' => $type,
+            'evidence' => $evidence,
+            'confidence' => 0.72,
+            'valid_from' => now(),
+            'valid_until' => now()->addDays(90),
+            'use_when' => ['workspace atual for relevante', 'tarefa tocar no mesmo fluxo'],
+            'do_not_use_when' => ['o operador corrigir ou rejeitar esta memoria'],
+            'requires_confirmation' => true,
+        ]);
+    }
+}

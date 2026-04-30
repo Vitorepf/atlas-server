@@ -46,8 +46,8 @@ return [
         'sync_page_size' => (int) env('RIZE_SYNC_PAGE_SIZE', 100),
         'sessions_query' => env('RIZE_SESSIONS_QUERY'),
         'sessions_query_path' => env('RIZE_SESSIONS_QUERY_PATH'),
-        'sessions_root_path' => env('RIZE_SESSIONS_ROOT_PATH', 'sessions.nodes'),
-        'sessions_page_info_path' => env('RIZE_SESSIONS_PAGE_INFO_PATH', 'sessions.pageInfo'),
+        'sessions_root_path' => env('RIZE_SESSIONS_ROOT_PATH', 'timeEntries.nodes'),
+        'sessions_page_info_path' => env('RIZE_SESSIONS_PAGE_INFO_PATH', 'timeEntries.pageInfo'),
     ],
 
 ];

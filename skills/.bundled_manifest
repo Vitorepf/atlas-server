@@ -1,0 +1,25 @@
+schema_version: 1
+generated_at: 2026-04-30
+format: agentskills.io-compatible
+skills:
+  code-reviewer:
+    path: skills/code-reviewer/SKILL.md
+    sha256: 33be862fa364f1e15aea3862fd4bca845650c1e2a40877e1320932eb96560660
+  comunicador-claro:
+    path: skills/comunicador-claro/SKILL.md
+    sha256: df046e0de24e38c9b5ccabb214539cad23003f9e9b06dc4b8617a9c29c7709e5
+  decision-advisor:
+    path: skills/decision-advisor/SKILL.md
+    sha256: a83ea599fc919acc682d4bfcd5179c15f1372150308266c125f9132df132f3e5
+  dev-quality-gate:
+    path: skills/dev-quality-gate/SKILL.md
+    sha256: 3f607618cee951f2cdc1aadafa68aac06a7e294f9a233d4090dc196ea7281808
+  provider-handoff:
+    path: skills/provider-handoff/SKILL.md
+    sha256: 8a741fe045cd8a70fe190c28623d064ceb4ae09ec7d2c1fa8cba1600815473d0
+  researcher-quick:
+    path: skills/researcher-quick/SKILL.md
+    sha256: 0b44c0bac22ac583a1695db2e76001b7e05df51ba127f7e2d7a781399d5b6116
+  session-compaction:
+    path: skills/session-compaction/SKILL.md
+    sha256: 9e374d69d3d0d228a308673cdd884288b2697ee16b7b21a26e8711e7a6231304

@@ -4,11 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\IndexCaptureRequest;
 use App\Http\Requests\StoreCaptureRequest;
+use App\Http\Requests\TriageCaptureRequest;
 use App\Http\Requests\UpdateCaptureRequest;
 use App\Http\Resources\CaptureResource;
+use App\Http\Resources\SemanticCurationProposalResource;
 use App\Models\Capture;
 use App\Services\CaptureService;
+use App\Services\Semantic\CurationProposalService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -21,6 +25,9 @@ class CaptureController extends Controller
         $since = $data['since'] ?? null;
 
         $query = Capture::query();
+        if (Schema::hasTable('capture_links')) {
+            $query->with('links');
+        }
 
         if ($since) {
             $query->withTrashed()->where('updated_at', '>', $since);
@@ -77,28 +84,62 @@ class CaptureController extends Controller
     {
         $result = $captures->create($request->validated(), $request->file('file'));
 
-        return (new CaptureResource($result['capture']))
+        return (new CaptureResource($this->withDestinationLinks($result['capture'])))
             ->response()
             ->setStatusCode($result['created'] ? 201 : 200);
     }
 
     public function show(Capture $capture): CaptureResource
     {
-        return new CaptureResource($capture);
+        return new CaptureResource($this->withDestinationLinks($capture));
     }
 
-    public function update(UpdateCaptureRequest $request, Capture $capture): CaptureResource
+    public function update(UpdateCaptureRequest $request, Capture $capture, CaptureService $captures): CaptureResource
     {
-        $capture->update($request->validated());
+        $capture = $captures->update($capture, $request->validated());
 
-        return new CaptureResource($capture->refresh());
+        return new CaptureResource($this->withDestinationLinks($capture->refresh()));
     }
 
     public function destroy(Capture $capture): CaptureResource
     {
         $capture->delete();
 
-        return new CaptureResource($capture->refresh());
+        return new CaptureResource($this->withDestinationLinks($capture->refresh()));
+    }
+
+    public function retryTranscription(Capture $capture, CaptureService $captures): JsonResponse
+    {
+        $capture = $captures->retryTranscription($capture);
+
+        return (new CaptureResource($this->withDestinationLinks($capture)))
+            ->response()
+            ->setStatusCode(202);
+    }
+
+    public function clarify(Capture $capture, CaptureService $captures): JsonResponse
+    {
+        $capture = $captures->clarify($capture, 'manual_retry');
+
+        return response()->json([
+            'capture' => (new CaptureResource($this->withDestinationLinks($capture)))->resolve(),
+        ]);
+    }
+
+    public function triage(
+        TriageCaptureRequest $request,
+        Capture $capture,
+        CaptureService $captures,
+        CurationProposalService $curation,
+    ): JsonResponse {
+        $result = $captures->triage($capture, $request->validated(), $curation);
+
+        return response()->json([
+            'capture' => (new CaptureResource($result['capture']))->resolve(),
+            'proposal' => $result['proposal']
+                ? (new SemanticCurationProposalResource($result['proposal']))->resolve()
+                : null,
+        ]);
     }
 
     public function file(Capture $capture): BinaryFileResponse
@@ -124,5 +165,14 @@ class CaptureController extends Controller
             'processed_at' => $capture->transcription_status === 'done' ? $capture->updated_at?->toJSON() : null,
             'error' => $capture->transcription_error,
         ]);
+    }
+
+    private function withDestinationLinks(Capture $capture): Capture
+    {
+        if (Schema::hasTable('capture_links')) {
+            $capture->load('links');
+        }
+
+        return $capture;
     }
 }

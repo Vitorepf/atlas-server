@@ -53,4 +53,14 @@ class Capture extends Model
     {
         return $this->hasMany(TranscriptionJob::class);
     }
+
+    public function links(): HasMany
+    {
+        return $this->hasMany(CaptureLink::class);
+    }
+
+    public function projectPlanProposals(): HasMany
+    {
+        return $this->hasMany(AtlasProjectPlanProposal::class, 'source_capture_id');
+    }
 }

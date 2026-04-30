@@ -92,8 +92,8 @@ class RizeApiClient
     public function fetchSessions(CarbonImmutable $from, CarbonImmutable $to, int $first = 100, ?string $after = null): RizeApiPage
     {
         $query = $this->sessionsQuery();
-        $rootPath = (string) config('services.rize.sessions_root_path', 'sessions.nodes');
-        $pageInfoPath = (string) config('services.rize.sessions_page_info_path', 'sessions.pageInfo');
+        $rootPath = (string) config('services.rize.sessions_root_path', 'timeEntries.nodes');
+        $pageInfoPath = (string) config('services.rize.sessions_page_info_path', 'timeEntries.pageInfo');
 
         $data = $this->query($query, [
             'from' => $from->utc()->toIso8601String(),
@@ -133,25 +133,36 @@ class RizeApiClient
         }
 
         return <<<'GRAPHQL'
-            query AtlasRizeSessions($from: DateTime!, $to: DateTime!, $first: Int!, $after: String) {
-              sessions(from: $from, to: $to, first: $first, after: $after) {
+            query AtlasRizeSessions($from: ISO8601DateTime, $to: ISO8601DateTime, $first: Int, $after: String) {
+              timeEntries(startTime: $from, endTime: $to, first: $first, after: $after) {
                 nodes {
                   id
-                  name
                   title
-                  type
-                  startedAt
-                  endedAt
-                  durationSeconds
-                  appName
-                  appBundleId
-                  domain
-                  url
+                  description
+                  status
+                  source
+                  startTime
+                  endTime
+                  duration
+                  aiConfidenceScore
+                  reasoning
                   project
+                  {
+                    id
+                    name
+                    status
+                  }
                   task
-                  category
-                  productivityScore
-                  focusMode
+                  {
+                    id
+                    name
+                    status
+                  }
+                  client
+                  {
+                    id
+                    name
+                  }
                 }
                 pageInfo {
                   hasNextPage

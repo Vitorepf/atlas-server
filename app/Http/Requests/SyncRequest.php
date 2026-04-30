@@ -2,14 +2,69 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesAtlasDomain;
+use App\Http\Requests\Concerns\RejectsFutureCheckinRecordedAt;
+use App\Services\AtlasDomainRegistry;
+use App\Support\BehaviorCategories;
+use App\Support\BehaviorLifecycle;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class SyncRequest extends FormRequest
 {
+    use ValidatesAtlasDomain;
+    use RejectsFutureCheckinRecordedAt;
+
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $captures = $this->input('captures_to_upload');
+        if (is_array($captures)) {
+            $defaultDomain = app(AtlasDomainRegistry::class)->defaultSlug();
+            foreach ($captures as $index => $capture) {
+                if (! is_array($capture)) {
+                    continue;
+                }
+
+                $domain = $capture['domain'] ?? null;
+                if (! is_string($domain) || trim($domain) === '') {
+                    $captures[$index]['domain'] = $defaultDomain;
+                }
+            }
+
+            $this->merge(['captures_to_upload' => $captures]);
+        }
+
+        $behaviors = $this->input('behaviors_to_upload');
+        if (! is_array($behaviors)) {
+            return;
+        }
+
+        foreach ($behaviors as $index => $behavior) {
+            if (
+                is_array($behavior)
+                && array_key_exists('category', $behavior)
+                && is_string($behavior['category'])
+                && trim($behavior['category']) !== ''
+            ) {
+                $behaviors[$index]['category'] = BehaviorCategories::canonicalize((string) $behavior['category']);
+            }
+
+            if (
+                is_array($behavior)
+                && array_key_exists('lifecycle_status', $behavior)
+                && is_string($behavior['lifecycle_status'])
+                && trim($behavior['lifecycle_status']) !== ''
+            ) {
+                $behaviors[$index]['lifecycle_status'] = BehaviorLifecycle::canonicalize((string) $behavior['lifecycle_status']);
+            }
+        }
+
+        $this->merge(['behaviors_to_upload' => $behaviors]);
     }
 
     public function rules(): array
@@ -20,7 +75,7 @@ class SyncRequest extends FormRequest
             'captures_to_upload' => ['sometimes', 'array'],
             'captures_to_upload.*.client_id' => ['required', 'uuid'],
             'captures_to_upload.*.kind' => ['required', Rule::in(['text'])],
-            'captures_to_upload.*.domain' => ['sometimes', Rule::in(['blackink', 'saude', 'financas', 'outro'])],
+            'captures_to_upload.*.domain' => $this->atlasDomainRule(required: false),
             'captures_to_upload.*.content_text' => ['required', 'string'],
             'captures_to_upload.*.captured_at' => ['required', 'date'],
             'captures_to_upload.*.captured_timezone' => ['required', 'string', 'max:128'],
@@ -48,6 +103,7 @@ class SyncRequest extends FormRequest
             'passive_signals_to_upload.*.ended_at' => ['nullable', 'date'],
             'passive_signals_to_upload.*.recorded_timezone' => ['required', 'string', 'max:128'],
             'passive_signals_to_upload.*.metadata' => ['sometimes', 'array'],
+            'passive_signals_to_upload.*.deleted_at' => ['nullable', 'date'],
             'health_snapshots_to_upload' => ['sometimes', 'array'],
             'health_snapshots_to_upload.*.client_id' => ['required', 'uuid'],
             'health_snapshots_to_upload.*.source' => ['required', Rule::in(['atlas_app', 'server', 'import'])],
@@ -100,13 +156,27 @@ class SyncRequest extends FormRequest
             'behaviors_to_upload.*.client_id' => ['required', 'uuid'],
             'behaviors_to_upload.*.name' => ['required', 'string', 'max:160'],
             'behaviors_to_upload.*.slug' => ['required', 'string', 'max:180'],
-            'behaviors_to_upload.*.category' => ['required', Rule::in(['bebida', 'alimentacao', 'conflito', 'sono', 'treino', 'suplemento', 'social', 'trabalho', 'outro'])],
+            'behaviors_to_upload.*.category' => ['required', Rule::in(BehaviorCategories::allowed())],
             'behaviors_to_upload.*.input_type' => ['required', Rule::in(['yes_no', 'scale_1_5', 'count_int', 'text_short'])],
             'behaviors_to_upload.*.question_text' => ['required', 'string', 'max:240'],
             'behaviors_to_upload.*.default_value' => ['nullable', 'string', 'max:80'],
+            'behaviors_to_upload.*.parent_factor' => ['nullable', 'string', 'max:128'],
+            'behaviors_to_upload.*.factor_condition' => ['nullable', 'string', 'max:128'],
+            'behaviors_to_upload.*.target_outcomes' => ['sometimes', 'array'],
+            'behaviors_to_upload.*.expected_lag' => ['nullable', 'string', 'max:128'],
+            'behaviors_to_upload.*.expected_direction' => ['nullable', 'string', 'max:32'],
+            'behaviors_to_upload.*.granularity_level' => ['nullable', Rule::in(['binary', 'intensity', 'protocol'])],
+            'behaviors_to_upload.*.sensitivity_level' => ['nullable', Rule::in(['normal', 'sensitive', 'relational', 'medical'])],
+            'behaviors_to_upload.*.derived_from' => ['sometimes', 'array'],
+            'behaviors_to_upload.*.operator_confirmed' => ['nullable', 'boolean'],
             'behaviors_to_upload.*.created_by' => ['nullable', Rule::in(['operator', 'ai_suggestion', 'import'])],
             'behaviors_to_upload.*.source_capture_ids' => ['sometimes', 'array'],
             'behaviors_to_upload.*.activation_rules' => ['sometimes', 'array'],
+            'behaviors_to_upload.*.lifecycle_status' => ['nullable', Rule::in(BehaviorLifecycle::allowed())],
+            'behaviors_to_upload.*.paused_until' => ['nullable', 'date'],
+            'behaviors_to_upload.*.last_prompted_at' => ['nullable', 'date'],
+            'behaviors_to_upload.*.prompt_cadence_days' => ['nullable', 'integer', 'min:1', 'max:30'],
+            'behaviors_to_upload.*.auto_suppress_reason' => ['nullable', 'string', 'max:128'],
             'behaviors_to_upload.*.show_in_morning_briefing' => ['nullable', 'boolean'],
             'behaviors_to_upload.*.priority_score' => ['nullable', 'integer'],
             'behaviors_to_upload.*.streak_yes' => ['nullable', 'integer', 'min:0'],
@@ -126,12 +196,21 @@ class SyncRequest extends FormRequest
             'behavior_logs_to_upload.*.value' => ['required', 'string', 'max:512'],
             'behavior_logs_to_upload.*.numeric_value' => ['nullable', 'numeric'],
             'behavior_logs_to_upload.*.note' => ['nullable', 'string', 'max:2048'],
+            'behavior_logs_to_upload.*.occurred_at' => ['nullable', 'date'],
+            'behavior_logs_to_upload.*.occurred_timezone' => ['nullable', 'string', 'max:128'],
+            'behavior_logs_to_upload.*.quantity_numeric' => ['nullable', 'numeric'],
+            'behavior_logs_to_upload.*.quantity_unit' => ['nullable', 'string', 'max:64'],
+            'behavior_logs_to_upload.*.intensity' => ['nullable', 'integer', 'between:1,5'],
+            'behavior_logs_to_upload.*.context' => ['sometimes', 'array'],
             'behavior_logs_to_upload.*.recorded_at' => ['required', 'date'],
             'behavior_logs_to_upload.*.recorded_timezone' => ['required', 'string', 'max:128'],
-            'behavior_logs_to_upload.*.source' => ['required', Rule::in(['morning_briefing', 'voice_capture', 'manual', 'retroactive', 'import'])],
+            'behavior_logs_to_upload.*.source' => ['required', Rule::in(['morning_briefing', 'voice_capture', 'manual', 'retroactive', 'import', 'inferred'])],
             'behavior_logs_to_upload.*.source_capture_id' => ['nullable', 'uuid', 'exists:captures,id'],
             'behavior_logs_to_upload.*.auto_marked' => ['nullable', 'boolean'],
             'behavior_logs_to_upload.*.confirmed_by_operator' => ['nullable', 'boolean'],
+            'behavior_logs_to_upload.*.confidence' => ['nullable', 'numeric', 'between:0,1'],
+            'behavior_logs_to_upload.*.inferred_by' => ['nullable', 'string', 'max:128'],
+            'behavior_logs_to_upload.*.consent_snapshot_id' => ['nullable', 'uuid'],
             'behavior_logs_to_upload.*.reverted_at' => ['nullable', 'date'],
             'behavior_logs_to_upload.*.metadata' => ['sometimes', 'array'],
             'digital_sessions_to_upload' => ['sometimes', 'array'],
@@ -193,5 +272,27 @@ class SyncRequest extends FormRequest
         return [
             'captures_to_upload.*.kind.in' => 'Sync JSON only accepts text captures. Upload audio/photo captures through POST /captures multipart.',
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $checkins = $this->input('checkins_to_upload', []);
+            if (! is_array($checkins)) {
+                return;
+            }
+
+            foreach ($checkins as $index => $checkin) {
+                if (! is_array($checkin)) {
+                    continue;
+                }
+
+                $this->rejectFutureCheckinRecordedAt(
+                    $validator,
+                    "checkins_to_upload.$index.recorded_at",
+                    $checkin['recorded_at'] ?? null,
+                );
+            }
+        });
     }
 }

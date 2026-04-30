@@ -9,6 +9,8 @@ class ClaudeCliProvider implements AiProvider
 {
     use RunsCliProcesses;
 
+    private string $streamJsonBuffer = '';
+
     public function key(): string
     {
         return 'claude_cli';
@@ -16,20 +18,27 @@ class ClaudeCliProvider implements AiProvider
 
     public function run(AiJob $job, string $prompt): AiProviderResult
     {
+        return $this->runStreaming($job, $prompt);
+    }
+
+    public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+    {
         $provider = config('atlas.ai.providers.claude_cli');
         $binary = (string) ($provider['binary'] ?? 'claude');
         $args = (array) ($provider['args'] ?? ['-p']);
+        $this->streamJsonBuffer = '';
 
         if (! empty($job->model ?? $provider['model'] ?? null)) {
             $args[] = '--model';
             $args[] = (string) ($job->model ?? $provider['model']);
         }
 
-        return $this->runProcess(
+        return $this->runProcessStreaming(
             command: array_values(array_merge([$binary], $args)),
             input: $prompt,
             timeoutSeconds: $job->timeout_seconds,
-            cwd: (string) config('atlas.ai.workdir'),
+            cwd: $this->workdirForJob($job),
+            onEvent: $onEvent,
         );
     }
 
@@ -42,13 +51,130 @@ class ClaudeCliProvider implements AiProvider
     {
         $decoded = json_decode(trim($stdout), true);
         if (is_array($decoded)) {
-            foreach (['result', 'content', 'message', 'text'] as $key) {
-                if (isset($decoded[$key]) && is_string($decoded[$key])) {
-                    return trim($decoded[$key]);
-                }
+            $single = $this->extractTextFromClaudePayload($decoded);
+            if ($single !== '') {
+                return $single;
             }
         }
 
+        $result = '';
+        $tokens = '';
+
+        foreach (preg_split('/\R/', trim($stdout)) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $event = json_decode($line, true);
+            if (! is_array($event)) {
+                continue;
+            }
+
+            $eventText = $this->extractTextFromClaudePayload($event);
+            if ($eventText === '') {
+                continue;
+            }
+
+            if (($event['type'] ?? null) === 'result' || isset($event['result'])) {
+                $result = $eventText;
+            } else {
+                $tokens .= $eventText;
+            }
+        }
+
+        if ($result !== '') {
+            return trim($result);
+        }
+
+        if ($tokens !== '') {
+            return trim($tokens);
+        }
+
         return trim($stdout);
+    }
+
+    protected function streamOutputEvents(string $chunk): array
+    {
+        $this->streamJsonBuffer .= $chunk;
+        $lines = preg_split('/\R/', $this->streamJsonBuffer) ?: [];
+        $this->streamJsonBuffer = (string) array_pop($lines);
+        $events = [];
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $decoded = json_decode($line, true);
+            if (! is_array($decoded)) {
+                continue;
+            }
+
+            $text = $this->extractClaudeDeltaText($decoded);
+            if ($text === '') {
+                continue;
+            }
+
+            $events[] = [
+                'type' => 'token',
+                'name' => 'claude_text_delta',
+                'content' => $text,
+                'metadata' => [
+                    'parser' => 'claude_stream_json',
+                    'event_type' => $decoded['type'] ?? null,
+                ],
+                'channel' => 'assistant',
+            ];
+        }
+
+        return $events;
+    }
+
+    private function extractClaudeDeltaText(array $payload): string
+    {
+        $type = $payload['type'] ?? null;
+        if ($type === 'content_block_delta') {
+            $delta = is_array($payload['delta'] ?? null) ? $payload['delta'] : [];
+
+            return isset($delta['text']) && is_string($delta['text']) ? $delta['text'] : '';
+        }
+
+        if (isset($payload['delta']) && is_array($payload['delta']) && is_string($payload['delta']['text'] ?? null)) {
+            return $payload['delta']['text'];
+        }
+
+        return '';
+    }
+
+    private function extractTextFromClaudePayload(array $payload): string
+    {
+        foreach (['result', 'content', 'message', 'text'] as $key) {
+            if (isset($payload[$key]) && is_string($payload[$key])) {
+                return trim($payload[$key]);
+            }
+        }
+
+        if (isset($payload['message']) && is_array($payload['message'])) {
+            $nested = $this->extractTextFromClaudePayload($payload['message']);
+            if ($nested !== '') {
+                return $nested;
+            }
+        }
+
+        $content = $payload['content'] ?? null;
+        if (is_array($content)) {
+            $text = '';
+            foreach ($content as $block) {
+                if (is_array($block) && is_string($block['text'] ?? null)) {
+                    $text .= $block['text'];
+                }
+            }
+
+            return trim($text);
+        }
+
+        return trim($this->extractClaudeDeltaText($payload));
     }
 }

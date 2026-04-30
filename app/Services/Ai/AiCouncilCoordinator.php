@@ -27,6 +27,7 @@ class AiCouncilCoordinator
                 'processing' => $jobs->where('status', 'processing')->count(),
                 'succeeded' => $jobs->where('status', 'succeeded')->count(),
                 'failed' => $jobs->where('status', 'failed')->count(),
+                'cancelled' => $jobs->where('status', 'cancelled')->count(),
             ];
             $metadata = array_merge($locked->metadata ?? [], [
                 'execution_policy' => 'dual_review',
@@ -44,6 +45,17 @@ class AiCouncilCoordinator
             }
 
             $succeeded = $jobs->where('status', 'succeeded');
+            if ($counts['cancelled'] > 0 && $succeeded->isEmpty() && $counts['failed'] === 0) {
+                $locked->update([
+                    'status' => 'cancelled',
+                    'response_text' => $this->cancelledResponse($jobs->all()),
+                    'completed_at' => now(),
+                    'metadata' => $metadata,
+                ]);
+
+                return $locked->refresh()->load(['job', 'jobs']);
+            }
+
             if ($succeeded->isEmpty()) {
                 $locked->update([
                     'status' => 'failed',
@@ -72,7 +84,7 @@ class AiCouncilCoordinator
     }
 
     /**
-     * @param  array{queued:int,processing:int,succeeded:int,failed:int}  $counts
+     * @param  array{queued:int,processing:int,succeeded:int,failed:int,cancelled:int}  $counts
      */
     private function statusForCounts(array $counts): string
     {
@@ -80,7 +92,11 @@ class AiCouncilCoordinator
             return 'processing';
         }
 
-        return $counts['succeeded'] > 0 ? 'succeeded' : 'failed';
+        if ($counts['succeeded'] > 0) {
+            return 'succeeded';
+        }
+
+        return $counts['cancelled'] > 0 && $counts['failed'] === 0 ? 'cancelled' : 'failed';
     }
 
     /**
@@ -94,6 +110,10 @@ class AiCouncilCoordinator
                 $text = trim((string) $job->result_text);
 
                 return "## {$title}\n\n{$text}";
+            }
+
+            if ($job->status === 'cancelled') {
+                return "## {$title}\n\nCancelado pelo operador.";
             }
 
             $error = trim((string) ($job->error_message ?: $job->error_code ?: 'Falha sem detalhe.'));
@@ -132,6 +152,26 @@ TXT;
 # Conselho Atlas falhou
 
 Nenhum provedor concluiu esta rodada.
+
+{$sections}
+TXT;
+    }
+
+    /**
+     * @param  array<int, AiJob>  $jobs
+     */
+    private function cancelledResponse(array $jobs): string
+    {
+        $sections = collect($jobs)->map(function (AiJob $job): string {
+            $title = $this->providerTitle($job->provider);
+
+            return "- {$title}: cancelado";
+        })->implode("\n");
+
+        return <<<TXT
+# Conselho Atlas cancelado
+
+Nenhum provedor concluiu esta rodada antes do cancelamento.
 
 {$sections}
 TXT;

@@ -3,12 +3,13 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesMetadata;
+use App\Http\Requests\Concerns\ValidatesAtlasDomain;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateCaptureRequest extends FormRequest
 {
     use NormalizesMetadata;
+    use ValidatesAtlasDomain;
 
     protected function prepareForValidation(): void
     {
@@ -23,7 +24,7 @@ class UpdateCaptureRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'domain' => ['sometimes', Rule::in(['blackink', 'saude', 'financas', 'outro'])],
+            'domain' => $this->atlasDomainRule(required: false),
             'content_text' => ['sometimes', 'nullable', 'string'],
             'content_duration_ms' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'captured_at' => ['sometimes', 'date'],

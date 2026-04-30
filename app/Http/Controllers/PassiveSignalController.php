@@ -74,6 +74,9 @@ class PassiveSignalController extends Controller
     public function store(StorePassiveSignalRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $deletedAt = $data['deleted_at'] ?? null;
+        unset($data['deleted_at']);
+
         $payload = [
             ...$data,
             'metadata' => Metadata::forStorage($data['metadata'] ?? []),
@@ -87,10 +90,20 @@ class PassiveSignalController extends Controller
             $signal = PassiveSignal::create($payload);
             $created = true;
         } else {
-            $signal->fill($payload);
-            if ($signal->isDirty()) {
-                $signal->save();
+            if (! $deletedAt) {
+                $signal->fill($payload);
+                if ($signal->isDirty()) {
+                    $signal->save();
+                }
             }
+        }
+
+        if ($deletedAt) {
+            if (! $signal->trashed()) {
+                $signal->delete();
+            }
+        } elseif ($signal->trashed()) {
+            $signal->restore();
         }
 
         return (new PassiveSignalResource($signal))

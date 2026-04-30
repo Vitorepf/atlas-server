@@ -88,7 +88,20 @@ Principios operacionais:
 - O painel de configuracoes do app mostra fila, health dos providers e ultimo evento do worker.
 - Multi-agente e excecao deliberada; o padrao e um agente/skill por intent.
 
-Configure no `.env` se quiser sobrescrever os defaults:
+Para configurar o Atlas CLI no Mac, use sempre o bootstrap. Ele diagnostica Claude/Codex, atualiza o `.env` com backup, instala o launcher `atlas` no PATH local e roda a validacao final automaticamente:
+
+```bash
+./bin/atlas bootstrap --dry-run
+./bin/atlas bootstrap --refresh-providers --strict
+```
+
+Se o diretorio `~/.local/bin` ainda nao estiver no PATH do shell:
+
+```bash
+./bin/atlas bootstrap --write-shell-profile --refresh-providers --strict
+```
+
+O bootstrap e o unico fluxo recomendado para configuracao. Edite o `.env` manualmente apenas se precisar sobrescrever defaults avancados:
 
 ```bash
 ATLAS_AI_ENABLED=true
@@ -119,11 +132,31 @@ Arquivos criados:
 - `AtlasVault/_skills/financas/SKILL.md`
 - `AtlasVault/_skills/saude/SKILL.md`
 
-Checar se os providers locais estao disponiveis:
+O comando `atlas doctor --strict` roda automaticamente no fim do `atlas bootstrap`. Use comandos internos como `atlas setup`, `atlas install` ou `atlas providers` apenas para diagnostico avancado.
+
+Readiness final do produto terminal:
 
 ```bash
-php artisan atlas:ai:health
+atlas final --strict
 ```
+
+Uso real e release:
+
+```bash
+atlas dogfood run
+atlas dogfood record --scenario=dev_task --provider=codex_cli --result=passed --duration-minutes=90
+atlas dogfood report --strict
+atlas release --version=v2.0.0
+```
+
+`atlas dogfood run` e smoke limpo: valida integracao e apaga artefatos persistidos. `atlas dogfood report --strict` exige uso real nao-smoke antes do release final.
+
+Documentacao operacional unica:
+
+- `docs/atlas-cli-final-product.md`
+- `docs/atlas-cli-release-checklist.md`
+
+O CI obrigatorio do Atlas CLI fica em `.github/workflows/atlas-cli.yml` e roda testes, `git diff --check`, `atlas final --strict` e o gate estrutural de release usando stubs versionados em `scripts/ci`.
 
 Processar jobs pendentes:
 

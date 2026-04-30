@@ -87,8 +87,10 @@ class BehaviorLogController extends Controller
     {
         $data = $request->validated();
 
-        if (array_key_exists('metadata', $data)) {
-            $data['metadata'] = Metadata::forStorage($data['metadata']);
+        foreach (['context', 'metadata'] as $key) {
+            if (array_key_exists($key, $data)) {
+                $data[$key] = Metadata::forStorage($data[$key]);
+            }
         }
 
         $behaviorLog->update($data);

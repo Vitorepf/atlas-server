@@ -3,12 +3,15 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesMetadata;
+use App\Http\Requests\Concerns\ValidatesAtlasDomain;
+use App\Services\AtlasDomainRegistry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreCaptureRequest extends FormRequest
 {
     use NormalizesMetadata;
+    use ValidatesAtlasDomain;
 
     protected function prepareForValidation(): void
     {
@@ -21,8 +24,8 @@ class StoreCaptureRequest extends FormRequest
             ]);
         }
 
-        if (! $this->has('domain')) {
-            $this->merge(['domain' => 'outro']);
+        if (! $this->filled('domain')) {
+            $this->merge(['domain' => app(AtlasDomainRegistry::class)->defaultSlug()]);
         }
 
         if (! $this->has('metadata')) {
@@ -42,7 +45,7 @@ class StoreCaptureRequest extends FormRequest
         return [
             'client_id' => ['required', 'uuid'],
             'kind' => ['required', Rule::in(['audio', 'text', 'photo'])],
-            'domain' => ['required', Rule::in(['blackink', 'saude', 'financas', 'outro'])],
+            'domain' => $this->atlasDomainRule(),
             'content_text' => [
                 Rule::requiredIf(fn () => $this->input('kind') === 'text'),
                 'nullable',

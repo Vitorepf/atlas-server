@@ -1,0 +1,272 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CALLER_PWD="${PWD}"
+cd "$ROOT"
+
+join_input() {
+  local IFS=' '
+  printf '%s' "$*"
+}
+
+has_workspace_arg() {
+  for arg in "$@"; do
+    case "$arg" in
+      --workspace|--workspace=*)
+        return 0
+        ;;
+    esac
+  done
+
+  return 1
+}
+
+cmd="${1:-chat}"
+
+case "$cmd" in
+  help|-h|--help)
+    shift || true
+    exec php artisan atlas:cli:help "$@"
+    ;;
+  chat)
+    shift || true
+    exec php artisan atlas:ai:chat "$@"
+    ;;
+  ask)
+    shift || true
+    if [ "$#" -eq 0 ]; then
+      exec php artisan atlas:ai:chat --stream
+    fi
+    exec php artisan atlas:ai:chat "$(join_input "$@")" --stream
+    ;;
+  dev)
+    shift || true
+    exec php artisan atlas:cli:dev "$@"
+    ;;
+  fix)
+    shift || true
+    exec php artisan atlas:cli:fix "$@"
+    ;;
+  plan)
+    shift || true
+    if [ "$#" -eq 0 ]; then
+      exec php artisan atlas:ai:chat --mode=plan --stream
+    fi
+    exec php artisan atlas:ai:chat "$(join_input "$@")" --mode=plan --stream
+    ;;
+  review)
+    shift || true
+    if [ "$#" -eq 0 ]; then
+      exec php artisan atlas:ai:chat --mode=review --stream
+    fi
+    exec php artisan atlas:ai:chat "$(join_input "$@")" --mode=review --stream
+    ;;
+  compare)
+    shift || true
+    exec php artisan atlas:cli:compare "$@"
+    ;;
+  debug)
+    shift || true
+    if [ "$#" -eq 0 ]; then
+      exec php artisan atlas:ai:chat --mode=debug --stream
+    fi
+    exec php artisan atlas:ai:chat "$(join_input "$@")" --mode=debug --stream
+    ;;
+  research)
+    shift || true
+    if [ "$#" -eq 0 ]; then
+      exec php artisan atlas:ai:chat --mode=research --stream
+    fi
+    exec php artisan atlas:ai:chat "$(join_input "$@")" --mode=research --stream
+    ;;
+  threads|sessions)
+    shift || true
+    exec php artisan atlas:ai:chat --list-threads "$@"
+    ;;
+  status|dashboard)
+    shift || true
+    exec php artisan atlas:cli:dashboard "$@"
+    ;;
+  tui)
+    shift || true
+    if [ "${1:-}" = "--classic" ]; then
+      shift || true
+      exec php artisan atlas:cli:dashboard --classic "$@"
+    fi
+    exec php artisan atlas:cli:tui "$@"
+    ;;
+  state)
+    shift || true
+    exec php artisan atlas:cli:state "$@"
+    ;;
+  steer)
+    shift || true
+    exec php artisan atlas:cli:state pending-steer set "$@"
+    ;;
+  compact)
+    shift || true
+    exec php artisan atlas:cli:state compact "$@"
+    ;;
+  handoff|switch)
+    shift || true
+    exec php artisan atlas:cli:state handoff "$@"
+    ;;
+  checkpoint|checkpoints)
+    shift || true
+    exec php artisan atlas:cli:checkpoint "$@"
+    ;;
+  quality|finish)
+    shift || true
+    exec php artisan atlas:cli:quality "$@"
+    ;;
+  test)
+    shift || true
+    exec php artisan atlas:cli:quality --run-tests --yes "$@"
+    ;;
+  runtime|tool)
+    shift || true
+    exec php artisan atlas:runtime "$@"
+    ;;
+  search)
+    shift || true
+    exec php artisan atlas:runtime session.search --workspace="$CALLER_PWD" "$@"
+    ;;
+  trace)
+    shift || true
+    exec php artisan atlas:cli:trace "$@"
+    ;;
+  permissions)
+    shift || true
+    exec php artisan atlas:cli:permissions "$@"
+    ;;
+  memory)
+    shift || true
+    exec php artisan atlas:cli:memory "$@"
+    ;;
+  mobile)
+    shift || true
+    exec php artisan atlas:cli:mobile "$@"
+    ;;
+  inbox)
+    shift || true
+    exec php artisan atlas:cli:inbox "$@"
+    ;;
+  insight)
+    shift || true
+    exec php artisan atlas:insight "$@"
+    ;;
+  proposal)
+    shift || true
+    exec php artisan atlas:proposal "$@"
+    ;;
+  proposal-scan|proposals-scan|scan-proposals)
+    shift || true
+    if has_workspace_arg "$@"; then
+      exec php artisan atlas:proposal:scan "$@"
+    fi
+    exec php artisan atlas:proposal:scan "$@" --workspace="$CALLER_PWD"
+    ;;
+  self-diagnostic|diagnostic)
+    shift || true
+    exec php artisan atlas:self-diagnostic "$@"
+    ;;
+  schedule|cron)
+    shift || true
+    if has_workspace_arg "$@"; then
+      exec php artisan atlas:cli:schedule "$@"
+    fi
+    exec php artisan atlas:cli:schedule "$@" --workspace="$CALLER_PWD"
+    ;;
+  skills)
+    shift || true
+    exec php artisan atlas:cli:skills "$@"
+    ;;
+  profile)
+    shift || true
+    exec php artisan atlas:runtime workspace.profile "$@"
+    ;;
+  work)
+    shift || true
+    exec php artisan atlas:ai:work "$@"
+    ;;
+  health)
+    shift || true
+    exec php artisan atlas:ai:health "$@"
+    ;;
+  providers)
+    shift || true
+    exec php artisan atlas:cli:providers "$@"
+    ;;
+  setup|init)
+    shift || true
+    exec php artisan atlas:cli:setup "$@"
+    ;;
+  bootstrap|configure)
+    shift || true
+    exec php artisan atlas:cli:bootstrap "$@"
+    ;;
+  version)
+    shift || true
+    exec php artisan atlas:cli:version "$@"
+    ;;
+  update)
+    shift || true
+    exec php artisan atlas:cli:update "$@"
+    ;;
+  rollback)
+    shift || true
+    exec php artisan atlas:cli:rollback "$@"
+    ;;
+  install)
+    shift || true
+    exec php artisan atlas:cli:install "$@"
+    ;;
+  provider-health)
+    shift || true
+    exec php artisan atlas:ai:health "$@"
+    ;;
+  doctor)
+    shift || true
+    exec php artisan atlas:cli:doctor "$@"
+    ;;
+  final|readiness|product)
+    shift || true
+    exec php artisan atlas:cli:final "$@"
+    ;;
+  dogfood)
+    shift || true
+    exec php artisan atlas:cli:dogfood "$@"
+    ;;
+  release)
+    shift || true
+    release_args=()
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --version=*)
+          release_args+=("--release-version=${1#--version=}")
+          ;;
+        --version)
+          shift || true
+          release_args+=("--release-version=${1:-}")
+          ;;
+        *)
+          release_args+=("$1")
+          ;;
+      esac
+      shift || true
+    done
+    exec php artisan atlas:cli:release "${release_args[@]}"
+    ;;
+  ai-doctor)
+    shift || true
+    exec php artisan atlas:ai:doctor "$@"
+    ;;
+  bootstrap-skills)
+    shift || true
+    exec php artisan atlas:ai:bootstrap-skills "$@"
+    ;;
+  *)
+    exec php artisan atlas:ai:chat "$(join_input "$@")" --stream
+    ;;
+esac

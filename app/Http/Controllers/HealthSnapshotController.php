@@ -7,12 +7,13 @@ use App\Http\Requests\StoreHealthSnapshotRequest;
 use App\Http\Requests\UpdateHealthSnapshotRequest;
 use App\Http\Resources\HealthSnapshotResource;
 use App\Models\HealthSnapshot;
+use App\Services\AuditLogService;
 use App\Support\Metadata;
 use Illuminate\Http\JsonResponse;
 
 class HealthSnapshotController extends Controller
 {
-    public function index(IndexHealthSnapshotRequest $request): JsonResponse
+    public function index(IndexHealthSnapshotRequest $request, AuditLogService $audit): JsonResponse
     {
         $data = $request->validated();
         $limit = (int) ($data['limit'] ?? 50);
@@ -68,6 +69,16 @@ class HealthSnapshotController extends Controller
         $hasMore = $snapshots->count() > $limit;
         $page = $hasMore ? $snapshots->take($limit)->values() : $snapshots;
 
+        $this->recordAudit($audit, 'health_snapshots_listed', 'Health snapshots listed', [
+            'count' => $page->count(),
+            'limit' => $limit,
+            'has_more' => $hasMore,
+            'since' => $since,
+            'source' => $data['source'] ?? null,
+            'date_from' => $data['date_from'] ?? null,
+            'date_to' => $data['date_to'] ?? null,
+        ]);
+
         return response()->json([
             'health_snapshots' => HealthSnapshotResource::collection($page)->resolve(),
             'next_cursor' => $hasMore ? $page->last()?->id : null,
@@ -75,26 +86,47 @@ class HealthSnapshotController extends Controller
         ]);
     }
 
-    public function store(StoreHealthSnapshotRequest $request): JsonResponse
+    public function store(StoreHealthSnapshotRequest $request, AuditLogService $audit): JsonResponse
     {
         $snapshot = $this->upsertSnapshot($request->validated());
+        $this->recordAudit(
+            $audit,
+            $snapshot['created'] ? 'health_snapshot_created' : 'health_snapshot_updated',
+            $snapshot['created'] ? 'Health snapshot created' : 'Health snapshot updated',
+            [
+                'client_id' => $snapshot['model']->client_id,
+                'snapshot_date' => $snapshot['model']->snapshot_date?->toDateString(),
+                'source' => $snapshot['model']->source,
+            ],
+            $snapshot['model']->id,
+        );
 
         return (new HealthSnapshotResource($snapshot['model']))
             ->response()
             ->setStatusCode($snapshot['created'] ? 201 : 200);
     }
 
-    public function update(UpdateHealthSnapshotRequest $request, HealthSnapshot $healthSnapshot): HealthSnapshotResource
+    public function update(UpdateHealthSnapshotRequest $request, HealthSnapshot $healthSnapshot, AuditLogService $audit): HealthSnapshotResource
     {
         $data = $this->normalizePayload($request->validated());
         $healthSnapshot->update($data);
+        $this->recordAudit($audit, 'health_snapshot_updated', 'Health snapshot updated', [
+            'client_id' => $healthSnapshot->client_id,
+            'snapshot_date' => $healthSnapshot->snapshot_date?->toDateString(),
+            'source' => $healthSnapshot->source,
+        ], $healthSnapshot->id);
 
         return new HealthSnapshotResource($healthSnapshot->refresh());
     }
 
-    public function destroy(HealthSnapshot $healthSnapshot): HealthSnapshotResource
+    public function destroy(HealthSnapshot $healthSnapshot, AuditLogService $audit): HealthSnapshotResource
     {
         $healthSnapshot->delete();
+        $this->recordAudit($audit, 'health_snapshot_deleted', 'Health snapshot deleted', [
+            'client_id' => $healthSnapshot->client_id,
+            'snapshot_date' => $healthSnapshot->snapshot_date?->toDateString(),
+            'source' => $healthSnapshot->source,
+        ], $healthSnapshot->id);
 
         return new HealthSnapshotResource($healthSnapshot->refresh());
     }
@@ -155,5 +187,26 @@ class HealthSnapshotController extends Controller
         }
 
         return max(0.0, min(1.0, round($number, 3)));
+    }
+
+    private function recordAudit(
+        AuditLogService $audit,
+        string $eventType,
+        string $summary,
+        array $evidence,
+        ?string $subjectId = null,
+    ): void {
+        $audit->record($eventType, [
+            'subject_type' => 'health_snapshot',
+            'subject_id' => $subjectId,
+            'actor_type' => 'api',
+            'severity' => 'info',
+            'summary' => $summary,
+            'evidence' => $evidence,
+            'privacy' => [
+                'sensitivity' => 'sensitive',
+                'domain' => 'health',
+            ],
+        ]);
     }
 }

@@ -78,18 +78,26 @@ class CheckinController extends Controller
     public function store(StoreCheckinRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $data['metadata'] = Metadata::forStorage($data['metadata'] ?? []);
         $checkin = Checkin::withTrashed()
             ->where('client_id', $data['client_id'])
             ->first();
         $created = false;
 
         if (! $checkin) {
-            $data['metadata'] = Metadata::forStorage($data['metadata'] ?? []);
             $checkin = Checkin::create($data);
             $created = true;
+        } else {
+            if ($checkin->trashed()) {
+                $checkin->restore();
+            }
+            $checkin->fill($data);
+            if ($checkin->isDirty()) {
+                $checkin->save();
+            }
         }
 
-        return (new CheckinResource($checkin))
+        return (new CheckinResource($checkin->refresh()))
             ->response()
             ->setStatusCode($created ? 201 : 200);
     }

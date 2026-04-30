@@ -1,0 +1,185 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Http\Resources\AiInboxItemResource;
+use App\Models\AiInboxItem;
+use App\Services\Ai\Mobile\AtlasInboxService;
+use App\Services\Ai\Mobile\InboxActionRegistry;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+
+class AtlasCliInboxCommand extends Command
+{
+    protected $signature = 'atlas:cli:inbox
+        {action=list : list, show, respond, dismiss or discuss}
+        {id? : Inbox item id}
+        {--action= : Action id for respond}
+        {--reason=}
+        {--filter=unread : unread, all, approval, alert, completion, insight, proposal, job_result, self_diagnostic}
+        {--json : Print machine-readable JSON}';
+
+    protected $description = 'Read and act on the Atlas operational inbox.';
+
+    public function handle(AtlasInboxService $inbox, InboxActionRegistry $actions): int
+    {
+        if (! Schema::hasTable('ai_inbox_items')) {
+            $this->error('Tabela ai_inbox_items ainda nao existe. Rode migrations.');
+
+            return self::FAILURE;
+        }
+
+        $action = Str::of((string) $this->argument('action'))->lower()->trim()->value();
+
+        return match ($action) {
+            'list' => $this->list($inbox),
+            'show' => $this->show(),
+            'dismiss' => $this->dismiss($inbox),
+            'respond' => $this->respond($actions),
+            'discuss' => $this->discuss($actions),
+            default => $this->invalid($action),
+        };
+    }
+
+    private function list(AtlasInboxService $inbox): int
+    {
+        $filter = (string) $this->option('filter');
+        $status = in_array($filter, ['unread', 'read', 'resolved', 'dismissed', 'snoozed', 'all'], true) ? $filter : 'all';
+        $type = in_array($filter, AiInboxItem::TYPES, true) ? $filter : null;
+        $items = $inbox->list('vitor', $status, $type, 50);
+        $payload = AiInboxItemResource::collection($items)->resolve();
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode(['items' => $payload], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        }
+
+        if ($items->isEmpty()) {
+            $this->line('Inbox vazio para o filtro atual.');
+
+            return self::SUCCESS;
+        }
+
+        $this->table(['id', 'type', 'severity', 'status', 'title', 'created'], collect($payload)->map(fn (array $row): array => [
+            $row['id'],
+            $row['type'],
+            $row['severity'],
+            $row['status'],
+            Str::limit($row['title'], 70),
+            $row['created_at'],
+        ])->all());
+
+        return self::SUCCESS;
+    }
+
+    private function show(): int
+    {
+        $item = $this->item();
+        if (! $item) {
+            return self::FAILURE;
+        }
+
+        $payload = (new AiInboxItemResource($item->load('contextBundle')))->resolve();
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode(['item' => $payload], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        }
+
+        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        return self::SUCCESS;
+    }
+
+    private function dismiss(AtlasInboxService $inbox): int
+    {
+        $item = $this->item();
+        if (! $item) {
+            return self::FAILURE;
+        }
+
+        $updated = $inbox->dismiss($item, is_string($this->option('reason')) ? $this->option('reason') : null);
+
+        return $this->printItem($updated);
+    }
+
+    private function respond(InboxActionRegistry $actions): int
+    {
+        $item = $this->item();
+        if (! $item) {
+            return self::FAILURE;
+        }
+
+        $action = $this->option('action');
+        if (! is_string($action) || $action === '') {
+            $this->error('Informe --action=<id>.');
+
+            return self::FAILURE;
+        }
+
+        $result = $actions->handle($item, $action, [
+            'reason' => is_string($this->option('reason')) ? $this->option('reason') : null,
+        ], 'cli-'.$action.'-'.$item->id);
+
+        return $this->printItem($result['item']);
+    }
+
+    private function discuss(InboxActionRegistry $actions): int
+    {
+        $item = $this->item();
+        if (! $item) {
+            return self::FAILURE;
+        }
+
+        $result = $actions->handle($item, 'discuss', [], 'cli-discuss-'.$item->id);
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($result['result'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        } else {
+            $this->info('Thread: '.($result['result']['thread_id'] ?? '-'));
+            $this->line($result['result']['deep_link'] ?? '');
+        }
+
+        return self::SUCCESS;
+    }
+
+    private function item(): ?AiInboxItem
+    {
+        $id = $this->argument('id');
+        if (! is_string($id) || $id === '') {
+            $this->error('Informe o inbox item id.');
+
+            return null;
+        }
+
+        $item = AiInboxItem::query()->find($id);
+        if (! $item) {
+            $this->error('Inbox item nao encontrado.');
+        }
+
+        return $item;
+    }
+
+    private function printItem(AiInboxItem $item): int
+    {
+        $payload = (new AiInboxItemResource($item))->resolve();
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode(['item' => $payload], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        } else {
+            $this->info('Inbox item atualizado: '.$item->id.' ['.$item->status.']');
+        }
+
+        return self::SUCCESS;
+    }
+
+    private function invalid(string $action): int
+    {
+        $this->error("Acao invalida para atlas inbox: {$action}");
+
+        return self::FAILURE;
+    }
+}

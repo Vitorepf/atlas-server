@@ -17,6 +17,7 @@ class SemanticNoteController extends Controller
         $limit = (int) ($data['limit'] ?? 50);
 
         $query = SemanticNote::query()
+            ->withCount(['sourceLinks', 'targetLinks'])
             ->whereNull('deleted_at')
             ->latest('updated_at')
             ->limit($limit);
@@ -44,6 +45,11 @@ class SemanticNoteController extends Controller
 
     public function show(SemanticNote $semanticNote, VaultFileStore $vault): JsonResponse
     {
+        $semanticNote->load([
+            'sourceLinks.targetNote',
+            'targetLinks.sourceNote',
+        ]);
+
         $content = null;
         if (! $semanticNote->trashed()) {
             $content = $vault->read($semanticNote->path);

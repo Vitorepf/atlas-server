@@ -15,7 +15,19 @@ class IndexSemanticActivationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'context_type' => ['nullable', Rule::in(['morning_briefing', 'capture_created', 'health_state', 'rize_context', 'weekly_review', 'manual_search', 'cognitive_game', 'notification_candidate'])],
+            'context_type' => ['nullable', Rule::in([
+                'morning_briefing',
+                'capture_created',
+                'health_state',
+                'rize_context',
+                'weekly_review',
+                'manual_search',
+                'cognitive_game',
+                'notification_candidate',
+                'project_context',
+                'domain_context',
+                'decision_context',
+            ])],
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
         ];
     }

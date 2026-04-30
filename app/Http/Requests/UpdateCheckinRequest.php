@@ -3,12 +3,14 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesMetadata;
+use App\Http\Requests\Concerns\RejectsFutureCheckinRecordedAt;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateCheckinRequest extends FormRequest
 {
     use NormalizesMetadata;
+    use RejectsFutureCheckinRecordedAt;
 
     protected function prepareForValidation(): void
     {
@@ -40,6 +42,10 @@ class UpdateCheckinRequest extends FormRequest
 
             if (count(array_intersect($allowed, array_keys($this->all()))) === 0) {
                 $validator->errors()->add('payload', 'At least one field is required.');
+            }
+
+            if ($this->has('recorded_at')) {
+                $this->rejectFutureCheckinRecordedAt($validator, 'recorded_at', $this->input('recorded_at'));
             }
         });
     }

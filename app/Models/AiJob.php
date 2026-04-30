@@ -70,4 +70,9 @@ class AiJob extends Model
     {
         return $this->hasMany(AiJobAttempt::class, 'ai_job_id');
     }
+
+    public function streamEvents(): HasMany
+    {
+        return $this->hasMany(AiStreamEvent::class, 'ai_job_id')->orderBy('sequence');
+    }
 }

@@ -3,6 +3,9 @@
 namespace App\Jobs;
 
 use App\Models\TranscriptionJob;
+use App\Services\Semantic\ActivationEngine;
+use App\Services\Semantic\CaptureSemanticClarifier;
+use App\Services\Semantic\CurationProposalService;
 use App\Services\WhisperTranscriber;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -19,8 +22,12 @@ class ProcessAudioTranscription implements ShouldQueue
 
     public function __construct(public readonly string $transcriptionJobId) {}
 
-    public function handle(WhisperTranscriber $transcriber): void
-    {
+    public function handle(
+        WhisperTranscriber $transcriber,
+        CaptureSemanticClarifier $clarifier,
+        CurationProposalService $curation,
+        ActivationEngine $activations,
+    ): void {
         $job = TranscriptionJob::query()
             ->with('capture')
             ->findOrFail($this->transcriptionJobId);
@@ -56,6 +63,25 @@ class ProcessAudioTranscription implements ShouldQueue
             'finished_at' => now(),
             'error_message' => null,
         ]);
+
+        try {
+            $capture = $clarifier->handleReady($capture->refresh(), 'transcription_done');
+            $proposal = $curation->createFromCapture($capture);
+            $clarification = $clarifier->resultFor($capture) ?? [];
+            $activations->createForContext('capture_created', [
+                'source' => 'transcription_done',
+                'capture_id' => $capture->id,
+                'capture_client_id' => $capture->client_id,
+                'capture_kind' => $capture->kind,
+                'domain' => $capture->domain,
+                'suggested_type' => $clarification['suggested_type'] ?? null,
+                'future_triggers' => $clarification['future_triggers'] ?? [],
+                'density_score' => data_get($clarification, 'density.score'),
+                'curation_proposal_id' => $proposal?->id,
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     public function failed(?Throwable $exception): void

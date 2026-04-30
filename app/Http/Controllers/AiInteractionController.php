@@ -5,17 +5,21 @@ namespace App\Http\Controllers;
 use App\Http\Requests\FeedbackAiTraceRequest;
 use App\Http\Requests\StoreAiInteractionRequest;
 use App\Http\Resources\AiTraceResource;
+use App\Models\AiStreamEvent;
 use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AiInteractionController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
         $traces = AiTrace::query()
-            ->with(['job', 'jobs'])
+            ->with($this->traceRelations())
+            ->when($request->query('thread_id'), fn ($query, $threadId) => $query->where('thread_id', $threadId))
             ->when($request->query('status'), fn ($query, $status) => $query->where('status', $status))
             ->when($request->query('agent'), fn ($query, $agent) => $query->where('agent_slug', $agent))
             ->orderByDesc('created_at')
@@ -40,7 +44,84 @@ class AiInteractionController extends Controller
     public function show(AiTrace $trace): JsonResponse
     {
         return response()->json([
-            'trace' => (new AiTraceResource($trace->load(['job.attemptHistory', 'jobs.attemptHistory'])))->resolve(),
+            'trace' => (new AiTraceResource($trace->load($this->traceRelations(withAttempts: true))))->resolve(),
+        ]);
+    }
+
+    public function stream(Request $request, AiTrace $trace): StreamedResponse
+    {
+        $after = max(0, (int) $request->query('after', 0));
+        $timeoutSeconds = min(max((int) $request->query('timeout', 120), 5), 600);
+
+        return response()->stream(function () use ($trace, $after, $timeoutSeconds): void {
+            if (! Schema::hasTable('ai_stream_events')) {
+                $this->sendSse('error', [
+                    'error' => 'stream_events_unavailable',
+                    'message' => 'ai_stream_events table is not available.',
+                ]);
+
+                return;
+            }
+
+            $lastSequence = $after;
+            $deadline = microtime(true) + $timeoutSeconds;
+            $lastHeartbeat = microtime(true);
+
+            while (microtime(true) <= $deadline && ! connection_aborted()) {
+                $events = AiStreamEvent::query()
+                    ->where('trace_id', $trace->id)
+                    ->where('sequence', '>', $lastSequence)
+                    ->orderBy('sequence')
+                    ->limit(100)
+                    ->get();
+
+                foreach ($events as $event) {
+                    $lastSequence = max($lastSequence, (int) $event->sequence);
+                    $this->sendSse($event->event_type, [
+                        'id' => $event->id,
+                        'trace_id' => $event->trace_id,
+                        'job_id' => $event->ai_job_id,
+                        'attempt_id' => $event->ai_job_attempt_id,
+                        'sequence' => $event->sequence,
+                        'type' => $event->event_type,
+                        'channel' => $event->channel,
+                        'content' => $event->content,
+                        'metadata' => $event->metadata ?? [],
+                        'occurred_at' => $event->occurred_at?->toJSON(),
+                    ], (string) $event->sequence);
+                }
+
+                $freshTrace = $trace->fresh(['jobs']);
+                if ($freshTrace && in_array($freshTrace->status, ['succeeded', 'failed', 'cancelled'], true) && $events->isEmpty()) {
+                    $this->sendSse('done', [
+                        'trace_id' => $freshTrace->id,
+                        'status' => $freshTrace->status,
+                        'last_sequence' => $lastSequence,
+                    ], (string) ($lastSequence + 1));
+
+                    return;
+                }
+
+                if (microtime(true) - $lastHeartbeat >= 10) {
+                    $this->sendSse('heartbeat', [
+                        'trace_id' => $trace->id,
+                        'last_sequence' => $lastSequence,
+                    ]);
+                    $lastHeartbeat = microtime(true);
+                }
+
+                usleep(200_000);
+            }
+
+            $this->sendSse('timeout', [
+                'trace_id' => $trace->id,
+                'last_sequence' => $lastSequence,
+            ]);
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache, no-transform',
+            'Connection' => 'keep-alive',
+            'X-Accel-Buffering' => 'no',
         ]);
     }
 
@@ -49,5 +130,47 @@ class AiInteractionController extends Controller
         return response()->json([
             'trace' => (new AiTraceResource($gateway->recordFeedback($trace, $request->validated())))->resolve(),
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function sendSse(string $event, array $payload, ?string $id = null): void
+    {
+        if ($id !== null) {
+            echo "id: {$id}\n";
+        }
+
+        echo "event: {$event}\n";
+        echo 'data: '.json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n\n";
+
+        if (ob_get_level() > 0) {
+            @ob_flush();
+        }
+        flush();
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function traceRelations(bool $withAttempts = false): array
+    {
+        $relations = $withAttempts
+            ? ['thread', 'session', 'job.attemptHistory', 'jobs.attemptHistory']
+            : ['thread', 'session', 'job', 'jobs'];
+
+        if (Schema::hasTable('ai_quality_evaluations')) {
+            $relations[] = 'qualityEvaluation';
+        }
+
+        if (Schema::hasTable('ai_quality_actions')) {
+            $relations[] = 'qualityActions.remediationTrace';
+        }
+
+        if ($withAttempts && Schema::hasTable('ai_stream_events')) {
+            $relations[] = 'streamEvents';
+        }
+
+        return $relations;
     }
 }

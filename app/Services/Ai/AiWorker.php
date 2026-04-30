@@ -4,9 +4,14 @@ namespace App\Services\Ai;
 
 use App\Models\AiJob;
 use App\Models\AiJobAttempt;
+use App\Models\AiQualityAction;
 use App\Models\AiTrace;
+use App\Services\AuditLogService;
+use App\Services\Ai\Mobile\JobResultInboxEmitter;
+use App\Services\Semantic\CaptureSemanticClarifier;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AiWorker
@@ -14,15 +19,34 @@ class AiWorker
     public function __construct(
         private readonly AiProviderManager $providers,
         private readonly AiWorkerLogger $logger,
+        private readonly AiStreamRecorder $stream,
+        private readonly AiPermissionEngine $permissions,
         private readonly AiCouncilCoordinator $council,
+        private readonly AiConversationRecorder $conversation,
+        private readonly AiSessionStateService $states,
+        private readonly AiQualityEvaluator $quality,
+        private readonly AiQualityActionService $qualityActions,
+        private readonly CaptureSemanticClarifier $clarifier,
+        private readonly AuditLogService $audit,
+        private readonly JobResultInboxEmitter $jobResults,
     ) {}
 
-    public function runNext(?string $providerOverride = null, ?string $workerId = null): ?AiJob
+    public function runNext(?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
+    {
+        return $this->runNextMatching(null, $providerOverride, $workerId, $onStream);
+    }
+
+    public function runNextForTrace(string $traceId, ?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
+    {
+        return $this->runNextMatching($traceId, $providerOverride, $workerId, $onStream);
+    }
+
+    private function runNextMatching(?string $traceId = null, ?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
     {
         $workerId = $workerId ?: (string) config('atlas.ai.worker_id', 'atlas-worker');
         $this->recoverStaleProcessingJobs($workerId);
 
-        $job = $this->claimJob($workerId, $providerOverride);
+        $job = $this->claimJob($workerId, $providerOverride, $traceId);
 
         if (! $job) {
             return null;
@@ -34,11 +58,19 @@ class AiWorker
 
         $providerKey = $providerOverride ?: $job->provider ?: (string) config('atlas.ai.default_provider', 'claude_cli');
         $provider = $this->providers->get($providerKey);
-        $attempt = $this->createAttempt($job, $workerId, $providerKey);
+        $permission = $this->permissions->authorizeJob($job, $providerKey);
 
-        try {
-            $result = $provider->run($job, $job->prompt);
-        } catch (\Throwable $exception) {
+        if ($permission->allowed) {
+            $job = $this->applyPermissionRuntime($job, $permission);
+            $job = $this->applyPendingSteer($job);
+        }
+
+        $attempt = $this->createAttempt($job, $workerId, $providerKey);
+        $this->emitStreamEvent($job, $attempt, 'permission', $permission->allowed ? 'permission_allowed' : 'permission_denied', $permission->denialMessage(), [
+            'permission' => $permission->toArray(),
+        ], null, $onStream);
+
+        if (! $permission->allowed) {
             $result = new AiProviderResult(
                 ok: false,
                 output: '',
@@ -47,17 +79,47 @@ class AiWorker
                 durationMs: 0,
                 stdout: '',
                 stderr: '',
-                errorCode: 'provider_exception',
-                errorMessage: $exception->getMessage(),
+                errorCode: 'permission_denied',
+                errorMessage: $permission->denialMessage(),
+                metadata: ['permission' => $permission->toArray()],
             );
+        } else {
+            try {
+                $result = $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream): void {
+                    $recorded = $this->stream->recordProviderEvent($job, $attempt, $event);
+                    $event['sequence'] = $recorded?->sequence;
+                    $event['job_id'] = $job->id;
+                    $event['trace_id'] = $job->trace_id;
+                    $event['attempt_id'] = $attempt->id;
+                    $onStream?->__invoke($event);
+                });
+            } catch (\Throwable $exception) {
+                $this->emitStreamEvent($job, $attempt, 'error', 'provider_exception', $exception->getMessage(), [
+                    'error_code' => 'provider_exception',
+                ], null, $onStream);
+
+                $result = new AiProviderResult(
+                    ok: false,
+                    output: '',
+                    command: [],
+                    exitCode: null,
+                    durationMs: 0,
+                    stdout: '',
+                    stderr: '',
+                    errorCode: 'provider_exception',
+                    errorMessage: $exception->getMessage(),
+                );
+            }
         }
+
+        $result = $this->withPermissionMetadata($result, $permission);
 
         return $this->completeAttempt($job, $attempt, $result, $workerId);
     }
 
-    private function claimJob(string $workerId, ?string $providerOverride): ?AiJob
+    private function claimJob(string $workerId, ?string $providerOverride, ?string $traceId = null): ?AiJob
     {
-        return DB::transaction(function () use ($workerId, $providerOverride): ?AiJob {
+        return DB::transaction(function () use ($workerId, $providerOverride, $traceId): ?AiJob {
             $query = AiJob::query()
                 ->where('status', 'queued')
                 ->where('available_at', '<=', now())
@@ -67,6 +129,10 @@ class AiWorker
 
             if ($providerOverride) {
                 $query->where('provider', $providerOverride);
+            }
+
+            if ($traceId) {
+                $query->where('trace_id', $traceId);
             }
 
             /** @var AiJob|null $job */
@@ -197,6 +263,41 @@ class AiWorker
     {
         $responseHash = $result->output !== '' ? hash('sha256', $result->output) : null;
         $attemptStatus = $result->ok ? 'succeeded' : ($result->errorCode === 'timeout' ? 'timeout' : 'failed');
+        $job->refresh();
+
+        if ($job->status === 'cancelled') {
+            $attempt->update([
+                'command' => $result->command,
+                'command_hash' => $result->command ? hash('sha256', json_encode($result->command, JSON_THROW_ON_ERROR)) : null,
+                'response_hash' => $responseHash,
+                'status' => 'cancelled',
+                'exit_code' => $result->exitCode,
+                'duration_ms' => $result->durationMs,
+                'output_text' => Str::limit($result->output, 20000, ''),
+                'stdout_excerpt' => Str::limit($result->stdout, 4000, '...'),
+                'stderr_excerpt' => Str::limit($result->stderr, 4000, '...'),
+                'error_code' => 'cancelled_by_operator',
+                'error_message' => 'Resultado ignorado porque o operador cancelou o job durante a execução.',
+                'finished_at' => now(),
+                'metadata' => array_merge($result->metadata, [
+                    'ignored_provider_result' => true,
+                    'provider_result_ok' => $result->ok,
+                    'provider_error_code' => $result->errorCode,
+                ]),
+            ]);
+
+            $this->logger->event(
+                eventType: 'job_cancelled',
+                message: 'AI job provider result ignored because the job was cancelled.',
+                severity: 'warning',
+                provider: $attempt->provider,
+                job: $job,
+                attempt: $attempt,
+                workerId: $workerId,
+            );
+
+            return $job->load(['trace', 'attemptHistory']);
+        }
 
         $attempt->update([
             'command' => $result->command,
@@ -223,9 +324,46 @@ class AiWorker
                 'finished_at' => now(),
             ]);
 
+            try {
+                $this->clarifier->completeAiClarification($job->refresh());
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+
             if ($this->isCouncilJob($job)) {
-                $this->council->sync($job->trace()->firstOrFail());
+                $synced = $this->council->sync($job->trace()->firstOrFail());
+                if ($synced->status === 'succeeded' && $synced->response_text) {
+                    $this->conversation->recordAssistantMessage($synced, $synced->response_text, [
+                        'source' => 'ai_council_coordinator',
+                        'execution_policy' => 'dual_review',
+                    ]);
+                    $this->updateSessionStateForTrace($synced, $synced->response_text);
+                    $this->evaluateQuality($synced);
+                    $this->completeRemediationActions($synced);
+                }
                 $this->logger->event('job_succeeded', 'AI council job completed successfully.', 'info', $attempt->provider, $job, $attempt, workerId: $workerId);
+                $this->audit->record('ai_job_succeeded', [
+                    'subject_type' => 'ai_job',
+                    'subject_id' => $job->id,
+                    'summary' => "Job de conselho IA concluido por {$attempt->provider}.",
+                    'evidence' => [
+                        'agent_slug' => $job->agent_slug,
+                        'provider' => $attempt->provider,
+                        'model' => $attempt->model,
+                        'duration_ms' => $result->durationMs,
+                        'response_hash' => $responseHash,
+                        'result_text' => $result->output,
+                        'council_role' => data_get($job->payload, 'council_role'),
+                    ],
+                    'privacy' => $this->privacyFromJob($job),
+                    'refs' => [
+                        'trace_id' => $job->trace_id,
+                        'job_id' => $job->id,
+                        'attempt_id' => $attempt->id,
+                    ],
+                ]);
+
+                $this->emitImportantJobResult($job->refresh(), 'succeeded');
 
                 return $job->refresh()->load(['trace', 'attemptHistory']);
             }
@@ -240,12 +378,46 @@ class AiWorker
                 'completed_at' => now(),
             ]);
 
+            $trace = $job->trace?->refresh();
+            if ($trace?->response_text) {
+                $this->conversation->recordAssistantMessage($trace, $trace->response_text, [
+                    'source' => 'ai_worker',
+                    'attempt_id' => $attempt->id,
+                    'job_id' => $job->id,
+                ]);
+                $this->updateSessionStateForTrace($trace, $trace->response_text);
+                $this->evaluateQuality($trace);
+                $this->completeRemediationActions($trace);
+            }
+
             $this->logger->event('job_succeeded', 'AI job completed successfully.', 'info', $attempt->provider, $job, $attempt, workerId: $workerId);
+            $this->audit->record('ai_job_succeeded', [
+                'subject_type' => 'ai_job',
+                'subject_id' => $job->id,
+                'summary' => "Job de IA concluido por {$attempt->provider}.",
+                'evidence' => [
+                    'agent_slug' => $job->agent_slug,
+                    'provider' => $attempt->provider,
+                    'model' => $attempt->model,
+                    'duration_ms' => $result->durationMs,
+                    'response_hash' => $responseHash,
+                    'result_text' => $result->output,
+                ],
+                'privacy' => $this->privacyFromJob($job),
+                'refs' => [
+                    'trace_id' => $job->trace_id,
+                    'job_id' => $job->id,
+                    'attempt_id' => $attempt->id,
+                ],
+            ]);
+
+            $this->emitImportantJobResult($job->refresh(), 'succeeded');
 
             return $job->refresh()->load(['trace', 'attemptHistory']);
         }
 
-        $finalFailure = $job->attempts >= $job->max_attempts;
+        $nonRetryable = in_array($result->errorCode, ['permission_denied'], true);
+        $finalFailure = $nonRetryable || $job->attempts >= $job->max_attempts;
         $job->update([
             'status' => $finalFailure ? 'failed' : 'queued',
             'error_code' => $result->errorCode,
@@ -258,7 +430,10 @@ class AiWorker
         ]);
 
         if ($this->isCouncilJob($job)) {
-            $this->council->sync($job->trace()->firstOrFail());
+            $synced = $this->council->sync($job->trace()->firstOrFail());
+            if ($finalFailure && $synced->status === 'failed') {
+                $this->completeRemediationActions($synced);
+            }
             $this->logger->event(
                 eventType: $finalFailure ? 'job_failed' : 'job_requeued',
                 message: $finalFailure ? 'AI council job failed permanently.' : 'AI council job failed and was requeued.',
@@ -269,6 +444,31 @@ class AiWorker
                 metadata: ['error_code' => $result->errorCode],
                 workerId: $workerId,
             );
+            $this->audit->record($finalFailure ? 'ai_job_failed' : 'ai_job_requeued', [
+                'subject_type' => 'ai_job',
+                'subject_id' => $job->id,
+                'severity' => $finalFailure ? 'error' : 'warning',
+                'summary' => $finalFailure ? 'Job de conselho IA falhou permanentemente.' : 'Job de conselho IA falhou e foi reenfileirado.',
+                'evidence' => [
+                    'agent_slug' => $job->agent_slug,
+                    'provider' => $attempt->provider,
+                    'model' => $attempt->model,
+                    'error_code' => $result->errorCode,
+                    'error_message' => $result->errorMessage,
+                    'stderr_excerpt' => $result->stderr,
+                    'council_role' => data_get($job->payload, 'council_role'),
+                ],
+                'privacy' => $this->privacyFromJob($job),
+                'refs' => [
+                    'trace_id' => $job->trace_id,
+                    'job_id' => $job->id,
+                    'attempt_id' => $attempt->id,
+                ],
+            ]);
+
+            if ($finalFailure) {
+                $this->emitImportantJobResult($job->refresh(), 'failed');
+            }
 
             return $job->refresh()->load(['trace', 'attemptHistory']);
         }
@@ -284,6 +484,10 @@ class AiWorker
                 'last_error_message' => $result->errorMessage,
             ]),
         ]);
+
+        if ($finalFailure && $job->trace) {
+            $this->completeRemediationActions($job->trace->refresh());
+        }
 
         $eventType = match ($result->errorCode) {
             'timeout' => 'timeout',
@@ -303,7 +507,147 @@ class AiWorker
             workerId: $workerId,
         );
 
+        $this->audit->record($finalFailure ? 'ai_job_failed' : 'ai_job_requeued', [
+            'subject_type' => 'ai_job',
+            'subject_id' => $job->id,
+            'severity' => $finalFailure ? 'error' : 'warning',
+            'summary' => $finalFailure ? 'Job de IA falhou permanentemente.' : 'Job de IA falhou e foi reenfileirado.',
+            'evidence' => [
+                'agent_slug' => $job->agent_slug,
+                'provider' => $attempt->provider,
+                'model' => $attempt->model,
+                'error_code' => $result->errorCode,
+                'error_message' => $result->errorMessage,
+                'stderr_excerpt' => $result->stderr,
+            ],
+            'privacy' => $this->privacyFromJob($job),
+            'refs' => [
+                'trace_id' => $job->trace_id,
+                'job_id' => $job->id,
+                'attempt_id' => $attempt->id,
+            ],
+        ]);
+
+        if ($finalFailure) {
+            $this->emitImportantJobResult($job->refresh(), 'failed');
+        }
+
         return $job->refresh()->load(['trace', 'attemptHistory']);
+    }
+
+    private function applyPermissionRuntime(AiJob $job, AiPermissionDecision $permission): AiJob
+    {
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $toolPermissions = is_array(data_get($payload, 'tool_permissions'))
+            ? data_get($payload, 'tool_permissions')
+            : [];
+        $payload['tool_permissions'] = array_merge($toolPermissions, $permission->runtimePayload());
+
+        $job->forceFill(['payload' => $payload])->save();
+
+        return $job->refresh()->load('trace');
+    }
+
+    private function applyPendingSteer(AiJob $job): AiJob
+    {
+        $trace = $job->trace ?: $job->trace()->first();
+        $thread = $trace?->thread()->first();
+        $session = $trace?->session()->first();
+
+        if (! $trace || ! $thread) {
+            return $job;
+        }
+
+        $steer = $this->states->consumePendingSteer($thread, $session);
+        if (! is_string($steer) || trim($steer) === '') {
+            return $job;
+        }
+
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $metadata = is_array($job->metadata) ? $job->metadata : [];
+        $steerPayload = [
+            'content' => Str::limit(trim($steer), 4000, '...'),
+            'injected_at' => now()->toJSON(),
+            'source' => 'ai_session_state.pending_steer',
+        ];
+
+        $job->update([
+            'prompt' => $this->promptWithPendingSteer($job->prompt, $steerPayload['content']),
+            'payload' => array_merge($payload, [
+                'pending_steer' => $steerPayload,
+            ]),
+            'metadata' => array_merge($metadata, [
+                'pending_steer_injected' => true,
+                'pending_steer_injected_at' => $steerPayload['injected_at'],
+            ]),
+        ]);
+
+        $trace->update([
+            'metadata' => array_merge($trace->metadata ?? [], [
+                'pending_steer' => [
+                    'injected' => true,
+                    'injected_at' => $steerPayload['injected_at'],
+                ],
+            ]),
+        ]);
+
+        return $job->refresh()->load('trace');
+    }
+
+    private function promptWithPendingSteer(string $prompt, string $steer): string
+    {
+        return rtrim($prompt)."\n\n# Pedido adicional do operador\n\n[STEER] {$steer}\n";
+    }
+
+    private function withPermissionMetadata(AiProviderResult $result, AiPermissionDecision $permission): AiProviderResult
+    {
+        return new AiProviderResult(
+            ok: $result->ok,
+            output: $result->output,
+            command: $result->command,
+            exitCode: $result->exitCode,
+            durationMs: $result->durationMs,
+            stdout: $result->stdout,
+            stderr: $result->stderr,
+            errorCode: $result->errorCode,
+            errorMessage: $result->errorMessage,
+            metadata: array_merge($result->metadata, ['permission' => $permission->toArray()]),
+        );
+    }
+
+    private function emitStreamEvent(
+        AiJob $job,
+        ?AiJobAttempt $attempt,
+        string $eventType,
+        string $name,
+        string $content = '',
+        array $metadata = [],
+        ?string $channel = null,
+        ?callable $onStream = null,
+    ): void {
+        $metadata = array_merge(['name' => $name], $metadata);
+        $recorded = $this->stream->record($job, $attempt, $eventType, $content, $metadata, $channel);
+        $onStream?->__invoke([
+            'type' => $eventType,
+            'name' => $name,
+            'content' => $content,
+            'channel' => $channel,
+            'metadata' => $metadata,
+            'sequence' => $recorded?->sequence,
+            'job_id' => $job->id,
+            'trace_id' => $job->trace_id,
+            'attempt_id' => $attempt?->id,
+            'occurred_at' => now()->toJSON(),
+        ]);
+    }
+
+    private function emitImportantJobResult(AiJob $job, string $status): void
+    {
+        try {
+            $this->jobResults->emitIfImportant($job, $status);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     private function isCouncilJob(AiJob $job): bool
@@ -311,5 +655,65 @@ class AiWorker
         return $job->kind === 'council'
             || data_get($job->payload, 'execution_policy') === 'dual_review'
             || data_get($job->metadata, 'execution_policy') === 'dual_review';
+    }
+
+    private function privacyFromJob(AiJob $job): array
+    {
+        $privacy = data_get($job->payload, 'privacy', data_get($job->metadata, 'privacy'));
+
+        return is_array($privacy) ? $privacy : [];
+    }
+
+    private function updateSessionStateForTrace(AiTrace $trace, string $response): void
+    {
+        $thread = $trace->thread()->first();
+        $session = $trace->session()->first();
+        if (! $thread || ! $session) {
+            return;
+        }
+
+        $this->states->updateForAssistantResponse($thread, $session, $response, [
+            'trace_id' => $trace->id,
+            'provider' => $trace->provider,
+        ]);
+    }
+
+    private function evaluateQuality(AiTrace $trace): void
+    {
+        try {
+            $evaluation = $this->quality->evaluateTrace($trace);
+            if ($evaluation) {
+                $this->qualityActions->planFor($trace, $evaluation);
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    private function completeRemediationActions(AiTrace $trace): void
+    {
+        if (! Schema::hasTable('ai_quality_actions')) {
+            return;
+        }
+
+        if (! in_array($trace->status, ['succeeded', 'failed', 'cancelled'], true)) {
+            return;
+        }
+
+        AiQualityAction::query()
+            ->where('remediation_trace_id', $trace->id)
+            ->whereIn('status', ['queued', 'running'])
+            ->get()
+            ->each(function (AiQualityAction $action) use ($trace): void {
+                $action->update([
+                    'status' => $trace->status === 'succeeded' ? 'succeeded' : 'failed',
+                    'result' => array_merge($action->result ?? [], [
+                        'remediation_trace_status' => $trace->status,
+                        'remediation_quality' => data_get($trace->metadata, 'quality'),
+                    ]),
+                    'error_message' => $trace->status === 'succeeded' ? null : 'Remediation trace finished without success.',
+                    'completed_at' => now(),
+                ]);
+            });
     }
 }

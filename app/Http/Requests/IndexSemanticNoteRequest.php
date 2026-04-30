@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\AtlasDomainRegistry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -20,7 +21,7 @@ class IndexSemanticNoteRequest extends FormRequest
             'type.*' => ['string', Rule::in(['source_note', 'mental_model', 'principle', 'hypothesis', 'practice', 'synthesis', 'decision_identity', 'cognitive_game'])],
             'status' => ['nullable', 'array'],
             'status.*' => ['string', Rule::in(['inbox', 'draft', 'active', 'testing', 'validated', 'archived', 'invalid'])],
-            'domain' => ['nullable', 'string', 'max:80'],
+            'domain' => ['nullable', 'string', 'max:80', Rule::in(app(AtlasDomainRegistry::class)->activeSlugs())],
             'trigger_signal' => ['nullable', 'string', 'max:120'],
             'since' => ['nullable', 'date'],
         ];

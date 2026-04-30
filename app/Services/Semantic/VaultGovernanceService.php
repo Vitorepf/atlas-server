@@ -40,6 +40,39 @@ class VaultGovernanceService
             ->where('created_at', '>=', now()->subDays(7))
             ->where('usefulness_score', '>=', 4)
             ->count();
+        $activatedNotes7d = SemanticNoteActivation::query()
+            ->where('created_at', '>=', now()->subDays(7))
+            ->distinct('note_id')
+            ->count('note_id');
+        $acted7d = SemanticNoteActivation::query()
+            ->where('created_at', '>=', now()->subDays(7))
+            ->whereNotNull('acted_at')
+            ->count();
+        $utilityRate = $activations7d > 0 ? round($useful7d / $activations7d, 3) : 0.0;
+        $coverageRate = $active > 0 ? round($activatedNotes7d / $active, 3) : 0.0;
+        $responseRate = $activations7d > 0 ? round($acted7d / $activations7d, 3) : 0.0;
+        $cognitiveReturn = [
+            'version' => 'cron-v1',
+            'score' => $this->cognitiveReturnScore(
+                active: $active,
+                stale: $stale,
+                withoutTriggers: $withoutTriggers,
+                activations7d: $activations7d,
+                useful7d: $useful7d,
+                utilityRate: $utilityRate,
+                coverageRate: $coverageRate,
+                responseRate: $responseRate,
+            ),
+            'label' => $this->cognitiveReturnLabel($activations7d, $useful7d, $utilityRate),
+            'useful_activations_7d' => $useful7d,
+            'activations_7d' => $activations7d,
+            'utility_rate_7d' => $utilityRate,
+            'response_rate_7d' => $responseRate,
+            'active_note_coverage_7d' => $coverageRate,
+            'activated_notes_7d' => $activatedNotes7d,
+            'notes_per_useful_activation_7d' => $useful7d > 0 ? round(max(1, $active) / $useful7d, 2) : null,
+            'interpretation' => $this->cognitiveReturnInterpretation($activations7d, $useful7d, $utilityRate),
+        ];
 
         [$state, $recommendations] = $this->stateAndRecommendations(
             total: $total,
@@ -67,7 +100,10 @@ class VaultGovernanceService
                 'useful_activations_7d' => $useful7d,
                 'health_state' => $state,
                 'recommendations' => Metadata::forStorage($recommendations),
-                'metadata' => Metadata::forStorage(['engine' => 'vault-governance-v1']),
+                'metadata' => Metadata::forStorage([
+                    'engine' => 'vault-governance-v2',
+                    'cognitive_return' => $cognitiveReturn,
+                ]),
             ],
         );
     }
@@ -123,5 +159,67 @@ class VaultGovernanceService
         }
 
         return [$state, $recommendations];
+    }
+
+    private function cognitiveReturnScore(
+        int $active,
+        int $stale,
+        int $withoutTriggers,
+        int $activations7d,
+        int $useful7d,
+        float $utilityRate,
+        float $coverageRate,
+        float $responseRate,
+    ): int {
+        if ($active === 0) {
+            return 0;
+        }
+
+        $score = 10
+            + min(30, $useful7d * 8)
+            + (int) round($utilityRate * 28)
+            + (int) round($coverageRate * 18)
+            + (int) round($responseRate * 10)
+            - min(18, $stale * 2)
+            - min(14, $withoutTriggers * 2);
+
+        if ($activations7d > 12 && $utilityRate < 0.25) {
+            $score -= 12;
+        }
+
+        return max(0, min(100, $score));
+    }
+
+    private function cognitiveReturnLabel(int $activations7d, int $useful7d, float $utilityRate): string
+    {
+        if ($activations7d === 0) {
+            return 'sem sinal';
+        }
+        if ($useful7d >= 3 && $utilityRate >= 0.5) {
+            return 'composto';
+        }
+        if ($useful7d > 0) {
+            return 'aquecendo';
+        }
+        if ($activations7d > 8) {
+            return 'ruido';
+        }
+
+        return 'frio';
+    }
+
+    private function cognitiveReturnInterpretation(int $activations7d, int $useful7d, float $utilityRate): string
+    {
+        if ($activations7d === 0) {
+            return 'Notas ainda nao retornaram no contexto; revisar gatilhos e criar ativacoes pequenas.';
+        }
+        if ($useful7d === 0) {
+            return 'Houve ativacao, mas nenhuma utilidade registrada; reduzir volume ou ajustar sinais.';
+        }
+        if ($utilityRate >= 0.5) {
+            return 'Memoria esta retornando em contexto; manter curadoria e feedback.';
+        }
+
+        return 'Existe retorno, mas a precisao ainda precisa melhorar com feedback e links.';
     }
 }

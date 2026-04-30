@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateBehaviorRequest;
 use App\Http\Resources\BehaviorResource;
 use App\Models\Behavior;
 use App\Services\BitaculaService;
+use App\Support\BehaviorCategories;
 use App\Support\Metadata;
 use Illuminate\Http\JsonResponse;
 
@@ -27,6 +28,10 @@ class BehaviorController extends Controller
 
         if (isset($data['category'])) {
             $query->where('category', $data['category']);
+        }
+
+        if (isset($data['lifecycle_status'])) {
+            $query->where('lifecycle_status', $data['lifecycle_status']);
         }
 
         if (isset($data['active'])) {
@@ -85,7 +90,16 @@ class BehaviorController extends Controller
     {
         $data = $request->validated();
 
-        foreach (['source_capture_ids', 'activation_rules', 'metadata'] as $key) {
+        if (array_key_exists('category', $data)) {
+            $data['category'] = BehaviorCategories::canonicalize($data['category']);
+        }
+
+        if (($data['lifecycle_status'] ?? null) === 'archived') {
+            $data['archived_at'] = $data['archived_at'] ?? now();
+            unset($data['lifecycle_status']);
+        }
+
+        foreach (['source_capture_ids', 'activation_rules', 'derived_from', 'metadata'] as $key) {
             if (array_key_exists($key, $data)) {
                 $data[$key] = Metadata::forStorage($data[$key]);
             }

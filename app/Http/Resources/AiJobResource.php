@@ -38,6 +38,7 @@ class AiJobResource extends JsonResource
             'metadata' => Metadata::forResponse($this->metadata),
             'trace' => $this->whenLoaded('trace', fn () => new AiTraceResource($this->trace)),
             'attempt_history' => $this->whenLoaded('attemptHistory', fn () => AiJobAttemptResource::collection($this->attemptHistory)->resolve()),
+            'stream_events' => $this->whenLoaded('streamEvents', fn () => AiStreamEventResource::collection($this->streamEvents)->resolve()),
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
         ];

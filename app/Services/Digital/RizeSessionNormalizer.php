@@ -53,7 +53,8 @@ class RizeSessionNormalizer
         $sourceIdentifier = $this->sourceIdentifier($data);
         $sourceName = $this->sourceName($data, $sourceIdentifier);
         $sourceKind = $this->sourceKindFor($data, $sourceIdentifier);
-        $mapping = $this->mappingFor($sourceIdentifier, $sourceKind, $startedAt);
+        $urlDomain = $this->urlDomain($data);
+        $mapping = $this->mappingFor($sourceIdentifier, $sourceKind, $urlDomain, $startedAt);
 
         return [
             'client_id' => $this->uuidFromHash('rize-session:'.($sourceEventId ?: json_encode([$sourceIdentifier, $startedAt->toJSON(), $endedAt->toJSON()]))),
@@ -72,30 +73,79 @@ class RizeSessionNormalizer
             'focus_mode_active' => $this->firstString($data, ['focus_mode', 'focusMode', 'mode', 'focusSession.name']),
             'project_name' => $this->firstString($data, ['project_name', 'projectName', 'project.name', 'project']),
             'task_name' => $this->firstString($data, ['task_name', 'taskName', 'task.name', 'task']),
-            'url_domain' => $this->urlDomain($data),
+            'url_domain' => $urlDomain,
             'productivity_score' => $this->firstNumber($data, ['productivity_score', 'productivityScore', 'score', 'productivity']),
             'raw_payload' => Metadata::forStorage($payload),
             'metadata' => Metadata::forStorage([
                 'normalized_by' => $origin,
                 'imported_at' => now()->toJSON(),
+                'classification' => $mapping ? [
+                    'status' => 'mapped',
+                    'mapping_id' => $mapping->id,
+                    'classified_by' => $mapping->classified_by,
+                    'confidence' => $mapping->confidence,
+                    'source_identifier' => $mapping->source_identifier,
+                    'source_kind' => $mapping->source_kind,
+                ] : [
+                    'status' => 'unclassified',
+                    'confidence' => null,
+                ],
             ]),
         ];
     }
 
-    private function mappingFor(string $sourceIdentifier, string $sourceKind, CarbonImmutable $at): ?DigitalCategoryMapping
+    private function mappingFor(string $sourceIdentifier, string $sourceKind, ?string $urlDomain, CarbonImmutable $at): ?DigitalCategoryMapping
     {
+        $identifierCandidates = $this->identifierCandidates($sourceIdentifier, $urlDomain);
+        $kindCandidates = array_values(array_unique(array_filter([
+            $sourceKind,
+            $urlDomain ? 'domain' : null,
+            'unknown',
+        ])));
+
         return DigitalCategoryMapping::query()
-            ->where('source_identifier', $sourceIdentifier)
-            ->where(function ($query) use ($sourceKind): void {
-                $query->where('source_kind', $sourceKind)->orWhere('source_kind', 'unknown');
-            })
+            ->whereIn('source_identifier', $identifierCandidates)
+            ->whereIn('source_kind', $kindCandidates)
             ->where('valid_from', '<=', $at)
             ->where(function ($query) use ($at): void {
                 $query->whereNull('valid_until')->orWhere('valid_until', '>', $at);
             })
-            ->orderByRaw('CASE WHEN source_kind = ? THEN 0 ELSE 1 END', [$sourceKind])
+            ->orderByRaw(
+                'CASE WHEN source_identifier = ? AND source_kind = ? THEN 0 WHEN source_identifier = ? THEN 1 WHEN source_kind = ? THEN 2 ELSE 3 END',
+                [$sourceIdentifier, $sourceKind, $sourceIdentifier, $sourceKind],
+            )
             ->orderByDesc('valid_from')
             ->first();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function identifierCandidates(string $sourceIdentifier, ?string $urlDomain): array
+    {
+        $candidates = [$sourceIdentifier, $this->normalizeIdentifier($sourceIdentifier)];
+
+        if ($urlDomain) {
+            $candidates[] = $urlDomain;
+            $candidates[] = $this->normalizeIdentifier($urlDomain);
+        }
+
+        $host = parse_url($sourceIdentifier, PHP_URL_HOST);
+        if (is_string($host) && $host !== '') {
+            $candidates[] = $host;
+            $candidates[] = $this->normalizeIdentifier($host);
+        }
+
+        return array_values(array_unique(array_filter($candidates, fn (string $value): bool => $value !== '')));
+    }
+
+    private function normalizeIdentifier(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        $normalized = preg_replace('/^https?:\/\//', '', $normalized) ?? $normalized;
+        $normalized = preg_replace('/^www\./', '', $normalized) ?? $normalized;
+
+        return rtrim($normalized, '/');
     }
 
     private function sourceIdentifier(array $data): string
@@ -157,8 +207,20 @@ class RizeSessionNormalizer
             return $kind;
         }
 
+        if ($this->firstString($data, ['app_bundle_id', 'appBundleId', 'bundle_id', 'bundleId', 'app.bundleId', 'application.bundleId', 'app.name', 'appName']) !== null) {
+            return 'app';
+        }
+
         if ($this->firstString($data, ['project.name', 'project']) !== null) {
             return 'project';
+        }
+
+        if ($this->firstString($data, ['url', 'website.url']) !== null) {
+            return 'url';
+        }
+
+        if ($this->firstString($data, ['domain', 'url_domain', 'urlDomain', 'website.domain', 'site.domain']) !== null) {
+            return 'domain';
         }
 
         if (filter_var($sourceIdentifier, FILTER_VALIDATE_URL)) {

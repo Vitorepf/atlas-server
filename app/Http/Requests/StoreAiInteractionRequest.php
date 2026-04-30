@@ -11,6 +11,9 @@ class StoreAiInteractionRequest extends FormRequest
         return [
             'input_text' => ['required', 'string', 'max:50000'],
             'client_id' => ['nullable', 'uuid'],
+            'thread_id' => ['nullable', 'uuid', 'exists:ai_threads,id'],
+            'session_id' => ['nullable', 'uuid', 'exists:ai_sessions,id'],
+            'new_thread' => ['nullable', 'boolean'],
             'agent_slug' => ['nullable', 'string', 'max:80', 'regex:/^[a-z0-9][a-z0-9_-]*$/'],
             'provider' => ['nullable', 'string', 'in:claude_cli,codex_cli,claude_codex'],
             'model' => ['nullable', 'string', 'max:120'],

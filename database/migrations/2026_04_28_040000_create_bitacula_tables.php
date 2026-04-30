@@ -15,15 +15,32 @@ return new class extends Migration
                   name TEXT NOT NULL,
                   slug TEXT NOT NULL,
                   category TEXT NOT NULL DEFAULT 'outro'
-                    CHECK (category IN ('bebida', 'alimentacao', 'conflito', 'sono', 'treino', 'suplemento', 'social', 'trabalho', 'outro')),
+                    CHECK (category IN ('substancias', 'alimentacao', 'sono_ritmo', 'treino_movimento', 'recuperacao', 'digital', 'trabalho_cognicao', 'relacional', 'saude_sintoma', 'ambiente_rotina', 'outro', 'bebida', 'conflito', 'sono', 'treino', 'suplemento', 'social', 'trabalho', 'saude')),
                   input_type TEXT NOT NULL DEFAULT 'yes_no'
                     CHECK (input_type IN ('yes_no', 'scale_1_5', 'count_int', 'text_short')),
                   question_text TEXT NOT NULL,
                   default_value TEXT NOT NULL DEFAULT 'no',
+                  parent_factor TEXT,
+                  factor_condition TEXT,
+                  target_outcomes JSONB NOT NULL DEFAULT '[]'::jsonb,
+                  expected_lag TEXT,
+                  expected_direction TEXT,
+                  granularity_level TEXT NOT NULL DEFAULT 'binary'
+                    CHECK (granularity_level IN ('binary', 'intensity', 'protocol')),
+                  sensitivity_level TEXT NOT NULL DEFAULT 'normal'
+                    CHECK (sensitivity_level IN ('normal', 'sensitive', 'relational', 'medical')),
+                  derived_from JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  operator_confirmed BOOLEAN NOT NULL DEFAULT TRUE,
                   created_by TEXT NOT NULL DEFAULT 'operator'
                     CHECK (created_by IN ('operator', 'ai_suggestion', 'import')),
                   source_capture_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
                   activation_rules JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  lifecycle_status TEXT NOT NULL DEFAULT 'active'
+                    CHECK (lifecycle_status IN ('active', 'baseline', 'paused', 'dormant', 'experiment', 'manual_only')),
+                  paused_until TIMESTAMPTZ,
+                  last_prompted_at DATE,
+                  prompt_cadence_days INTEGER NOT NULL DEFAULT 1 CHECK (prompt_cadence_days BETWEEN 1 AND 30),
+                  auto_suppress_reason TEXT,
                   show_in_morning_briefing BOOLEAN NOT NULL DEFAULT TRUE,
                   priority_score INTEGER NOT NULL DEFAULT 0,
                   streak_yes INTEGER NOT NULL DEFAULT 0 CHECK (streak_yes >= 0),
@@ -46,6 +63,7 @@ return new class extends Migration
 
             DB::statement('CREATE UNIQUE INDEX behaviors_slug_active_unique ON behaviors(slug) WHERE deleted_at IS NULL;');
             DB::statement('CREATE INDEX idx_behaviors_briefing ON behaviors(show_in_morning_briefing, priority_score DESC, activated_at DESC) WHERE deleted_at IS NULL AND archived_at IS NULL;');
+            DB::statement('CREATE INDEX idx_behaviors_parent_factor ON behaviors(parent_factor, factor_condition) WHERE deleted_at IS NULL;');
             DB::statement('CREATE INDEX idx_behaviors_updated_at ON behaviors(updated_at DESC);');
             DB::statement(<<<'SQL'
                 CREATE TRIGGER trg_behaviors_updated_at
@@ -63,13 +81,22 @@ return new class extends Migration
                   value TEXT NOT NULL,
                   numeric_value NUMERIC(10, 3),
                   note TEXT,
+                  occurred_at TIMESTAMPTZ,
+                  occurred_timezone TEXT,
+                  quantity_numeric NUMERIC(10, 3),
+                  quantity_unit TEXT,
+                  intensity INTEGER CHECK (intensity IS NULL OR intensity BETWEEN 1 AND 5),
+                  context JSONB NOT NULL DEFAULT '{}'::jsonb,
                   recorded_at TIMESTAMPTZ NOT NULL,
                   recorded_timezone TEXT NOT NULL,
                   source TEXT NOT NULL DEFAULT 'manual'
-                    CHECK (source IN ('morning_briefing', 'voice_capture', 'manual', 'retroactive', 'import')),
+                    CHECK (source IN ('morning_briefing', 'voice_capture', 'manual', 'retroactive', 'import', 'inferred')),
                   source_capture_id UUID REFERENCES captures(id) ON DELETE SET NULL,
                   auto_marked BOOLEAN NOT NULL DEFAULT FALSE,
                   confirmed_by_operator BOOLEAN NOT NULL DEFAULT TRUE,
+                  confidence NUMERIC(4, 3),
+                  inferred_by TEXT,
+                  consent_snapshot_id UUID,
                   reverted_at TIMESTAMPTZ,
                   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
                   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

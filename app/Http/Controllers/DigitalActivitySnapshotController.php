@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateDigitalActivitySnapshotRequest;
 use App\Http\Resources\DigitalActivitySnapshotResource;
 use App\Models\DigitalActivitySnapshot;
 use App\Services\Digital\DigitalActivitySnapshotBuilder;
+use App\Services\Digital\DigitalActivityQuality;
 use App\Support\Metadata;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +16,10 @@ use Illuminate\Http\Request;
 
 class DigitalActivitySnapshotController extends Controller
 {
+    public function __construct(private readonly DigitalActivityQuality $quality)
+    {
+    }
+
     public function rebuild(Request $request, DigitalActivitySnapshotBuilder $builder): JsonResponse
     {
         $data = $request->validate([
@@ -135,6 +140,8 @@ class DigitalActivitySnapshotController extends Controller
 
     private function preparePayload(array $data): array
     {
+        $data = $this->quality->enrichPayload($data);
+
         foreach (['focus_mode_active_min', 'category_breakdown', 'source_breakdown', 'raw_rize_data', 'raw_screentime_data', 'metadata'] as $field) {
             if (array_key_exists($field, $data)) {
                 $data[$field] = Metadata::forStorage($data[$field]);

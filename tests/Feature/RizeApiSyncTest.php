@@ -72,6 +72,8 @@ class RizeApiSyncTest extends TestCase
             'snapshot_timezone' => 'America/Sao_Paulo',
             'signal_count' => 1,
             'total_screen_time_min' => 35,
+            'deep_work_total_min' => null,
+            'algorithmic_input_min' => null,
         ]);
     }
 }

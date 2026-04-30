@@ -28,6 +28,11 @@ class DigitalActivitySnapshotBuilder
         $categoryBreakdown = $this->sumByCategory($sessions);
         $sourceBreakdown = $this->sumBySource($sessions);
         $focusModeBreakdown = $this->sumByFocusMode($sessions);
+        $classifiedSessions = $sessions->filter(fn (DigitalSession $session): bool => $session->category_class_at_time !== null);
+        $classifiedSeconds = $this->sumSessionSeconds($classifiedSessions, $start, $end);
+        $totalSeconds = $this->sumSessionSeconds($sessions, $start, $end);
+        $hasClassification = $classifiedSeconds > 0;
+        $quality = $this->qualityMetadata($sessions, $classifiedSessions, $totalSeconds, $classifiedSeconds);
         $deepWorkSessions = $sessions
             ->filter(fn (DigitalSession $session): bool => (int) $session->category_class_at_time === 1 && $this->secondsWithinWindow($session, $start, $end) >= 25 * 60);
 
@@ -38,16 +43,16 @@ class DigitalActivitySnapshotBuilder
             'snapshot_timezone' => $timezone,
             'computed_at' => now(),
             'signal_count' => $sessions->count(),
-            'total_screen_time_min' => $this->roundMinutes($this->sumSessionSeconds($sessions, $start, $end)),
-            'deep_work_sessions_count' => $deepWorkSessions->count(),
-            'deep_work_total_min' => $this->roundMinutes($this->sumSessionSeconds($deepWorkSessions, $start, $end)),
-            'curated_input_min' => ($categoryBreakdown['1'] ?? 0) + ($categoryBreakdown['3'] ?? 0),
-            'algorithmic_input_min' => $categoryBreakdown['4'] ?? 0,
-            'intentional_entertainment_min' => $categoryBreakdown['5'] ?? 0,
-            'default_entertainment_min' => $categoryBreakdown['6'] ?? 0,
-            'communication_primary_min' => $categoryBreakdown['7'] ?? 0,
-            'communication_shallow_min' => $categoryBreakdown['8'] ?? 0,
-            'market_min' => $categoryBreakdown['9'] ?? 0,
+            'total_screen_time_min' => $this->roundMinutes($totalSeconds),
+            'deep_work_sessions_count' => $hasClassification ? $deepWorkSessions->count() : null,
+            'deep_work_total_min' => $hasClassification ? $this->roundMinutes($this->sumSessionSeconds($deepWorkSessions, $start, $end)) : null,
+            'curated_input_min' => $hasClassification ? ($categoryBreakdown['1'] ?? 0) + ($categoryBreakdown['3'] ?? 0) : null,
+            'algorithmic_input_min' => $hasClassification ? $categoryBreakdown['4'] ?? 0 : null,
+            'intentional_entertainment_min' => $hasClassification ? $categoryBreakdown['5'] ?? 0 : null,
+            'default_entertainment_min' => $hasClassification ? $categoryBreakdown['6'] ?? 0 : null,
+            'communication_primary_min' => $hasClassification ? $categoryBreakdown['7'] ?? 0 : null,
+            'communication_shallow_min' => $hasClassification ? $categoryBreakdown['8'] ?? 0 : null,
+            'market_min' => $hasClassification ? $categoryBreakdown['9'] ?? 0 : null,
             'focus_mode_active_min' => Metadata::forStorage($focusModeBreakdown),
             'category_breakdown' => Metadata::forStorage($categoryBreakdown),
             'source_breakdown' => Metadata::forStorage($sourceBreakdown),
@@ -58,6 +63,22 @@ class DigitalActivitySnapshotBuilder
             'metadata' => Metadata::forStorage([
                 'builder' => 'digital-activity-snapshot-v1',
                 'recomputed_at' => now()->toJSON(),
+                'coverage' => [
+                    'session_count' => $sessions->count(),
+                    'classified_session_count' => $classifiedSessions->count(),
+                    'unclassified_session_count' => $sessions->count() - $classifiedSessions->count(),
+                    'total_minutes' => $this->roundMinutes($totalSeconds),
+                    'classified_minutes' => $this->roundMinutes($classifiedSeconds),
+                    'classification_ratio' => $totalSeconds > 0 ? round($classifiedSeconds / $totalSeconds, 3) : null,
+                ],
+                'capabilities' => [
+                    'screen_time' => $sessions->count() > 0,
+                    'category_classification' => $hasClassification,
+                    'pickups' => false,
+                    'notifications' => false,
+                    'first_use_after_wake' => false,
+                ],
+                'quality' => $quality,
             ]),
         ];
 
@@ -108,6 +129,72 @@ class DigitalActivitySnapshotBuilder
             ->map(fn (Collection $items): int => $this->roundMinutes($this->sumSessionSecondsForCurrentWindow($items)))
             ->sortKeys()
             ->all();
+    }
+
+    /**
+     * @param  Collection<int, DigitalSession>  $sessions
+     * @param  Collection<int, DigitalSession>  $classifiedSessions
+     */
+    private function qualityMetadata(Collection $sessions, Collection $classifiedSessions, int $totalSeconds, int $classifiedSeconds): array
+    {
+        $classificationRatio = $totalSeconds > 0 ? $classifiedSeconds / $totalSeconds : null;
+        $classificationConfidence = $this->weightedClassificationConfidence($classifiedSessions);
+        $hasNativeIphoneSource = $sessions->contains(fn (DigitalSession $session): bool => $session->source === 'screentime');
+        $warnings = [];
+
+        if ($sessions->isEmpty()) {
+            $warnings[] = 'no_digital_sessions';
+        }
+
+        if ($totalSeconds > 0 && ($classificationRatio ?? 0) <= 0) {
+            $warnings[] = 'no_category_classification';
+        } elseif (($classificationRatio ?? 1) < 0.8) {
+            $warnings[] = 'partial_category_classification';
+        }
+
+        if ($classificationConfidence !== null && $classificationConfidence < 0.7) {
+            $warnings[] = 'low_mapping_confidence';
+        }
+
+        if (! $hasNativeIphoneSource) {
+            $warnings[] = 'native_iphone_source_absent';
+        }
+
+        $score = ($totalSeconds > 0 ? 35 : 0)
+            + (($classificationRatio ?? 0) * 35)
+            + (($classificationConfidence ?? 0) * 20)
+            + ($hasNativeIphoneSource ? 10 : 0);
+
+        if (! $hasNativeIphoneSource) {
+            $score = min($score, 72);
+        }
+
+        return [
+            'score' => (int) round(max(0, min(100, $score))),
+            'status' => $score >= 80 ? 'high' : ($score >= 50 ? 'partial' : 'low'),
+            'classification_confidence_avg' => $classificationConfidence !== null ? round($classificationConfidence, 3) : null,
+            'has_native_iphone_source' => $hasNativeIphoneSource,
+            'warnings' => $warnings,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, DigitalSession>  $sessions
+     */
+    private function weightedClassificationConfidence(Collection $sessions): ?float
+    {
+        $weighted = 0.0;
+        $weight = 0.0;
+
+        foreach ($sessions as $session) {
+            $seconds = max(1, (int) $session->duration_seconds);
+            $confidence = data_get($session->metadata, 'classification.confidence');
+            $confidence = is_numeric($confidence) ? (float) $confidence : 0.6;
+            $weighted += max(0, min(1, $confidence)) * $seconds;
+            $weight += $seconds;
+        }
+
+        return $weight > 0 ? $weighted / $weight : null;
     }
 
     /**

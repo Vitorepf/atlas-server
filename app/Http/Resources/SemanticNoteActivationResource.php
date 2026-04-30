@@ -22,6 +22,7 @@ class SemanticNoteActivationResource extends JsonResource
             'acted_at' => $this->acted_at?->toJSON(),
             'dismissed_at' => $this->dismissed_at?->toJSON(),
             'usefulness_score' => $this->usefulness_score,
+            'feedback_action' => $this->feedback_action,
             'operator_feedback' => $this->operator_feedback,
             'metadata' => Metadata::forResponse($this->metadata),
             'created_at' => $this->created_at?->toJSON(),

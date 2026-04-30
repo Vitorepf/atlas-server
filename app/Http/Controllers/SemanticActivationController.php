@@ -51,6 +51,7 @@ class SemanticActivationController extends Controller
         return new SemanticNoteActivationResource($engine->recordFeedback(
             activation: $activation,
             score: (int) $data['usefulness_score'],
+            action: $data['feedback_action'] ?? null,
             feedback: $data['operator_feedback'] ?? null,
         )->load('note'));
     }

@@ -20,6 +20,7 @@ class SemanticNoteActivation extends Model
         'acted_at',
         'dismissed_at',
         'usefulness_score',
+        'feedback_action',
         'operator_feedback',
         'metadata',
     ];

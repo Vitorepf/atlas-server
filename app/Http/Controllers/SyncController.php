@@ -20,15 +20,23 @@ use App\Models\DigitalSession;
 use App\Models\HealthSnapshot;
 use App\Models\PassiveSignal;
 use App\Models\SyncLog;
+use App\Services\AtlasDomainRegistry;
+use App\Services\AuditLogService;
 use App\Services\BitaculaService;
 use App\Services\CaptureService;
 use App\Support\Metadata;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Schema;
 
 class SyncController extends Controller
 {
-    public function __invoke(SyncRequest $request, CaptureService $captures, BitaculaService $bitacula): JsonResponse
-    {
+    public function __invoke(
+        SyncRequest $request,
+        CaptureService $captures,
+        BitaculaService $bitacula,
+        AuditLogService $audit,
+        AtlasDomainRegistry $domains,
+    ): JsonResponse {
         $startedAt = microtime(true);
         $data = $request->validated();
         $lastSyncAt = $data['last_sync_at'] ?? null;
@@ -45,24 +53,39 @@ class SyncController extends Controller
         foreach ($data['captures_to_upload'] ?? [] as $captureData) {
             $captures->create([
                 ...$captureData,
-                'domain' => $captureData['domain'] ?? 'outro',
+                'domain' => $captureData['domain'] ?? $domains->defaultSlug(),
                 'metadata' => Metadata::forStorage($captureData['metadata'] ?? []),
             ]);
             $capturesUploaded++;
         }
 
         foreach ($data['checkins_to_upload'] ?? [] as $checkinData) {
-            Checkin::withTrashed()->firstOrCreate(
-                ['client_id' => $checkinData['client_id']],
-                [
-                    ...$checkinData,
-                    'metadata' => Metadata::forStorage($checkinData['metadata'] ?? []),
-                ],
-            );
+            $payload = [
+                ...$checkinData,
+                'metadata' => Metadata::forStorage($checkinData['metadata'] ?? []),
+            ];
+            $checkin = Checkin::withTrashed()
+                ->where('client_id', $checkinData['client_id'])
+                ->first();
+
+            if ($checkin) {
+                if ($checkin->trashed()) {
+                    $checkin->restore();
+                }
+                $checkin->fill($payload);
+                if ($checkin->isDirty()) {
+                    $checkin->save();
+                }
+            } else {
+                Checkin::create($payload);
+            }
             $checkinsUploaded++;
         }
 
         foreach ($data['passive_signals_to_upload'] ?? [] as $signalData) {
+            $deletedAt = $signalData['deleted_at'] ?? null;
+            unset($signalData['deleted_at']);
+
             $signal = PassiveSignal::withTrashed()
                 ->where('client_id', $signalData['client_id'])
                 ->first();
@@ -72,12 +95,22 @@ class SyncController extends Controller
             ];
 
             if ($signal) {
-                $signal->fill($payload);
-                if ($signal->isDirty()) {
-                    $signal->save();
+                if (! $deletedAt) {
+                    $signal->fill($payload);
+                    if ($signal->isDirty()) {
+                        $signal->save();
+                    }
                 }
             } else {
-                PassiveSignal::create($payload);
+                $signal = PassiveSignal::create($payload);
+            }
+
+            if ($deletedAt) {
+                if (! $signal->trashed()) {
+                    $signal->delete();
+                }
+            } elseif ($signal->trashed()) {
+                $signal->restore();
             }
 
             $passiveSignalsUploaded++;
@@ -171,7 +204,12 @@ class SyncController extends Controller
             $digitalSnapshotsUploaded++;
         }
 
-        $capturesToDownload = Capture::withTrashed()
+        $capturesToDownloadQuery = Capture::withTrashed();
+        if (Schema::hasTable('capture_links')) {
+            $capturesToDownloadQuery->with('links');
+        }
+
+        $capturesToDownload = $capturesToDownloadQuery
             ->when($lastSyncAt, fn ($query) => $query->where('updated_at', '>', $lastSyncAt))
             ->orderBy('updated_at')
             ->orderBy('id')
@@ -198,6 +236,24 @@ class SyncController extends Controller
             ->orderBy('id')
             ->limit(200)
             ->get();
+
+        $audit->record('health_snapshots_synced', [
+            'subject_type' => 'health_snapshot',
+            'actor_type' => 'api',
+            'severity' => 'info',
+            'summary' => 'Health snapshots accessed through sync',
+            'evidence' => [
+                'device_id' => $data['device_id'],
+                'last_sync_at' => $lastSyncAt,
+                'uploaded' => $healthSnapshotsUploaded,
+                'downloaded' => $healthSnapshotsToDownload->count(),
+                'limit' => 200,
+            ],
+            'privacy' => [
+                'sensitivity' => 'sensitive',
+                'domain' => 'health',
+            ],
+        ]);
 
         $behaviorsToDownload = Behavior::withTrashed()
             ->when($lastSyncAt, fn ($query) => $query->where('updated_at', '>', $lastSyncAt))

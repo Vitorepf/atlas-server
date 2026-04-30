@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${1:-}" = "--version" ]; then
+  echo "claude-code-ci 0.0.0"
+  exit 0
+fi
+
+printf '{"type":"result","result":"atlas ci claude stub"}\n'

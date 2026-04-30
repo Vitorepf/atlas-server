@@ -1,0 +1,424 @@
+<?php
+
+namespace App\Services\Ai\Mobile;
+
+use App\Models\AiInboxItem;
+use App\Models\AtlasMobileDevice;
+use App\Models\MobilePushDelivery;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
+use Throwable;
+
+class MobilePushService
+{
+    private const EXPO_ENDPOINT = 'https://exp.host/--/api/v2/push/send';
+
+    public function dispatchForInboxItem(AiInboxItem $item): void
+    {
+        if (! (bool) config('atlas.mobile.enabled', false)) {
+            return;
+        }
+
+        if (($item->push_policy['send'] ?? 'auto') === 'none') {
+            return;
+        }
+
+        $devices = AtlasMobileDevice::query()
+            ->where('user_id', $item->user_id)
+            ->whereNull('revoked_at')
+            ->whereNotNull('expo_push_token')
+            ->get();
+
+        foreach ($devices as $device) {
+            $this->dispatchToDevice($device, $item);
+        }
+    }
+
+    public function dispatchToDevice(AtlasMobileDevice $device, AiInboxItem $item): bool
+    {
+        if ($device->expo_push_token === null) {
+            return false;
+        }
+
+        $payload = $this->payloadForItem($device, $item);
+
+        if ($this->shouldDeferForQuietHours($item)) {
+            $this->createDelivery($device, $item, 'deferred_quiet_hours', $payload);
+
+            return false;
+        }
+
+        if ($this->shouldBatch($item)) {
+            $this->createDelivery($device, $item, 'batched', $payload);
+
+            return false;
+        }
+
+        return $this->sendToDevice($device, $item, null, $payload);
+    }
+
+    public function sendToDevice(AtlasMobileDevice $device, AiInboxItem $item, ?MobilePushDelivery $delivery = null, ?array $payload = null): bool
+    {
+        if ($device->expo_push_token === null) {
+            return false;
+        }
+
+        $payload ??= $this->payloadForItem($device, $item);
+        $delivery ??= $this->createDelivery($device, $item, 'queued', $payload);
+
+        return $this->sendPayload($device, $delivery, $payload);
+    }
+
+    public function flushBatched(?string $deviceId = null): int
+    {
+        $query = MobilePushDelivery::query()
+            ->whereIn('status', ['batched', 'deferred_quiet_hours'])
+            ->orderBy('created_at');
+
+        if ($deviceId) {
+            $query->where('device_id', $deviceId);
+        }
+
+        /** @var Collection<int, MobilePushDelivery> $deliveries */
+        $deliveries = $query->get();
+        $sent = 0;
+
+        $deliveries
+            ->groupBy('device_id')
+            ->each(function (Collection $deviceDeliveries) use (&$sent): void {
+                /** @var MobilePushDelivery|null $first */
+                $first = $deviceDeliveries->first();
+                if (! $first || ! $first->device_id) {
+                    return;
+                }
+
+                $device = AtlasMobileDevice::query()
+                    ->whereKey($first->device_id)
+                    ->whereNull('revoked_at')
+                    ->first();
+
+                if (! $device || $device->expo_push_token === null) {
+                    $deviceDeliveries->each(fn (MobilePushDelivery $delivery) => $delivery->update([
+                        'status' => 'failed_permanent',
+                        'error_code' => 'device_unavailable',
+                        'error_message' => 'Device revoked or missing Expo push token.',
+                    ]));
+
+                    return;
+                }
+
+                $ready = $deviceDeliveries->filter(function (MobilePushDelivery $delivery): bool {
+                    if ($delivery->status !== 'deferred_quiet_hours') {
+                        return true;
+                    }
+
+                    $item = $delivery->inboxItem;
+
+                    return $item && ! $this->shouldDeferForQuietHours($item);
+                })->values();
+
+                if ($ready->isEmpty()) {
+                    return;
+                }
+
+                $payload = $ready->count() === 1
+                    ? $ready->first()->request_payload
+                    : $this->payloadForBatch($device, $ready);
+
+                /** @var MobilePushDelivery $representative */
+                $representative = $ready->first();
+                if ($this->sendPayload($device, $representative, $payload)) {
+                    $sent++;
+                    $ready->each(function (MobilePushDelivery $delivery) use ($representative, $payload): void {
+                        if ($delivery->id === $representative->id) {
+                            return;
+                        }
+
+                        $delivery->update([
+                            'status' => 'sent',
+                            'request_payload' => $payload,
+                            'response_payload' => $representative->response_payload ?? [],
+                            'provider_ticket_id' => $representative->provider_ticket_id,
+                            'error_code' => null,
+                            'error_message' => null,
+                            'attempted_at' => now(),
+                        ]);
+                    });
+                }
+            });
+
+        return $sent;
+    }
+
+    /**
+     * @return array{checked:int,receipt_ok:int,receipt_error:int,missing:int}
+     */
+    public function fetchReceipts(int $limit = 100): array
+    {
+        $deliveries = MobilePushDelivery::query()
+            ->where('provider', 'expo')
+            ->where('status', 'sent')
+            ->whereNotNull('provider_ticket_id')
+            ->whereNull('provider_receipt_id')
+            ->oldest('attempted_at')
+            ->limit(max(1, min(100, $limit)))
+            ->get();
+
+        if ($deliveries->isEmpty()) {
+            return ['checked' => 0, 'receipt_ok' => 0, 'receipt_error' => 0, 'missing' => 0];
+        }
+
+        $ids = $deliveries->pluck('provider_ticket_id')->filter()->values()->all();
+        $response = Http::timeout(10)->post('https://exp.host/--/api/v2/push/getReceipts', [
+            'ids' => $ids,
+        ]);
+        $body = $response->json() ?: ['body' => $response->body()];
+        $counts = ['checked' => 0, 'receipt_ok' => 0, 'receipt_error' => 0, 'missing' => 0];
+
+        foreach ($deliveries as $delivery) {
+            $ticketId = $delivery->provider_ticket_id;
+            $receipt = is_string($ticketId) ? data_get($body, 'data.'.$ticketId) : null;
+            if (! is_array($receipt)) {
+                $counts['missing']++;
+                continue;
+            }
+
+            $counts['checked']++;
+            $status = (string) ($receipt['status'] ?? '');
+            $errorCode = data_get($receipt, 'details.error') ?: ($receipt['status'] ?? null);
+            $errorCode = is_string($errorCode) ? $errorCode : null;
+            $message = data_get($receipt, 'message');
+            $message = is_string($message) ? $message : null;
+
+            if ($status === 'ok') {
+                $delivery->update([
+                    'status' => 'receipt_ok',
+                    'provider_receipt_id' => $ticketId,
+                    'response_payload' => array_merge($delivery->response_payload ?? [], ['receipt' => $receipt]),
+                    'error_code' => null,
+                    'error_message' => null,
+                ]);
+                $counts['receipt_ok']++;
+                continue;
+            }
+
+            $delivery->update([
+                'status' => 'receipt_error',
+                'provider_receipt_id' => $ticketId,
+                'response_payload' => array_merge($delivery->response_payload ?? [], ['receipt' => $receipt]),
+                'error_code' => $errorCode,
+                'error_message' => $message,
+            ]);
+            $counts['receipt_error']++;
+
+            if ($errorCode && $this->isPermanentExpoErrorCode($errorCode) && $delivery->device) {
+                $delivery->device->update([
+                    'expo_push_token' => null,
+                    'push_token_hash' => null,
+                ]);
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function sendPayload(AtlasMobileDevice $device, MobilePushDelivery $delivery, array $payload, int $attempt = 1): bool
+    {
+        $delivery->update([
+            'status' => 'queued',
+            'request_payload' => $payload,
+            'attempted_at' => now(),
+        ]);
+
+        try {
+            $response = Http::timeout(10)->post(self::EXPO_ENDPOINT, $payload);
+            $body = $response->json() ?: ['body' => $response->body()];
+            $ok = $response->successful();
+            $permanent = $this->isPermanentExpoFailure($response);
+            $ticketId = data_get($body, 'data.id');
+
+            $delivery->update([
+                'status' => $ok && ! $permanent ? 'sent' : ($permanent ? 'failed_permanent' : 'failed_transient'),
+                'provider_ticket_id' => is_string($ticketId) ? $ticketId : null,
+                'response_payload' => is_array($body) ? $body : ['response' => $body],
+                'error_code' => $ok && ! $permanent ? null : $this->expoErrorCode($response),
+                'error_message' => $ok && ! $permanent ? null : $response->body(),
+            ]);
+
+            if ($permanent) {
+                $device->update([
+                    'expo_push_token' => null,
+                    'push_token_hash' => null,
+                ]);
+            }
+
+            if (! $ok && ! $permanent && $attempt < 2) {
+                return $this->sendPayload($device, $delivery, $payload, $attempt + 1);
+            }
+
+            return $ok && ! $permanent;
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $delivery->update([
+                'status' => 'failed_transient',
+                'error_code' => 'exception',
+                'error_message' => $throwable->getMessage(),
+            ]);
+
+            if ($attempt < 2) {
+                return $this->sendPayload($device, $delivery, $payload, $attempt + 1);
+            }
+
+            return false;
+        }
+    }
+
+    private function createDelivery(AtlasMobileDevice $device, AiInboxItem $item, string $status, array $payload): MobilePushDelivery
+    {
+        return MobilePushDelivery::query()->create([
+            'inbox_item_id' => $item->id,
+            'device_id' => $device->id,
+            'status' => $status,
+            'provider' => 'expo',
+            'request_payload' => $payload,
+            'response_payload' => [],
+            'attempted_at' => now(),
+        ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function payloadForItem(AtlasMobileDevice $device, AiInboxItem $item): array
+    {
+        return [
+            'to' => $device->expo_push_token,
+            'title' => 'Atlas',
+            'body' => $this->pushBody($item),
+            'sound' => 'default',
+            'priority' => $item->severity === 'critical' ? 'high' : 'default',
+            'badge' => $this->badgeCount($item->user_id),
+            'data' => [
+                'inbox_id' => $item->id,
+                'deep_link' => $item->deep_link,
+                'type' => $item->type,
+                'severity' => $item->severity,
+            ],
+        ];
+    }
+
+    /**
+     * @param  Collection<int,MobilePushDelivery>  $deliveries
+     * @return array<string,mixed>
+     */
+    private function payloadForBatch(AtlasMobileDevice $device, Collection $deliveries): array
+    {
+        $count = $deliveries->count();
+
+        return [
+            'to' => $device->expo_push_token,
+            'title' => 'Atlas',
+            'body' => "Atlas: {$count} updates no Inbox.",
+            'sound' => 'default',
+            'priority' => 'default',
+            'badge' => $this->badgeCount($device->user_id),
+            'data' => [
+                'deep_link' => 'atlas://inbox',
+                'type' => 'batch',
+                'severity' => 'info',
+                'inbox_ids' => $deliveries->pluck('inbox_item_id')->values()->all(),
+            ],
+        ];
+    }
+
+    private function badgeCount(string $userId): int
+    {
+        return AiInboxItem::query()
+            ->where('user_id', $userId)
+            ->where('status', 'unread')
+            ->count();
+    }
+
+    private function shouldDeferForQuietHours(AiInboxItem $item): bool
+    {
+        if (! (bool) config('atlas.mobile.quiet_hours.enabled', false)) {
+            return false;
+        }
+
+        if ($this->severityRank($item->severity) >= $this->severityRank((string) config('atlas.mobile.quiet_hours.severity_threshold', 'critical'))) {
+            return false;
+        }
+
+        $start = (string) config('atlas.mobile.quiet_hours.start', '22:00');
+        $end = (string) config('atlas.mobile.quiet_hours.end', '07:00');
+        $now = now()->format('H:i');
+
+        if ($start <= $end) {
+            return $now >= $start && $now < $end;
+        }
+
+        return $now >= $start || $now < $end;
+    }
+
+    private function shouldBatch(AiInboxItem $item): bool
+    {
+        if (! (bool) config('atlas.mobile.batching.enabled', true)) {
+            return false;
+        }
+
+        if (($item->push_policy['send'] ?? 'auto') === 'immediate' || ($item->push_policy['force'] ?? false) === true) {
+            return false;
+        }
+
+        if (in_array($item->type, ['approval'], true)) {
+            return false;
+        }
+
+        return $item->severity !== 'critical';
+    }
+
+    private function severityRank(string $severity): int
+    {
+        return match ($severity) {
+            'critical' => 3,
+            'warning' => 2,
+            'info' => 1,
+            default => 0,
+        };
+    }
+
+    private function isPermanentExpoFailure(Response $response): bool
+    {
+        return $this->isPermanentExpoErrorCode($this->expoErrorCode($response));
+    }
+
+    private function isPermanentExpoErrorCode(string $code): bool
+    {
+        return in_array($code, ['DeviceNotRegistered', 'InvalidCredentials'], true);
+    }
+
+    private function expoErrorCode(Response $response): string
+    {
+        $body = $response->json() ?: [];
+        $code = data_get($body, 'data.details.error')
+            ?? data_get($body, 'errors.0.code')
+            ?? data_get($body, 'data.status');
+
+        return is_string($code) && $code !== '' ? $code : (string) $response->status();
+    }
+
+    private function pushBody(AiInboxItem $item): string
+    {
+        return match ($item->type) {
+            'proposal' => 'Atlas preparou uma proposta para sua revisao.',
+            'self_diagnostic' => 'Atlas detectou uma mudanca no proprio desempenho.',
+            'job_result' => 'Um job importante terminou.',
+            'approval' => 'Atlas precisa de uma aprovacao.',
+            default => $item->summary ?: $item->title,
+        };
+    }
+}

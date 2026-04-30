@@ -42,7 +42,9 @@ class FrontmatterParser
 
         $hasWhenToUse = ! empty($frontmatter['when_to_use']) && is_array($frontmatter['when_to_use']);
         $hasTriggers = ! empty($frontmatter['trigger_signals']) && is_array($frontmatter['trigger_signals']);
-        if (! $hasWhenToUse && ! $hasTriggers) {
+        $hasActivation = ! empty(data_get($frontmatter, 'activation.primary_triggers'))
+            && is_array(data_get($frontmatter, 'activation.primary_triggers'));
+        if (! $hasWhenToUse && ! $hasTriggers && ! $hasActivation) {
             $errors[] = 'missing_activation_fields';
         }
 
