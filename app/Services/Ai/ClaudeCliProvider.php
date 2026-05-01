@@ -163,8 +163,11 @@ class ClaudeCliProvider implements AiProvider
         }
 
         $model = trim((string) $model);
+        if ($model === '' || str_ends_with($model, '_default')) {
+            return null;
+        }
 
-        return $model === '' ? null : $model;
+        return $model;
     }
 
     private function extractTextFromClaudePayload(array $payload): string
