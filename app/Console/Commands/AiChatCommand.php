@@ -936,7 +936,11 @@ class AiChatCommand extends Command
             $this->line($this->renderMarkdown($trace->response_text));
         } elseif ($trace->job?->error_message) {
             $this->line('');
-            $this->error($trace->job->error_message);
+            $summary = $this->summarizeErrorContent((string) $trace->job->error_message);
+            $this->line('<fg=red;options=bold>✗ '.$summary.'</>');
+            if ($this->output->isVerbose()) {
+                $this->line('<fg=gray>'.OutputFormatter::escape((string) $trace->job->error_message).'</>');
+            }
         }
     }
 
