@@ -28,6 +28,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Process\Process;
 
 class AiChatCommand extends Command
@@ -955,7 +956,11 @@ class AiChatCommand extends Command
             if ($this->streamedAssistantContent !== '') {
                 $this->flushMarkdownStream();
             }
-            $this->error($content);
+            $summary = $this->summarizeErrorContent($content);
+            $this->line('<fg=red;options=bold>✗ '.$summary.'</>');
+            if ($this->output->isVerbose()) {
+                $this->line('<fg=gray>'.OutputFormatter::escape($content).'</>');
+            }
 
             return;
         }
@@ -970,6 +975,32 @@ class AiChatCommand extends Command
         if ($type === 'stderr' && $content !== '' && $this->output->isVerbose()) {
             fwrite(STDERR, $content);
         }
+    }
+
+    private function summarizeErrorContent(string $content): string
+    {
+        $lines = preg_split('/\r\n|\r|\n/', trim($content)) ?: [];
+        $clean = array_values(array_filter($lines, fn (string $line): bool => trim($line) !== ''));
+
+        if ($clean === []) {
+            return 'erro sem mensagem';
+        }
+
+        foreach ($clean as $line) {
+            if (preg_match('/^\s*(error|erro|fatal|exception):/i', $line) === 1) {
+                return $this->truncateForSingleLine(trim($line));
+            }
+        }
+
+        return $this->truncateForSingleLine(trim((string) end($clean)));
+    }
+
+    private function truncateForSingleLine(string $line): string
+    {
+        $line = OutputFormatter::escape($line);
+        $line = preg_replace('/\s+/', ' ', $line) ?? $line;
+
+        return mb_strlen($line) > 200 ? mb_substr($line, 0, 197).'...' : $line;
     }
 
     private function printMarkdownStreamChunk(string $content): void
