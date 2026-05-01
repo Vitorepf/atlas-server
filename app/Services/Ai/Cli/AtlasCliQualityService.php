@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Cli;
 
 use App\Services\Ai\Runtime\AiToolRuntime;
+use App\Services\Ai\Runtime\AtlasTestCommandResolver;
 use App\Services\Ai\Runtime\ToolInvocation;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
 use App\Support\AtlasSecurity;
@@ -10,9 +11,12 @@ use Illuminate\Support\Str;
 
 class AtlasCliQualityService
 {
+    private const MAX_ERROR_CHARS = 12000;
+
     public function __construct(
         private readonly WorkspaceProfiler $profiler,
         private readonly AiToolRuntime $runtime,
+        private readonly AtlasTestCommandResolver $testCommands,
     ) {}
 
     /**
@@ -62,7 +66,7 @@ class AtlasCliQualityService
                     'ok' => $testResult->ok,
                     'exit_code' => $testResult->exitCode,
                     'duration_ms' => $testResult->durationMs,
-                    'error' => $testResult->errorMessage ? AtlasSecurity::redactString($testResult->errorMessage) : null,
+                    'error' => $this->compactError($testResult->errorMessage),
                 ]] : [],
                 'quality_gates' => $gates,
                 'risks' => $this->risks($changedFiles, $runTests, $testResult),
@@ -90,10 +94,12 @@ class AtlasCliQualityService
             'diff_hash' => $quality['diff_hash'] ?? null,
             'test_commands_detected' => $quality['test_commands_detected'] ?? [],
             'test_result' => $testResult ? [
+                'command' => data_get($testResult, 'metadata.command_display') ?? data_get($testResult, 'metadata.command'),
+                'artifact_path' => data_get($testResult, 'metadata.artifact_path'),
                 'ok' => (bool) ($testResult['ok'] ?? false),
                 'exit_code' => $testResult['exit_code'] ?? null,
                 'duration_ms' => $testResult['duration_ms'] ?? null,
-                'error' => is_string($testResult['error_message'] ?? null) ? AtlasSecurity::redactString($testResult['error_message']) : null,
+                'error' => $this->compactError($testResult['error_message'] ?? null),
             ] : null,
             'quality_gates' => $quality['quality_gates'] ?? [],
             'completion_packet' => [
@@ -122,9 +128,7 @@ class AtlasCliQualityService
      */
     private function preferredTestCommand(array $commands): string
     {
-        return in_array('php artisan test', $commands, true)
-            ? 'php artisan test'
-            : ($commands[0] ?? '');
+        return $this->testCommands->preferred($commands);
     }
 
     /**
@@ -168,7 +172,7 @@ class AtlasCliQualityService
             $gates[] = [
                 'name' => 'tests',
                 'status' => $testResult?->ok ? 'passed' : 'failed',
-                'detail' => $testResult?->ok ? 'Testes passaram.' : ($testResult?->errorMessage ?: 'Testes nao passaram ou foram bloqueados.'),
+                'detail' => $testResult?->ok ? 'Testes passaram.' : ($this->compactError($testResult?->errorMessage, 1000) ?: 'Testes nao passaram ou foram bloqueados.'),
             ];
         } elseif ($changedFiles !== []) {
             $gates[] = [
@@ -253,5 +257,30 @@ class AtlasCliQualityService
         }
 
         return $risks;
+    }
+
+    private function compactError(mixed $error, int $limit = self::MAX_ERROR_CHARS): ?string
+    {
+        if (! is_string($error) || trim($error) === '') {
+            return null;
+        }
+
+        $output = $this->stripAnsi(AtlasSecurity::redactString($error));
+        $output = str_replace("\r", '', $output);
+        if (mb_strlen($output) <= $limit) {
+            return $output;
+        }
+
+        $headLimit = min(2000, max(800, (int) floor($limit * 0.2)));
+        $tailLimit = max(800, $limit - $headLimit - 120);
+
+        return mb_substr($output, 0, $headLimit)
+            ."\n...[middle output truncated by Atlas; showing final lines below]\n"
+            .mb_substr($output, -$tailLimit);
+    }
+
+    private function stripAnsi(string $value): string
+    {
+        return preg_replace('/\x1B(?:[@-Z\\\\-_]|\[[0-?]*[ -\/]*[@-~])/', '', $value) ?? $value;
     }
 }

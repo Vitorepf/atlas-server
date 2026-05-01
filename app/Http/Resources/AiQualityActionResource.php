@@ -21,7 +21,7 @@ class AiQualityActionResource extends JsonResource
             'status' => $this->status,
             'priority' => $this->priority,
             'reason' => $this->reason,
-            'flags' => Metadata::forResponse($this->flags),
+            'flags' => Metadata::listForResponse($this->flags),
             'payload' => Metadata::forResponse($this->payload),
             'result' => Metadata::forResponse($this->result),
             'error_message' => $this->error_message,

@@ -8,6 +8,28 @@ return new class extends Migration
     public function up(): void
     {
         DB::unprepared(<<<'SQL'
+            CREATE TABLE IF NOT EXISTS atlas_project_events (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              project_id UUID NOT NULL REFERENCES atlas_projects(id) ON DELETE CASCADE,
+              event_type TEXT NOT NULL,
+              source TEXT NOT NULL DEFAULT 'app',
+              payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+              occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_atlas_project_events_project
+              ON atlas_project_events(project_id, occurred_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_atlas_project_events_type
+              ON atlas_project_events(event_type, occurred_at DESC);
+
+            DROP TRIGGER IF EXISTS trg_atlas_project_events_updated_at ON atlas_project_events;
+            CREATE TRIGGER trg_atlas_project_events_updated_at
+            BEFORE UPDATE ON atlas_project_events
+            FOR EACH ROW
+            EXECUTE FUNCTION set_updated_at();
+
             CREATE TABLE IF NOT EXISTS atlas_project_blockers (
               id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
               project_id UUID NOT NULL REFERENCES atlas_projects(id) ON DELETE CASCADE,

@@ -2,17 +2,26 @@
 
 namespace App\Services\Ai\Mobile;
 
+use App\Jobs\SendMobilePushJob;
 use App\Models\AiInboxItem;
 use App\Models\AtlasMobileDevice;
 use App\Models\MobilePushDelivery;
+use App\Services\AuditLogService;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 use Throwable;
 
 class MobilePushService
 {
     private const EXPO_ENDPOINT = 'https://exp.host/--/api/v2/push/send';
+
+    public function __construct(
+        private readonly AuditLogService $audit,
+        private readonly ExpoCircuitBreaker $circuit,
+    ) {
+    }
 
     public function dispatchForInboxItem(AiInboxItem $item): void
     {
@@ -44,15 +53,31 @@ class MobilePushService
         $payload = $this->payloadForItem($device, $item);
 
         if ($this->shouldDeferForQuietHours($item)) {
-            $this->createDelivery($device, $item, 'deferred_quiet_hours', $payload);
+            $delivery = $this->createDelivery($device, $item, 'deferred_quiet_hours', $payload);
+            $this->recordPushAudit('push.deferred', $item, $device, $delivery, ['reason' => 'quiet_hours']);
 
             return false;
         }
 
         if ($this->shouldBatch($item)) {
-            $this->createDelivery($device, $item, 'batched', $payload);
+            $delivery = $this->createDelivery($device, $item, 'batched', $payload);
+            $this->recordPushAudit('push.deferred', $item, $device, $delivery, ['reason' => 'batched']);
 
             return false;
+        }
+
+        if (! $this->circuit->canAttempt()) {
+            $delivery = $this->createDelivery($device, $item, 'deferred_circuit_open', $payload);
+            $this->recordPushAudit('push.deferred', $item, $device, $delivery, ['reason' => 'circuit_open']);
+
+            return false;
+        }
+
+        if ((bool) config('atlas.mobile.retry.queue_enabled', true)) {
+            $delivery = $this->createDelivery($device, $item, 'queued', $payload);
+            SendMobilePushJob::dispatch($delivery->id, $device->id, $payload);
+
+            return true;
         }
 
         return $this->sendToDevice($device, $item, null, $payload);
@@ -72,8 +97,13 @@ class MobilePushService
 
     public function flushBatched(?string $deviceId = null): int
     {
+        $statuses = ['batched', 'deferred_quiet_hours'];
+        if ($this->circuit->canAttempt()) {
+            $statuses[] = 'deferred_circuit_open';
+        }
+
         $query = MobilePushDelivery::query()
-            ->whereIn('status', ['batched', 'deferred_quiet_hours'])
+            ->whereIn('status', $statuses)
             ->orderBy('created_at');
 
         if ($deviceId) {
@@ -224,10 +254,23 @@ class MobilePushService
     }
 
     /**
+     * Versao para o caminho do Job: nao retry inline, throw em falhas transient
+     * para Laravel re-enfileirar com backoff configurado.
+     *
      * @param  array<string,mixed>  $payload
      */
-    private function sendPayload(AtlasMobileDevice $device, MobilePushDelivery $delivery, array $payload, int $attempt = 1): bool
+    public function sendPayloadFromJob(AtlasMobileDevice $device, MobilePushDelivery $delivery, array $payload, int $jobAttempt = 1): void
     {
+        if (! $this->circuit->canAttempt()) {
+            $delivery->update([
+                'status' => 'deferred_circuit_open',
+                'error_code' => 'circuit_open',
+                'attempted_at' => now(),
+            ]);
+
+            throw new RuntimeException('Expo circuit breaker open; deferring push.');
+        }
+
         $delivery->update([
             'status' => 'queued',
             'request_payload' => $payload,
@@ -241,11 +284,14 @@ class MobilePushService
             $permanent = $this->isPermanentExpoFailure($response);
             $ticketId = data_get($body, 'data.id');
 
+            $finalStatus = $ok && ! $permanent ? 'sent' : ($permanent ? 'failed_permanent' : 'failed_transient');
+            $errorCode = $ok && ! $permanent ? null : $this->expoErrorCode($response);
+
             $delivery->update([
-                'status' => $ok && ! $permanent ? 'sent' : ($permanent ? 'failed_permanent' : 'failed_transient'),
+                'status' => $finalStatus,
                 'provider_ticket_id' => is_string($ticketId) ? $ticketId : null,
                 'response_payload' => is_array($body) ? $body : ['response' => $body],
-                'error_code' => $ok && ! $permanent ? null : $this->expoErrorCode($response),
+                'error_code' => $errorCode,
                 'error_message' => $ok && ! $permanent ? null : $response->body(),
             ]);
 
@@ -254,7 +300,115 @@ class MobilePushService
                     'expo_push_token' => null,
                     'push_token_hash' => null,
                 ]);
+                $this->recordPushAudit('push.invalid_token', $delivery->inboxItem ?? null, $device, $delivery->refresh(), ['error_code' => $errorCode]);
+                $this->circuit->recordSuccess();
+                $this->recordPushAudit('push.failed', $delivery->inboxItem ?? null, $device, $delivery->refresh(), [
+                    'attempt' => $jobAttempt,
+                    'http_status' => $response->status(),
+                    'error_code' => $errorCode,
+                    'permanent' => true,
+                ]);
+
+                return;
             }
+
+            if ($ok) {
+                $this->circuit->recordSuccess();
+                $this->recordPushAudit('push.sent', $delivery->inboxItem ?? null, $device, $delivery->refresh(), [
+                    'attempt' => $jobAttempt,
+                    'http_status' => $response->status(),
+                ]);
+
+                return;
+            }
+
+            $this->circuit->recordFailure();
+            $this->recordPushAudit('push.failed', $delivery->inboxItem ?? null, $device, $delivery->refresh(), [
+                'attempt' => $jobAttempt,
+                'http_status' => $response->status(),
+                'error_code' => $errorCode,
+            ]);
+
+            throw new RuntimeException("Expo push transient failure: {$errorCode}");
+        } catch (RuntimeException $rethrow) {
+            throw $rethrow;
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $delivery->update([
+                'status' => 'failed_transient',
+                'error_code' => 'exception',
+                'error_message' => $throwable->getMessage(),
+            ]);
+            $this->circuit->recordFailure();
+            $this->recordPushAudit('push.failed', $delivery->inboxItem ?? null, $device, $delivery->refresh(), [
+                'attempt' => $jobAttempt,
+                'error_code' => 'exception',
+            ]);
+
+            throw $throwable;
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function sendPayload(AtlasMobileDevice $device, MobilePushDelivery $delivery, array $payload, int $attempt = 1): bool
+    {
+        if (! $this->circuit->canAttempt()) {
+            $delivery->update([
+                'status' => 'deferred_circuit_open',
+                'error_code' => 'circuit_open',
+                'attempted_at' => now(),
+            ]);
+            $this->recordPushAudit('push.deferred', $delivery->inboxItem ?? null, $device, $delivery->refresh(), ['reason' => 'circuit_open']);
+
+            return false;
+        }
+
+        $delivery->update([
+            'status' => 'queued',
+            'request_payload' => $payload,
+            'attempted_at' => now(),
+        ]);
+
+        try {
+            $response = Http::timeout(10)->post(self::EXPO_ENDPOINT, $payload);
+            $body = $response->json() ?: ['body' => $response->body()];
+            $ok = $response->successful();
+            $permanent = $this->isPermanentExpoFailure($response);
+            $ticketId = data_get($body, 'data.id');
+
+            $finalStatus = $ok && ! $permanent ? 'sent' : ($permanent ? 'failed_permanent' : 'failed_transient');
+            $errorCode = $ok && ! $permanent ? null : $this->expoErrorCode($response);
+
+            $delivery->update([
+                'status' => $finalStatus,
+                'provider_ticket_id' => is_string($ticketId) ? $ticketId : null,
+                'response_payload' => is_array($body) ? $body : ['response' => $body],
+                'error_code' => $errorCode,
+                'error_message' => $ok && ! $permanent ? null : $response->body(),
+            ]);
+
+            if ($permanent) {
+                $device->update([
+                    'expo_push_token' => null,
+                    'push_token_hash' => null,
+                ]);
+                $this->recordPushAudit('push.invalid_token', $delivery->inboxItem ?? null, $device, $delivery->refresh(), ['error_code' => $errorCode]);
+            }
+
+            if ($ok && ! $permanent) {
+                $this->circuit->recordSuccess();
+            } elseif (! $permanent) {
+                $this->circuit->recordFailure();
+            }
+
+            $auditEvent = $finalStatus === 'sent' ? 'push.sent' : 'push.failed';
+            $this->recordPushAudit($auditEvent, $delivery->inboxItem ?? null, $device, $delivery->refresh(), [
+                'attempt' => $attempt,
+                'http_status' => $response->status(),
+                'error_code' => $errorCode,
+            ]);
 
             if (! $ok && ! $permanent && $attempt < 2) {
                 return $this->sendPayload($device, $delivery, $payload, $attempt + 1);
@@ -268,6 +422,12 @@ class MobilePushService
                 'error_code' => 'exception',
                 'error_message' => $throwable->getMessage(),
             ]);
+            $this->circuit->recordFailure();
+
+            $this->recordPushAudit('push.failed', $delivery->inboxItem ?? null, $device, $delivery->refresh(), [
+                'attempt' => $attempt,
+                'error_code' => 'exception',
+            ]);
 
             if ($attempt < 2) {
                 return $this->sendPayload($device, $delivery, $payload, $attempt + 1);
@@ -275,6 +435,37 @@ class MobilePushService
 
             return false;
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $extra
+     */
+    private function recordPushAudit(string $event, ?AiInboxItem $item, AtlasMobileDevice $device, MobilePushDelivery $delivery, array $extra = []): void
+    {
+        $this->audit->record($event, [
+            'subject_type' => 'mobile_push_delivery',
+            'subject_id' => $delivery->id,
+            'actor_type' => 'system',
+            'actor_id' => null,
+            'severity' => match ($event) {
+                'push.failed', 'push.invalid_token' => 'warning',
+                default => 'info',
+            },
+            'summary' => match ($event) {
+                'push.sent' => 'Push enviado.',
+                'push.failed' => 'Push falhou.',
+                'push.deferred' => 'Push adiado.',
+                'push.invalid_token' => 'Push invalidou token do device.',
+                default => $event,
+            },
+            'evidence' => array_merge([
+                'inbox_item_id' => $item?->id,
+                'device_id' => $device->id,
+                'delivery_status' => $delivery->status,
+                'provider' => $delivery->provider,
+            ], $extra),
+            'privacy' => ['sensitivity' => 'private'],
+        ]);
     }
 
     private function createDelivery(AtlasMobileDevice $device, AiInboxItem $item, string $status, array $payload): MobilePushDelivery
@@ -295,18 +486,23 @@ class MobilePushService
      */
     private function payloadForItem(AtlasMobileDevice $device, AiInboxItem $item): array
     {
+        $unreadCount = $this->badgeCount($item->user_id);
+        $computedAt = now()->toJSON();
+
         return [
             'to' => $device->expo_push_token,
             'title' => 'Atlas',
             'body' => $this->pushBody($item),
-            'sound' => 'default',
+            'sound' => 'atlas-bronze.wav',
             'priority' => $item->severity === 'critical' ? 'high' : 'default',
-            'badge' => $this->badgeCount($item->user_id),
+            'badge' => $unreadCount,
             'data' => [
                 'inbox_id' => $item->id,
                 'deep_link' => $item->deep_link,
                 'type' => $item->type,
                 'severity' => $item->severity,
+                'unread_count' => $unreadCount,
+                'unread_count_at' => $computedAt,
             ],
         ];
     }
@@ -318,19 +514,23 @@ class MobilePushService
     private function payloadForBatch(AtlasMobileDevice $device, Collection $deliveries): array
     {
         $count = $deliveries->count();
+        $unreadCount = $this->badgeCount($device->user_id);
+        $computedAt = now()->toJSON();
 
         return [
             'to' => $device->expo_push_token,
             'title' => 'Atlas',
             'body' => "Atlas: {$count} updates no Inbox.",
-            'sound' => 'default',
+            'sound' => 'atlas-bronze.wav',
             'priority' => 'default',
-            'badge' => $this->badgeCount($device->user_id),
+            'badge' => $unreadCount,
             'data' => [
                 'deep_link' => 'atlas://inbox',
                 'type' => 'batch',
                 'severity' => 'info',
                 'inbox_ids' => $deliveries->pluck('inbox_item_id')->values()->all(),
+                'unread_count' => $unreadCount,
+                'unread_count_at' => $computedAt,
             ],
         ];
     }
@@ -414,11 +614,17 @@ class MobilePushService
     private function pushBody(AiInboxItem $item): string
     {
         return match ($item->type) {
+            'insight' => 'Atlas encontrou um insight para revisar.',
             'proposal' => 'Atlas preparou uma proposta para sua revisao.',
             'self_diagnostic' => 'Atlas detectou uma mudanca no proprio desempenho.',
             'job_result' => 'Um job importante terminou.',
+            'job_status' => 'Um job do Atlas mudou de status.',
             'approval' => 'Atlas precisa de uma aprovacao.',
-            default => $item->summary ?: $item->title,
+            'alert' => 'Atlas detectou um alerta importante.',
+            'completion' => 'Uma tarefa do Atlas terminou.',
+            'capture' => 'Uma captura foi processada.',
+            'thread_update' => 'Uma thread do Atlas foi atualizada.',
+            default => 'Atlas tem uma atualizacao no Inbox.',
         };
     }
 }

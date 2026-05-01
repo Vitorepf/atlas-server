@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AtlasProject;
+use App\Models\AtlasProjectBlocker;
 use App\Models\AtlasProjectEvent;
 use App\Models\AtlasProjectStep;
 use App\Models\AtlasTask;
@@ -18,6 +19,7 @@ class ProjectExecutionService
 {
     public function __construct(
         private readonly TaskPlanningService $planning,
+        private readonly ProjectBlockerService $blockers,
     ) {}
 
     /**
@@ -400,10 +402,28 @@ class ProjectExecutionService
         return $this->ensureNextActionTask($project->refresh(), null, [], $this->planFromStep($project, $step->refresh()), $source);
     }
 
-    public function blockStep(AtlasProject $project, AtlasProjectStep $step, string $source = 'projects.step.block'): void
+    public function blockStep(AtlasProject $project, AtlasProjectStep $step, string $source = 'projects.step.block', array $data = []): void
     {
         if ($step->project_id !== $project->id) {
             abort(404);
+        }
+
+        $blocker = null;
+        if (is_string($data['blocker_id'] ?? null) && Schema::hasTable('atlas_project_blockers')) {
+            $blocker = AtlasProjectBlocker::query()
+                ->where('project_id', $project->id)
+                ->whereKey($data['blocker_id'])
+                ->first();
+        }
+        if (! $blocker) {
+            $task = null;
+            if (is_string($data['task_id'] ?? null)) {
+                $task = AtlasTask::query()
+                    ->where('project_id', $project->id)
+                    ->whereKey($data['task_id'])
+                    ->first();
+            }
+            $blocker = $this->blockers->openForStep($project, $step, $task, $data, $source);
         }
 
         $step->forceFill([
@@ -424,7 +444,7 @@ class ProjectExecutionService
             $project->forceFill([
                 'status' => 'blocked',
                 'active_next_task_id' => null,
-                'next_action' => 'Desbloquear: '.$step->title,
+                'next_action' => $blocker?->unblock_next_action ?: 'Desbloquear: '.$step->title,
                 'last_touched_at' => now(),
             ])->save();
         }
@@ -433,6 +453,9 @@ class ProjectExecutionService
             'step_id' => $step->id,
             'step_order' => $step->step_order,
             'step_title' => $step->title,
+            'blocker_id' => $blocker?->id,
+            'reason_code' => $blocker?->reason_code,
+            'unblock_next_action' => $blocker?->unblock_next_action,
         ], $source);
     }
 
@@ -570,11 +593,13 @@ class ProjectExecutionService
                 'completion' => $completion,
             ];
             $taskUpdateCount = $this->moveOpenProjectTasks($project, 'archived');
+            $this->blockers->cancelOpenForProject($project, 'Projeto concluido.', $source);
         } elseif ($status === 'archived') {
             $updates['paused_until'] = null;
             $updates['active_next_task_id'] = null;
             $updates['current_step_id'] = null;
             $taskUpdateCount = $this->moveOpenProjectTasks($project, 'archived');
+            $this->blockers->cancelOpenForProject($project, 'Projeto arquivado.', $source);
         }
 
         $project->forceFill($updates)->save();
@@ -1147,6 +1172,24 @@ class ProjectExecutionService
                 : ($actionCompleted ? null : $task->failure_reason_last),
             'metadata' => $metadata,
         ])->save();
+
+        $openedBlocker = null;
+        if ($quality === 'blocked') {
+            $openedBlocker = $this->blockers->openForTask($task->refresh(), [
+                ...$data,
+                'description' => $blocker ?? $outcome ?? $data['note'] ?? null,
+                'blocker_reason_code' => $data['blocker_reason_code'] ?? $data['reason_code'] ?? null,
+                'severity' => $data['blocker_severity'] ?? $data['severity'] ?? null,
+                'unblock_next_action' => $data['unblock_next_action'] ?? $nextHint,
+                'next_hint' => $nextHint,
+            ], $source);
+            if ($openedBlocker) {
+                $summary['blocker_id'] = $openedBlocker->id;
+                $summary['blocker_reason_code'] = $openedBlocker->reason_code;
+                $summary['blocker_severity'] = $openedBlocker->severity;
+                $summary['unblock_next_action'] = $openedBlocker->unblock_next_action;
+            }
+        }
 
         if ($task->project_step_id && Schema::hasTable('atlas_project_steps')) {
             $step = AtlasProjectStep::query()->find($task->project_step_id);

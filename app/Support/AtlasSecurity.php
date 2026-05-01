@@ -201,11 +201,17 @@ class AtlasSecurity
 
     public static function pathIsInside(string $path, string $root): bool
     {
-        $path = rtrim(self::canonicalPath($path, allowMissing: true), DIRECTORY_SEPARATOR);
-        $root = rtrim(self::canonicalPath($root, allowMissing: false), DIRECTORY_SEPARATOR);
+        $path = self::canonicalPath($path, allowMissing: true);
+        $root = self::canonicalPath($root, allowMissing: false);
 
-        return $root !== ''
-            && ($path === $root || str_starts_with($path.DIRECTORY_SEPARATOR, $root.DIRECTORY_SEPARATOR));
+        if ($path === '' || $root === '') {
+            return false;
+        }
+
+        $pathWithSep = rtrim($path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+        $rootWithSep = rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+
+        return str_starts_with($pathWithSep, $rootWithSep);
     }
 
     private static function isSensitiveKey(string $key): bool

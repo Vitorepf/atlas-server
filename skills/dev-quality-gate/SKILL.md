@@ -2,7 +2,7 @@
 name: dev-quality-gate
 description: Quality gates obrigatorios antes de declarar implementacao concluida. Plan -> Validate -> Execute para mudancas destrutivas, batch ou que tocam 2+ arquivos.
 license: proprietary
-compatibility: Requires git and PHP. Designed for Atlas CLI dev mode.
+compatibility: Requires git and PHP >= 8.4. Designed for Atlas CLI dev mode.
 metadata:
   version: 1.1.0
   atlas:
@@ -52,6 +52,8 @@ Rode:
 ```bash
 skills/dev-quality-gate/scripts/validate-plan.sh plan.json
 ```
+
+Se o shell tiver mais de um PHP instalado, o script respeita `ATLAS_PHP_BIN` e valida que o binario atende PHP >= 8.4 antes de chamar o Atlas.
 
 O validador precisa passar antes de editar. Ele verifica:
 

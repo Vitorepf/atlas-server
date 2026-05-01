@@ -21,7 +21,7 @@ class AiJobResource extends JsonResource
             'provider' => $this->provider,
             'model' => $this->model,
             'input_text' => $this->input_text,
-            'context_refs' => Metadata::forResponse($this->context_refs),
+            'context_refs' => Metadata::listForResponse($this->context_refs),
             'payload' => Metadata::forResponse($this->payload),
             'result_text' => $this->result_text,
             'result_json' => Metadata::forResponse($this->result_json),

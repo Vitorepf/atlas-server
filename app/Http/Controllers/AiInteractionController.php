@@ -8,6 +8,8 @@ use App\Http\Resources\AiTraceResource;
 use App\Models\AiStreamEvent;
 use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
+use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
+use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -125,10 +127,20 @@ class AiInteractionController extends Controller
         ]);
     }
 
-    public function feedback(FeedbackAiTraceRequest $request, AiTrace $trace, AiGatewayService $gateway): JsonResponse
+    public function feedback(
+        FeedbackAiTraceRequest $request,
+        AiTrace $trace,
+        AiGatewayService $gateway,
+        AiOutcomeAttributionService $outcomes,
+        AiTraceMetricAggregator $aggregator,
+    ): JsonResponse
     {
+        $data = $request->validated();
+        $updatedTrace = $gateway->recordFeedback($trace, $data);
+        $this->recordFeedbackOutcome($updatedTrace, $data, $outcomes, $aggregator);
+
         return response()->json([
-            'trace' => (new AiTraceResource($gateway->recordFeedback($trace, $request->validated())))->resolve(),
+            'trace' => (new AiTraceResource($updatedTrace))->resolve(),
         ]);
     }
 
@@ -172,5 +184,69 @@ class AiInteractionController extends Controller
         }
 
         return $relations;
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     */
+    private function recordFeedbackOutcome(
+        AiTrace $trace,
+        array $data,
+        AiOutcomeAttributionService $outcomes,
+        AiTraceMetricAggregator $aggregator,
+    ): void {
+        $action = is_string($data['feedback_action'] ?? null) ? $data['feedback_action'] : null;
+        $score = is_numeric($data['feedback_score'] ?? null) ? (int) $data['feedback_score'] : null;
+        $outcomeType = $this->feedbackOutcomeType($action, $score);
+        if (! $outcomeType) {
+            return;
+        }
+
+        try {
+            $outcomes->record([
+                'trace_id' => $trace->id,
+                'thread_id' => $trace->thread_id,
+                'session_id' => $trace->session_id,
+                'outcome_type' => $outcomeType,
+                'target_type' => 'ai_trace',
+                'target_id' => $trace->id,
+                'value_score' => $score !== null ? $score * 20 : $this->feedbackOutcomeDefaultScore($outcomeType),
+                'confidence' => 1,
+                'source' => 'human_feedback',
+                'metadata' => [
+                    'feedback_action' => $action,
+                    'feedback_comment_present' => isset($data['feedback_comment']) && trim((string) $data['feedback_comment']) !== '',
+                ],
+            ]);
+
+            if (Schema::hasTable('ai_trace_metric_summaries')) {
+                $aggregator->recomputeTrace($trace->id);
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    private function feedbackOutcomeType(?string $action, ?int $score): ?string
+    {
+        return match ($action) {
+            'useful' => 'human_marked_useful',
+            'wrong_context' => 'human_marked_wrong_context',
+            'too_slow' => 'human_marked_too_slow',
+            'too_expensive' => 'human_marked_too_expensive',
+            'unsafe' => 'human_marked_unsafe',
+            'not_useful', 'wrong_agent' => 'human_marked_not_useful',
+            'dismissed' => 'human_dismissed',
+            default => $score !== null ? ($score >= 4 ? 'human_marked_useful' : 'human_marked_not_useful') : null,
+        };
+    }
+
+    private function feedbackOutcomeDefaultScore(string $outcomeType): int
+    {
+        return match ($outcomeType) {
+            'human_marked_useful' => 90,
+            'human_marked_too_slow', 'human_marked_too_expensive', 'human_dismissed' => 50,
+            default => 20,
+        };
     }
 }

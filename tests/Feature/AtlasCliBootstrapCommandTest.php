@@ -46,6 +46,7 @@ class AtlasCliBootstrapCommandTest extends TestCase
         $this->assertStringContainsString('"provider_resolution"', $output);
         $this->assertStringContainsString('"launcher_install"', $output);
         $this->assertStringContainsString('"final_doctor"', $output);
+        $this->assertStringContainsString('"ATLAS_AI_TOOL_ALLOWED_ROOTS"', $output);
         $this->assertStringContainsString('atlas doctor --strict', $output);
         $this->assertFileDoesNotExist($envPath);
         $this->assertFalse(is_link($target));
@@ -73,8 +74,35 @@ class AtlasCliBootstrapCommandTest extends TestCase
         $this->assertSame(0, $exitCode);
         $this->assertStringContainsString('"status": "passed"', $output);
         $this->assertStringContainsString('ATLAS_AI_CODEX_BIN='.(realpath($codex) ?: $codex), File::get($envPath));
+        $this->assertStringContainsString('ATLAS_AI_TOOL_ALLOWED_ROOTS=', File::get($envPath));
         $this->assertTrue(is_link($target));
         $this->assertStringContainsString('# >>> atlas-cli >>>', File::get($profile));
+    }
+
+    public function test_bootstrap_can_enable_operator_mode_for_project_root(): void
+    {
+        $codex = $this->fakeExecutable('codex');
+        $target = $this->workspace.'/local/bin/atlas';
+        $envPath = $this->workspace.'/.env';
+
+        $exitCode = Artisan::call('atlas:cli:bootstrap', [
+            '--codex-bin' => $codex,
+            '--target' => $target,
+            '--env-path' => $envPath,
+            '--operator-mode' => true,
+            '--operator-root' => $this->workspace,
+            '--no-doctor' => true,
+            '--no-scheduler-cron-check' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $contents = File::get($envPath);
+        $this->assertStringContainsString('ATLAS_AI_TOOL_ALLOWED_ROOTS=', $contents);
+        $this->assertStringContainsString($this->workspace, $contents);
+        $this->assertStringContainsString('ATLAS_AI_TOOL_PERMISSION_MODE=danger', $contents);
+        $this->assertStringContainsString('ATLAS_AI_TOOL_ALLOW_DANGER=true', $contents);
+        $this->assertStringContainsString('ATLAS_AI_ALLOW_UNSANDBOXED_WRITE=true', $contents);
     }
 
     public function test_bootstrap_runs_final_doctor_by_default(): void

@@ -95,6 +95,22 @@ Para configurar o Atlas CLI no Mac, use sempre o bootstrap. Ele diagnostica Clau
 ./bin/atlas bootstrap --refresh-providers --strict
 ```
 
+Para dar ao Atlas controle governado sobre tudo dentro do usuario `vitorepf` e habilitar o modo operador local:
+
+```bash
+./bin/atlas bootstrap --operator-mode --operator-root=/Users/vitorepf --refresh-providers --strict
+```
+
+Depois disso, `atlas ask` e `atlas dev` herdam o modo operador por padrao dentro das raizes autorizadas. O workspace ativo continua sendo a pasta onde voce rodou o comando, mas o Atlas pode operar em qualquer caminho dentro de `/Users/vitorepf` quando a tarefa exigir.
+
+Para desenvolvimento diario, rode `atlas dev` sem tarefa para abrir o Dev Cockpit. Ele mostra workspace, provider, permissao, thread, git e skills. Em repos com skills locais, use `atlas skills trust` uma vez para confiar no repo e parar avisos repetidos. Skills locais complementam o Atlas, mas nao substituem skills internas com o mesmo nome.
+
+Para screenshots e analise visual no `atlas dev`, copie a imagem no macOS e peça naturalmente: `analise essa tela`, `corrija esse screenshot`, `o que esta errado nesse print?`. O Atlas detecta a referência visual, anexa a imagem atual do clipboard automaticamente e usa Codex CLI como motor visual. `/paste-image` continua existindo como fallback manual. Para arquivo direto:
+
+```bash
+atlas ask --image ~/Desktop/tela.png "analise essa tela"
+```
+
 Se o diretorio `~/.local/bin` ainda nao estiver no PATH do shell:
 
 ```bash

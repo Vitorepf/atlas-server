@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -40,6 +41,18 @@ return new class extends Migration
             $table->timestamp('locked_until')->nullable();
             $table->timestamps();
         });
+
+        DB::statement(<<<'SQL'
+            CREATE TRIGGER trg_atlas_mobile_devices_updated_at
+            BEFORE UPDATE ON atlas_mobile_devices
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+        SQL);
+
+        DB::statement(<<<'SQL'
+            CREATE TRIGGER trg_mobile_pairing_codes_updated_at
+            BEFORE UPDATE ON mobile_pairing_codes
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+        SQL);
     }
 
     public function down(): void

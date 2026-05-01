@@ -4,6 +4,7 @@ namespace App\Services\Ai\Mobile;
 
 use App\Models\AiInboxItem;
 use App\Models\AiQualityEvaluation;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 
 class SelfDiagnosticEmitter
@@ -27,6 +28,13 @@ class SelfDiagnosticEmitter
         $diagnosis = $this->diagnose($metrics);
         if (! $diagnosis['should_emit']) {
             return $this->result(false, null, (string) $diagnosis['reason'], $metrics);
+        }
+
+        if ($ignored = $this->ignoredItem((string) $diagnosis['category'])) {
+            return $this->result(false, $ignored->id, 'ignored_30d_active', [
+                ...$metrics,
+                'ignored_until' => data_get($ignored->payload, 'ignored_until'),
+            ]);
         }
 
         if ($existing = $this->existingActiveItem((string) $diagnosis['category'])) {
@@ -150,6 +158,16 @@ class SelfDiagnosticEmitter
 
         $category = $scoreDrop >= $dropThreshold ? 'quality_score_regression' : 'quality_failure_rate_regression';
         $confidence = min(0.95, 0.7 + max($scoreDrop / 100, $failedRateIncrease / 2));
+        $confidenceThreshold = (float) config('atlas.mobile.self_diagnostic.confidence_threshold', 0.7);
+        if ($confidence < $confidenceThreshold) {
+            return [
+                'should_emit' => false,
+                'reason' => 'below_confidence_threshold',
+                'confidence' => round($confidence, 3),
+                'confidence_threshold' => $confidenceThreshold,
+            ];
+        }
+
         $severity = $scoreDrop >= ($dropThreshold * 1.75) || $failedRateIncrease >= ($failureThreshold * 1.75)
             ? 'critical'
             : 'warning';
@@ -187,6 +205,25 @@ class SelfDiagnosticEmitter
             ->whereNotIn('status', ['resolved', 'dismissed', 'expired'])
             ->latest('created_at')
             ->first();
+    }
+
+    private function ignoredItem(string $category): ?AiInboxItem
+    {
+        $item = AiInboxItem::query()
+            ->where('dedupe_key', 'self_diagnostic:'.$category)
+            ->latest('updated_at')
+            ->first();
+
+        $ignoredUntil = data_get($item?->payload, 'ignored_until');
+        if (! is_string($ignoredUntil) || trim($ignoredUntil) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($ignoredUntil)->isFuture() ? $item : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

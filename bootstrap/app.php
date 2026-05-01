@@ -5,6 +5,10 @@ use App\Console\Commands\AiChatCommand;
 use App\Console\Commands\AiDoctorCommand;
 use App\Console\Commands\AiEnqueueCommand;
 use App\Console\Commands\AiHealthCommand;
+use App\Console\Commands\AiTelemetryCostRatesCommand;
+use App\Console\Commands\AiTelemetryHealthCommand;
+use App\Console\Commands\AiTelemetryPerformanceReportCommand;
+use App\Console\Commands\AiTelemetryRollupCommand;
 use App\Console\Commands\AiWorkCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
 use App\Console\Commands\AtlasCliCheckpointCommand;
@@ -19,6 +23,8 @@ use App\Console\Commands\AtlasCliHelpCommand;
 use App\Console\Commands\AtlasCliInstallCommand;
 use App\Console\Commands\AtlasCliInboxCommand;
 use App\Console\Commands\AtlasInsightCommand;
+use App\Console\Commands\AtlasInsightWatchCommand;
+use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasCliMemoryCommand;
 use App\Console\Commands\AtlasCliMobileCommand;
 use App\Console\Commands\AtlasCliPermissionsCommand;
@@ -67,6 +73,10 @@ return Application::configure(basePath: dirname(__DIR__))
         AiDoctorCommand::class,
         AiEnqueueCommand::class,
         AiHealthCommand::class,
+        AiTelemetryCostRatesCommand::class,
+        AiTelemetryHealthCommand::class,
+        AiTelemetryPerformanceReportCommand::class,
+        AiTelemetryRollupCommand::class,
         AiWorkCommand::class,
         AtlasCliBootstrapCommand::class,
         AtlasCliCheckpointCommand::class,
@@ -81,6 +91,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCliInstallCommand::class,
         AtlasCliInboxCommand::class,
         AtlasInsightCommand::class,
+        AtlasInsightWatchCommand::class,
+        AtlasInitiativesCommand::class,
         AtlasCliMemoryCommand::class,
         AtlasCliMobileCommand::class,
         AtlasCliPermissionsCommand::class,
@@ -131,6 +143,27 @@ return Application::configure(basePath: dirname(__DIR__))
             ->hourly()
             ->withoutOverlapping();
 
+        $schedule->command('atlas:ai:telemetry:rollup --hours=48')
+            ->hourly()
+            ->withoutOverlapping();
+
+        $schedule->command('atlas:ai:telemetry:health --hours=48 --emit')
+            ->hourly()
+            ->withoutOverlapping();
+
+        if (config('atlas.ai_metrics.performance_report_enabled', true)) {
+            $reportWindows = implode(',', (array) config('atlas.ai_metrics.performance_report_windows', [3, 7, 15, 30]));
+            $reportCommand = "atlas:ai:telemetry:performance-report --type=auto --windows={$reportWindows} --recompute --json";
+            if (config('atlas.ai_metrics.performance_report_emit', true)) {
+                $reportCommand .= ' --emit';
+            }
+
+            $schedule->command($reportCommand)
+                ->dailyAt((string) config('atlas.ai_metrics.performance_report_time', '07:05'))
+                ->timezone((string) config('atlas.ai_metrics.performance_report_timezone', config('app.timezone', 'UTC')))
+                ->withoutOverlapping();
+        }
+
         $schedule->command('atlas:health:repair --days=60')
             ->dailyAt('04:20')
             ->withoutOverlapping();
@@ -157,6 +190,24 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->withoutOverlapping();
         }
 
+        if (config('atlas.mobile.enabled') && config('atlas.mobile.maintenance.expire_stale_enabled', true)) {
+            $schedule->command('atlas:cli:mobile expire-stale --apply')
+                ->everyFiveMinutes()
+                ->withoutOverlapping();
+        }
+
+        if (config('atlas.mobile.enabled') && config('atlas.mobile.maintenance.cleanup_enabled', true)) {
+            $schedule->command('atlas:cli:mobile cleanup --apply')
+                ->dailyAt((string) config('atlas.mobile.maintenance.cleanup_time', '03:30'))
+                ->withoutOverlapping();
+        }
+
+        if (config('atlas.mobile.enabled') && config('atlas.mobile.alerts.enabled', true) && (config('atlas.mobile.alerts.webhook_url') || config('atlas.mobile.alerts.local_log_enabled', true))) {
+            $schedule->command('atlas:cli:mobile alert-check --apply --json')
+                ->everyFiveMinutes()
+                ->withoutOverlapping();
+        }
+
         if (config('atlas.mobile.enabled') && config('atlas.mobile.self_diagnostic.enabled')) {
             $schedule->command('atlas:self-diagnostic')
                 ->dailyAt((string) config('atlas.mobile.self_diagnostic.time', '06:15'))
@@ -172,6 +223,12 @@ return Application::configure(basePath: dirname(__DIR__))
                 '--limit' => $proposalLimit,
             ])
                 ->dailyAt((string) config('atlas.mobile.proposal_scan.time', '06:30'))
+                ->withoutOverlapping();
+        }
+
+        if (config('atlas.mobile.enabled') && config('atlas.mobile.insight_watch.enabled')) {
+            $schedule->command('atlas:insight:watch')
+                ->dailyAt((string) config('atlas.mobile.insight_watch.time', '06:45'))
                 ->withoutOverlapping();
         }
 

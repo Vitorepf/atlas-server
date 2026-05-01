@@ -7,11 +7,19 @@ use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiSessionStateService;
 use App\Services\Ai\AiWorker;
+use App\Services\Ai\Cli\AtlasCliPanel;
 use App\Services\Ai\Cli\AtlasCliQualityService;
 use App\Services\Ai\Cli\AtlasCliSessionService;
+use App\Services\Ai\Cli\AtlasCliTelemetry;
+use App\Services\Ai\Cli\AtlasImageAttachmentService;
+use App\Services\Ai\Cli\AtlasReplHistory;
+use App\Services\Ai\Cli\AtlasTerminalTheme;
+use App\Services\Ai\Cli\IntentPermissionResolver;
+use App\Services\Ai\Cli\IntentResolution;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Support\AtlasSecurity;
+use App\Support\TerminalMarkdownRenderer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -31,10 +39,16 @@ class AiChatCommand extends Command
         {--dev : Shortcut for --mode=dev --provider=codex}
         {--conselho : Shortcut for --provider=conselho}
         {--stream : Stream provider output while the inline worker runs}
+        {--cockpit : Render an operator cockpit header for long terminal work}
         {--permission=auto : auto, read, write or danger}
         {--allow-write : Confirm scoped workspace writes for this run}
         {--dangerously-allow-all : Confirm danger-full-access for this run}
         {--allow-unsandboxed : Allow write/danger mode with providers that Atlas cannot sandbox directly}
+        {--trust-workspace-skills : Trust local .atlas/skills and .agents/skills before loading them}
+        {--no-skill-prompt : Do not prompt for local skill trust; ignore untrusted workspace skills}
+        {--image=* : Attach image file(s) to this prompt}
+        {--clipboard-image : Attach the current macOS clipboard image to this prompt}
+        {--no-auto-image : Do not auto-attach clipboard images when the prompt mentions screenshots/images}
         {--auto-test : Run detected tests after dev responses}
         {--no-quality-gate : Skip automatic Atlas quality gate in dev mode}
         {--dev-plan= : JSON encoded Atlas dev execution plan}
@@ -42,11 +56,30 @@ class AiChatCommand extends Command
         {--list-threads : List recent Atlas CLI threads and exit}
         {--no-run : Enqueue only; do not run the local worker inline}
         {--timeout=900 : Seconds to wait when running inline}
+        {--compact : Render in compact mode (hide code blocks, keep prose)}
+        {--no-intent : Disable intent-based permission elevation; respect --permission verbatim}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Use Atlas AI directly from the Mac while preserving Atlas threads, sessions, memory and provider handoffs.';
 
     private string $streamedAssistantContent = '';
+
+    private string $markdownStreamBuffer = '';
+
+    private bool $streamOutputStarted = false;
+
+    private string $renderMode = 'full';
+
+    private bool $streamInCodeBlock = false;
+
+    private string $streamCodeLabel = '';
+
+    private int $streamCodeLineCount = 0;
+
+    private bool $intentEnabled = true;
+
+    /** @var array<string,bool> */
+    private array $intentSessionAcks = [];
 
     public function handle(
         AiGatewayService $gateway,
@@ -56,6 +89,9 @@ class AiChatCommand extends Command
         AiSessionStateService $states,
         SkillDiscoveryService $skillDiscovery,
         SkillBundleStore $skillBundles,
+        AtlasImageAttachmentService $imageAttachments,
+        IntentPermissionResolver $intent,
+        AtlasReplHistory $history,
     ): int
     {
         $workspace = $this->workspace();
@@ -66,11 +102,26 @@ class AiChatCommand extends Command
         }
         $permissionMode = $this->permissionMode((string) $this->option('permission'), $mode);
         $stream = (bool) $this->option('stream') && ! (bool) $this->option('json');
+        $this->renderMode = (bool) $this->option('compact') ? 'compact' : 'full';
+        $this->intentEnabled = ! (bool) $this->option('no-intent');
         $threadId = $this->option('thread') ?: ($this->option('new-thread') ? null : $this->latestThreadId($workspace));
         $busyMode = $this->busyInputMode();
         $queuedMessages = [];
         $input = $this->argument('input');
         $activatedSkills = $this->skillOptions();
+        $pendingImages = [];
+
+        try {
+            $pendingImages = $this->initialImageAttachments($imageAttachments, $workspace);
+        } catch (\Throwable $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
+
+        if ($pendingImages !== [] && ! $provider) {
+            $provider = 'codex_cli';
+        }
 
         if ((bool) $this->option('list-threads')) {
             $this->printThreads($workspace);
@@ -78,10 +129,15 @@ class AiChatCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->prepareSkillBundles($skillDiscovery, $skillBundles, $workspace);
+        $skillTrust = $this->prepareSkillBundles($skillDiscovery, $skillBundles, $workspace);
 
         if (is_string($input) && trim($input) !== '') {
-            $trace = $this->send($gateway, $worker, trim($input), $workspace, $provider, $mode, $permissionMode, $stream, $threadId, (bool) $this->option('new-thread'), $activatedSkills);
+            $pendingImages = $this->maybeAutoAttachClipboardImage($imageAttachments, $workspace, trim($input), $pendingImages);
+            if ($pendingImages !== [] && ! $provider) {
+                $provider = 'codex_cli';
+            }
+            $effectivePermission = $this->resolveEffectivePermission($intent, trim($input), $permissionMode);
+            $trace = $this->send($gateway, $worker, trim($input), $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, (bool) $this->option('new-thread'), $activatedSkills, $pendingImages);
             $this->maybeRunDevQualityGate($quality, $workspace, $mode);
 
             return $trace->status === 'succeeded' || (bool) $this->option('no-run')
@@ -90,20 +146,28 @@ class AiChatCommand extends Command
         }
 
         if (! $this->option('json')) {
-            $this->line('Atlas CLI iniciado. Use /help para comandos, /new para nova thread, /exit para sair.');
-            $this->printStatus($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills);
-            if ($threadId) {
-                $this->line("Thread ativa: {$threadId}");
-            }
+            $this->printWelcome($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust);
+            $history->load($workspace);
         }
 
         while (true) {
-            $drainedTrace = $this->drainQueuedMessages($queuedMessages, $gateway, $worker, $quality, $workspace, $provider, $mode, $permissionMode, $stream, $threadId, $activatedSkills);
+            $drainedTrace = $this->drainQueuedMessages($queuedMessages, $gateway, $worker, $quality, $workspace, $provider, $mode, $permissionMode, $stream, $threadId, $activatedSkills, $intent);
             if ($drainedTrace) {
                 $threadId = $drainedTrace->thread_id ?: $threadId;
             }
 
-            $line = $this->ask($threadId ? "atlas {$this->shortId($threadId)}" : 'atlas');
+            try {
+                $line = $this->ask($threadId ? "atlas {$this->shortId($threadId)}" : 'atlas');
+            } catch (\Symfony\Component\Console\Exception\RuntimeException) {
+                $history->save();
+
+                return self::SUCCESS;
+            }
+            if ($line === null) {
+                $history->save();
+
+                return self::SUCCESS;
+            }
             if (! is_string($line)) {
                 continue;
             }
@@ -114,6 +178,8 @@ class AiChatCommand extends Command
             }
 
             if (in_array($line, ['/exit', '/quit', '/sair'], true)) {
+                $history->save();
+
                 return self::SUCCESS;
             }
 
@@ -124,7 +190,7 @@ class AiChatCommand extends Command
             }
 
             if ($line === '/status') {
-                $this->printStatus($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills);
+                $this->printRuntimeStatus($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust);
 
                 continue;
             }
@@ -189,11 +255,15 @@ class AiChatCommand extends Command
             }
 
             if (str_starts_with($line, '/workspace ')) {
+                $history->save();
                 $workspace = $this->resolveWorkspace(trim(Str::after($line, '/workspace ')));
                 $threadId = null;
                 $queuedMessages = [];
-                $this->prepareSkillBundles($skillDiscovery, $skillBundles, $workspace);
+                $skillTrust = $this->prepareSkillBundles($skillDiscovery, $skillBundles, $workspace);
+                $pendingImages = [];
                 $this->line("Workspace ativo: {$workspace}");
+                $this->printRuntimeStatus($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust);
+                $history->load($workspace);
 
                 continue;
             }
@@ -205,8 +275,59 @@ class AiChatCommand extends Command
                 continue;
             }
 
+            if ($line === '/paste-image' || $line === '/clipboard-image') {
+                try {
+                    $pendingImages = $this->mergeImageAttachments($pendingImages, [$imageAttachments->fromClipboard($workspace)], $imageAttachments);
+                    $provider = $provider ?: 'codex_cli';
+                    $this->line('Imagem do clipboard anexada para a proxima mensagem.');
+                    $this->printPendingImages($pendingImages);
+                } catch (\Throwable $exception) {
+                    $this->error($exception->getMessage());
+                }
+
+                continue;
+            }
+
+            if (str_starts_with($line, '/image ')) {
+                try {
+                    $paths = $this->imageCommandPaths(trim(Str::after($line, '/image ')));
+                    $pendingImages = $this->mergeImageAttachments($pendingImages, $imageAttachments->fromPaths($paths, $workspace), $imageAttachments);
+                    $provider = $provider ?: 'codex_cli';
+                    $this->printPendingImages($pendingImages);
+                } catch (\Throwable $exception) {
+                    $this->error($exception->getMessage());
+                }
+
+                continue;
+            }
+
+            if ($line === '/images') {
+                $this->printPendingImages($pendingImages);
+
+                continue;
+            }
+
+            if ($line === '/clear-images') {
+                $pendingImages = [];
+                $this->line('Imagens pendentes limpas.');
+
+                continue;
+            }
+
             if (str_starts_with($line, '/mode ')) {
                 $mode = $this->workflowMode(trim(Str::after($line, '/mode ')));
+                if ($mode === 'dev' && ! $provider) {
+                    $provider = 'codex_cli';
+                }
+                $permissionMode = $this->permissionMode($permissionMode, $mode);
+                $this->line("Modo ativo: {$mode}");
+
+                continue;
+            }
+
+            $modeShortcut = $this->modeShortcut($line);
+            if ($modeShortcut !== null) {
+                $mode = $this->workflowMode($modeShortcut);
                 if ($mode === 'dev' && ! $provider) {
                     $provider = 'codex_cli';
                 }
@@ -287,6 +408,61 @@ class AiChatCommand extends Command
                 continue;
             }
 
+            if ($line === '/render' || str_starts_with($line, '/render ')) {
+                $value = Str::of(Str::after($line, '/render'))->lower()->trim()->value();
+                if ($value === '') {
+                    $this->line('Render: '.$this->renderMode);
+
+                    continue;
+                }
+                if (in_array($value, ['compact', 'curto', 'caveman'], true)) {
+                    $this->renderMode = 'compact';
+                    $this->line('Render: compact (codigo oculto, prosa direta)');
+
+                    continue;
+                }
+                if (in_array($value, ['full', 'completo', 'tecnico'], true)) {
+                    $this->renderMode = 'full';
+                    $this->line('Render: full (markdown completo, blocos de codigo visiveis)');
+
+                    continue;
+                }
+                $this->warn('Use /render compact ou /render full.');
+
+                continue;
+            }
+
+            if ($line === '/intent' || str_starts_with($line, '/intent ')) {
+                $value = Str::of(Str::after($line, '/intent'))->lower()->trim()->value();
+                if ($value === '') {
+                    $this->line('Intent: '.($this->intentEnabled ? 'on' : 'off'));
+
+                    continue;
+                }
+                if (in_array($value, ['on', 'sim', 'true', '1', 'ligado'], true)) {
+                    $this->intentEnabled = true;
+                    $this->line('Intent: on (sobe permissao por pedido, nunca por padrao)');
+
+                    continue;
+                }
+                if (in_array($value, ['off', 'nao', 'não', 'false', '0', 'desligado'], true)) {
+                    $this->intentEnabled = false;
+                    $this->intentSessionAcks = [];
+                    $this->line('Intent: off (respeitando --permission verbatim)');
+
+                    continue;
+                }
+                if (in_array($value, ['reset', 'limpar', 'clear'], true)) {
+                    $this->intentSessionAcks = [];
+                    $this->line('Intent: acks de sessao limpos');
+
+                    continue;
+                }
+                $this->warn('Use /intent on, /intent off, ou /intent reset.');
+
+                continue;
+            }
+
             if (str_starts_with($line, '/busy')) {
                 $busyMode = $this->handleBusyCommand($line, $busyMode);
 
@@ -307,6 +483,11 @@ class AiChatCommand extends Command
                 $line = $skillSlash['input'];
             }
 
+            $pendingImages = $this->maybeAutoAttachClipboardImage($imageAttachments, $workspace, $line, $pendingImages);
+            if ($pendingImages !== [] && ! $provider) {
+                $provider = 'codex_cli';
+            }
+
             $activeTrace = $this->activeTrace($threadId, $workspace);
             if ($activeTrace) {
                 $threadId = $activeTrace->thread_id ?: $threadId;
@@ -316,7 +497,9 @@ class AiChatCommand extends Command
                     $queuedMessages[] = [
                         'input' => $line,
                         'skills' => $messageSkills,
+                        'images' => $pendingImages,
                     ];
+                    $pendingImages = [];
                     $this->line('(queued - will send next turn)');
 
                     continue;
@@ -333,7 +516,9 @@ class AiChatCommand extends Command
                 $this->warn('(interrupted - previous trace cancelled; sending new message)');
             }
 
-            $trace = $this->send($gateway, $worker, $line, $workspace, $provider, $mode, $permissionMode, $stream, $threadId, $threadId === null, $messageSkills);
+            $effectivePermission = $this->resolveEffectivePermission($intent, $line, $permissionMode);
+            $trace = $this->send($gateway, $worker, $line, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $messageSkills, $pendingImages);
+            $pendingImages = [];
             $threadId = $trace->thread_id ?: $threadId;
             $this->maybeRunDevQualityGate($quality, $workspace, $mode);
         }
@@ -351,21 +536,54 @@ class AiChatCommand extends Command
         ?string $threadId,
         bool $newThread,
         array $activatedSkills = [],
+        array $imageAttachments = [],
     ): AiTrace {
         $this->streamedAssistantContent = '';
+        $this->markdownStreamBuffer = '';
+        $this->streamOutputStarted = false;
+        $this->streamInCodeBlock = false;
+        $this->streamCodeLabel = '';
+        $this->streamCodeLineCount = 0;
 
         $activatedSkills = $this->normalizeSkillNames($activatedSkills);
+        $imageAttachments = $this->normalizeImageAttachments($imageAttachments);
+        $inputForPrompt = $imageAttachments === [] ? $input : $this->inputWithImageSummary($input, $imageAttachments);
+        $agentSlug = $this->agentSlug($mode);
+        $telemetry = app(AtlasCliTelemetry::class);
+        $correlationId = $telemetry->correlationId();
+        $interactionStartedAt = microtime(true);
+        $telemetry->interactionSubmitted(
+            $correlationId,
+            $input,
+            $workspace,
+            $threadId,
+            $provider,
+            $agentSlug,
+            $mode,
+            $permissionMode,
+            $stream,
+            $newThread,
+            [
+                'activated_skills_count' => count($activatedSkills),
+                'image_attachments_count' => count($imageAttachments),
+            ],
+        );
         $payload = [
             'app_surface' => 'atlas_cli',
             'atlas_workflow_mode' => $mode,
             'workspace' => $workspace,
             'requested_provider' => $provider,
-            'requested_agent' => $this->agentSlug($mode),
+            'requested_agent' => $agentSlug,
             'workspace_context' => $this->workspaceContext($workspace),
             'tool_permissions' => $this->toolPermissions($workspace, $mode, $provider, $permissionMode),
         ];
         if ($activatedSkills !== []) {
             $payload['activated_skills'] = $activatedSkills;
+        }
+        if ($imageAttachments !== []) {
+            $payload['attachments'] = [
+                'images' => $imageAttachments,
+            ];
         }
 
         $devPlan = $this->devExecutionPlanOption();
@@ -378,16 +596,33 @@ class AiChatCommand extends Command
             $payload['council_providers'] = ['claude_cli', 'codex_cli'];
         }
 
-        $trace = $gateway->enqueueInteraction($input, [
-            'source_type' => 'manual',
-            'agent_slug' => $this->agentSlug($mode),
-            'provider' => $provider,
-            'thread_id' => $threadId,
-            'new_thread' => $newThread,
-            'priority' => 10,
-            'include_semantic_context' => true,
-            'timeout_seconds' => min(max((int) $this->option('timeout'), 15), 1800),
-            'payload' => $payload,
+        try {
+            $trace = $gateway->enqueueInteraction($inputForPrompt, [
+                'source_type' => 'manual',
+                'agent_slug' => $agentSlug,
+                'provider' => $provider,
+                'thread_id' => $threadId,
+                'new_thread' => $newThread,
+                'priority' => 10,
+                'include_semantic_context' => true,
+                'timeout_seconds' => min(max((int) $this->option('timeout'), 15), 1800),
+                'payload' => $payload,
+            ]);
+        } catch (\Throwable $exception) {
+            $telemetry->interactionFailed($correlationId, $exception, $this->elapsedMs($interactionStartedAt), [
+                'phase' => 'enqueue',
+                'mode' => $mode,
+                'provider' => $provider,
+            ]);
+
+            throw $exception;
+        }
+
+        $telemetry->interactionEnqueued($correlationId, $trace, $this->elapsedMs($interactionStartedAt), [
+            'mode' => $mode,
+            'permission_mode' => $permissionMode,
+            'stream' => $stream,
+            'no_run' => (bool) $this->option('no-run'),
         ]);
 
         if ((bool) $this->option('no-run')) {
@@ -396,14 +631,36 @@ class AiChatCommand extends Command
             return $trace;
         }
 
-        $trace = $this->runInline($worker, $trace, $stream);
+        try {
+            $trace = $this->runInline($worker, $trace, $stream);
+        } catch (\Throwable $exception) {
+            $telemetry->interactionFailed($correlationId, $exception, $this->elapsedMs($interactionStartedAt), [
+                'phase' => 'inline_worker',
+                'trace_id' => $trace->id,
+                'thread_id' => $trace->thread_id,
+                'mode' => $mode,
+                'provider' => $provider,
+            ]);
+
+            throw $exception;
+        }
+        $telemetry->interactionCompleted($correlationId, $trace, $this->elapsedMs($interactionStartedAt), [
+            'mode' => $mode,
+            'permission_mode' => $permissionMode,
+            'stream' => $stream,
+        ]);
         $this->printTrace($trace);
 
         return $trace;
     }
 
+    private function elapsedMs(float $startedAt): int
+    {
+        return max(0, (int) round((microtime(true) - $startedAt) * 1000));
+    }
+
     /**
-     * @param  array<int,array{input:string,skills:array<int,string>}|string>  $queuedMessages
+     * @param  array<int,array{input:string,skills:array<int,string>,images?:array<int,array<string,mixed>>}|string>  $queuedMessages
      */
     private function drainQueuedMessages(
         array &$queuedMessages,
@@ -417,6 +674,7 @@ class AiChatCommand extends Command
         bool $stream,
         ?string $threadId,
         array $activatedSkills = [],
+        ?IntentPermissionResolver $intent = null,
     ): ?AiTrace {
         if ($queuedMessages === [] || $this->activeTrace($threadId, $workspace)) {
             return null;
@@ -435,10 +693,17 @@ class AiChatCommand extends Command
             ->unique()
             ->values()
             ->all();
+        $batchImages = collect($items)
+            ->flatMap(fn (mixed $item): array => is_array($item) ? (array) ($item['images'] ?? []) : [])
+            ->values()
+            ->all();
         $messageCount = count($items);
         $this->line("(queued batch - sending {$messageCount} message(s))");
 
-        $trace = $this->send($gateway, $worker, $batch, $workspace, $provider, $mode, $permissionMode, $stream, $threadId, $threadId === null, $batchSkills);
+        $effectivePermission = $intent
+            ? $this->resolveEffectivePermission($intent, $batch, $permissionMode)
+            : $permissionMode;
+        $trace = $this->send($gateway, $worker, $batch, $workspace, $provider ?: ($batchImages !== [] ? 'codex_cli' : null), $mode, $effectivePermission, $stream, $threadId, $threadId === null, $batchSkills, $batchImages);
         $this->maybeRunDevQualityGate($quality, $workspace, $mode);
 
         return $trace;
@@ -542,7 +807,7 @@ class AiChatCommand extends Command
 
         while (now()->lessThanOrEqualTo($deadline)) {
             $trace = $trace->fresh($this->traceRelations()) ?: $trace;
-            if (in_array($trace->status, ['succeeded', 'failed'], true)) {
+            if (in_array($trace->status, ['succeeded', 'failed', 'cancelled'], true)) {
                 $remediationTrace = $this->nextRemediationTrace($trace);
                 if ($remediationTrace) {
                     $trace = $remediationTrace;
@@ -559,7 +824,7 @@ class AiChatCommand extends Command
             } : null);
             $trace = $trace->fresh($this->traceRelations()) ?: $trace;
 
-            if (in_array($trace->status, ['succeeded', 'failed'], true)) {
+            if (in_array($trace->status, ['succeeded', 'failed', 'cancelled'], true)) {
                 $remediationTrace = $this->nextRemediationTrace($trace);
                 if ($remediationTrace) {
                     $trace = $remediationTrace;
@@ -609,26 +874,33 @@ class AiChatCommand extends Command
             return;
         }
 
+        $this->flushMarkdownStream();
+
         $this->line('');
-        $this->line("trace: {$trace->id}");
-        $this->line("thread: {$trace->thread_id}");
-        $this->line("status: {$trace->status} | provider: {$trace->provider}");
+        $statusStyle = match ($trace->status) {
+            'succeeded' => 'fg=green;options=bold',
+            'failed' => 'fg=red;options=bold',
+            default => 'fg=yellow;options=bold',
+        };
+        $this->line('<fg=bright-blue;options=bold>Atlas</> <fg=gray>trace '.$this->shortId((string) $trace->id).'</> <'.$statusStyle.'>'.$trace->status.'</> <fg=gray>provider '.$trace->provider.'</>');
+        $this->line('<fg=gray>thread '.$this->shortId((string) $trace->thread_id).'</>');
         $activatedSkills = collect((array) data_get($trace->metadata, 'skills_activated', []))
             ->pluck('name')
             ->filter()
             ->implode(', ');
         if ($activatedSkills !== '') {
-            $this->line("skills: {$activatedSkills}");
+            $this->line('<fg=gray>skills '.$activatedSkills.'</>');
         }
 
         if ($quality) {
             $flags = collect($quality->flags)->pluck('code')->implode(', ') ?: 'none';
-            $this->line("quality: {$quality->score}/100 {$quality->status} | flags: {$flags}");
+            $qualityStyle = $quality->status === 'passed' ? 'fg=green' : ($quality->status === 'failed' ? 'fg=red' : 'fg=yellow');
+            $this->line('<'.$qualityStyle.'>quality '.$quality->score.'/100 '.$quality->status.'</> <fg=gray>flags '.$flags.'</>');
         }
 
         if ($trace->response_text && $this->streamedAssistantContent === '') {
             $this->line('');
-            $this->line($trace->response_text);
+            $this->line($this->renderMarkdown($trace->response_text));
         } elseif ($trace->job?->error_message) {
             $this->line('');
             $this->error($trace->job->error_message);
@@ -641,7 +913,7 @@ class AiChatCommand extends Command
         $content = is_string($event['content'] ?? null) ? $event['content'] : '';
 
         if ($type === 'token' && $content !== '') {
-            $this->output->write($content);
+            $this->printMarkdownStreamChunk($content);
             $this->streamedAssistantContent .= $content;
 
             return;
@@ -649,7 +921,7 @@ class AiChatCommand extends Command
 
         if ($type === 'error' && $content !== '') {
             if ($this->streamedAssistantContent !== '') {
-                $this->newLine();
+                $this->flushMarkdownStream();
             }
             $this->error($content);
 
@@ -668,55 +940,252 @@ class AiChatCommand extends Command
         }
     }
 
-    private function printHelp(): void
+    private function printMarkdownStreamChunk(string $content): void
     {
-        $this->line('Comandos Atlas CLI:');
-        $this->line('/new                         cria uma nova thread');
-        $this->line('/thread <id>                 continua uma thread especifica');
-        $this->line('/threads                     lista threads recentes deste workspace');
-        $this->line('/provider <claude|codex|conselho|padrao>');
-        $this->line('/mode <direct|plan|review|dev|debug|research>');
-        $this->line('/permission <auto|read|write|danger>');
-        $this->line('/stream <on|off>');
-        $this->line('/busy <interrupt|queue|steer|status>');
-        $this->line('/steer <texto>              envia nudge para trace ativo sem abrir nova conversa');
-        $this->line('/workspace <path>            troca workspace e inicia nova thread');
-        $this->line('/status                      mostra runtime atual');
-        $this->line('/state                       mostra estado longo da sessao');
-        $this->line('/quality                     mostra quality gate compacto');
-        $this->line('/doctor                      roda diagnostico terminal');
-        $this->line('/providers                   mostra estrategia de providers');
-        $this->line('/skills [list|show|doctor]   lista, inspeciona e valida bundles de skills');
-        $this->line('/checkpoint                  lista checkpoints do workspace');
-        $this->line('/objective <texto>           fixa objetivo operacional');
-        $this->line('/phase <texto>               fixa fase atual');
-        $this->line('/topic <texto>               fixa topico atual');
-        $this->line('/note <texto>                adiciona nota operacional');
-        $this->line('/next <texto>                adiciona proximo passo');
-        $this->line('/compact                     compacta a thread atual');
-        $this->line('/handoff <claude|codex>      cria handoff para outro provider');
-        $this->line('/exit                        encerra');
+        if (! $this->streamOutputStarted) {
+            $this->newLine();
+            $this->line('<fg=bright-blue;options=bold>Atlas</>');
+            $this->streamOutputStarted = true;
+        }
+
+        $this->markdownStreamBuffer .= str_replace("\r\n", "\n", str_replace("\r", "\n", $content));
+        $lines = explode("\n", $this->markdownStreamBuffer);
+        $this->markdownStreamBuffer = (string) array_pop($lines);
+
+        foreach ($lines as $line) {
+            $this->emitStreamLine($line);
+        }
     }
 
-    private function prepareSkillBundles(SkillDiscoveryService $discovery, SkillBundleStore $bundles, string $workspace): void
+    private function emitStreamLine(string $line): void
     {
+        if (preg_match('/^\s*```([^`]*)\s*$/', $line, $match) === 1) {
+            if (! $this->streamInCodeBlock) {
+                $this->streamInCodeBlock = true;
+                $this->streamCodeLabel = trim((string) ($match[1] ?? ''));
+                $this->streamCodeLineCount = 0;
+                if ($this->renderMode === 'compact') {
+                    return;
+                }
+            } else {
+                $count = $this->streamCodeLineCount;
+                $label = $this->streamCodeLabel !== '' ? $this->streamCodeLabel : 'codigo';
+                $this->streamInCodeBlock = false;
+                $this->streamCodeLabel = '';
+                $this->streamCodeLineCount = 0;
+                if ($this->renderMode === 'compact') {
+                    $word = $count === 1 ? 'linha oculta' : 'linhas ocultas';
+                    $summary = '['.$label.' - '.$count.' '.$word.']';
+                    $this->output->write($this->renderMarkdown($summary).PHP_EOL);
+
+                    return;
+                }
+            }
+
+            $this->output->write($this->renderMarkdown($line).PHP_EOL);
+
+            return;
+        }
+
+        if ($this->streamInCodeBlock) {
+            $this->streamCodeLineCount++;
+            if ($this->renderMode === 'compact') {
+                return;
+            }
+        }
+
+        $this->output->write($this->renderMarkdown($line).PHP_EOL);
+    }
+
+    private function flushMarkdownStream(): void
+    {
+        if ($this->markdownStreamBuffer === '') {
+            return;
+        }
+
+        if ($this->streamInCodeBlock && $this->renderMode === 'compact') {
+            $this->markdownStreamBuffer = '';
+
+            return;
+        }
+
+        $this->output->write($this->renderMarkdown($this->markdownStreamBuffer));
+        $this->markdownStreamBuffer = '';
+        $this->newLine();
+    }
+
+    private function renderMarkdown(string $markdown): string
+    {
+        return app(TerminalMarkdownRenderer::class)->render(
+            $markdown,
+            $this->output->isDecorated(),
+            $this->renderMode === 'compact',
+        );
+    }
+
+    private function printHelp(): void
+    {
+        $decorated = $this->output->isDecorated();
+        $sections = $this->helpSections();
+
+        $this->newLine();
+        $this->line(AtlasTerminalTheme::bold('  comandos atlas cli', $decorated));
+        $this->line('  '.AtlasTerminalTheme::muted(str_repeat('═', 18), $decorated));
+
+        foreach ($sections as $section) {
+            $this->newLine();
+            $title = AtlasTerminalTheme::accent('· '.$section['title'], $decorated);
+            $hint = AtlasTerminalTheme::dimItalic('· '.$section['when'], $decorated);
+            $this->line('  '.$title.' '.$hint);
+
+            $maxCmd = 0;
+            foreach ($section['commands'] as [$cmd, $desc]) {
+                $maxCmd = max($maxCmd, mb_strlen($cmd, 'UTF-8'));
+            }
+            $maxCmd = min(28, $maxCmd);
+
+            foreach ($section['commands'] as [$cmd, $desc]) {
+                $cmdPadded = str_pad($cmd, $maxCmd, ' ', STR_PAD_RIGHT);
+                $this->line('    '.AtlasTerminalTheme::accent($cmdPadded, $decorated).'  '.$desc);
+            }
+        }
+        $this->newLine();
+    }
+
+    /**
+     * @return list<array{title:string,when:string,commands:list<array{0:string,1:string}>}>
+     */
+    private function helpSections(): array
+    {
+        return [
+            [
+                'title' => 'conversa & contexto',
+                'when' => 'comecar, retomar ou trocar de conversa',
+                'commands' => [
+                    ['/new', 'comeca thread nova'],
+                    ['/thread <id>', 'retoma thread especifica'],
+                    ['/threads', 'lista threads recentes'],
+                    ['/workspace <path>', 'troca workspace e abre nova thread'],
+                    ['/exit', 'encerra (ou ctrl+d)'],
+                ],
+            ],
+            [
+                'title' => 'modo & comportamento',
+                'when' => 'ajustar como a proxima resposta vai vir',
+                'commands' => [
+                    ['/mode <X>', 'X = direct | plan | review | dev | debug | research'],
+                    ['/plan /review ...', 'atalho para /mode <X>'],
+                    ['/provider <X>', 'X = claude | codex | conselho | padrao (atlas decide)'],
+                    ['/permission <X>', 'X = auto | read | write | danger (intent decide auto)'],
+                    ['/stream <on|off>', 'streaming token-a-token'],
+                    ['/render <X>', 'X = full | compact (compact esconde codigo)'],
+                    ['/intent <X>', 'X = on | off | reset (sobe permissao por pedido)'],
+                ],
+            ],
+            [
+                'title' => 'durante execucao',
+                'when' => 'atlas esta rodando, voce quer interagir',
+                'commands' => [
+                    ['/busy <X>', 'X = interrupt | queue | steer | status'],
+                    ['/steer <texto>', 'nudge sem cortar a execucao'],
+                ],
+            ],
+            [
+                'title' => 'imagens',
+                'when' => 'screenshot, tela, bug visual ou design',
+                'commands' => [
+                    ['automático', 'copie screenshot no macOS e peça "analise essa tela"'],
+                    ['/paste-image', 'anexa a imagem atual do clipboard do macOS'],
+                    ['/image <path>', 'anexa arquivo png/jpg/webp/gif'],
+                    ['/images', 'lista imagens anexadas para a proxima mensagem'],
+                    ['/clear-images', 'limpa anexos pendentes'],
+                ],
+            ],
+            [
+                'title' => 'memoria da sessao',
+                'when' => 'fixar objetivo, fase, proximos passos',
+                'commands' => [
+                    ['/state', 'estado completo (objetivo, fase, loops, etc)'],
+                    ['/objective <texto>', 'fixa objetivo'],
+                    ['/phase <texto>', 'fixa fase atual'],
+                    ['/topic <texto>', 'fixa topico'],
+                    ['/note <texto>', 'registra nota operacional'],
+                    ['/next <texto>', 'registra proximo passo'],
+                    ['/compact', 'compacta thread quando ficar longa'],
+                ],
+            ],
+            [
+                'title' => 'diagnostico',
+                'when' => 'verificar runtime, providers, qualidade',
+                'commands' => [
+                    ['/status', 'runtime completo (todos os toggles)'],
+                    ['/quality', 'quality gate da ultima execucao dev'],
+                    ['/doctor', 'diagnostico terminal + atlas'],
+                    ['/providers', 'estrategia atual de providers'],
+                    ['/skills <X>', 'X = list | show | doctor'],
+                    ['/checkpoint', 'checkpoints do workspace'],
+                ],
+            ],
+            [
+                'title' => 'provider handoff',
+                'when' => 'trocar de modelo mid-thread mantendo contexto',
+                'commands' => [
+                    ['/handoff <X>', 'X = claude | codex'],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return array{has_local:bool,trusted:bool,prompted:bool,auto_trusted:bool,ignored:bool}
+     */
+    private function prepareSkillBundles(SkillDiscoveryService $discovery, SkillBundleStore $bundles, string $workspace): array
+    {
+        $hasLocal = $discovery->workspaceHasLocalSkills($workspace);
+        $trusted = $hasLocal && $discovery->isWorkspaceTrusted($workspace);
+        $prompted = false;
+        $autoTrusted = false;
+        $ignored = false;
+
+        if ($hasLocal && ! $trusted && (bool) $this->option('trust-workspace-skills')) {
+            $discovery->trustWorkspace($workspace);
+            $trusted = true;
+            $autoTrusted = true;
+        }
+
         if (
             ! (bool) $this->option('json')
-            && $discovery->workspaceHasLocalSkills($workspace)
-            && ! $discovery->isWorkspaceTrusted($workspace)
+            && ! (bool) $this->option('no-skill-prompt')
+            && $hasLocal
+            && ! $trusted
         ) {
+            $prompted = true;
             $this->warn('Este workspace contem skills locais em .atlas/skills ou .agents/skills.');
             $this->warn('Skills locais podem influenciar o comportamento do Atlas. Confie apenas em repositorios que voce controla.');
             if ($this->confirm('Confiar nas skills locais deste workspace?', false)) {
                 $discovery->trustWorkspace($workspace);
+                $trusted = true;
                 $this->line('Workspace marcado como confiavel para skills locais.');
             } else {
+                $ignored = true;
                 $this->line('Skills locais ignoradas nesta sessao. Skills builtin, user e Vault continuam disponiveis.');
             }
         }
 
+        if ($hasLocal && ! $trusted && ! $prompted) {
+            $ignored = true;
+        }
+
         $bundles->clear();
         $bundles->registerAll($discovery->discoverAll($workspace));
+
+        return [
+            'has_local' => $hasLocal,
+            'trusted' => $trusted,
+            'prompted' => $prompted,
+            'auto_trusted' => $autoTrusted,
+            'ignored' => $ignored,
+        ];
     }
 
     /**
@@ -783,6 +1252,173 @@ class AiChatCommand extends Command
             ->filter(fn (string $part): bool => $part !== '')
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function initialImageAttachments(AtlasImageAttachmentService $images, string $workspace): array
+    {
+        $attachments = $images->fromPaths((array) $this->option('image'), $workspace);
+
+        if ((bool) $this->option('clipboard-image')) {
+            $attachments[] = $images->fromClipboard($workspace);
+        }
+
+        return $images->dedupe($attachments);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $existing
+     * @param  array<int,array<string,mixed>>  $incoming
+     * @return array<int,array<string,mixed>>
+     */
+    private function mergeImageAttachments(array $existing, array $incoming, AtlasImageAttachmentService $images): array
+    {
+        return $images->dedupe(array_merge($existing, $incoming));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $pending
+     * @return array<int,array<string,mixed>>
+     */
+    private function maybeAutoAttachClipboardImage(AtlasImageAttachmentService $images, string $workspace, string $input, array $pending): array
+    {
+        if ($pending !== [] || (bool) $this->option('no-auto-image') || ! $this->shouldAutoAttachClipboardImage($input)) {
+            return $pending;
+        }
+
+        try {
+            $attachment = $images->fromClipboard($workspace);
+        } catch (\Throwable) {
+            return $pending;
+        }
+
+        if (! (bool) $this->option('json')) {
+            $this->line('Imagem do clipboard detectada e anexada automaticamente.');
+        }
+
+        return $images->dedupe([$attachment]);
+    }
+
+    private function shouldAutoAttachClipboardImage(string $input): bool
+    {
+        $text = Str::of($input)->lower()->ascii()->squish()->value();
+        if ($text === '' || str_starts_with($text, '/')) {
+            return false;
+        }
+
+        foreach (['sem imagem', 'sem screenshot', 'sem print', 'nao tem imagem', 'não tem imagem'] as $negative) {
+            if (str_contains($text, Str::of($negative)->ascii()->value())) {
+                return false;
+            }
+        }
+
+        $patterns = [
+            '/\b(screenshot|print|imagem|foto|captura de tela)\b/',
+            '/\b(essa|esta|nessa|nesta|isso|isto)\s+(tela|ui|interface|imagem|foto|screenshot|print)\b/',
+            '/\b(tela|ui|interface)\s+(acima|anexada|copiada|do print|da imagem)\b/',
+            '/\bbug visual\b/',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $text) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function imageCommandPaths(string $input): array
+    {
+        if ($input === '') {
+            throw new \RuntimeException('Uso: /image <caminho-da-imagem>');
+        }
+
+        if (File::isFile($this->expandUserPath($input))) {
+            return [$input];
+        }
+
+        return $this->simpleArguments($input);
+    }
+
+    private function expandUserPath(string $path): string
+    {
+        if (! str_starts_with($path, '~/')) {
+            return $path;
+        }
+
+        $home = rtrim((string) ($_SERVER['HOME'] ?? getenv('HOME') ?: dirname(base_path())), DIRECTORY_SEPARATOR);
+
+        return $home.substr($path, 1);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $attachments
+     * @return array<int,array<string,mixed>>
+     */
+    private function normalizeImageAttachments(array $attachments): array
+    {
+        return collect($attachments)
+            ->filter(fn (mixed $attachment): bool => is_array($attachment) && is_string($attachment['path'] ?? null))
+            ->map(fn (array $attachment): array => [
+                'path' => (string) $attachment['path'],
+                'source' => (string) ($attachment['source'] ?? 'file'),
+                'original_path' => (string) ($attachment['original_path'] ?? $attachment['path']),
+                'mime_type' => (string) ($attachment['mime_type'] ?? 'application/octet-stream'),
+                'bytes' => (int) ($attachment['bytes'] ?? 0),
+                'sha256' => (string) ($attachment['sha256'] ?? ''),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $attachments
+     */
+    private function inputWithImageSummary(string $input, array $attachments): string
+    {
+        $lines = ["{$input}\n\n[Atlas CLI anexou imagem(ns) reais a esta mensagem. Analise visualmente o conteúdo anexado; não trate como apenas caminho de arquivo.]"];
+
+        foreach ($attachments as $index => $attachment) {
+            $number = $index + 1;
+            $lines[] = sprintf(
+                '- imagem %d: %s (%s, %s bytes, source=%s)',
+                $number,
+                (string) $attachment['path'],
+                (string) $attachment['mime_type'],
+                (string) $attachment['bytes'],
+                (string) $attachment['source'],
+            );
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $attachments
+     */
+    private function printPendingImages(array $attachments): void
+    {
+        if ($attachments === []) {
+            $this->line('Nenhuma imagem anexada para a proxima mensagem.');
+
+            return;
+        }
+
+        $this->line('Imagens anexadas para a proxima mensagem:');
+        foreach ($attachments as $index => $attachment) {
+            $this->line(sprintf(
+                '  %d. %s (%s)',
+                $index + 1,
+                (string) ($attachment['original_path'] ?? $attachment['path'] ?? '-'),
+                (string) ($attachment['mime_type'] ?? 'image'),
+            ));
+        }
     }
 
     /**
@@ -911,17 +1547,301 @@ class AiChatCommand extends Command
         }
     }
 
-    private function printStatus(string $workspace, ?string $provider, string $mode, string $permissionMode, bool $stream, string $busyMode, ?string $threadId, array $activatedSkills = []): void
+    /**
+     * @param  array<int,string>  $activatedSkills
+     * @param  array<string,mixed>  $skillTrust
+     */
+    private function printWelcome(string $workspace, ?string $provider, string $mode, string $permissionMode, bool $stream, string $busyMode, ?string $threadId, array $activatedSkills = [], array $skillTrust = []): void
     {
-        $this->line('Atlas runtime:');
-        $this->line('workspace: '.$workspace);
-        $this->line('provider: '.($provider ?: 'padrao'));
-        $this->line("mode: {$mode}");
-        $this->line("permission: {$permissionMode}");
-        $this->line('stream: '.($stream ? 'on' : 'off'));
-        $this->line("busy input: {$busyMode}");
-        $this->line('thread: '.($threadId ?: 'nova/proxima'));
-        $this->line('skills: '.($activatedSkills === [] ? 'auto' : implode(', ', $activatedSkills)));
+        $title = (bool) $this->option('cockpit') ? 'atlas dev cockpit' : 'atlas cli';
+        $this->renderConsolePanel($title, $workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust);
+    }
+
+    /**
+     * @param  array<int,string>  $activatedSkills
+     * @param  array<string,mixed>  $skillTrust
+     */
+    private function renderConsolePanel(string $title, string $workspace, ?string $provider, string $mode, string $permissionMode, bool $stream, string $busyMode, ?string $threadId, array $activatedSkills = [], array $skillTrust = []): void
+    {
+        $context = $this->workspaceContext($workspace);
+        $branch = (string) ($context['branch'] ?: '-');
+        $dirtyCount = count((array) ($context['dirty_files'] ?? []));
+        $decorated = $this->output->isDecorated();
+        $width = $this->panelWidth();
+        $tag = $threadId ? 'thread '.$this->shortId($threadId) : 'nova thread';
+        $skillsValue = $activatedSkills === [] ? 'auto' : implode(', ', $activatedSkills);
+        $localSkills = $this->skillTrustLabel($skillTrust);
+        $providerLabel = $provider ?: 'padrao';
+        $rootsValue = $this->panelRootsSummary();
+
+        $panel = AtlasCliPanel::make($decorated, $width)
+            ->open($title, $tag)
+            ->blank()
+            ->section('identidade')
+            ->kv('workspace', $workspace)
+            ->kv('thread', $threadId ?: AtlasTerminalTheme::muted('nova', $decorated))
+            ->kv('git', 'branch '.$branch.' '.AtlasTerminalTheme::muted('· '.$dirtyCount.' dirty', $decorated))
+            ->blank()
+            ->section('runtime')
+            ->kv('provider', $providerLabel)
+            ->kv('modo', $mode)
+            ->kv('permissao', $this->panelPermissionValue($permissionMode, $decorated))
+            ->kv('stream', $this->panelTogglePair([
+                'stream' => $stream ? 'on' : 'off',
+                'render' => $this->renderMode,
+                'intent' => $this->intentEnabled ? 'on' : 'off',
+                'busy' => $busyMode,
+            ], $decorated))
+            ->kv('skills', $skillsValue.AtlasTerminalTheme::muted(' · locais '.$localSkills, $decorated))
+            ->blank()
+            ->section('controle')
+            ->kv('raizes', $rootsValue)
+            ->kv('sudo', AtlasTerminalTheme::muted('so com pedido explicito', $decorated))
+            ->blank()
+            ->line(AtlasTerminalTheme::dimItalic('/help · /paste-image · /status · /handoff codex|claude · /exit', $decorated))
+            ->blank()
+            ->close()
+            ->build();
+
+        $this->newLine();
+        foreach ($panel as $line) {
+            $this->line($line);
+        }
+
+        if (($skillTrust['ignored'] ?? false) === true) {
+            $this->line('  '.AtlasTerminalTheme::risk('skills locais ignoradas', $decorated).' '.AtlasTerminalTheme::muted('· atlas skills trust', $decorated));
+        }
+        $this->newLine();
+    }
+
+    /**
+     * @param  array<string,string>  $pairs
+     */
+    private function panelTogglePair(array $pairs, bool $decorated): string
+    {
+        $parts = [];
+        foreach ($pairs as $key => $value) {
+            $parts[] = AtlasTerminalTheme::muted($key, $decorated).' '.$value;
+        }
+
+        return implode(AtlasTerminalTheme::muted('  ·  ', $decorated), $parts);
+    }
+
+    private function panelPermissionValue(string $permissionMode, bool $decorated): string
+    {
+        $tone = match ($permissionMode) {
+            'danger' => AtlasTerminalTheme::risk($permissionMode, $decorated),
+            'write' => AtlasTerminalTheme::accent($permissionMode, $decorated),
+            default => AtlasTerminalTheme::ok($permissionMode, $decorated),
+        };
+        $hint = match ($permissionMode) {
+            'danger' => 'liberdade dentro das raizes',
+            'write' => 'edicao no workspace',
+            default => 'so leitura e inspecao',
+        };
+
+        return $tone.' '.AtlasTerminalTheme::muted('· '.$hint, $decorated);
+    }
+
+    private function panelRootsSummary(): string
+    {
+        $roots = $this->allowedRootsForPrompt();
+        if ($roots === []) {
+            return AtlasTerminalTheme::muted('sem raizes configuradas', $this->output->isDecorated());
+        }
+        $shown = array_slice($roots, 0, 2);
+        $extra = count($roots) - count($shown);
+
+        return implode(', ', $shown).($extra > 0 ? AtlasTerminalTheme::muted(' +'.$extra, $this->output->isDecorated()) : '');
+    }
+
+    private function panelWidth(): int
+    {
+        $terminal = new \Symfony\Component\Console\Terminal;
+        $cols = $terminal->getWidth();
+        if ($cols <= 0) {
+            $cols = 80;
+        }
+
+        return min(96, max(64, $cols - 2));
+    }
+
+    private function dim(string $text): string
+    {
+        if (! $this->output->isDecorated()) {
+            return $text;
+        }
+
+        return "\033[2m".$text."\033[0m";
+    }
+
+    /**
+     * @param  array<int,string>  $activatedSkills
+     * @param  array<string,mixed>  $skillTrust
+     */
+    private function printRuntimeStatus(string $workspace, ?string $provider, string $mode, string $permissionMode, bool $stream, string $busyMode, ?string $threadId, array $activatedSkills = [], array $skillTrust = []): void
+    {
+        $title = (bool) $this->option('cockpit') ? 'atlas dev status' : 'atlas status';
+        $this->renderConsolePanel($title, $workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust);
+    }
+
+    private function permissionBadge(string $permissionMode): string
+    {
+        return match ($permissionMode) {
+            'danger' => '<fg=red;options=bold>DANGER</>',
+            'write' => '<fg=yellow;options=bold>WRITE</>',
+            default => '<fg=green;options=bold>READ</>',
+        };
+    }
+
+    private function permissionNotice(string $permissionMode, bool $plain = false): string
+    {
+        return match ($permissionMode) {
+            'danger' => $plain
+                ? 'PERMISSAO: DANGER - Atlas pode operar dentro das raizes autorizadas; sudo exige pedido explicito.'
+                : '<fg=red;options=bold>PERMISSAO DANGER</> <fg=gray>Atlas pode operar dentro das raizes autorizadas; sudo exige pedido explicito.</>',
+            'write' => $plain
+                ? 'PERMISSAO: WRITE - Atlas pode editar e rodar comandos no workspace.'
+                : '<fg=yellow;options=bold>PERMISSAO WRITE</> <fg=gray>Atlas pode editar e rodar comandos no workspace.</>',
+            default => $plain
+                ? 'PERMISSAO: READ - Atlas apenas le e inspeciona.'
+                : '<fg=green;options=bold>PERMISSAO READ</> <fg=gray>Atlas apenas le e inspeciona.</>',
+        };
+    }
+
+    private function printControlBanner(string $workspace, string $permissionMode): void
+    {
+        $roots = $this->allowedRootsForPrompt();
+        $rootSummary = $roots !== [] ? implode(', ', array_slice($roots, 0, 3)) : $workspace;
+        $extra = count($roots) > 3 ? ' +'.(count($roots) - 3) : '';
+        $meaning = match ($permissionMode) {
+            'danger' => 'pode operar dentro das raizes',
+            'write'  => 'pode editar e rodar dentro do workspace',
+            default  => 'so leitura e inspecao',
+        };
+        $intentLine = $this->intentEnabled
+            ? 'intent · ativo · sobe permissao por pedido, nunca por padrao'
+            : 'intent · desligado · respeitando --permission verbatim';
+
+        $this->line($this->dimItalic('  · controle · '.$workspace));
+        $this->line($this->dimItalic('  · raizes ·   '.$rootSummary.$extra));
+        $this->line($this->dimItalic('  · sudo ·     so com pedido explicito'));
+        $this->line($this->dimItalic('  · permissao · '.$permissionMode.' · '.$meaning));
+        $this->line($this->dimItalic('  · '.$intentLine));
+    }
+
+    private function dimItalic(string $text): string
+    {
+        if (! $this->output->isDecorated()) {
+            return $text;
+        }
+
+        return "\033[2;3m".$text."\033[0m";
+    }
+
+    private function resolveEffectivePermission(IntentPermissionResolver $resolver, string $input, string $currentPermission): string
+    {
+        if (! $this->intentEnabled) {
+            return $currentPermission;
+        }
+
+        if (trim($input) === '' || str_starts_with(trim($input), '/')) {
+            return $currentPermission;
+        }
+
+        if ((bool) $this->option('dangerously-allow-all') || (bool) $this->option('allow-write')) {
+            return $currentPermission;
+        }
+
+        if ($currentPermission === 'danger') {
+            return $currentPermission;
+        }
+
+        $resolution = $resolver->resolve($input, $currentPermission);
+
+        if (! $resolution->isReadOnly() && ! (bool) $this->option('json')) {
+            $this->renderIntentNotice($resolution);
+        }
+
+        if (! $resolution->changed) {
+            return $currentPermission;
+        }
+
+        if ($this->intentSessionAcks[$resolution->required] ?? false) {
+            return $resolution->required;
+        }
+
+        if ((bool) $this->option('json') || ! $this->input->isInteractive()) {
+            $this->renderIntentBlocked($resolution);
+
+            return $currentPermission;
+        }
+
+        return $this->confirmIntentEscalation($resolution, $currentPermission);
+    }
+
+    private function renderIntentNotice(IntentResolution $resolution): void
+    {
+        if ($resolution->signals === []) {
+            return;
+        }
+        $signal = $resolution->signals[0];
+        $this->line($this->dimItalic('  · esta acao vai '.$signal));
+    }
+
+    private function renderIntentBlocked(IntentResolution $resolution): void
+    {
+        if ((bool) $this->option('json')) {
+            return;
+        }
+        $this->warn(sprintf(
+            'intent quer %s (motivo: %s). rode com --permission=%s ou abra o REPL para confirmar.',
+            $resolution->required,
+            $resolution->reason,
+            $resolution->required,
+        ));
+    }
+
+    private function confirmIntentEscalation(IntentResolution $resolution, string $currentPermission): string
+    {
+        $this->line($this->dimItalic(
+            '  · subir para '.$resolution->required.'? [s] sim · [a] sessao inteira · [n] nao',
+        ));
+        $answer = (string) $this->ask('atlas', 'n');
+        $normalized = strtolower(trim($answer));
+
+        if (in_array($normalized, ['s', 'sim', 'y', 'yes', '1'], true)) {
+            $this->line($this->dimItalic('  · permissao temporaria · '.$resolution->required));
+
+            return $resolution->required;
+        }
+
+        if (in_array($normalized, ['a', 'all', 'sessao', 'sessão', 'session', 'sempre'], true)) {
+            $this->intentSessionAcks[$resolution->required] = true;
+            $this->line($this->dimItalic('  · permissao da sessao · '.$resolution->required));
+
+            return $resolution->required;
+        }
+
+        $this->line($this->dimItalic('  · seguindo em '.$currentPermission.' (operador disse nao)'));
+
+        return $currentPermission;
+    }
+
+    /**
+     * @param  array<string,mixed>  $skillTrust
+     */
+    private function skillTrustLabel(array $skillTrust): string
+    {
+        if (($skillTrust['has_local'] ?? false) !== true) {
+            return 'none';
+        }
+
+        if (($skillTrust['trusted'] ?? false) === true) {
+            return ($skillTrust['auto_trusted'] ?? false) === true ? 'trusted now' : 'trusted';
+        }
+
+        return 'not trusted';
     }
 
     private function printThreads(string $workspace): void
@@ -992,6 +1912,8 @@ class AiChatCommand extends Command
         $mode = $this->permissionMode($permissionMode, $workflowMode);
         $sandboxes = config('atlas.ai.tool_permissions.codex_sandboxes', []);
         $sandboxes = is_array($sandboxes) ? $sandboxes : [];
+        $allowUnsandboxedProvider = (bool) $this->option('allow-unsandboxed')
+            || (bool) config('atlas.ai.tool_permissions.allow_unsandboxed_write', false);
 
         return [
             'schema_version' => 1,
@@ -999,7 +1921,7 @@ class AiChatCommand extends Command
             'mode' => $mode,
             'workspace' => $workspace,
             'confirmed' => $mode === 'danger' || (bool) $this->option('allow-write') || $workflowMode === 'dev',
-            'allow_unsandboxed_provider' => (bool) $this->option('allow-unsandboxed'),
+            'allow_unsandboxed_provider' => $allowUnsandboxedProvider,
             'requested_provider' => $provider,
             'codex_sandbox' => (string) ($sandboxes[$mode] ?? match ($mode) {
                 'write' => 'workspace-write',
@@ -1007,6 +1929,7 @@ class AiChatCommand extends Command
                 default => 'read-only',
             }),
             'capabilities' => $this->capabilitiesForPermissionMode($mode),
+            'allowed_roots' => $this->allowedRootsForPrompt(),
         ];
     }
 
@@ -1020,6 +1943,16 @@ class AiChatCommand extends Command
 
         if ((bool) $this->option('dangerously-allow-all')) {
             return 'danger';
+        }
+
+        if (in_array($requested, ['', 'auto', 'default'], true)) {
+            $configured = Str::of((string) config('atlas.ai.tool_permissions.default_mode', 'read'))->lower()->trim()->value();
+
+            if (in_array($configured, ['read', 'write', 'danger'], true)) {
+                if ($configured !== 'read') {
+                    return $configured;
+                }
+            }
         }
 
         if ((bool) $this->option('allow-write') || $workflowMode === 'dev') {
@@ -1092,6 +2025,24 @@ class AiChatCommand extends Command
         };
     }
 
+    /**
+     * @return array<int,string>
+     */
+    private function allowedRootsForPrompt(): array
+    {
+        $roots = config('atlas.ai.tool_permissions.allowed_roots', []);
+        if (! is_array($roots)) {
+            return [];
+        }
+
+        return collect($roots)
+            ->filter(fn (mixed $root): bool => is_string($root) && trim($root) !== '')
+            ->map(fn (string $root): string => realpath($root) ?: $root)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     private function workspace(): string
     {
         $workspace = (string) ($this->option('workspace') ?: getcwd() ?: config('atlas.ai.workdir'));
@@ -1103,7 +2054,16 @@ class AiChatCommand extends Command
     {
         $resolved = realpath($workspace);
 
-        return $resolved && is_dir($resolved) ? $resolved : $workspace;
+        if (! $resolved || ! is_dir($resolved)) {
+            return $workspace;
+        }
+
+        return $this->projectRootFor($resolved) ?: $resolved;
+    }
+
+    private function projectRootFor(string $workspace): ?string
+    {
+        return $this->runProcess(['git', 'rev-parse', '--show-toplevel'], $workspace);
     }
 
     private function latestThreadId(string $workspace): ?string
@@ -1188,6 +2148,15 @@ class AiChatCommand extends Command
         $mode = Str::of($mode)->lower()->trim()->value();
 
         return in_array($mode, ['direct', 'plan', 'review', 'dev', 'debug', 'research'], true) ? $mode : 'direct';
+    }
+
+    private function modeShortcut(string $line): ?string
+    {
+        if ($line === '/plan' || $line === '/review' || $line === '/debug' || $line === '/research' || $line === '/direct') {
+            return ltrim($line, '/');
+        }
+
+        return null;
     }
 
     /**

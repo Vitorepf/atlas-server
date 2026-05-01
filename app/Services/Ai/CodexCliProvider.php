@@ -34,10 +34,12 @@ class CodexCliProvider implements AiProvider
             '--sandbox',
             (string) (data_get($job->payload, 'tool_permissions.codex_sandbox') ?: ($provider['sandbox'] ?? 'read-only')),
         );
+        $args = $this->withAtlasRuntimeArgs($args, $job);
+        $args = $this->withImageAttachments($args, $job);
 
-        if (! empty($job->model ?? $provider['model'] ?? null)) {
+        if ($model = $this->invocationModel($job, $provider)) {
             $args[] = '--model';
-            $args[] = (string) ($job->model ?? $provider['model']);
+            $args[] = $model;
         }
 
         $args[] = '--output-last-message';
@@ -88,24 +90,59 @@ class CodexCliProvider implements AiProvider
         return $this->checkBinary($this->key(), (string) config('atlas.ai.providers.codex_cli.binary', 'codex'));
     }
 
+    private function invocationModel(AiJob $job, array $provider): ?string
+    {
+        $source = data_get($job->payload, 'model_identity_source') ?? data_get($job->metadata, 'model_identity_source');
+        if (in_array($source, ['provider_default_identity', 'configured_model_identity'], true)) {
+            return null;
+        }
+
+        $model = $job->model ?: ($provider['model'] ?? null);
+        if (! is_string($model) && ! is_numeric($model)) {
+            return null;
+        }
+
+        $model = trim((string) $model);
+
+        return $model === '' ? null : $model;
+    }
+
     /**
      * @param  array<int,mixed>  $args
      * @return array<int,mixed>
      */
-    private function withArgValue(array $args, string $name, string $value): array
+    private function withAtlasRuntimeArgs(array $args, AiJob $job): array
     {
-        $normalized = array_values($args);
-        $index = array_search($name, $normalized, true);
+        $mode = $this->permissionModeForJob($job);
 
-        if ($index === false) {
-            $normalized[] = $name;
-            $normalized[] = $value;
-
-            return $normalized;
+        if (in_array($mode, ['write', 'danger'], true)) {
+            $args = $this->withRepeatedArgValues($args, '--add-dir', $this->allowedRootsForJob($job));
         }
 
-        $normalized[$index + 1] = $value;
+        if ($mode === 'danger') {
+            $args = $this->withArgValue($args, '--ask-for-approval', 'never');
+        }
 
-        return $normalized;
+        return $args;
+    }
+
+    /**
+     * @param  array<int,mixed>  $args
+     * @return array<int,mixed>
+     */
+    private function withImageAttachments(array $args, AiJob $job): array
+    {
+        $images = data_get($job->payload, 'attachments.images', []);
+        if (! is_array($images) || $images === []) {
+            return $args;
+        }
+
+        $paths = collect($images)
+            ->map(fn (mixed $image): ?string => is_array($image) && is_string($image['path'] ?? null) ? $image['path'] : null)
+            ->filter(fn (?string $path): bool => is_string($path) && File::isFile($path))
+            ->values()
+            ->all();
+
+        return $this->withRepeatedArgValues($args, '--image', $paths);
     }
 }

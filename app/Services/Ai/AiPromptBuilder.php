@@ -488,23 +488,32 @@ TXT,
         $workspaceValue = data_get($permissions, 'workspace', data_get($options, 'payload.workspace'));
         $workspace = is_scalar($workspaceValue) ? (string) $workspaceValue : 'nao definido';
         $capabilities = data_get($permissions, 'capabilities', []);
+        $allowedRoots = data_get($permissions, 'allowed_roots', data_get($permissions, 'permission_decision.metadata.allowed_roots', []));
         $sandboxValue = data_get($permissions, 'codex_sandbox');
         $sandbox = is_scalar($sandboxValue) ? (string) $sandboxValue : 'nao definido';
 
         $capabilityText = is_array($capabilities) && $capabilities !== []
             ? implode(', ', array_map(fn (mixed $capability): string => (string) $capability, $capabilities))
             : 'read_files, inspect_git';
+        $rootsText = is_array($allowedRoots) && $allowedRoots !== []
+            ? implode(', ', array_map(fn (mixed $root): string => (string) $root, $allowedRoots))
+            : $workspace;
+        $scopeRule = $mode === 'danger'
+            ? '- Em modo danger, voce pode ler, escrever e executar comandos dentro das raizes autorizadas, nao apenas no workspace atual. Nao use sudo nem acesse fora dessas raizes sem pedido explicito.'
+            : '- Em modo read/write, mantenha leitura, escrita e comandos dentro do workspace autorizado.';
 
         return <<<TXT
 # Runtime de ferramentas Atlas
 
 Modo autorizado: {$mode}
 Workspace autorizado: {$workspace}
+Raizes autorizadas: {$rootsText}
 Sandbox Codex previsto: {$sandbox}
 Capacidades: {$capabilityText}
 
 Regras:
-- Execute leitura, escrita ou comandos somente dentro das capacidades acima.
+- Execute leitura, escrita ou comandos somente dentro das capacidades e raizes acima.
+{$scopeRule}
 - Não tente contornar sandbox, permissões, workspace ou políticas do Atlas.
 - Se precisar de uma capacidade maior, pare e explique a solicitação de permissão em termos operacionais.
 TXT;
@@ -522,6 +531,7 @@ TXT;
 - Responda com clareza executiva: decisão, ação, risco e validação quando relevante.
 - Evite código na resposta final, salvo pedido explícito do operador.
 - Em tarefas técnicas, cite arquivos alterados e comandos de verificação.
+- Para perguntas sobre arquivos, pastas ou contagens no filesystem, use comando deterministico quando houver acesso a ferramentas e diga se ocultos foram incluídos.
 - Se a resposta anterior do operador for curta ("C", "ambos", "continua"), use a conversa recente antes de pedir referência.
 TXT;
 

@@ -4,15 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\AtlasTaskEventResource;
 use App\Http\Resources\AtlasTaskResource;
+use App\Models\AtlasProjectBlocker;
 use App\Models\AtlasProjectStep;
 use App\Models\AtlasTask;
 use App\Services\AtlasDomainRegistry;
+use App\Services\Engineering\EngineeringBlueprintService;
+use App\Services\Engineering\EngineeringBlueprintSnapshotService;
+use App\Services\Engineering\EngineeringRunArtifactService;
+use App\Services\Engineering\EngineeringTaskContractService;
+use App\Services\ProjectBlockerService;
 use App\Services\ProjectExecutionService;
 use App\Services\RoutineSchedulingService;
 use App\Services\TaskPlanningService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -101,6 +108,119 @@ class AtlasTaskController extends Controller
                     ->get()
             )->resolve(),
         ]);
+    }
+
+    public function engineering(
+        Request $request,
+        AtlasTask $task,
+        EngineeringTaskContractService $contracts,
+        EngineeringBlueprintService $blueprints,
+        EngineeringBlueprintSnapshotService $snapshots,
+        EngineeringRunArtifactService $artifacts,
+    ): JsonResponse {
+        $data = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        $task->loadMissing(['project', 'projectStep']);
+        $contract = $contracts->forTask($task);
+        $blueprint = $blueprints->forTask($task, $contract);
+        $metadata = is_array($task->metadata) ? $task->metadata : [];
+        $evidenceHistory = $artifacts->evidenceHistory($task);
+
+        $events = [];
+        if (Schema::hasTable('atlas_task_events')) {
+            $events = AtlasTaskEventResource::collection(
+                $task->events()
+                    ->whereIn('event_type', ['engineering_dev_run_completed', 'engineering_evidence_recorded'])
+                    ->latest('occurred_at')
+                    ->limit((int) ($data['limit'] ?? 10))
+                    ->get()
+            )->resolve();
+        }
+
+        return response()->json([
+            'task_id' => $task->id,
+            'contract' => $contract,
+            'blueprint' => $blueprint,
+            'blueprint_snapshot' => $snapshots->currentForTask($task, $contract, $blueprint),
+            'status_snapshot' => $artifacts->statusSnapshot($task, $contract, $blueprint),
+            'latest_run' => $metadata['latest_engineering_run'] ?? null,
+            'run_history' => array_values((array) ($metadata['engineering_run_history'] ?? [])),
+            'latest_evidence' => $evidenceHistory[0] ?? null,
+            'evidence_history' => $evidenceHistory,
+            'events' => $events,
+        ]);
+    }
+
+    public function engineeringEvidence(
+        Request $request,
+        AtlasTask $task,
+        EngineeringTaskContractService $contracts,
+        EngineeringBlueprintService $blueprints,
+        EngineeringBlueprintSnapshotService $snapshots,
+        EngineeringRunArtifactService $artifacts,
+    ): JsonResponse {
+        $data = $request->validate([
+            'evidence_type' => ['required', Rule::in(['acceptance', 'scenario', 'validation_evidence', 'manual_qa', 'deep_code_review', 'database_review'])],
+            'target_id' => ['nullable', 'string', 'max:120'],
+            'status' => ['required', Rule::in(['passed', 'failed', 'needs_review', 'not_applicable'])],
+            'confidence' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'summary' => ['required', 'string', 'max:2000'],
+            'trace_id' => ['nullable', 'uuid'],
+            'command' => ['nullable', 'string', 'max:500'],
+            'artifact_url' => ['nullable', 'string', 'max:1000'],
+            'output_excerpt' => ['nullable', 'string', 'max:4000'],
+            'files' => ['nullable', 'array', 'max:100'],
+            'files.*' => ['string', 'max:500'],
+            'metadata' => ['nullable', 'array'],
+        ]);
+
+        $entry = $artifacts->recordEvidence($task, $data);
+        $task = $task->refresh()->load(['project', 'projectStep']);
+        $contract = $contracts->forTask($task);
+        $blueprint = $blueprints->forTask($task, $contract);
+        $metadata = is_array($task->metadata) ? $task->metadata : [];
+        $evidenceHistory = $artifacts->evidenceHistory($task);
+
+        return response()->json([
+            'task_id' => $task->id,
+            'evidence' => $entry,
+            'contract' => $contract,
+            'blueprint' => $blueprint,
+            'blueprint_snapshot' => $snapshots->currentForTask($task, $contract, $blueprint),
+            'status_snapshot' => $artifacts->statusSnapshot($task, $contract, $blueprint),
+            'latest_run' => $metadata['latest_engineering_run'] ?? null,
+            'evidence_history' => $evidenceHistory,
+        ], 201);
+    }
+
+    public function freezeEngineeringBlueprint(
+        AtlasTask $task,
+        EngineeringTaskContractService $contracts,
+        EngineeringBlueprintService $blueprints,
+        EngineeringBlueprintSnapshotService $snapshots,
+        EngineeringRunArtifactService $artifacts,
+    ): JsonResponse {
+        $task->loadMissing(['project', 'projectStep']);
+        $contract = $contracts->forTask($task);
+        $blueprint = $blueprints->forTask($task, $contract);
+        $snapshot = $snapshots->freezeForTask($task, $contract, $blueprint);
+        $metadata = is_array($task->metadata) ? $task->metadata : [];
+        $evidenceHistory = $artifacts->evidenceHistory($task);
+
+        return response()->json([
+            'task_id' => $task->id,
+            'contract' => $contract,
+            'blueprint' => $blueprint,
+            'blueprint_snapshot' => $snapshot,
+            'status_snapshot' => $artifacts->statusSnapshot($task, $contract, $blueprint),
+            'latest_run' => $metadata['latest_engineering_run'] ?? null,
+            'run_history' => array_values((array) ($metadata['engineering_run_history'] ?? [])),
+            'latest_evidence' => $evidenceHistory[0] ?? null,
+            'evidence_history' => $evidenceHistory,
+            'events' => [],
+        ], $snapshot === null ? 202 : 201);
     }
 
     public function update(Request $request, AtlasTask $task, TaskPlanningService $planning): AtlasTaskResource
@@ -245,8 +365,7 @@ class AtlasTaskController extends Controller
         AtlasTask $task,
         TaskPlanningService $planning,
         ProjectExecutionService $projects,
-    ): AtlasTaskResource
-    {
+    ): AtlasTaskResource {
         $data = $request->validate([
             'defer_until' => ['nullable', 'date'],
             'timezone' => ['nullable', 'timezone'],
@@ -282,9 +401,9 @@ class AtlasTaskController extends Controller
         AtlasTask $task,
         TaskPlanningService $planning,
         ProjectExecutionService $projects,
+        ProjectBlockerService $blockers,
         RoutineSchedulingService $routines,
-    ): AtlasTaskResource
-    {
+    ): AtlasTaskResource {
         $data = $request->validate([
             'completed_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:500'],
@@ -294,6 +413,10 @@ class AtlasTaskController extends Controller
             'outcome' => ['nullable', 'string', 'max:1000'],
             'evidence' => ['nullable', 'string', 'max:1000'],
             'blocker' => ['nullable', 'string', 'max:500'],
+            'blocker_reason_code' => ['nullable', Rule::in(['unclear', 'too_large', 'boring', 'waiting_external', 'missing_resource', 'fear', 'energy', 'technical_unknown', 'decision_needed', 'other'])],
+            'blocker_severity' => ['nullable', Rule::in(['low', 'medium', 'high'])],
+            'unblock_next_action' => ['nullable', 'string', 'max:500'],
+            'waiting_on' => ['nullable', 'string', 'max:180'],
             'next_hint' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -339,16 +462,30 @@ class AtlasTaskController extends Controller
             'outcome' => $completion['outcome'] ?? null,
             'evidence' => $completion['evidence'] ?? null,
             'blocker' => $completion['blocker'] ?? null,
+            'blocker_id' => $completion['blocker_id'] ?? null,
+            'blocker_reason_code' => $completion['blocker_reason_code'] ?? null,
+            'blocker_severity' => $completion['blocker_severity'] ?? null,
+            'unblock_next_action' => $completion['unblock_next_action'] ?? null,
             'next_hint' => $completion['next_hint'] ?? null,
         ]);
         $task->refresh();
-        if ($actionCompleted) {
+        $taskMetadata = is_array($task->metadata) ? $task->metadata : [];
+        $isUnblockTask = (string) ($taskMetadata['role'] ?? '') === 'unblock_action';
+        $blockerId = is_string($taskMetadata['blocker_id'] ?? null) ? $taskMetadata['blocker_id'] : null;
+        if ($actionCompleted && $isUnblockTask && $blockerId) {
+            $blocker = AtlasProjectBlocker::query()->find($blockerId);
+            if ($blocker && $blocker->status === 'open') {
+                $blockers->resolve($blocker, [
+                    'resolution_note' => $data['outcome'] ?? $data['note'] ?? 'Tarefa de desbloqueio concluida.',
+                ], 'tasks.complete');
+            }
+        } elseif ($actionCompleted) {
             $projects->advanceAfterTaskCompletion($task, 'tasks.complete', $completion);
             $routines->recordCompletionFromTask($task, 'tasks.complete');
         } elseif ($blocked && $task->project_step_id) {
             $step = AtlasProjectStep::query()->with('project')->find($task->project_step_id);
             if ($step && $step->project) {
-                $projects->blockStep($step->project, $step, 'tasks.complete');
+                $projects->blockStep($step->project, $step, 'tasks.complete', $completion);
             }
         }
 

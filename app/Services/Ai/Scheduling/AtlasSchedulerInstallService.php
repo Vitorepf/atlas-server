@@ -12,7 +12,7 @@ class AtlasSchedulerInstallService
         $current = $this->currentCrontab();
         $installed = $current['ok'] && str_contains((string) $current['contents'], $this->markerStart());
         $manualEquivalent = $current['ok']
-            && str_contains((string) $current['contents'], 'php artisan schedule:run')
+            && str_contains((string) $current['contents'], 'artisan schedule:run')
             && str_contains((string) $current['contents'], base_path());
 
         return [
@@ -109,8 +109,9 @@ class AtlasSchedulerInstallService
     private function cronLine(): string
     {
         $basePath = str_replace("'", "'\\''", base_path());
+        $phpBinary = str_replace("'", "'\\''", PHP_BINARY);
 
-        return "* * * * * cd '{$basePath}' && php artisan schedule:run >> /dev/null 2>&1";
+        return "* * * * * cd '{$basePath}' && '{$phpBinary}' artisan schedule:run >> /dev/null 2>&1";
     }
 
     private function markerStart(): string

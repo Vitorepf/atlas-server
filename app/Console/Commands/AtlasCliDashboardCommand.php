@@ -87,12 +87,14 @@ class AtlasCliDashboardCommand extends Command
         $jobs = (array) ($atlasAi['jobs'] ?? []);
         $quality = (array) ($atlasAi['quality'] ?? []);
         $actions = (array) ($atlasAi['actions'] ?? []);
+        $metrics = (array) data_get($atlasAi, 'metrics.totals', []);
         $this->table(
             ['area', 'queued', 'processing', 'failed/open', 'extra'],
             [
                 ['traces', $traces['queued'] ?? '-', $traces['processing'] ?? '-', $traces['failed_24h'] ?? '-', '24h total '.($traces['total_24h'] ?? '-')],
                 ['jobs', $jobs['queued'] ?? '-', $jobs['processing'] ?? '-', $jobs['failed_24h'] ?? '-', '-'],
                 ['quality', '-', '-', $quality['failed'] ?? '-', 'avg '.($quality['average_score_24h'] ?? '-')],
+                ['metrics', '-', '-', $metrics['needed_remediation_rate'] ?? '-', 'q '.($metrics['final_quality_avg'] ?? '-').' / e '.($metrics['final_efficiency_avg'] ?? '-')],
                 ['actions', $actions['queued'] ?? '-', '-', $actions['open'] ?? '-', 'blocked '.($actions['blocked'] ?? '-')],
             ],
         );

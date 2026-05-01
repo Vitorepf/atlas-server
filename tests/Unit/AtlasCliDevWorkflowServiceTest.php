@@ -68,11 +68,34 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         );
 
         $this->assertContains('atlas:ai:chat', $command);
+        $this->assertContains(base_path('artisan'), $command);
         $this->assertContains('corrigir bug', $command);
         $this->assertContains('--dev', $command);
         $this->assertContains('--provider=codex_cli', $command);
         $this->assertContains('--no-quality-gate', $command);
         $this->assertContains('--no-run', $command);
+    }
+
+    public function test_chat_command_forwards_image_options(): void
+    {
+        $command = app(AtlasCliDevWorkflowService::class)->chatCommand(
+            task: 'corrigir UI',
+            workspace: $this->workspace,
+            provider: 'codex_cli',
+            permission: 'write',
+            allowWrite: true,
+            autoTest: false,
+            timeout: 900,
+            stream: true,
+            noRun: true,
+            imagePaths: ['/tmp/tela.png'],
+            clipboardImage: true,
+            noAutoImage: true,
+        );
+
+        $this->assertContains('--image=/tmp/tela.png', $command);
+        $this->assertContains('--clipboard-image', $command);
+        $this->assertContains('--no-auto-image', $command);
     }
 
     public function test_quality_gate_skills_auto_attach_for_complete_or_multi_iteration(): void
@@ -86,6 +109,33 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         $this->assertSame(['code-reviewer', 'dev-quality-gate'], $completeSkills);
         $this->assertSame(['dev-quality-gate'], $multiIterationSkills);
         $this->assertSame([], $singleShotSkills);
+    }
+
+    public function test_engineering_contract_skills_attach_blueprint_once(): void
+    {
+        $skills = app(AtlasCliDevWorkflowService::class)->engineeringContractSkills([
+            'code-reviewer',
+            'engineering-blueprint',
+        ]);
+
+        $this->assertSame(['code-reviewer', 'engineering-blueprint'], $skills);
+    }
+
+    public function test_prompt_with_engineering_contract_wraps_task_scope_and_acceptance(): void
+    {
+        $prompt = app(AtlasCliDevWorkflowService::class)->promptWithEngineeringContract('implementar contrato', [
+            'type' => 'feature',
+            'goal' => 'Gerar contrato tecnico normalizado.',
+            'acceptance_criteria' => ['Plan-only expoe engineering_contract.'],
+            'test_coverage' => ['Rodar teste do comando.'],
+            'refs' => ['task_id' => '33333333-3333-4333-8333-333333333333'],
+        ]);
+
+        $this->assertStringContainsString('# Atlas Engineering Task Contract', $prompt);
+        $this->assertStringContainsString('Objetivo: Gerar contrato tecnico normalizado.', $prompt);
+        $this->assertStringContainsString('- Plan-only expoe engineering_contract.', $prompt);
+        $this->assertStringContainsString('# Pedido do operador', $prompt);
+        $this->assertStringContainsString('implementar contrato', $prompt);
     }
 
     public function test_quality_gate_policy_requires_passed_status_in_complete_mode(): void

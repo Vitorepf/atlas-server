@@ -132,6 +132,7 @@ class AiSkillStore
             '_skills/memory-retrospective',
             '_skills/repo-context-pack',
             '_skills/dev-quality-gate',
+            '_skills/engineering-blueprint',
             '_skills/test-repair-loop',
             '_skills/ui-verification',
             '_skills/security-review',
@@ -160,6 +161,8 @@ class AiSkillStore
     "output-governor": "comunicador-claro",
     "clear-communicator": "comunicador-claro",
     "dev-executor": "desenvolvedor",
+    "engineering-contract": "engineering-blueprint",
+    "task-contract": "engineering-blueprint",
     "memory-curator": "vault-curador"
   },
   "default_output_governor": "comunicador-claro",
@@ -173,6 +176,7 @@ class AiSkillStore
     "decision-advisor",
     "desenvolvedor",
     "dev-quality-gate",
+    "engineering-blueprint",
     "evaluator",
     "financas",
     "memory-retrospective",
@@ -875,6 +879,41 @@ Impedir que tarefa tecnica seja considerada pronta sem diff revisado, verificaca
 Gate report com arquivos alterados, comandos rodados, resultado, riscos, testes faltantes e decisao pass/fail/escalate.
 MD
             ),
+            '_skills/engineering-blueprint/SKILL.md' => $this->skillTemplate(
+                slug: 'engineering-blueprint',
+                title: 'Engineering Blueprint',
+                domain: 'Contrato tecnico, escopo, criterios e validacao',
+                body: <<<'MD'
+## Missao
+
+Executar tarefas tecnicas a partir de contrato explicito: objetivo, contexto, escopo, criterios de aceite, arquivos provaveis, validacao e definition of done.
+
+## Quando usar
+
+- `atlas:cli:dev --task-id`.
+- Implementacao com criterio de aceite.
+- Bugfix, refatoracao, migracao, CLI, backend, frontend ou banco.
+
+## Processo
+
+1. Ler o contrato antes de abrir arquivos.
+2. Confirmar o menor conjunto de arquivos provaveis.
+3. Produzir plano curto conectado aos criterios de aceite.
+4. Editar somente o escopo necessario.
+5. Validar com teste, typecheck, smoke test ou QA manual justificada.
+6. No resumo final, mapear criterio atendido, validacao executada e risco residual.
+
+## Nao fazer
+
+- Expandir produto alem do contrato sem registrar tradeoff.
+- Declarar criterio atendido sem evidencia.
+- Reverter mudancas existentes fora do escopo.
+
+## Saida padrao
+
+Resumo com objetivo, arquivos alterados, criterios cobertos, validacao, lacunas e risco residual.
+MD
+            ),
             '_skills/test-repair-loop/SKILL.md' => $this->skillTemplate(
                 slug: 'test-repair-loop',
                 title: 'Test Repair Loop',
@@ -1003,6 +1042,8 @@ MD;
             'output-governor' => 'comunicador-claro',
             'clear-communicator' => 'comunicador-claro',
             'dev-executor' => 'desenvolvedor',
+            'engineering-contract' => 'engineering-blueprint',
+            'task-contract' => 'engineering-blueprint',
             'memory-curator' => 'vault-curador',
         ];
     }

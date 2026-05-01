@@ -7,6 +7,8 @@ Use este checklist antes de criar tag ou declarar uma versao final do Atlas CLI.
 - Versao definida no formato `vMAJOR.MINOR.PATCH`.
 - Worktree limpa ou mudancas intencionalmente aceitas por `--allow-dirty` em pre-release local.
 - `.env` local configurado por `atlas bootstrap`, nao por ajustes soltos.
+- `ATLAS_AI_TOOL_ALLOWED_ROOTS` inclui a raiz real de trabalho, normalmente `/Users/vitorepf`.
+- Se a versao vai substituir uso direto de terminal pesado, validar `atlas bootstrap --operator-mode --operator-root=/Users/vitorepf --strict` e confirmar `ATLAS_AI_TOOL_PERMISSION_MODE=danger`.
 - Claude CLI e Codex CLI resolvidos quando o objetivo for release de uso pesado.
 - Crontab do Laravel Scheduler instalado por `atlas bootstrap --install-scheduler-cron --strict` quando a versao inclui P5.
 

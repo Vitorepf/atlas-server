@@ -107,8 +107,17 @@ return [
     'mobile' => [
         'enabled' => (bool) env('ATLAS_MOBILE_ENABLED', false),
         'pairing_ttl_minutes' => (int) env('ATLAS_MOBILE_PAIRING_TTL_MINUTES', 60),
+        'approval_ttl_minutes' => (int) env('ATLAS_MOBILE_APPROVAL_TTL_MINUTES', 30),
         'max_devices' => (int) env('ATLAS_MOBILE_MAX_DEVICES', 5),
         'push_provider' => env('ATLAS_MOBILE_PUSH_PROVIDER', 'expo'),
+        'rate_limits' => [
+            'pairing_initiate_max_attempts' => (int) env('ATLAS_MOBILE_PAIRING_INITIATE_MAX_ATTEMPTS', 12),
+            'pairing_initiate_decay_seconds' => (int) env('ATLAS_MOBILE_PAIRING_INITIATE_DECAY_SECONDS', 600),
+            'pairing_confirm_max_attempts' => (int) env('ATLAS_MOBILE_PAIRING_CONFIRM_MAX_ATTEMPTS', 12),
+            'pairing_confirm_decay_seconds' => (int) env('ATLAS_MOBILE_PAIRING_CONFIRM_DECAY_SECONDS', 600),
+            'sensitive_action_max_attempts' => (int) env('ATLAS_MOBILE_SENSITIVE_ACTION_MAX_ATTEMPTS', 20),
+            'sensitive_action_decay_seconds' => (int) env('ATLAS_MOBILE_SENSITIVE_ACTION_DECAY_SECONDS', 300),
+        ],
         'push_receipts' => [
             'enabled' => (bool) env('ATLAS_MOBILE_PUSH_RECEIPTS_ENABLED', false),
         ],
@@ -122,6 +131,43 @@ return [
             'enabled' => (bool) env('ATLAS_MOBILE_BATCH_ENABLED', true),
             'window_minutes' => (int) env('ATLAS_MOBILE_BATCH_WINDOW_MINUTES', 15),
         ],
+        'maintenance' => [
+            'expire_stale_enabled' => (bool) env('ATLAS_MOBILE_EXPIRE_STALE_ENABLED', true),
+            'cleanup_enabled' => (bool) env('ATLAS_MOBILE_CLEANUP_ENABLED', true),
+            'cleanup_time' => env('ATLAS_MOBILE_CLEANUP_TIME', '03:30'),
+        ],
+        'alerts' => [
+            'enabled' => (bool) env('ATLAS_MOBILE_ALERTS_ENABLED', true),
+            'webhook_url' => env('ATLAS_MOBILE_ALERT_WEBHOOK_URL'),
+            'local_log_enabled' => (bool) env('ATLAS_MOBILE_ALERT_LOCAL_LOG_ENABLED', true),
+            'local_log_path' => env('ATLAS_MOBILE_ALERT_LOCAL_LOG_PATH') ?: storage_path('logs/atlas-health-alerts.jsonl'),
+            'cooldown_minutes' => (int) env('ATLAS_MOBILE_ALERT_COOLDOWN_MINUTES', 30),
+            'http_timeout_seconds' => (int) env('ATLAS_MOBILE_ALERT_HTTP_TIMEOUT_SECONDS', 5),
+            'scheduler_stale_minutes' => (int) env('ATLAS_MOBILE_ALERT_SCHEDULER_STALE_MINUTES', 5),
+            'push_sample_size' => (int) env('ATLAS_MOBILE_ALERT_PUSH_SAMPLE_SIZE', 20),
+            'push_min_sample' => (int) env('ATLAS_MOBILE_ALERT_PUSH_MIN_SAMPLE', 5),
+            'push_success_rate_threshold' => (float) env('ATLAS_MOBILE_ALERT_PUSH_SUCCESS_RATE_THRESHOLD', 0.5),
+            'circuit_stuck_minutes' => (int) env('ATLAS_MOBILE_ALERT_CIRCUIT_STUCK_MINUTES', 30),
+            'jobs_silent_hours' => (int) env('ATLAS_MOBILE_ALERT_JOBS_SILENT_HOURS', 6),
+        ],
+        'cleanup' => [
+            'pairing_codes_after_days' => (int) env('ATLAS_MOBILE_CLEANUP_PAIRING_CODES_AFTER_DAYS', 7),
+            'inbox_resolved_after_days' => (int) env('ATLAS_MOBILE_CLEANUP_INBOX_RESOLVED_AFTER_DAYS', 90),
+            'bundles_orphan_after_days' => (int) env('ATLAS_MOBILE_CLEANUP_BUNDLES_ORPHAN_AFTER_DAYS', 30),
+            'deliveries_after_days' => (int) env('ATLAS_MOBILE_CLEANUP_DELIVERIES_AFTER_DAYS', 90),
+        ],
+        'circuit' => [
+            'failure_threshold' => (int) env('ATLAS_MOBILE_CIRCUIT_FAILURE_THRESHOLD', 5),
+            'failure_window_seconds' => (int) env('ATLAS_MOBILE_CIRCUIT_FAILURE_WINDOW_SECONDS', 60),
+            'open_seconds' => (int) env('ATLAS_MOBILE_CIRCUIT_OPEN_SECONDS', 300),
+        ],
+        'retry' => [
+            'queue_enabled' => (bool) env('ATLAS_MOBILE_RETRY_QUEUE_ENABLED', true),
+            'backoff_seconds' => array_values(array_filter(array_map(
+                static fn ($v): int => (int) trim((string) $v),
+                explode(',', (string) env('ATLAS_MOBILE_RETRY_BACKOFF_SECONDS', '30,120,600,1800'))
+            ), fn ($v): bool => $v > 0)),
+        ],
         'self_diagnostic' => [
             'enabled' => (bool) env('ATLAS_INIT_SELF_DIAGNOSTIC', false),
             'time' => env('ATLAS_INIT_SELF_DIAGNOSTIC_TIME', '06:15'),
@@ -131,6 +177,7 @@ return [
             'min_baseline_samples' => (int) env('ATLAS_INIT_SELF_DIAGNOSTIC_MIN_BASELINE_SAMPLES', 6),
             'score_drop_threshold' => (float) env('ATLAS_INIT_SELF_DIAGNOSTIC_SCORE_DROP_THRESHOLD', 12),
             'failure_rate_increase_threshold' => (float) env('ATLAS_INIT_SELF_DIAGNOSTIC_FAILURE_RATE_INCREASE_THRESHOLD', 0.2),
+            'confidence_threshold' => (float) env('ATLAS_INIT_SELF_DIAGNOSTIC_CONFIDENCE_THRESHOLD', 0.7),
         ],
         'proposal_scan' => [
             'enabled' => (bool) env('ATLAS_INIT_PROPOSAL_SCAN', false),
@@ -139,6 +186,55 @@ return [
             'limit' => (int) env('ATLAS_INIT_PROPOSAL_SCAN_LIMIT', 3),
             'large_service_lines' => (int) env('ATLAS_INIT_PROPOSAL_LARGE_SERVICE_LINES', 420),
         ],
+        'insight_watch' => [
+            'enabled' => (bool) env('ATLAS_INIT_INSIGHT_WATCH', false),
+            'time' => env('ATLAS_INIT_INSIGHT_WATCH_TIME', '06:45'),
+            'min_confidence' => (float) env('ATLAS_INIT_INSIGHT_MIN_CONFIDENCE', 0.65),
+            'health_baseline_days' => (int) env('ATLAS_INIT_INSIGHT_HEALTH_BASELINE_DAYS', 14),
+            'health_min_baseline_samples' => (int) env('ATLAS_INIT_INSIGHT_HEALTH_MIN_BASELINE_SAMPLES', 3),
+            'health_readiness_drop_threshold' => (float) env('ATLAS_INIT_INSIGHT_HEALTH_READINESS_DROP_THRESHOLD', 15),
+            'digital_baseline_days' => (int) env('ATLAS_INIT_INSIGHT_DIGITAL_BASELINE_DAYS', 14),
+            'digital_min_baseline_samples' => (int) env('ATLAS_INIT_INSIGHT_DIGITAL_MIN_BASELINE_SAMPLES', 3),
+            'digital_algorithmic_spike_minutes' => (float) env('ATLAS_INIT_INSIGHT_DIGITAL_ALGORITHMIC_SPIKE_MINUTES', 45),
+            'provider_pain_threshold' => (int) env('ATLAS_INIT_INSIGHT_PROVIDER_PAIN_THRESHOLD', 70),
+        ],
+    ],
+
+    'ai_metrics' => [
+        'enabled' => (bool) env('ATLAS_AI_METRICS_ENABLED', true),
+        'telemetry_strict_events' => (bool) env('ATLAS_AI_TELEMETRY_STRICT_EVENTS', false),
+        'telemetry_max_batch' => (int) env('ATLAS_AI_TELEMETRY_MAX_BATCH', 100),
+        'telemetry_max_metadata_bytes' => (int) env('ATLAS_AI_TELEMETRY_MAX_METADATA_BYTES', 12000),
+        'summary_recompute_window_hours' => (int) env('ATLAS_AI_METRICS_RECOMPUTE_WINDOW_HOURS', 24),
+        'cost_default_confidence' => env('ATLAS_AI_COST_DEFAULT_CONFIDENCE', 'estimated'),
+        'cost_rates' => json_decode((string) env('ATLAS_AI_COST_RATES_JSON', '[]'), true) ?: [],
+        'health_min_traces' => (int) env('ATLAS_AI_HEALTH_MIN_TRACES', 3),
+        'health_quality_warning_below' => (float) env('ATLAS_AI_HEALTH_QUALITY_WARNING_BELOW', 70),
+        'health_quality_critical_below' => (float) env('ATLAS_AI_HEALTH_QUALITY_CRITICAL_BELOW', 55),
+        'health_efficiency_warning_below' => (float) env('ATLAS_AI_HEALTH_EFFICIENCY_WARNING_BELOW', 70),
+        'health_efficiency_critical_below' => (float) env('ATLAS_AI_HEALTH_EFFICIENCY_CRITICAL_BELOW', 55),
+        'health_first_pass_warning_below' => (float) env('ATLAS_AI_HEALTH_FIRST_PASS_WARNING_BELOW', 0.65),
+        'health_first_pass_critical_below' => (float) env('ATLAS_AI_HEALTH_FIRST_PASS_CRITICAL_BELOW', 0.45),
+        'health_remediation_warning_above' => (float) env('ATLAS_AI_HEALTH_REMEDIATION_WARNING_ABOVE', 0.25),
+        'health_remediation_critical_above' => (float) env('ATLAS_AI_HEALTH_REMEDIATION_CRITICAL_ABOVE', 0.45),
+        'health_unknown_cost_warning_above' => (float) env('ATLAS_AI_HEALTH_UNKNOWN_COST_WARNING_ABOVE', 0.5),
+        'health_unknown_cost_critical_above' => (float) env('ATLAS_AI_HEALTH_UNKNOWN_COST_CRITICAL_ABOVE', 0.9),
+        'health_app_visible_warning_above_ms' => (int) env('ATLAS_AI_HEALTH_APP_VISIBLE_WARNING_ABOVE_MS', 30000),
+        'health_app_visible_critical_above_ms' => (int) env('ATLAS_AI_HEALTH_APP_VISIBLE_CRITICAL_ABOVE_MS', 120000),
+        'health_slow_trace_warning_rate_above' => (float) env('ATLAS_AI_HEALTH_SLOW_TRACE_WARNING_RATE_ABOVE', 0.1),
+        'health_low_quality_warning_rate_above' => (float) env('ATLAS_AI_HEALTH_LOW_QUALITY_WARNING_RATE_ABOVE', 0.1),
+        'performance_report_enabled' => (bool) env('ATLAS_AI_PERFORMANCE_REPORT_ENABLED', true),
+        'performance_report_emit' => (bool) env('ATLAS_AI_PERFORMANCE_REPORT_EMIT', true),
+        'performance_report_time' => env('ATLAS_AI_PERFORMANCE_REPORT_TIME', '07:05'),
+        'performance_report_timezone' => env('ATLAS_AI_PERFORMANCE_REPORT_TIMEZONE', env('RIZE_TIMEZONE', env('APP_TIMEZONE', 'UTC'))),
+        'performance_report_windows' => array_values(array_filter(array_map(
+            'intval',
+            explode(',', (string) env('ATLAS_AI_PERFORMANCE_REPORT_WINDOWS', '3,7,15,30')),
+        ), fn (int $value): bool => $value > 0 && $value <= 365)),
+        'evals_enabled' => (bool) env('ATLAS_AI_EVALS_ENABLED', true),
+        'provider_ab_enabled' => (bool) env('ATLAS_AI_PROVIDER_AB_ENABLED', false),
+        'mobile_outbox_max_events' => (int) env('ATLAS_AI_MOBILE_OUTBOX_MAX_EVENTS', 500),
+        'cli_outbox_max_files' => (int) env('ATLAS_AI_CLI_OUTBOX_MAX_FILES', 500),
     ],
 
     'ai' => [
@@ -147,8 +243,8 @@ return [
         'default_agent' => env('ATLAS_AI_DEFAULT_AGENT', 'orquestrador'),
         'workdir' => env('ATLAS_AI_WORKDIR', dirname(base_path())),
         'worker_id' => env('ATLAS_AI_WORKER_ID', gethostname() ?: 'atlas-worker'),
-        'timeout_seconds' => (int) env('ATLAS_AI_TIMEOUT_SECONDS', 300),
-        'max_attempts' => (int) env('ATLAS_AI_MAX_ATTEMPTS', 2),
+        'timeout_seconds' => (int) env('ATLAS_AI_TIMEOUT_SECONDS', 7200),
+        'max_attempts' => (int) env('ATLAS_AI_MAX_ATTEMPTS', 1),
         'retry_delay_seconds' => (int) env('ATLAS_AI_RETRY_DELAY_SECONDS', 300),
         'context_note_limit' => (int) env('ATLAS_AI_CONTEXT_NOTE_LIMIT', 5),
         'context_excerpt_chars' => (int) env('ATLAS_AI_CONTEXT_EXCERPT_CHARS', 1200),
@@ -168,7 +264,7 @@ return [
             'allow_unsandboxed_write' => (bool) env('ATLAS_AI_ALLOW_UNSANDBOXED_WRITE', false),
             'allowed_roots' => env('ATLAS_AI_TOOL_ALLOWED_ROOTS')
                 ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_TOOL_ALLOWED_ROOTS'))), fn (string $root): bool => $root !== ''))
-                : [dirname(base_path()), base_path()],
+                : [dirname(dirname(dirname(base_path()))), dirname(dirname(base_path())), dirname(base_path()), base_path()],
             'codex_sandboxes' => [
                 'read' => env('ATLAS_AI_CODEX_READ_SANDBOX', 'read-only'),
                 'write' => env('ATLAS_AI_CODEX_WRITE_SANDBOX', 'workspace-write'),
@@ -269,6 +365,7 @@ return [
             'claude_cli' => [
                 'binary' => env('ATLAS_AI_CLAUDE_BIN', 'claude'),
                 'model' => env('ATLAS_AI_CLAUDE_MODEL', null),
+                'model_identity' => env('ATLAS_AI_CLAUDE_MODEL_IDENTITY', env('ATLAS_AI_CLAUDE_MODEL') ?: 'claude_cli_default'),
                 'args' => env('ATLAS_AI_CLAUDE_ARGS')
                     ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_CLAUDE_ARGS'))), fn (string $arg): bool => $arg !== ''))
                     : ['-p', '--output-format', 'stream-json', '--verbose', '--no-session-persistence'],
@@ -276,6 +373,7 @@ return [
             'codex_cli' => [
                 'binary' => env('ATLAS_AI_CODEX_BIN', 'codex'),
                 'model' => env('ATLAS_AI_CODEX_MODEL', null),
+                'model_identity' => env('ATLAS_AI_CODEX_MODEL_IDENTITY', env('ATLAS_AI_CODEX_MODEL') ?: 'codex_cli_default'),
                 'sandbox' => env('ATLAS_AI_CODEX_SANDBOX', 'read-only'),
                 'args' => env('ATLAS_AI_CODEX_ARGS')
                     ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_CODEX_ARGS'))), fn (string $arg): bool => $arg !== ''))

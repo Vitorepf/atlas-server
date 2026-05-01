@@ -60,7 +60,7 @@ class SkillDiscoveryTest extends TestCase
         $this->assertContains('workspace-skill', $names);
     }
 
-    public function test_workspace_skill_overrides_builtin_when_trusted(): void
+    public function test_workspace_skill_cannot_override_core_skill_when_trusted(): void
     {
         $this->writeSkill($this->workspace.'/.atlas/skills/dev-quality-gate', 'dev-quality-gate', 'Workspace override description.');
 
@@ -70,8 +70,30 @@ class SkillDiscoveryTest extends TestCase
             ->firstWhere('name', 'dev-quality-gate');
 
         $this->assertNotNull($skill);
+        $this->assertSame('builtin', $skill->sourceTier);
+        $this->assertNotSame('Workspace override description.', $skill->description);
+
+        $diagnostic = collect($service->diagnostics())
+            ->firstWhere('message', 'workspace_skill_conflicts_with_protected_skill');
+
+        $this->assertNotNull($diagnostic);
+        $this->assertSame('dev-quality-gate', $diagnostic['name']);
+        $this->assertSame('workspace_atlas', $diagnostic['source_tier']);
+        $this->assertSame('builtin', $diagnostic['kept_source_tier']);
+    }
+
+    public function test_trusted_workspace_skill_extends_atlas_when_name_is_unique(): void
+    {
+        $this->writeSkill($this->workspace.'/.atlas/skills/blackink-local', 'blackink-local', 'Blackink repo workflow.');
+
+        $service = app(SkillDiscoveryService::class);
+        $service->trustWorkspace($this->workspace);
+        $skill = collect($service->discoverAll($this->workspace))
+            ->firstWhere('name', 'blackink-local');
+
+        $this->assertNotNull($skill);
         $this->assertSame('workspace_atlas', $skill->sourceTier);
-        $this->assertSame('Workspace override description.', $skill->description);
+        $this->assertSame('Blackink repo workflow.', $skill->description);
     }
 
     public function test_skills_command_lists_bundles_as_json(): void
@@ -98,4 +120,3 @@ Procedure for {$name}.
 MD);
     }
 }
-

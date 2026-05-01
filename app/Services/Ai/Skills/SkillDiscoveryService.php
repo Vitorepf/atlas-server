@@ -34,6 +34,8 @@ class SkillDiscoveryService
         foreach ($roots as $root) {
             foreach ($this->scanRoot($root['path'], $root['tier']) as $manifest) {
                 if (isset($byName[$manifest->name])) {
+                    $this->recordDuplicateSkill($manifest, $byName[$manifest->name]);
+
                     continue;
                 }
 
@@ -143,13 +145,30 @@ class SkillDiscoveryService
         $vault = (string) config('atlas.semantic_memory.vault_path');
 
         return array_values(array_filter([
-            $allowWorkspaceSkills ? ['path' => $workspace.'/.atlas/skills', 'tier' => 'workspace_atlas'] : null,
-            $allowWorkspaceSkills ? ['path' => $workspace.'/.agents/skills', 'tier' => 'workspace_agents'] : null,
-            ['path' => $home.'/.atlas/skills', 'tier' => 'user_atlas'],
-            ['path' => $home.'/.agents/skills', 'tier' => 'user_agents'],
             ['path' => base_path('skills'), 'tier' => 'builtin'],
             ['path' => rtrim($vault, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'_skills', 'tier' => 'vault'],
+            ['path' => $home.'/.atlas/skills', 'tier' => 'user_atlas'],
+            ['path' => $home.'/.agents/skills', 'tier' => 'user_agents'],
+            $allowWorkspaceSkills ? ['path' => $workspace.'/.atlas/skills', 'tier' => 'workspace_atlas'] : null,
+            $allowWorkspaceSkills ? ['path' => $workspace.'/.agents/skills', 'tier' => 'workspace_agents'] : null,
         ]));
+    }
+
+    private function recordDuplicateSkill(SkillManifest $ignored, SkillManifest $kept): void
+    {
+        if (! str_starts_with($ignored->sourceTier, 'workspace_')) {
+            return;
+        }
+
+        $this->diagnostics[] = [
+            'level' => 'warning',
+            'name' => $ignored->name,
+            'path' => $ignored->path,
+            'source_tier' => $ignored->sourceTier,
+            'kept_source_tier' => $kept->sourceTier,
+            'kept_path' => $kept->path,
+            'message' => 'workspace_skill_conflicts_with_protected_skill',
+        ];
     }
 
     /**

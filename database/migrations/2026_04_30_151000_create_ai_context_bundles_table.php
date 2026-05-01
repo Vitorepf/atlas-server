@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -29,6 +30,12 @@ return new class extends Migration
 
             $table->index(['purpose', 'created_at']);
         });
+
+        DB::statement(<<<'SQL'
+            CREATE TRIGGER trg_ai_context_bundles_updated_at
+            BEFORE UPDATE ON ai_context_bundles
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+        SQL);
     }
 
     public function down(): void

@@ -28,10 +28,12 @@ class ClaudeCliProvider implements AiProvider
         $args = (array) ($provider['args'] ?? ['-p']);
         $this->streamJsonBuffer = '';
 
-        if (! empty($job->model ?? $provider['model'] ?? null)) {
+        if ($model = $this->invocationModel($job, $provider)) {
             $args[] = '--model';
-            $args[] = (string) ($job->model ?? $provider['model']);
+            $args[] = $model;
         }
+
+        $args = $this->withAtlasRuntimeArgs($args, $job);
 
         return $this->runProcessStreaming(
             command: array_values(array_merge([$binary], $args)),
@@ -148,6 +150,23 @@ class ClaudeCliProvider implements AiProvider
         return '';
     }
 
+    private function invocationModel(AiJob $job, array $provider): ?string
+    {
+        $source = data_get($job->payload, 'model_identity_source') ?? data_get($job->metadata, 'model_identity_source');
+        if (in_array($source, ['provider_default_identity', 'configured_model_identity'], true)) {
+            return null;
+        }
+
+        $model = $job->model ?: ($provider['model'] ?? null);
+        if (! is_string($model) && ! is_numeric($model)) {
+            return null;
+        }
+
+        $model = trim((string) $model);
+
+        return $model === '' ? null : $model;
+    }
+
     private function extractTextFromClaudePayload(array $payload): string
     {
         foreach (['result', 'content', 'message', 'text'] as $key) {
@@ -176,5 +195,58 @@ class ClaudeCliProvider implements AiProvider
         }
 
         return trim($this->extractClaudeDeltaText($payload));
+    }
+
+    /**
+     * @param  array<int,mixed>  $args
+     * @return array<int,mixed>
+     */
+    private function withAtlasRuntimeArgs(array $args, AiJob $job): array
+    {
+        $mode = $this->permissionModeForJob($job);
+
+        if (in_array($mode, ['write', 'danger'], true)) {
+            $args = $this->withClaudeAddDirs($args, $this->allowedRootsForJob($job));
+        }
+
+        if ($mode === 'danger') {
+            $args = $this->withArgValue($args, '--permission-mode', 'bypassPermissions');
+        }
+
+        return $args;
+    }
+
+    /**
+     * @param  array<int,mixed>  $args
+     * @param  array<int,string>  $directories
+     * @return array<int,mixed>
+     */
+    private function withClaudeAddDirs(array $args, array $directories): array
+    {
+        if ($directories === []) {
+            return $args;
+        }
+
+        $normalized = array_values($args);
+        $existing = [];
+
+        foreach ($normalized as $index => $arg) {
+            if ($arg !== '--add-dir') {
+                continue;
+            }
+
+            for ($cursor = $index + 1; isset($normalized[$cursor]) && ! str_starts_with((string) $normalized[$cursor], '--'); $cursor++) {
+                $existing[] = (string) $normalized[$cursor];
+            }
+        }
+
+        $missing = array_values(array_diff($directories, $existing));
+        if ($missing === []) {
+            return $normalized;
+        }
+
+        $normalized[] = '--add-dir';
+
+        return array_values(array_merge($normalized, $missing));
     }
 }

@@ -120,6 +120,24 @@ class AiToolRuntimeTest extends TestCase
         $this->assertTrue($result->ok);
     }
 
+    public function test_failed_test_run_writes_failure_artifact(): void
+    {
+        $result = app(AiToolRuntime::class)->execute(ToolInvocation::make('test.run', $this->workspace, [
+            'command' => PHP_BINARY.' -r "fwrite(STDOUT, \'PASS before failure\'.PHP_EOL); fwrite(STDERR, \'FAILED final cause\'.PHP_EOL); exit(1);"',
+        ], [
+            'permission_mode' => 'write',
+            'metadata' => ['approved' => true],
+        ]));
+
+        $artifactPath = data_get($result->metadata, 'artifact_path');
+
+        $this->assertFalse($result->ok);
+        $this->assertIsString($artifactPath);
+        $this->assertTrue(File::exists($artifactPath));
+        $this->assertStringContainsString('PASS before failure', File::get($artifactPath));
+        $this->assertStringContainsString('FAILED final cause', File::get($artifactPath));
+    }
+
     public function test_file_read_redacts_secrets_before_returning_tool_output(): void
     {
         File::put($this->workspace.'/.env', "OPENAI_API_KEY=sk-proj-abcdefghijklmnopqrstuvwxyz123456\npassword=super-secret-value\n");

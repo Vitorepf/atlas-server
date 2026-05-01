@@ -63,11 +63,16 @@ class AtlasCliSetupService
      * @param  array<string, mixed>  $diagnosis
      * @return array<string, mixed>
      */
-    public function writeEnv(array $diagnosis, ?string $envPath = null): array
+    public function writeEnv(array $diagnosis, ?string $envPath = null, bool $operatorMode = false, ?string $operatorRoot = null): array
     {
         $envPath = $envPath ?: base_path('.env');
         $updates = [];
         $skipped = [];
+        $hadExistingEnv = File::exists($envPath);
+        $contents = $hadExistingEnv
+            ? File::get($envPath)
+            : $this->initialEnvContents();
+        $originalContents = $contents;
 
         foreach ((array) ($diagnosis['providers'] ?? []) as $provider) {
             $envKey = (string) ($provider['env_key'] ?? '');
@@ -85,6 +90,17 @@ class AtlasCliSetupService
             $updates[$envKey] = $resolved;
         }
 
+        $trustedRoot = $this->trustedWorkspaceRoot($operatorRoot);
+        if ($trustedRoot !== null) {
+            $updates['ATLAS_AI_TOOL_ALLOWED_ROOTS'] = implode(',', $this->mergedAllowedRoots($contents, $trustedRoot));
+        }
+
+        if ($operatorMode) {
+            $updates['ATLAS_AI_TOOL_PERMISSION_MODE'] = 'danger';
+            $updates['ATLAS_AI_TOOL_ALLOW_DANGER'] = 'true';
+            $updates['ATLAS_AI_ALLOW_UNSANDBOXED_WRITE'] = 'true';
+        }
+
         if ($updates === []) {
             return [
                 'env_path' => $envPath,
@@ -94,12 +110,6 @@ class AtlasCliSetupService
                 'message' => 'Nenhum binario resolvido para gravar no .env.',
             ];
         }
-
-        $hadExistingEnv = File::exists($envPath);
-        $contents = $hadExistingEnv
-            ? File::get($envPath)
-            : $this->initialEnvContents();
-        $originalContents = $contents;
 
         foreach ($updates as $key => $value) {
             $line = $key.'='.$this->formatEnvValue($value);
@@ -142,7 +152,9 @@ class AtlasCliSetupService
                 ->all(),
             'skipped' => $skipped,
             'backup_path' => $backupPath,
-            'message' => 'Binarios resolvidos gravados no .env. O fluxo recomendado continua sendo atlas bootstrap --refresh-providers.',
+            'message' => $operatorMode
+                ? 'Configuracao de providers, workspace roots e modo operador gravada no .env.'
+                : 'Configuracao de providers e workspace roots gravada no .env. O fluxo recomendado continua sendo atlas bootstrap --refresh-providers.',
         ];
     }
 
@@ -323,6 +335,60 @@ class AtlasCliSetupService
         }
 
         return '';
+    }
+
+    private function trustedWorkspaceRoot(?string $operatorRoot = null): ?string
+    {
+        $candidate = is_string($operatorRoot) && trim($operatorRoot) !== ''
+            ? $this->expandHome(trim($operatorRoot))
+            : dirname(dirname(dirname(base_path())));
+
+        $resolved = realpath($candidate);
+
+        return $resolved && is_dir($resolved) ? $resolved : null;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function mergedAllowedRoots(string $contents, string $trustedRoot): array
+    {
+        $existing = $this->envValue($contents, 'ATLAS_AI_TOOL_ALLOWED_ROOTS');
+        $roots = [$trustedRoot];
+        $roots = array_merge($roots, $existing
+            ? array_map('trim', explode(',', $existing))
+            : []);
+
+        $roots[] = dirname(base_path());
+        $roots[] = base_path();
+
+        return collect($roots)
+            ->filter(fn (mixed $root): bool => is_string($root) && trim($root) !== '')
+            ->map(fn (string $root): string => $this->expandHome(trim($root)))
+            ->map(fn (string $root): ?string => ($resolved = realpath($root)) && is_dir($resolved) ? $resolved : null)
+            ->filter(fn (?string $root): bool => is_string($root) && $root !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function envValue(string $contents, string $key): ?string
+    {
+        if (preg_match('/^'.preg_quote($key, '/').'=(.*)$/m', $contents, $matches) !== 1) {
+            return null;
+        }
+
+        $value = trim((string) $matches[1]);
+        if ($value === '') {
+            return '';
+        }
+
+        if ((str_starts_with($value, '"') && str_ends_with($value, '"'))
+            || (str_starts_with($value, "'") && str_ends_with($value, "'"))) {
+            $value = substr($value, 1, -1);
+        }
+
+        return stripcslashes($value);
     }
 
     private function formatEnvValue(string $value): string

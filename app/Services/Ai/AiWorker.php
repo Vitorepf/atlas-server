@@ -8,6 +8,8 @@ use App\Models\AiQualityAction;
 use App\Models\AiTrace;
 use App\Services\AuditLogService;
 use App\Services\Ai\Mobile\JobResultInboxEmitter;
+use App\Services\Ai\Telemetry\AiTelemetryCollector;
+use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use App\Services\Semantic\CaptureSemanticClarifier;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +29,7 @@ class AiWorker
         private readonly AiQualityEvaluator $quality,
         private readonly AiQualityActionService $qualityActions,
         private readonly CaptureSemanticClarifier $clarifier,
+        private readonly AiProviderModelResolver $models,
         private readonly AuditLogService $audit,
         private readonly JobResultInboxEmitter $jobResults,
     ) {}
@@ -57,6 +60,7 @@ class AiWorker
         }
 
         $providerKey = $providerOverride ?: $job->provider ?: (string) config('atlas.ai.default_provider', 'claude_cli');
+        $job = $this->ensureJobModelIdentity($job, $providerKey);
         $provider = $this->providers->get($providerKey);
         $permission = $this->permissions->authorizeJob($job, $providerKey);
 
@@ -85,8 +89,28 @@ class AiWorker
             );
         } else {
             try {
-                $result = $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream): void {
+                $this->recordTelemetry('provider_call_started', $job, $attempt, [
+                    'event_phase' => 'provider',
+                    'metadata' => [
+                        'worker_id' => $workerId,
+                        'attempt_number' => $attempt->attempt_number,
+                    ],
+                ]);
+                $firstTokenRecorded = false;
+                $result = $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream, &$firstTokenRecorded): void {
                     $recorded = $this->stream->recordProviderEvent($job, $attempt, $event);
+                    if (! $firstTokenRecorded && in_array(($event['type'] ?? null), ['token', 'response'], true)) {
+                        $firstTokenRecorded = true;
+                        $this->recordTelemetry('provider_first_token', $job, $attempt, [
+                            'event_phase' => 'provider',
+                            'duration_ms' => $this->diffMs($attempt->started_at, now()),
+                            'metadata' => [
+                                'stream_event_type' => $event['type'] ?? null,
+                                'stream_event_name' => $event['name'] ?? null,
+                                'sequence' => $recorded?->sequence,
+                            ],
+                        ]);
+                    }
                     $event['sequence'] = $recorded?->sequence;
                     $event['job_id'] = $job->id;
                     $event['trace_id'] = $job->trace_id;
@@ -151,6 +175,14 @@ class AiWorker
 
             $job->trace?->update(['status' => 'processing']);
             $this->logger->event('job_claimed', 'AI job claimed by worker.', 'info', $job->provider, $job, workerId: $workerId);
+            $this->recordTelemetry('job_claimed', $job->refresh(), null, [
+                'event_phase' => 'worker',
+                'metadata' => [
+                    'worker_id' => $workerId,
+                    'attempt_number' => $job->attempts,
+                    'provider_override' => $providerOverride,
+                ],
+            ]);
 
             return $job->refresh()->load('trace');
         });
@@ -259,6 +291,47 @@ class AiWorker
         ]);
     }
 
+    private function ensureJobModelIdentity(AiJob $job, string $providerKey): AiJob
+    {
+        $resolution = $this->models->resolveWithSource($providerKey, $job->model);
+        if (! $resolution['model']) {
+            return $job;
+        }
+
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $metadata = is_array($job->metadata) ? $job->metadata : [];
+        $updates = [
+            'model' => $resolution['model'],
+            'payload' => array_merge($payload, [
+                'model_identity_source' => $resolution['source'],
+            ]),
+            'metadata' => array_merge($metadata, [
+                'model_identity_source' => $resolution['source'],
+            ]),
+        ];
+
+        if ($job->model !== $resolution['model']) {
+            $job->forceFill($updates)->save();
+        } elseif (data_get($metadata, 'model_identity_source') !== $resolution['source']) {
+            $job->forceFill([
+                'payload' => $updates['payload'],
+                'metadata' => $updates['metadata'],
+            ])->save();
+        }
+
+        $trace = $job->trace ?: $job->trace()->first();
+        if ($trace && ! $this->isCouncilJob($job) && ! $trace->model) {
+            $trace->forceFill([
+                'model' => $resolution['model'],
+                'metadata' => array_merge($trace->metadata ?? [], [
+                    'model_identity_source' => $resolution['source'],
+                ]),
+            ])->save();
+        }
+
+        return $job->refresh()->load('trace');
+    }
+
     private function completeAttempt(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $workerId): AiJob
     {
         $responseHash = $result->output !== '' ? hash('sha256', $result->output) : null;
@@ -295,6 +368,14 @@ class AiWorker
                 attempt: $attempt,
                 workerId: $workerId,
             );
+            $this->recordTelemetry('job_cancelled', $job, $attempt, [
+                'event_phase' => 'worker',
+                'duration_ms' => $result->durationMs,
+                'metadata' => [
+                    'worker_id' => $workerId,
+                    'provider_result_ok' => $result->ok,
+                ],
+            ]);
 
             return $job->load(['trace', 'attemptHistory']);
         }
@@ -313,6 +394,15 @@ class AiWorker
             'error_message' => $result->errorMessage ? Str::limit($result->errorMessage, 2000, '...') : null,
             'finished_at' => now(),
             'metadata' => $result->metadata,
+        ]);
+        $this->recordTelemetry($result->ok ? 'provider_call_succeeded' : 'provider_call_failed', $job, $attempt, [
+            'event_phase' => 'provider',
+            'duration_ms' => $result->durationMs,
+            'metadata' => [
+                'worker_id' => $workerId,
+                'exit_code' => $result->exitCode,
+                'error_code' => $result->errorCode,
+            ],
         ]);
 
         if ($result->ok) {
@@ -340,8 +430,27 @@ class AiWorker
                     $this->updateSessionStateForTrace($synced, $synced->response_text);
                     $this->evaluateQuality($synced);
                     $this->completeRemediationActions($synced);
+                    $this->recordTelemetry('trace_completed', $job, $attempt, [
+                        'event_key' => 'worker:trace_completed:'.$synced->id.':'.$synced->status,
+                        'event_phase' => 'worker',
+                        'duration_ms' => $synced->latency_ms,
+                        'metadata' => [
+                            'worker_id' => $workerId,
+                            'trace_status' => $synced->status,
+                            'execution_policy' => 'dual_review',
+                        ],
+                    ]);
+                    $this->recomputeTraceMetrics($synced);
                 }
                 $this->logger->event('job_succeeded', 'AI council job completed successfully.', 'info', $attempt->provider, $job, $attempt, workerId: $workerId);
+                $this->recordTelemetry('job_succeeded', $job, $attempt, [
+                    'event_phase' => 'worker',
+                    'duration_ms' => $result->durationMs,
+                    'metadata' => [
+                        'worker_id' => $workerId,
+                        'execution_policy' => 'dual_review',
+                    ],
+                ]);
                 $this->audit->record('ai_job_succeeded', [
                     'subject_type' => 'ai_job',
                     'subject_id' => $job->id,
@@ -391,6 +500,25 @@ class AiWorker
             }
 
             $this->logger->event('job_succeeded', 'AI job completed successfully.', 'info', $attempt->provider, $job, $attempt, workerId: $workerId);
+            $this->recordTelemetry('job_succeeded', $job, $attempt, [
+                'event_phase' => 'worker',
+                'duration_ms' => $result->durationMs,
+                'metadata' => [
+                    'worker_id' => $workerId,
+                ],
+            ]);
+            if ($trace) {
+                $this->recordTelemetry('trace_completed', $job, $attempt, [
+                    'event_key' => 'worker:trace_completed:'.$trace->id.':'.$trace->status,
+                    'event_phase' => 'worker',
+                    'duration_ms' => $trace->latency_ms,
+                    'metadata' => [
+                        'worker_id' => $workerId,
+                        'trace_status' => $trace->status,
+                    ],
+                ]);
+                $this->recomputeTraceMetrics($trace);
+            }
             $this->audit->record('ai_job_succeeded', [
                 'subject_type' => 'ai_job',
                 'subject_id' => $job->id,
@@ -444,6 +572,15 @@ class AiWorker
                 metadata: ['error_code' => $result->errorCode],
                 workerId: $workerId,
             );
+            $this->recordTelemetry($finalFailure ? 'job_failed' : 'job_requeued', $job, $attempt, [
+                'event_phase' => 'worker',
+                'duration_ms' => $result->durationMs,
+                'metadata' => [
+                    'worker_id' => $workerId,
+                    'error_code' => $result->errorCode,
+                    'execution_policy' => 'dual_review',
+                ],
+            ]);
             $this->audit->record($finalFailure ? 'ai_job_failed' : 'ai_job_requeued', [
                 'subject_type' => 'ai_job',
                 'subject_id' => $job->id,
@@ -467,6 +604,17 @@ class AiWorker
             ]);
 
             if ($finalFailure) {
+                $this->recordTelemetry('trace_completed', $job, $attempt, [
+                    'event_key' => 'worker:trace_completed:'.$synced->id.':'.$synced->status,
+                    'event_phase' => 'worker',
+                    'duration_ms' => $synced->latency_ms,
+                    'metadata' => [
+                        'worker_id' => $workerId,
+                        'trace_status' => $synced->status,
+                        'execution_policy' => 'dual_review',
+                    ],
+                ]);
+                $this->recomputeTraceMetrics($synced);
                 $this->emitImportantJobResult($job->refresh(), 'failed');
             }
 
@@ -506,6 +654,15 @@ class AiWorker
             metadata: ['error_event_type' => $eventType, 'error_code' => $result->errorCode],
             workerId: $workerId,
         );
+        $this->recordTelemetry($finalFailure ? 'job_failed' : 'job_requeued', $job, $attempt, [
+            'event_phase' => 'worker',
+            'duration_ms' => $result->durationMs,
+            'metadata' => [
+                'worker_id' => $workerId,
+                'error_event_type' => $eventType,
+                'error_code' => $result->errorCode,
+            ],
+        ]);
 
         $this->audit->record($finalFailure ? 'ai_job_failed' : 'ai_job_requeued', [
             'subject_type' => 'ai_job',
@@ -529,6 +686,19 @@ class AiWorker
         ]);
 
         if ($finalFailure) {
+            $failedTrace = $job->trace?->refresh();
+            if ($failedTrace) {
+                $this->recordTelemetry('trace_completed', $job, $attempt, [
+                    'event_key' => 'worker:trace_completed:'.$failedTrace->id.':'.$failedTrace->status,
+                    'event_phase' => 'worker',
+                    'duration_ms' => $failedTrace->latency_ms,
+                    'metadata' => [
+                        'worker_id' => $workerId,
+                        'trace_status' => $failedTrace->status,
+                    ],
+                ]);
+                $this->recomputeTraceMetrics($failedTrace);
+            }
             $this->emitImportantJobResult($job->refresh(), 'failed');
         }
 
@@ -648,6 +818,73 @@ class AiWorker
         } catch (\Throwable $exception) {
             report($exception);
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     */
+    private function recordTelemetry(string $eventName, AiJob $job, ?AiJobAttempt $attempt = null, array $overrides = []): void
+    {
+        if (! Schema::hasTable('ai_telemetry_events')) {
+            return;
+        }
+
+        try {
+            $trace = $job->trace ?: $job->trace()->first();
+            $metadata = is_array($overrides['metadata'] ?? null) ? $overrides['metadata'] : [];
+            $eventOverrides = $overrides;
+            unset($eventOverrides['metadata']);
+            app(AiTelemetryCollector::class)->record(array_merge([
+                'event_key' => 'worker:'.$eventName.':'.$job->id.':'.($attempt?->id ?? 'job'),
+                'trace_id' => $job->trace_id,
+                'thread_id' => $trace?->thread_id,
+                'session_id' => $trace?->session_id,
+                'ai_job_id' => $job->id,
+                'ai_job_attempt_id' => $attempt?->id,
+                'client_id' => $job->client_id,
+                'surface' => 'worker',
+                'runtime' => 'worker',
+                'provider' => $attempt?->provider ?? $job->provider,
+                'model' => $attempt?->model ?? $job->model,
+                'agent_slug' => $job->agent_slug,
+                'event_name' => $eventName,
+                'event_phase' => 'worker',
+                'metadata' => array_merge($metadata, [
+                    'job_status' => $job->status,
+                    'attempt_status' => $attempt?->status,
+                    'attempt_number' => $attempt?->attempt_number,
+                ]),
+            ], $eventOverrides));
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    private function recomputeTraceMetrics(?AiTrace $trace): void
+    {
+        if (! $trace || ! Schema::hasTable('ai_trace_metric_summaries')) {
+            return;
+        }
+
+        try {
+            app(AiTraceMetricAggregator::class)->recomputeTrace($trace->id);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    private function diffMs(mixed $start, mixed $end): ?int
+    {
+        if (! $start || ! $end || ! $start instanceof \DateTimeInterface || ! $end instanceof \DateTimeInterface) {
+            return null;
+        }
+
+        return max(0, $this->epochMs($end) - $this->epochMs($start));
+    }
+
+    private function epochMs(\DateTimeInterface $value): int
+    {
+        return ((int) $value->format('U') * 1000) + (int) floor(((int) $value->format('u')) / 1000);
     }
 
     private function isCouncilJob(AiJob $job): bool

@@ -3,9 +3,11 @@
 namespace Tests\Unit;
 
 use App\Models\AiCompaction;
+use App\Models\AiJob;
 use App\Models\AiMessage;
 use App\Models\AiSession;
 use App\Models\AiThread;
+use App\Models\AiTrace;
 use App\Services\Ai\AiCompactionService;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiSessionManager;
@@ -149,6 +151,42 @@ class AiSessionManagerTest extends TestCase
         $this->assertSame($clientId, $trace->metadata['client_id']);
         $this->assertSame(2, $trace->jobs()->count());
         $this->assertSame($clientId, $trace->jobs()->where('provider', 'claude_cli')->firstOrFail()->client_id);
+    }
+
+    public function test_gateway_reuses_existing_trace_for_duplicate_client_id(): void
+    {
+        config([
+            'atlas.ai.enabled' => true,
+        ]);
+
+        $clientId = '22222222-2222-4222-8222-222222222222';
+        $gateway = app(AiGatewayService::class);
+
+        $first = $gateway->enqueueInteraction('primeira tentativa antes de sair do app', [
+            'client_id' => $clientId,
+            'source_type' => 'app',
+            'kind' => 'interaction',
+            'include_semantic_context' => false,
+            'payload' => [
+                'app_surface' => 'atlas_ai_sheet',
+                'atlas_workflow_mode' => 'direct',
+            ],
+        ]);
+
+        $second = $gateway->enqueueInteraction('retry local depois de reabrir o app', [
+            'client_id' => $clientId,
+            'source_type' => 'app',
+            'kind' => 'interaction',
+            'include_semantic_context' => false,
+            'payload' => [
+                'app_surface' => 'atlas_ai_sheet',
+                'atlas_workflow_mode' => 'direct',
+            ],
+        ]);
+
+        $this->assertSame($first->id, $second->id);
+        $this->assertSame(1, AiTrace::query()->count());
+        $this->assertSame(1, AiJob::query()->where('client_id', $clientId)->count());
     }
 
     public function test_thread_resolver_uses_explicit_session_id_when_thread_id_is_absent(): void

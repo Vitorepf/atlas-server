@@ -80,7 +80,7 @@ class AtlasCliDoctorService
             [
                 'name' => 'workspace_quality',
                 'status' => $this->workspaceQualityStatus($quality),
-                'detail' => (string) data_get($quality, 'completion_packet.summary'),
+                'detail' => $this->workspaceQualityDetail($quality),
             ],
         ];
 
@@ -194,6 +194,64 @@ class AtlasCliDoctorService
         }
 
         return $quality['status'] === 'passed' ? 'passed' : (string) $quality['status'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $quality
+     */
+    private function workspaceQualityDetail(array $quality): string
+    {
+        $summary = (string) data_get($quality, 'completion_packet.summary', 'Workspace quality indisponivel.');
+        if ((bool) data_get($quality, 'test_result.ok', false)) {
+            return $summary;
+        }
+
+        $command = data_get($quality, 'test_result.command');
+        $error = data_get($quality, 'test_result.error');
+        if (! is_string($command) && ! is_string($error)) {
+            return $summary;
+        }
+
+        $parts = [$summary];
+        if (is_string($command) && trim($command) !== '') {
+            $parts[] = 'comando: '.$command;
+        }
+        if (is_string($error) && trim($error) !== '') {
+            $parts[] = 'erro: '.str($this->failureHeadline($error))->limit(220);
+        }
+        $artifactPath = data_get($quality, 'test_result.artifact_path');
+        if (is_string($artifactPath) && trim($artifactPath) !== '') {
+            $parts[] = 'log: '.$artifactPath;
+        }
+
+        return implode(' ', $parts);
+    }
+
+    private function failureHeadline(string $error): string
+    {
+        $plain = preg_replace('/\x1B(?:[@-Z\\\\-_]|\[[0-?]*[ -\/]*[@-~])/', '', $error) ?? $error;
+        $lines = array_values(array_filter(
+            array_map(fn (string $line): string => trim($line), explode("\n", str_replace("\r", '', $plain))),
+            fn (string $line): bool => $line !== ''
+        ));
+
+        $patterns = [
+            '/^\s*(FAIL|FAILED|ERROR|ERRORS)\b/i',
+            '/\bTests:\s+.*\b(failed|errored|errors?)\b/i',
+            '/\b(failed|errored|failure|error):\b/i',
+            '/\b(Fatal error|Parse error|TypeError|RuntimeException|Exception)\b/i',
+            '/Failed asserting\b/i',
+        ];
+
+        foreach (array_reverse($lines) as $line) {
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $line)) {
+                    return $line;
+                }
+            }
+        }
+
+        return $lines !== [] ? (string) end($lines) : 'Erro de teste sem detalhes.';
     }
 
     /**

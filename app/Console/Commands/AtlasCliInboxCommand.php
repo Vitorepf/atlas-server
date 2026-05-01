@@ -17,7 +17,10 @@ class AtlasCliInboxCommand extends Command
         {id? : Inbox item id}
         {--action= : Action id for respond}
         {--reason=}
-        {--filter=unread : unread, all, approval, alert, completion, insight, proposal, job_result, self_diagnostic}
+        {--filter=active : active, unread, read, all, approval, alert, completion, insight, proposal, job_result, self_diagnostic}
+        {--severity= : debug, info, warning or critical}
+        {--limit=50 : Number of items to list}
+        {--cursor= : Cursor returned by a previous JSON list response}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Read and act on the Atlas operational inbox.';
@@ -45,13 +48,25 @@ class AtlasCliInboxCommand extends Command
     private function list(AtlasInboxService $inbox): int
     {
         $filter = (string) $this->option('filter');
-        $status = in_array($filter, ['unread', 'read', 'resolved', 'dismissed', 'snoozed', 'all'], true) ? $filter : 'all';
+        $status = in_array($filter, ['active', 'unread', 'read', 'actioned', 'resolved', 'dismissed', 'expired', 'snoozed', 'all'], true) ? $filter : 'all';
         $type = in_array($filter, AiInboxItem::TYPES, true) ? $filter : null;
-        $items = $inbox->list('vitor', $status, $type, 50);
+        $severity = $this->severityOption();
+        $page = $inbox->listPage(
+            'vitor',
+            $status,
+            $type,
+            $this->limitOption(),
+            $severity,
+            $this->stringOption('cursor'),
+        );
+        $items = $page['items'];
         $payload = AiInboxItemResource::collection($items)->resolve();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode(['items' => $payload], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line(json_encode([
+                'items' => $payload,
+                'next_cursor' => $page['next_cursor'],
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
             return self::SUCCESS;
         }
@@ -174,6 +189,27 @@ class AtlasCliInboxCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    private function limitOption(): int
+    {
+        $value = $this->option('limit');
+
+        return max(1, min(100, is_numeric($value) ? (int) $value : 50));
+    }
+
+    private function severityOption(): ?string
+    {
+        $value = $this->stringOption('severity');
+
+        return in_array($value, ['debug', 'info', 'warning', 'critical'], true) ? $value : null;
+    }
+
+    private function stringOption(string $key): ?string
+    {
+        $value = $this->option($key);
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 
     private function invalid(string $action): int

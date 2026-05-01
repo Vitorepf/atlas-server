@@ -24,7 +24,7 @@ trait RunsCliProcesses
         $command = $this->resolveCommandBinary($command);
         $process = new Process($command, $cwd ?: (string) config('atlas.ai.workdir'), AtlasSecurity::processEnv(profile: 'provider'));
         $process->setInput($input);
-        $process->setTimeout($timeoutSeconds);
+        $process->setTimeout($timeoutSeconds > 0 ? $timeoutSeconds : null);
         $stdout = '';
         $stderr = '';
 
@@ -195,14 +195,44 @@ trait RunsCliProcesses
 
     protected function classifyCliError(string $stdout, string $stderr): string
     {
-        $text = Str::lower($stdout."\n".$stderr);
+        $text = $stdout."\n".$stderr;
 
-        if (str_contains($text, 'rate limit') || str_contains($text, 'usage limit') || str_contains($text, 'limite')) {
-            return 'rate_limited';
+        $rateLimitPatterns = [
+            '/\brate[\s_-]?limit(ed|ing)?\b/i',
+            '/\busage[\s_-]?limit(?:\s+exceeded)?\b/i',
+            '/\bquota[\s_-]?exceeded\b/i',
+            '/\btoo[\s_]+many[\s_]+requests\b/i',
+            '/\b(http\s*)?429\b/',
+            '/\blimite\s+(de\s+)?uso\s+(atingido|excedido)\b/i',
+        ];
+
+        foreach ($rateLimitPatterns as $pattern) {
+            if (preg_match($pattern, $text) === 1) {
+                return 'rate_limited';
+            }
         }
 
-        if (str_contains($text, 'login') || str_contains($text, 'auth') || str_contains($text, 'unauthorized') || str_contains($text, 'not authenticated')) {
-            return 'auth_expired';
+        $authPatterns = [
+            '/please\s+(run\s+)?[`"]?\/login/i',
+            '/please\s+run\s+[`"]?(claude|codex)\s+login/i',
+            '/please\s+log\s+in/i',
+            '/\binvalid\s+api\s+key\b/i',
+            '/\bapi\s+key\s+(not\s+found|invalid|missing|expired)\b/i',
+            '/\bauthentication\s+(failed|required|expired|error)\b/i',
+            '/\bauthorization\s+(failed|required|expired|error)\b/i',
+            '/\bsession\s+(has\s+)?(expired|invalid|ended)\b/i',
+            '/\btoken\s+(has\s+)?(expired|invalid|missing|revoked)\b/i',
+            '/\bnot\s+authenticated\b/i',
+            '/\bnot\s+authorized\b/i',
+            '/\b(http\s*)?401\b/',
+            '/\b401\s+unauthorized\b/i',
+            '/\bcredentials?\s+(invalid|expired|missing|required)\b/i',
+        ];
+
+        foreach ($authPatterns as $pattern) {
+            if (preg_match($pattern, $text) === 1) {
+                return 'auth_expired';
+            }
         }
 
         return 'cli_error';
@@ -291,6 +321,89 @@ trait RunsCliProcesses
         }
 
         return (string) config('atlas.ai.workdir');
+    }
+
+    protected function permissionModeForJob(AiJob $job): string
+    {
+        $mode = (string) (data_get($job->payload, 'tool_permissions.mode') ?: 'read');
+        $mode = Str::of($mode)->lower()->trim()->value();
+
+        return in_array($mode, ['read', 'write', 'danger'], true) ? $mode : 'read';
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    protected function allowedRootsForJob(AiJob $job): array
+    {
+        $roots = data_get($job->payload, 'tool_permissions.allowed_roots');
+        if (! is_array($roots) || $roots === []) {
+            $roots = data_get($job->payload, 'tool_permissions.permission_decision.metadata.allowed_roots', []);
+        }
+
+        $workspace = data_get($job->payload, 'tool_permissions.workspace') ?: data_get($job->payload, 'workspace');
+        if (is_string($workspace) && $workspace !== '') {
+            $roots[] = $workspace;
+        }
+
+        return collect($roots)
+            ->filter(fn (mixed $root): bool => is_string($root) && trim($root) !== '')
+            ->map(fn (string $root): string => realpath($root) ?: $root)
+            ->filter(fn (string $root): bool => is_dir($root))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int,mixed>  $args
+     * @return array<int,mixed>
+     */
+    protected function withArgValue(array $args, string $name, string $value): array
+    {
+        $normalized = array_values($args);
+        $index = array_search($name, $normalized, true);
+
+        if ($index === false) {
+            $normalized[] = $name;
+            $normalized[] = $value;
+
+            return $normalized;
+        }
+
+        $normalized[$index + 1] = $value;
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<int,mixed>  $args
+     * @param  array<int,string>  $values
+     * @return array<int,mixed>
+     */
+    protected function withRepeatedArgValues(array $args, string $name, array $values): array
+    {
+        $normalized = array_values($args);
+        $existing = [];
+
+        foreach ($normalized as $index => $arg) {
+            if ($arg !== $name || ! isset($normalized[$index + 1]) || str_starts_with((string) $normalized[$index + 1], '--')) {
+                continue;
+            }
+
+            $existing[] = (string) $normalized[$index + 1];
+        }
+
+        foreach ($values as $value) {
+            if (in_array($value, $existing, true)) {
+                continue;
+            }
+
+            $normalized[] = $name;
+            $normalized[] = $value;
+        }
+
+        return $normalized;
     }
 
     private function emitStreamEvent(?callable $onEvent, string $type, string $name, string $content = '', array $metadata = [], ?string $channel = null): void

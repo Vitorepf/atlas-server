@@ -38,6 +38,7 @@ class AiToolRuntime
         private readonly AiToolPermissionEngine $permissions,
         private readonly WorkspaceProfiler $profiler,
         private readonly SessionSearchService $sessionSearch,
+        private readonly AtlasTestCommandResolver $testCommands,
     ) {}
 
     public function execute(ToolInvocation $invocation): ToolResult
@@ -554,7 +555,7 @@ class AiToolRuntime
     }
 
     /**
-     * @param  array{exit_code:int,stdout:string,stderr:string,duration_ms:int,command?:array<int,string>|string}  $process
+     * @param  array{exit_code:int,stdout:string,stderr:string,duration_ms:int,command?:array<int,string>|string,artifact_path?:string|null}  $process
      */
     private function processResult(ToolInvocation $invocation, array $process, string $summary): ToolResult
     {
@@ -580,6 +581,7 @@ class AiToolRuntime
             metadata: [
                 'command' => AtlasSecurity::redactCommandValue($command),
                 'command_display' => AtlasSecurity::commandLineForDisplay($command),
+                'artifact_path' => $process['artifact_path'] ?? null,
             ],
         );
     }
@@ -760,9 +762,7 @@ class AiToolRuntime
      */
     private function preferredTestCommand(array $commands): string
     {
-        return in_array('php artisan test', $commands, true)
-            ? 'php artisan test'
-            : ($commands[0] ?? '');
+        return $this->testCommands->preferred($commands);
     }
 
     /**
@@ -805,7 +805,7 @@ class AiToolRuntime
     }
 
     /**
-     * @return array{exit_code:int,stdout:string,stderr:string,duration_ms:int,command:string}
+     * @return array{exit_code:int,stdout:string,stderr:string,duration_ms:int,command:string,artifact_path?:string|null}
      */
     private function runTestShell(string $command, string $cwd, int $timeout = 900): array
     {
@@ -813,14 +813,41 @@ class AiToolRuntime
         $process = Process::fromShellCommandline($command, $cwd, AtlasSecurity::processEnv($this->testEnvironment(), 'tool'));
         $process->setTimeout($timeout);
         $process->run();
+        $stdout = AtlasSecurity::redactString($process->getOutput());
+        $stderr = AtlasSecurity::redactString($process->getErrorOutput());
+        $exitCode = $process->getExitCode() ?? 1;
 
         return [
-            'exit_code' => $process->getExitCode() ?? 1,
-            'stdout' => AtlasSecurity::redactString($process->getOutput()),
-            'stderr' => AtlasSecurity::redactString($process->getErrorOutput()),
+            'exit_code' => $exitCode,
+            'stdout' => $stdout,
+            'stderr' => $stderr,
             'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
             'command' => AtlasSecurity::redactString($command),
+            'artifact_path' => $exitCode === 0 ? null : $this->writeTestFailureArtifact($command, $cwd, $stdout, $stderr, $exitCode),
         ];
+    }
+
+    private function writeTestFailureArtifact(string $command, string $cwd, string $stdout, string $stderr, int $exitCode): string
+    {
+        $dir = storage_path('app/ai/test-runs');
+        File::ensureDirectoryExists($dir);
+
+        $path = $dir.'/'.now()->format('Ymd-His').'-'.Str::lower(Str::random(6)).'.log';
+        File::put($path, implode("\n", [
+            'Atlas test.run failure artifact',
+            'generated_at='.now()->toJSON(),
+            'cwd='.AtlasSecurity::redactString($cwd),
+            'exit_code='.$exitCode,
+            'command='.AtlasSecurity::redactString($command),
+            '',
+            '--- stdout ---',
+            $stdout,
+            '',
+            '--- stderr ---',
+            $stderr,
+        ]));
+
+        return $path;
     }
 
     /**

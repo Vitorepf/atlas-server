@@ -5,6 +5,57 @@ PLAN="${1:?Usage: validate-plan.sh <plan.json>}"
 WORKSPACE="${ATLAS_WORKSPACE:-$(pwd)}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ATLAS_SERVER_ROOT="${ATLAS_SERVER_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+ATLAS_MIN_PHP_VERSION="${ATLAS_MIN_PHP_VERSION:-8.4.0}"
+
+php_satisfies_minimum() {
+  local candidate="$1"
+  "$candidate" -r 'exit(version_compare(PHP_VERSION, $argv[1], ">=") ? 0 : 1);' "$ATLAS_MIN_PHP_VERSION" >/dev/null 2>&1
+}
+
+resolve_php_bin() {
+  local configured="${ATLAS_PHP_BIN:-}"
+  local resolved=""
+
+  if [ -n "$configured" ]; then
+    if [ -x "$configured" ]; then
+      resolved="$configured"
+    else
+      resolved="$(command -v "$configured" 2>/dev/null || true)"
+    fi
+
+    if [ -n "$resolved" ] && php_satisfies_minimum "$resolved"; then
+      printf '%s\n' "$resolved"
+      return 0
+    fi
+  fi
+
+  local command_php
+  command_php="$(command -v php 2>/dev/null || true)"
+  local candidates=()
+  if [ -n "$command_php" ]; then
+    candidates+=("$command_php")
+  fi
+  candidates+=(
+    "/opt/homebrew/bin/php"
+    "/opt/homebrew/opt/php/bin/php"
+    "/usr/local/bin/php"
+    "/usr/local/opt/php/bin/php"
+    "/opt/homebrew/Cellar/php/8.5.0/bin/php"
+  )
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [ -x "$candidate" ] && php_satisfies_minimum "$candidate"; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  printf 'Error: PHP >= %s not found for Atlas dev-quality-gate. Set ATLAS_PHP_BIN to a compatible PHP binary.\n' "$ATLAS_MIN_PHP_VERSION" >&2
+  return 127
+}
+
+PHP_BIN="$(resolve_php_bin)"
 
 if [ ! -f "$PLAN" ]; then
   printf '{"ok":false,"error":"plan_file_not_found","message":"Plan file not found: %s"}\n' "$PLAN"
@@ -12,7 +63,7 @@ if [ ! -f "$PLAN" ]; then
 fi
 
 validation_json="$(
-  php -r '
+  "$PHP_BIN" -r '
   $planPath = $argv[1];
   $workspace = $argv[2];
   $workspaceReal = realpath($workspace);
@@ -111,12 +162,12 @@ validation_json="$(
 set +e
 quality_json="$(
   cd "$ATLAS_SERVER_ROOT"
-  php artisan atlas:cli:quality --workspace="$WORKSPACE" --json
+  "$PHP_BIN" artisan atlas:cli:quality --workspace="$WORKSPACE" --json
 )"
 quality_exit=$?
 set -e
 
-php -r '
+"$PHP_BIN" -r '
 $validation = json_decode($argv[1], true);
 $quality = json_decode($argv[2], true);
 $qualityExit = (int) $argv[3];

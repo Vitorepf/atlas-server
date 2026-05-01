@@ -108,13 +108,22 @@ class ProjectBlockerService
             }
 
             if ($step && $step->status === 'blocked' && ! $this->hasOpenStepBlocker($step)) {
-                $step->forceFill(['status' => 'pending'])->save();
+                $step->forceFill([
+                    'status' => $task && ! in_array($task->status, ['done', 'archived'], true) ? 'active' : 'pending',
+                    'active_task_id' => $task && ! in_array($task->status, ['done', 'archived'], true) ? $task->id : null,
+                ])->save();
             }
 
             if ($project && ! $this->hasOpenProjectBlocker($project)) {
+                $nextTask = $task && ! in_array($task->status, ['done', 'archived'], true) ? $task->refresh() : null;
+                $unblockTaskWasActive = $blocker->unblockTask && $project->active_next_task_id === $blocker->unblockTask->id;
                 $project->forceFill([
                     'status' => $project->status === 'blocked' ? 'active' : $project->status,
-                    'next_action' => $project->activeNextTask?->title ?? $project->next_action,
+                    'active_next_task_id' => $unblockTaskWasActive ? $nextTask?->id : $project->active_next_task_id,
+                    'current_step_id' => $step?->id ?? $project->current_step_id,
+                    'next_action' => $unblockTaskWasActive
+                        ? ($nextTask?->title ?? $step?->title ?? $project->next_action)
+                        : ($project->activeNextTask?->title ?? $project->next_action),
                     'last_touched_at' => now(),
                     'next_review_at' => now()->addDays(3),
                 ])->save();

@@ -10,12 +10,14 @@ use App\Models\AiScheduledTask;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
+use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
 use Illuminate\Support\Facades\Schema;
 
 class AtlasCliDashboardService
 {
     public function __construct(
         private readonly WorkspaceProfiler $profiler,
+        private readonly AiTelemetryScorecardService $scorecards,
     ) {}
 
     /**
@@ -63,6 +65,7 @@ class AtlasCliDashboardService
             'jobs' => $this->jobCounts(),
             'scheduled_tasks' => $this->scheduledTaskCounts(),
             'quality' => $this->quality(),
+            'metrics' => $this->scorecards->build(now()->subDay()),
             'actions' => $this->actions(),
         ];
     }

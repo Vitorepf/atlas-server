@@ -63,6 +63,30 @@ class AtlasCliSetupServiceTest extends TestCase
         $contents = File::get($envPath);
         $this->assertStringContainsString('ATLAS_AI_CODEX_BIN='.(realpath($codex) ?: $codex), $contents);
         $this->assertStringContainsString('ATLAS_AI_CLAUDE_BIN=old-claude', $contents);
+        $this->assertStringContainsString('ATLAS_AI_TOOL_ALLOWED_ROOTS=', $contents);
+        $this->assertStringContainsString(dirname(dirname(dirname(base_path()))), $contents);
+    }
+
+    public function test_write_env_can_enable_operator_mode_for_trusted_root(): void
+    {
+        $codex = $this->fakeExecutable('codex');
+        $envPath = $this->workspace.'/.env';
+
+        config([
+            'atlas.ai.providers.codex_cli.binary' => $codex,
+            'atlas.ai.providers.claude_cli.binary' => 'atlas-missing-claude-binary',
+        ]);
+
+        $service = app(AtlasCliSetupService::class);
+        $result = $service->writeEnv($service->diagnose(), $envPath, operatorMode: true, operatorRoot: $this->workspace);
+
+        $this->assertTrue($result['written']);
+        $contents = File::get($envPath);
+        $this->assertStringContainsString('ATLAS_AI_TOOL_ALLOWED_ROOTS=', $contents);
+        $this->assertStringContainsString($this->workspace, $contents);
+        $this->assertStringContainsString('ATLAS_AI_TOOL_PERMISSION_MODE=danger', $contents);
+        $this->assertStringContainsString('ATLAS_AI_TOOL_ALLOW_DANGER=true', $contents);
+        $this->assertStringContainsString('ATLAS_AI_ALLOW_UNSANDBOXED_WRITE=true', $contents);
     }
 
     private function fakeExecutable(string $name): string

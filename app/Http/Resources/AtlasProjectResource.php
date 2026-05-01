@@ -36,6 +36,10 @@ class AtlasProjectResource extends JsonResource
             'current_step' => $this->whenLoaded('currentStep', fn () => new AtlasProjectStepResource($this->currentStep)),
             'tasks_count' => $this->whenCounted('tasks'),
             'steps_count' => $this->whenCounted('steps'),
+            'open_blockers_count' => $this->whenLoaded('openBlockers', fn () => $this->openBlockers->count()),
+            'top_blocker' => $this->whenLoaded('openBlockers', fn () => $this->openBlockers->first()
+                ? new AtlasProjectBlockerResource($this->openBlockers->first())
+                : null),
             'execution_health' => ProjectExecutionHealth::for($this->resource),
             'last_touched_at' => $this->last_touched_at?->toJSON(),
             'next_review_at' => $this->next_review_at?->toJSON(),

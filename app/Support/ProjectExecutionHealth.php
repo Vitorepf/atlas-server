@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\Models\AtlasProject;
+use App\Models\AtlasProjectBlocker;
+use Illuminate\Support\Facades\Schema;
 
 class ProjectExecutionHealth
 {
@@ -23,8 +25,9 @@ class ProjectExecutionHealth
             && $activeTask->planning_status === 'deferred';
         $deferredReady = $deferredAction
             && (! $activeTask->planned_for_date || $activeTask->planned_for_date->lte($now));
+        $openBlockersCount = self::openBlockersCount($project);
 
-        if ($project->status === 'blocked') {
+        if ($project->status === 'blocked' || $openBlockersCount > 0) {
             $reasons[] = 'blocked';
         }
         if ($missingNextAction) {
@@ -59,7 +62,25 @@ class ProjectExecutionHealth
             'overdue' => $overdue,
             'deferred_action' => $deferredAction,
             'deferred_ready' => $deferredReady,
+            'open_blockers_count' => $openBlockersCount,
+            'has_open_blockers' => $openBlockersCount > 0,
             'last_touched_days' => $lastTouchedDays,
         ];
+    }
+
+    private static function openBlockersCount(AtlasProject $project): int
+    {
+        if ($project->relationLoaded('openBlockers')) {
+            return $project->openBlockers->count();
+        }
+
+        if (! Schema::hasTable('atlas_project_blockers')) {
+            return 0;
+        }
+
+        return AtlasProjectBlocker::query()
+            ->where('project_id', $project->id)
+            ->where('status', 'open')
+            ->count();
     }
 }

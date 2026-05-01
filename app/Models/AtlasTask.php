@@ -101,6 +101,16 @@ class AtlasTask extends Model
         return $this->hasMany(AtlasTaskEvent::class, 'task_id');
     }
 
+    public function engineeringEvidence(): HasMany
+    {
+        return $this->hasMany(AtlasEngineeringEvidence::class, 'task_id');
+    }
+
+    public function engineeringBlueprints(): HasMany
+    {
+        return $this->hasMany(AtlasEngineeringBlueprint::class, 'task_id');
+    }
+
     public function calendarBlocks(): HasMany
     {
         return $this->hasMany(AtlasCalendarBlock::class, 'task_id');

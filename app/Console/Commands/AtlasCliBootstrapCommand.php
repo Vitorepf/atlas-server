@@ -27,6 +27,9 @@ class AtlasCliBootstrapCommand extends Command
         {--install-scheduler-cron : Install the Laravel scheduler crontab entry used by atlas schedule}
         {--no-scheduler-cron-check : Skip scheduler crontab inspection}
         {--refresh-providers : Run provider health checks after setup}
+        {--operator-mode : Enable explicit local operator mode for Atlas dev sessions}
+        {--enable-operator-mode : Alias for --operator-mode}
+        {--operator-root= : Trusted root for Atlas workspaces. Defaults to the current macOS user home}
         {--strict : Return failure when bootstrap readiness is incomplete}
         {--json : Print machine-readable JSON}';
 
@@ -46,7 +49,12 @@ class AtlasCliBootstrapCommand extends Command
         if (! (bool) $this->option('no-write-env')) {
             $envWrite = $dryRun
                 ? $this->plannedEnvWrite($diagnosis)
-                : $setup->writeEnv($diagnosis, is_string($this->option('env-path')) ? $this->option('env-path') : null);
+                : $setup->writeEnv(
+                    $diagnosis,
+                    is_string($this->option('env-path')) ? $this->option('env-path') : null,
+                    $this->operatorMode(),
+                    $this->operatorRoot(),
+                );
         }
         $this->applyProviderConfig($diagnosis);
 
@@ -127,6 +135,7 @@ class AtlasCliBootstrapCommand extends Command
                     'key' => $provider['env_key'],
                     'value' => $provider['resolved_binary'],
                 ])
+                ->merge($this->plannedWorkspaceUpdates())
                 ->values()
                 ->all(),
             'skipped' => collect((array) ($diagnosis['providers'] ?? []))
@@ -138,8 +147,47 @@ class AtlasCliBootstrapCommand extends Command
                 ->values()
                 ->all(),
             'backup_path' => null,
-            'message' => 'Dry-run: .env seria atualizado com binarios resolvidos.',
+            'message' => $this->operatorMode()
+                ? 'Dry-run: .env seria atualizado com binarios resolvidos, workspace roots e modo operador.'
+                : 'Dry-run: .env seria atualizado com binarios resolvidos e workspace roots.',
         ];
+    }
+
+    /**
+     * @return array<int,array{key:string,value:string}>
+     */
+    private function plannedWorkspaceUpdates(): array
+    {
+        $root = $this->operatorRoot() ?: dirname(dirname(dirname(base_path())));
+        $updates = [
+            [
+                'key' => 'ATLAS_AI_TOOL_ALLOWED_ROOTS',
+                'value' => implode(',', array_values(array_unique(array_filter([
+                    realpath($root) ?: $root,
+                    dirname(base_path()),
+                    base_path(),
+                ])))),
+            ],
+        ];
+
+        if ($this->operatorMode()) {
+            $updates[] = ['key' => 'ATLAS_AI_TOOL_ALLOW_DANGER', 'value' => 'true'];
+            $updates[] = ['key' => 'ATLAS_AI_ALLOW_UNSANDBOXED_WRITE', 'value' => 'true'];
+        }
+
+        return $updates;
+    }
+
+    private function operatorMode(): bool
+    {
+        return (bool) $this->option('operator-mode') || (bool) $this->option('enable-operator-mode');
+    }
+
+    private function operatorRoot(): ?string
+    {
+        $root = $this->option('operator-root');
+
+        return is_string($root) && trim($root) !== '' ? trim($root) : null;
     }
 
     /**
@@ -311,7 +359,22 @@ class AtlasCliBootstrapCommand extends Command
             return (string) ($finalDoctor['message'] ?? 'atlas doctor --strict');
         }
 
-        return 'Doctor final executado: '.data_get($finalDoctor, 'payload.readiness.status', 'unknown').'.';
+        $status = (string) data_get($finalDoctor, 'payload.readiness.status', 'unknown');
+        if ($status === 'passed') {
+            return 'Doctor final executado: passed.';
+        }
+
+        $failed = collect((array) data_get($finalDoctor, 'payload.readiness.gates', []))
+            ->reject(fn (array $gate): bool => ($gate['status'] ?? null) === 'passed')
+            ->map(fn (array $gate): string => ($gate['name'] ?? 'gate').': '.($gate['detail'] ?? ($gate['status'] ?? 'unknown')))
+            ->values()
+            ->all();
+
+        if ($failed === []) {
+            return 'Doctor final executado: '.$status.'. Rode atlas doctor --refresh-providers --run-tests --strict para detalhes.';
+        }
+
+        return 'Doctor final executado: '.$status.'. '.implode(' | ', array_slice($failed, 0, 2));
     }
 
     private function schedulerCronGateStatus(?array $schedulerCron): string
@@ -373,10 +436,10 @@ class AtlasCliBootstrapCommand extends Command
         }
 
         if ($status !== 'passed') {
-            return ['atlas bootstrap --refresh-providers --strict'];
+            return ['atlas bootstrap --refresh-providers --doctor-run-tests --strict'];
         }
 
-        return ['atlas bootstrap --doctor-run-tests --strict'];
+        return ['atlas ask "teste rapido: confirme que o Atlas CLI esta pronto"'];
     }
 
     /**

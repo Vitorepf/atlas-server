@@ -19,7 +19,7 @@ class AiContextSnapshotResource extends JsonResource
             'model' => $this->model,
             'prompt_hash' => $this->prompt_hash,
             'context_pack' => Metadata::forResponse($this->context_pack),
-            'messages_included' => Metadata::forResponse($this->messages_included),
+            'messages_included' => Metadata::listForResponse($this->messages_included),
             'compaction_id' => $this->compaction_id,
             'provider_handoff_id' => $this->provider_handoff_id,
             'token_estimate' => $this->token_estimate,

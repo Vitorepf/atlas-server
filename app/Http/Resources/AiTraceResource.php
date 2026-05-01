@@ -24,7 +24,7 @@ class AiTraceResource extends JsonResource
             'provider' => $this->provider,
             'model' => $this->model,
             'skill_versions' => Metadata::forResponse($this->skill_versions),
-            'context_refs' => Metadata::forResponse($this->context_refs),
+            'context_refs' => Metadata::listForResponse($this->context_refs),
             'prompt_hash' => $this->prompt_hash,
             'response_hash' => $this->response_hash,
             'response_text' => $this->response_text,

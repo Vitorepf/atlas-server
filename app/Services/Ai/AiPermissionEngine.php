@@ -171,6 +171,8 @@ class AiPermissionEngine
             config('atlas.ai.workdir'),
             base_path(),
             dirname(base_path()),
+            dirname(dirname(base_path())),
+            dirname(dirname(dirname(base_path()))),
         ]);
 
         return collect($roots)

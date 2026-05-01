@@ -15,6 +15,12 @@ Use apenas o bootstrap como fluxo recomendado:
 ./bin/atlas bootstrap --refresh-providers --strict
 ```
 
+Para operar em qualquer pasta dentro do usuario `vitorepf`:
+
+```bash
+./bin/atlas bootstrap --operator-mode --operator-root=/Users/vitorepf --refresh-providers --strict
+```
+
 Se o launcher ainda nao estiver no `PATH`:
 
 ```bash
@@ -33,7 +39,10 @@ Para habilitar tarefas agendadas do P5:
 
 ```bash
 atlas ask "pergunta direta"
+atlas ask --image ~/Desktop/tela.png "analise essa tela"
+atlas dev
 atlas dev "implemente a tarefa"
+atlas dev "instale dependencias e rode o setup"
 atlas debug "investigue esse erro"
 atlas fix "corrija o teste falhando"
 atlas review "revise essa decisao"
@@ -43,6 +52,9 @@ atlas schedule list
 ```
 
 Para trabalho pesado, comece por `atlas dev`. O provider e escolhido pelo Atlas, nao pelo habito de abrir uma ferramenta externa.
+Quando o bootstrap foi feito com `--operator-mode --operator-root=/Users/vitorepf`, `atlas ask` e `atlas dev` entram no runtime operador por padrao: workspace atual para contexto, `/Users/vitorepf` como raiz autorizada para execucao.
+Sem tarefa, `atlas dev` abre o Dev Cockpit com workspace, provider, permissao, thread, git e skills. Se o repo tiver `.atlas/skills` ou `.agents/skills`, rode `atlas skills trust` uma vez no repo para carregar as skills locais sem prompt. Skills locais so adicionam contexto/procedimentos do projeto; nomes que conflitam com skills internas do Atlas sao ignorados e aparecem como warning.
+Para screenshot copiado no macOS, basta pedir naturalmente dentro do cockpit: `analise essa tela`, `corrija esse screenshot`, `o que esta errado nesse print?`. O Atlas detecta a referência visual, salva a imagem do clipboard, anexa ao pedido e usa Codex CLI como motor preferencial por ter suporte nativo a `--image`. `/paste-image` fica como fallback manual.
 
 ## Sessao longa
 

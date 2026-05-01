@@ -5,7 +5,10 @@ namespace App\Services\Ai\Mobile;
 use App\Models\AiInboxItem;
 use App\Models\AtlasMobileDevice;
 use App\Services\AuditLogService;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -26,66 +29,59 @@ class AtlasInboxService
         $severity = $this->validSeverity((string) ($data['severity'] ?? 'info'));
         $status = $this->validStatus((string) ($data['status'] ?? 'unread'));
         $dedupeKey = $this->nullableString($data['dedupe_key'] ?? null);
+        $userId = $this->userId($data);
 
         if ($dedupeKey) {
-            $existing = AiInboxItem::query()
-                ->where('user_id', $this->userId($data))
-                ->where('dedupe_key', $dedupeKey)
-                ->whereNotIn('status', ['resolved', 'dismissed', 'expired'])
+            $this->expirePastDedupeItems($userId, $dedupeKey);
+
+            $existing = $this->activeDedupeQuery($userId, $dedupeKey)
                 ->latest('created_at')
                 ->first();
 
             if ($existing) {
-                $payload = $existing->payload ?? [];
-                $payload['occurrence_count'] = ((int) ($payload['occurrence_count'] ?? 1)) + 1;
-                $payload['last_occurrence_at'] = now()->toJSON();
-
-                $existing->update([
-                    'title' => $this->title($data),
-                    'summary' => $this->nullableString($data['summary'] ?? null),
-                    'body' => $this->nullableString($data['body'] ?? null),
-                    'severity' => $severity,
-                    'status' => $status,
-                    'payload' => array_replace_recursive($payload, $this->array($data['payload'] ?? [])),
-                    'available_actions' => $this->actions($type, $data),
-                    'deep_link' => $this->deepLink($data, $existing->id),
-                ]);
-
-                $this->audit->record('inbox.deduped', [
-                    'subject_type' => 'ai_inbox_item',
-                    'subject_id' => $existing->id,
-                    'summary' => 'Inbox item deduplicated.',
-                    'evidence' => ['type' => $type, 'dedupe_key' => $dedupeKey],
-                    'privacy' => ['sensitivity' => 'private'],
-                ]);
-
-                return $existing->refresh();
+                return $this->dedupeExisting($existing, $data, $type, $severity, $status, $dedupeKey);
             }
         }
 
-        $item = AiInboxItem::query()->create([
-            'user_id' => $this->userId($data),
-            'type' => $type,
-            'category' => $this->nullableString($data['category'] ?? null),
-            'severity' => $severity,
-            'status' => $status,
-            'title' => $this->title($data),
-            'summary' => $this->nullableString($data['summary'] ?? null),
-            'body' => $this->nullableString($data['body'] ?? null),
-            'source_type' => $this->nullableString($data['source_type'] ?? null),
-            'source_id' => $this->nullableString($data['source_id'] ?? null),
-            'initiator' => $this->initiator((string) ($data['initiator'] ?? 'system')),
-            'context_bundle_id' => $this->nullableString($data['context_bundle_id'] ?? null),
-            'dedupe_key' => $dedupeKey,
-            'available_actions' => $this->actions($type, $data),
-            'response' => null,
-            'payload' => $this->array($data['payload'] ?? []),
-            'deep_link' => null,
-            'push_policy' => $this->array($data['push_policy'] ?? []),
-            'priority_score' => max(0, min(100, (int) ($data['priority_score'] ?? 50))),
-            'confidence_score' => isset($data['confidence_score']) ? (float) $data['confidence_score'] : null,
-            'expires_at' => $data['expires_at'] ?? $this->defaultExpiresAt($type),
-        ]);
+        try {
+            $item = AiInboxItem::query()->create([
+                'user_id' => $userId,
+                'type' => $type,
+                'category' => $this->nullableString($data['category'] ?? null),
+                'severity' => $severity,
+                'status' => $status,
+                'title' => $this->title($data),
+                'summary' => $this->nullableString($data['summary'] ?? null),
+                'body' => $this->nullableString($data['body'] ?? null),
+                'source_type' => $this->nullableString($data['source_type'] ?? null),
+                'source_id' => $this->nullableString($data['source_id'] ?? null),
+                'initiator' => $this->initiator((string) ($data['initiator'] ?? 'system')),
+                'context_bundle_id' => $this->nullableString($data['context_bundle_id'] ?? null),
+                'dedupe_key' => $dedupeKey,
+                'available_actions' => $this->actions($type, $data),
+                'response' => null,
+                'payload' => $this->array($data['payload'] ?? []),
+                'deep_link' => null,
+                'push_policy' => $this->array($data['push_policy'] ?? []),
+                'priority_score' => max(0, min(100, (int) ($data['priority_score'] ?? 50))),
+                'confidence_score' => isset($data['confidence_score']) ? (float) $data['confidence_score'] : null,
+                'expires_at' => $data['expires_at'] ?? $this->defaultExpiresAt($type),
+            ]);
+        } catch (QueryException $exception) {
+            if (! $dedupeKey || ! $this->isDedupeUniqueViolation($exception)) {
+                throw $exception;
+            }
+
+            $existing = $this->activeDedupeQuery($userId, $dedupeKey)
+                ->latest('created_at')
+                ->first();
+
+            if (! $existing) {
+                throw $exception;
+            }
+
+            return $this->dedupeExisting($existing, $data, $type, $severity, $status, $dedupeKey);
+        }
 
         $item->update(['deep_link' => $this->deepLink($data, $item->id)]);
 
@@ -165,11 +161,54 @@ class AtlasInboxService
         return $item->refresh();
     }
 
-    public function list(string $userId = 'vitor', ?string $status = 'unread', ?string $type = null, int $limit = 50)
+    /**
+     * @return Collection<int,AiInboxItem>
+     */
+    public function list(string $userId = 'vitor', ?string $status = 'unread', ?string $type = null, int $limit = 50, ?string $severity = null, ?string $cursor = null): Collection
+    {
+        return $this->listPage($userId, $status, $type, $limit, $severity, $cursor)['items'];
+    }
+
+    /**
+     * @return array{items:Collection<int,AiInboxItem>,next_cursor:?string}
+     */
+    public function listPage(string $userId = 'vitor', ?string $status = 'unread', ?string $type = null, int $limit = 50, ?string $severity = null, ?string $cursor = null): array
+    {
+        $limit = max(1, min(100, $limit));
+        $items = $this
+            ->query($userId, $status, $type, $severity, $cursor)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit($limit + 1)
+            ->get();
+
+        $pageItems = $items->take($limit)->values();
+
+        return [
+            'items' => $pageItems,
+            'next_cursor' => $items->count() > $limit ? $this->encodeCursor($pageItems->last()) : null,
+        ];
+    }
+
+    private function query(string $userId, ?string $status, ?string $type, ?string $severity, ?string $cursor): Builder
     {
         $query = AiInboxItem::query()->where('user_id', $userId);
 
-        if ($status && $status !== 'all') {
+        if ($status === 'active') {
+            $query
+                ->whereNotIn('status', ['resolved', 'dismissed', 'expired'])
+                ->where(function ($nested): void {
+                    $nested
+                        ->whereNull('expires_at')
+                        ->orWhere('expires_at', '>', now());
+                })
+                ->where(function ($nested): void {
+                    $nested
+                        ->where('status', '!=', 'snoozed')
+                        ->orWhereNull('snoozed_until')
+                        ->orWhere('snoozed_until', '<=', now());
+                });
+        } elseif ($status && $status !== 'all') {
             $query->where('status', $status);
         }
 
@@ -177,7 +216,112 @@ class AtlasInboxService
             $query->where('type', $type);
         }
 
-        return $query->latest('created_at')->limit(max(1, min(100, $limit)))->get();
+        if ($severity) {
+            $query->where('severity', $severity);
+        }
+
+        if ($decoded = $this->decodeCursor($cursor)) {
+            $query->where(function (Builder $nested) use ($decoded): void {
+                $nested
+                    ->where('created_at', '<', $decoded['created_at'])
+                    ->orWhere(function (Builder $sameTimestamp) use ($decoded): void {
+                        $sameTimestamp
+                            ->where('created_at', '=', $decoded['created_at'])
+                            ->where('id', '<', $decoded['id']);
+                    });
+            });
+        }
+
+        return $query;
+    }
+
+    private function activeDedupeQuery(string $userId, string $dedupeKey): Builder
+    {
+        return AiInboxItem::query()
+            ->where('user_id', $userId)
+            ->where('dedupe_key', $dedupeKey)
+            ->whereNotIn('status', ['resolved', 'dismissed', 'expired'])
+            ->where(function (Builder $nested): void {
+                $nested
+                    ->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            });
+    }
+
+    private function expirePastDedupeItems(string $userId, string $dedupeKey): void
+    {
+        AiInboxItem::query()
+            ->where('user_id', $userId)
+            ->where('dedupe_key', $dedupeKey)
+            ->whereNotIn('status', ['resolved', 'dismissed', 'expired'])
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', now())
+            ->update(['status' => 'expired']);
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     */
+    private function dedupeExisting(AiInboxItem $existing, array $data, string $type, string $severity, string $status, string $dedupeKey): AiInboxItem
+    {
+        $payload = $existing->payload ?? [];
+        $payload['occurrence_count'] = ((int) ($payload['occurrence_count'] ?? 1)) + 1;
+        $payload['last_occurrence_at'] = now()->toJSON();
+
+        $updates = [
+            'title' => $this->title($data),
+            'summary' => $this->nullableString($data['summary'] ?? null),
+            'body' => $this->nullableString($data['body'] ?? null),
+            'category' => $this->nullableString($data['category'] ?? null),
+            'severity' => $severity,
+            'status' => $status,
+            'source_type' => $this->nullableString($data['source_type'] ?? null),
+            'source_id' => $this->nullableString($data['source_id'] ?? null),
+            'payload' => array_replace_recursive($payload, $this->array($data['payload'] ?? [])),
+            'available_actions' => $this->actions($type, $data),
+            'deep_link' => $this->deepLink($data, $existing->id),
+        ];
+
+        if (array_key_exists('context_bundle_id', $data)) {
+            $updates['context_bundle_id'] = $this->nullableString($data['context_bundle_id'] ?? null);
+        }
+
+        if (array_key_exists('push_policy', $data)) {
+            $updates['push_policy'] = $this->array($data['push_policy'] ?? []);
+        }
+
+        if (array_key_exists('priority_score', $data)) {
+            $updates['priority_score'] = max(0, min(100, (int) ($data['priority_score'] ?? 50)));
+        }
+
+        if (array_key_exists('confidence_score', $data)) {
+            $updates['confidence_score'] = isset($data['confidence_score']) ? (float) $data['confidence_score'] : null;
+        }
+
+        if (array_key_exists('expires_at', $data)) {
+            $updates['expires_at'] = $data['expires_at'];
+        }
+
+        $existing->update($updates);
+
+        $this->audit->record('inbox.deduped', [
+            'subject_type' => 'ai_inbox_item',
+            'subject_id' => $existing->id,
+            'summary' => 'Inbox item deduplicated.',
+            'evidence' => ['type' => $type, 'dedupe_key' => $dedupeKey],
+            'privacy' => ['sensitivity' => 'private'],
+        ]);
+
+        return $existing->refresh();
+    }
+
+    private function isDedupeUniqueViolation(QueryException $exception): bool
+    {
+        $sqlState = $exception->errorInfo[0] ?? null;
+        $message = $exception->getMessage();
+
+        return in_array($sqlState, ['23000', '23505'], true)
+            && str_contains($message, 'ai_inbox_items_active_dedupe_unique');
     }
 
     private function userId(array $data): string
@@ -230,11 +374,56 @@ class AtlasInboxService
     private function defaultExpiresAt(string $type): mixed
     {
         return match ($type) {
+            'approval' => now()->addMinutes(max(1, (int) config('atlas.mobile.approval_ttl_minutes', 30))),
             'proposal' => now()->addDays(7),
             'self_diagnostic' => now()->addDays(14),
             'job_result' => now()->addDays(30),
             default => null,
         };
+    }
+
+    /**
+     * @return array{created_at:Carbon,id:string}|null
+     */
+    private function decodeCursor(?string $cursor): ?array
+    {
+        if (! is_string($cursor) || trim($cursor) === '') {
+            return null;
+        }
+
+        $normalized = strtr($cursor, '-_', '+/');
+        $normalized = str_pad($normalized, strlen($normalized) + ((4 - strlen($normalized) % 4) % 4), '=', STR_PAD_RIGHT);
+        $raw = base64_decode($normalized, true);
+        $data = is_string($raw) ? json_decode($raw, true) : null;
+        $createdAt = is_array($data) ? ($data['created_at'] ?? null) : null;
+        $id = is_array($data) ? ($data['id'] ?? null) : null;
+
+        if (! is_string($createdAt) || ! is_string($id) || trim($id) === '') {
+            throw ValidationException::withMessages(['cursor' => 'Cursor invalido.']);
+        }
+
+        try {
+            return [
+                'created_at' => Carbon::parse($createdAt),
+                'id' => $id,
+            ];
+        } catch (\Throwable) {
+            throw ValidationException::withMessages(['cursor' => 'Cursor invalido.']);
+        }
+    }
+
+    private function encodeCursor(?AiInboxItem $item): ?string
+    {
+        if (! $item || ! $item->created_at) {
+            return null;
+        }
+
+        $raw = json_encode([
+            'created_at' => $item->created_at->format('Y-m-d\TH:i:s.uP'),
+            'id' => $item->id,
+        ], JSON_UNESCAPED_SLASHES);
+
+        return rtrim(strtr(base64_encode((string) $raw), '+/', '-_'), '=');
     }
 
     /**
@@ -271,6 +460,7 @@ class AtlasInboxService
             ],
             'self_diagnostic' => [
                 ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'primary'],
+                ['id' => 'create_proposal', 'label' => 'Criar proposta', 'style' => 'default'],
                 ['id' => 'ignore_30d', 'label' => 'Ignorar 30 dias', 'style' => 'default'],
                 ['id' => 'dismiss', 'label' => 'Descartar', 'style' => 'default'],
             ],

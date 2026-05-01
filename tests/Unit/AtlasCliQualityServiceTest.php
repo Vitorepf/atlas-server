@@ -61,6 +61,69 @@ class AtlasCliQualityServiceTest extends TestCase
         $this->assertLessThanOrEqual(1, count($compact['changed_files_preview']));
     }
 
+    public function test_compact_packet_truncates_large_test_failures(): void
+    {
+        $compact = app(AtlasCliQualityService::class)->compact([
+            'workspace' => $this->workspace,
+            'generated_at' => now()->toJSON(),
+            'status' => 'failed',
+            'changed_files' => ['note.txt'],
+            'dirty_count' => 1,
+            'test_commands_detected' => ['php artisan test'],
+            'test_result' => [
+                'ok' => false,
+                'exit_code' => 1,
+                'duration_ms' => 10,
+                'error_message' => str_repeat('failure ', 5000),
+                'metadata' => [
+                    'command_display' => escapeshellarg(PHP_BINARY).' artisan test',
+                ],
+            ],
+            'quality_gates' => [],
+            'completion_packet' => [
+                'status' => 'failed',
+                'summary' => 'Tests failed.',
+                'risks' => ['Teste falhou.'],
+                'tests' => [],
+            ],
+        ]);
+
+        $this->assertLessThanOrEqual(12500, strlen((string) $compact['test_result']['error']));
+        $this->assertStringContainsString('[middle output truncated by Atlas; showing final lines below]', (string) $compact['test_result']['error']);
+        $this->assertSame(escapeshellarg(PHP_BINARY).' artisan test', $compact['test_result']['command']);
+    }
+
+    public function test_compact_packet_preserves_tail_for_long_test_failures(): void
+    {
+        $compact = app(AtlasCliQualityService::class)->compact([
+            'workspace' => $this->workspace,
+            'generated_at' => now()->toJSON(),
+            'status' => 'failed',
+            'changed_files' => ['note.txt'],
+            'dirty_count' => 1,
+            'test_commands_detected' => ['php artisan test'],
+            'test_result' => [
+                'ok' => false,
+                'exit_code' => 1,
+                'duration_ms' => 10,
+                'error_message' => str_repeat("PASS ExampleTest\n", 1200)."\nFAILED Tests\\Feature\\CriticalFailureTest > regression broke\nTests: 1 failed, 193 passed\n",
+            ],
+            'quality_gates' => [],
+            'completion_packet' => [
+                'status' => 'failed',
+                'summary' => 'Tests failed.',
+                'risks' => ['Teste falhou.'],
+                'tests' => [],
+            ],
+        ]);
+
+        $error = (string) $compact['test_result']['error'];
+
+        $this->assertStringContainsString('FAILED Tests\\Feature\\CriticalFailureTest', $error);
+        $this->assertStringContainsString('Tests: 1 failed, 193 passed', $error);
+    }
+
+
     public function test_quality_gate_passes_dirty_workspace_when_tests_pass_for_complete_mode(): void
     {
         $payload = app(AtlasCliQualityService::class)->evaluate(

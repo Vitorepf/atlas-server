@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -26,6 +27,12 @@ return new class extends Migration
             $table->index(['inbox_item_id', 'status']);
             $table->index(['provider', 'status', 'attempted_at']);
         });
+
+        DB::statement(<<<'SQL'
+            CREATE TRIGGER trg_mobile_push_deliveries_updated_at
+            BEFORE UPDATE ON mobile_push_deliveries
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+        SQL);
     }
 
     public function down(): void

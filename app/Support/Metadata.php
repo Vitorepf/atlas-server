@@ -23,4 +23,13 @@ class Metadata
 
         return $value;
     }
+
+    public static function listForResponse(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        return array_values($value);
+    }
 }

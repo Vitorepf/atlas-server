@@ -114,7 +114,7 @@ class TaskPlanningService
         $blocks = $this->blocksForDate($date, $timezone);
 
         $tasks = AtlasTask::query()
-            ->with(['project', 'projectStep', 'routine'])
+            ->with($this->taskAgendaRelations())
             ->when($domain, fn ($query) => $query->where('domain', $domain))
             ->when($excludedTaskIds !== [], fn ($query) => $query->whereNotIn('id', $excludedTaskIds))
             ->whereIn('status', ['open', 'next'])
@@ -874,6 +874,16 @@ class TaskPlanningService
     }
 
     /**
+     * @return array<int, string>
+     */
+    private function taskAgendaRelations(): array
+    {
+        return Schema::hasTable('atlas_project_blockers')
+            ? ['project.openBlockers', 'projectStep', 'routine']
+            : ['project', 'projectStep', 'routine'];
+    }
+
+    /**
      * @return array{intent: string, risk: string|null, score_adjustment: int, bucket: string|null, why: array<int, string>}
      */
     private function projectAgendaSignal(AtlasTask $task, ?int $energyLevel): array
@@ -890,11 +900,29 @@ class TaskPlanningService
         $projectMetadata = is_array($task->project?->metadata) ? $task->project->metadata : [];
         $learning = is_array($projectMetadata['execution_learning'] ?? null) ? $projectMetadata['execution_learning'] : [];
         $deferLearning = is_array($projectMetadata['defer_learning'] ?? null) ? $projectMetadata['defer_learning'] : [];
+        $role = (string) ($taskMetadata['role'] ?? '');
+        $openBlockersCount = $task->project && $task->project->relationLoaded('openBlockers')
+            ? $task->project->openBlockers->count()
+            : 0;
+
+        if ($role === 'unblock_action') {
+            $score += 18;
+            $intent = 'unblock';
+            $risk = 'open_blocker';
+            $bucket = 'destravamento';
+            $why[] = 'ação criada especificamente para destravar um projeto bloqueado';
+        } elseif ($openBlockersCount > 0) {
+            $score -= 4;
+            $risk = $risk ?? 'project_has_open_blocker';
+            $why[] = 'projeto tem bloqueio aberto; prefira uma ação de destravamento se existir';
+        }
 
         if ($task->execution_mode === 'recovery') {
             $score += 14;
-            $intent = 'recover';
-            $bucket = 'retomada';
+            if ($intent !== 'unblock') {
+                $intent = 'recover';
+                $bucket = 'retomada';
+            }
             $why[] = 'ação de retomada criada para reduzir inércia';
         } elseif ((int) $task->recovery_count > 0) {
             $score += 6;

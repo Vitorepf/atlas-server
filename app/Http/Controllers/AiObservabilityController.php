@@ -7,6 +7,8 @@ use App\Models\AiQualityAction;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiThread;
 use App\Models\AiTrace;
+use App\Services\Ai\Telemetry\AiTelemetryHealthService;
+use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +16,11 @@ use Illuminate\Support\Facades\Schema;
 
 class AiObservabilityController extends Controller
 {
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(
+        Request $request,
+        AiTelemetryScorecardService $scorecards,
+        AiTelemetryHealthService $health,
+    ): JsonResponse
     {
         $data = $request->validate([
             'hours' => ['nullable', 'integer', 'between:1,720'],
@@ -42,6 +48,8 @@ class AiObservabilityController extends Controller
                 'failed_24h' => AiJob::query()->where('status', 'failed')->where('updated_at', '>=', now()->subDay())->count(),
             ],
             'quality' => $this->quality($since),
+            'metrics' => $scorecards->build($since),
+            'metrics_health' => $health->evaluate($since),
             'actions' => $this->actions(),
         ]);
     }

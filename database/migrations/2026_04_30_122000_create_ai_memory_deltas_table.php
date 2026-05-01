@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -30,6 +31,12 @@ return new class extends Migration
             $table->index(['status', 'type']);
             $table->index(['scope', 'status']);
         });
+
+        DB::statement(<<<'SQL'
+            CREATE TRIGGER trg_ai_memory_deltas_updated_at
+            BEFORE UPDATE ON ai_memory_deltas
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+        SQL);
     }
 
     public function down(): void

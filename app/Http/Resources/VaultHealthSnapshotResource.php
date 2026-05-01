@@ -23,7 +23,7 @@ class VaultHealthSnapshotResource extends JsonResource
             'activations_7d' => $this->activations_7d,
             'useful_activations_7d' => $this->useful_activations_7d,
             'health_state' => $this->health_state,
-            'recommendations' => Metadata::forResponse($this->recommendations),
+            'recommendations' => Metadata::listForResponse($this->recommendations),
             'cognitive_return' => data_get(Metadata::forResponse($this->metadata), 'cognitive_return', []),
             'metadata' => Metadata::forResponse($this->metadata),
             'created_at' => $this->created_at?->toJSON(),

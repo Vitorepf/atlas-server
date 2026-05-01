@@ -2110,6 +2110,7 @@ class CaptureTranscriptionRetryTest extends TestCase
     {
         Schema::dropIfExists('capture_links');
         Schema::dropIfExists('atlas_calendar_blocks');
+        Schema::dropIfExists('atlas_project_blockers');
         Schema::dropIfExists('atlas_task_events');
         Schema::dropIfExists('atlas_routine_events');
         Schema::dropIfExists('atlas_project_events');
@@ -2355,6 +2356,26 @@ class CaptureTranscriptionRetryTest extends TestCase
             $table->string('source')->default('app');
             $table->json('payload')->default('{}');
             $table->timestamp('occurred_at')->useCurrent();
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_project_blockers', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('project_id');
+            $table->uuid('task_id')->nullable();
+            $table->uuid('project_step_id')->nullable();
+            $table->uuid('unblock_task_id')->nullable();
+            $table->string('status')->default('open');
+            $table->string('severity')->default('medium');
+            $table->string('reason_code')->default('other');
+            $table->text('description');
+            $table->text('unblock_next_action')->nullable();
+            $table->string('waiting_on')->nullable();
+            $table->timestamp('due_at')->nullable();
+            $table->timestamp('resolved_at')->nullable();
+            $table->text('resolution_note')->nullable();
+            $table->uuid('created_from_event_id')->nullable();
+            $table->json('metadata')->default('{}');
             $table->timestamps();
         });
 

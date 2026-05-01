@@ -51,12 +51,32 @@ class AtlasCliHelpCommand extends Command
         return [
             'fluxo_principal' => [
                 [
+                    'command' => 'atlas start',
+                    'description' => 'Briefing focado para comecar o dia: contexto + UMA proxima acao concreta (alias: atlas focus, atlas work).',
+                ],
+                [
+                    'command' => 'atlas completion install',
+                    'description' => 'Imprime as linhas para ativar autocomplete bash/zsh; tab completa comandos, providers, modos.',
+                ],
+                [
                     'command' => 'atlas ask "..."',
                     'description' => 'Conversa direta com streaming, memoria e sessao do Atlas.',
                 ],
                 [
+                    'command' => 'atlas ask --image tela.png "..."',
+                    'description' => 'Anexa imagem real ao pedido para screenshots, UI e bugs visuais.',
+                ],
+                [
+                    'command' => 'atlas dev + "analise essa tela"',
+                    'description' => 'No cockpit, detecta imagem copiada no clipboard quando o pedido menciona tela/screenshot/print.',
+                ],
+                [
                     'command' => 'atlas dev "..."',
                     'description' => 'Workflow de desenvolvimento com preflight, plano, provider strategy e quality gate.',
+                ],
+                [
+                    'command' => 'atlas dev',
+                    'description' => 'Abre o Atlas Dev Cockpit com workspace, provider, permissao, thread, git e skills.',
                 ],
                 [
                     'command' => 'atlas debug "..."',
@@ -95,6 +115,14 @@ class AtlasCliHelpCommand extends Command
                 [
                     'command' => 'atlas bootstrap',
                     'description' => 'Comando recomendado unico para configurar, instalar e validar o Atlas CLI.',
+                ],
+                [
+                    'command' => 'atlas bootstrap --operator-mode --operator-root=/Users/vitorepf',
+                    'description' => 'Habilita /Users/vitorepf como raiz autorizada e faz ask/dev herdarem danger-full-access governado.',
+                ],
+                [
+                    'command' => 'atlas skills trust',
+                    'description' => 'Confia uma vez nas skills locais do repo atual; elas complementam o Atlas, sem substituir skills internas.',
                 ],
                 [
                     'command' => 'atlas version',
@@ -159,6 +187,14 @@ class AtlasCliHelpCommand extends Command
                 [
                     'command' => 'atlas steer "..."',
                     'description' => 'Registra um nudge [STEER] para a proxima chamada de provider da thread ativa.',
+                ],
+                [
+                    'command' => 'atlas interrupt',
+                    'description' => 'Cancela a execucao Atlas ativa neste workspace.',
+                ],
+                [
+                    'command' => 'atlas continue',
+                    'description' => 'Retoma o ultimo plano de dev nao finalizado neste workspace.',
                 ],
                 [
                     'command' => 'atlas compact',

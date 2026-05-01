@@ -10,6 +10,8 @@ class DevQualityGateSkillTest extends TestCase
 {
     private string $workspace;
 
+    private string $fakeBin;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -20,6 +22,11 @@ class DevQualityGateSkillTest extends TestCase
         File::put($this->workspace.'/app/Foo.php', "<?php\n\nclass Foo {}\n");
         File::put($this->workspace.'/composer.json', json_encode(['scripts' => ['test' => 'php -r "exit(0);"']], JSON_PRETTY_PRINT));
         (new Process(['git', 'init'], $this->workspace))->run();
+
+        $this->fakeBin = $this->workspace.'/fake-bin';
+        File::ensureDirectoryExists($this->fakeBin);
+        File::put($this->fakeBin.'/php', "#!/usr/bin/env bash\necho 'wrong php binary used' >&2\nexit 91\n");
+        chmod($this->fakeBin.'/php', 0755);
     }
 
     protected function tearDown(): void
@@ -43,11 +50,7 @@ class DevQualityGateSkillTest extends TestCase
         $process = new Process([
             base_path('skills/dev-quality-gate/scripts/validate-plan.sh'),
             $planPath,
-        ], $this->workspace, [
-            'ATLAS_SERVER_ROOT' => base_path(),
-            'ATLAS_WORKSPACE' => $this->workspace,
-            'ATLAS_AI_TOOL_ALLOWED_ROOTS' => $this->workspace,
-        ]);
+        ], $this->workspace, $this->scriptEnv());
         $process->setTimeout(30);
         $process->run();
 
@@ -73,15 +76,25 @@ class DevQualityGateSkillTest extends TestCase
         $process = new Process([
             base_path('skills/dev-quality-gate/scripts/validate-plan.sh'),
             $planPath,
-        ], $this->workspace, [
-            'ATLAS_SERVER_ROOT' => base_path(),
-            'ATLAS_WORKSPACE' => $this->workspace,
-            'ATLAS_AI_TOOL_ALLOWED_ROOTS' => $this->workspace,
-        ]);
+        ], $this->workspace, $this->scriptEnv());
         $process->setTimeout(30);
         $process->run();
 
         $this->assertNotSame(0, $process->getExitCode());
         $this->assertStringContainsString('path_outside_workspace', $process->getErrorOutput());
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function scriptEnv(): array
+    {
+        return [
+            'ATLAS_SERVER_ROOT' => base_path(),
+            'ATLAS_WORKSPACE' => $this->workspace,
+            'ATLAS_AI_TOOL_ALLOWED_ROOTS' => $this->workspace,
+            'ATLAS_PHP_BIN' => PHP_BINARY,
+            'PATH' => $this->fakeBin.PATH_SEPARATOR.(getenv('PATH') ?: ''),
+        ];
     }
 }

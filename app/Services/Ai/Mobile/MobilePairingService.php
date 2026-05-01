@@ -53,14 +53,17 @@ class MobilePairingService
     }
 
     /**
-     * @param  array{platform:string,device_label?:string|null,expo_push_token?:string|null,app_version?:string|null,os_version?:string|null,notification_permissions?:string|null}  $data
+     * @param  array{platform:string,pairing_id?:string|null,device_label?:string|null,expo_push_token?:string|null,app_version?:string|null,os_version?:string|null,notification_permissions?:string|null}  $data
      * @return array{device:AtlasMobileDevice,device_token:string}
      */
     public function confirm(string $code, array $data): array
     {
-        $pairing = MobilePairingCode::query()
-            ->where('code_hash', $this->hashSecret($this->normalizeCode($code)))
-            ->first();
+        $normalizedCode = $this->normalizeCode($code);
+        $codeHash = $this->hashSecret($normalizedCode);
+        $pairingId = $this->nullableString($data['pairing_id'] ?? null);
+        $pairing = $pairingId
+            ? MobilePairingCode::query()->find($pairingId)
+            : MobilePairingCode::query()->where('code_hash', $codeHash)->first();
 
         if (! $pairing) {
             throw ValidationException::withMessages(['code' => 'Codigo de pareamento invalido.']);
@@ -68,6 +71,12 @@ class MobilePairingService
 
         if ($pairing->locked_until && $pairing->locked_until->isFuture()) {
             throw ValidationException::withMessages(['code' => 'Codigo temporariamente bloqueado por tentativas invalidas.']);
+        }
+
+        if (! hash_equals((string) $pairing->code_hash, $codeHash)) {
+            $this->registerFailedAttempt($pairing);
+
+            throw ValidationException::withMessages(['code' => 'Codigo de pareamento invalido.']);
         }
 
         if ($pairing->consumed_at !== null) {
@@ -123,6 +132,15 @@ class MobilePairingService
             'device' => $device,
             'device_token' => $deviceToken,
         ];
+    }
+
+    private function registerFailedAttempt(MobilePairingCode $pairing): void
+    {
+        $attempts = max(0, (int) $pairing->attempts) + 1;
+        $pairing->forceFill([
+            'attempts' => $attempts,
+            'locked_until' => $attempts >= 5 ? now()->addHour() : $pairing->locked_until,
+        ])->save();
     }
 
     public function revoke(AtlasMobileDevice $device, string $actorType = 'operator_cli'): AtlasMobileDevice

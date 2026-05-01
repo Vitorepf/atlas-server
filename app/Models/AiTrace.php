@@ -64,6 +64,11 @@ class AiTrace extends Model
         return $this->hasOne(AiQualityEvaluation::class, 'trace_id');
     }
 
+    public function metricSummary(): HasOne
+    {
+        return $this->hasOne(AiTraceMetricSummary::class, 'trace_id');
+    }
+
     public function qualityActions(): HasMany
     {
         return $this->hasMany(AiQualityAction::class, 'trace_id')->latest('created_at');

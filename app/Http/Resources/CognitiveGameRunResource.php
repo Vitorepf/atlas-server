@@ -14,7 +14,7 @@ class CognitiveGameRunResource extends JsonResource
             'id' => $this->id,
             'game_key' => $this->game_key,
             'title' => $this->title,
-            'input_note_ids' => Metadata::forResponse($this->input_note_ids),
+            'input_note_ids' => Metadata::listForResponse($this->input_note_ids),
             'prompt' => $this->prompt,
             'operator_answer' => $this->operator_answer,
             'atlas_feedback' => $this->atlas_feedback,

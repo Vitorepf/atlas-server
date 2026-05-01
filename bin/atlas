@@ -1,9 +1,86 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  SOURCE_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  TARGET="$(readlink "$SOURCE")"
+  case "$TARGET" in
+    /*) SOURCE="$TARGET" ;;
+    *) SOURCE="$SOURCE_DIR/$TARGET" ;;
+  esac
+done
+
+ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
 CALLER_PWD="${PWD}"
 cd "$ROOT"
+
+ATLAS_MIN_PHP_VERSION="${ATLAS_MIN_PHP_VERSION:-8.4.0}"
+
+php_candidate_path() {
+  local candidate="$1"
+  if [ -x "$candidate" ]; then
+    printf '%s' "$candidate"
+    return 0
+  fi
+
+  command -v "$candidate" 2>/dev/null || true
+}
+
+php_satisfies_minimum() {
+  local candidate resolved
+  candidate="$1"
+  resolved="$(php_candidate_path "$candidate")"
+  if [ -z "$resolved" ]; then
+    return 1
+  fi
+
+  "$resolved" -r 'exit(version_compare(PHP_VERSION, $argv[1], ">=") ? 0 : 1);' "$ATLAS_MIN_PHP_VERSION" >/dev/null 2>&1
+}
+
+resolve_php_bin() {
+  local candidate resolved
+
+  if [ -n "${ATLAS_PHP_BIN:-}" ]; then
+    if php_satisfies_minimum "$ATLAS_PHP_BIN"; then
+      php_candidate_path "$ATLAS_PHP_BIN"
+      return 0
+    fi
+
+    printf 'Atlas CLI requires PHP >= %s, but ATLAS_PHP_BIN is not compatible: %s\n' "$ATLAS_MIN_PHP_VERSION" "$ATLAS_PHP_BIN" >&2
+    return 1
+  fi
+
+  for candidate in \
+    /opt/homebrew/bin/php \
+    /opt/homebrew/opt/php/bin/php \
+    /opt/homebrew/opt/php@8.5/bin/php \
+    /opt/homebrew/opt/php@8.4/bin/php \
+    /usr/local/bin/php \
+    /usr/local/opt/php/bin/php \
+    /usr/local/opt/php@8.5/bin/php \
+    /usr/local/opt/php@8.4/bin/php \
+    php
+  do
+    if php_satisfies_minimum "$candidate"; then
+      php_candidate_path "$candidate"
+      return 0
+    fi
+  done
+
+  resolved="$(command -v php 2>/dev/null || true)"
+  if [ -n "$resolved" ]; then
+    printf 'Atlas CLI requires PHP >= %s, but your shell is using: %s\n' "$ATLAS_MIN_PHP_VERSION" "$("$resolved" -v | head -n 1)" >&2
+  else
+    printf 'Atlas CLI requires PHP >= %s, but no php binary was found.\n' "$ATLAS_MIN_PHP_VERSION" >&2
+  fi
+  printf 'Install/upgrade with Homebrew or set ATLAS_PHP_BIN, for example:\n' >&2
+  printf '  brew install php\n' >&2
+  printf '  export ATLAS_PHP_BIN=/opt/homebrew/bin/php\n' >&2
+  return 1
+}
+
+PHP_BIN="$(resolve_php_bin)"
 
 join_input() {
   local IFS=' '
@@ -22,221 +99,322 @@ has_workspace_arg() {
   return 1
 }
 
+exec_artisan_with_workspace() {
+  local artisan_command="$1"
+  shift || true
+
+  if has_workspace_arg "$@"; then
+    exec "$PHP_BIN" artisan "$artisan_command" "$@"
+  fi
+
+  exec "$PHP_BIN" artisan "$artisan_command" "$@" --workspace="$CALLER_PWD"
+}
+
+exec_chat_with_workspace() {
+  if has_workspace_arg "$@"; then
+    exec "$PHP_BIN" artisan atlas:ai:chat "$@"
+  fi
+
+  exec "$PHP_BIN" artisan atlas:ai:chat "$@" --workspace="$CALLER_PWD"
+}
+
+exec_chat_prompt_with_workspace() {
+  local -a fixed_args=()
+  local -a pass_args=()
+  local -a prompt_parts=()
+  local -a final_args=()
+
+  while [ "$#" -gt 0 ] && [ "${1:-}" != "--" ]; do
+    fixed_args+=("$1")
+    shift || true
+  done
+
+  if [ "${1:-}" = "--" ]; then
+    shift || true
+  fi
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --image|--provider|--agent|--thread|--workspace|--mode|--permission|--timeout|--dev-plan|--skill)
+        pass_args+=("$1")
+        shift || true
+        if [ "$#" -gt 0 ]; then
+          pass_args+=("$1")
+        fi
+        ;;
+      --image=*|--provider=*|--agent=*|--thread=*|--workspace=*|--mode=*|--permission=*|--timeout=*|--dev-plan=*|--skill=*|--clipboard-image|--no-auto-image|--new-thread|--allow-write|--dangerously-allow-all|--allow-unsandboxed|--compact|--no-intent|--json|--stream|--no-run)
+        pass_args+=("$1")
+        ;;
+      *)
+        prompt_parts+=("$1")
+        ;;
+    esac
+    shift || true
+  done
+
+  if [ "${#prompt_parts[@]}" -gt 0 ]; then
+    final_args+=("$(join_input "${prompt_parts[@]}")")
+  fi
+  final_args+=("${fixed_args[@]}" "${pass_args[@]}")
+
+  if has_workspace_arg "${final_args[@]}"; then
+    exec "$PHP_BIN" artisan atlas:ai:chat "${final_args[@]}"
+  fi
+
+  exec "$PHP_BIN" artisan atlas:ai:chat "${final_args[@]}" --workspace="$CALLER_PWD"
+}
+
 cmd="${1:-chat}"
 
 case "$cmd" in
   help|-h|--help)
     shift || true
-    exec php artisan atlas:cli:help "$@"
+    exec "$PHP_BIN" artisan atlas:cli:help "$@"
+    ;;
+  completion)
+    shift || true
+    exec "$PHP_BIN" artisan atlas:cli:completion "$@"
     ;;
   chat)
     shift || true
-    exec php artisan atlas:ai:chat "$@"
+    exec_chat_with_workspace "$@"
     ;;
   ask)
     shift || true
-    if [ "$#" -eq 0 ]; then
-      exec php artisan atlas:ai:chat --stream
-    fi
-    exec php artisan atlas:ai:chat "$(join_input "$@")" --stream
+    exec_chat_prompt_with_workspace --stream --no-skill-prompt -- "$@"
     ;;
   dev)
     shift || true
-    exec php artisan atlas:cli:dev "$@"
+    exec_artisan_with_workspace atlas:cli:dev "$@"
     ;;
   fix)
     shift || true
-    exec php artisan atlas:cli:fix "$@"
+    exec_artisan_with_workspace atlas:cli:fix "$@"
     ;;
   plan)
     shift || true
-    if [ "$#" -eq 0 ]; then
-      exec php artisan atlas:ai:chat --mode=plan --stream
-    fi
-    exec php artisan atlas:ai:chat "$(join_input "$@")" --mode=plan --stream
+    exec_chat_prompt_with_workspace --mode=plan --stream --no-skill-prompt -- "$@"
     ;;
   review)
     shift || true
-    if [ "$#" -eq 0 ]; then
-      exec php artisan atlas:ai:chat --mode=review --stream
-    fi
-    exec php artisan atlas:ai:chat "$(join_input "$@")" --mode=review --stream
+    exec_chat_prompt_with_workspace --mode=review --stream --no-skill-prompt -- "$@"
     ;;
   compare)
     shift || true
-    exec php artisan atlas:cli:compare "$@"
+    exec_artisan_with_workspace atlas:cli:compare "$@"
     ;;
   debug)
     shift || true
-    if [ "$#" -eq 0 ]; then
-      exec php artisan atlas:ai:chat --mode=debug --stream
-    fi
-    exec php artisan atlas:ai:chat "$(join_input "$@")" --mode=debug --stream
+    exec_chat_prompt_with_workspace --mode=debug --stream --no-skill-prompt -- "$@"
     ;;
   research)
     shift || true
-    if [ "$#" -eq 0 ]; then
-      exec php artisan atlas:ai:chat --mode=research --stream
-    fi
-    exec php artisan atlas:ai:chat "$(join_input "$@")" --mode=research --stream
+    exec_chat_prompt_with_workspace --mode=research --stream --no-skill-prompt -- "$@"
     ;;
   threads|sessions)
     shift || true
-    exec php artisan atlas:ai:chat --list-threads "$@"
+    if has_workspace_arg "$@"; then
+      exec "$PHP_BIN" artisan atlas:ai:chat --list-threads "$@"
+    fi
+    exec "$PHP_BIN" artisan atlas:ai:chat --list-threads "$@" --workspace="$CALLER_PWD"
     ;;
   status|dashboard)
     shift || true
-    exec php artisan atlas:cli:dashboard "$@"
+    exec_artisan_with_workspace atlas:cli:dashboard "$@"
     ;;
   tui)
     shift || true
     if [ "${1:-}" = "--classic" ]; then
       shift || true
-      exec php artisan atlas:cli:dashboard --classic "$@"
+      if has_workspace_arg "$@"; then
+        exec "$PHP_BIN" artisan atlas:cli:dashboard --classic "$@"
+      fi
+      exec "$PHP_BIN" artisan atlas:cli:dashboard --classic "$@" --workspace="$CALLER_PWD"
     fi
-    exec php artisan atlas:cli:tui "$@"
+    exec_artisan_with_workspace atlas:cli:tui "$@"
     ;;
   state)
     shift || true
-    exec php artisan atlas:cli:state "$@"
+    exec_artisan_with_workspace atlas:cli:state "$@"
     ;;
   steer)
     shift || true
-    exec php artisan atlas:cli:state pending-steer set "$@"
+    if has_workspace_arg "$@"; then
+      exec "$PHP_BIN" artisan atlas:cli:state pending-steer set "$@"
+    fi
+    exec "$PHP_BIN" artisan atlas:cli:state pending-steer set "$@" --workspace="$CALLER_PWD"
+    ;;
+  interrupt|stop|cancel)
+    shift || true
+    exec_artisan_with_workspace atlas:cli:interrupt "$@"
+    ;;
+  continue|resume)
+    shift || true
+    exec_artisan_with_workspace atlas:cli:continue "$@"
     ;;
   compact)
     shift || true
-    exec php artisan atlas:cli:state compact "$@"
+    if has_workspace_arg "$@"; then
+      exec "$PHP_BIN" artisan atlas:cli:state compact "$@"
+    fi
+    exec "$PHP_BIN" artisan atlas:cli:state compact "$@" --workspace="$CALLER_PWD"
     ;;
   handoff|switch)
     shift || true
-    exec php artisan atlas:cli:state handoff "$@"
+    if has_workspace_arg "$@"; then
+      exec "$PHP_BIN" artisan atlas:cli:state handoff "$@"
+    fi
+    exec "$PHP_BIN" artisan atlas:cli:state handoff "$@" --workspace="$CALLER_PWD"
     ;;
   checkpoint|checkpoints)
     shift || true
-    exec php artisan atlas:cli:checkpoint "$@"
+    exec_artisan_with_workspace atlas:cli:checkpoint "$@"
     ;;
   quality|finish)
     shift || true
-    exec php artisan atlas:cli:quality "$@"
+    exec_artisan_with_workspace atlas:cli:quality "$@"
     ;;
   test)
     shift || true
-    exec php artisan atlas:cli:quality --run-tests --yes "$@"
+    if has_workspace_arg "$@"; then
+      exec "$PHP_BIN" artisan atlas:cli:quality --run-tests --yes "$@"
+    fi
+    exec "$PHP_BIN" artisan atlas:cli:quality --run-tests --yes "$@" --workspace="$CALLER_PWD"
     ;;
   runtime|tool)
     shift || true
-    exec php artisan atlas:runtime "$@"
+    exec_artisan_with_workspace atlas:runtime "$@"
     ;;
   search)
     shift || true
-    exec php artisan atlas:runtime session.search --workspace="$CALLER_PWD" "$@"
+    if has_workspace_arg "$@"; then
+      exec "$PHP_BIN" artisan atlas:runtime session.search "$@"
+    fi
+    exec "$PHP_BIN" artisan atlas:runtime session.search "$@" --workspace="$CALLER_PWD"
     ;;
   trace)
     shift || true
-    exec php artisan atlas:cli:trace "$@"
+    exec_artisan_with_workspace atlas:cli:trace "$@"
     ;;
   permissions)
     shift || true
-    exec php artisan atlas:cli:permissions "$@"
+    exec_artisan_with_workspace atlas:cli:permissions "$@"
     ;;
   memory)
     shift || true
-    exec php artisan atlas:cli:memory "$@"
+    exec_artisan_with_workspace atlas:cli:memory "$@"
     ;;
   mobile)
     shift || true
-    exec php artisan atlas:cli:mobile "$@"
+    exec "$PHP_BIN" artisan atlas:cli:mobile "$@"
     ;;
   inbox)
     shift || true
-    exec php artisan atlas:cli:inbox "$@"
+    exec "$PHP_BIN" artisan atlas:cli:inbox "$@"
     ;;
   insight)
     shift || true
-    exec php artisan atlas:insight "$@"
+    exec "$PHP_BIN" artisan atlas:insight "$@"
+    ;;
+  insight-watch|watch-insights)
+    shift || true
+    exec "$PHP_BIN" artisan atlas:insight:watch "$@"
     ;;
   proposal)
     shift || true
-    exec php artisan atlas:proposal "$@"
+    exec "$PHP_BIN" artisan atlas:proposal "$@"
     ;;
   proposal-scan|proposals-scan|scan-proposals)
     shift || true
     if has_workspace_arg "$@"; then
-      exec php artisan atlas:proposal:scan "$@"
+      exec "$PHP_BIN" artisan atlas:proposal:scan "$@"
     fi
-    exec php artisan atlas:proposal:scan "$@" --workspace="$CALLER_PWD"
+    exec "$PHP_BIN" artisan atlas:proposal:scan "$@" --workspace="$CALLER_PWD"
     ;;
   self-diagnostic|diagnostic)
     shift || true
-    exec php artisan atlas:self-diagnostic "$@"
+    exec "$PHP_BIN" artisan atlas:self-diagnostic "$@"
+    ;;
+  initiatives|initiative)
+    shift || true
+    if has_workspace_arg "$@"; then
+      exec "$PHP_BIN" artisan atlas:initiatives "$@"
+    fi
+    exec "$PHP_BIN" artisan atlas:initiatives "$@" --workspace="$CALLER_PWD"
     ;;
   schedule|cron)
     shift || true
     if has_workspace_arg "$@"; then
-      exec php artisan atlas:cli:schedule "$@"
+      exec "$PHP_BIN" artisan atlas:cli:schedule "$@"
     fi
-    exec php artisan atlas:cli:schedule "$@" --workspace="$CALLER_PWD"
+    exec "$PHP_BIN" artisan atlas:cli:schedule "$@" --workspace="$CALLER_PWD"
     ;;
   skills)
     shift || true
-    exec php artisan atlas:cli:skills "$@"
+    exec_artisan_with_workspace atlas:cli:skills "$@"
     ;;
   profile)
     shift || true
-    exec php artisan atlas:runtime workspace.profile "$@"
+    if has_workspace_arg "$@"; then
+      exec "$PHP_BIN" artisan atlas:runtime workspace.profile "$@"
+    fi
+    exec "$PHP_BIN" artisan atlas:runtime workspace.profile "$@" --workspace="$CALLER_PWD"
     ;;
-  work)
+  start|focus|work)
     shift || true
-    exec php artisan atlas:ai:work "$@"
+    exec_artisan_with_workspace atlas:cli:start "$@"
+    ;;
+  worker|daemon)
+    shift || true
+    exec "$PHP_BIN" artisan atlas:ai:work "$@"
     ;;
   health)
     shift || true
-    exec php artisan atlas:ai:health "$@"
+    exec "$PHP_BIN" artisan atlas:ai:health "$@"
     ;;
   providers)
     shift || true
-    exec php artisan atlas:cli:providers "$@"
+    exec "$PHP_BIN" artisan atlas:cli:providers "$@"
     ;;
   setup|init)
     shift || true
-    exec php artisan atlas:cli:setup "$@"
+    exec "$PHP_BIN" artisan atlas:cli:setup "$@"
     ;;
   bootstrap|configure)
     shift || true
-    exec php artisan atlas:cli:bootstrap "$@"
+    exec_artisan_with_workspace atlas:cli:bootstrap "$@"
     ;;
   version)
     shift || true
-    exec php artisan atlas:cli:version "$@"
+    exec "$PHP_BIN" artisan atlas:cli:version "$@"
     ;;
   update)
     shift || true
-    exec php artisan atlas:cli:update "$@"
+    exec "$PHP_BIN" artisan atlas:cli:update "$@"
     ;;
   rollback)
     shift || true
-    exec php artisan atlas:cli:rollback "$@"
+    exec "$PHP_BIN" artisan atlas:cli:rollback "$@"
     ;;
   install)
     shift || true
-    exec php artisan atlas:cli:install "$@"
+    exec "$PHP_BIN" artisan atlas:cli:install "$@"
     ;;
   provider-health)
     shift || true
-    exec php artisan atlas:ai:health "$@"
+    exec "$PHP_BIN" artisan atlas:ai:health "$@"
     ;;
   doctor)
     shift || true
-    exec php artisan atlas:cli:doctor "$@"
+    exec_artisan_with_workspace atlas:cli:doctor "$@"
     ;;
   final|readiness|product)
     shift || true
-    exec php artisan atlas:cli:final "$@"
+    exec_artisan_with_workspace atlas:cli:final "$@"
     ;;
   dogfood)
     shift || true
-    exec php artisan atlas:cli:dogfood "$@"
+    exec_artisan_with_workspace atlas:cli:dogfood "$@"
     ;;
   release)
     shift || true
@@ -256,17 +434,20 @@ case "$cmd" in
       esac
       shift || true
     done
-    exec php artisan atlas:cli:release "${release_args[@]}"
+    if has_workspace_arg "${release_args[@]}"; then
+      exec "$PHP_BIN" artisan atlas:cli:release "${release_args[@]}"
+    fi
+    exec "$PHP_BIN" artisan atlas:cli:release "${release_args[@]}" --workspace="$CALLER_PWD"
     ;;
   ai-doctor)
     shift || true
-    exec php artisan atlas:ai:doctor "$@"
+    exec "$PHP_BIN" artisan atlas:ai:doctor "$@"
     ;;
   bootstrap-skills)
     shift || true
-    exec php artisan atlas:ai:bootstrap-skills "$@"
+    exec "$PHP_BIN" artisan atlas:ai:bootstrap-skills "$@"
     ;;
   *)
-    exec php artisan atlas:ai:chat "$(join_input "$@")" --stream
+    exec "$PHP_BIN" artisan atlas:ai:chat "$(join_input "$@")" --stream --workspace="$CALLER_PWD"
     ;;
 esac

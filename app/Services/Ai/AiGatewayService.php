@@ -10,6 +10,7 @@ use App\Models\AiSession;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\Capture;
+use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\ValueObjects\AiThreadResolution;
 use App\Services\AuditLogService;
 use App\Services\CapturePrivacyService;
@@ -33,6 +34,7 @@ class AiGatewayService
         private readonly AiContextSnapshotRecorder $snapshots,
         private readonly AiConversationRecorder $conversation,
         private readonly CapturePrivacyService $privacy,
+        private readonly AiProviderModelResolver $models,
         private readonly AuditLogService $audit,
     ) {}
 
@@ -45,6 +47,10 @@ class AiGatewayService
         $input = trim($input);
         if ($input === '') {
             throw new RuntimeException('AI input cannot be empty.');
+        }
+
+        if ($existingTrace = $this->existingTraceForClient($options['client_id'] ?? null)) {
+            return $existingTrace;
         }
 
         $privacy = $this->privacyFromOptions($options);
@@ -64,10 +70,11 @@ class AiGatewayService
             return $this->enqueueCouncilInteraction($input, $options, $prompt, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff);
         }
 
-        $model = $prompt->model ?: (is_string($options['model'] ?? null) ? $options['model'] : null);
+        $modelResolution = $this->models->resolveWithSource($provider, $prompt->model ?: ($options['model'] ?? null));
+        $model = $modelResolution['model'];
         $now = now();
 
-        return DB::transaction(function () use ($input, $options, $prompt, $provider, $model, $now, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff): AiTrace {
+        return DB::transaction(function () use ($input, $options, $prompt, $provider, $model, $modelResolution, $now, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff): AiTrace {
             $lockedThread = $this->lockThreadForTrace($threadResolution);
             $lockedSession = $this->lockSessionForTrace($session);
 
@@ -94,6 +101,7 @@ class AiGatewayService
                     'session' => $this->sessionMetadata($lockedSession),
                     'auto_compaction_id' => $autoCompaction?->id,
                     'provider_handoff_id' => $providerHandoff?->id,
+                    'model_identity_source' => $modelResolution['source'],
                     'task_request' => $prompt->taskRequest,
                     'context_pack' => $prompt->contextPack,
                     'execution_plan' => $prompt->executionPlan,
@@ -121,14 +129,15 @@ class AiGatewayService
                     'session' => $this->sessionMetadata($lockedSession),
                     'auto_compaction_id' => $autoCompaction?->id,
                     'provider_handoff_id' => $providerHandoff?->id,
+                    'model_identity_source' => $modelResolution['source'],
                     'task_request' => $prompt->taskRequest,
                     'context_pack' => $prompt->contextPack,
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                 ],
                 'available_at' => $options['available_at'] ?? $now,
-                'max_attempts' => (int) ($options['max_attempts'] ?? config('atlas.ai.max_attempts', 2)),
-                'timeout_seconds' => (int) ($options['timeout_seconds'] ?? config('atlas.ai.timeout_seconds', 300)),
+                'max_attempts' => (int) ($options['max_attempts'] ?? config('atlas.ai.max_attempts', 1)),
+                'timeout_seconds' => (int) ($options['timeout_seconds'] ?? config('atlas.ai.timeout_seconds', 7200)),
                 'metadata' => [
                     'intent' => $prompt->intent,
                     'skill_versions' => $prompt->skillVersions,
@@ -137,6 +146,7 @@ class AiGatewayService
                     'session' => $this->sessionMetadata($lockedSession),
                     'auto_compaction_id' => $autoCompaction?->id,
                     'provider_handoff_id' => $providerHandoff?->id,
+                    'model_identity_source' => $modelResolution['source'],
                     'task_request' => $prompt->taskRequest,
                     'context_pack' => $prompt->contextPack,
                     'execution_plan' => $prompt->executionPlan,
@@ -153,6 +163,26 @@ class AiGatewayService
 
             $this->states->updateForUserInput($lockedThread, $lockedSession, $input, $this->optionsWithPromptContracts($options, $prompt));
             $this->snapshots->record($trace, $lockedSession, $prompt, $autoCompaction, $providerHandoff);
+            $this->recordTelemetry('trace_created', $trace, $job, [
+                'surface' => 'server',
+                'runtime' => 'laravel',
+                'metadata' => [
+                    'source_type' => $trace->source_type,
+                    'kind' => $job->kind,
+                    'model_identity_source' => $modelResolution['source'],
+                    'task_type' => data_get($prompt->taskRequest, 'task_type'),
+                    'workflow' => data_get($prompt->executionPlan, 'workflow'),
+                ],
+            ]);
+            $this->recordTelemetry('job_enqueued', $trace, $job, [
+                'surface' => 'server',
+                'runtime' => 'laravel',
+                'metadata' => [
+                    'priority' => $job->priority,
+                    'available_at' => $job->available_at?->toJSON(),
+                    'max_attempts' => $job->max_attempts,
+                ],
+            ]);
 
             $this->audit->record('ai_trace_queued', [
                 'subject_type' => 'ai_trace',
@@ -162,6 +192,7 @@ class AiGatewayService
                     'agent_slug' => $prompt->agentSlug,
                     'provider' => $provider,
                     'model' => $model,
+                    'model_identity_source' => $modelResolution['source'],
                     'source_type' => $trace->source_type,
                     'source_id' => $trace->source_id,
                     'input_text' => $input,
@@ -206,6 +237,7 @@ class AiGatewayService
         return DB::transaction(function () use ($input, $options, $prompt, $providers, $now, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff): AiTrace {
             $lockedThread = $this->lockThreadForTrace($threadResolution);
             $lockedSession = $this->lockSessionForTrace($session);
+            $traceModelResolution = $this->models->resolveWithSource('claude_codex', $options['model'] ?? null);
 
             $trace = AiTrace::query()->create([
                 'trace_key' => 'trace_'.Str::orderedUuid()->toString(),
@@ -218,7 +250,7 @@ class AiGatewayService
                 'intent' => $prompt->intent,
                 'agent_slug' => $prompt->agentSlug,
                 'provider' => 'claude_codex',
-                'model' => null,
+                'model' => $traceModelResolution['model'],
                 'skill_versions' => $prompt->skillVersions,
                 'context_refs' => $prompt->contextRefs,
                 'prompt_hash' => hash('sha256', $prompt->prompt),
@@ -231,6 +263,7 @@ class AiGatewayService
                     'session' => $this->sessionMetadata($lockedSession),
                     'auto_compaction_id' => $autoCompaction?->id,
                     'provider_handoff_id' => $providerHandoff?->id,
+                    'model_identity_source' => $traceModelResolution['source'],
                     'council_providers' => $providers,
                     'council_status' => 'queued',
                     'council_progress' => [
@@ -249,6 +282,7 @@ class AiGatewayService
 
             foreach ($providers as $index => $provider) {
                 $role = $provider === 'codex_cli' ? 'critical_reviewer' : 'primary_planner';
+                $jobModelResolution = $this->models->resolveWithSource($provider, $options['model'] ?? null);
                 $job = AiJob::query()->create([
                     'trace_id' => $trace->id,
                     'client_id' => $index === 0 ? ($options['client_id'] ?? null) : null,
@@ -257,7 +291,7 @@ class AiGatewayService
                     'priority' => (int) ($options['priority'] ?? 50) + $index,
                     'agent_slug' => $prompt->agentSlug,
                     'provider' => $provider,
-                    'model' => is_string($options['model'] ?? null) ? $options['model'] : null,
+                    'model' => $jobModelResolution['model'],
                     'input_text' => $input,
                     'prompt' => $this->councilPrompt($prompt->prompt, $provider, $role),
                     'context_refs' => $prompt->contextRefs,
@@ -268,6 +302,7 @@ class AiGatewayService
                         'session' => $this->sessionMetadata($lockedSession),
                         'auto_compaction_id' => $autoCompaction?->id,
                         'provider_handoff_id' => $providerHandoff?->id,
+                        'model_identity_source' => $jobModelResolution['source'],
                         'council_role' => $role,
                         'council_provider' => $provider,
                         'council_providers' => $providers,
@@ -277,8 +312,8 @@ class AiGatewayService
                         'skills_activated' => $prompt->activatedSkills,
                     ]),
                     'available_at' => $options['available_at'] ?? $now,
-                    'max_attempts' => (int) ($options['max_attempts'] ?? config('atlas.ai.max_attempts', 2)),
-                    'timeout_seconds' => (int) ($options['timeout_seconds'] ?? config('atlas.ai.timeout_seconds', 300)),
+                    'max_attempts' => (int) ($options['max_attempts'] ?? config('atlas.ai.max_attempts', 1)),
+                    'timeout_seconds' => (int) ($options['timeout_seconds'] ?? config('atlas.ai.timeout_seconds', 7200)),
                     'metadata' => [
                         'intent' => $prompt->intent,
                         'skill_versions' => $prompt->skillVersions,
@@ -288,12 +323,26 @@ class AiGatewayService
                         'session' => $this->sessionMetadata($lockedSession),
                         'auto_compaction_id' => $autoCompaction?->id,
                         'provider_handoff_id' => $providerHandoff?->id,
+                        'model_identity_source' => $jobModelResolution['source'],
                         'council_role' => $role,
                         'task_request' => $prompt->taskRequest,
                         'context_pack' => $prompt->contextPack,
                         'execution_plan' => $prompt->executionPlan,
                         'skills_activated' => $prompt->activatedSkills,
                         'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
+                    ],
+                ]);
+
+                $this->recordTelemetry('job_enqueued', $trace, $job, [
+                    'surface' => 'server',
+                    'runtime' => 'laravel',
+                    'metadata' => [
+                        'priority' => $job->priority,
+                        'available_at' => $job->available_at?->toJSON(),
+                        'max_attempts' => $job->max_attempts,
+                        'execution_policy' => 'dual_review',
+                        'council_role' => $role,
+                        'model_identity_source' => $jobModelResolution['source'],
                     ],
                 ]);
 
@@ -304,6 +353,8 @@ class AiGatewayService
                     'evidence' => [
                         'agent_slug' => $prompt->agentSlug,
                         'provider' => $provider,
+                        'model' => $jobModelResolution['model'],
+                        'model_identity_source' => $jobModelResolution['source'],
                         'source_type' => $trace->source_type,
                         'source_id' => $trace->source_id,
                         'input_text' => $input,
@@ -336,9 +387,56 @@ class AiGatewayService
             $this->snapshots->record($trace, $lockedSession, $prompt, $autoCompaction, $providerHandoff);
 
             $this->recordRouterDecision($trace, $options, 'claude_codex');
+            $firstJob = $trace->jobs()->oldest('created_at')->first();
+            $this->recordTelemetry('trace_created', $trace, $firstJob, [
+                'surface' => 'server',
+                'runtime' => 'laravel',
+                'metadata' => [
+                    'source_type' => $trace->source_type,
+                    'execution_policy' => 'dual_review',
+                    'council_providers' => $providers,
+                    'model_identity_source' => $traceModelResolution['source'],
+                    'task_type' => data_get($prompt->taskRequest, 'task_type'),
+                    'workflow' => data_get($prompt->executionPlan, 'workflow'),
+                ],
+            ]);
 
             return $trace->load($this->traceRelations());
         }, self::TRANSACTION_ATTEMPTS);
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     */
+    private function recordTelemetry(string $eventName, AiTrace $trace, ?AiJob $job = null, array $overrides = []): void
+    {
+        if (! Schema::hasTable('ai_telemetry_events')) {
+            return;
+        }
+
+        try {
+            $metadata = is_array($overrides['metadata'] ?? null) ? $overrides['metadata'] : [];
+            $eventOverrides = $overrides;
+            unset($eventOverrides['metadata']);
+            app(AiTelemetryCollector::class)->record(array_merge([
+                'event_key' => 'server:'.$eventName.':'.($job?->id ?? $trace->id),
+                'trace_id' => $trace->id,
+                'thread_id' => $trace->thread_id,
+                'session_id' => $trace->session_id,
+                'ai_job_id' => $job?->id,
+                'client_id' => $job?->client_id ?? data_get($trace->metadata, 'client_id'),
+                'surface' => 'server',
+                'runtime' => 'laravel',
+                'provider' => $job?->provider ?? $trace->provider,
+                'model' => $job?->model ?? $trace->model,
+                'agent_slug' => $job?->agent_slug ?? $trace->agent_slug,
+                'event_name' => $eventName,
+                'event_phase' => 'server',
+                'metadata' => $metadata,
+            ], $eventOverrides));
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**
@@ -512,6 +610,20 @@ class AiGatewayService
         }
 
         return (string) config('atlas.ai.default_provider', 'claude_cli');
+    }
+
+    private function existingTraceForClient(mixed $clientId): ?AiTrace
+    {
+        if (! is_string($clientId) || $clientId === '') {
+            return null;
+        }
+
+        $job = AiJob::query()
+            ->with('trace')
+            ->where('client_id', $clientId)
+            ->first();
+
+        return $job?->trace;
     }
 
     private function privacyFromOptions(array $options): array

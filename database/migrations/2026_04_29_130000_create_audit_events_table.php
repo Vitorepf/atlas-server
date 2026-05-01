@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -28,6 +29,12 @@ return new class extends Migration
             $table->index(['subject_type', 'subject_id']);
             $table->index(['severity', 'occurred_at']);
         });
+
+        DB::statement(<<<'SQL'
+            CREATE TRIGGER trg_audit_events_updated_at
+            BEFORE UPDATE ON audit_events
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+        SQL);
     }
 
     public function down(): void

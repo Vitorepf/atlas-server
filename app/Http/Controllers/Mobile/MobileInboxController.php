@@ -8,9 +8,9 @@ use App\Models\AiInboxItem;
 use App\Models\AtlasMobileDevice;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\Mobile\InboxActionRegistry;
+use App\Services\Ai\Mobile\MobileGatewayRateLimiter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class MobileInboxController extends Controller
@@ -19,21 +19,26 @@ class MobileInboxController extends Controller
     {
         $device = $this->device($request);
         $data = $request->validate([
-            'status' => ['nullable', Rule::in([...AiInboxItem::STATUSES, 'all'])],
+            'status' => ['nullable', Rule::in([...AiInboxItem::STATUSES, 'all', 'active'])],
             'type' => ['nullable', Rule::in(AiInboxItem::TYPES)],
+            'severity' => ['nullable', Rule::in(['debug', 'info', 'warning', 'critical'])],
             'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'cursor' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $items = $inbox->list(
+        $page = $inbox->listPage(
             $device->user_id,
             $data['status'] ?? 'unread',
             $data['type'] ?? null,
             (int) ($data['limit'] ?? 50),
+            $data['severity'] ?? null,
+            $data['cursor'] ?? null,
         );
 
         return response()->json([
-            'items' => AiInboxItemResource::collection($items)->resolve(),
+            'items' => AiInboxItemResource::collection($page['items'])->resolve(),
             'unread_count' => AiInboxItem::query()->where('user_id', $device->user_id)->where('status', 'unread')->count(),
+            'next_cursor' => $page['next_cursor'],
             'generated_at' => now()->toJSON(),
         ]);
     }
@@ -56,19 +61,27 @@ class MobileInboxController extends Controller
         ]);
     }
 
-    public function dismiss(Request $request, AiInboxItem $inboxItem, AtlasInboxService $inbox): JsonResponse
+    public function dismiss(Request $request, AiInboxItem $inboxItem, InboxActionRegistry $actions): JsonResponse
     {
         $this->authorizeItem($request, $inboxItem);
         $data = $request->validate([
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
+        $result = $actions->handle(
+            $inboxItem,
+            'dismiss',
+            ['reason' => $data['reason'] ?? null],
+            $request->header('Idempotency-Key') ?: null,
+            $this->device($request),
+        );
+
         return response()->json([
-            'item' => (new AiInboxItemResource($inbox->dismiss($inboxItem, $data['reason'] ?? null)))->resolve(),
+            'item' => (new AiInboxItemResource($result['item']))->resolve(),
         ]);
     }
 
-    public function snooze(Request $request, AiInboxItem $inboxItem, AtlasInboxService $inbox): JsonResponse
+    public function snooze(Request $request, AiInboxItem $inboxItem, InboxActionRegistry $actions): JsonResponse
     {
         $this->authorizeItem($request, $inboxItem);
         $data = $request->validate([
@@ -76,25 +89,39 @@ class MobileInboxController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
+        $result = $actions->handle(
+            $inboxItem,
+            'snooze',
+            [
+                'snoozed_until' => $data['snoozed_until'],
+                'reason' => $data['reason'] ?? null,
+            ],
+            $request->header('Idempotency-Key') ?: null,
+            $this->device($request),
+        );
+
         return response()->json([
-            'item' => (new AiInboxItemResource($inbox->snooze($inboxItem, Carbon::parse($data['snoozed_until']), $data['reason'] ?? null)))->resolve(),
+            'item' => (new AiInboxItemResource($result['item']))->resolve(),
         ]);
     }
 
-    public function respond(Request $request, AiInboxItem $inboxItem, InboxActionRegistry $actions): JsonResponse
+    public function respond(Request $request, AiInboxItem $inboxItem, InboxActionRegistry $actions, MobileGatewayRateLimiter $rateLimiter): JsonResponse
     {
         $this->authorizeItem($request, $inboxItem);
         $data = $request->validate([
             'action' => ['required', 'string', 'max:80'],
             'data' => ['nullable', 'array'],
         ]);
+        $device = $this->device($request);
+
+        $rateLimiter->assertSensitiveActionAllowed($request, $device, $inboxItem, $data['action']);
 
         $result = $actions->handle(
             $inboxItem,
             $data['action'],
             $data['data'] ?? [],
             $request->header('Idempotency-Key') ?: null,
-            $this->device($request),
+            $device,
         );
 
         return response()->json([

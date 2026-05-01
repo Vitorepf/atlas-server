@@ -7,6 +7,7 @@ use App\Models\AiProviderHandoff;
 use App\Models\AiSession;
 use App\Models\AiSessionState;
 use App\Models\AiThread;
+use App\Models\AiTrace;
 use App\Services\Ai\AiCompactionService;
 use App\Services\Ai\AiProviderHandoffService;
 use App\Services\Ai\AiSessionStateService;
@@ -177,6 +178,124 @@ class AtlasCliSessionService
                 'version' => $state->version,
             ],
         ]);
+    }
+
+    /**
+     * @return array{cancelled:bool,trace_id:?string,thread_id:?string,provider:?string,phase:?string}
+     */
+    public function cancelActiveTrace(string $workspace, ?string $threadId = null): array
+    {
+        $workspace = $this->workspace($workspace);
+        if (! Schema::hasTable('ai_traces') || ! Schema::hasTable('ai_threads')) {
+            return ['cancelled' => false, 'trace_id' => null, 'thread_id' => null, 'provider' => null, 'phase' => null];
+        }
+
+        $query = AiTrace::query()
+            ->whereIn('status', ['queued', 'processing'])
+            ->latest('updated_at');
+
+        if ($threadId) {
+            $query->where('thread_id', $threadId);
+        } else {
+            $query->whereHas('thread', function ($threadQuery) use ($workspace): void {
+                $threadQuery
+                    ->where('surface', 'atlas_cli')
+                    ->where('workspace', $workspace)
+                    ->where('status', 'active');
+            });
+        }
+
+        $trace = $query->first();
+        if (! $trace) {
+            return ['cancelled' => false, 'trace_id' => null, 'thread_id' => null, 'provider' => null, 'phase' => null];
+        }
+
+        $trace->update([
+            'status' => 'cancelled',
+            'completed_at' => now(),
+            'metadata' => array_merge($trace->metadata ?? [], [
+                'cancelled_by' => 'atlas_cli_interrupt',
+                'cancelled_at' => now()->toJSON(),
+            ]),
+        ]);
+
+        if (Schema::hasTable('ai_jobs')) {
+            $trace->jobs()->whereIn('status', ['queued', 'processing'])->update([
+                'status' => 'cancelled',
+                'finished_at' => now(),
+                'error_code' => 'cancelled_by_operator',
+                'error_message' => 'Interrompido pelo operador via atlas interrupt.',
+            ]);
+        }
+
+        $phase = (string) data_get($trace->metadata ?? [], 'dev_execution_plan.current_phase');
+
+        return [
+            'cancelled' => true,
+            'trace_id' => (string) $trace->id,
+            'thread_id' => (string) $trace->thread_id,
+            'provider' => (string) ($trace->provider ?: ''),
+            'phase' => $phase !== '' ? $phase : null,
+        ];
+    }
+
+    /**
+     * @return array{plan_id:string,task:string,workspace:string,thread_id:string,trace_id:string,reason:string,operator_options:array<string,mixed>}|null
+     */
+    public function findResumablePlan(string $workspace, ?string $threadId = null): ?array
+    {
+        $workspace = $this->workspace($workspace);
+        if (! Schema::hasTable('ai_traces') || ! Schema::hasTable('ai_threads')) {
+            return null;
+        }
+
+        $query = AiTrace::query()
+            ->whereHas('thread', function ($threadQuery) use ($workspace): void {
+                $threadQuery
+                    ->where('surface', 'atlas_cli')
+                    ->where('workspace', $workspace);
+            })
+            ->whereNotNull('metadata')
+            ->latest('updated_at');
+
+        if ($threadId) {
+            $query->where('thread_id', $threadId);
+        }
+
+        foreach ($query->limit(20)->get() as $trace) {
+            $plan = data_get($trace->metadata ?? [], 'dev_execution_plan');
+            if (! is_array($plan)) {
+                continue;
+            }
+            $planId = (string) ($plan['plan_id'] ?? '');
+            $objective = (string) ($plan['objective'] ?? '');
+            if ($planId === '' || $objective === '') {
+                continue;
+            }
+            $currentPhase = (string) ($plan['current_phase'] ?? '');
+            $reasonStopped = (string) data_get($plan, 'iterations.reason_if_stopped', '');
+            $traceCancelled = $trace->status === 'cancelled';
+            $unfinished = $currentPhase !== 'finish' || $reasonStopped !== '' || $traceCancelled;
+            if (! $unfinished) {
+                continue;
+            }
+
+            $reason = $traceCancelled
+                ? 'interrompido'
+                : ($reasonStopped !== '' ? $reasonStopped : 'fase '.$currentPhase);
+
+            return [
+                'plan_id' => $planId,
+                'task' => $objective,
+                'workspace' => (string) ($plan['workspace'] ?? $workspace),
+                'thread_id' => (string) $trace->thread_id,
+                'trace_id' => (string) $trace->id,
+                'reason' => $reason,
+                'operator_options' => is_array($plan['operator_options'] ?? null) ? (array) $plan['operator_options'] : [],
+            ];
+        }
+
+        return null;
     }
 
     /**

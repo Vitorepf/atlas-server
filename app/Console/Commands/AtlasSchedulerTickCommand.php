@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Mobile\MobileReliabilityMonitor;
 use App\Services\Ai\Scheduling\AtlasCliSchedulerService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
@@ -33,6 +34,10 @@ class AtlasSchedulerTickCommand extends Command
                 limit: (int) $this->option('limit'),
                 dispatch: $dispatchEnabled,
             );
+
+        if (! $dryRun) {
+            MobileReliabilityMonitor::recordSchedulerTick();
+        }
 
         return $this->printPayload([
             'ok' => true,

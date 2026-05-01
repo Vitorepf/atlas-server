@@ -13,6 +13,7 @@ use App\Services\ProjectExecutionService;
 use App\Support\ProjectExecutionHealth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class AtlasProjectController extends Controller
@@ -26,8 +27,7 @@ class AtlasProjectController extends Controller
         ]);
 
         $query = AtlasProject::query()
-            ->with('activeNextTask')
-            ->with('currentStep')
+            ->with($this->projectRelations())
             ->withCount('tasks')
             ->withCount('steps')
             ->orderByDesc('updated_at');
@@ -54,7 +54,7 @@ class AtlasProjectController extends Controller
         $limit = (int) ($data['limit'] ?? 20);
 
         $query = AtlasProject::query()
-            ->with(['activeNextTask', 'currentStep'])
+            ->with($this->projectRelations())
             ->withCount(['tasks', 'steps'])
             ->whereNotIn('status', ['completed', 'archived'])
             ->orderByDesc('updated_at')
@@ -140,14 +140,14 @@ class AtlasProjectController extends Controller
         $task = $execution->ensureNextActionTask($project, null, $data, $plan, 'projects.store');
 
         return response()->json([
-            'project' => (new AtlasProjectResource($project->refresh()->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps'])))->resolve(),
+            'project' => (new AtlasProjectResource($project->refresh()->load($this->projectRelations())->loadCount(['tasks', 'steps'])))->resolve(),
             'active_next_task' => (new AtlasTaskResource($task->load(['project', 'projectStep'])))->resolve(),
         ], 201);
     }
 
     public function show(AtlasProject $project): AtlasProjectResource
     {
-        return new AtlasProjectResource($project->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps']));
+        return new AtlasProjectResource($project->load($this->projectRelations())->loadCount(['tasks', 'steps']));
     }
 
     public function update(Request $request, AtlasProject $project, AtlasDomainRegistry $domains, ProjectExecutionService $execution): AtlasProjectResource
@@ -189,7 +189,7 @@ class AtlasProjectController extends Controller
             $execution->ensureNextActionTask($project->refresh(), null, $data, $plan, 'projects.update');
         }
 
-        return new AtlasProjectResource($project->refresh()->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps']));
+        return new AtlasProjectResource($project->refresh()->load($this->projectRelations())->loadCount(['tasks', 'steps']));
     }
 
     public function events(Request $request, AtlasProject $project): JsonResponse
@@ -215,7 +215,7 @@ class AtlasProjectController extends Controller
             'energy_level' => ['nullable', 'integer', 'min:1', 'max:5'],
             'environment' => ['nullable', 'string', 'max:120'],
         ]);
-        $project = $project->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps']);
+        $project = $project->load($this->projectRelations())->loadCount(['tasks', 'steps']);
 
         return response()->json([
             'project' => (new AtlasProjectResource($project))->resolve(),
@@ -235,7 +235,7 @@ class AtlasProjectController extends Controller
             'note' => ['nullable', 'string', 'max:500'],
         ]);
         $result = $execution->startExecution($project->load(['activeNextTask', 'currentStep']), $data, 'projects.execution.start');
-        $project = $result['project']->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps']);
+        $project = $result['project']->load($this->projectRelations())->loadCount(['tasks', 'steps']);
 
         return response()->json([
             'project' => (new AtlasProjectResource($project))->resolve(),
@@ -255,7 +255,7 @@ class AtlasProjectController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
         $result = $execution->recoverProject($project->load(['activeNextTask', 'currentStep']), $data, 'projects.recover');
-        $project = $result['project']->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps']);
+        $project = $result['project']->load($this->projectRelations())->loadCount(['tasks', 'steps']);
 
         return response()->json([
             'project' => (new AtlasProjectResource($project))->resolve(),
@@ -280,7 +280,7 @@ class AtlasProjectController extends Controller
         ]);
 
         $result = $execution->reviewProject($project->load(['activeNextTask', 'currentStep']), $data, 'projects.review');
-        $project = $result['project']->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps']);
+        $project = $result['project']->load($this->projectRelations())->loadCount(['tasks', 'steps']);
 
         return response()->json([
             'project' => (new AtlasProjectResource($project))->resolve(),
@@ -324,7 +324,7 @@ class AtlasProjectController extends Controller
         $task = $execution->ensureNextActionTask($project->refresh(), null, $data, $plan, 'projects.plan');
 
         return response()->json([
-            'project' => (new AtlasProjectResource($project->refresh()->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps'])))->resolve(),
+            'project' => (new AtlasProjectResource($project->refresh()->load($this->projectRelations())->loadCount(['tasks', 'steps'])))->resolve(),
             'steps' => AtlasProjectStepResource::collection($steps)->resolve(),
             'active_next_task' => (new AtlasTaskResource($task->load(['project', 'projectStep'])))->resolve(),
         ]);
@@ -366,7 +366,7 @@ class AtlasProjectController extends Controller
         }
 
         return response()->json([
-            'project' => (new AtlasProjectResource($project->refresh()->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps'])))->resolve(),
+            'project' => (new AtlasProjectResource($project->refresh()->load($this->projectRelations())->loadCount(['tasks', 'steps'])))->resolve(),
             'step' => (new AtlasProjectStepResource($step->refresh()->load('activeTask')))->resolve(),
             'active_next_task' => $task
                 ? (new AtlasTaskResource($task->load(['project', 'projectStep'])))->resolve()
@@ -381,7 +381,7 @@ class AtlasProjectController extends Controller
         $task = $execution->activateStep($project->refresh(), $step->refresh(), 'projects.steps.activate');
 
         return response()->json([
-            'project' => (new AtlasProjectResource($project->refresh()->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps'])))->resolve(),
+            'project' => (new AtlasProjectResource($project->refresh()->load($this->projectRelations())->loadCount(['tasks', 'steps'])))->resolve(),
             'step' => (new AtlasProjectStepResource($step->refresh()->load('activeTask')))->resolve(),
             'active_next_task' => (new AtlasTaskResource($task->load(['project', 'projectStep'])))->resolve(),
         ]);
@@ -407,7 +407,7 @@ class AtlasProjectController extends Controller
         $task = $execution->ensureNextActionTask($project, null, $data, $plan, 'projects.next_action');
 
         return response()->json([
-            'project' => (new AtlasProjectResource($project->refresh()->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps'])))->resolve(),
+            'project' => (new AtlasProjectResource($project->refresh()->load($this->projectRelations())->loadCount(['tasks', 'steps'])))->resolve(),
             'task' => (new AtlasTaskResource($task->load(['project', 'projectStep'])))->resolve(),
         ]);
     }
@@ -449,6 +449,16 @@ class AtlasProjectController extends Controller
         if ($step->project_id !== $project->id) {
             abort(404);
         }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function projectRelations(): array
+    {
+        return Schema::hasTable('atlas_project_blockers')
+            ? ['activeNextTask', 'currentStep', 'openBlockers']
+            : ['activeNextTask', 'currentStep'];
     }
 
     /**

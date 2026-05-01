@@ -26,7 +26,8 @@ class AtlasCliQualityCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode(array_merge(['ok' => $payload['status'] !== 'failed'], $payload), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $compact = $quality->compact($payload);
+            $this->line(json_encode(array_merge(['ok' => $payload['status'] !== 'failed'], $compact), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
             return $payload['status'] === 'failed' ? self::FAILURE : self::SUCCESS;
         }

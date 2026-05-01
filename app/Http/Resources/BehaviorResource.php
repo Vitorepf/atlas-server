@@ -29,7 +29,7 @@ class BehaviorResource extends JsonResource
             'derived_from' => Metadata::forResponse($this->derived_from),
             'operator_confirmed' => $this->operator_confirmed,
             'created_by' => $this->created_by,
-            'source_capture_ids' => Metadata::forResponse($this->source_capture_ids),
+            'source_capture_ids' => Metadata::listForResponse($this->source_capture_ids),
             'activation_rules' => Metadata::forResponse($this->activation_rules),
             'lifecycle_status' => $this->lifecycle_status ?? 'active',
             'paused_until' => $this->paused_until?->toJSON(),

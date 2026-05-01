@@ -5,9 +5,12 @@ use App\Http\Controllers\AiJobController;
 use App\Http\Controllers\AiObservabilityController;
 use App\Http\Controllers\AiProviderController;
 use App\Http\Controllers\AiQualityActionController;
+use App\Http\Controllers\AiTelemetryController;
+use App\Http\Controllers\AiTelemetryMetricsController;
 use App\Http\Controllers\AiThreadController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasDomainController;
+use App\Http\Controllers\AtlasProjectBlockerController;
 use App\Http\Controllers\AtlasProjectController;
 use App\Http\Controllers\AtlasProjectPlanProposalController;
 use App\Http\Controllers\AtlasRoutineController;
@@ -28,6 +31,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\HealthSnapshotController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\Mobile\MobileDeviceController;
+use App\Http\Controllers\Mobile\MobileHealthController;
 use App\Http\Controllers\Mobile\MobileInboxController;
 use App\Http\Controllers\Mobile\MobilePairingController;
 use App\Http\Controllers\Mobile\MobileThreadController;
@@ -53,6 +57,9 @@ Route::prefix('v1/mobile')->group(function (): void {
     });
 
     Route::middleware('atlas.mobile.bearer')->group(function (): void {
+        Route::get('/health', [MobileHealthController::class, 'show']);
+        Route::post('/telemetry/events', [AiTelemetryController::class, 'store']);
+
         Route::get('/devices', [MobileDeviceController::class, 'index']);
         Route::post('/devices/push-token', [MobileDeviceController::class, 'updatePushToken']);
         Route::delete('/devices/{device}', [MobileDeviceController::class, 'revoke']);
@@ -66,6 +73,7 @@ Route::prefix('v1/mobile')->group(function (): void {
         Route::post('/inbox/{inboxItem}/discuss', [MobileInboxController::class, 'discuss']);
 
         Route::post('/threads/from-inbox/{inboxItem}', [MobileThreadController::class, 'fromInbox']);
+        Route::post('/threads/{thread}/reply', [MobileThreadController::class, 'reply']);
         Route::get('/threads/{thread}', [MobileThreadController::class, 'show']);
     });
 });
@@ -80,6 +88,9 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/tasks/agenda/week', [AtlasTaskController::class, 'weekAgenda']);
     Route::post('/tasks/agenda/week/plan', [AtlasTaskController::class, 'planWeekAgenda']);
     Route::get('/tasks/{task}/events', [AtlasTaskController::class, 'events']);
+    Route::get('/tasks/{task}/engineering', [AtlasTaskController::class, 'engineering']);
+    Route::post('/tasks/{task}/engineering/blueprint/freeze', [AtlasTaskController::class, 'freezeEngineeringBlueprint']);
+    Route::post('/tasks/{task}/engineering/evidence', [AtlasTaskController::class, 'engineeringEvidence']);
     Route::post('/tasks/{task}/schedule', [AtlasTaskController::class, 'schedule']);
     Route::post('/tasks/{task}/defer', [AtlasTaskController::class, 'defer']);
     Route::post('/tasks/{task}/complete', [AtlasTaskController::class, 'complete']);
@@ -94,6 +105,10 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::post('/projects/{project}/recover', [AtlasProjectController::class, 'recover']);
     Route::get('/projects/{project}/events', [AtlasProjectController::class, 'events']);
     Route::get('/projects/{project}/steps', [AtlasProjectController::class, 'steps']);
+    Route::get('/projects/{project}/blockers', [AtlasProjectBlockerController::class, 'index']);
+    Route::post('/projects/{project}/blockers', [AtlasProjectBlockerController::class, 'store']);
+    Route::post('/projects/{project}/blockers/{blocker}/resolve', [AtlasProjectBlockerController::class, 'resolve']);
+    Route::post('/projects/{project}/blockers/{blocker}/task', [AtlasProjectBlockerController::class, 'convertToTask']);
     Route::post('/projects/{project}/review', [AtlasProjectController::class, 'reviewAction']);
     Route::patch('/projects/{project}/steps/{step}', [AtlasProjectController::class, 'updateStep']);
     Route::post('/projects/{project}/steps/{step}/activate', [AtlasProjectController::class, 'activateStep']);
@@ -169,6 +184,16 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/ai/interactions/{trace}/stream', [AiInteractionController::class, 'stream']);
     Route::post('/ai/interactions/{trace}/feedback', [AiInteractionController::class, 'feedback']);
     Route::get('/ai/observability', AiObservabilityController::class);
+    Route::post('/ai/telemetry/events', [AiTelemetryController::class, 'store']);
+    Route::get('/ai/telemetry/scorecard', [AiTelemetryMetricsController::class, 'scorecard']);
+    Route::get('/ai/telemetry/health', [AiTelemetryMetricsController::class, 'health']);
+    Route::get('/ai/telemetry/summaries', [AiTelemetryMetricsController::class, 'summaries']);
+    Route::get('/ai/telemetry/cost-rates/missing', [AiTelemetryMetricsController::class, 'missingCostRates']);
+    Route::post('/ai/telemetry/cost-rates/import', [AiTelemetryMetricsController::class, 'importCostRates']);
+    Route::get('/ai/telemetry/cost-rates', [AiTelemetryMetricsController::class, 'costRates']);
+    Route::post('/ai/telemetry/cost-rates', [AiTelemetryMetricsController::class, 'upsertCostRate']);
+    Route::get('/ai/telemetry/outcomes', [AiTelemetryMetricsController::class, 'outcomes']);
+    Route::post('/ai/telemetry/outcomes', [AiTelemetryMetricsController::class, 'recordOutcome']);
     Route::get('/ai/quality/actions', [AiQualityActionController::class, 'index']);
     Route::post('/ai/quality/actions/{action}/run', [AiQualityActionController::class, 'run']);
 
