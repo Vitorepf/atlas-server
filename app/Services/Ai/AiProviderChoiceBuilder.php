@@ -49,6 +49,18 @@ class AiProviderChoiceBuilder
             ];
         }
 
+        $fallbackModel = config("atlas.ai.providers.{$currentProvider}.fallback_model");
+        if (is_string($fallbackModel) && $fallbackModel !== '') {
+            $options[] = [
+                'id' => 'downgrade_model',
+                'label' => "Continuar no {$currentProvider} com {$fallbackModel} (modelo menor)",
+                'description' => 'Mesma conta. Disponível agora. Mais rápido, mais barato, menos capaz.',
+                'action' => 'downgrade_model',
+                'provider' => $currentProvider,
+                'model' => $fallbackModel,
+            ];
+        }
+
         if ($resetAt && $this->withinHorizon($resetAt)) {
             $options[] = [
                 'id' => 'wait_for_reset',
@@ -60,6 +72,15 @@ class AiProviderChoiceBuilder
         }
 
         $options[] = $this->cancelOption();
+
+        $options[] = [
+            'id' => 'retry_same',
+            'label' => 'Já liberei (comprei créditos / upgrade) — tentar de novo agora',
+            'description' => 'Reenfileira com mesmo provider e modelo. Se ainda bloqueado, o menu volta.',
+            'action' => 'retry_same',
+            'provider' => $currentProvider,
+            'model' => null,
+        ];
 
         return $options;
     }
