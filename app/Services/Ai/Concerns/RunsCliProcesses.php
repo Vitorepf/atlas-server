@@ -5,6 +5,7 @@ namespace App\Services\Ai\Concerns;
 use App\Models\AiJob;
 use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderResult;
+use App\Services\Ai\Concerns\RateLimitParser as ProviderRateLimitParser;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -108,6 +109,13 @@ trait RunsCliProcesses
             'error_code' => $errorCode,
         ]);
 
+        $metadata = [];
+        if ($errorCode === 'rate_limited') {
+            $rate = ProviderRateLimitParser::extract($stdout, $stderr);
+            $metadata['provider_reset_at'] = $rate['provider_reset_at']?->toIso8601String();
+            $metadata['reset_hint'] = $rate['reset_hint'];
+        }
+
         return new AiProviderResult(
             ok: $process->isSuccessful() && $errorCode === null,
             output: $output,
@@ -118,6 +126,7 @@ trait RunsCliProcesses
             stderr: $stderr,
             errorCode: $errorCode,
             errorMessage: $errorCode ? AtlasSecurity::redactString(trim($stderr) ?: trim($stdout) ?: $errorCode) : null,
+            metadata: $metadata,
         );
     }
 
