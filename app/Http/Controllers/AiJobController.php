@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Resources\AiJobResource;
 use App\Models\AiJob;
 use App\Services\Ai\AiCouncilCoordinator;
+use App\Services\Ai\AiProviderChoiceException;
+use App\Services\Ai\AiProviderChoiceResolver;
 use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -146,114 +148,30 @@ class AiJobController extends Controller
         ]);
     }
 
-    public function resumeChoice(AiJob $job, Request $request, AuditLogService $audit, AiCouncilCoordinator $council): JsonResponse
+    public function resumeChoice(AiJob $job, Request $request, AiProviderChoiceResolver $resolver): JsonResponse
     {
         $request->validate([
             'option_id' => ['required', 'string', 'max:64'],
         ]);
 
-        if ($job->status !== 'awaiting_user_choice') {
+        try {
+            $result = $resolver->resolve($job, (string) $request->input('option_id'));
+        } catch (AiProviderChoiceException $exception) {
+            $statusCode = $exception->errorCode === 'NOT_AWAITING_CHOICE'
+                ? 'AI_JOB_NOT_AWAITING_CHOICE'
+                : 'AI_JOB_CHOICE_NOT_FOUND';
+
             return response()->json([
                 'error' => [
-                    'code' => 'AI_JOB_NOT_AWAITING_CHOICE',
-                    'message' => 'Job is not waiting for an operator choice.',
+                    'code' => $statusCode,
+                    'message' => $exception->getMessage(),
                 ],
             ], 422);
         }
-
-        $optionId = (string) $request->input('option_id');
-        $options = (array) data_get($job->metadata, 'choice_options', []);
-        $option = collect($options)->firstWhere('id', $optionId);
-
-        if (! is_array($option)) {
-            return response()->json([
-                'error' => [
-                    'code' => 'AI_JOB_CHOICE_NOT_FOUND',
-                    'message' => "Option [{$optionId}] not found in choice_options.",
-                ],
-            ], 422);
-        }
-
-        $action = (string) ($option['action'] ?? '');
-        $metadata = array_merge($job->metadata ?? [], [
-            'provider_choice_state' => 'resolved',
-            'provider_choice_resolved_at' => now()->toIso8601String(),
-            'provider_choice_resolved_option' => $optionId,
-        ]);
-
-        match ($action) {
-            'switch_provider' => $job->update([
-                'status' => 'queued',
-                'provider' => (string) ($option['provider'] ?? $job->provider),
-                'model' => array_key_exists('model', $option) ? $option['model'] : $job->model,
-                'available_at' => now(),
-                'reserved_at' => null,
-                'started_at' => null,
-                'finished_at' => null,
-                'worker_id' => null,
-                'error_code' => null,
-                'error_message' => null,
-                'metadata' => $metadata,
-            ]),
-            'wait' => $job->update([
-                'status' => 'queued',
-                'available_at' => isset($option['available_at_iso'])
-                    ? \Carbon\Carbon::parse((string) $option['available_at_iso'])
-                    : now()->addMinutes(15),
-                'reserved_at' => null,
-                'started_at' => null,
-                'finished_at' => null,
-                'worker_id' => null,
-                'metadata' => $metadata,
-            ]),
-            'fail' => $job->update([
-                'status' => 'failed',
-                'finished_at' => now(),
-                'error_code' => (string) ($option['reason'] ?? 'choice_failed'),
-                'error_message' => isset($option['cli_command'])
-                    ? "Login required: rode `{$option['cli_command']}` no terminal e tente novamente."
-                    : 'Operator chose to fail this job.',
-                'metadata' => $metadata,
-            ]),
-            'cancel' => $this->cancelByChoice($job, $metadata),
-            default => $job->update([
-                'metadata' => $metadata,
-            ]),
-        };
-
-        $audit->record('ai_job_choice_resolved', [
-            'subject_type' => 'ai_job',
-            'subject_id' => $job->id,
-            'actor_type' => 'operator',
-            'actor_id' => 'vitor',
-            'summary' => "Operador escolheu opção [{$optionId}] (action={$action}).",
-            'evidence' => [
-                'option_id' => $optionId,
-                'action' => $action,
-                'option' => $option,
-            ],
-            'privacy' => $this->privacyFromJob($job),
-            'refs' => [
-                'job_id' => $job->id,
-                'trace_id' => $job->trace_id,
-            ],
-        ]);
 
         return response()->json([
-            'job' => (new AiJobResource($job->refresh()->load(['trace', 'attemptHistory'])))->resolve(),
+            'job' => (new AiJobResource($result['job']->load(['trace', 'attemptHistory'])))->resolve(),
         ]);
-    }
-
-    private function cancelByChoice(AiJob $job, array $metadata): void
-    {
-        $job->update([
-            'status' => 'cancelled',
-            'finished_at' => now(),
-            'error_code' => 'cancelled_by_operator',
-            'error_message' => 'Operador cancelou o job durante escolha de provider.',
-            'metadata' => $metadata,
-        ]);
-        $job->trace?->update(['status' => 'cancelled', 'completed_at' => now()]);
     }
 
     private function privacyFromJob(AiJob $job): array
