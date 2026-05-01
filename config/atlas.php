@@ -379,7 +379,7 @@ return [
                 'binary' => env('ATLAS_AI_CODEX_BIN', 'codex'),
                 'model' => env('ATLAS_AI_CODEX_MODEL', null),
                 'model_identity' => env('ATLAS_AI_CODEX_MODEL_IDENTITY', env('ATLAS_AI_CODEX_MODEL') ?: 'codex_cli_default'),
-                'fallback_model' => env('ATLAS_AI_CODEX_FALLBACK_MODEL', 'gpt-5-4-mini'),
+                'fallback_model' => env('ATLAS_AI_CODEX_FALLBACK_MODEL', 'gpt-5.4-mini'),
                 'sandbox' => env('ATLAS_AI_CODEX_SANDBOX', 'read-only'),
                 'args' => env('ATLAS_AI_CODEX_ARGS')
                     ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_CODEX_ARGS'))), fn (string $arg): bool => $arg !== ''))
