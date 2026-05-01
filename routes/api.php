@@ -210,6 +210,7 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/ai/jobs/{job}', [AiJobController::class, 'show']);
     Route::post('/ai/jobs/{job}/retry', [AiJobController::class, 'retry']);
     Route::post('/ai/jobs/{job}/cancel', [AiJobController::class, 'cancel']);
+    Route::post('/ai/jobs/{job}/resume-choice', [AiJobController::class, 'resumeChoice']);
 
     Route::get('/ai/providers/status', [AiProviderController::class, 'status']);
     Route::post('/ai/providers/check', [AiProviderController::class, 'check']);
