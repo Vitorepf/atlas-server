@@ -566,6 +566,10 @@ class AiWorker
         if ($this->isCouncilJob($job)) {
             $synced = $this->council->sync($job->trace()->firstOrFail());
             if ($finalFailure && $synced->status === 'failed') {
+                // evaluateQuality on terminal failure so that traces with non-empty response
+                // (e.g. provider returned text before erroring out) get classified by the
+                // heuristic evaluator. The evaluator's internal gate skips empty responses.
+                $this->evaluateQuality($synced);
                 $this->completeRemediationActions($synced);
             }
             $this->logger->event(
@@ -640,7 +644,13 @@ class AiWorker
         ]);
 
         if ($finalFailure && $job->trace) {
-            $this->completeRemediationActions($job->trace->refresh());
+            $failedTrace = $job->trace->refresh();
+            // evaluateQuality on the single-job failure path mirrors the council branch
+            // above. Without this, failed traces have no quality signal and downstream
+            // analysis cannot distinguish "failed loudly with diagnostic output" from
+            // "failed silently with nothing".
+            $this->evaluateQuality($failedTrace);
+            $this->completeRemediationActions($failedTrace);
         }
 
         $eventType = match ($result->errorCode) {
@@ -984,6 +994,14 @@ class AiWorker
             currentModel: $job->model,
             resetAt: $resetAt,
         );
+
+        $lastAttemptedId = data_get($job->metadata, 'provider_choice_last_attempted_option_id');
+        if (is_string($lastAttemptedId) && $lastAttemptedId !== '') {
+            $options = array_values(array_filter(
+                $options,
+                fn (array $opt): bool => ($opt['id'] ?? null) !== $lastAttemptedId,
+            ));
+        }
 
         $metadata = array_merge($job->metadata ?? [], [
             'provider_choice_state' => 'pending',

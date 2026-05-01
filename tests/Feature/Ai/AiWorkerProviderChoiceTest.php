@@ -66,9 +66,10 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertSame('switch_provider', data_get($job->metadata, 'choice_options.0.id'));
         $this->assertSame('claude_cli', data_get($job->metadata, 'choice_options.0.provider'));
 
-        $event = AiWorkerEvent::where('event_type', 'provider_choice_required')->first();
+        $event = AiWorkerEvent::where('event_type', 'provider_choice_required')
+            ->where('ai_job_id', $job->id)
+            ->first();
         $this->assertNotNull($event);
-        $this->assertSame($job->id, $event->ai_job_id);
     }
 
     public function test_pause_does_not_consume_extra_attempts(): void
@@ -193,5 +194,55 @@ class AiWorkerProviderChoiceTest extends TestCase
         $permissions = $this->createMock(AiPermissionEngine::class);
         $permissions->method('authorizeJob')->willReturn($allowedDecision);
         $this->app->instance(AiPermissionEngine::class, $permissions);
+    }
+
+    public function test_pause_excludes_last_attempted_option_from_new_menu(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'olá',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.4-mini',
+            'input_text' => 'olá',
+            'prompt' => 'olá',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 5,
+            'metadata' => [
+                'provider_choice_last_attempted_option_id' => 'downgrade_model',
+            ],
+        ]);
+
+        $this->mockProviderManagerWith(new AiProviderResult(
+            ok: false,
+            output: '',
+            command: ['codex'],
+            exitCode: 1,
+            durationMs: 100,
+            stdout: '',
+            stderr: 'usage limit',
+            errorCode: 'rate_limited',
+            errorMessage: 'usage limit',
+        ));
+
+        app(AiWorker::class)->runNext();
+
+        $job->refresh();
+        $this->assertSame('awaiting_user_choice', $job->status);
+
+        $optionIds = collect((array) data_get($job->metadata, 'choice_options'))
+            ->pluck('id')
+            ->all();
+
+        $this->assertNotContains('downgrade_model', $optionIds,
+            'opção que acabou de falhar não deve reaparecer no menu seguinte');
     }
 }

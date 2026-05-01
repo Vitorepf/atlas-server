@@ -32,6 +32,7 @@ class AiProviderChoiceResolver
         $baseMetadata = array_merge($job->metadata ?? [], [
             'provider_choice_resolved_at' => now()->toIso8601String(),
             'provider_choice_resolved_option' => $optionId,
+            'provider_choice_last_attempted_option_id' => $optionId,
         ]);
 
         match ($action) {
