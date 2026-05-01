@@ -11,6 +11,7 @@ use App\Services\Ai\Mobile\JobResultInboxEmitter;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use App\Services\Semantic\CaptureSemanticClarifier;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -32,6 +33,7 @@ class AiWorker
         private readonly AiProviderModelResolver $models,
         private readonly AuditLogService $audit,
         private readonly JobResultInboxEmitter $jobResults,
+        private readonly AiProviderChoiceBuilder $choices,
     ) {}
 
     public function runNext(?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
@@ -544,6 +546,10 @@ class AiWorker
             return $job->refresh()->load(['trace', 'attemptHistory']);
         }
 
+        if ($this->shouldPauseForChoice($job, $result)) {
+            return $this->pauseForChoice($job, $attempt, $result, $workerId);
+        }
+
         $nonRetryable = in_array($result->errorCode, ['permission_denied'], true);
         $finalFailure = $nonRetryable || $job->attempts >= $job->max_attempts;
         $job->update([
@@ -952,5 +958,95 @@ class AiWorker
                     'completed_at' => now(),
                 ]);
             });
+    }
+
+    private function shouldPauseForChoice(AiJob $job, AiProviderResult $result): bool
+    {
+        if (! in_array($result->errorCode, ['rate_limited', 'auth_expired'], true)) {
+            return false;
+        }
+
+        if ($this->isCouncilJob($job)) {
+            return false;
+        }
+
+        return data_get($job->metadata, 'provider_choice_state') !== 'resolved';
+    }
+
+    private function pauseForChoice(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $workerId): AiJob
+    {
+        $resetAtIso = data_get($result->metadata, 'provider_reset_at');
+        $resetAt = is_string($resetAtIso) ? CarbonImmutable::parse($resetAtIso) : null;
+
+        $options = $this->choices->build(
+            errorCode: (string) $result->errorCode,
+            currentProvider: (string) ($attempt->provider ?: $job->provider),
+            currentModel: $job->model,
+            resetAt: $resetAt,
+        );
+
+        $metadata = array_merge($job->metadata ?? [], [
+            'provider_choice_state' => 'pending',
+            'provider_choice_error_code' => $result->errorCode,
+            'provider_choice_offered_at' => now()->toIso8601String(),
+            'provider_reset_at' => $resetAtIso,
+            'reset_hint' => data_get($result->metadata, 'reset_hint'),
+            'choice_options' => $options,
+        ]);
+
+        $attempt->update([
+            'status' => 'failed',
+            'exit_code' => $result->exitCode,
+            'duration_ms' => $result->durationMs,
+            'stdout_excerpt' => Str::limit($result->stdout, 4000, '...'),
+            'stderr_excerpt' => Str::limit($result->stderr, 4000, '...'),
+            'error_code' => $result->errorCode,
+            'error_message' => $result->errorMessage,
+            'finished_at' => now(),
+            'metadata' => $result->metadata,
+        ]);
+
+        $job->update([
+            'status' => 'awaiting_user_choice',
+            'available_at' => now()->addYear(),
+            'reserved_at' => null,
+            'started_at' => null,
+            'worker_id' => null,
+            'error_code' => $result->errorCode,
+            'error_message' => $result->errorMessage,
+            'metadata' => $metadata,
+        ]);
+
+        $this->emitStreamEvent(
+            $job,
+            $attempt,
+            'provider_choice',
+            'provider_choice_required',
+            $result->errorMessage ?: $result->errorCode,
+            [
+                'error_code' => $result->errorCode,
+                'options' => $options,
+                'provider_reset_at' => $resetAtIso,
+                'reset_hint' => data_get($result->metadata, 'reset_hint'),
+            ],
+            'system',
+            null,
+        );
+
+        $this->logger->event(
+            eventType: 'provider_choice_required',
+            message: 'AI job paused awaiting operator choice on provider failure.',
+            severity: 'warning',
+            provider: $attempt->provider,
+            job: $job,
+            attempt: $attempt,
+            metadata: [
+                'error_code' => $result->errorCode,
+                'option_ids' => array_column($options, 'id'),
+            ],
+            workerId: $workerId,
+        );
+
+        return $job->refresh()->load(['trace', 'attemptHistory']);
     }
 }
