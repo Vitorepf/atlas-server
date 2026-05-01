@@ -2,9 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\RendersProviderChoiceMenu;
+use App\Models\AiJob;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
+use App\Services\Ai\AiProviderChoiceException;
+use App\Services\Ai\AiProviderChoiceResolver;
 use App\Services\Ai\AiSessionStateService;
 use App\Services\Ai\AiWorker;
 use App\Services\Ai\Cli\AtlasCliPanel;
@@ -28,6 +32,8 @@ use Symfony\Component\Process\Process;
 
 class AiChatCommand extends Command
 {
+    use RendersProviderChoiceMenu;
+
     protected $signature = 'atlas:ai:chat
         {input? : One-shot input. Omit it to open the interactive Atlas CLI loop}
         {--provider= : claude, codex, conselho, claude_cli, codex_cli or claude_codex}
@@ -807,6 +813,32 @@ class AiChatCommand extends Command
 
         while (now()->lessThanOrEqualTo($deadline)) {
             $trace = $trace->fresh($this->traceRelations()) ?: $trace;
+
+            $pausedJob = AiJob::query()
+                ->where('trace_id', $trace->id)
+                ->where('status', 'awaiting_user_choice')
+                ->orderByDesc('created_at')
+                ->first();
+
+            if ($pausedJob) {
+                $optionId = $this->promptProviderChoice($pausedJob);
+                try {
+                    $outcome = app(AiProviderChoiceResolver::class)->resolve($pausedJob, $optionId);
+                } catch (AiProviderChoiceException $exception) {
+                    $this->error('Erro ao resolver escolha: '.$exception->getMessage());
+                    sleep(1);
+                    continue;
+                }
+
+                $this->announceChoiceOutcome($outcome['action'], $outcome['option']);
+
+                if (in_array($outcome['action'], ['wait', 'fail', 'cancel'], true)) {
+                    return $trace->fresh($this->traceRelations()) ?: $trace;
+                }
+
+                continue;
+            }
+
             if (in_array($trace->status, ['succeeded', 'failed', 'cancelled'], true)) {
                 $remediationTrace = $this->nextRemediationTrace($trace);
                 if ($remediationTrace) {
