@@ -35,9 +35,9 @@ class AiProviderChoiceResolver
         ]);
 
         match ($action) {
-            'switch_provider' => $this->applySwitchProvider($job, $option, array_merge($baseMetadata, ['provider_choice_state' => 'resolved'])),
-            'downgrade_model' => $this->applyDowngradeModel($job, $option, array_merge($baseMetadata, ['provider_choice_state' => 'resolved'])),
-            'wait' => $this->applyWait($job, $option, array_merge($baseMetadata, ['provider_choice_state' => 'resolved'])),
+            'switch_provider' => $this->applySwitchProvider($job, $option, array_merge($baseMetadata, ['provider_choice_state' => null])),
+            'downgrade_model' => $this->applyDowngradeModel($job, $option, array_merge($baseMetadata, ['provider_choice_state' => null])),
+            'wait' => $this->applyWait($job, $option, array_merge($baseMetadata, ['provider_choice_state' => null])),
             'fail' => $this->applyFail($job, $option, array_merge($baseMetadata, ['provider_choice_state' => 'resolved'])),
             'cancel' => $this->applyCancel($job, array_merge($baseMetadata, ['provider_choice_state' => 'resolved'])),
             'retry_same' => $this->applyRetrySame($job, array_merge($baseMetadata, [

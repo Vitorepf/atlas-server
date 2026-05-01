@@ -47,7 +47,7 @@ class AiChatProviderChoiceTest extends TestCase
         $job->refresh();
         $this->assertSame('queued', $job->status);
         $this->assertSame('claude_cli', $job->provider);
-        $this->assertSame('resolved', data_get($job->metadata, 'provider_choice_state'));
+        $this->assertNull(data_get($job->metadata, 'provider_choice_state'));
     }
 
     public function test_operator_picking_retry_same_resets_choice_state(): void

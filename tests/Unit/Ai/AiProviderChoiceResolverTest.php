@@ -24,7 +24,8 @@ class AiProviderChoiceResolverTest extends TestCase
         $job->refresh();
         $this->assertSame('queued', $job->status);
         $this->assertSame('claude_cli', $job->provider);
-        $this->assertSame('resolved', data_get($job->metadata, 'provider_choice_state'));
+        $this->assertNull(data_get($job->metadata, 'provider_choice_state'),
+            'requeue actions reset state to null so a new failure can show the menu again');
         $this->assertSame('switch_provider', $result['action']);
     }
 
@@ -40,7 +41,8 @@ class AiProviderChoiceResolverTest extends TestCase
         $this->assertSame('queued', $job->status);
         $this->assertSame('codex_cli', $job->provider);
         $this->assertSame('gpt-5-4-mini', $job->model);
-        $this->assertSame('resolved', data_get($job->metadata, 'provider_choice_state'));
+        $this->assertNull(data_get($job->metadata, 'provider_choice_state'),
+            'requeue actions reset state to null so a new failure can show the menu again');
     }
 
     public function test_wait_sets_available_at_from_option(): void
