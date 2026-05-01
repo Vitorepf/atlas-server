@@ -119,10 +119,6 @@ class CodexCliProvider implements AiProvider
             $args = $this->withRepeatedArgValues($args, '--add-dir', $this->allowedRootsForJob($job));
         }
 
-        if ($mode === 'danger') {
-            $args = $this->withArgValue($args, '--ask-for-approval', 'never');
-        }
-
         return $args;
     }
 
