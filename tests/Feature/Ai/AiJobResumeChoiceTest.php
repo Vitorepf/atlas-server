@@ -34,6 +34,7 @@ class AiJobResumeChoiceTest extends TestCase
         ]);
 
         $response->assertOk();
+        $response->assertJsonPath('job.provider_choice_state', 'resolved');
         $job->refresh();
         $this->assertSame('queued', $job->status);
         $this->assertSame('claude_cli', $job->provider);
