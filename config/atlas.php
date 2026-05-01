@@ -243,7 +243,11 @@ return [
         'default_agent' => env('ATLAS_AI_DEFAULT_AGENT', 'orquestrador'),
         'workdir' => env('ATLAS_AI_WORKDIR', dirname(base_path())),
         'worker_id' => env('ATLAS_AI_WORKER_ID', gethostname() ?: 'atlas-worker'),
-        'timeout_seconds' => (int) env('ATLAS_AI_TIMEOUT_SECONDS', 7200),
+        // 7200s (2h) era irreal e travava o request HTTP por horas em
+        // caso de provider hung. 600s cobre 99% dos jobs reais; quem
+        // precisar de mais (ex: tarefa agendada longa) sobe via
+        // ATLAS_AI_TIMEOUT_SECONDS no env.
+        'timeout_seconds' => (int) env('ATLAS_AI_TIMEOUT_SECONDS', 600),
         'max_attempts' => (int) env('ATLAS_AI_MAX_ATTEMPTS', 1),
         'retry_delay_seconds' => (int) env('ATLAS_AI_RETRY_DELAY_SECONDS', 300),
         'context_note_limit' => (int) env('ATLAS_AI_CONTEXT_NOTE_LIMIT', 5),
@@ -366,6 +370,7 @@ return [
                 'binary' => env('ATLAS_AI_CLAUDE_BIN', 'claude'),
                 'model' => env('ATLAS_AI_CLAUDE_MODEL', null),
                 'model_identity' => env('ATLAS_AI_CLAUDE_MODEL_IDENTITY', env('ATLAS_AI_CLAUDE_MODEL') ?: 'claude_cli_default'),
+                'fallback_model' => env('ATLAS_AI_CLAUDE_FALLBACK_MODEL', 'claude-haiku-4-5'),
                 'args' => env('ATLAS_AI_CLAUDE_ARGS')
                     ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_CLAUDE_ARGS'))), fn (string $arg): bool => $arg !== ''))
                     : ['-p', '--output-format', 'stream-json', '--verbose', '--no-session-persistence'],
@@ -374,6 +379,7 @@ return [
                 'binary' => env('ATLAS_AI_CODEX_BIN', 'codex'),
                 'model' => env('ATLAS_AI_CODEX_MODEL', null),
                 'model_identity' => env('ATLAS_AI_CODEX_MODEL_IDENTITY', env('ATLAS_AI_CODEX_MODEL') ?: 'codex_cli_default'),
+                'fallback_model' => env('ATLAS_AI_CODEX_FALLBACK_MODEL', 'gpt-5-4-mini'),
                 'sandbox' => env('ATLAS_AI_CODEX_SANDBOX', 'read-only'),
                 'args' => env('ATLAS_AI_CODEX_ARGS')
                     ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_CODEX_ARGS'))), fn (string $arg): bool => $arg !== ''))
