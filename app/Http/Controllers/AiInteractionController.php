@@ -497,7 +497,17 @@ class AiInteractionController extends Controller
      */
     private function traceListRelations(): array
     {
-        return ['thread', 'session', 'job', 'jobs'];
+        $relations = ['thread', 'session', 'job', 'jobs'];
+
+        if ($this->routerDecisionsAvailable()) {
+            $relations[] = 'routerDecision';
+        }
+
+        if ($this->atlasDecisionsAvailable()) {
+            $relations[] = 'atlasDecision';
+        }
+
+        return $relations;
     }
 
     /**
@@ -508,6 +518,14 @@ class AiInteractionController extends Controller
     private function traceShowRelations(): array
     {
         $relations = ['thread', 'session', 'job.attemptHistory', 'jobs.attemptHistory'];
+
+        if ($this->routerDecisionsAvailable()) {
+            $relations[] = 'routerDecision';
+        }
+
+        if ($this->atlasDecisionsAvailable()) {
+            $relations[] = 'atlasDecision';
+        }
 
         if ($this->qualityEvaluationsAvailable()) {
             $relations[] = 'qualityEvaluation';
@@ -522,6 +540,26 @@ class AiInteractionController extends Controller
         }
 
         return $relations;
+    }
+
+    private function routerDecisionsAvailable(): bool
+    {
+        static $cached = null;
+        if ($cached === null) {
+            $cached = Schema::hasTable('ai_router_decisions');
+        }
+
+        return $cached;
+    }
+
+    private function atlasDecisionsAvailable(): bool
+    {
+        static $cached = null;
+        if ($cached === null) {
+            $cached = Schema::hasTable('ai_decisions');
+        }
+
+        return $cached;
     }
 
     private function qualityEvaluationsAvailable(): bool

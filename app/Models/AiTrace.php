@@ -79,6 +79,11 @@ class AiTrace extends Model
         return $this->hasOne(AiRouterDecision::class, 'trace_id');
     }
 
+    public function atlasDecision(): HasOne
+    {
+        return $this->hasOne(AiDecision::class, 'trace_id');
+    }
+
     public function remediationSourceActions(): HasMany
     {
         return $this->hasMany(AiQualityAction::class, 'remediation_trace_id')->latest('created_at');

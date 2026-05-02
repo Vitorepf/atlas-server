@@ -41,12 +41,118 @@ class AiTraceResource extends JsonResource
             'session' => $this->whenLoaded('session', fn () => $this->session ? new AiSessionResource($this->session) : null),
             'job' => $this->whenLoaded('job', fn () => new AiJobResource($this->job)),
             'jobs' => $this->whenLoaded('jobs', fn () => AiJobResource::collection($this->jobs)->resolve()),
+            'router_decision' => $this->whenLoaded('routerDecision', fn () => $this->routerDecision ? $this->routerDecisionForResponse() : null),
+            'atlas_decision' => $this->whenLoaded('atlasDecision', fn () => $this->atlasDecision ? $this->atlasDecisionForResponse() : null),
+            'decision_receipt' => $this->decisionReceiptForResponse(),
             'stream_events' => $this->whenLoaded('streamEvents', fn () => AiStreamEventResource::collection($this->streamEvents)->resolve()),
             'quality_evaluation' => $this->whenLoaded('qualityEvaluation', fn () => $this->qualityEvaluation ? new AiQualityEvaluationResource($this->qualityEvaluation) : null),
             'quality_actions' => $this->whenLoaded('qualityActions', fn () => AiQualityActionResource::collection($this->qualityActions)->resolve()),
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function atlasDecisionForResponse(): array
+    {
+        return [
+            'id' => $this->atlasDecision->id,
+            'trace_id' => $this->atlasDecision->trace_id,
+            'router_decision_id' => $this->atlasDecision->router_decision_id,
+            'policy_version' => $this->atlasDecision->policy_version,
+            'decision_mode' => $this->atlasDecision->decision_mode,
+            'route_mode' => $this->atlasDecision->route_mode,
+            'task_type' => $this->atlasDecision->task_type,
+            'risk_level' => $this->atlasDecision->risk_level,
+            'selected_provider' => $this->atlasDecision->selected_provider,
+            'selected_model' => $this->atlasDecision->selected_model,
+            'fallback_provider' => $this->atlasDecision->fallback_provider,
+            'operator_requested_provider' => $this->atlasDecision->operator_requested_provider,
+            'requested_provider' => $this->atlasDecision->requested_provider,
+            'was_overridden' => (bool) $this->atlasDecision->was_overridden,
+            'confidence_score' => $this->atlasDecision->confidence_score,
+            'signals' => Metadata::forResponse($this->atlasDecision->signals),
+            'candidates' => Metadata::listForResponse($this->atlasDecision->candidates),
+            'constraints' => Metadata::forResponse($this->atlasDecision->constraints),
+            'metrics_snapshot' => Metadata::forResponse($this->atlasDecision->metrics_snapshot),
+            'reason' => $this->atlasDecision->reason,
+            'created_at' => $this->atlasDecision->created_at?->toJSON(),
+            'updated_at' => $this->atlasDecision->updated_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function routerDecisionForResponse(): array
+    {
+        return [
+            'id' => $this->routerDecision->id,
+            'mode' => $this->routerDecision->mode,
+            'selected_provider' => $this->routerDecision->selected_provider,
+            'fallback_provider' => $this->routerDecision->fallback_provider,
+            'signals' => Metadata::forResponse($this->routerDecision->signals),
+            'reason' => $this->routerDecision->reason,
+            'was_overridden' => (bool) $this->routerDecision->was_overridden,
+            'created_at' => $this->routerDecision->created_at?->toJSON(),
+            'updated_at' => $this->routerDecision->updated_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function decisionReceiptForResponse(): ?array
+    {
+        $metadataReceipt = is_array(data_get($this->metadata, 'decision_receipt'))
+            ? data_get($this->metadata, 'decision_receipt')
+            : [];
+        $atlasDecision = $this->resource->relationLoaded('atlasDecision') ? $this->atlasDecision : null;
+        $routerDecision = $this->resource->relationLoaded('routerDecision') ? $this->routerDecision : null;
+
+        if ($atlasDecision) {
+            return array_merge(Metadata::forResponse($metadataReceipt), [
+                'decision_id' => $atlasDecision->id,
+                'trace_id' => $this->id,
+                'router_decision_id' => $atlasDecision->router_decision_id,
+                'policy_version' => $atlasDecision->policy_version,
+                'decision_mode' => $atlasDecision->decision_mode,
+                'route_mode' => $atlasDecision->route_mode,
+                'task_type' => $atlasDecision->task_type,
+                'risk_level' => $atlasDecision->risk_level,
+                'selected_provider' => $atlasDecision->selected_provider,
+                'selected_model' => $atlasDecision->selected_model,
+                'fallback_provider' => $atlasDecision->fallback_provider,
+                'operator_requested_provider' => $atlasDecision->operator_requested_provider,
+                'requested_provider' => $atlasDecision->requested_provider,
+                'was_overridden' => (bool) $atlasDecision->was_overridden,
+                'confidence_score' => $atlasDecision->confidence_score,
+                'reason' => $atlasDecision->reason,
+                'signals' => Metadata::forResponse($atlasDecision->signals),
+                'candidates' => Metadata::listForResponse($atlasDecision->candidates),
+                'constraints' => Metadata::forResponse($atlasDecision->constraints),
+                'metrics_snapshot' => Metadata::forResponse($atlasDecision->metrics_snapshot),
+            ]);
+        }
+
+        if (! $routerDecision) {
+            return $metadataReceipt === [] ? null : Metadata::forResponse($metadataReceipt);
+        }
+
+        return array_merge(Metadata::forResponse($metadataReceipt), [
+            'decision_id' => $routerDecision->id,
+            'trace_id' => $this->id,
+            'decision_mode' => data_get($routerDecision->signals, 'decision_mode') ?: data_get($metadataReceipt, 'decision_mode') ?: 'atlas_decide',
+            'selected_provider' => $routerDecision->selected_provider,
+            'fallback_provider' => $routerDecision->fallback_provider,
+            'operator_requested_provider' => data_get($routerDecision->signals, 'operator_requested_provider') ?: data_get($metadataReceipt, 'operator_requested_provider') ?: 'auto',
+            'requested_provider' => data_get($routerDecision->signals, 'requested_provider') ?: data_get($metadataReceipt, 'requested_provider'),
+            'was_overridden' => (bool) $routerDecision->was_overridden,
+            'reason' => $routerDecision->reason,
+            'signals' => Metadata::forResponse($routerDecision->signals),
+        ]);
     }
 
     /**

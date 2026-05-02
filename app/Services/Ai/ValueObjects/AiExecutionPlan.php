@@ -13,13 +13,14 @@ class AiExecutionPlan
         $taskType = $task->taskType();
         $mode = $task->desiredMode();
         $risk = $task->riskLevel();
-        $requestedProvider = data_get($options, 'payload.requested_provider') ?: $provider ?: 'auto';
+        $requestedProvider = data_get($options, 'payload.requested_provider');
 
         return new self([
             'schema_version' => 1,
             'workflow' => self::workflow($taskType, $mode),
             'selected_skill' => $agent,
-            'selected_provider' => $requestedProvider,
+            'selected_provider' => $provider ?: 'auto',
+            'requested_provider' => $requestedProvider,
             'agents' => self::agents($taskType, $mode, $agent),
             'tools_allowed' => self::tools($taskType, $mode),
             'quality_gates' => self::gates($taskType, $mode, $risk),
@@ -40,7 +41,8 @@ class AiExecutionPlan
             '',
             '- workflow: '.$this->data['workflow'],
             '- skill: '.$this->data['selected_skill'],
-            '- provider solicitado: '.$this->data['selected_provider'],
+            '- provider selecionado: '.$this->data['selected_provider'],
+            '- provider solicitado: '.($this->data['requested_provider'] ?: 'atlas_decide'),
             '- confirmacao humana: '.($this->data['requires_human_confirmation'] ? 'sim' : 'nao'),
             '',
             '## Agentes / Papeis',

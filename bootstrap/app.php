@@ -15,6 +15,7 @@ use App\Console\Commands\AiTelemetryHealthCommand;
 use App\Console\Commands\AiTelemetryPerformanceReportCommand;
 use App\Console\Commands\AiTelemetryRollupCommand;
 use App\Console\Commands\AiWorkCommand;
+use App\Console\Commands\AtlasAiDecideCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
 use App\Console\Commands\AtlasCliCheckpointCommand;
 use App\Console\Commands\AtlasCliCompareCommand;
@@ -51,18 +52,19 @@ use App\Console\Commands\AtlasEngineeringKnowledgeCommand;
 use App\Console\Commands\AtlasEngineeringQualityScanCommand;
 use App\Console\Commands\AtlasEngineeringReplayCommand;
 use App\Console\Commands\AtlasEngineeringRunCommand;
-use App\Console\Commands\AtlasEngineeringVisualDriverCommand;
 use App\Console\Commands\AtlasEngineeringVisualBaselineCommand;
+use App\Console\Commands\AtlasEngineeringVisualDriverCommand;
 use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
+use App\Console\Commands\AtlasMemoryReviewQueueCommand;
 use App\Console\Commands\AtlasProposalCommand;
 use App\Console\Commands\AtlasProposalScanCommand;
-use App\Console\Commands\AtlasMemoryReviewQueueCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
 use App\Console\Commands\AtlasSchedulerTickCommand;
 use App\Console\Commands\AtlasSelfDiagnosticCommand;
+use App\Console\Commands\AtlasToolsCommand;
 use App\Console\Commands\HealthRepairCommand;
 use App\Console\Commands\RizeInspectCommand;
 use App\Console\Commands\RizeSyncCommand;
@@ -101,6 +103,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AiTelemetryPerformanceReportCommand::class,
         AiTelemetryRollupCommand::class,
         AiWorkCommand::class,
+        AtlasAiDecideCommand::class,
         AtlasCliBootstrapCommand::class,
         AtlasCliCheckpointCommand::class,
         AtlasCliCompareCommand::class,
@@ -148,6 +151,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringVisualSmokeCommand::class,
         AtlasSchedulerTickCommand::class,
         AtlasSelfDiagnosticCommand::class,
+        AtlasToolsCommand::class,
         AtlasRuntimeCommand::class,
         HealthRepairCommand::class,
         RizeInspectCommand::class,

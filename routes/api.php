@@ -1,8 +1,9 @@
 <?php
 
-use App\Http\Controllers\AiInteractionController;
-use App\Http\Controllers\AiChunkedUploadController;
 use App\Http\Controllers\AiAttachmentSearchController;
+use App\Http\Controllers\AiChunkedUploadController;
+use App\Http\Controllers\AiDecisionController;
+use App\Http\Controllers\AiInteractionController;
 use App\Http\Controllers\AiJobController;
 use App\Http\Controllers\AiObservabilityController;
 use App\Http\Controllers\AiProviderController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\AtlasProjectController;
 use App\Http\Controllers\AtlasProjectPlanProposalController;
 use App\Http\Controllers\AtlasRoutineController;
 use App\Http\Controllers\AtlasTaskController;
+use App\Http\Controllers\AtlasToolRuntimeController;
 use App\Http\Controllers\AuditEventController;
 use App\Http\Controllers\AuditSuggestionController;
 use App\Http\Controllers\BehaviorController;
@@ -122,10 +124,19 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/engineering/harnessability', [EngineeringRunController::class, 'harnessability']);
     Route::get('/engineering/harnessability/calibration', [EngineeringRunController::class, 'harnessabilityCalibration']);
     Route::post('/engineering/harnessability/calibrate', [EngineeringRunController::class, 'calibrateHarnessability']);
+    Route::get('/tools', [AtlasToolRuntimeController::class, 'index']);
+    Route::get('/tools/doctor', [AtlasToolRuntimeController::class, 'doctor']);
+    Route::get('/tools/evidence', [AtlasToolRuntimeController::class, 'evidence']);
+    Route::get('/tools/policies', [AtlasToolRuntimeController::class, 'policies']);
+    Route::get('/tools/{tool}', [AtlasToolRuntimeController::class, 'show']);
+    Route::post('/tools/{tool}/run', [AtlasToolRuntimeController::class, 'run']);
+    Route::post('/tools/{tool}/approval', [AtlasToolRuntimeController::class, 'approve']);
+    Route::delete('/tools/{tool}/approval', [AtlasToolRuntimeController::class, 'revoke']);
     Route::get('/engineering/knowledge', [EngineeringKnowledgeController::class, 'index']);
     Route::get('/engineering/knowledge/context', [EngineeringKnowledgeController::class, 'context']);
     Route::post('/engineering/knowledge/sync', [EngineeringKnowledgeController::class, 'sync']);
     Route::post('/engineering/knowledge/code/index', [EngineeringKnowledgeController::class, 'codeIndex']);
+    Route::get('/engineering/knowledge/code/audit', [EngineeringKnowledgeController::class, 'codeAudit']);
     Route::get('/engineering/knowledge/code/modules', [EngineeringKnowledgeController::class, 'codeModules']);
     Route::get('/engineering/knowledge/code/modules/{module}', [EngineeringKnowledgeController::class, 'codeModule']);
     Route::get('/engineering/knowledge/code/symbols', [EngineeringKnowledgeController::class, 'codeSymbols']);
@@ -231,6 +242,9 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::post('/semantic/cognitive-games/{game}/answer', [CognitiveGameController::class, 'answer']);
 
     Route::get('/ai/interactions', [AiInteractionController::class, 'index']);
+    Route::get('/ai/decisions', [AiDecisionController::class, 'index']);
+    Route::post('/ai/decisions/preview', [AiDecisionController::class, 'preview']);
+    Route::get('/ai/decisions/{decision}', [AiDecisionController::class, 'show']);
     Route::get('/ai/memory', [AtlasMemoryController::class, 'index']);
     Route::post('/ai/memory', [AtlasMemoryController::class, 'store']);
     Route::get('/ai/memory/audit/traces/{trace}', [AtlasMemoryController::class, 'auditTrace']);

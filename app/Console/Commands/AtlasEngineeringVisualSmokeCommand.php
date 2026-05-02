@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Tools\AtlasToolEvidenceStore;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -26,7 +27,7 @@ class AtlasEngineeringVisualSmokeCommand extends Command
 
     protected $description = 'Run Atlas-managed local visual smoke checks and persist route snapshots.';
 
-    public function handle(): int
+    public function handle(AtlasToolEvidenceStore $toolEvidence): int
     {
         $workspace = $this->workspace();
         $host = '127.0.0.1';
@@ -126,6 +127,7 @@ class AtlasEngineeringVisualSmokeCommand extends Command
         ];
 
         File::put($artifactRoot.'/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->recordToolRuntimeEvidence($toolEvidence, $workspace, $artifactRoot, $manifest);
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -136,6 +138,167 @@ class AtlasEngineeringVisualSmokeCommand extends Command
         }
 
         return $ok ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     */
+    private function recordToolRuntimeEvidence(AtlasToolEvidenceStore $toolEvidence, string $workspace, string $artifactRoot, array $manifest): void
+    {
+        try {
+            $toolEvidence->recordExternalToolResult('atlas_visual_smoke', $workspace, [
+                'status' => (string) ($manifest['status'] ?? 'unknown'),
+                'required' => $this->baselineMode() === 'strict' || $this->screenshotBaselineMode($this->baselineMode()) === 'strict',
+                'failure_policy' => 'blocks_release',
+                'policy_decision' => 'allowed',
+                'duration_ms' => (int) ($manifest['duration_ms'] ?? 0),
+                'exit_code' => ($manifest['status'] ?? null) === 'passed' ? 0 : 1,
+                'category' => 'browser_automation',
+                'metrics' => [
+                    'route_count' => count((array) ($manifest['routes'] ?? [])),
+                    'route_failed_count' => data_get($manifest, 'strict_failure_summary.route_failed_count', 0),
+                    'dom_baseline_changed_count' => data_get($manifest, 'strict_failure_summary.dom_baseline_changed_count', 0),
+                    'screenshot_failed_count' => data_get($manifest, 'strict_failure_summary.screenshot_failed_count', 0),
+                    'screenshot_baseline_changed_count' => data_get($manifest, 'strict_failure_summary.screenshot_baseline_changed_count', 0),
+                ],
+                'findings' => $this->toolRuntimeFindings($manifest),
+                'recommendations' => $this->toolRuntimeRecommendations($manifest),
+                'artifact_paths' => $this->toolRuntimeArtifactPaths($artifactRoot, $manifest),
+            ], [
+                'surface' => 'engineering_visual_smoke',
+                'source' => 'atlas_engineering_visual_smoke_command',
+                'metadata' => [
+                    'artifact_dir' => $manifest['artifact_dir'] ?? null,
+                    'artifact_root_hash' => hash('sha256', $artifactRoot),
+                    'base_url_hash' => isset($manifest['base_url']) ? hash('sha256', (string) $manifest['base_url']) : null,
+                    'baseline_mode' => $manifest['baseline_mode'] ?? null,
+                    'screenshot_baseline_mode' => $manifest['screenshot_baseline_mode'] ?? null,
+                    'screenshot_driver' => $manifest['screenshot_driver'] ?? null,
+                    'failure' => $manifest['failure'] ?? null,
+                ],
+            ]);
+        } catch (\Throwable) {
+            // Visual smoke must keep its historical behavior even if generic evidence is unavailable.
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<int,array<string,mixed>>
+     */
+    private function toolRuntimeFindings(array $manifest): array
+    {
+        $findings = [];
+        if (is_string($manifest['failure'] ?? null) && $manifest['failure'] !== '') {
+            $findings[] = [
+                'rule_id' => 'atlas_visual_smoke.failure',
+                'title' => 'Visual smoke failed before route capture',
+                'message' => (string) $manifest['failure'],
+                'severity' => 'high',
+                'blocks_resolved' => true,
+            ];
+        }
+
+        foreach ((array) ($manifest['routes'] ?? []) as $route) {
+            if (! is_array($route)) {
+                continue;
+            }
+
+            $routePath = (string) ($route['route'] ?? '/');
+            if (! (bool) ($route['ok'] ?? false)) {
+                $findings[] = [
+                    'rule_id' => 'atlas_visual_smoke.route_failed',
+                    'title' => 'Visual route did not return a successful response',
+                    'message' => $routePath.' returned '.(string) ($route['status_code'] ?? $route['error'] ?? 'unknown'),
+                    'severity' => 'high',
+                    'file_path' => $route['artifact'] ?? null,
+                    'blocks_resolved' => true,
+                    'metadata' => ['route' => $routePath],
+                ];
+            }
+
+            if ((string) data_get($route, 'baseline.status') === 'changed' && (bool) data_get($route, 'baseline.strict', false)) {
+                $findings[] = [
+                    'rule_id' => 'atlas_visual_smoke.dom_baseline_changed',
+                    'title' => 'Strict DOM baseline changed',
+                    'message' => $routePath.' differs from the promoted DOM baseline.',
+                    'severity' => 'medium',
+                    'file_path' => $route['artifact'] ?? null,
+                    'blocks_resolved' => true,
+                    'metadata' => ['route' => $routePath],
+                ];
+            }
+
+            if ((string) data_get($route, 'screenshot.status') === 'failed' && (bool) data_get($route, 'screenshot.driver.required', false)) {
+                $findings[] = [
+                    'rule_id' => 'atlas_visual_smoke.screenshot_failed',
+                    'title' => 'Required screenshot capture failed',
+                    'message' => (string) (data_get($route, 'screenshot.reason') ?? data_get($route, 'screenshot.stderr_excerpt') ?? 'screenshot_failed'),
+                    'severity' => 'high',
+                    'blocks_resolved' => true,
+                    'metadata' => ['route' => $routePath],
+                ];
+            }
+
+            if ((string) data_get($route, 'screenshot.baseline.status') === 'changed' && (bool) data_get($route, 'screenshot.baseline.strict', false)) {
+                $findings[] = [
+                    'rule_id' => 'atlas_visual_smoke.screenshot_baseline_changed',
+                    'title' => 'Strict screenshot baseline changed',
+                    'message' => $routePath.' differs from the promoted screenshot baseline.',
+                    'severity' => 'medium',
+                    'file_path' => data_get($route, 'screenshot.artifact'),
+                    'blocks_resolved' => true,
+                    'metadata' => [
+                        'route' => $routePath,
+                        'changed_pixels' => data_get($route, 'screenshot.baseline.changed_pixels'),
+                        'diff_ratio' => data_get($route, 'screenshot.baseline.diff_ratio'),
+                    ],
+                ];
+            }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<int,string>
+     */
+    private function toolRuntimeRecommendations(array $manifest): array
+    {
+        if (($manifest['status'] ?? null) === 'passed') {
+            return [];
+        }
+
+        return [
+            'Open the visual smoke manifest and inspect failed routes, DOM baselines and screenshot baselines before promoting new baselines.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,string>
+     */
+    private function toolRuntimeArtifactPaths(string $artifactRoot, array $manifest): array
+    {
+        $paths = [
+            'manifest' => $artifactRoot.'/manifest.json',
+        ];
+
+        foreach ((array) ($manifest['routes'] ?? []) as $index => $route) {
+            if (! is_array($route)) {
+                continue;
+            }
+
+            foreach (['artifact', 'headers_artifact'] as $key) {
+                $relative = $route[$key] ?? null;
+                if (is_string($relative) && $relative !== '') {
+                    $paths['route_'.$index.'_'.$key] = $artifactRoot.'/'.$relative;
+                }
+            }
+        }
+
+        return $paths;
     }
 
     private function workspace(): string
@@ -293,6 +456,7 @@ class AtlasEngineeringVisualSmokeCommand extends Command
                 'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
                 'slug' => $slug,
                 'artifact' => 'routes/'.$slug.'.html',
+                'headers_artifact' => 'routes/'.$slug.'.headers.json',
                 'baseline' => $this->baselineStatus($workspace, $routePath, $bodyHash, $baselineMode),
             ];
         } catch (\Throwable $exception) {
@@ -640,8 +804,7 @@ JS);
         string $screenshotPath,
         string $screenshotHash,
         string $mode,
-    ): array
-    {
+    ): array {
         if ($mode === 'off') {
             return ['status' => 'skipped', 'reason' => 'baseline_disabled'];
         }

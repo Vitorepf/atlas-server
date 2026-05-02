@@ -107,7 +107,9 @@ class AiThreadResolver
                 'created_by' => 'ai_thread_resolver',
                 'creation_reason' => $reason,
                 'requested_agent' => data_get($payload, 'requested_agent'),
-                'requested_provider' => data_get($payload, 'requested_provider') ?: ($options['provider'] ?? null),
+                'requested_provider' => data_get($payload, 'requested_provider')
+                    ?: (data_get($payload, 'decision_mode') === 'manual_override' ? ($options['provider'] ?? null) : null),
+                'selected_provider' => $options['provider'] ?? null,
                 'app_surface' => data_get($payload, 'app_surface'),
                 'atlas_focus' => data_get($payload, 'atlas_focus'),
                 'initial_focus' => data_get($payload, 'atlas_focus'),
@@ -116,6 +118,15 @@ class AiThreadResolver
                 'current_mode' => data_get($payload, 'atlas_mode'),
                 'routing_task' => data_get($payload, 'routing_task'),
                 'routing_domain' => data_get($payload, 'routing_domain'),
+                'created_from' => data_get($payload, 'created_from'),
+                'origin_type' => data_get($payload, 'origin_type'),
+                'origin_label' => data_get($payload, 'origin_label'),
+                'source_operational_thread_id' => data_get($payload, 'source_operational_thread_id'),
+                'source_operational_title' => data_get($payload, 'source_operational_title'),
+                'source_inbox_item_id' => data_get($payload, 'source_inbox_item_id'),
+                'source_context_bundle_id' => data_get($payload, 'source_context_bundle_id'),
+                'source_thread_mode' => data_get($payload, 'source_thread_mode'),
+                'source_thread_focus' => data_get($payload, 'source_thread_focus'),
             ],
         ]);
     }
@@ -127,8 +138,9 @@ class AiThreadResolver
         $routingTask = $this->firstString(data_get($payload, 'routing_task'));
         $routingDomain = $this->firstString(data_get($payload, 'routing_domain'));
         $requestedProvider = $this->firstString(data_get($payload, 'requested_provider'));
+        $selectedProvider = $this->firstString(data_get($payload, 'selected_provider'));
 
-        if (! $focus && ! $mode && ! $routingTask && ! $routingDomain && ! $requestedProvider) {
+        if (! $focus && ! $mode && ! $routingTask && ! $routingDomain && ! $requestedProvider && ! $selectedProvider) {
             return $thread;
         }
 
@@ -173,6 +185,7 @@ class AiThreadResolver
             'routing_task' => $routingTask,
             'routing_domain' => $routingDomain,
             'requested_provider' => $requestedProvider,
+            'selected_provider' => $selectedProvider,
         ] as $key => $value) {
             if ($value && ($metadata[$key] ?? null) !== $value) {
                 $metadata[$key] = $value;

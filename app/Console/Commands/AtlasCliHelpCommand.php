@@ -259,6 +259,22 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'Executa ferramentas nativas com permissao, checkpoint e auditoria.',
                 ],
                 [
+                    'command' => 'atlas tools doctor --workspace=<repo>',
+                    'description' => 'Lista o registry canonico do Super Tool Runtime, detecta instalacoes, registra skips auditaveis e mostra postura de risco/custo.',
+                ],
+                [
+                    'command' => 'atlas tools run <tool> --command=<argv> --dry-run|--approved',
+                    'description' => 'Executa ou planeja uma ferramenta pelo contrato generico de politica, executor seguro, normalizador e evidence store.',
+                ],
+                [
+                    'command' => 'atlas tools approve|revoke|policies <tool> --scope=workspace --ttl-hours=24',
+                    'description' => 'Gerencia aprovacoes auditaveis para ferramentas de maior risco ou rede pelo Super Tool Runtime.',
+                ],
+                [
+                    'command' => 'atlas tools evidence [tool] --workspace=<repo> --status=failed --surface=engineering_quality_scan',
+                    'description' => 'Consulta evidencias filtradas por workspace, tool, status, surface, policy decision e contexto.',
+                ],
+                [
                     'command' => 'atlas checkpoint',
                     'description' => 'Lista, inspeciona e restaura checkpoints de edicao.',
                 ],

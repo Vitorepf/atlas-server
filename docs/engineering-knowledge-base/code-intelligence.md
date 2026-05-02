@@ -87,24 +87,43 @@ Para auditoria:
 
 ```bash
 atlas engineering knowledge code-status
+atlas engineering knowledge audit-code --json
 atlas engineering knowledge modules
 atlas engineering knowledge symbols --symbol-type=cli_command
 atlas engineering knowledge show-module engineering_harness_services
 ```
 
+No app, abra `Home > Atlas Engineering > abrir`. O card `Engineering knowledge`
+mostra os mesmos modulos e simbolos, com filtros por `layer`, `docs_status` e
+`symbol_type`. Toque em um modulo para ver docs relacionados, testes
+relacionados, doc links e simbolos principais. O painel `Code audit` executa o
+mesmo `audit-code` via API, em dry-run sem escrita, e mostra drift por modulos,
+simbolos e doc links.
+
 ## Dry-run E Status
 
 `index-code --dry-run` valida descoberta de arquivos, modulos e simbolos sem
 persistir nada. Como os links docs->codigo dependem do estado persistido, o
-`doc_link_count` do dry-run pode aparecer como `0`. Para auditar links reais,
-use `atlas engineering knowledge code-status` depois de uma indexacao real.
+`doc_link_count` do dry-run pode aparecer como `0`. Para comparar o scan atual
+com o indice persistido sem escrever, use `atlas engineering knowledge
+audit-code --json`.
+
+Estados de auditoria:
+
+- `fresh`: modulos, simbolos e hashes de doc links persistidos acompanham o
+  workspace atual;
+- `drift_detected`: ha modulo/simbolo adicionado, removido ou alterado, ou doc
+  link com target ausente/hash divergente;
+- `empty_index`: tabelas existem, mas o indice ainda nao foi populado.
 
 Snapshot operacional validado em 2026-05-02 no `atlas-server`:
 
-- `index-code --dry-run` detectou 22 modulos, 7482 simbolos, 221 rotas, 85
-  comandos, 284 migrations e 675 testes.
+- `audit-code` mostrou `fresh` apos a indexacao real final, com `total drift=0`.
 - `code-status --json` mostrou indice persistido `ready`, com 22 modulos,
-  7481 simbolos e 901 doc links.
+  7807 simbolos e 2450 doc links.
+- A tela Engineering consome `GET /engineering/knowledge/code/audit` no painel
+  `Code audit` e foi validada por `npm run typecheck` e
+  `npm run test:engineering`.
 
 ## Como A IA Deve Usar
 

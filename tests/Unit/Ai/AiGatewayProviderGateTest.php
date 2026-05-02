@@ -3,6 +3,7 @@
 namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AiGatewayService;
+use App\Services\Ai\AtlasDecideService;
 use ReflectionClass;
 use Tests\TestCase;
 
@@ -106,12 +107,84 @@ class AiGatewayProviderGateTest extends TestCase
         $this->assertSame('codex_cli', $automatic);
     }
 
+    public function test_atlas_decide_normalizes_auto_without_manual_override(): void
+    {
+        $options = app(AtlasDecideService::class)->normalizeOptions([
+            'provider' => 'gemini_cli',
+            'payload' => [
+                'requested_provider' => 'auto',
+                'operator_requested_provider' => 'auto',
+            ],
+        ]);
+
+        $this->assertSame('atlas_decide', data_get($options, 'payload.decision_mode'));
+        $this->assertSame('auto', data_get($options, 'payload.operator_requested_provider'));
+        $this->assertNull(data_get($options, 'payload.requested_provider'));
+        $this->assertArrayNotHasKey('provider', $options);
+        $this->assertFalse(app(AtlasDecideService::class)->receiptForTrace($options, 'gemini_cli')['was_overridden']);
+    }
+
+    public function test_atlas_decide_prefers_gemini_for_auto_attachment_when_enabled(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'claude_cli',
+            'atlas.ai.providers.gemini_cli.allow_auto' => true,
+        ]);
+
+        $provider = $this->providerFromOptions([
+            'provider' => 'gemini_cli',
+            'payload' => [
+                'operator_requested_provider' => 'auto',
+                'visual_input' => ['image_count' => 1],
+            ],
+        ]);
+
+        $this->assertSame('gemini_cli', $provider);
+    }
+
+    public function test_atlas_decide_prefers_codex_for_programming_when_auto_allowed(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'claude_cli',
+            'atlas.ai.providers.codex_cli.allow_auto' => true,
+        ]);
+
+        $provider = $this->providerFromOptions([
+            'payload' => [
+                'decision_mode' => 'atlas_decide',
+                'operator_requested_provider' => 'auto',
+                'atlas_workflow_mode' => 'dev',
+            ],
+        ]);
+
+        $this->assertSame('codex_cli', $provider);
+    }
+
+    public function test_atlas_decide_respects_codex_auto_block_for_programming(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'claude_cli',
+            'atlas.ai.providers.codex_cli.allow_auto' => false,
+        ]);
+
+        $provider = $this->providerFromOptions([
+            'payload' => [
+                'decision_mode' => 'atlas_decide',
+                'operator_requested_provider' => 'auto',
+                'atlas_workflow_mode' => 'dev',
+            ],
+        ]);
+
+        $this->assertSame('claude_cli', $provider);
+    }
+
     /**
      * @param  array<string,mixed>  $options
      */
     private function providerFromOptions(array $options): string
     {
         $service = app(AiGatewayService::class);
+        $options = app(AtlasDecideService::class)->normalizeOptions($options);
         $method = (new ReflectionClass($service))->getMethod('providerFromOptions');
         $method->setAccessible(true);
 

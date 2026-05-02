@@ -45,7 +45,7 @@ capacidade vire "pronta" apenas porque existe codigo.
 | L5 | Privacy/redaction | classes, scan/apply/review, provider-safe | Implementado |
 | L6 | Verbatim recall | evidencia exata, review e recall controlado | Implementado |
 | L7 | Knowledge Base | docs canonicos, sync, API, CLI, app e context refs | Implementado |
-| L8 | Code Intelligence | modulos, simbolos, rotas, comandos, migrations, testes e code refs | Implementado backend |
+| L8 | Code Intelligence | modulos, simbolos, rotas, comandos, migrations, testes, audit-code e code refs | Implementado backend |
 | L9 | Operational UI | app cobre memoria, knowledge, projection e code intelligence | Parcial |
 | L10 | Hybrid retrieval | semantic/vector/hybrid search com policy | Nao implementado |
 | L11 | Open Brain remoto | multi-tool remoto auditavel | Nao implementado |
@@ -88,6 +88,7 @@ Toda fase que altera Memory Core deve entregar:
 | provider projection drift | zero ou explicitamente revisado | drift manual recorrente |
 | knowledge active docs | acompanha docs canonicos | docs no repo sem sync |
 | code modules documented | sobe com maturidade | muitos `undocumented` em core |
+| code intelligence audit | `fresh` apos sync/index | `drift_detected` antes de context pack |
 | code refs in context pack | presentes em tarefas de engenharia | ausentes em runs de codigo |
 | memory feedback negative | usado para arquivar/rebaixar | ignorado |
 
@@ -95,11 +96,15 @@ Toda fase que altera Memory Core deve entregar:
 
 ### UI De Code Intelligence
 
-So considerar pronta quando:
+Status: implementada no app Engineering a partir da Fase 4Y.
+
+Gate de manutencao:
 
 - app lista modulos e simbolos;
 - filtros por layer/docs_status/symbol_type;
 - detalhe de modulo mostra docs, testes e rotas/comandos;
+- painel `Code audit` executa dry-run sem escrita e mostra drift por modulos,
+  simbolos e doc links;
 - typecheck e testes front passam;
 - docs registram fluxo operacional.
 
@@ -132,4 +137,3 @@ Uma capacidade so pode ser marcada como implementada quando:
 3. o documento mestre lista arquivos tocados;
 4. limites e pendencias estao declarados;
 5. nao ha dependencia implicita de conversa ou provider externo.
-

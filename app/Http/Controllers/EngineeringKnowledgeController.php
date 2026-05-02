@@ -79,6 +79,16 @@ class EngineeringKnowledgeController extends Controller
         return response()->json($code->index($data));
     }
 
+    public function codeAudit(Request $request, EngineeringCodeIntelligenceService $code): JsonResponse
+    {
+        $data = $request->validate([
+            'workspace' => ['nullable', 'string', 'max:1000'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+        ]);
+
+        return response()->json($code->audit($data));
+    }
+
     public function codeModules(Request $request, EngineeringCodeIntelligenceService $code): JsonResponse
     {
         $data = $request->validate([

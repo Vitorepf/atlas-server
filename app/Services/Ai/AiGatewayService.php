@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AiCompaction;
+use App\Models\AiDecision;
 use App\Models\AiJob;
 use App\Models\AiMessage;
 use App\Models\AiRouterDecision;
@@ -39,6 +40,7 @@ class AiGatewayService
         private readonly AiProviderModelResolver $models,
         private readonly AtlasAiRuntimeSettings $runtimeSettings,
         private readonly AiRuntimeBudgetService $budgets,
+        private readonly AtlasDecideService $decide,
         private readonly AuditLogService $audit,
     ) {}
 
@@ -59,8 +61,26 @@ class AiGatewayService
 
         $privacy = $this->privacyFromOptions($options);
         $this->guardPrivacyAllowsAi($options, $privacy, $input);
+        $options['input_text'] = $input;
+        $options = $this->decide->normalizeOptions($options);
         $provider = $this->providerFromOptions($options);
         $options['provider'] = $provider;
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $candidateProvider = $this->decide->candidateProvider($options, $this->runtimeSettings->defaultProvider());
+        $fallbackReason = $candidateProvider !== $provider
+            ? $this->providerFallbackReason($candidateProvider, $provider, $options)
+            : null;
+        $payload['selected_provider'] = $provider;
+        $payload['atlas_decide'] = array_merge(
+            is_array($payload['atlas_decide'] ?? null) ? $payload['atlas_decide'] : [],
+            [
+                'candidate_provider' => $candidateProvider,
+                'selected_provider' => $provider,
+                'fallback_provider' => $fallbackReason ? $provider : null,
+                'fallback_reason' => $fallbackReason,
+            ],
+        );
+        $options['payload'] = $payload;
         $threadResolution = $this->threads->resolve($input, $options);
         $session = $this->sessions->ensureActive($threadResolution->thread, $provider, $input, $options);
         $resumeCompaction = $this->maybeCompactSessionResume($threadResolution->thread, $session);
@@ -112,6 +132,7 @@ class AiGatewayService
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
+                    'decision_receipt' => $this->decide->receiptForTrace($options, $provider, $model),
                 ],
             ]);
 
@@ -157,6 +178,7 @@ class AiGatewayService
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
+                    'decision_receipt' => $this->decide->receiptForTrace($options, $provider, $model),
                 ],
             ]);
 
@@ -219,7 +241,7 @@ class AiGatewayService
                 ],
             ]);
 
-            $this->recordRouterDecision($trace, $options, $provider);
+            $this->recordAtlasDecision($trace, $options, $provider, $model, $prompt, $modelResolution);
 
             return $trace->load($this->traceRelations());
         }, self::TRANSACTION_ATTEMPTS);
@@ -289,6 +311,7 @@ class AiGatewayService
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
+                    'decision_receipt' => $this->decide->receiptForTrace($options, 'claude_codex', $traceModelResolution['model']),
                 ],
             ]);
 
@@ -399,7 +422,7 @@ class AiGatewayService
             $this->states->updateForUserInput($lockedThread, $lockedSession, $input, $this->optionsWithPromptContracts($options, $prompt));
             $this->snapshots->record($trace, $lockedSession, $prompt, $autoCompaction, $providerHandoff);
 
-            $this->recordRouterDecision($trace, $options, 'claude_codex');
+            $this->recordAtlasDecision($trace, $options, 'claude_codex', $traceModelResolution['model'], $prompt, $traceModelResolution);
             $firstJob = $trace->jobs()->oldest('created_at')->first();
             $this->recordTelemetry('trace_created', $trace, $firstJob, [
                 'surface' => 'server',
@@ -471,6 +494,10 @@ class AiGatewayService
             $relations[] = 'routerDecision';
         }
 
+        if (Schema::hasTable('ai_decisions')) {
+            $relations[] = 'atlasDecision';
+        }
+
         return $relations;
     }
 
@@ -496,33 +523,178 @@ class AiGatewayService
         return $lockedSession;
     }
 
-    private function recordRouterDecision(AiTrace $trace, array $options, string $provider): void
+    /**
+     * @param  array<string,mixed>  $modelResolution
+     */
+    private function recordAtlasDecision(AiTrace $trace, array $options, string $provider, ?string $model, AiPrompt $prompt, array $modelResolution): void
+    {
+        $routerDecision = $this->recordRouterDecision($trace, $options, $provider);
+
+        if (! Schema::hasTable('ai_decisions')) {
+            return;
+        }
+
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $manualProvider = $this->decide->manualOverrideProvider($options);
+        $receipt = $this->decide->receiptForTrace($options, $provider, $model);
+        $signals = [
+            ...$this->decide->signals($options),
+            'decision_mode' => $this->decide->decisionMode($options),
+            'operator_requested_provider' => data_get($payload, 'operator_requested_provider') ?: 'auto',
+            'requested_provider' => $manualProvider,
+            'model_identity_source' => $modelResolution['source'] ?? 'unresolved',
+            'model_tier' => $modelResolution['model_tier'] ?? config('atlas.ai.default_tier', 'daily'),
+            'model_allow_auto' => (bool) ($modelResolution['allow_auto'] ?? true),
+            'model_allow_manual' => (bool) ($modelResolution['allow_manual'] ?? true),
+            'task_request' => $prompt->taskRequest,
+            'execution_plan' => $prompt->executionPlan,
+        ];
+
+        AiDecision::query()->updateOrCreate([
+            'trace_id' => $trace->id,
+        ], [
+            'router_decision_id' => $routerDecision?->id,
+            'policy_version' => (string) data_get($payload, 'atlas_decide.policy_version', 'atlas-decide-v1'),
+            'decision_mode' => $receipt['decision_mode'] ?? 'atlas_decide',
+            'route_mode' => (string) (data_get($payload, 'atlas_workflow_mode') ?: data_get($options, 'mode', 'direct')),
+            'task_type' => $this->boundedString(data_get($prompt->taskRequest, 'task_type'), 80),
+            'risk_level' => $this->boundedString(data_get($prompt->taskRequest, 'risk_level'), 40),
+            'selected_provider' => $provider,
+            'selected_model' => $model,
+            'fallback_provider' => $this->boundedString(
+                data_get($payload, 'provider_strategy.fallback_provider') ?: data_get($payload, 'atlas_decide.fallback_provider'),
+                32,
+            ),
+            'operator_requested_provider' => (string) ($receipt['operator_requested_provider'] ?? 'auto'),
+            'requested_provider' => $manualProvider,
+            'was_overridden' => $manualProvider !== null,
+            'confidence_score' => $this->confidenceScore($options, $provider),
+            'signals' => $signals,
+            'candidates' => $this->decisionCandidates($options, $provider),
+            'constraints' => $this->decisionConstraints($options, $provider),
+            'metrics_snapshot' => $this->decisionMetricsSnapshot($options, $modelResolution),
+            'reason' => (string) ($receipt['reason'] ?? $this->decide->decisionReason($options, $provider)),
+        ]);
+    }
+
+    private function recordRouterDecision(AiTrace $trace, array $options, string $provider): ?AiRouterDecision
     {
         if (! Schema::hasTable('ai_router_decisions')) {
-            return;
+            return null;
         }
 
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
         $mode = (string) (data_get($payload, 'atlas_workflow_mode') ?: data_get($options, 'mode', 'direct'));
         $strategy = data_get($payload, 'provider_strategy');
         $signals = is_array($strategy) ? $strategy : [];
+        $manualProvider = $this->decide->manualOverrideProvider($options);
 
-        AiRouterDecision::query()->updateOrCreate([
+        return AiRouterDecision::query()->updateOrCreate([
             'trace_id' => $trace->id,
         ], [
             'mode' => $mode,
             'selected_provider' => $provider,
             'fallback_provider' => is_string(data_get($strategy, 'fallback_provider')) ? data_get($strategy, 'fallback_provider') : null,
             'signals' => [
+                'decision_mode' => $this->decide->decisionMode($options),
                 'provider_online' => data_get($strategy, 'has_online_provider'),
                 'critical' => data_get($strategy, 'critical', false),
-                'requested_provider' => data_get($payload, 'requested_provider'),
+                'requested_provider' => $manualProvider,
+                'operator_requested_provider' => data_get($payload, 'operator_requested_provider') ?: 'auto',
                 'execution_policy' => data_get($payload, 'execution_policy'),
+                'atlas_decide' => $this->decide->signals($options),
                 'strategy' => $signals,
             ],
-            'reason' => (string) (data_get($strategy, 'reason') ?: "Provider {$provider} selecionado para modo {$mode}."),
-            'was_overridden' => (bool) data_get($payload, 'requested_provider'),
+            'reason' => (string) (data_get($strategy, 'reason') ?: $this->decide->decisionReason($options, $provider)),
+            'was_overridden' => $manualProvider !== null,
         ]);
+    }
+
+    private function boundedString(mixed $value, int $max): ?string
+    {
+        if (! is_string($value) && ! is_numeric($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : Str::limit($value, $max, '');
+    }
+
+    private function confidenceScore(array $options, string $provider): int
+    {
+        if ($this->decide->manualOverrideProvider($options)) {
+            return 100;
+        }
+
+        $signals = $this->decide->signals($options);
+        if ($provider === 'gemini_cli' && (
+            (bool) ($signals['has_visual_input'] ?? false)
+            || (bool) ($signals['has_file_input'] ?? false)
+            || ((int) ($signals['attachment_count'] ?? 0)) > 0
+            || in_array($signals['context_strategy_hint'] ?? null, ['long_context', 'multimodal', 'long_context_or_multimodal'], true)
+        )) {
+            return 88;
+        }
+
+        if ($provider === 'codex_cli' && in_array(data_get($signals, 'atlas_workflow_mode'), ['dev', 'debug', 'execute', 'quality_repair'], true)) {
+            return 86;
+        }
+
+        return 74;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function decisionCandidates(array $options, string $selectedProvider): array
+    {
+        $manualProvider = $this->decide->manualOverrideProvider($options);
+
+        return collect(self::INVOCATION_PROVIDERS)
+            ->map(fn (string $provider): array => [
+                'provider' => $provider,
+                'selected' => $provider === $selectedProvider,
+                'manual_override' => $manualProvider === $provider,
+                'allow_auto' => (bool) ($this->runtimeSettings->providerConfig($provider)['allow_auto'] ?? true),
+                'allow_manual' => (bool) ($this->runtimeSettings->providerConfig($provider)['allow_manual'] ?? true),
+                'model' => $this->models->resolveWithSource($provider)['model'],
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function decisionConstraints(array $options, string $selectedProvider): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+
+        return [
+            'is_automatic_invocation' => $this->isAutomaticInvocation($options),
+            'selected_provider_allow_auto' => (bool) ($this->runtimeSettings->providerConfig($selectedProvider)['allow_auto'] ?? true),
+            'selected_provider_allow_manual' => (bool) ($this->runtimeSettings->providerConfig($selectedProvider)['allow_manual'] ?? true),
+            'gemini_blocked_for_dev_like_task' => $this->geminiBlockedForInvocation($options),
+            'execution_policy' => data_get($payload, 'execution_policy'),
+            'budget_enabled' => (bool) data_get($this->runtimeSettings->effective(), 'budget.enabled', false),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $modelResolution
+     * @return array<string,mixed>
+     */
+    private function decisionMetricsSnapshot(array $options, array $modelResolution): array
+    {
+        return [
+            'default_provider' => $this->runtimeSettings->defaultProvider(),
+            'default_tier' => $this->runtimeSettings->defaultTier(),
+            'model_identity_source' => $modelResolution['source'] ?? 'unresolved',
+            'model_tier' => $modelResolution['model_tier'] ?? null,
+            'visible_tokens_budget_enabled' => (bool) data_get($this->runtimeSettings->effective(), 'budget.enabled', false),
+            'source_type' => $options['source_type'] ?? null,
+        ];
     }
 
     /**
@@ -627,8 +799,9 @@ class AiGatewayService
 
     private function shouldRunCouncil(array $options): bool
     {
+        $manualProvider = $this->decide->manualOverrideProvider($options);
         $requested = data_get($options, 'payload.execution_policy') === 'dual_review'
-            || data_get($options, 'payload.requested_provider') === 'claude_codex'
+            || $manualProvider === 'claude_codex'
             || ($options['provider'] ?? null) === 'claude_codex';
 
         return $requested && $this->providerAllowedForInvocation('claude_codex', $options) === 'claude_codex';
@@ -636,20 +809,20 @@ class AiGatewayService
 
     private function providerFromOptions(array $options): string
     {
-        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
-        if (($options['provider'] ?? null) === 'claude_codex'
-            || data_get($payload, 'requested_provider') === 'claude_codex'
-            || data_get($payload, 'execution_policy') === 'dual_review'
+        $manualProvider = $this->decide->manualOverrideProvider($options);
+        if ($manualProvider === 'claude_codex'
+            || data_get($options, 'payload.execution_policy') === 'dual_review'
         ) {
             return $this->providerAllowedForInvocation('claude_codex', $options);
         }
 
-        $provider = $options['provider'] ?? data_get($payload, 'requested_provider');
-        if (in_array($provider, self::INVOCATION_PROVIDERS, true)) {
-            return $this->providerAllowedForInvocation((string) $provider, $options, explicitProvider: true);
+        if (in_array($manualProvider, self::INVOCATION_PROVIDERS, true)) {
+            return $this->providerAllowedForInvocation((string) $manualProvider, $options, explicitProvider: true);
         }
 
-        return $this->providerAllowedForInvocation($this->runtimeSettings->defaultProvider(), $options, explicitProvider: false);
+        $candidate = $this->decide->candidateProvider($options, $this->runtimeSettings->defaultProvider());
+
+        return $this->providerAllowedForInvocation($candidate, $options, explicitProvider: false);
     }
 
     private function providerAllowedForInvocation(string $provider, array $options, bool $explicitProvider = false): string
@@ -675,6 +848,31 @@ class AiGatewayService
         }
 
         return $this->automaticFallbackProvider($options);
+    }
+
+    private function providerFallbackReason(string $candidateProvider, string $selectedProvider, array $options): string
+    {
+        if ($candidateProvider === $selectedProvider) {
+            return 'none';
+        }
+
+        if ($candidateProvider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
+            return 'gemini_blocked_for_dev_like_task';
+        }
+
+        if ($this->isAutomaticInvocation($options)
+            && ! (bool) ($this->runtimeSettings->providerConfig($candidateProvider)['allow_auto'] ?? true)
+        ) {
+            return 'candidate_auto_disabled';
+        }
+
+        if (! $this->isAutomaticInvocation($options)
+            && ! (bool) ($this->runtimeSettings->providerConfig($candidateProvider)['allow_manual'] ?? true)
+        ) {
+            return 'candidate_manual_disabled';
+        }
+
+        return 'provider_gate_fallback';
     }
 
     private function manualFallbackProvider(string $provider, array $options): string
@@ -714,7 +912,8 @@ class AiGatewayService
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
         $sourceType = $options['source_type'] ?? null;
 
-        return (bool) data_get($payload, 'automatic', false)
+        return data_get($payload, 'decision_mode') === 'atlas_decide'
+            || (bool) data_get($payload, 'automatic', false)
             || in_array($sourceType, ['capture', 'scheduled', 'system'], true);
     }
 

@@ -6,9 +6,10 @@ use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringDocLink;
 use App\Models\AtlasEngineeringKnowledgeItem;
+use App\Services\Tools\AtlasToolEvidenceStore;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -18,6 +19,8 @@ use SplFileInfo;
 class EngineeringCodeIntelligenceService
 {
     private const EXTENSIONS = ['php', 'ts', 'tsx', 'js', 'jsx', 'md'];
+
+    public function __construct(private readonly AtlasToolEvidenceStore $toolEvidence) {}
 
     /**
      * @param  array<string,mixed>  $options
@@ -30,86 +33,23 @@ class EngineeringCodeIntelligenceService
         $workspace = $this->workspace($options['workspace'] ?? base_path());
         $dryRun = (bool) ($options['dry_run'] ?? false);
         $prune = (bool) ($options['prune'] ?? false);
-        $files = $this->discoverFiles($workspace);
-        $modules = [];
-        $symbols = [];
-        $fileHashes = [];
-
-        foreach ($files as $path) {
-            $relativePath = $this->relativePath($path, $workspace);
-            $module = $this->moduleForPath($relativePath);
-            $modules[$module['slug']] ??= $this->emptyModule($module);
-            $content = File::get($path);
-            $fileHash = hash('sha256', $content);
-            $fileHashes[$relativePath] = $fileHash;
-            $language = $this->languageForPath($relativePath);
-
-            $modules[$module['slug']]['files'][$relativePath] = [
-                'path' => $relativePath,
-                'hash' => $fileHash,
-                'language' => $language,
-            ];
-            $modules[$module['slug']]['languages'][$language] = ($modules[$module['slug']]['languages'][$language] ?? 0) + 1;
-
-            $symbols[] = $this->symbol([
-                'module_slug' => $module['slug'],
-                'symbol_type' => 'file',
-                'symbol_name' => $relativePath,
-                'file_path' => $relativePath,
-                'line_start' => 1,
-                'language' => $language,
-                'signature' => $relativePath,
-                'metadata' => [
-                    'file_hash' => $fileHash,
-                    'extension' => pathinfo($relativePath, PATHINFO_EXTENSION),
-                ],
-            ]);
-
-            foreach ($this->parseFileSymbols($relativePath, $content, $module['slug']) as $symbol) {
-                $symbols[] = $symbol;
-            }
-        }
-
-        foreach ($symbols as $symbol) {
-            $moduleSlug = (string) ($symbol['module_slug'] ?? '');
-            if (isset($modules[$moduleSlug]) && $symbol['symbol_type'] !== 'file') {
-                $modules[$moduleSlug]['symbol_count']++;
-                match ($symbol['symbol_type']) {
-                    'route', 'api_resource' => $modules[$moduleSlug]['route_count']++,
-                    'cli_command' => $modules[$moduleSlug]['command_count']++,
-                    'migration_table' => $modules[$moduleSlug]['migration_count']++,
-                    'test_method' => $modules[$moduleSlug]['test_count']++,
-                    default => null,
-                };
-            }
-        }
-
-        $testPaths = collect($symbols)
-            ->where('symbol_type', 'test_method')
-            ->pluck('file_path')
-            ->unique()
-            ->values()
-            ->all();
-
-        $moduleRows = collect($modules)
-            ->map(fn (array $module): array => $this->finalizeModule($module, $fileHashes, $testPaths))
-            ->values()
-            ->all();
-        $symbolRows = collect($symbols)
-            ->map(fn (array $symbol): array => $this->finalizeSymbol($symbol))
-            ->values()
-            ->all();
+        $scan = $this->scanWorkspace($workspace);
+        $moduleRows = $scan['modules'];
+        $symbolRows = $scan['symbols'];
 
         if ($dryRun) {
-            return [
+            $payload = [
                 'ok' => true,
                 'dry_run' => true,
                 'workspace' => $workspace,
-                'summary' => $this->scanSummary($moduleRows, $symbolRows, 0),
+                'summary' => $scan['summary'],
                 'modules' => $moduleRows,
                 'symbols_preview' => array_slice($symbolRows, 0, 80),
                 'generated_at' => now()->toJSON(),
             ];
+            $this->recordToolRuntimeEvidence('index', $workspace, $payload);
+
+            return $payload;
         }
 
         $moduleIds = $this->persistModules($moduleRows, $prune);
@@ -117,7 +57,7 @@ class EngineeringCodeIntelligenceService
         $docLinkCount = $this->syncDocLinks($workspace, $prune);
         $this->refreshDocumentationStatus();
 
-        return [
+        $payload = [
             'ok' => true,
             'dry_run' => false,
             'workspace' => $workspace,
@@ -126,6 +66,60 @@ class EngineeringCodeIntelligenceService
             'symbol_count' => count($symbolIds),
             'generated_at' => now()->toJSON(),
         ];
+        $this->recordToolRuntimeEvidence('index', $workspace, $payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    public function audit(array $options = []): array
+    {
+        $this->ensureTables();
+
+        $workspace = $this->workspace($options['workspace'] ?? base_path());
+        $limit = $this->limit((int) ($options['limit'] ?? 50));
+        $scan = $this->scanWorkspace($workspace);
+        $modules = $this->moduleDrift($scan['modules'], $limit);
+        $symbols = $this->symbolDrift($scan['symbols'], $limit);
+        $docLinks = $this->docLinkHealth($workspace, $limit);
+        $moduleDrift = array_sum($modules['counts']);
+        $symbolDrift = array_sum($symbols['counts']);
+        $docLinkDrift = (int) ($docLinks['counts']['missing_targets'] ?? 0)
+            + (int) ($docLinks['counts']['stale_target_hashes'] ?? 0);
+        $totalDrift = $moduleDrift + $symbolDrift + $docLinkDrift;
+        $persisted = $this->summary();
+
+        $payload = [
+            'ok' => true,
+            'dry_run' => true,
+            'writes' => false,
+            'status' => ((int) ($persisted['module_count'] ?? 0)) === 0
+                ? 'empty_index'
+                : ($totalDrift > 0 ? 'drift_detected' : 'fresh'),
+            'workspace' => $workspace,
+            'summary' => [
+                'scanned' => $scan['summary'],
+                'persisted' => $persisted,
+                'drift' => [
+                    'total' => $totalDrift,
+                    'modules' => $modules['counts'],
+                    'symbols' => $symbols['counts'],
+                    'doc_links' => $docLinks['counts'],
+                ],
+            ],
+            'drift' => [
+                'modules' => $modules,
+                'symbols' => $symbols,
+                'doc_links' => $docLinks,
+            ],
+            'generated_at' => now()->toJSON(),
+        ];
+        $this->recordToolRuntimeEvidence('audit', $workspace, $payload);
+
+        return $payload;
     }
 
     /**
@@ -361,6 +355,523 @@ class EngineeringCodeIntelligenceService
             ->pluck('aggregate', $column)
             ->map(fn (mixed $count): int => (int) $count)
             ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function recordToolRuntimeEvidence(string $operation, string $workspace, array $payload): void
+    {
+        try {
+            $summary = (array) ($payload['summary'] ?? []);
+            $drift = (array) ($summary['drift'] ?? []);
+            $status = match ($operation) {
+                'audit' => (($payload['status'] ?? null) === 'fresh' ? 'passed' : 'failed'),
+                default => ($payload['ok'] ?? false) ? ((bool) ($payload['dry_run'] ?? false) ? 'skipped' : 'passed') : 'failed',
+            };
+
+            $this->toolEvidence->recordExternalToolResult('atlas_code_intelligence', $workspace, [
+                'status' => $status,
+                'required' => false,
+                'failure_policy' => 'advisory',
+                'policy_decision' => 'allowed',
+                'duration_ms' => 0,
+                'exit_code' => ($payload['ok'] ?? false) ? 0 : 1,
+                'category' => 'code_intelligence',
+                'metrics' => [
+                    'operation' => $operation,
+                    'module_count' => data_get($summary, 'module_count', data_get($summary, 'scanned.module_count')),
+                    'symbol_count' => data_get($summary, 'symbol_count', data_get($summary, 'scanned.symbol_count')),
+                    'route_count' => data_get($summary, 'route_count', data_get($summary, 'scanned.route_count')),
+                    'command_count' => data_get($summary, 'command_count', data_get($summary, 'scanned.command_count')),
+                    'migration_count' => data_get($summary, 'migration_count', data_get($summary, 'scanned.migration_count')),
+                    'test_count' => data_get($summary, 'test_count', data_get($summary, 'scanned.test_count')),
+                    'doc_link_count' => data_get($summary, 'doc_link_count', data_get($summary, 'scanned.doc_link_count')),
+                    'drift_total' => data_get($drift, 'total'),
+                ],
+                'findings' => $operation === 'audit' ? $this->toolRuntimeAuditFindings($payload) : [],
+                'recommendations' => $operation === 'audit' && ($payload['status'] ?? null) !== 'fresh'
+                    ? ['Run code intelligence indexing with --prune after reviewing drift, then update canonical docs if module ownership changed.']
+                    : [],
+            ], [
+                'surface' => 'engineering_code_intelligence',
+                'source' => 'engineering_code_intelligence_service',
+                'metadata' => [
+                    'operation' => $operation,
+                    'dry_run' => (bool) ($payload['dry_run'] ?? false),
+                    'writes' => (bool) ($payload['writes'] ?? ! (bool) ($payload['dry_run'] ?? false)),
+                    'status' => $payload['status'] ?? null,
+                    'generated_at' => $payload['generated_at'] ?? null,
+                ],
+            ]);
+        } catch (\Throwable) {
+            // Code intelligence must remain usable even when the generic runtime tables are absent.
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<int,array<string,mixed>>
+     */
+    private function toolRuntimeAuditFindings(array $payload): array
+    {
+        $findings = [];
+
+        foreach (['missing_in_index', 'removed_from_workspace', 'changed'] as $bucket) {
+            foreach ((array) data_get($payload, 'drift.modules.'.$bucket, []) as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $findings[] = [
+                    'rule_id' => 'atlas_code_intelligence.module_'.$this->safeDriftType($item['drift_type'] ?? $bucket),
+                    'title' => 'Code intelligence module drift: '.(string) ($item['slug'] ?? 'unknown'),
+                    'message' => (string) ($item['drift_type'] ?? $bucket),
+                    'severity' => 'medium',
+                    'file_path' => $item['root_path'] ?? null,
+                    'blocks_resolved' => false,
+                    'metadata' => $item,
+                ];
+            }
+        }
+
+        foreach (['added', 'removed'] as $bucket) {
+            foreach ((array) data_get($payload, 'drift.symbols.'.$bucket, []) as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $findings[] = [
+                    'rule_id' => 'atlas_code_intelligence.symbol_'.$this->safeDriftType($item['drift_type'] ?? $bucket),
+                    'title' => 'Code intelligence symbol drift: '.(string) ($item['symbol_name'] ?? 'unknown'),
+                    'message' => (string) ($item['drift_type'] ?? $bucket),
+                    'severity' => 'low',
+                    'file_path' => $item['file_path'] ?? null,
+                    'line' => $item['line_start'] ?? null,
+                    'blocks_resolved' => false,
+                    'metadata' => $item,
+                ];
+            }
+        }
+
+        foreach (['missing_targets', 'stale_target_hashes'] as $bucket) {
+            foreach ((array) data_get($payload, 'drift.doc_links.'.$bucket, []) as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $findings[] = [
+                    'rule_id' => 'atlas_code_intelligence.doc_link_'.$this->safeDriftType($item['status'] ?? $bucket),
+                    'title' => 'Code intelligence doc link drift',
+                    'message' => (string) ($item['status'] ?? $bucket),
+                    'severity' => 'medium',
+                    'file_path' => $item['canonical_path'] ?? null,
+                    'blocks_resolved' => false,
+                    'metadata' => $item,
+                ];
+            }
+        }
+
+        return array_slice($findings, 0, 100);
+    }
+
+    private function safeDriftType(mixed $value): string
+    {
+        return Str::slug((string) $value, '_') ?: 'drift';
+    }
+
+    /**
+     * @return array{modules:array<int,array<string,mixed>>,symbols:array<int,array<string,mixed>>,summary:array<string,mixed>}
+     */
+    private function scanWorkspace(string $workspace): array
+    {
+        $files = $this->discoverFiles($workspace);
+        $modules = [];
+        $symbols = [];
+        $fileHashes = [];
+
+        foreach ($files as $path) {
+            $relativePath = $this->relativePath($path, $workspace);
+            $module = $this->moduleForPath($relativePath);
+            $modules[$module['slug']] ??= $this->emptyModule($module);
+            $content = File::get($path);
+            $fileHash = hash('sha256', $content);
+            $fileHashes[$relativePath] = $fileHash;
+            $language = $this->languageForPath($relativePath);
+
+            $modules[$module['slug']]['files'][$relativePath] = [
+                'path' => $relativePath,
+                'hash' => $fileHash,
+                'language' => $language,
+            ];
+            $modules[$module['slug']]['languages'][$language] = ($modules[$module['slug']]['languages'][$language] ?? 0) + 1;
+
+            $symbols[] = $this->symbol([
+                'module_slug' => $module['slug'],
+                'symbol_type' => 'file',
+                'symbol_name' => $relativePath,
+                'file_path' => $relativePath,
+                'line_start' => 1,
+                'language' => $language,
+                'signature' => $relativePath,
+                'metadata' => [
+                    'file_hash' => $fileHash,
+                    'extension' => pathinfo($relativePath, PATHINFO_EXTENSION),
+                ],
+            ]);
+
+            foreach ($this->parseFileSymbols($relativePath, $content, $module['slug']) as $symbol) {
+                $symbols[] = $symbol;
+            }
+        }
+
+        foreach ($symbols as $symbol) {
+            $moduleSlug = (string) ($symbol['module_slug'] ?? '');
+            if (isset($modules[$moduleSlug]) && $symbol['symbol_type'] !== 'file') {
+                $modules[$moduleSlug]['symbol_count']++;
+                match ($symbol['symbol_type']) {
+                    'route', 'api_resource' => $modules[$moduleSlug]['route_count']++,
+                    'cli_command' => $modules[$moduleSlug]['command_count']++,
+                    'migration_table' => $modules[$moduleSlug]['migration_count']++,
+                    'test_method' => $modules[$moduleSlug]['test_count']++,
+                    default => null,
+                };
+            }
+        }
+
+        $testPaths = collect($symbols)
+            ->where('symbol_type', 'test_method')
+            ->pluck('file_path')
+            ->unique()
+            ->values()
+            ->all();
+
+        $moduleRows = collect($modules)
+            ->map(fn (array $module): array => $this->finalizeModule($module, $fileHashes, $testPaths))
+            ->values()
+            ->all();
+        $symbolRows = collect($symbols)
+            ->map(fn (array $symbol): array => $this->finalizeSymbol($symbol))
+            ->values()
+            ->all();
+
+        return [
+            'modules' => $moduleRows,
+            'symbols' => $symbolRows,
+            'summary' => $this->scanSummary($moduleRows, $symbolRows, 0),
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $moduleRows
+     * @return array<string,mixed>
+     */
+    private function moduleDrift(array $moduleRows, int $limit): array
+    {
+        $scanned = collect($moduleRows)->keyBy('slug');
+        $persisted = AtlasEngineeringCodeModule::query()
+            ->active()
+            ->get([
+                'slug',
+                'name',
+                'layer',
+                'root_path',
+                'docs_status',
+                'file_count',
+                'symbol_count',
+                'route_count',
+                'command_count',
+                'migration_count',
+                'test_count',
+                'source_hash',
+                'indexed_at',
+            ])
+            ->keyBy('slug');
+        $missingKeys = $scanned->keys()->diff($persisted->keys())->values();
+        $removedKeys = $persisted->keys()->diff($scanned->keys())->values();
+        $changed = $scanned
+            ->keys()
+            ->intersect($persisted->keys())
+            ->map(fn (string $slug): ?array => $this->changedModulePayload($scanned->get($slug), $persisted->get($slug)))
+            ->filter()
+            ->values();
+
+        return [
+            'counts' => [
+                'missing_in_index' => $missingKeys->count(),
+                'removed_from_workspace' => $removedKeys->count(),
+                'changed' => $changed->count(),
+            ],
+            'missing_in_index' => $missingKeys
+                ->take($limit)
+                ->map(fn (string $slug): array => $this->moduleAuditPayload($scanned->get($slug), 'missing_in_index'))
+                ->values()
+                ->all(),
+            'removed_from_workspace' => $removedKeys
+                ->take($limit)
+                ->map(fn (string $slug): array => $this->persistedModuleAuditPayload($persisted->get($slug), 'removed_from_workspace'))
+                ->values()
+                ->all(),
+            'changed' => $changed->take($limit)->values()->all(),
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $symbolRows
+     * @return array<string,mixed>
+     */
+    private function symbolDrift(array $symbolRows, int $limit): array
+    {
+        $scanned = collect($symbolRows)->keyBy(fn (array $symbol): string => $this->symbolSourceKey($symbol));
+        $persisted = AtlasEngineeringCodeSymbol::query()
+            ->with('module:id,slug')
+            ->active()
+            ->get([
+                'id',
+                'module_id',
+                'symbol_type',
+                'symbol_name',
+                'file_path',
+                'line_start',
+                'language',
+                'source_hash',
+                'indexed_at',
+            ])
+            ->keyBy(fn (AtlasEngineeringCodeSymbol $symbol): string => $this->symbolSourceKey([
+                'symbol_type' => $symbol->symbol_type,
+                'source_hash' => $symbol->source_hash,
+            ]));
+        $addedKeys = $scanned->keys()->diff($persisted->keys())->values();
+        $removedKeys = $persisted->keys()->diff($scanned->keys())->values();
+
+        return [
+            'counts' => [
+                'added' => $addedKeys->count(),
+                'removed' => $removedKeys->count(),
+            ],
+            'by_type' => [
+                'added' => $this->symbolDriftTypeCounts($addedKeys, $scanned),
+                'removed' => $this->symbolDriftTypeCounts($removedKeys, $persisted),
+            ],
+            'added' => $addedKeys
+                ->take($limit)
+                ->map(fn (string $key): array => $this->symbolAuditPayload($scanned->get($key), 'added'))
+                ->values()
+                ->all(),
+            'removed' => $removedKeys
+                ->take($limit)
+                ->map(fn (string $key): array => $this->persistedSymbolAuditPayload($persisted->get($key), 'removed'))
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function docLinkHealth(string $workspace, int $limit): array
+    {
+        $links = AtlasEngineeringDocLink::query()
+            ->whereNull('archived_at')
+            ->get(['id', 'status', 'canonical_path', 'target_path', 'target_hash', 'link_type', 'indexed_at']);
+        $missingTargets = [];
+        $staleHashes = [];
+
+        foreach ($links as $link) {
+            $targetPath = is_string($link->target_path) && trim($link->target_path) !== ''
+                ? trim($link->target_path)
+                : null;
+            if ($targetPath === null) {
+                continue;
+            }
+
+            $fullPath = $workspace.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $targetPath);
+            if (! File::exists($fullPath)) {
+                if ($link->status !== 'missing_target') {
+                    $missingTargets[] = $this->docLinkAuditPayload($link, 'missing_target_detected');
+                }
+
+                continue;
+            }
+
+            if (File::isFile($fullPath) && $link->target_hash && hash_file('sha256', $fullPath) !== $link->target_hash) {
+                $staleHashes[] = $this->docLinkAuditPayload($link, 'stale_target_hash');
+            }
+        }
+
+        return [
+            'counts' => [
+                'current' => $links->where('status', 'current')->count(),
+                'persisted_missing_target_status' => $links->where('status', 'missing_target')->count(),
+                'missing_targets' => count($missingTargets),
+                'stale_target_hashes' => count($staleHashes),
+            ],
+            'missing_targets' => array_slice($missingTargets, 0, $limit),
+            'stale_target_hashes' => array_slice($staleHashes, 0, $limit),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $scanned
+     * @return array<string,mixed>|null
+     */
+    private function changedModulePayload(?array $scanned, ?AtlasEngineeringCodeModule $persisted): ?array
+    {
+        if ($scanned === null || $persisted === null) {
+            return null;
+        }
+
+        $fields = ['source_hash', 'file_count', 'symbol_count', 'route_count', 'command_count', 'migration_count', 'test_count'];
+        $differences = [];
+        foreach ($fields as $field) {
+            $scannedValue = $scanned[$field] ?? null;
+            $persistedValue = $persisted->{$field};
+            if ((string) $scannedValue !== (string) $persistedValue) {
+                $differences[$field] = [
+                    'scanned' => $scannedValue,
+                    'persisted' => $persistedValue,
+                ];
+            }
+        }
+
+        if ($differences === []) {
+            return null;
+        }
+
+        return array_merge($this->moduleAuditPayload($scanned, 'changed'), [
+            'persisted' => [
+                'source_hash' => $persisted->source_hash,
+                'file_count' => $persisted->file_count,
+                'symbol_count' => $persisted->symbol_count,
+                'route_count' => $persisted->route_count,
+                'command_count' => $persisted->command_count,
+                'migration_count' => $persisted->migration_count,
+                'test_count' => $persisted->test_count,
+                'indexed_at' => $persisted->indexed_at?->toJSON(),
+            ],
+            'differences' => $differences,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $module
+     * @return array<string,mixed>
+     */
+    private function moduleAuditPayload(?array $module, string $reason): array
+    {
+        return [
+            'reason' => $reason,
+            'slug' => (string) ($module['slug'] ?? ''),
+            'name' => (string) ($module['name'] ?? ''),
+            'layer' => (string) ($module['layer'] ?? ''),
+            'root_path' => $module['root_path'] ?? null,
+            'source_hash' => (string) ($module['source_hash'] ?? ''),
+            'file_count' => (int) ($module['file_count'] ?? 0),
+            'symbol_count' => (int) ($module['symbol_count'] ?? 0),
+            'route_count' => (int) ($module['route_count'] ?? 0),
+            'command_count' => (int) ($module['command_count'] ?? 0),
+            'migration_count' => (int) ($module['migration_count'] ?? 0),
+            'test_count' => (int) ($module['test_count'] ?? 0),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function persistedModuleAuditPayload(?AtlasEngineeringCodeModule $module, string $reason): array
+    {
+        return [
+            'reason' => $reason,
+            'slug' => (string) ($module?->slug ?? ''),
+            'name' => (string) ($module?->name ?? ''),
+            'layer' => (string) ($module?->layer ?? ''),
+            'root_path' => $module?->root_path,
+            'docs_status' => (string) ($module?->docs_status ?? ''),
+            'source_hash' => (string) ($module?->source_hash ?? ''),
+            'file_count' => (int) ($module?->file_count ?? 0),
+            'symbol_count' => (int) ($module?->symbol_count ?? 0),
+            'route_count' => (int) ($module?->route_count ?? 0),
+            'command_count' => (int) ($module?->command_count ?? 0),
+            'migration_count' => (int) ($module?->migration_count ?? 0),
+            'test_count' => (int) ($module?->test_count ?? 0),
+            'indexed_at' => $module?->indexed_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $symbol
+     */
+    private function symbolSourceKey(array $symbol): string
+    {
+        return (string) ($symbol['symbol_type'] ?? '').'|'.(string) ($symbol['source_hash'] ?? '');
+    }
+
+    /**
+     * @param  Collection<int,string>  $keys
+     * @param  Collection<string,mixed>  $symbols
+     * @return array<string,int>
+     */
+    private function symbolDriftTypeCounts(Collection $keys, Collection $symbols): array
+    {
+        return $keys
+            ->map(fn (string $key): string => (string) data_get($symbols->get($key), 'symbol_type', 'unknown'))
+            ->countBy()
+            ->sortKeys()
+            ->map(fn (int $count): int => $count)
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $symbol
+     * @return array<string,mixed>
+     */
+    private function symbolAuditPayload(?array $symbol, string $reason): array
+    {
+        return [
+            'reason' => $reason,
+            'module_slug' => $symbol['module_slug'] ?? null,
+            'symbol_type' => (string) ($symbol['symbol_type'] ?? ''),
+            'symbol_name' => (string) ($symbol['symbol_name'] ?? ''),
+            'file_path' => (string) ($symbol['file_path'] ?? ''),
+            'line_start' => $symbol['line_start'] ?? null,
+            'language' => $symbol['language'] ?? null,
+            'source_hash' => (string) ($symbol['source_hash'] ?? ''),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function persistedSymbolAuditPayload(?AtlasEngineeringCodeSymbol $symbol, string $reason): array
+    {
+        return [
+            'reason' => $reason,
+            'module_slug' => $symbol?->module?->slug,
+            'symbol_type' => (string) ($symbol?->symbol_type ?? ''),
+            'symbol_name' => (string) ($symbol?->symbol_name ?? ''),
+            'file_path' => (string) ($symbol?->file_path ?? ''),
+            'line_start' => $symbol?->line_start,
+            'language' => $symbol?->language,
+            'source_hash' => (string) ($symbol?->source_hash ?? ''),
+            'indexed_at' => $symbol?->indexed_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function docLinkAuditPayload(AtlasEngineeringDocLink $link, string $reason): array
+    {
+        return [
+            'reason' => $reason,
+            'id' => $link->id,
+            'status' => $link->status,
+            'link_type' => $link->link_type,
+            'canonical_path' => $link->canonical_path,
+            'target_path' => $link->target_path,
+            'target_hash' => $link->target_hash,
+            'indexed_at' => $link->indexed_at?->toJSON(),
+        ];
     }
 
     /**

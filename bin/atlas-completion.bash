@@ -20,7 +20,7 @@ _atlas_complete() {
   local top_level="ask chat dev fix plan review compare debug research \
     threads sessions status dashboard tui state steer compact handoff switch \
     interrupt stop cancel continue resume start focus work worker daemon \
-    checkpoint checkpoints quality finish test benchmark bench engineering harness runtime tool search trace \
+    checkpoint checkpoints quality finish test benchmark bench engineering harness tools runtime tool search trace \
     permissions memory memory:list memory:add memory:audit memory:promote memory:govern memory:governance memory:review-queue memory:queue memory:relations memory:privacy memory:verbatim memory:projection mobile inbox insight insight-watch watch-insights \
     proposal proposal-scan proposals-scan scan-proposals self-diagnostic diagnostic \
     initiatives initiative schedule cron skills profile health providers \
@@ -68,6 +68,10 @@ _atlas_complete() {
       ;;
     runtime|tool)
       COMPREPLY=( $(compgen -W "git.status git.diff git.log fs.read fs.list shell.read test.run session.search workspace.profile" -- "${cur}") )
+      return 0
+      ;;
+    tools)
+      COMPREPLY=( $(compgen -W "doctor list status run evidence approve revoke policies --workspace= --command= --dry-run --approved --required --scope= --reason= --ttl-hours= --network-allowed --surface= --status= --policy-decision= --context-type= --context-id= --required-only --limit= --json" -- "${cur}") )
       return 0
       ;;
     completion)

@@ -138,10 +138,6 @@ class AiChatCommand extends Command
             return self::FAILURE;
         }
 
-        if ($pendingImages !== [] && ! $provider) {
-            $provider = $this->defaultProviderKey();
-        }
-
         if ((bool) $this->option('list-threads')) {
             $this->printThreads($workspace);
 
@@ -152,9 +148,6 @@ class AiChatCommand extends Command
 
         if (is_string($input) && trim($input) !== '') {
             $pendingImages = $this->maybeAutoAttachClipboardImage($imageAttachments, $workspace, trim($input), $pendingImages);
-            if ($pendingImages !== [] && ! $provider) {
-                $provider = $this->defaultProviderKey();
-            }
             $effectivePermission = $this->resolveEffectivePermission($intent, trim($input), $permissionMode);
             $trace = $this->send($gateway, $worker, trim($input), $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null || (bool) $this->option('new-thread'), $activatedSkills, $pendingImages, $modelSelection);
             $this->maybeRunDevQualityGate($quality, $workspace, $mode);
@@ -616,6 +609,8 @@ class AiChatCommand extends Command
             'app_surface' => 'atlas_cli',
             'atlas_workflow_mode' => $mode,
             'workspace' => $workspace,
+            'decision_mode' => $provider ? 'manual_override' : 'atlas_decide',
+            'operator_requested_provider' => $provider ?: 'auto',
             'requested_provider' => $provider,
             'requested_model' => $modelOverride,
             'requested_model_label' => $modelSelection['label'] ?? null,

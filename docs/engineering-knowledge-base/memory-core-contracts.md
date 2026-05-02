@@ -191,6 +191,7 @@ Regras:
 | `GET` | `/engineering/knowledge/context` | Preview de `knowledge_refs` |
 | `POST` | `/engineering/knowledge/sync` | Sync docs canonicos -> Postgres |
 | `POST` | `/engineering/knowledge/code/index` | Indexar codigo |
+| `GET` | `/engineering/knowledge/code/audit` | Comparar scan dry-run com indice persistido sem escrita |
 | `GET` | `/engineering/knowledge/code/modules` | Listar modulos |
 | `GET` | `/engineering/knowledge/code/modules/{module}` | Detalhe de modulo |
 | `GET` | `/engineering/knowledge/code/symbols` | Listar simbolos |
@@ -208,7 +209,7 @@ Regras:
 | `atlas:memory:relations` | Revisao de relacoes |
 | `atlas:memory:verbatim` | Verbatim Store |
 | `atlas:memory:projection` | Provider projections |
-| `atlas:engineering:knowledge` | Knowledge Base e Code Intelligence |
+| `atlas:engineering:knowledge` | Knowledge Base, Code Intelligence e auditoria de drift |
 
 ## Configuracao Relevante
 
@@ -225,4 +226,3 @@ Regras:
 | `ATLAS_AI_PROVIDER_PROJECTION_MEMORY_LIMIT` | Quantidade de memorias em projection |
 | `ATLAS_AI_PROVIDER_PROJECTION_MEMORY_CHARS` | Tamanho por memoria em projection |
 | `ATLAS_PRIVACY_BLOCK_EXTERNAL_AI_FOR` | Classes bloqueadas para provider |
-

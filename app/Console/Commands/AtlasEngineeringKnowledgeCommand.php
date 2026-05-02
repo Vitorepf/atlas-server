@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 class AtlasEngineeringKnowledgeCommand extends Command
 {
     protected $signature = 'atlas:engineering:knowledge
-        {action=status : status, sync, list, show, context, index-code, code-status, modules, symbols or show-module}
+        {action=status : status, sync, list, show, context, index-code, audit-code, code-status, modules, symbols or show-module}
         {item? : Knowledge item slug/id or code module slug/id}
         {--category= : Filter by category}
         {--status= : active, draft, archived or deprecated}
@@ -38,6 +38,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
             'show' => $this->renderShow($knowledge),
             'context' => $this->renderContext($knowledge),
             'index-code' => $this->renderCodeIndex($code),
+            'audit-code' => $this->renderCodeAudit($code),
             'code-status' => $this->renderCodeStatus($code),
             'modules' => $this->renderModules($code),
             'symbols' => $this->renderSymbols($code),
@@ -217,6 +218,34 @@ class AtlasEngineeringKnowledgeCommand extends Command
         $this->components->twoColumnDetail('commands', (string) ($summary['command_count'] ?? 0));
         $this->components->twoColumnDetail('doc links', (string) ($summary['doc_link_count'] ?? 0));
         $this->components->twoColumnDetail('last indexed', (string) ($summary['last_indexed_at'] ?? '-'));
+
+        return self::SUCCESS;
+    }
+
+    private function renderCodeAudit(EngineeringCodeIntelligenceService $code): int
+    {
+        $payload = $code->audit([
+            'workspace' => $this->stringOption('workspace'),
+            'limit' => (int) $this->option('limit'),
+        ]);
+
+        if ($this->json()) {
+            $this->line($this->encode($payload));
+
+            return self::SUCCESS;
+        }
+
+        $summary = $payload['summary'];
+        $drift = $summary['drift'] ?? [];
+        $this->components->twoColumnDetail('status', (string) ($payload['status'] ?? 'unknown'));
+        $this->components->twoColumnDetail('workspace', (string) ($payload['workspace'] ?? '-'));
+        $this->components->twoColumnDetail('total drift', (string) ($drift['total'] ?? 0));
+        $this->components->twoColumnDetail('modules changed', (string) data_get($drift, 'modules.changed', 0));
+        $this->components->twoColumnDetail('modules missing', (string) data_get($drift, 'modules.missing_in_index', 0));
+        $this->components->twoColumnDetail('modules removed', (string) data_get($drift, 'modules.removed_from_workspace', 0));
+        $this->components->twoColumnDetail('symbols added', (string) data_get($drift, 'symbols.added', 0));
+        $this->components->twoColumnDetail('symbols removed', (string) data_get($drift, 'symbols.removed', 0));
+        $this->components->twoColumnDetail('stale doc links', (string) data_get($drift, 'doc_links.stale_target_hashes', 0));
 
         return self::SUCCESS;
     }

@@ -95,7 +95,13 @@ atlas engineering knowledge list
 atlas engineering knowledge show engineering-knowledge-base-overview
 atlas engineering knowledge code-status
 atlas engineering knowledge modules
+atlas engineering knowledge symbols --symbol-type=cli_command
 ```
+
+No app, a superficie fica em `Home > Atlas Engineering > abrir`. O card
+`Engineering knowledge` mostra sync, indexacao, knowledge items, modulos,
+simbolos, filtros de Code Intelligence, painel `Code audit` sem escrita e
+detalhe de modulo com docs/testes.
 
 ## Docs Canonicos Principais
 
@@ -106,6 +112,7 @@ atlas engineering knowledge modules
 | `architecture.md` | Arquitetura da Engineering Knowledge Base |
 | `context-pack.md` | Como knowledge/code refs entram nos context packs |
 | `code-intelligence.md` | Indice de codigo, modulos, simbolos e doc links |
+| `super-tool-runtime-core.md` | Registry, politica, executor e evidence store genericos para ferramentas |
 | `capability-matrix.md` | Estado das capacidades do Harness |
 | `maintenance-playbook.md` | Manutencao operacional do Harness |
 | `memory-core-runbook.md` | Runbook diario de memoria, sync, privacy, projection e validacao |

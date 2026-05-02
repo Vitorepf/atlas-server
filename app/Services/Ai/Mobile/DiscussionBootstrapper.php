@@ -23,7 +23,15 @@ class DiscussionBootstrapper
     {
         $payload = $item->payload ?? [];
         $existingTraceId = $this->string(data_get($payload, 'discussion_bootstrap_trace_id'));
-        if ($existingTraceId && AiTrace::query()->whereKey($existingTraceId)->exists()) {
+        $existingTrace = $existingTraceId ? AiTrace::query()->find($existingTraceId) : null;
+        if ($existingTrace instanceof AiTrace) {
+            $this->syncThreadBootstrapMetadata($thread, [
+                'status' => $existingTrace->status,
+                'trace_id' => $existingTrace->id,
+                'error' => $this->traceError($existingTrace),
+                'context_bundle_id' => $item->context_bundle_id,
+            ]);
+
             return [
                 'status' => 'already_queued',
                 'trace_id' => $existingTraceId,
@@ -32,6 +40,17 @@ class DiscussionBootstrapper
         }
 
         if (! $this->gatewaySchemaReady()) {
+            $payload['discussion_bootstrap_status'] = 'skipped';
+            $payload['discussion_bootstrap_error'] = 'ai_gateway_schema_unavailable';
+            $payload['discussion_bootstrap_at'] = now()->toJSON();
+            $item->update(['payload' => $payload]);
+            $this->syncThreadBootstrapMetadata($thread, [
+                'status' => 'skipped',
+                'trace_id' => null,
+                'error' => 'ai_gateway_schema_unavailable',
+                'context_bundle_id' => $item->context_bundle_id,
+            ]);
+
             return [
                 'status' => 'skipped',
                 'reason' => 'ai_gateway_schema_unavailable',
@@ -58,7 +77,14 @@ class DiscussionBootstrapper
             $payload['discussion_bootstrap_trace_id'] = $trace->id;
             $payload['discussion_bootstrap_status'] = 'queued';
             $payload['discussion_bootstrap_at'] = now()->toJSON();
+            unset($payload['discussion_bootstrap_error']);
             $item->update(['payload' => $payload]);
+            $this->syncThreadBootstrapMetadata($thread, [
+                'status' => 'queued',
+                'trace_id' => $trace->id,
+                'error' => null,
+                'context_bundle_id' => $item->context_bundle_id,
+            ]);
 
             return [
                 'status' => 'queued',
@@ -72,6 +98,12 @@ class DiscussionBootstrapper
             $payload['discussion_bootstrap_error'] = $exception->getMessage();
             $payload['discussion_bootstrap_at'] = now()->toJSON();
             $item->update(['payload' => $payload]);
+            $this->syncThreadBootstrapMetadata($thread, [
+                'status' => 'failed',
+                'trace_id' => null,
+                'error' => $exception->getMessage(),
+                'context_bundle_id' => $item->context_bundle_id,
+            ]);
 
             return [
                 'status' => 'failed',
@@ -167,6 +199,30 @@ class DiscussionBootstrapper
                 'thread_id' => $thread->id,
             ],
         ];
+    }
+
+    /**
+     * @param  array{status:string,trace_id:?string,error:?string,context_bundle_id:?string}  $state
+     */
+    private function syncThreadBootstrapMetadata(AiThread $thread, array $state): void
+    {
+        $metadata = is_array($thread->metadata) ? $thread->metadata : [];
+        $metadata['discussion_bootstrap_status'] = $state['status'];
+        $metadata['discussion_bootstrap_trace_id'] = $state['trace_id'];
+        $metadata['discussion_bootstrap_error'] = $state['error'];
+        $metadata['discussion_bootstrap_context_bundle_id'] = $state['context_bundle_id'];
+        $metadata['discussion_bootstrap_at'] = now()->toJSON();
+        $metadata['discussion_bootstrap_source'] = 'inbox_discuss_action';
+
+        $thread->update(['metadata' => $metadata]);
+    }
+
+    private function traceError(AiTrace $trace): ?string
+    {
+        return $this->string(data_get($trace->metadata ?? [], 'error'))
+            ?? $this->string(data_get($trace->metadata ?? [], 'error_message'))
+            ?? $this->string(data_get($trace->job?->metadata ?? [], 'error'))
+            ?? $this->string(data_get($trace->job?->payload ?? [], 'error'));
     }
 
     private function string(mixed $value): ?string

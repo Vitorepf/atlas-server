@@ -40,6 +40,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
 use Mockery\MockInterface;
+use RuntimeException;
 use Tests\TestCase;
 
 class MobileGatewayTest extends TestCase
@@ -749,6 +750,43 @@ class MobileGatewayTest extends TestCase
             ->assertJsonPath('result.focus', 'operational')
             ->assertJsonPath('result.bootstrap.status', 'queued')
             ->assertJsonPath('result.bootstrap.trace_id', $traceId);
+    }
+
+    public function test_discuss_persists_failed_bootstrap_status_on_thread_metadata(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $this->createGatewaySchemaReadyTables();
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'category' => 'telemetry_health',
+            'title' => 'Atlas precisa discutir com falha de bootstrap',
+            'summary' => 'Falha deve aparecer na conversa.',
+        ]);
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->andThrow(new RuntimeException('gateway indisponivel'));
+        });
+
+        $threadId = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/discuss')
+            ->assertOk()
+            ->assertJsonPath('result.bootstrap.status', 'failed')
+            ->assertJsonPath('result.bootstrap.reason', 'gateway indisponivel')
+            ->json('result.thread_id');
+
+        $thread = AiThread::query()->findOrFail($threadId);
+        $this->assertSame('failed', data_get($thread->metadata, 'discussion_bootstrap_status'));
+        $this->assertSame('gateway indisponivel', data_get($thread->metadata, 'discussion_bootstrap_error'));
+        $this->assertNull(data_get($thread->metadata, 'discussion_bootstrap_trace_id'));
+        $this->assertSame($item->context_bundle_id, data_get($thread->metadata, 'discussion_bootstrap_context_bundle_id'));
+
+        $item->refresh();
+        $this->assertSame('failed', data_get($item->payload, 'discussion_bootstrap_status'));
+        $this->assertSame('gateway indisponivel', data_get($item->payload, 'discussion_bootstrap_error'));
     }
 
     public function test_mobile_thread_reply_forces_safe_read_runtime_policy(): void
@@ -1622,7 +1660,7 @@ class MobileGatewayTest extends TestCase
         Http::fake(['*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-health']], 200)]);
         $this->pairedDeviceToken('ExponentPushToken[test]');
 
-        app(AtlasInboxService::class)->create([
+        $item = app(AtlasInboxService::class)->create([
             'type' => 'insight',
             'category' => 'atlas',
             'severity' => 'critical',
@@ -1643,6 +1681,10 @@ class MobileGatewayTest extends TestCase
 
         $this->assertSame('Atlas precisa de revisao', $payload['title']);
         $this->assertSame('Saude do Atlas esta critica: score 0/100. Toque para ver causas e proximos passos.', $payload['body']);
+        $this->assertSame('atlas://inbox/'.$item->id.'/discuss', $payload['data']['deep_link']);
+        $this->assertSame('discuss', $payload['data']['open_action']);
+        $this->assertSame('operational', $payload['data']['atlas_mode']);
+        $this->assertSame('atlas_ai', $payload['data']['target']);
         $this->assertStringNotContainsString('Payload tecnico', json_encode($payload, JSON_UNESCAPED_SLASHES));
     }
 
@@ -3299,6 +3341,11 @@ PHP);
 
     private function dropMobileTables(): void
     {
+        Schema::dropIfExists('ai_provider_handoffs');
+        Schema::dropIfExists('ai_context_snapshots');
+        Schema::dropIfExists('ai_compactions');
+        Schema::dropIfExists('ai_session_states');
+        Schema::dropIfExists('ai_sessions');
         Schema::dropIfExists('ai_messages');
         Schema::dropIfExists('ai_threads');
         Schema::dropIfExists('ai_performance_recommendations');
@@ -3313,5 +3360,24 @@ PHP);
         Schema::dropIfExists('mobile_pairing_codes');
         Schema::dropIfExists('atlas_mobile_devices');
         Schema::dropIfExists('audit_events');
+    }
+
+    private function createGatewaySchemaReadyTables(): void
+    {
+        foreach ([
+            'ai_sessions',
+            'ai_session_states',
+            'ai_compactions',
+            'ai_context_snapshots',
+            'ai_provider_handoffs',
+        ] as $tableName) {
+            if (Schema::hasTable($tableName)) {
+                continue;
+            }
+
+            Schema::create($tableName, function (Blueprint $table): void {
+                $table->uuid('id')->primary();
+            });
+        }
     }
 }

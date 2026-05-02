@@ -30,7 +30,9 @@ class AiTaskRequest
             'desired_mode' => $mode,
             'intent' => (string) ($route['intent'] ?? 'general'),
             'requested_agent' => data_get($payload, 'requested_agent') ?: ($options['agent_slug'] ?? null),
-            'requested_provider' => data_get($payload, 'requested_provider') ?: ($options['provider'] ?? null),
+            'requested_provider' => data_get($payload, 'requested_provider')
+                ?: (data_get($payload, 'decision_mode') === 'manual_override' ? ($options['provider'] ?? null) : null),
+            'selected_provider' => $options['provider'] ?? null,
             'constraints' => array_values(array_filter((array) data_get($payload, 'constraints', []))),
             'privacy_class' => self::privacyClass($payload),
             'source' => [

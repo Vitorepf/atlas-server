@@ -38,7 +38,9 @@ class AiSessionStateService
                 'relevant_artifacts' => $artifacts,
                 'constraints' => $this->mergeItems($state->constraints ?? [], $this->constraintsFromPayload($payload)),
                 'provider_context' => array_merge($state->provider_context ?? [], [
-                    'requested_provider' => data_get($payload, 'requested_provider') ?: ($options['provider'] ?? null),
+                    'requested_provider' => data_get($payload, 'requested_provider')
+                        ?: (data_get($payload, 'decision_mode') === 'manual_override' ? ($options['provider'] ?? null) : null),
+                    'selected_provider' => $options['provider'] ?? null,
                     'requested_agent' => data_get($payload, 'requested_agent'),
                     'workflow_mode' => data_get($payload, 'atlas_workflow_mode'),
                     'last_user_message_at' => now()->toJSON(),

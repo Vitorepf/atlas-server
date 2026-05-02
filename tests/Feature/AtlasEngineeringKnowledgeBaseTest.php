@@ -344,6 +344,54 @@ PHP);
 
             $this->assertSame(0, $exitCode);
             $this->assertSame('engineering_harness_services', data_get($modulePayload, 'module.slug'));
+
+            $freshAudit = $service->audit(['workspace' => $workspace, 'limit' => 10]);
+            $this->assertSame('fresh', $freshAudit['status']);
+            $this->assertSame(0, data_get($freshAudit, 'summary.drift.total'));
+
+            File::put($workspace.'/app/Services/Engineering/FooService.php', <<<'PHP'
+<?php
+
+namespace App\Services\Engineering;
+
+class FooService
+{
+    public function handle(): void
+    {
+    }
+
+    public function repair(): void
+    {
+    }
+}
+PHP);
+
+            $driftAudit = $service->audit(['workspace' => $workspace, 'limit' => 10]);
+            $this->assertSame('drift_detected', $driftAudit['status']);
+            $this->assertGreaterThan(0, data_get($driftAudit, 'summary.drift.total'));
+            $this->assertSame(
+                'engineering_harness_services',
+                data_get($driftAudit, 'drift.modules.changed.0.slug'),
+            );
+            $this->assertGreaterThanOrEqual(1, data_get($driftAudit, 'summary.drift.symbols.added'));
+
+            $this->getJson('/engineering/knowledge/code/audit?workspace='.rawurlencode($workspace).'&limit=10', $this->headers)
+                ->assertOk()
+                ->assertJsonPath('dry_run', true)
+                ->assertJsonPath('writes', false)
+                ->assertJsonPath('status', 'drift_detected');
+
+            $exitCode = Artisan::call('atlas:engineering:knowledge', [
+                'action' => 'audit-code',
+                '--workspace' => $workspace,
+                '--limit' => 10,
+                '--json' => true,
+            ]);
+            $auditPayload = json_decode(Artisan::output(), true);
+
+            $this->assertSame(0, $exitCode);
+            $this->assertSame('drift_detected', data_get($auditPayload, 'status'));
+            $this->assertFalse((bool) data_get($auditPayload, 'writes'));
         } finally {
             File::deleteDirectory($workspace);
         }

@@ -211,6 +211,10 @@ case "$cmd" in
     shift || true
     exec_chat_prompt_with_workspace --mode=research --stream --no-skill-prompt -- "$@"
     ;;
+  decide|why)
+    shift || true
+    exec_artisan_with_workspace atlas:ai:decide "$@"
+    ;;
   threads|sessions)
     shift || true
     if has_workspace_arg "$@"; then
@@ -374,6 +378,10 @@ case "$cmd" in
         exec_artisan_with_workspace atlas:engineering:run "$@"
         ;;
     esac
+    ;;
+  tools)
+    shift || true
+    exec_artisan_with_workspace atlas:tools "$@"
     ;;
   runtime|tool)
     shift || true

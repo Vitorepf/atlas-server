@@ -127,7 +127,7 @@ Provider Projections controladas
 | L2 | Context Pack deterministico com `memory_refs` | Implementado |
 | L3 | Verbatim Store e recall textual provider-safe | Implementado |
 | L4 | Engineering Knowledge Base canonica | Implementado |
-| L5 | Engineering Code Intelligence Index | Implementado no `atlas-server`, pendente UI dedicada |
+| L5 | Engineering Code Intelligence Index | Implementado no `atlas-server` e navegavel no app |
 | L6 | Feedback loop de qualidade de contexto | Parcial: feedback e auditoria existem; otimizacao continua pendente |
 | L7 | Retrieval hibrido/semantico | Nao implementado por decisao |
 | L8 | Open Brain remoto/multi-tool | Nao implementado por decisao |
@@ -143,10 +143,10 @@ Provider Projections controladas
 | Deterministic Recall Composer | Implementado | Ranking deterministico entre registry, verbatim e semantica permitida |
 | Provider Projection | Implementado | Preview/write/adopt/status/audit/purge com guardrails |
 | Engineering Knowledge Base | Implementado | Docs canonicos + Postgres + CLI/API + app + context pack |
-| Engineering Code Intelligence Index | Implementado no backend | Modules/symbols/routes/commands/migrations/tests/doc links e `code_refs` |
+| Engineering Code Intelligence Index | Implementado | Modules/symbols/routes/commands/migrations/tests/doc links, `code_refs`, UI dedicada e audit-code |
 | Documentation Hardening | Implementado | Runbook, contratos, security/privacy, failure modes e DoD canonicos |
 | Documentation Preservation | Implementado | Documento mestre preservado no `atlas-server` e `START_HERE.md` como entrada canonica |
-| App de Knowledge/Memory | Parcial forte | Memory e Engineering mostram status, sync e detalhe; falta UI dedicada para code modules/symbols |
+| App de Knowledge/Memory | Parcial forte | Memory e Engineering mostram status, sync, detalhe, Code Intelligence navegavel e audit-code visual sem escrita |
 | Semantic/vector/Open Brain | Nao implementado | Mantido fora para preservar core deterministico |
 
 ## Status De Implementacao
@@ -2267,7 +2267,7 @@ Validacao executada:
 Ainda fica para as proximas fases:
 
 - UI dedicada no app para modulos, simbolos, rotas, comandos, migrations e cobertura de docs;
-- comando/endpoint de auditoria que compare `dry_run` com indice persistido sem exigir escrita;
+- comando/endpoint de auditoria que compare `dry_run` com indice persistido sem exigir escrita; **Status: entregue na Fase 4Z.**
 - ranking de `code_refs` considerando todos os tags do contrato, nao apenas o primeiro tag;
 - detecao mais rica de rotas multi-line/chained groups quando o Laravel usar padroes fora do estilo atual;
 - retrieval semantico/hibrido com embeddings, ChromaDB e vector search;
@@ -2319,8 +2319,6 @@ Validacao executada:
 
 Ainda fica para as proximas fases:
 
-- UI dedicada para Code Intelligence no app;
-- auditoria nao destrutiva que compare dry-run de Code Intelligence com indice persistido;
 - exemplos reais de payloads API capturados de ambiente seeded;
 - retrieval semantico/hibrido com embeddings, ChromaDB e vector search;
 - Open Brain remoto/multi-tool.
@@ -2366,8 +2364,136 @@ Validacao executada:
 Ainda fica para as proximas fases:
 
 - commit e push do `atlas-server` antes da troca de MacBook;
-- UI dedicada para Code Intelligence no app;
-- auditoria nao destrutiva que compare dry-run de Code Intelligence com indice persistido;
+- retrieval semantico/hibrido com embeddings, ChromaDB e vector search;
+- Open Brain remoto/multi-tool.
+
+### Fase 4Y - Engineering Code Intelligence UI
+
+Status: **implementada como superficie navegavel no app**.
+
+Objetivo entregue: transformar o Code Intelligence Index ja persistido no `atlas-server` em uma superficie operacional no app, permitindo que uma IA ou operador veja modulos, simbolos, cobertura de docs e relacoes com testes sem depender de CLI. Esta fase nao adiciona embeddings, ChromaDB, vector search ou Open Brain remoto.
+
+Capacidades entregues:
+
+- card de Engineering Knowledge passa a listar modulos de codigo com metadados de layer, root path, files, simbolos, rotas, comandos e testes;
+- filtros visuais para modulos por `layer` e `docs_status`;
+- filtro visual para simbolos por `symbol_type`;
+- abertura de modulo com detalhe de docs relacionados, testes relacionados, doc links e simbolos principais;
+- cliente TypeScript usa as rotas existentes de modules, symbols e module detail;
+- helpers front centralizam linhas de metadados para knowledge items, modules e symbols;
+- `npm run test:front` passa a executar tambem o teste focado de Engineering Knowledge.
+
+Arquivos integrados nesta fase:
+
+- `atlas-app/app/engineering.tsx`
+- `atlas-app/lib/engineeringKnowledge.ts`
+- `atlas-app/scripts/engineering-knowledge.test.ts`
+- `atlas-app/package.json`
+- `Atlas_AI_Memory_Context_Core_Open_Brain.md`
+
+Validacao executada:
+
+- `./node_modules/.bin/tsx scripts/engineering-knowledge.test.ts`
+- `npm run typecheck`
+- `npm run test:front`
+- `/opt/homebrew/bin/php artisan test --filter=AtlasEngineeringKnowledgeBaseTest`
+- `/opt/homebrew/bin/php artisan atlas:engineering:knowledge sync --prune` (0 criados, 1 atualizado, 13 inalterados, 0 falhas)
+- `/opt/homebrew/bin/php artisan atlas:engineering:knowledge index-code --prune --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json` (22 modulos, 7663 simbolos, 221 rotas, 85 comandos, 284 migrations, 678 testes, 2239 doc links)
+- `/opt/homebrew/bin/php artisan atlas:engineering:knowledge code-status --json` (`ready`, 22 modulos, 7663 simbolos, 2239 doc links)
+- `rg -n "[ \t]+$" Atlas_AI_Memory_Context_Core_Open_Brain.md atlas-server/docs/engineering-knowledge-base atlas-app/app/engineering.tsx atlas-app/lib/engineeringKnowledge.ts atlas-app/scripts/engineering-knowledge.test.ts atlas-app/package.json` (sem ocorrencias)
+- `git diff --check -- app/engineering.tsx lib/engineeringKnowledge.ts scripts/engineering-knowledge.test.ts package.json`
+
+Ainda fica para as proximas fases:
+
+- commit e push do `atlas-server` antes da troca de MacBook;
+- exemplos reais de payloads API capturados de ambiente seeded;
+- retrieval semantico/hibrido com embeddings, ChromaDB e vector search;
+- Open Brain remoto/multi-tool.
+
+### Fase 4Z - Engineering Code Intelligence Drift Audit
+
+Status: **implementada como auditoria deterministica sem escrita**.
+
+Objetivo entregue: permitir comparar o scan atual do workspace com o indice de Code Intelligence persistido, sem alterar banco nem arquivos, para detectar quando o Atlas esta prestes a montar context packs com codigo stale. Esta fase nao adiciona embeddings, ChromaDB, vector search ou Open Brain remoto.
+
+Capacidades entregues:
+
+- `EngineeringCodeIntelligenceService::audit()` executa scan dry-run e compara com modulos/simbolos/doc links persistidos;
+- status `fresh`, `drift_detected` e `empty_index`;
+- drift de modulos cobre missing in index, removidos do workspace e alterados por hash/contagem;
+- drift de simbolos cobre adicionados/removidos e agrega por `symbol_type`;
+- health de doc links detecta targets ausentes inesperados e hashes divergentes sem reescrever links;
+- endpoint `GET /engineering/knowledge/code/audit`;
+- CLI `atlas:engineering:knowledge audit-code`;
+- teste fixture cobre indice fresco, drift real apos mudar um service, API e CLI.
+
+Arquivos integrados nesta fase:
+
+- `atlas-server/app/Services/Engineering/EngineeringCodeIntelligenceService.php`
+- `atlas-server/app/Http/Controllers/EngineeringKnowledgeController.php`
+- `atlas-server/app/Console/Commands/AtlasEngineeringKnowledgeCommand.php`
+- `atlas-server/routes/api.php`
+- `atlas-server/tests/Feature/AtlasEngineeringKnowledgeBaseTest.php`
+- `atlas-server/docs/engineering-knowledge-base/code-intelligence.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-runbook.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-contracts.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-maturity-dod.md`
+- `Atlas_AI_Memory_Context_Core_Open_Brain.md`
+
+Validacao executada:
+
+- `/opt/homebrew/bin/php -l app/Services/Engineering/EngineeringCodeIntelligenceService.php`
+- `/opt/homebrew/bin/php -l app/Http/Controllers/EngineeringKnowledgeController.php`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasEngineeringKnowledgeCommand.php`
+- `/opt/homebrew/bin/php -l tests/Feature/AtlasEngineeringKnowledgeBaseTest.php`
+- `/opt/homebrew/bin/php artisan test --filter=AtlasEngineeringKnowledgeBaseTest`
+- `/opt/homebrew/bin/php artisan route:list --path=engineering/knowledge/code`
+- `/opt/homebrew/bin/php artisan atlas:engineering:knowledge audit-code --workspace=/Users/vitorepf/Develop/atlas/atlas-server` (`fresh`, total drift 0)
+- `/opt/homebrew/bin/php artisan atlas:engineering:knowledge sync --prune`
+- `/opt/homebrew/bin/php artisan atlas:engineering:knowledge index-code --prune --workspace=/Users/vitorepf/Develop/atlas/atlas-server` (22 modulos, 7806 simbolos, 227 rotas, 86 comandos, 296 migrations, 684 testes, 2447 doc links)
+- `/opt/homebrew/bin/php artisan atlas:engineering:knowledge code-status --json` (`ready`, 22 modulos, 7806 simbolos, 2447 doc links)
+- `rg -n "[ \t]+$" Atlas_AI_Memory_Context_Core_Open_Brain.md atlas-server/docs/engineering-knowledge-base atlas-server/app/Services/Engineering/EngineeringCodeIntelligenceService.php atlas-server/app/Http/Controllers/EngineeringKnowledgeController.php atlas-server/app/Console/Commands/AtlasEngineeringKnowledgeCommand.php atlas-server/routes/api.php atlas-server/tests/Feature/AtlasEngineeringKnowledgeBaseTest.php` (sem ocorrencias)
+- `git diff --check -- app/Services/Engineering/EngineeringCodeIntelligenceService.php app/Http/Controllers/EngineeringKnowledgeController.php app/Console/Commands/AtlasEngineeringKnowledgeCommand.php routes/api.php tests/Feature/AtlasEngineeringKnowledgeBaseTest.php docs/engineering-knowledge-base/code-intelligence.md docs/engineering-knowledge-base/memory-core-runbook.md docs/engineering-knowledge-base/memory-core-contracts.md docs/engineering-knowledge-base/memory-core-maturity-dod.md docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md`
+
+### Fase 4AA - Engineering Code Audit UI
+
+Status: **implementada no `atlas-app` como painel operacional sem escrita**.
+
+Objetivo entregue: expor o `audit-code` na tela Engineering para que o operador veja se o Code Intelligence Index esta `fresh`, com `drift_detected` ou com `empty_index` antes de confiar nos `code_refs` de context packs. Esta fase apenas consome a API deterministica ja existente; nao adiciona embeddings, ChromaDB, vector search, Open Brain remoto nem escrita automatica.
+
+Capacidades entregues:
+
+- cliente TypeScript tipa `GET /engineering/knowledge/code/audit`;
+- helper de UI resume status e drift total por modulos, simbolos e doc links;
+- tela `Engineering` mostra painel `Code audit` dentro de `Engineering knowledge`;
+- botao `Auditar` executa dry-run sem escrita e mostra `fresh`/`drift`/`indice vazio`;
+- apos `Indexar codigo`, o app roda auditoria sem toast extra para confirmar o estado final;
+- testes front cobrem helper de status e resumo de drift.
+
+Arquivos integrados nesta fase:
+
+- `atlas-app/lib/api/client.ts`
+- `atlas-app/lib/engineeringKnowledge.ts`
+- `atlas-app/app/engineering.tsx`
+- `atlas-app/scripts/engineering-knowledge.test.ts`
+- `Atlas_AI_Memory_Context_Core_Open_Brain.md`
+- `atlas-server/docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md`
+- `atlas-server/docs/engineering-knowledge-base/code-intelligence.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-maturity-dod.md`
+
+Validacao executada:
+
+- `npm run typecheck`
+- `npm run test:engineering`
+- `/opt/homebrew/bin/php artisan atlas:engineering:knowledge sync --prune`
+- `/opt/homebrew/bin/php artisan atlas:engineering:knowledge index-code --prune --workspace=/Users/vitorepf/Develop/atlas/atlas-server` (22 modulos, 7807 simbolos, 2450 doc links)
+- `/opt/homebrew/bin/php artisan atlas:engineering:knowledge audit-code --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json` (`fresh`, total drift 0)
+- `/opt/homebrew/bin/php artisan atlas:engineering:knowledge code-status --json` (`ready`, 22 modulos, 7807 simbolos, 2450 doc links)
+
+Ainda fica para as proximas fases:
+
+- commit e push do `atlas-server` antes da troca de MacBook;
+- exemplos reais de payloads API capturados de ambiente seeded;
 - retrieval semantico/hibrido com embeddings, ChromaDB e vector search;
 - Open Brain remoto/multi-tool.
 

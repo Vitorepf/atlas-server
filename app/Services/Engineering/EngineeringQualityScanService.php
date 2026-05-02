@@ -2,8 +2,11 @@
 
 namespace App\Services\Engineering;
 
+use App\Services\Tools\AtlasToolEvidenceStore;
+use App\Services\Tools\AtlasToolResultNormalizer;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
@@ -11,6 +14,11 @@ use Symfony\Component\Process\Process;
 class EngineeringQualityScanService
 {
     private const OUTPUT_LIMIT = 12000;
+
+    public function __construct(
+        private readonly AtlasToolEvidenceStore $toolEvidence,
+        private readonly AtlasToolResultNormalizer $toolNormalizer,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $options
@@ -71,6 +79,7 @@ class EngineeringQualityScanService
         ];
 
         File::put($artifactRoot.'/scan.json', json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->recordToolRuntimeEvidence($workspace, $artifactRoot, $payload);
 
         return $payload;
     }
@@ -335,6 +344,11 @@ class EngineeringQualityScanService
             'stdout_artifact' => $slug.'/stdout.txt',
             'stderr_artifact' => $slug.'/stderr.txt',
             'result_artifact' => $slug.'/result.json',
+            'artifact_paths' => [
+                'stdout' => $toolRoot.'/stdout.txt',
+                'stderr' => $toolRoot.'/stderr.txt',
+                'result' => $toolRoot.'/result.json',
+            ],
             'stdout_excerpt' => Str::limit($this->stripAnsi($stdout), self::OUTPUT_LIMIT, "\n...[truncated]"),
             'stderr_excerpt' => Str::limit($this->stripAnsi($stderr), self::OUTPUT_LIMIT, "\n...[truncated]"),
             'findings' => $parsed,
@@ -363,137 +377,7 @@ class EngineeringQualityScanService
      */
     private function parseFindings(string $parser, string $stdout, string $stderr): array
     {
-        $payload = json_decode(trim($stdout), true);
-        if (! is_array($payload)) {
-            return [];
-        }
-
-        return match ($parser) {
-            'gitleaks' => $this->parseGitleaks($payload),
-            'semgrep' => $this->parseSemgrep($payload),
-            'eslint' => $this->parseEslint($payload),
-            'phpstan' => $this->parsePhpstan($payload),
-            'shellcheck' => $this->parseShellCheck($payload),
-            default => [],
-        };
-    }
-
-    /**
-     * @param  array<mixed>  $payload
-     * @return array<int,array<string,mixed>>
-     */
-    private function parseGitleaks(array $payload): array
-    {
-        return collect($payload)
-            ->filter(fn (mixed $item): bool => is_array($item))
-            ->map(fn (array $item): array => [
-                'severity' => 'critical',
-                'rule_id' => $item['RuleID'] ?? $item['rule'] ?? 'gitleaks',
-                'title' => $item['Description'] ?? 'Secret detected',
-                'file' => $item['File'] ?? null,
-                'line' => $item['StartLine'] ?? null,
-                'message' => $item['Description'] ?? 'Gitleaks detected a secret-like value.',
-                'blocks_resolved' => true,
-            ])
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  array<mixed>  $payload
-     * @return array<int,array<string,mixed>>
-     */
-    private function parseSemgrep(array $payload): array
-    {
-        return collect((array) ($payload['results'] ?? []))
-            ->filter(fn (mixed $item): bool => is_array($item))
-            ->map(function (array $item): array {
-                $severity = strtolower((string) data_get($item, 'extra.severity', 'warning'));
-
-                return [
-                    'severity' => in_array($severity, ['error', 'critical', 'high'], true) ? 'high' : ($severity === 'warning' ? 'medium' : 'low'),
-                    'rule_id' => $item['check_id'] ?? 'semgrep',
-                    'title' => data_get($item, 'extra.message', 'Semgrep finding'),
-                    'file' => $item['path'] ?? null,
-                    'line' => data_get($item, 'start.line'),
-                    'message' => data_get($item, 'extra.message', 'Semgrep finding'),
-                    'blocks_resolved' => in_array($severity, ['error', 'critical', 'high'], true),
-                ];
-            })
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  array<mixed>  $payload
-     * @return array<int,array<string,mixed>>
-     */
-    private function parseEslint(array $payload): array
-    {
-        return collect($payload)
-            ->filter(fn (mixed $file): bool => is_array($file))
-            ->flatMap(function (array $file): array {
-                return collect((array) ($file['messages'] ?? []))
-                    ->filter(fn (mixed $message): bool => is_array($message))
-                    ->map(fn (array $message): array => [
-                        'severity' => ((int) ($message['severity'] ?? 0)) >= 2 ? 'high' : 'medium',
-                        'rule_id' => $message['ruleId'] ?? 'eslint',
-                        'title' => $message['message'] ?? 'ESLint finding',
-                        'file' => $file['filePath'] ?? null,
-                        'line' => $message['line'] ?? null,
-                        'message' => $message['message'] ?? 'ESLint finding',
-                        'blocks_resolved' => ((int) ($message['severity'] ?? 0)) >= 2,
-                    ])
-                    ->all();
-            })
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  array<mixed>  $payload
-     * @return array<int,array<string,mixed>>
-     */
-    private function parsePhpstan(array $payload): array
-    {
-        return collect((array) ($payload['files'] ?? []))
-            ->flatMap(function (array $file, string $path): array {
-                return collect((array) ($file['messages'] ?? []))
-                    ->filter(fn (mixed $message): bool => is_array($message))
-                    ->map(fn (array $message): array => [
-                        'severity' => 'high',
-                        'rule_id' => $message['identifier'] ?? 'phpstan',
-                        'title' => $message['message'] ?? 'PHPStan finding',
-                        'file' => $path,
-                        'line' => $message['line'] ?? null,
-                        'message' => $message['message'] ?? 'PHPStan finding',
-                        'blocks_resolved' => true,
-                    ])
-                    ->all();
-            })
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  array<mixed>  $payload
-     * @return array<int,array<string,mixed>>
-     */
-    private function parseShellCheck(array $payload): array
-    {
-        return collect((array) ($payload['comments'] ?? []))
-            ->filter(fn (mixed $item): bool => is_array($item))
-            ->map(fn (array $item): array => [
-                'severity' => in_array($item['level'] ?? '', ['error'], true) ? 'high' : 'medium',
-                'rule_id' => isset($item['code']) ? 'SC'.$item['code'] : 'shellcheck',
-                'title' => $item['message'] ?? 'ShellCheck finding',
-                'file' => $item['file'] ?? null,
-                'line' => $item['line'] ?? null,
-                'message' => $item['message'] ?? 'ShellCheck finding',
-                'blocks_resolved' => in_array($item['level'] ?? '', ['error'], true),
-            ])
-            ->values()
-            ->all();
+        return $this->toolNormalizer->findingsFromOutput($parser, $stdout, $stderr);
     }
 
     /**
@@ -639,5 +523,31 @@ class EngineeringQualityScanService
     private function stripAnsi(string $value): string
     {
         return preg_replace('/\x1B(?:[@-Z\\\\-_]|\[[0-?]*[ -\/]*[@-~])/', '', $value) ?? $value;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function recordToolRuntimeEvidence(string $workspace, string $artifactRoot, array $payload): void
+    {
+        if (! Schema::hasTable('atlas_tool_runs')) {
+            return;
+        }
+
+        foreach ((array) ($payload['tools'] ?? []) as $tool) {
+            if (! is_array($tool)) {
+                continue;
+            }
+
+            $this->toolEvidence->recordExternalToolResult((string) ($tool['slug'] ?? 'unknown'), $workspace, $tool, [
+                'surface' => 'engineering_quality_scan',
+                'source' => 'engineering_quality_scan_service',
+                'metadata' => [
+                    'scan_artifact_root_hash' => hash('sha256', $artifactRoot),
+                    'profile' => $payload['profile'] ?? null,
+                    'changed_only' => $payload['changed_only'] ?? false,
+                ],
+            ]);
+        }
     }
 }

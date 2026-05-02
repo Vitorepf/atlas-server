@@ -110,6 +110,7 @@ Indexacao real:
 Auditoria de simbolos:
 
 ```bash
+/opt/homebrew/bin/php artisan atlas:engineering:knowledge audit-code --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json
 /opt/homebrew/bin/php artisan atlas:engineering:knowledge symbols --symbol-type=route --limit=50 --json
 /opt/homebrew/bin/php artisan atlas:engineering:knowledge symbols --symbol-type=cli_command --limit=50 --json
 /opt/homebrew/bin/php artisan atlas:engineering:knowledge show-module engineering_harness_services --json
@@ -117,6 +118,10 @@ Auditoria de simbolos:
 
 Nota: `index-code --dry-run` pode mostrar `doc_link_count=0`, porque doc links
 sao recalculados a partir do estado persistido durante a indexacao real.
+Use `audit-code` para comparar o scan atual com o indice persistido sem escrever
+no banco. `fresh` significa que o indice acompanha o workspace; `drift_detected`
+significa que `index-code --prune` deve ser considerado antes de montar context
+packs confiaveis.
 
 ## Memory Registry
 
