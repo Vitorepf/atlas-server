@@ -11,6 +11,10 @@ class ClaudeCliProvider implements AiProvider
 
     private string $streamJsonBuffer = '';
 
+    public function __construct(
+        private readonly AtlasAiRuntimeSettings $runtimeSettings,
+    ) {}
+
     public function key(): string
     {
         return 'claude_cli';
@@ -23,7 +27,7 @@ class ClaudeCliProvider implements AiProvider
 
     public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
     {
-        $provider = config('atlas.ai.providers.claude_cli');
+        $provider = $this->runtimeSettings->providerConfig('claude_cli');
         $binary = (string) ($provider['binary'] ?? 'claude');
         $args = (array) ($provider['args'] ?? ['-p']);
         $this->streamJsonBuffer = '';
@@ -41,12 +45,13 @@ class ClaudeCliProvider implements AiProvider
             timeoutSeconds: $job->timeout_seconds,
             cwd: $this->workdirForJob($job),
             onEvent: $onEvent,
+            job: $job,
         );
     }
 
     public function health(): AiProviderHealthCheck
     {
-        return $this->checkBinary($this->key(), (string) config('atlas.ai.providers.claude_cli.binary', 'claude'));
+        return $this->checkBinary($this->key(), (string) ($this->runtimeSettings->providerConfig('claude_cli')['binary'] ?? 'claude'));
     }
 
     protected function extractOutput(string $stdout): string

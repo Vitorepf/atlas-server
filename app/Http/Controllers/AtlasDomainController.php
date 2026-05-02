@@ -8,6 +8,7 @@ use App\Services\AtlasDomainRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class AtlasDomainController extends Controller
 {
@@ -23,6 +24,8 @@ class AtlasDomainController extends Controller
     public function store(Request $request, AtlasDomainRegistry $registry): JsonResponse
     {
         $data = $this->validated($request);
+        $registry->syncConfiguredDefaults();
+
         $slug = $registry->normalizeSlug((string) $data['slug']);
 
         validator(['slug' => $slug], [
@@ -46,10 +49,16 @@ class AtlasDomainController extends Controller
             ->setStatusCode(201);
     }
 
-    public function update(Request $request, AtlasDomain $domain): AtlasDomainResource
+    public function update(Request $request, AtlasDomain $domain, AtlasDomainRegistry $registry): AtlasDomainResource
     {
         $data = $this->validated($request, partial: true);
         unset($data['slug']);
+
+        if (($data['active'] ?? null) === false && $registry->isConfiguredDefault($domain->slug)) {
+            throw ValidationException::withMessages([
+                'active' => 'Dominios canonicos do Atlas nao podem ser desativados.',
+            ]);
+        }
 
         $domain->update([
             ...$data,
@@ -59,8 +68,15 @@ class AtlasDomainController extends Controller
         return new AtlasDomainResource($domain->refresh());
     }
 
-    public function destroy(AtlasDomain $domain): AtlasDomainResource
+    public function destroy(AtlasDomain $domain, AtlasDomainRegistry $registry): AtlasDomainResource|JsonResponse
     {
+        if ($registry->isConfiguredDefault($domain->slug)) {
+            return response()->json([
+                'message' => 'Dominios canonicos do Atlas nao podem ser desativados.',
+                'code' => 'canonical_domain_locked',
+            ], 422);
+        }
+
         $domain->update(['active' => false]);
 
         return new AtlasDomainResource($domain->refresh());

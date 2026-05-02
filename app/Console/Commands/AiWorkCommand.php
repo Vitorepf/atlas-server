@@ -15,7 +15,7 @@ class AiWorkCommand extends Command
         {--provider= : Restrict worker to one provider}
         {--worker-id= : Override worker identifier}';
 
-    protected $description = 'Run the local Atlas AI desktop worker for Claude/Codex CLI jobs.';
+    protected $description = 'Run the local Atlas desktop worker for Claude/Codex CLI jobs.';
 
     public function handle(AiWorker $worker, AiWorkerLogger $logger): int
     {
@@ -27,7 +27,7 @@ class AiWorkCommand extends Command
         $processed = 0;
         $lastHeartbeatAt = null;
 
-        $logger->event('worker_started', 'Atlas AI worker started.', provider: $provider, workerId: $workerId, metadata: [
+        $logger->event('worker_started', 'Atlas worker started.', provider: $provider, workerId: $workerId, metadata: [
             'provider' => $provider,
             'once' => $once,
             'limit' => $limit,
@@ -49,7 +49,7 @@ class AiWorkCommand extends Command
                     break;
                 } else {
                     if ($lastHeartbeatAt === null || $lastHeartbeatAt->diffInSeconds(now(), true) >= 60) {
-                        $logger->event('worker_heartbeat', 'Atlas AI worker alive.', provider: $provider, workerId: $workerId, metadata: [
+                        $logger->event('worker_heartbeat', 'Atlas worker alive.', provider: $provider, workerId: $workerId, metadata: [
                             'provider' => $provider,
                             'processed' => $processed,
                         ]);
@@ -64,7 +64,7 @@ class AiWorkCommand extends Command
                 }
             }
         } finally {
-            $logger->event('worker_stopped', 'Atlas AI worker stopped.', provider: $provider, workerId: $workerId, metadata: [
+            $logger->event('worker_stopped', 'Atlas worker stopped.', provider: $provider, workerId: $workerId, metadata: [
                 'processed' => $processed,
             ]);
         }

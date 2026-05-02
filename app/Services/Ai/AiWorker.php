@@ -34,6 +34,8 @@ class AiWorker
         private readonly AuditLogService $audit,
         private readonly JobResultInboxEmitter $jobResults,
         private readonly AiProviderChoiceBuilder $choices,
+        private readonly AiRuntimeBudgetService $budgets,
+        private readonly AtlasAiRuntimeSettings $runtimeSettings,
     ) {}
 
     public function runNext(?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
@@ -61,7 +63,7 @@ class AiWorker
             $this->council->sync($job->trace()->firstOrFail());
         }
 
-        $providerKey = $providerOverride ?: $job->provider ?: (string) config('atlas.ai.default_provider', 'claude_cli');
+        $providerKey = $providerOverride ?: $job->provider ?: $this->runtimeSettings->defaultProvider();
         $job = $this->ensureJobModelIdentity($job, $providerKey);
         $provider = $this->providers->get($providerKey);
         $permission = $this->permissions->authorizeJob($job, $providerKey);
@@ -306,15 +308,27 @@ class AiWorker
             'model' => $resolution['model'],
             'payload' => array_merge($payload, [
                 'model_identity_source' => $resolution['source'],
+                'model_label' => $resolution['model_label'] ?? $resolution['model'],
+                'model_tier' => $resolution['model_tier'] ?? config('atlas.ai.default_tier', 'daily'),
+                'model_allow_auto' => (bool) ($resolution['allow_auto'] ?? true),
+                'model_allow_manual' => (bool) ($resolution['allow_manual'] ?? true),
             ]),
             'metadata' => array_merge($metadata, [
                 'model_identity_source' => $resolution['source'],
+                'model_label' => $resolution['model_label'] ?? $resolution['model'],
+                'model_tier' => $resolution['model_tier'] ?? config('atlas.ai.default_tier', 'daily'),
+                'model_allow_auto' => (bool) ($resolution['allow_auto'] ?? true),
+                'model_allow_manual' => (bool) ($resolution['allow_manual'] ?? true),
             ]),
         ];
 
         if ($job->model !== $resolution['model']) {
             $job->forceFill($updates)->save();
-        } elseif (data_get($metadata, 'model_identity_source') !== $resolution['source']) {
+        } elseif (
+            data_get($metadata, 'model_identity_source') !== $resolution['source']
+            || data_get($metadata, 'model_label') !== ($resolution['model_label'] ?? $resolution['model'])
+            || data_get($metadata, 'model_tier') !== ($resolution['model_tier'] ?? config('atlas.ai.default_tier', 'daily'))
+        ) {
             $job->forceFill([
                 'payload' => $updates['payload'],
                 'metadata' => $updates['metadata'],
@@ -327,6 +341,10 @@ class AiWorker
                 'model' => $resolution['model'],
                 'metadata' => array_merge($trace->metadata ?? [], [
                     'model_identity_source' => $resolution['source'],
+                    'model_label' => $resolution['model_label'] ?? $resolution['model'],
+                    'model_tier' => $resolution['model_tier'] ?? config('atlas.ai.default_tier', 'daily'),
+                    'model_allow_auto' => (bool) ($resolution['allow_auto'] ?? true),
+                    'model_allow_manual' => (bool) ($resolution['allow_manual'] ?? true),
                 ]),
             ])->save();
         }
@@ -546,11 +564,15 @@ class AiWorker
             return $job->refresh()->load(['trace', 'attemptHistory']);
         }
 
+        if ($this->shouldFallbackGeminiToClaude($job, $attempt, $result)) {
+            return $this->fallbackGeminiToClaude($job, $attempt, $result, $workerId);
+        }
+
         if ($this->shouldPauseForChoice($job, $result)) {
             return $this->pauseForChoice($job, $attempt, $result, $workerId);
         }
 
-        $nonRetryable = in_array($result->errorCode, ['permission_denied'], true);
+        $nonRetryable = in_array($result->errorCode, ['permission_denied', 'policy_violation'], true);
         $finalFailure = $nonRetryable || $job->attempts >= $job->max_attempts;
         $job->update([
             'status' => $finalFailure ? 'failed' : 'queued',
@@ -981,6 +1003,171 @@ class AiWorker
         }
 
         return data_get($job->metadata, 'provider_choice_state') !== 'resolved';
+    }
+
+    private function shouldFallbackGeminiToClaude(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result): bool
+    {
+        if ($this->isCouncilJob($job)) {
+            return false;
+        }
+
+        if (($attempt->provider ?: $job->provider) !== 'gemini_cli') {
+            return false;
+        }
+
+        if (! in_array($result->errorCode, ['rate_limited', 'policy_violation'], true)) {
+            return false;
+        }
+
+        if (! $this->fallbackProviderWithinBudget($job, 'claude_cli')) {
+            return false;
+        }
+
+        return data_get($job->metadata, 'gemini_fallback_attempted') !== true;
+    }
+
+    private function fallbackProviderWithinBudget(AiJob $job, string $provider): bool
+    {
+        $model = $this->models->resolve($provider, null);
+
+        try {
+            $this->budgets->assertAllows($provider, $model, [
+                'payload' => is_array($job->payload) ? $job->payload : [],
+            ]);
+
+            return true;
+        } catch (\RuntimeException $exception) {
+            $metadata = array_merge($job->metadata ?? [], [
+                'fallback_budget_blocked' => true,
+                'fallback_budget_provider' => $provider,
+                'fallback_budget_model' => $model,
+                'fallback_budget_error' => $exception->getMessage(),
+                'fallback_budget_checked_at' => now()->toIso8601String(),
+            ]);
+            $job->forceFill(['metadata' => $metadata])->save();
+            $job->trace?->forceFill([
+                'metadata' => array_merge($job->trace->metadata ?? [], [
+                    'fallback_budget_blocked' => true,
+                    'fallback_budget_provider' => $provider,
+                    'fallback_budget_model' => $model,
+                    'fallback_budget_error' => $exception->getMessage(),
+                ]),
+            ])->save();
+
+            $this->logger->event(
+                eventType: 'provider_fallback_budget_blocked',
+                message: 'Gemini fallback to Claude blocked by runtime budget.',
+                severity: 'warning',
+                provider: $job->provider,
+                job: $job,
+                metadata: [
+                    'fallback_provider' => $provider,
+                    'fallback_model' => $model,
+                    'budget_error' => $exception->getMessage(),
+                ],
+            );
+
+            return false;
+        }
+    }
+
+    private function fallbackGeminiToClaude(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $workerId): AiJob
+    {
+        $fallbackProvider = 'claude_cli';
+        $metadata = array_merge($job->metadata ?? [], [
+            'gemini_fallback_attempted' => true,
+            'fallback_state' => 'queued',
+            'fallback_reason' => $result->errorCode,
+            'fallback_error_message' => $result->errorMessage,
+            'fallback_degraded' => true,
+            'lost_capabilities' => ['long_context_full', 'native_multimodal'],
+            'original_provider' => 'gemini_cli',
+            'original_model' => $attempt->model ?: $job->model,
+            'fallback_provider' => $fallbackProvider,
+            'fallback_at' => now()->toIso8601String(),
+        ]);
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $payload['provider_fallback'] = [
+            'original_provider' => 'gemini_cli',
+            'original_model' => $attempt->model ?: $job->model,
+            'fallback_provider' => $fallbackProvider,
+            'fallback_reason' => $result->errorCode,
+            'fallback_degraded' => true,
+            'lost_capabilities' => ['long_context_full', 'native_multimodal'],
+        ];
+
+        $job->forceFill([
+            'status' => 'queued',
+            'provider' => $fallbackProvider,
+            'model' => null,
+            'error_code' => $result->errorCode,
+            'error_message' => $result->errorMessage,
+            'available_at' => now(),
+            'reserved_at' => null,
+            'started_at' => null,
+            'worker_id' => null,
+            'finished_at' => null,
+            'max_attempts' => max((int) $job->max_attempts, (int) $job->attempts + 1),
+            'payload' => $payload,
+            'metadata' => $metadata,
+        ])->save();
+
+        $job->trace?->forceFill([
+            'status' => 'queued',
+            'provider' => $fallbackProvider,
+            'model' => null,
+            'metadata' => array_merge($job->trace->metadata ?? [], [
+                'provider_fallback' => $payload['provider_fallback'],
+                'last_error_code' => $result->errorCode,
+                'last_error_message' => $result->errorMessage,
+            ]),
+        ])->save();
+
+        $this->logger->event(
+            eventType: 'provider_fallback_requeued',
+            message: 'Gemini job requeued to Claude after quota/capacity or policy fallback.',
+            severity: 'warning',
+            provider: 'gemini_cli',
+            job: $job,
+            attempt: $attempt,
+            metadata: [
+                'fallback_provider' => $fallbackProvider,
+                'fallback_reason' => $result->errorCode,
+                'worker_id' => $workerId,
+            ],
+            workerId: $workerId,
+        );
+        $this->recordTelemetry('provider_fallback_requeued', $job, $attempt, [
+            'event_phase' => 'worker',
+            'duration_ms' => $result->durationMs,
+            'metadata' => [
+                'worker_id' => $workerId,
+                'original_provider' => 'gemini_cli',
+                'fallback_provider' => $fallbackProvider,
+                'fallback_reason' => $result->errorCode,
+            ],
+        ]);
+        $this->audit->record('ai_provider_fallback_requeued', [
+            'subject_type' => 'ai_job',
+            'subject_id' => $job->id,
+            'severity' => 'warning',
+            'summary' => 'Gemini indisponivel ou fora da politica; job reenfileirado para Claude.',
+            'evidence' => [
+                'original_provider' => 'gemini_cli',
+                'original_model' => $attempt->model ?: $job->model,
+                'fallback_provider' => $fallbackProvider,
+                'fallback_reason' => $result->errorCode,
+                'error_message' => $result->errorMessage,
+            ],
+            'privacy' => $this->privacyFromJob($job),
+            'refs' => [
+                'trace_id' => $job->trace_id,
+                'job_id' => $job->id,
+                'attempt_id' => $attempt->id,
+            ],
+        ]);
+
+        return $job->refresh()->load(['trace', 'attemptHistory']);
     }
 
     private function pauseForChoice(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $workerId): AiJob

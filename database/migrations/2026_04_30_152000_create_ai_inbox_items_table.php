@@ -53,11 +53,13 @@ return new class extends Migration
               AND status NOT IN ('resolved', 'dismissed', 'expired')
         SQL);
 
-        DB::statement(<<<'SQL'
-            CREATE TRIGGER trg_ai_inbox_items_updated_at
-            BEFORE UPDATE ON ai_inbox_items
-            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-        SQL);
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement(<<<'SQL'
+                CREATE TRIGGER trg_ai_inbox_items_updated_at
+                BEFORE UPDATE ON ai_inbox_items
+                FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+            SQL);
+        }
     }
 
     public function down(): void

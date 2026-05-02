@@ -13,7 +13,7 @@ class AiEnqueueCommand extends Command
         {--provider= : Provider key, e.g. claude_cli or codex_cli}
         {--priority=50 : Queue priority from 0 to 100}';
 
-    protected $description = 'Enqueue a manual Atlas AI interaction.';
+    protected $description = 'Enqueue a manual Atlas interaction.';
 
     public function handle(AiGatewayService $gateway): int
     {

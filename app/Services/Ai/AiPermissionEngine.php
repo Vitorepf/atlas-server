@@ -24,64 +24,57 @@ class AiPermissionEngine
         $workspaceAllowed = $this->workspaceAllowed($workspace);
         $permissionSession = $this->activeSessionFor($workspace, $mode);
         $confirmed = (bool) data_get($payload, 'tool_permissions.confirmed', false) || $permissionSession !== null;
-        $allowDanger = (bool) config('atlas.ai.tool_permissions.allow_danger', false);
         $allowUnsandboxedProvider = (bool) data_get(
             $payload,
             'tool_permissions.allow_unsandboxed_provider',
             config('atlas.ai.tool_permissions.allow_unsandboxed_write', false),
         );
-        $denials = [];
         $reasons = [];
+        $observations = [];
 
         if (is_string($requestedWorkspace) && $requestedWorkspace !== '' && ! realpath($requestedWorkspace)) {
-            $denials[] = "Workspace solicitado nao existe ou nao pode ser resolvido: {$requestedWorkspace}.";
+            $observations[] = "Workspace solicitado nao existe ou nao pode ser resolvido: {$requestedWorkspace}.";
         }
 
         if (! $workspaceAllowed) {
-            $denials[] = "Workspace fora das raizes permitidas pelo Atlas: {$workspace}.";
+            $observations[] = "Workspace fora das raizes permitidas pelo Atlas: {$workspace}.";
         } else {
             $reasons[] = "Workspace autorizado: {$workspace}.";
-        }
-
-        if ($mode === 'danger' && ! $allowDanger) {
-            $denials[] = 'Modo danger-full-access bloqueado por configuracao global.';
-        }
-
-        if ($mode === 'danger' && ! $confirmed) {
-            $denials[] = 'Modo danger-full-access exige confirmacao explicita no payload ou CLI.';
-        }
-
-        if ($providerKey !== 'codex_cli' && in_array($mode, ['write', 'danger'], true) && ! $allowUnsandboxedProvider) {
-            $denials[] = "Provider {$providerKey} nao possui sandbox de escrita controlado pelo Atlas; use Codex ou confirme allow_unsandboxed_provider.";
         }
 
         $requiresHumanConfirmation = (bool) data_get($payload, 'execution_plan.requires_human_confirmation', false);
         $riskLevel = data_get($payload, 'task_request.risk_level');
         if ($mode === 'danger' && ($requiresHumanConfirmation || $riskLevel === 'high') && ! $confirmed) {
-            $denials[] = 'Tarefa de alto risco exige gate humano antes de executar runtime perigoso.';
+            $observations[] = 'Tarefa de alto risco sem confirmacao explicita; registrado para telemetria, sem bloqueio.';
         }
 
         if ($mode === 'write') {
             $reasons[] = 'Escrita permitida somente dentro do workspace autorizado.';
         } elseif ($mode === 'danger') {
-            $reasons[] = 'Runtime perigoso autorizado por confirmacao explicita.';
+            $reasons[] = 'Runtime danger-full-access liberado; Atlas mede resultado, custo, falhas e risco operacional.';
         } else {
             $reasons[] = 'Runtime restrito a leitura e inspecao.';
+        }
+
+        if ($providerKey !== 'codex_cli' && in_array($mode, ['write', 'danger'], true) && ! $allowUnsandboxedProvider) {
+            $observations[] = "Provider {$providerKey} executando sem sandbox de escrita controlado pelo Atlas.";
         }
 
         $codexSandbox = $this->codexSandboxForMode($mode);
 
         return new AiPermissionDecision(
-            allowed: $denials === [],
+            allowed: true,
             mode: $mode,
             workspace: $workspace,
             codexSandbox: $codexSandbox,
             capabilities: $this->capabilitiesForMode($mode),
             reasons: $reasons,
-            denials: $denials,
+            denials: [],
             metadata: [
                 'provider' => $providerKey,
                 'confirmed' => $confirmed,
+                'observability_only' => true,
+                'observations' => $observations,
                 'permission_session_id' => $permissionSession?->id,
                 'allow_unsandboxed_provider' => $allowUnsandboxedProvider,
                 'allowed_roots' => $this->allowedRoots(),

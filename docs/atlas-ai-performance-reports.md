@@ -53,6 +53,7 @@ ATLAS_AI_PERFORMANCE_REPORT_ENABLED=true
 ATLAS_AI_PERFORMANCE_REPORT_EMIT=true
 ATLAS_AI_PERFORMANCE_REPORT_TIME=07:05
 ATLAS_AI_PERFORMANCE_REPORT_TIMEZONE=America/Sao_Paulo
+ATLAS_AI_PERFORMANCE_REPORT_GRACE_MINUTES=90
 ATLAS_AI_PERFORMANCE_REPORT_WINDOWS=3,7,15,30
 ```
 
@@ -83,3 +84,4 @@ php artisan atlas:ai:telemetry:performance-report --date=2026-04-30 --type=both 
 - Low sample size is reported as `watch`, not as a false critical failure.
 - CLI provider cost remains explicitly labeled as estimate/operational estimate unless actual cost data exists.
 - The app can render the full report from `payload.report` and the context bundle can start a discussion with Atlas.
+- Mobile reliability checks mark `performance_report_fresh` as critical when the expected daily report is missing after `ATLAS_AI_PERFORMANCE_REPORT_TIME + ATLAS_AI_PERFORMANCE_REPORT_GRACE_MINUTES`.

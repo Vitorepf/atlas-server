@@ -65,6 +65,12 @@ class AtlasProject extends Model
         return $this->hasMany(AtlasTask::class, 'project_id');
     }
 
+    public function memoryEntries(): HasMany
+    {
+        return $this->hasMany(AtlasMemoryEntry::class, 'project_id')
+            ->latest('recorded_at');
+    }
+
     public function activeNextTask(): BelongsTo
     {
         return $this->belongsTo(AtlasTask::class, 'active_next_task_id');

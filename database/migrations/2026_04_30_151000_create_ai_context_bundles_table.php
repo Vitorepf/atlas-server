@@ -31,11 +31,13 @@ return new class extends Migration
             $table->index(['purpose', 'created_at']);
         });
 
-        DB::statement(<<<'SQL'
-            CREATE TRIGGER trg_ai_context_bundles_updated_at
-            BEFORE UPDATE ON ai_context_bundles
-            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-        SQL);
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement(<<<'SQL'
+                CREATE TRIGGER trg_ai_context_bundles_updated_at
+                BEFORE UPDATE ON ai_context_bundles
+                FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+            SQL);
+        }
     }
 
     public function down(): void

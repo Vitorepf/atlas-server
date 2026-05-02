@@ -19,11 +19,11 @@ trait RunsCliProcesses
         return $this->runProcessStreaming($command, $input, $timeoutSeconds, $cwd);
     }
 
-    protected function runProcessStreaming(array $command, string $input, int $timeoutSeconds, ?string $cwd = null, ?callable $onEvent = null): AiProviderResult
+    protected function runProcessStreaming(array $command, string $input, int $timeoutSeconds, ?string $cwd = null, ?callable $onEvent = null, ?AiJob $job = null): AiProviderResult
     {
         $started = hrtime(true);
         $command = $this->resolveCommandBinary($command);
-        $process = new Process($command, $cwd ?: (string) config('atlas.ai.workdir'), AtlasSecurity::processEnv(profile: 'provider'));
+        $process = new Process($command, $cwd ?: (string) config('atlas.ai.workdir'), $this->cliProcessEnv());
         $process->setInput($input);
         $process->setTimeout($timeoutSeconds > 0 ? $timeoutSeconds : null);
         $stdout = '';
@@ -36,7 +36,7 @@ trait RunsCliProcesses
                 'timeout_seconds' => $timeoutSeconds,
             ]);
 
-            $process->run(function (string $type, string $buffer) use (&$stdout, &$stderr, $onEvent): void {
+            $process->start(function (string $type, string $buffer) use (&$stdout, &$stderr, $onEvent): void {
                 $buffer = AtlasSecurity::redactString($buffer);
                 if ($type === Process::ERR) {
                     $stderr .= $buffer;
@@ -63,6 +63,40 @@ trait RunsCliProcesses
                     );
                 }
             });
+
+            $this->markCliProcessStarted($job, $process->getPid(), $command);
+
+            while ($process->isRunning()) {
+                usleep(250_000);
+                $process->checkTimeout();
+
+                if ($this->jobWasCancelled($job)) {
+                    $process->stop(1, 15);
+                    $durationMs = (int) ((hrtime(true) - $started) / 1_000_000);
+                    $stdout = $stdout ?: AtlasSecurity::redactString($process->getOutput());
+                    $stderr = $stderr ?: AtlasSecurity::redactString($process->getErrorOutput());
+
+                    $this->emitStreamEvent($onEvent, 'error', 'cancelled', 'Provider process stopped because the AI job was cancelled.', [
+                        'command' => $this->redactCommand($command),
+                        'duration_ms' => $durationMs,
+                        'pid' => $process->getPid(),
+                    ]);
+
+                    return new AiProviderResult(
+                        ok: false,
+                        output: '',
+                        command: $this->redactCommand($command),
+                        exitCode: $process->getExitCode(),
+                        durationMs: $durationMs,
+                        stdout: $stdout,
+                        stderr: $stderr,
+                        errorCode: 'cancelled',
+                        errorMessage: 'Provider process stopped because the AI job was cancelled.',
+                    );
+                }
+            }
+
+            $process->wait();
         } catch (ProcessTimedOutException $exception) {
             $durationMs = (int) ((hrtime(true) - $started) / 1_000_000);
             $stdout = $stdout ?: AtlasSecurity::redactString($process->getOutput());
@@ -130,6 +164,32 @@ trait RunsCliProcesses
         );
     }
 
+    /**
+     * @param  array<int,mixed>  $command
+     */
+    private function markCliProcessStarted(?AiJob $job, ?int $pid, array $command): void
+    {
+        if (! $job || ! $job->exists || ! $pid) {
+            return;
+        }
+
+        $metadata = is_array($job->metadata) ? $job->metadata : [];
+        $metadata['process_pid'] = $pid;
+        $metadata['process_started_at'] = now()->toJSON();
+        $metadata['process_command'] = $this->redactCommand($command);
+
+        $job->forceFill(['metadata' => $metadata])->save();
+    }
+
+    private function jobWasCancelled(?AiJob $job): bool
+    {
+        if (! $job || ! $job->exists) {
+            return false;
+        }
+
+        return AiJob::query()->whereKey($job->id)->value('status') === 'cancelled';
+    }
+
     protected function checkBinary(string $provider, string $binary): AiProviderHealthCheck
     {
         $resolved = $this->resolveCliBinary($binary);
@@ -145,7 +205,7 @@ trait RunsCliProcesses
             );
         }
 
-        $process = new Process([$resolved, '--version'], (string) config('atlas.ai.workdir'), AtlasSecurity::processEnv(profile: 'provider'));
+        $process = new Process([$resolved, '--version'], (string) config('atlas.ai.workdir'), $this->cliProcessEnv());
         $process->setTimeout(15);
         $process->run();
 
@@ -210,6 +270,15 @@ trait RunsCliProcesses
             '/\brate[\s_-]?limit(ed|ing)?\b/i',
             '/\busage[\s_-]?limit(?:\s+exceeded)?\b/i',
             '/\bquota[\s_-]?exceeded\b/i',
+            '/\bresource_exhausted\b/i',
+            '/\bcapacity\b.*\b(exceeded|limited|unavailable|temporarily unavailable)\b/i',
+            '/\b(service|model)\s+temporarily\s+unavailable\b/i',
+            '/\b(model|service)\s+unavailable\b/i',
+            '/\btry\s+again\s+later\b/i',
+            '/\boverloaded\b/i',
+            '/\bmodel\s+overloaded\b/i',
+            '/\bdaily\s+usage\s+limit\b/i',
+            '/\b(http\s*)?503\b/',
             '/\btoo[\s_]+many[\s_]+requests\b/i',
             '/\b(http\s*)?429\b/',
             '/\blimite\s+(de\s+)?uso\s+(atingido|excedido)\b/i',
@@ -221,9 +290,28 @@ trait RunsCliProcesses
             }
         }
 
+        $policyPatterns = [
+            '/\b(admin[\s_-]?policy|policy)\b.*\b(blocked|denied|violation|violated|rejected|not\s+allowed)\b/i',
+            '/\b(blocked|denied|rejected)\b.*\b(admin[\s_-]?policy|policy)\b/i',
+            '/\btool\b.*\b(not\s+allowed|denied|blocked)\b/i',
+            '/\bnot\s+allowed\s+by\s+(admin[\s_-]?policy|policy)\b/i',
+            '/\bpermission\s+denied\s+by\s+(admin[\s_-]?policy|policy)\b/i',
+            '/\bexit_plan_mode\b.*\b(denied|blocked|not\s+allowed)\b/i',
+            '/\bgoogle_web_search\b.*\b(denied|blocked|not\s+allowed)\b/i',
+            '/\bweb_fetch\b.*\b(denied|blocked|not\s+allowed)\b/i',
+            '/\bsafety\s+policy\b.*\b(blocked|denied|violation|rejected)\b/i',
+            '/\bcontent\s+policy\b.*\b(blocked|denied|violation|rejected)\b/i',
+        ];
+
+        foreach ($policyPatterns as $pattern) {
+            if (preg_match($pattern, $text) === 1) {
+                return 'policy_violation';
+            }
+        }
+
         $authPatterns = [
             '/please\s+(run\s+)?[`"]?\/login/i',
-            '/please\s+run\s+[`"]?(claude|codex)\s+login/i',
+            '/please\s+run\s+[`"]?(claude|codex|gemini)\s+login/i',
             '/please\s+log\s+in/i',
             '/\binvalid\s+api\s+key\b/i',
             '/\bapi\s+key\s+(not\s+found|invalid|missing|expired)\b/i',
@@ -250,6 +338,14 @@ trait RunsCliProcesses
     protected function redactCommand(array $command): array
     {
         return AtlasSecurity::redactCommand($command);
+    }
+
+    /**
+     * @return array<string,string|false>
+     */
+    protected function cliProcessEnv(): array
+    {
+        return AtlasSecurity::processEnv(profile: 'provider');
     }
 
     /**

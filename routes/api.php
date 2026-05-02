@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AiInteractionController;
+use App\Http\Controllers\AiChunkedUploadController;
+use App\Http\Controllers\AiAttachmentSearchController;
 use App\Http\Controllers\AiJobController;
 use App\Http\Controllers\AiObservabilityController;
 use App\Http\Controllers\AiProviderController;
@@ -10,6 +12,7 @@ use App\Http\Controllers\AiTelemetryMetricsController;
 use App\Http\Controllers\AiThreadController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasDomainController;
+use App\Http\Controllers\AtlasMemoryController;
 use App\Http\Controllers\AtlasProjectBlockerController;
 use App\Http\Controllers\AtlasProjectController;
 use App\Http\Controllers\AtlasProjectPlanProposalController;
@@ -27,6 +30,8 @@ use App\Http\Controllers\DailyMissionController;
 use App\Http\Controllers\DigitalActivitySnapshotController;
 use App\Http\Controllers\DigitalCategoryMappingController;
 use App\Http\Controllers\DigitalSessionController;
+use App\Http\Controllers\EngineeringBenchmarkController;
+use App\Http\Controllers\EngineeringRunController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\HealthSnapshotController;
 use App\Http\Controllers\InboxController;
@@ -34,6 +39,7 @@ use App\Http\Controllers\Mobile\MobileDeviceController;
 use App\Http\Controllers\Mobile\MobileHealthController;
 use App\Http\Controllers\Mobile\MobileInboxController;
 use App\Http\Controllers\Mobile\MobilePairingController;
+use App\Http\Controllers\Mobile\MobileRecommendationController;
 use App\Http\Controllers\Mobile\MobileThreadController;
 use App\Http\Controllers\PassiveSignalController;
 use App\Http\Controllers\ProcrastinationEventController;
@@ -62,6 +68,7 @@ Route::prefix('v1/mobile')->group(function (): void {
 
         Route::get('/devices', [MobileDeviceController::class, 'index']);
         Route::post('/devices/push-token', [MobileDeviceController::class, 'updatePushToken']);
+        Route::post('/devices/notification-preferences', [MobileDeviceController::class, 'updateNotificationPreferences']);
         Route::delete('/devices/{device}', [MobileDeviceController::class, 'revoke']);
 
         Route::get('/inbox', [MobileInboxController::class, 'index']);
@@ -71,6 +78,10 @@ Route::prefix('v1/mobile')->group(function (): void {
         Route::post('/inbox/{inboxItem}/snooze', [MobileInboxController::class, 'snooze']);
         Route::post('/inbox/{inboxItem}/respond', [MobileInboxController::class, 'respond']);
         Route::post('/inbox/{inboxItem}/discuss', [MobileInboxController::class, 'discuss']);
+
+        Route::get('/ai/recommendations', [MobileRecommendationController::class, 'index']);
+        Route::get('/ai/recommendations/{recommendation}', [MobileRecommendationController::class, 'show']);
+        Route::post('/ai/recommendations/{recommendation}/transition', [MobileRecommendationController::class, 'transition']);
 
         Route::post('/threads/from-inbox/{inboxItem}', [MobileThreadController::class, 'fromInbox']);
         Route::post('/threads/{thread}/reply', [MobileThreadController::class, 'reply']);
@@ -88,9 +99,40 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/tasks/agenda/week', [AtlasTaskController::class, 'weekAgenda']);
     Route::post('/tasks/agenda/week/plan', [AtlasTaskController::class, 'planWeekAgenda']);
     Route::get('/tasks/{task}/events', [AtlasTaskController::class, 'events']);
+    Route::get('/tasks/{task}/memory', [AtlasMemoryController::class, 'forTask']);
     Route::get('/tasks/{task}/engineering', [AtlasTaskController::class, 'engineering']);
+    Route::get('/tasks/{task}/engineering/runs', [EngineeringRunController::class, 'indexForTask']);
+    Route::post('/tasks/{task}/engineering/runs', [EngineeringRunController::class, 'storeForTask']);
     Route::post('/tasks/{task}/engineering/blueprint/freeze', [AtlasTaskController::class, 'freezeEngineeringBlueprint']);
     Route::post('/tasks/{task}/engineering/evidence', [AtlasTaskController::class, 'engineeringEvidence']);
+    Route::get('/engineering/runs/{run}', [EngineeringRunController::class, 'show']);
+    Route::post('/engineering/runs/{run}/replay', [EngineeringRunController::class, 'replay']);
+    Route::post('/engineering/runs/{run}/attempts/{attempt}/replay', [EngineeringRunController::class, 'replayAttempt']);
+    Route::post('/engineering/runs/{run}/cancel', [EngineeringRunController::class, 'cancel']);
+    Route::post('/engineering/runs/{run}/operator-action', [EngineeringRunController::class, 'operatorAction']);
+    Route::get('/engineering/runs/{run}/patch-artifacts/{patch}/diff', [EngineeringRunController::class, 'showPatchDiff']);
+    Route::get('/engineering/runs/{run}/test-runs/{testRun}/artifacts', [EngineeringRunController::class, 'testRunArtifacts']);
+    Route::get('/engineering/runs/{run}/test-runs/{testRun}/artifacts/content', [EngineeringRunController::class, 'showTestRunArtifact']);
+    Route::get('/engineering/runs/{run}/memory', [AtlasMemoryController::class, 'forRun']);
+    Route::get('/engineering/runs/{run}/review-findings', [EngineeringRunController::class, 'reviewFindings']);
+    Route::post('/engineering/runs/{run}/review-findings', [EngineeringRunController::class, 'storeReviewFinding']);
+    Route::patch('/engineering/review-findings/{finding}', [EngineeringRunController::class, 'updateReviewFinding']);
+    Route::get('/engineering/controls', [EngineeringRunController::class, 'controls']);
+    Route::get('/engineering/harnessability', [EngineeringRunController::class, 'harnessability']);
+    Route::get('/engineering/harnessability/calibration', [EngineeringRunController::class, 'harnessabilityCalibration']);
+    Route::post('/engineering/harnessability/calibrate', [EngineeringRunController::class, 'calibrateHarnessability']);
+    Route::get('/engineering/benchmarks/suites', [EngineeringBenchmarkController::class, 'indexSuites']);
+    Route::post('/engineering/benchmarks/suites', [EngineeringBenchmarkController::class, 'storeSuite']);
+    Route::post('/engineering/benchmarks/suites/default', [EngineeringBenchmarkController::class, 'ensureDefaultSuite']);
+    Route::get('/engineering/benchmarks/suites/{suite}/trends', [EngineeringBenchmarkController::class, 'showTrends']);
+    Route::post('/engineering/benchmarks/suites/{suite}/corpus/refresh', [EngineeringBenchmarkController::class, 'refreshCorpus']);
+    Route::post('/engineering/benchmarks/suites/{suite}/calibrate', [EngineeringBenchmarkController::class, 'calibrateSuite']);
+    Route::get('/engineering/benchmarks/suites/{suite}', [EngineeringBenchmarkController::class, 'showSuite']);
+    Route::post('/engineering/benchmarks/suites/{suite}/cases', [EngineeringBenchmarkController::class, 'storeCase']);
+    Route::post('/engineering/benchmarks/suites/{suite}/cases/from-run', [EngineeringBenchmarkController::class, 'promoteRunCase']);
+    Route::post('/engineering/benchmarks/suites/{suite}/run', [EngineeringBenchmarkController::class, 'runSuite']);
+    Route::get('/engineering/benchmarks/runs/{benchmarkRun}', [EngineeringBenchmarkController::class, 'showRun']);
+    Route::patch('/engineering/benchmarks/runs/{benchmarkRun}/outcome', [EngineeringBenchmarkController::class, 'recordOutcome']);
     Route::post('/tasks/{task}/schedule', [AtlasTaskController::class, 'schedule']);
     Route::post('/tasks/{task}/defer', [AtlasTaskController::class, 'defer']);
     Route::post('/tasks/{task}/complete', [AtlasTaskController::class, 'complete']);
@@ -101,6 +143,7 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::apiResource('routines', AtlasRoutineController::class)->only(['index', 'store', 'show', 'update']);
     Route::get('/projects/review', [AtlasProjectController::class, 'reviewQueue']);
     Route::get('/projects/{project}/execution', [AtlasProjectController::class, 'execution']);
+    Route::get('/projects/{project}/memory', [AtlasMemoryController::class, 'forProject']);
     Route::post('/projects/{project}/execution/start', [AtlasProjectController::class, 'startExecution']);
     Route::post('/projects/{project}/recover', [AtlasProjectController::class, 'recover']);
     Route::get('/projects/{project}/events', [AtlasProjectController::class, 'events']);
@@ -179,10 +222,41 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::post('/semantic/cognitive-games/{game}/answer', [CognitiveGameController::class, 'answer']);
 
     Route::get('/ai/interactions', [AiInteractionController::class, 'index']);
+    Route::get('/ai/memory', [AtlasMemoryController::class, 'index']);
+    Route::post('/ai/memory', [AtlasMemoryController::class, 'store']);
+    Route::get('/ai/memory/audit/traces/{trace}', [AtlasMemoryController::class, 'auditTrace']);
+    Route::post('/ai/memory/deltas/{delta}/promote', [AtlasMemoryController::class, 'promoteDelta']);
+    Route::post('/ai/memory/governance/scan', [AtlasMemoryController::class, 'scanGovernance']);
+    Route::post('/ai/memory/privacy/scan', [AtlasMemoryController::class, 'scanPrivacy']);
+    Route::get('/ai/memory/review-queue', [AtlasMemoryController::class, 'reviewQueue']);
+    Route::get('/ai/memory/provider-projection/status', [AtlasMemoryController::class, 'providerProjectionStatus']);
+    Route::get('/ai/memory/provider-projection/review', [AtlasMemoryController::class, 'providerProjectionReview']);
+    Route::get('/ai/memory/provider-projection/audits/summary', [AtlasMemoryController::class, 'providerProjectionAuditSummary']);
+    Route::post('/ai/memory/provider-projection/audits/purge', [AtlasMemoryController::class, 'providerProjectionAuditPurge']);
+    Route::get('/ai/memory/provider-projection/audits', [AtlasMemoryController::class, 'providerProjectionAudits']);
+    Route::post('/ai/memory/provider-projection/apply', [AtlasMemoryController::class, 'providerProjectionApply']);
+    Route::get('/ai/memory/relations', [AtlasMemoryController::class, 'indexRelations']);
+    Route::post('/ai/memory/relations/{relation}/review', [AtlasMemoryController::class, 'reviewRelation']);
+    Route::get('/ai/memory/verbatim', [AtlasMemoryController::class, 'indexVerbatim']);
+    Route::post('/ai/memory/verbatim', [AtlasMemoryController::class, 'storeVerbatim']);
+    Route::post('/ai/memory/verbatim/{verbatimMemory}/review', [AtlasMemoryController::class, 'reviewVerbatim']);
+    Route::get('/ai/memory/verbatim/{verbatimMemory}', [AtlasMemoryController::class, 'showVerbatim']);
+    Route::patch('/ai/memory/verbatim/{verbatimMemory}', [AtlasMemoryController::class, 'updateVerbatim']);
+    Route::post('/ai/memory/usages/{usage}/feedback', [AtlasMemoryController::class, 'feedbackUsage']);
+    Route::get('/ai/memory/{memoryEntry}', [AtlasMemoryController::class, 'show']);
+    Route::post('/ai/memory/{memoryEntry}/privacy', [AtlasMemoryController::class, 'reviewPrivacy']);
+    Route::get('/ai/memory/{memoryEntry}/governance', [AtlasMemoryController::class, 'governance']);
+    Route::patch('/ai/memory/{memoryEntry}', [AtlasMemoryController::class, 'update']);
     Route::post('/ai/interactions', [AiInteractionController::class, 'store']);
     Route::get('/ai/interactions/{trace}', [AiInteractionController::class, 'show']);
+    Route::get('/ai/interactions/{trace}/attachments/{attachment}/content', [AiInteractionController::class, 'attachmentContent']);
+    Route::get('/ai/interactions/{trace}/attachments/{attachment}/pages/{page}', [AiInteractionController::class, 'attachmentPage']);
     Route::get('/ai/interactions/{trace}/stream', [AiInteractionController::class, 'stream']);
     Route::post('/ai/interactions/{trace}/feedback', [AiInteractionController::class, 'feedback']);
+    Route::post('/ai/attachments/search', AiAttachmentSearchController::class);
+    Route::post('/ai/uploads/chunks/start', [AiChunkedUploadController::class, 'start']);
+    Route::post('/ai/uploads/chunks/{upload}/chunk', [AiChunkedUploadController::class, 'chunk']);
+    Route::post('/ai/uploads/chunks/{upload}/complete', [AiChunkedUploadController::class, 'complete']);
     Route::get('/ai/observability', AiObservabilityController::class);
     Route::post('/ai/telemetry/events', [AiTelemetryController::class, 'store']);
     Route::get('/ai/telemetry/scorecard', [AiTelemetryMetricsController::class, 'scorecard']);
@@ -213,6 +287,7 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::post('/ai/jobs/{job}/resume-choice', [AiJobController::class, 'resumeChoice']);
 
     Route::get('/ai/providers/status', [AiProviderController::class, 'status']);
+    Route::patch('/ai/providers/settings', [AiProviderController::class, 'updateSettings']);
     Route::post('/ai/providers/check', [AiProviderController::class, 'check']);
 
     Route::get('/audit/suggestions', AuditSuggestionController::class);

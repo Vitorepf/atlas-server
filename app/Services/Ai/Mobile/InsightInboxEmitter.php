@@ -47,10 +47,22 @@ class InsightInboxEmitter
             'raw_payload' => $this->array($data['raw_payload'] ?? []),
         ]);
 
+        $payload = array_merge($this->array($data['payload'] ?? []), [
+            'category' => $category,
+            'insight_kind' => $this->nullableString($data['insight_kind'] ?? null) ?: $category,
+            'confidence' => isset($data['confidence']) ? (float) $data['confidence'] : null,
+        ]);
+
+        $severity = $this->severity($data['severity'] ?? null);
+        $pushPolicy = array_merge([
+            'send' => $severity === 'info' ? 'auto' : 'immediate',
+            'reason' => 'atlas_insight',
+        ], $this->array($data['push_policy'] ?? []));
+
         return $this->inbox->create([
             'type' => 'insight',
             'category' => $category,
-            'severity' => $this->severity($data['severity'] ?? null),
+            'severity' => $severity,
             'title' => $title,
             'summary' => $summary,
             'body' => $body,
@@ -59,16 +71,9 @@ class InsightInboxEmitter
             'initiator' => 'atlas',
             'context_bundle_id' => $bundle->id,
             'dedupe_key' => $dedupeKey,
-            'payload' => [
-                'category' => $category,
-                'insight_kind' => $this->nullableString($data['insight_kind'] ?? null) ?: $category,
-                'confidence' => isset($data['confidence']) ? (float) $data['confidence'] : null,
-            ],
-            'push_policy' => [
-                'send' => $this->severity($data['severity'] ?? null) === 'info' ? 'auto' : 'immediate',
-                'reason' => 'atlas_insight',
-            ],
-            'priority_score' => $this->severity($data['severity'] ?? null) === 'info' ? 55 : 75,
+            'payload' => $payload,
+            'push_policy' => $pushPolicy,
+            'priority_score' => max(0, min(100, (int) ($data['priority_score'] ?? ($severity === 'info' ? 55 : 75)))),
             'confidence_score' => isset($data['confidence']) ? (float) $data['confidence'] : null,
         ]);
     }

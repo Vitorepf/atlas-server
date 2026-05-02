@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Cli;
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use RuntimeException;
 use Symfony\Component\Process\ExecutableFinder;
@@ -36,6 +37,78 @@ class AtlasImageAttachmentService
         }
 
         return $this->dedupe($attachments);
+    }
+
+    /**
+     * @param  array<int,UploadedFile>  $files
+     * @return array<int,array<string,mixed>>
+     */
+    public function fromUploadedFiles(array $files, string $workspace, string $source = 'upload'): array
+    {
+        $attachments = [];
+        foreach ($files as $file) {
+            if (! $file instanceof UploadedFile) {
+                continue;
+            }
+
+            $attachments[] = $this->fromUploadedFile($file, $workspace, $source);
+        }
+
+        return $this->dedupe($attachments);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function fromUploadedFile(UploadedFile $file, string $workspace, string $source = 'upload'): array
+    {
+        if (! $file->isValid()) {
+            throw new RuntimeException('Imagem enviada invalida.');
+        }
+
+        $bytes = (int) $file->getSize();
+        if ($bytes <= 0 || $bytes > self::MAX_IMAGE_BYTES) {
+            throw new RuntimeException('Imagem enviada invalida ou grande demais.');
+        }
+
+        $mime = $file->getMimeType() ?: 'application/octet-stream';
+        if (! in_array($mime, self::ALLOWED_MIME_TYPES, true)) {
+            throw new RuntimeException("Formato de imagem nao suportado ({$mime}).");
+        }
+
+        $target = storage_path('app/ai/attachments/upload-'.now()->format('Ymd-His').'-'.bin2hex(random_bytes(4)).$this->extensionForMime($mime));
+        File::ensureDirectoryExists(dirname($target));
+
+        $realPath = $file->getRealPath();
+        if (! is_string($realPath) || $realPath === '' || ! File::isFile($realPath)) {
+            throw new RuntimeException('Arquivo temporario da imagem enviada nao encontrado.');
+        }
+
+        File::copy($realPath, $target);
+
+        return $this->fromPath($target, $workspace, $source);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function fromLocalUploadPath(string $path, string $originalName, string $mime, string $workspace, string $source = 'chunked_upload'): array
+    {
+        $resolved = realpath($path);
+        if (! $resolved || ! File::isFile($resolved)) {
+            throw new RuntimeException('Imagem enviada em chunks nao encontrada.');
+        }
+
+        $mime = $this->mimeType($resolved) ?: $mime;
+        if (! in_array($mime, self::ALLOWED_MIME_TYPES, true)) {
+            throw new RuntimeException("Formato de imagem nao suportado ({$mime}).");
+        }
+
+        $target = storage_path('app/ai/attachments/upload-'.now()->format('Ymd-His').'-'.bin2hex(random_bytes(4)).$this->extensionForMime($mime));
+        File::ensureDirectoryExists(dirname($target));
+        File::copy($resolved, $target);
+
+        return $this->fromPath($target, $workspace, $source);
     }
 
     /**
@@ -207,6 +280,16 @@ class AtlasImageAttachmentService
         }
 
         return File::mimeType($path) ?: 'application/octet-stream';
+    }
+
+    private function extensionForMime(string $mime): string
+    {
+        return match ($mime) {
+            'image/jpeg' => '.jpg',
+            'image/webp' => '.webp',
+            'image/gif' => '.gif',
+            default => '.png',
+        };
     }
 
     private function isInsideAllowedRoot(string $path, string $workspace): bool

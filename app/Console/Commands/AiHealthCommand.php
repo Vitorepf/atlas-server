@@ -9,7 +9,7 @@ class AiHealthCommand extends Command
 {
     protected $signature = 'atlas:ai:health';
 
-    protected $description = 'Check local Atlas AI providers and persist operational health snapshots.';
+    protected $description = 'Check local Atlas providers and persist operational health snapshots.';
 
     public function handle(AiProviderHealthService $health): int
     {

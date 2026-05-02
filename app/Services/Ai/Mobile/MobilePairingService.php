@@ -151,6 +151,11 @@ class MobilePairingService
                 'expo_push_token' => null,
                 'push_token_hash' => null,
             ]);
+            // Limpa cache do middleware AuthenticateMobileDevice imediatamente
+            // — revogação não pode ter lag de 60s no path de segurança.
+            \Illuminate\Support\Facades\Cache::forget(
+                \App\Http\Middleware\AuthenticateMobileDevice::deviceCacheKey($device->device_token_hash),
+            );
         }
 
         $this->audit->record('mobile.device.revoked', [

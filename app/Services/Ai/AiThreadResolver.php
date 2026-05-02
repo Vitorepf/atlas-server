@@ -54,12 +54,20 @@ class AiThreadResolver
             return new AiThreadResolution($session->thread->refresh(), 'explicit_session_id', false);
         }
 
-        $candidate = $this->latestContinuationCandidate($input, $options);
-        if ($candidate) {
-            return new AiThreadResolution($candidate, 'latest_continuation_candidate', false);
+        if ($this->allowsImplicitContinuation($options, $payload)) {
+            $candidate = $this->latestContinuationCandidate($input, $options);
+            if ($candidate) {
+                return new AiThreadResolution($candidate, 'latest_continuation_candidate', false);
+            }
         }
 
         return new AiThreadResolution($this->createThread($input, $options, 'implicit_new_thread'), 'implicit_new_thread', true);
+    }
+
+    private function allowsImplicitContinuation(array $options, array $payload): bool
+    {
+        return ($options['allow_implicit_thread_continuation'] ?? false) === true
+            || data_get($payload, 'allow_implicit_thread_continuation') === true;
     }
 
     private function latestContinuationCandidate(string $input, array $options): ?AiThread
@@ -101,6 +109,9 @@ class AiThreadResolver
                 'requested_agent' => data_get($payload, 'requested_agent'),
                 'requested_provider' => data_get($payload, 'requested_provider') ?: ($options['provider'] ?? null),
                 'app_surface' => data_get($payload, 'app_surface'),
+                'atlas_focus' => data_get($payload, 'atlas_focus'),
+                'routing_task' => data_get($payload, 'routing_task'),
+                'routing_domain' => data_get($payload, 'routing_domain'),
             ],
         ]);
     }

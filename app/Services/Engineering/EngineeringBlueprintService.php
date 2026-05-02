@@ -299,7 +299,7 @@ class EngineeringBlueprintService
      */
     private function requiresDatabaseReview(array $contract): bool
     {
-        return $this->containsAny($this->contractText($contract), [
+        return $this->containsAny($this->contractSignalText($contract), [
             'migration',
             'migracao',
             'postgres',
@@ -320,7 +320,7 @@ class EngineeringBlueprintService
      */
     private function requiresUiQa(array $contract): bool
     {
-        return $this->containsAny($this->contractText($contract), [
+        return $this->containsAny($this->contractSignalText($contract), [
             'ui',
             'frontend',
             'tela',
@@ -331,6 +331,23 @@ class EngineeringBlueprintService
             'playwright',
             'viewport',
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $contract
+     */
+    private function contractSignalText(array $contract): string
+    {
+        return mb_strtolower(json_encode([
+            'goal' => $contract['goal'] ?? null,
+            'context' => $contract['context'] ?? [],
+            'in_scope' => $contract['in_scope'] ?? [],
+            'acceptance_criteria' => $contract['acceptance_criteria'] ?? [],
+            'likely_files' => $contract['likely_files'] ?? [],
+            'patterns_to_follow' => $contract['patterns_to_follow'] ?? [],
+            'patterns_to_avoid' => $contract['patterns_to_avoid'] ?? [],
+            'edge_cases' => $contract['edge_cases'] ?? [],
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
     }
 
     /**

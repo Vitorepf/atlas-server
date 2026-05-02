@@ -13,7 +13,7 @@ class AtlasCliCompareCommand extends Command
         {--no-stream}
         {--json}';
 
-    protected $description = 'Run explicit Claude + Codex dual-review through Atlas AI.';
+    protected $description = 'Run explicit Claude + Codex dual-review through Atlas.';
 
     public function handle(): int
     {

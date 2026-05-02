@@ -3,10 +3,15 @@
 namespace App\Services\Ai\Cli;
 
 use App\Models\AiProviderHealthSnapshot;
+use App\Services\Ai\AtlasAiRuntimeSettings;
 use Illuminate\Support\Facades\Schema;
 
 class AtlasCliProviderStrategyService
 {
+    public function __construct(
+        private readonly AtlasAiRuntimeSettings $settings,
+    ) {}
+
     /**
      * @return array<string,mixed>
      */
@@ -29,9 +34,10 @@ class AtlasCliProviderStrategyService
             ];
         }
 
-        $recommended = $this->firstAvailable($online, $preferred)
-            ?: $this->firstAvailable(collect($providers), $preferred)
-            ?: (string) config('atlas.ai.default_provider', 'claude_cli');
+        $strictMode = in_array($mode, ['dev', 'debug'], true);
+        $recommended = $this->firstAvailable($online, $preferred, $strictMode)
+            ?: $this->firstAvailable(collect($providers), $preferred, $strictMode)
+            ?: ($preferred[0] ?? $this->settings->defaultProvider());
 
         return [
             'mode' => $mode,
@@ -39,7 +45,7 @@ class AtlasCliProviderStrategyService
             'has_online_provider' => $online->isNotEmpty(),
             'recommended_provider' => $recommended,
             'reason' => $this->reason($recommended, $mode, $providers),
-            'fallback_provider' => $this->fallback($recommended, $providers),
+            'fallback_provider' => $this->fallback($recommended, $providers, $mode),
             'providers' => $providers,
         ];
     }
@@ -76,18 +82,39 @@ class AtlasCliProviderStrategyService
     private function preferredOrder(string $mode): array
     {
         return match ($mode) {
-            'dev', 'debug' => ['codex_cli', 'claude_cli'],
-            'review', 'plan', 'research' => ['claude_cli', 'codex_cli'],
-            default => [(string) config('atlas.ai.default_provider', 'claude_cli'), 'claude_cli', 'codex_cli'],
+            'dev', 'debug' => $this->uniqueProviders(['claude_cli', 'codex_cli']),
+            'review', 'plan', 'research' => $this->uniqueProviders(['claude_cli', 'gemini_cli', $this->defaultProvider(), 'codex_cli']),
+            default => $this->uniqueProviders([$this->defaultProvider(), 'claude_cli', 'codex_cli', 'gemini_cli']),
         };
     }
 
-    private function firstAvailable($providers, array $preferred): ?string
+    private function defaultProvider(): string
+    {
+        return $this->settings->defaultProvider();
+    }
+
+    /**
+     * @param array<int,string> $providers
+     * @return array<int,string>
+     */
+    private function uniqueProviders(array $providers): array
+    {
+        return array_values(array_unique(array_filter(
+            $providers,
+            fn (string $provider): bool => in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true),
+        )));
+    }
+
+    private function firstAvailable($providers, array $preferred, bool $strictPreferred = false): ?string
     {
         foreach ($preferred as $provider) {
             if ($providers->contains(fn (array $item): bool => ($item['provider'] ?? null) === $provider)) {
                 return $provider;
             }
+        }
+
+        if ($strictPreferred) {
+            return null;
         }
 
         $leastPain = $providers
@@ -100,10 +127,11 @@ class AtlasCliProviderStrategyService
         return is_array($leastPain) ? (string) $leastPain['provider'] : null;
     }
 
-    private function fallback(string $recommended, array $providers): ?string
+    private function fallback(string $recommended, array $providers, string $mode): ?string
     {
         return collect($providers)
             ->reject(fn (array $provider): bool => ($provider['provider'] ?? null) === $recommended)
+            ->reject(fn (array $provider): bool => in_array($mode, ['dev', 'debug'], true) && ($provider['provider'] ?? null) === 'gemini_cli')
             ->sortBy([
                 ['status', 'asc'],
                 ['pain', 'asc'],

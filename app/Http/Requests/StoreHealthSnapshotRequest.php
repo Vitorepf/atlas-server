@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesMetadata;
+use App\Support\HealthMetricIntegrity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -85,12 +86,7 @@ class StoreHealthSnapshotRequest extends FormRequest
             'steps' => [$presence, 'nullable', 'numeric'],
             'walking_running_distance_m' => [$presence, 'nullable', 'numeric'],
             'vo2max' => [$presence, 'nullable', 'numeric'],
-            'body_mass_kg' => [$presence, 'nullable', 'numeric'],
-            'body_fat_percentage' => [$presence, 'nullable', 'numeric'],
-            'lean_body_mass_kg' => [$presence, 'nullable', 'numeric'],
-            'muscle_mass_percentage' => [$presence, 'nullable', 'numeric'],
-            'body_mass_index' => [$presence, 'nullable', 'numeric'],
-            'waist_circumference_cm' => [$presence, 'nullable', 'numeric'],
+            ...HealthMetricIntegrity::snapshotMetricRules($presence),
             'energy_level' => [$presence, 'nullable', 'integer', 'between:1,5'],
             'mood_level' => [$presence, 'nullable', 'integer', 'between:1,5'],
             'state' => [$presence, 'nullable', Rule::in(['focused', 'disperse', 'blocked', 'pause'])],

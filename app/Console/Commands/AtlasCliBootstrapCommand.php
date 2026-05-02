@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\AiProviderHealthService;
+use App\Services\Ai\AtlasProviderProjectionService;
 use App\Services\Ai\Cli\AtlasCliDoctorService;
 use App\Services\Ai\Cli\AtlasCliInstallService;
 use App\Services\Ai\Cli\AtlasCliSetupService;
@@ -26,6 +27,12 @@ class AtlasCliBootstrapCommand extends Command
         {--shell-profile= : Shell profile path used with --write-shell-profile}
         {--install-scheduler-cron : Install the Laravel scheduler crontab entry used by atlas schedule}
         {--no-scheduler-cron-check : Skip scheduler crontab inspection}
+        {--provider-projection=skip : Explicit provider projection action: skip, status, review, apply, write or adopt}
+        {--provider-projection-target=all : Projection target: claude, agents or all}
+        {--provider-projection-max-lines= : Maximum lines per generated projection file}
+        {--provider-projection-memory-limit= : Maximum provider-safe memories to project}
+        {--provider-projection-force : Allow provider projection write/adopt to overwrite unsafe files}
+        {--provider-projection-yes : Confirm provider projection apply without interactive prompt}
         {--refresh-providers : Run provider health checks after setup}
         {--operator-mode : Enable explicit local operator mode for Atlas dev sessions}
         {--enable-operator-mode : Alias for --operator-mode}
@@ -41,7 +48,15 @@ class AtlasCliBootstrapCommand extends Command
         AiProviderHealthService $health,
         AtlasCliDoctorService $doctor,
         AtlasSchedulerInstallService $schedulerInstall,
+        AtlasProviderProjectionService $providerProjection,
     ): int {
+        $projectionAction = $this->providerProjectionAction();
+        if ($projectionAction === null) {
+            $this->error('Valor invalido para --provider-projection. Use skip, status, review, apply, write ou adopt.');
+
+            return self::FAILURE;
+        }
+
         $dryRun = (bool) $this->option('dry-run');
         $diagnosis = $setup->diagnose(null, $this->overrides());
         $envWrite = null;
@@ -74,6 +89,7 @@ class AtlasCliBootstrapCommand extends Command
         }
 
         $schedulerCron = $this->schedulerCron($schedulerInstall, $dryRun);
+        $projection = $this->providerProjection($providerProjection, $projectionAction, $dryRun);
 
         $providerRefresh = null;
         if ((bool) $this->option('refresh-providers') && ! $dryRun) {
@@ -89,7 +105,7 @@ class AtlasCliBootstrapCommand extends Command
         }
 
         $finalDoctor = $this->finalDoctor($doctor, $dryRun);
-        $payload = $this->payload($diagnosis, $envWrite, $install, $shellProfile, $schedulerCron, $providerRefresh, $finalDoctor, $dryRun);
+        $payload = $this->payload($diagnosis, $envWrite, $install, $shellProfile, $schedulerCron, $projection, $providerRefresh, $finalDoctor, $dryRun);
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -212,11 +228,12 @@ class AtlasCliBootstrapCommand extends Command
      * @param  array<string, mixed>  $install
      * @param  array<string, mixed>|null  $shellProfile
      * @param  array<string, mixed>|null  $schedulerCron
+     * @param  array<string, mixed>|null  $providerProjection
      * @param  array<int, array<string, mixed>>|null  $providerRefresh
      * @param  array<string, mixed>|null  $finalDoctor
      * @return array<string, mixed>
      */
-    private function payload(array $diagnosis, ?array $envWrite, array $install, ?array $shellProfile, ?array $schedulerCron, ?array $providerRefresh, ?array $finalDoctor, bool $dryRun): array
+    private function payload(array $diagnosis, ?array $envWrite, array $install, ?array $shellProfile, ?array $schedulerCron, ?array $providerProjection, ?array $providerRefresh, ?array $finalDoctor, bool $dryRun): array
     {
         $pathReady = (bool) ($install['path_ready'] ?? false) || (bool) ($shellProfile['written'] ?? false) || (bool) ($shellProfile['already_configured'] ?? false);
         $gates = [
@@ -246,6 +263,11 @@ class AtlasCliBootstrapCommand extends Command
                 'detail' => $this->schedulerCronGateDetail($schedulerCron),
             ],
             [
+                'name' => 'provider_projection',
+                'status' => $this->providerProjectionGateStatus($providerProjection),
+                'detail' => $this->providerProjectionGateDetail($providerProjection),
+            ],
+            [
                 'name' => 'final_doctor',
                 'status' => $this->finalDoctorGateStatus($finalDoctor),
                 'detail' => $this->finalDoctorGateDetail($finalDoctor),
@@ -269,10 +291,11 @@ class AtlasCliBootstrapCommand extends Command
             'install' => $install,
             'shell_profile' => $shellProfile,
             'scheduler_cron' => $schedulerCron,
+            'provider_projection' => $providerProjection,
             'provider_refresh' => $providerRefresh,
             'final_doctor' => $finalDoctor,
             'gates' => $gates,
-            'next_commands' => $this->nextCommands($status, $dryRun, $pathReady, $schedulerCron),
+            'next_commands' => $this->nextCommands($status, $dryRun, $pathReady, $schedulerCron, $providerProjection),
         ];
     }
 
@@ -293,6 +316,106 @@ class AtlasCliBootstrapCommand extends Command
         }
 
         return $schedulerInstall->inspect();
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function providerProjection(AtlasProviderProjectionService $projection, string $action, bool $dryRun): ?array
+    {
+        if ($action === 'skip') {
+            return [
+                'skipped' => true,
+                'action' => 'skip',
+                'target' => $this->providerProjectionTarget(),
+                'status' => 'skipped',
+                'message' => 'Provider projection pulada. Use --provider-projection=status|review|apply|write|adopt para inspecionar ou aplicar.',
+            ];
+        }
+
+        $target = $this->providerProjectionTarget();
+        $context = ['workspace' => $this->workspace()];
+        $options = $this->providerProjectionOptions();
+        $command = $this->providerProjectionCommand($action);
+
+        if ($action === 'review') {
+            return $projection->review($target, $context, $options) + [
+                'action' => 'review',
+                'command' => $command,
+            ];
+        }
+
+        if ($action === 'apply') {
+            if ($dryRun) {
+                return $projection->review($target, $context, $options) + [
+                    'planned' => true,
+                    'action' => 'apply',
+                    'command' => $command,
+                    'message' => 'Dry-run: provider projection apply revisaria diff e exigiria confirmacao antes de escrever.',
+                ];
+            }
+
+            if (! (bool) $this->option('provider-projection-yes')) {
+                return array_merge($projection->review($target, $context, $options), [
+                    'action' => 'apply',
+                    'command' => $command,
+                    'status' => 'confirmation_required',
+                    'error' => 'confirmation_required',
+                    'detail' => 'Use --provider-projection-yes para confirmar apply via bootstrap.',
+                    'next_actions' => [$command.' --provider-projection-yes'],
+                ]);
+            }
+
+            return $projection->applyReviewed($target, $context, $options) + [
+                'action' => 'apply',
+                'command' => $command,
+                'confirmed' => true,
+                'confirmation_mode' => 'flag',
+            ];
+        }
+
+        if ($dryRun) {
+            return [
+                'planned' => true,
+                'action' => $action,
+                'target' => $target,
+                'workspace' => $context['workspace'],
+                'status' => 'planned',
+                'command' => $command,
+                'inspection' => $projection->status($target, $context, $options),
+                'message' => 'Dry-run: provider projection '.$action.' seria executado explicitamente.',
+            ];
+        }
+
+        if ($action === 'status') {
+            return $projection->status($target, $context, $options) + [
+                'action' => 'status',
+                'command' => $command,
+            ];
+        }
+
+        $results = collect($projection->targets($target))
+            ->map(fn (string $projectionTarget): array => $action === 'adopt'
+                ? $projection->adopt($projectionTarget, $context, $options)
+                : $projection->write($projectionTarget, $context, $options))
+            ->values()
+            ->all();
+        $ok = collect($results)->every(fn (array $result): bool => (bool) ($result['written'] ?? false));
+        $postStatus = $projection->status($target, $context, $options);
+
+        return [
+            'action' => $action,
+            'target' => $target,
+            'workspace' => $context['workspace'],
+            'status' => $ok ? (string) ($postStatus['status'] ?? 'passed') : 'needs_review',
+            'command' => $command,
+            'detail' => $ok
+                ? 'Provider projection '.$action.' executado para '.$target.'.'
+                : 'Provider projection '.$action.' precisa de revisao antes de concluir.',
+            'projections' => $results,
+            'post_status' => $postStatus,
+            'next_actions' => $ok ? [] : (array) ($postStatus['next_actions'] ?? []),
+        ];
     }
 
     /**
@@ -377,6 +500,30 @@ class AtlasCliBootstrapCommand extends Command
         return 'Doctor final executado: '.$status.'. '.implode(' | ', array_slice($failed, 0, 2));
     }
 
+    private function providerProjectionGateStatus(?array $providerProjection): string
+    {
+        if ($providerProjection === null || (bool) ($providerProjection['skipped'] ?? false)) {
+            return 'skipped';
+        }
+        if ((bool) ($providerProjection['planned'] ?? false)) {
+            return 'planned';
+        }
+
+        return ($providerProjection['status'] ?? null) === 'passed' ? 'passed' : 'needs_review';
+    }
+
+    private function providerProjectionGateDetail(?array $providerProjection): string
+    {
+        if ($providerProjection === null) {
+            return 'Provider projection nao executada.';
+        }
+        if ((bool) ($providerProjection['skipped'] ?? false) || (bool) ($providerProjection['planned'] ?? false)) {
+            return (string) ($providerProjection['message'] ?? 'Provider projection sem alteracoes.');
+        }
+
+        return (string) ($providerProjection['detail'] ?? data_get($providerProjection, 'post_status.detail', 'Provider projection precisa de revisao.'));
+    }
+
     private function schedulerCronGateStatus(?array $schedulerCron): string
     {
         if ($schedulerCron === null || (bool) ($schedulerCron['skipped'] ?? false)) {
@@ -412,10 +559,19 @@ class AtlasCliBootstrapCommand extends Command
     /**
      * @return array<int, string>
      */
-    private function nextCommands(string $status, bool $dryRun, bool $pathReady, ?array $schedulerCron): array
+    private function nextCommands(string $status, bool $dryRun, bool $pathReady, ?array $schedulerCron, ?array $providerProjection): array
     {
         if ($dryRun) {
             return [$pathReady ? 'atlas bootstrap --refresh-providers' : 'atlas bootstrap --write-shell-profile --refresh-providers'];
+        }
+
+        if ($this->providerProjectionGateStatus($providerProjection) === 'needs_review') {
+            $actions = (array) ($providerProjection['next_actions'] ?? data_get($providerProjection, 'post_status.next_actions', []));
+            if ($actions !== []) {
+                return array_values($actions);
+            }
+
+            return ['atlas memory projection status --target=all --workspace="'.$this->workspace().'"'];
         }
 
         $schedulerReady = (bool) ($schedulerCron['installed'] ?? false)
@@ -453,6 +609,7 @@ class AtlasCliBootstrapCommand extends Command
         $this->components->twoColumnDetail('Launcher', (string) data_get($payload, 'install.target'));
         $this->components->twoColumnDetail('Env', (string) data_get($payload, 'env_write.env_path', 'skipped'));
         $this->components->twoColumnDetail('Scheduler cron', (string) data_get($payload, 'scheduler_cron.command', 'skipped'));
+        $this->components->twoColumnDetail('Provider projection', (string) data_get($payload, 'provider_projection.command', data_get($payload, 'provider_projection.status', 'skipped')));
         $this->components->twoColumnDetail('Final doctor', (string) data_get($payload, 'final_doctor.command', 'atlas doctor --strict'));
 
         $this->newLine();
@@ -481,5 +638,70 @@ class AtlasCliBootstrapCommand extends Command
         $resolved = realpath($workspace);
 
         return $resolved && is_dir($resolved) ? $resolved : $workspace;
+    }
+
+    private function providerProjectionAction(): ?string
+    {
+        $action = strtolower(trim((string) ($this->option('provider-projection') ?: 'skip')));
+        $action = match ($action) {
+            'inspect' => 'status',
+            'diff' => 'review',
+            'none', 'off', 'false', '0' => 'skip',
+            default => $action,
+        };
+
+        return in_array($action, ['skip', 'status', 'review', 'apply', 'write', 'adopt'], true) ? $action : null;
+    }
+
+    private function providerProjectionTarget(): string
+    {
+        $target = strtolower(trim((string) ($this->option('provider-projection-target') ?: 'all')));
+
+        return in_array($target, ['claude', 'agents', 'all'], true) ? $target : 'all';
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function providerProjectionOptions(): array
+    {
+        return array_filter([
+            'workspace' => $this->workspace(),
+            'max_lines' => $this->stringOption('provider-projection-max-lines'),
+            'memory_limit' => $this->stringOption('provider-projection-memory-limit'),
+            'force' => (bool) $this->option('provider-projection-force'),
+        ], fn (mixed $value): bool => $value !== null);
+    }
+
+    private function providerProjectionCommand(string $action): string
+    {
+        $parts = [
+            'atlas bootstrap',
+            '--provider-projection='.$action,
+            '--provider-projection-target='.$this->providerProjectionTarget(),
+            '--workspace="'.$this->workspace().'"',
+        ];
+
+        if (($maxLines = $this->stringOption('provider-projection-max-lines')) !== null) {
+            $parts[] = '--provider-projection-max-lines='.$maxLines;
+        }
+        if (($memoryLimit = $this->stringOption('provider-projection-memory-limit')) !== null) {
+            $parts[] = '--provider-projection-memory-limit='.$memoryLimit;
+        }
+        if ((bool) $this->option('provider-projection-force')) {
+            $parts[] = '--provider-projection-force';
+        }
+        if ((bool) $this->option('provider-projection-yes')) {
+            $parts[] = '--provider-projection-yes';
+        }
+
+        return implode(' ', $parts);
+    }
+
+    private function stringOption(string $key): ?string
+    {
+        $value = $this->option($key);
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 }

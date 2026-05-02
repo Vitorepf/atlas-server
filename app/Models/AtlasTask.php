@@ -111,6 +111,40 @@ class AtlasTask extends Model
         return $this->hasMany(AtlasEngineeringBlueprint::class, 'task_id');
     }
 
+    public function engineeringRuns(): HasMany
+    {
+        return $this->hasMany(AtlasEngineeringRun::class, 'task_id')
+            ->latest('created_at');
+    }
+
+    public function memoryEntries(): HasMany
+    {
+        return $this->hasMany(AtlasMemoryEntry::class, 'task_id')
+            ->latest('recorded_at');
+    }
+
+    public function engineeringTestCases(): HasMany
+    {
+        return $this->hasMany(AtlasEngineeringTestCase::class, 'task_id');
+    }
+
+    public function engineeringReviewFindings(): HasMany
+    {
+        return $this->hasMany(AtlasEngineeringReviewFinding::class, 'task_id')
+            ->latest('created_at');
+    }
+
+    public function engineeringBenchmarkCases(): HasMany
+    {
+        return $this->hasMany(AtlasEngineeringBenchmarkCase::class, 'task_id');
+    }
+
+    public function engineeringBenchmarkResults(): HasMany
+    {
+        return $this->hasMany(AtlasEngineeringBenchmarkResult::class, 'task_id')
+            ->latest('created_at');
+    }
+
     public function calendarBlocks(): HasMany
     {
         return $this->hasMany(AtlasCalendarBlock::class, 'task_id');

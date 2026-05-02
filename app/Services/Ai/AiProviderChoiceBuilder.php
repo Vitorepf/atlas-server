@@ -9,11 +9,13 @@ class AiProviderChoiceBuilder
     private const FALLBACK_MAP = [
         'claude_cli' => 'codex_cli',
         'codex_cli' => 'claude_cli',
+        'gemini_cli' => 'claude_cli',
     ];
 
     private const PROVIDER_LABEL = [
         'claude_cli' => 'Claude (claude_cli)',
         'codex_cli' => 'Codex (codex_cli)',
+        'gemini_cli' => 'Gemini (gemini_cli)',
     ];
 
     private const WAIT_HORIZON_HOURS = 24;
@@ -49,7 +51,9 @@ class AiProviderChoiceBuilder
             ];
         }
 
-        $fallbackModel = config("atlas.ai.providers.{$currentProvider}.fallback_model");
+        $fallbackModel = $currentProvider === 'gemini_cli'
+            ? null
+            : config("atlas.ai.providers.{$currentProvider}.fallback_model");
         if (is_string($fallbackModel) && $fallbackModel !== '') {
             $options[] = [
                 'id' => 'downgrade_model',
@@ -93,6 +97,7 @@ class AiProviderChoiceBuilder
         $cliName = match ($currentProvider) {
             'claude_cli' => 'claude login',
             'codex_cli' => 'codex login',
+            'gemini_cli' => 'gemini',
             default => 'login',
         };
 

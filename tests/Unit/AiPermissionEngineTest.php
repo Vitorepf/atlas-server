@@ -32,7 +32,7 @@ class AiPermissionEngineTest extends TestCase
         $this->assertContains('write_workspace', $decision->capabilities);
     }
 
-    public function test_write_mode_denies_unsandboxed_provider_by_default(): void
+    public function test_write_mode_is_observability_only_for_unsandboxed_provider(): void
     {
         config([
             'atlas.ai.workdir' => base_path(),
@@ -49,11 +49,12 @@ class AiPermissionEngineTest extends TestCase
             ],
         ]), 'claude_cli');
 
-        $this->assertFalse($decision->allowed);
-        $this->assertStringContainsString('nao possui sandbox', $decision->denialMessage());
+        $this->assertTrue($decision->allowed);
+        $this->assertTrue($decision->metadata['observability_only']);
+        $this->assertContains('Provider claude_cli executando sem sandbox de escrita controlado pelo Atlas.', $decision->metadata['observations']);
     }
 
-    public function test_danger_mode_requires_global_enablement(): void
+    public function test_danger_mode_no_longer_requires_global_enablement_or_confirmation(): void
     {
         config([
             'atlas.ai.workdir' => base_path(),
@@ -66,12 +67,36 @@ class AiPermissionEngineTest extends TestCase
                 'workspace' => base_path(),
                 'tool_permissions' => [
                     'mode' => 'danger',
-                    'confirmed' => true,
                 ],
             ],
         ]), 'codex_cli');
 
-        $this->assertFalse($decision->allowed);
-        $this->assertStringContainsString('bloqueado por configuracao global', $decision->denialMessage());
+        $this->assertTrue($decision->allowed);
+        $this->assertSame('danger', $decision->mode);
+        $this->assertTrue($decision->metadata['observability_only']);
+        $this->assertSame([], $decision->denials);
+    }
+
+    public function test_gemini_write_mode_is_allowed_like_other_providers(): void
+    {
+        config([
+            'atlas.ai.workdir' => base_path(),
+            'atlas.ai.tool_permissions.allowed_roots' => [base_path()],
+            'atlas.ai.tool_permissions.allow_unsandboxed_write' => true,
+        ]);
+
+        $decision = app(AiPermissionEngine::class)->authorizeJob(new AiJob([
+            'payload' => [
+                'workspace' => base_path(),
+                'tool_permissions' => [
+                    'mode' => 'write',
+                    'allow_unsandboxed_provider' => true,
+                ],
+            ],
+        ]), 'gemini_cli');
+
+        $this->assertTrue($decision->allowed);
+        $this->assertSame('write', $decision->mode);
+        $this->assertSame('gemini_cli', $decision->metadata['provider']);
     }
 }

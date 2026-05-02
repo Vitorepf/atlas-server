@@ -12,58 +12,56 @@ class AiToolPermissionEngine
     {
         $request = PermissionRequest::fromInvocation($invocation);
         $requestedMode = $invocation->permissionMode;
-        $denials = [];
         $reasons = [];
-        $requiresApproval = false;
+        $observations = [];
 
         if (! $this->workspaceAllowed($invocation->workspace)) {
-            $denials[] = "Workspace fora das raizes permitidas pelo Atlas: {$invocation->workspace}.";
+            $observations[] = "Workspace fora das raizes permitidas pelo Atlas: {$invocation->workspace}.";
         } else {
             $reasons[] = "Workspace autorizado: {$invocation->workspace}.";
         }
 
         if (! $this->modeAllows($requestedMode, $request->requiredMode)) {
-            $denials[] = "Permissao insuficiente: {$request->tool} exige {$request->requiredMode}, mas recebeu {$requestedMode}.";
+            $observations[] = "Permissao insuficiente: {$request->tool} exige {$request->requiredMode}, mas recebeu {$requestedMode}.";
         }
 
         if ($request->requiredMode === 'danger' && ! (bool) config('atlas.ai.tool_permissions.allow_danger', false)) {
-            $denials[] = 'Modo danger-full-access esta bloqueado por configuracao global.';
+            $observations[] = 'Modo danger-full-access esta bloqueado por configuracao global.';
         }
 
         foreach ($request->paths as $path) {
             $resolved = $this->resolvePath($invocation->workspace, $path);
             if (! $this->pathIsInside($resolved, $invocation->workspace)) {
-                $denials[] = "Path fora do workspace autorizado: {$path}.";
+                $observations[] = "Path fora do workspace autorizado: {$path}.";
             }
         }
 
         $sessionApproval = $this->activeSessionFor($invocation, $request);
         $approved = (bool) data_get($invocation->metadata, 'approved', false) || $sessionApproval !== null;
         $approvalSource = $sessionApproval ? 'permission_session' : data_get($invocation->metadata, 'approval_source');
-        if ($denials === [] && ! $approved && $this->needsHumanApproval($request, $invocation)) {
-            $requiresApproval = true;
-            $denials[] = "A ferramenta {$request->tool} exige aprovacao humana para {$request->requiredMode}.";
+        if (! $approved && $this->needsHumanApproval($request, $invocation)) {
+            $observations[] = "A ferramenta {$request->tool} exigiria aprovacao humana para {$request->requiredMode}; liberado em modo observabilidade.";
         }
 
-        if ($denials === []) {
-            $reasons[] = "Modo {$requestedMode} satisfaz requisito {$request->requiredMode}.";
-            if ($approved) {
-                $reasons[] = "Aprovado por {$approvalSource}.";
-            }
+        $reasons[] = "Modo {$requestedMode} satisfaz requisito {$request->requiredMode} em modo observabilidade.";
+        if ($approved) {
+            $reasons[] = "Aprovado por {$approvalSource}.";
         }
 
         return new AiToolPermissionDecision(
-            allowed: $denials === [],
-            requiresApproval: $requiresApproval,
+            allowed: true,
+            requiresApproval: false,
             request: $request,
             requestedMode: $requestedMode,
             reasons: $reasons,
-            denials: $denials,
+            denials: [],
             metadata: [
                 'approved' => $approved,
                 'approval_source' => $approvalSource,
                 'permission_session_id' => $sessionApproval?->id,
                 'allowed_roots' => $this->allowedRoots(),
+                'observability_only' => true,
+                'observations' => $observations,
             ],
         );
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Mobile;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MobileDeviceResource;
 use App\Models\AtlasMobileDevice;
+use App\Services\Ai\Mobile\MobileNotificationPreferences;
 use App\Services\Ai\Mobile\MobilePairingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,8 @@ class MobileDeviceController extends Controller
             ->get();
 
         return response()->json([
+            'current_device_id' => $device->id,
+            'current_device' => (new MobileDeviceResource($device))->resolve(),
             'devices' => MobileDeviceResource::collection($devices)->resolve(),
         ]);
     }
@@ -39,6 +42,29 @@ class MobileDeviceController extends Controller
 
         return response()->json([
             'device' => (new MobileDeviceResource($device))->resolve(),
+        ]);
+    }
+
+    public function updateNotificationPreferences(Request $request, MobileNotificationPreferences $preferences): JsonResponse
+    {
+        $data = $request->validate([
+            'critical_push_enabled' => ['sometimes', 'boolean'],
+            'telemetry_health_push_enabled' => ['sometimes', 'boolean'],
+            'daily_report_push_enabled' => ['sometimes', 'boolean'],
+            'quiet_hours_enabled' => ['sometimes', 'boolean'],
+        ]);
+
+        $device = $this->device($request);
+        $metadata = is_array($device->metadata) ? $device->metadata : [];
+        $metadata[MobileNotificationPreferences::METADATA_KEY] = $preferences->merge($device, $data);
+
+        $device->update([
+            'metadata' => $metadata,
+            'last_seen_at' => now(),
+        ]);
+
+        return response()->json([
+            'device' => (new MobileDeviceResource($device->refresh()))->resolve(),
         ]);
     }
 

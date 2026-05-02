@@ -25,7 +25,7 @@ class AtlasCliHelpCommand extends Command
         }
 
         $this->newLine();
-        $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas CLI</>', 'terminal principal do Atlas AI');
+        $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas CLI</>', 'terminal principal do Atlas');
         $this->line('Use o Atlas como entrada unica para conversa, desenvolvimento, revisao, memoria de sessao e qualidade.');
 
         foreach ($payload['commands'] as $section => $commands) {
@@ -71,8 +71,8 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'No cockpit, detecta imagem copiada no clipboard quando o pedido menciona tela/screenshot/print.',
                 ],
                 [
-                    'command' => 'atlas dev "..."',
-                    'description' => 'Workflow de desenvolvimento com preflight, plano, provider strategy e quality gate.',
+                    'command' => 'atlas dev "..." --model=opus|spark|<model-id>',
+                    'description' => 'Workflow de desenvolvimento com preflight, plano, provider/model strategy e quality gate.',
                 ],
                 [
                     'command' => 'atlas dev',
@@ -115,6 +115,10 @@ class AtlasCliHelpCommand extends Command
                 [
                     'command' => 'atlas bootstrap',
                     'description' => 'Comando recomendado unico para configurar, instalar e validar o Atlas CLI.',
+                ],
+                [
+                    'command' => 'atlas bootstrap --provider-projection=status',
+                    'description' => 'Diagnostica, revisa diff ou aplica CLAUDE.md/AGENTS.md provider-safe apenas quando a acao e confirmacao sao explicitas.',
                 ],
                 [
                     'command' => 'atlas bootstrap --operator-mode --operator-root=/Users/vitorepf',
@@ -210,7 +214,31 @@ class AtlasCliHelpCommand extends Command
                 ],
                 [
                     'command' => 'atlas memory review',
-                    'description' => 'Revisa memory deltas tipados antes de entrarem no contexto do Atlas.',
+                    'description' => 'Revisa, aceita e promove memory deltas tipados para o registry central.',
+                ],
+                [
+                    'command' => 'atlas memory govern',
+                    'description' => 'Rebaixa memorias com feedback ruim e detecta duplicatas/conflitos revisaveis.',
+                ],
+                [
+                    'command' => 'atlas memory review-queue',
+                    'description' => 'Mostra a fila unificada de revisao de privacidade, verbatim e relacoes abertas.',
+                ],
+                [
+                    'command' => 'atlas memory relations',
+                    'description' => 'Lista e resolve relacoes duplicate/conflict geradas pela governanca de memoria.',
+                ],
+                [
+                    'command' => 'atlas memory privacy',
+                    'description' => 'Aplica e revisa redaction, classe de privacidade e uso externo no registry central.',
+                ],
+                [
+                    'command' => 'atlas memory verbatim',
+                    'description' => 'Registra, revisa, libera/bloqueia e consulta trechos exatos com redaction e politica de privacidade.',
+                ],
+                [
+                    'command' => 'atlas memory projection',
+                    'description' => 'Gera, revisa diff, aplica com confirmacao, grava, adota, inspeciona e diagnostica CLAUDE.md/AGENTS.md curtos.',
                 ],
                 [
                     'command' => 'atlas skills list',
@@ -249,6 +277,54 @@ class AtlasCliHelpCommand extends Command
                 [
                     'command' => 'atlas test',
                     'description' => 'Atalho para quality gate com testes.',
+                ],
+                [
+                    'command' => 'atlas benchmark --suite=<slug> --workspace=<repo> --tier=release --sandbox=docker --docker-service=app --docker-cache=auto --visual-e2e=auto --quality-scan=auto --harness-policy=auto --provider-runtime=docker --gate-profile=release',
+                    'description' => 'Executa uma suite Atlas-Bench com sandbox/testes Docker, cache controlado, artifacts, visual/E2E automatico, quality/security scan local, provider runtime isolado opcional e release gates automatizados.',
+                ],
+                [
+                    'command' => 'atlas benchmark cleanup --cache-retention-days=14 --artifact-retention-days=30',
+                    'description' => 'Audita caches Docker e artifacts antigos do Harness; use --apply para apagar candidatos depois do dry-run.',
+                ],
+                [
+                    'command' => 'atlas benchmark seed --from-recent-runs=10 --tier=smoke --refresh-manifest',
+                    'description' => 'Cria a suite padrao, promove runs reais e atualiza o manifesto do corpus.',
+                ],
+                [
+                    'command' => 'atlas benchmark calibrate --suite=<slug> --limit=200',
+                    'description' => 'Calibra politica de rollout, saude do corpus e candidatos a quarentena a partir dos outcomes reais.',
+                ],
+                [
+                    'command' => 'atlas engineering run --task-id=<id> --model-policy=best-quality --sandbox=worktree|docker --provider-runtime=host|docker|auto --quality-scan=auto',
+                    'description' => 'Roda uma task pelo Engineering Harness Runner com contrato, selecao auditavel de provider/modelo, isolamento, runtime do provider, controles, patch, testes, quality/security scan opcional e score.',
+                ],
+                [
+                    'command' => 'atlas engineering replay <run-id> --attempt=1 --model=<model-id> --model-policy=balanced --workspace=<repo> --auto-test',
+                    'description' => 'Reexecuta um run ou attempt especifico do Harness em modo replay controlado; quando reexecuta provider, herda ou sobrescreve provider/modelo preservando rastreabilidade contra a origem.',
+                ],
+                [
+                    'command' => 'atlas engineering harnessability calibrate --limit=300',
+                    'description' => 'Calibra thresholds de autonomia do Harness a partir de runs historicos, divida de qualidade e outcomes reais.',
+                ],
+                [
+                    'command' => 'atlas engineering quality-scan --profile=standard --changed-only',
+                    'description' => 'Roda scan profissional de qualidade/seguranca com ferramentas gratuitas ou locais detectadas, artifacts e findings normalizados.',
+                ],
+                [
+                    'command' => 'atlas engineering visual-smoke --baseline=strict --screenshot-baseline=strict --screenshot-driver=auto --start-command="npm run dev -- --host 127.0.0.1 --port {port}"',
+                    'description' => 'Executa smoke visual local gerenciado pelo Atlas e grava snapshots DOM, screenshots por rota e diff visual usando Playwright do workspace ou runtime configurado pelo Atlas.',
+                ],
+                [
+                    'command' => 'atlas engineering visual-driver install',
+                    'description' => 'Instala/atualiza o runtime Playwright gratuito e local gerenciado pelo Atlas para screenshots do visual smoke quando o repo alvo nao tem Playwright.',
+                ],
+                [
+                    'command' => 'atlas engineering visual-baseline promote --apply',
+                    'description' => 'Promove o ultimo manifest de visual smoke para baseline DOM e screenshot depois da revisao dos artifacts.',
+                ],
+                [
+                    'command' => 'atlas engineering benchmark --suite=<slug>',
+                    'description' => 'Alias explicito para Atlas-Bench quando quiser separar comandos de engenharia.',
                 ],
             ],
         ];

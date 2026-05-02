@@ -29,6 +29,9 @@ class AiContextPack
         $activeState = data_get($continuity, 'active_state');
         $latestCompaction = data_get($continuity, 'latest_compaction');
         $latestHandoff = data_get($continuity, 'latest_provider_handoff');
+        $rankedRecall = data_get($this->data, 'memory.recall', []);
+        $registryMemory = data_get($this->data, 'memory.registry', []);
+        $verbatimMemory = data_get($this->data, 'memory.verbatim', []);
         $memory = data_get($this->data, 'memory.semantic', []);
         $openQuestions = $this->data['open_questions'] ?? [];
         $excluded = $this->data['excluded_context'] ?? [];
@@ -143,6 +146,76 @@ class AiContextPack
             $lines[] = '## Nao Fazer';
             foreach ($constraints['must_not_do'] as $item) {
                 $lines[] = '- '.$item;
+            }
+        }
+
+        if (! empty($rankedRecall)) {
+            $lines[] = '';
+            $lines[] = '## Recall Atlas Priorizado';
+            $lines[] = 'Use esta ordem para resolver conflito entre memorias. Este bloco e um indice compacto; os detalhes aparecem nas secoes de memoria abaixo.';
+            foreach ($rankedRecall as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $lines[] = '### #'.($item['rank'] ?? '?').' '.($item['title'] ?: ($item['type'] ?? 'Memoria'));
+                $lines[] = '- fonte: '.($item['source'] ?? 'n/a').'; tipo: '.($item['type'] ?? 'n/a').'; escopo: '.($item['scope'] ?? 'n/a');
+                $lines[] = '- motivo: '.($item['reason'] ?? 'memoria relevante');
+                if (! empty($item['summary'])) {
+                    $lines[] = '- resumo: '.$item['summary'];
+                }
+                if (! empty($item['excerpt'])) {
+                    $lines[] = '- trecho: '.$item['excerpt'];
+                }
+            }
+        }
+
+        if (! empty($registryMemory)) {
+            $lines[] = '';
+            $lines[] = '## Memoria Registrada Atlas';
+            $lines[] = 'Use como contexto canonico e rastreavel. Cada item tem escopo e fonte; nao exponha IDs internos ao operador salvo se ele pedir auditoria.';
+            foreach ($registryMemory as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $label = $item['title'] ?: ($item['summary'] ?: $item['type']);
+                $lines[] = '### '.($label ?: 'Memoria sem titulo');
+                $lines[] = '- tipo: '.($item['type'] ?? 'n/a');
+                $lines[] = '- escopo: '.($item['scope'] ?? 'n/a');
+                $lines[] = '- prioridade: '.($item['priority'] ?? 'n/a').'; importancia: '.($item['importance'] ?? 'n/a');
+                $lines[] = '- fonte: '.($item['source_type'] ?? 'n/a').(! empty($item['source_id']) ? ':'.$item['source_id'] : '');
+                $lines[] = '- motivo de inclusao: '.($item['reason'] ?? 'memoria relevante');
+                if (! empty($item['summary'])) {
+                    $lines[] = '- resumo: '.$item['summary'];
+                }
+                if (! empty($item['body'])) {
+                    $lines[] = '- conteudo: '.$item['body'];
+                }
+            }
+        }
+
+        if (! empty($verbatimMemory)) {
+            $lines[] = '';
+            $lines[] = '## Recall Verbatim Atlas';
+            $lines[] = 'Use como evidencia exata ja redigida e aprovada para provider. Nao exponha IDs internos ao operador salvo se ele pedir auditoria.';
+            foreach ($verbatimMemory as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $label = $item['title'] ?: ($item['summary'] ?: $item['type']);
+                $lines[] = '### '.($label ?: 'Recall verbatim sem titulo');
+                $lines[] = '- tipo: '.($item['type'] ?? 'n/a');
+                $lines[] = '- escopo: '.($item['scope'] ?? 'n/a');
+                $lines[] = '- fonte: '.($item['source_type'] ?? 'n/a').(! empty($item['source_id']) ? ':'.$item['source_id'] : '');
+                $lines[] = '- motivo de inclusao: '.($item['reason'] ?? 'recall verbatim relevante');
+                if (! empty($item['summary'])) {
+                    $lines[] = '- resumo: '.$item['summary'];
+                }
+                if (! empty($item['snippet'])) {
+                    $lines[] = '- trecho: '.$item['snippet'];
+                }
             }
         }
 

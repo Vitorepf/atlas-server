@@ -43,7 +43,7 @@ class AiToolPermissionEngineTest extends TestCase
         $this->assertFalse($decision->requiresApproval);
     }
 
-    public function test_write_tool_requires_human_approval(): void
+    public function test_write_tool_is_observability_only_without_human_approval(): void
     {
         $decision = app(AiToolPermissionEngine::class)->authorize(ToolInvocation::make('file.write', $this->workspace, [
             'path' => 'note.txt',
@@ -51,12 +51,13 @@ class AiToolPermissionEngineTest extends TestCase
             'permission_mode' => 'write',
         ]));
 
-        $this->assertFalse($decision->allowed);
-        $this->assertTrue($decision->requiresApproval);
-        $this->assertStringContainsString('aprovacao humana', $decision->message());
+        $this->assertTrue($decision->allowed);
+        $this->assertFalse($decision->requiresApproval);
+        $this->assertTrue((bool) data_get($decision->metadata, 'observability_only'));
+        $this->assertStringContainsString('exigiria aprovacao humana', implode(' ', data_get($decision->metadata, 'observations', [])));
     }
 
-    public function test_dangerous_shell_is_blocked_when_global_danger_disabled(): void
+    public function test_dangerous_shell_is_observability_only_when_global_danger_disabled(): void
     {
         $decision = app(AiToolPermissionEngine::class)->authorize(ToolInvocation::make('shell.run', $this->workspace, [
             'command' => 'rm -rf storage',
@@ -65,11 +66,11 @@ class AiToolPermissionEngineTest extends TestCase
             'metadata' => ['approved' => true],
         ]));
 
-        $this->assertFalse($decision->allowed);
-        $this->assertStringContainsString('bloqueado por configuracao global', $decision->message());
+        $this->assertTrue($decision->allowed);
+        $this->assertStringContainsString('bloqueado por configuracao global', implode(' ', data_get($decision->metadata, 'observations', [])));
     }
 
-    public function test_write_capable_shell_requires_write_permission(): void
+    public function test_write_capable_shell_records_insufficient_permission_without_blocking(): void
     {
         $decision = app(AiToolPermissionEngine::class)->authorize(ToolInvocation::make('shell.run', $this->workspace, [
             'command' => 'touch generated.txt',
@@ -77,11 +78,11 @@ class AiToolPermissionEngineTest extends TestCase
             'permission_mode' => 'read',
         ]));
 
-        $this->assertFalse($decision->allowed);
-        $this->assertStringContainsString('exige write', $decision->message());
+        $this->assertTrue($decision->allowed);
+        $this->assertStringContainsString('exige write', implode(' ', data_get($decision->metadata, 'observations', [])));
     }
 
-    public function test_patch_paths_are_validated_before_approval(): void
+    public function test_patch_paths_are_observed_without_blocking(): void
     {
         $patch = "--- a/../escape.txt\n+++ b/../escape.txt\n@@ -0,0 +1 @@\n+escape\n";
 
@@ -92,11 +93,11 @@ class AiToolPermissionEngineTest extends TestCase
             'metadata' => ['approved' => true],
         ]));
 
-        $this->assertFalse($decision->allowed);
-        $this->assertStringContainsString('Path fora do workspace', $decision->message());
+        $this->assertTrue($decision->allowed);
+        $this->assertStringContainsString('Path fora do workspace', implode(' ', data_get($decision->metadata, 'observations', [])));
     }
 
-    public function test_existing_symlink_target_outside_workspace_is_denied(): void
+    public function test_existing_symlink_target_outside_workspace_is_observed_without_blocking(): void
     {
         $outside = sys_get_temp_dir().'/atlas-tool-permission-outside-'.bin2hex(random_bytes(4));
         File::ensureDirectoryExists($outside);
@@ -113,7 +114,7 @@ class AiToolPermissionEngineTest extends TestCase
             File::deleteDirectory($outside);
         }
 
-        $this->assertFalse($decision->allowed);
-        $this->assertStringContainsString('Path fora do workspace', $decision->message());
+        $this->assertTrue($decision->allowed);
+        $this->assertStringContainsString('Path fora do workspace', implode(' ', data_get($decision->metadata, 'observations', [])));
     }
 }

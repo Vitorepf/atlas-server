@@ -33,7 +33,7 @@ class AiThreadController extends Controller
             ->when($data['surface'] ?? null, fn ($query, $surface) => $query->where('surface', $surface))
             ->when($data['workspace'] ?? null, fn ($query, $workspace) => $query->where('workspace', $workspace))
             ->when($request->boolean('include_messages'), fn ($query) => $query->with(['messages' => fn ($messages) => $messages->latest('position')->limit(30)]))
-            ->with(['activeSession', 'activeState', 'latestCompaction', 'latestProviderHandoff'])
+            ->with(['activeSession', 'activeState', 'latestCompaction', 'latestProviderHandoff', 'lastTrace'])
             ->orderByRaw('last_message_at DESC NULLS LAST')
             ->orderByDesc('created_at')
             ->limit(min((int) ($data['limit'] ?? 30), 100))
@@ -138,7 +138,7 @@ class AiThreadController extends Controller
     public function switchProvider(Request $request, AiThread $thread, AiSessionManager $sessions, AiProviderHandoffService $handoffs): JsonResponse
     {
         $data = $request->validate([
-            'to_provider' => ['required', 'string', 'in:claude_cli,codex_cli,claude_codex'],
+            'to_provider' => ['required', 'string', 'in:claude_cli,codex_cli,gemini_cli,claude_codex'],
             'from_provider' => ['nullable', 'string', 'max:80'],
             'reason' => ['nullable', 'string', 'max:120'],
             'metadata' => ['nullable', 'array'],

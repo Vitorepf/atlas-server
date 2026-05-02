@@ -18,6 +18,13 @@ use Illuminate\Validation\Rule;
 
 class InboxController extends Controller
 {
+    // Cap defensivo no fetch "ilimitado" usado pra computar health/filtragem
+    // em PHP. Pra um inbox saudável (<2k abertos) é mais do que suficiente;
+    // se o usuário acumular >2k, o caminho ideal é refator de health pra
+    // aggregação SQL. Antes não havia limite e 5k+ captures derrubavam o
+    // PHP em OOM.
+    private const MAX_BASE_CAPTURES = 2000;
+
     public function index(Request $request, AtlasDomainRegistry $domains): JsonResponse
     {
         $data = $request->validate([
@@ -187,7 +194,7 @@ class InboxController extends Controller
         };
 
         if ($limit === null) {
-            return $query;
+            return $query->limit(self::MAX_BASE_CAPTURES);
         }
 
         return $query->limit(max(1, (int) $limit));

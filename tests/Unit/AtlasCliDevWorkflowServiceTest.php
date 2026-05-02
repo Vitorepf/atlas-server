@@ -59,6 +59,7 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
             task: 'corrigir bug',
             workspace: $this->workspace,
             provider: 'codex_cli',
+            model: null,
             permission: 'write',
             allowWrite: true,
             autoTest: false,
@@ -71,6 +72,7 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         $this->assertContains(base_path('artisan'), $command);
         $this->assertContains('corrigir bug', $command);
         $this->assertContains('--dev', $command);
+        $this->assertContains('--new-thread', $command);
         $this->assertContains('--provider=codex_cli', $command);
         $this->assertContains('--no-quality-gate', $command);
         $this->assertContains('--no-run', $command);
@@ -82,6 +84,7 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
             task: 'corrigir UI',
             workspace: $this->workspace,
             provider: 'codex_cli',
+            model: null,
             permission: 'write',
             allowWrite: true,
             autoTest: false,
@@ -96,6 +99,24 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         $this->assertContains('--image=/tmp/tela.png', $command);
         $this->assertContains('--clipboard-image', $command);
         $this->assertContains('--no-auto-image', $command);
+    }
+
+    public function test_chat_command_forwards_model_override(): void
+    {
+        $command = app(AtlasCliDevWorkflowService::class)->chatCommand(
+            task: 'corrigir bug',
+            workspace: $this->workspace,
+            provider: 'codex_cli',
+            model: 'gpt-5.3-codex-spark',
+            permission: 'write',
+            allowWrite: true,
+            autoTest: false,
+            timeout: 900,
+            stream: true,
+            noRun: true,
+        );
+
+        $this->assertContains('--model=gpt-5.3-codex-spark', $command);
     }
 
     public function test_quality_gate_skills_auto_attach_for_complete_or_multi_iteration(): void

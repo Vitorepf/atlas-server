@@ -6,31 +6,87 @@ use Illuminate\Support\Str;
 
 class AiProviderModelResolver
 {
+    private const GEMINI_MODEL = 'gemini-3.1-pro-preview';
+
+    public function __construct(
+        private readonly AtlasAiRuntimeSettings $settings,
+    ) {}
+
     /**
-     * @return array{model:?string,source:string}
+     * @return array{model:?string,source:string,model_label:?string,model_tier:string,allow_auto:bool,allow_manual:bool}
      */
     public function resolveWithSource(?string $provider, mixed $explicit = null): array
     {
+        $providerConfig = is_string($provider) ? $this->settings->providerConfig($provider) : [];
+        $tier = $this->clean($providerConfig['model_tier'] ?? null) ?: $this->settings->defaultTier();
+        $allowAuto = (bool) ($providerConfig['allow_auto'] ?? true);
+        $allowManual = (bool) ($providerConfig['allow_manual'] ?? true);
+
+        if ($provider === 'gemini_cli') {
+            return $this->resolution(
+                self::GEMINI_MODEL,
+                'provider_fixed_model',
+                'Gemini 3.1 Pro Preview',
+                'premium',
+                $allowAuto,
+                $allowManual,
+            );
+        }
+
         $explicitModel = $this->clean($explicit);
         if ($explicitModel !== null) {
-            return ['model' => $explicitModel, 'source' => 'explicit'];
+            $configuredModel = $this->clean($providerConfig['model'] ?? null);
+            $identity = $this->clean($providerConfig['model_identity'] ?? null);
+            $label = $explicitModel;
+            if ($explicitModel === $configuredModel || $explicitModel === $identity) {
+                $label = $this->clean($providerConfig['model_label'] ?? null) ?: $explicitModel;
+            }
+            $premiumModel = $this->clean($providerConfig['premium_model'] ?? null);
+            if ($explicitModel === $premiumModel) {
+                return $this->resolution(
+                    $explicitModel,
+                    'explicit',
+                    $this->clean($providerConfig['premium_model_label'] ?? null) ?: $explicitModel,
+                    'premium',
+                    $allowAuto,
+                    $allowManual,
+                );
+            }
+            $fallbackModel = $this->clean($providerConfig['fallback_model'] ?? null);
+            if ($explicitModel === $fallbackModel) {
+                return $this->resolution(
+                    $explicitModel,
+                    'explicit',
+                    $this->clean($providerConfig['fallback_model_label'] ?? null) ?: $explicitModel,
+                    $tier,
+                    $allowAuto,
+                    $allowManual,
+                );
+            }
+
+            return $this->resolution($explicitModel, 'explicit', $label, $tier, $allowAuto, $allowManual);
         }
 
-        $configuredModel = $this->clean(config("atlas.ai.providers.{$provider}.model"));
+        $configuredModel = $this->clean($providerConfig['model'] ?? null);
         if ($configuredModel !== null) {
-            return ['model' => $configuredModel, 'source' => 'configured_model'];
+            $label = $this->clean($providerConfig['model_label'] ?? null) ?: $configuredModel;
+
+            return $this->resolution($configuredModel, 'configured_model', $label, $tier, $allowAuto, $allowManual);
         }
 
-        $identity = $this->clean(config("atlas.ai.providers.{$provider}.model_identity"));
+        $identity = $this->clean($providerConfig['model_identity'] ?? null);
         if ($identity !== null) {
-            return ['model' => $identity, 'source' => 'configured_model_identity'];
+            $label = $this->clean($providerConfig['model_label'] ?? null) ?: $identity;
+
+            return $this->resolution($identity, 'configured_model_identity', $label, $tier, $allowAuto, $allowManual);
         }
 
         return match ($provider) {
-            'claude_cli' => ['model' => 'claude_cli_default', 'source' => 'provider_default_identity'],
-            'codex_cli' => ['model' => 'codex_cli_default', 'source' => 'provider_default_identity'],
-            'claude_codex' => ['model' => 'council_default', 'source' => 'provider_default_identity'],
-            default => ['model' => null, 'source' => 'unresolved'],
+            'claude_cli' => $this->resolution('claude_cli_default', 'provider_default_identity', 'Claude CLI default', $tier, $allowAuto, $allowManual),
+            'codex_cli' => $this->resolution('codex_cli_default', 'provider_default_identity', 'Codex CLI default', $tier, $allowAuto, $allowManual),
+            'gemini_cli' => $this->resolution(self::GEMINI_MODEL, 'provider_fixed_model', 'Gemini 3.1 Pro Preview', 'premium', $allowAuto, $allowManual),
+            'claude_codex' => $this->resolution('council_default', 'provider_default_identity', 'Claude + Codex council', 'council', $allowAuto, $allowManual),
+            default => $this->resolution(null, 'unresolved', null, $tier, $allowAuto, $allowManual),
         };
     }
 
@@ -51,5 +107,20 @@ class AiProviderModelResolver
         }
 
         return Str::limit($value, 120, '');
+    }
+
+    /**
+     * @return array{model:?string,source:string,model_label:?string,model_tier:string,allow_auto:bool,allow_manual:bool}
+     */
+    private function resolution(?string $model, string $source, ?string $label, string $tier, bool $allowAuto, bool $allowManual): array
+    {
+        return [
+            'model' => $model,
+            'source' => $source,
+            'model_label' => $label,
+            'model_tier' => $tier,
+            'allow_auto' => $allowAuto,
+            'allow_manual' => $allowManual,
+        ];
     }
 }

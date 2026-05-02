@@ -16,7 +16,7 @@ class AiJobController extends Controller
     public function index(Request $request): JsonResponse
     {
         $jobs = AiJob::query()
-            ->with('trace')
+            ->with(['trace.thread', 'trace.session'])
             ->when($request->query('status'), fn ($query, $status) => $query->where('status', $status))
             ->when($request->query('provider'), fn ($query, $provider) => $query->where('provider', $provider))
             ->orderByDesc('created_at')
@@ -31,7 +31,7 @@ class AiJobController extends Controller
     public function show(AiJob $job): JsonResponse
     {
         return response()->json([
-            'job' => (new AiJobResource($job->load(['trace', 'attemptHistory'])))->resolve(),
+            'job' => (new AiJobResource($job->load(['trace.thread', 'trace.session', 'attemptHistory'])))->resolve(),
         ]);
     }
 

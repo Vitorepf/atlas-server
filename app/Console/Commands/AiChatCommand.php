@@ -11,6 +11,7 @@ use App\Services\Ai\AiProviderChoiceException;
 use App\Services\Ai\AiProviderChoiceResolver;
 use App\Services\Ai\AiSessionStateService;
 use App\Services\Ai\AiWorker;
+use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\Cli\AtlasCliPanel;
 use App\Services\Ai\Cli\AtlasCliQualityService;
 use App\Services\Ai\Cli\AtlasCliSessionService;
@@ -37,10 +38,12 @@ class AiChatCommand extends Command
 
     protected $signature = 'atlas:ai:chat
         {input? : One-shot input. Omit it to open the interactive Atlas CLI loop}
-        {--provider= : claude, codex, conselho, claude_cli, codex_cli or claude_codex}
+        {--provider= : claude, codex, gemini, conselho, claude_cli, codex_cli, gemini_cli or claude_codex}
+        {--model= : Model alias/id for this run, for example sonnet, opus, spark, codex-premium, claude-opus-4-7 or gpt-5.5}
         {--agent= : Force a specific Atlas agent/skill slug}
-        {--thread= : Continue a specific Atlas AI thread}
-        {--new-thread : Start a fresh Atlas AI thread}
+        {--thread= : Continue a specific Atlas thread}
+        {--new-thread : Start a fresh Atlas thread (default unless --thread or --resume-latest is used)}
+        {--resume-latest : Continue the latest Atlas CLI thread for this workspace}
         {--workspace= : Workspace path. Defaults to the current directory}
         {--mode=direct : direct, plan, review, dev, debug or research}
         {--dev : Shortcut for --mode=dev --provider=codex}
@@ -67,7 +70,7 @@ class AiChatCommand extends Command
         {--no-intent : Disable intent-based permission elevation; respect --permission verbatim}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Use Atlas AI directly from the Mac while preserving Atlas threads, sessions, memory and provider handoffs.';
+    protected $description = 'Use Atlas directly from the Mac while preserving Atlas threads, sessions, memory and provider handoffs.';
 
     private string $streamedAssistantContent = '';
 
@@ -103,15 +106,24 @@ class AiChatCommand extends Command
     {
         $workspace = $this->workspace();
         $provider = $this->providerKey($this->option('conselho') ? 'conselho' : ($this->option('provider') ?: null));
+        $modelSelection = $this->modelSelection($this->option('model') ?: null, $provider);
+        if ($modelSelection !== null && ! $provider && is_string($modelSelection['provider'] ?? null)) {
+            $provider = $modelSelection['provider'];
+        }
         $mode = $this->workflowMode($this->option('dev') ? 'dev' : (string) $this->option('mode'));
         if ($this->option('dev') && ! $provider) {
-            $provider = 'codex_cli';
+            $provider = $this->defaultProviderKey();
+        }
+        if ($modelSelection !== null && ! $this->modelSelectionMatchesProvider($modelSelection, $provider)) {
+            $this->error('Modelo '.$this->modelSelectionLabel($modelSelection).' nao combina com provider '.($provider ? $this->providerDisplayName($provider) : 'padrao').'. Use --provider correto ou remova --model.');
+
+            return self::FAILURE;
         }
         $permissionMode = $this->permissionMode((string) $this->option('permission'), $mode);
         $stream = (bool) $this->option('stream') && ! (bool) $this->option('json');
         $this->renderMode = (bool) $this->option('compact') ? 'compact' : 'full';
         $this->intentEnabled = ! (bool) $this->option('no-intent');
-        $threadId = $this->option('thread') ?: ($this->option('new-thread') ? null : $this->latestThreadId($workspace));
+        $threadId = $this->option('thread') ?: ((bool) $this->option('resume-latest') && ! (bool) $this->option('new-thread') ? $this->latestThreadId($workspace) : null);
         $busyMode = $this->busyInputMode();
         $queuedMessages = [];
         $input = $this->argument('input');
@@ -127,7 +139,7 @@ class AiChatCommand extends Command
         }
 
         if ($pendingImages !== [] && ! $provider) {
-            $provider = 'codex_cli';
+            $provider = $this->defaultProviderKey();
         }
 
         if ((bool) $this->option('list-threads')) {
@@ -141,10 +153,10 @@ class AiChatCommand extends Command
         if (is_string($input) && trim($input) !== '') {
             $pendingImages = $this->maybeAutoAttachClipboardImage($imageAttachments, $workspace, trim($input), $pendingImages);
             if ($pendingImages !== [] && ! $provider) {
-                $provider = 'codex_cli';
+                $provider = $this->defaultProviderKey();
             }
             $effectivePermission = $this->resolveEffectivePermission($intent, trim($input), $permissionMode);
-            $trace = $this->send($gateway, $worker, trim($input), $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, (bool) $this->option('new-thread'), $activatedSkills, $pendingImages);
+            $trace = $this->send($gateway, $worker, trim($input), $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null || (bool) $this->option('new-thread'), $activatedSkills, $pendingImages, $modelSelection);
             $this->maybeRunDevQualityGate($quality, $workspace, $mode);
 
             return $trace->status === 'succeeded' || (bool) $this->option('no-run')
@@ -153,12 +165,12 @@ class AiChatCommand extends Command
         }
 
         if (! $this->option('json')) {
-            $this->printWelcome($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust);
+            $this->printWelcome($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust, $modelSelection);
             $history->load($workspace);
         }
 
         while (true) {
-            $drainedTrace = $this->drainQueuedMessages($queuedMessages, $gateway, $worker, $quality, $workspace, $provider, $mode, $permissionMode, $stream, $threadId, $activatedSkills, $intent);
+            $drainedTrace = $this->drainQueuedMessages($queuedMessages, $gateway, $worker, $quality, $workspace, $provider, $mode, $permissionMode, $stream, $threadId, $activatedSkills, $intent, $modelSelection);
             if ($drainedTrace) {
                 $threadId = $drainedTrace->thread_id ?: $threadId;
             }
@@ -197,7 +209,7 @@ class AiChatCommand extends Command
             }
 
             if ($line === '/status') {
-                $this->printRuntimeStatus($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust);
+                $this->printRuntimeStatus($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust, $modelSelection);
 
                 continue;
             }
@@ -222,6 +234,18 @@ class AiChatCommand extends Command
 
             if ($line === '/providers') {
                 $this->runLocalAtlasCommand(['atlas:cli:providers', '--mode='.$mode]);
+
+                continue;
+            }
+
+            if ($line === '/models') {
+                $this->printModelCatalog($provider, $modelSelection);
+
+                continue;
+            }
+
+            if ($line === '/model' || str_starts_with($line, '/model ')) {
+                $this->handleModelCommand(trim(Str::after($line, '/model')), $provider, $modelSelection);
 
                 continue;
             }
@@ -269,7 +293,7 @@ class AiChatCommand extends Command
                 $skillTrust = $this->prepareSkillBundles($skillDiscovery, $skillBundles, $workspace);
                 $pendingImages = [];
                 $this->line("Workspace ativo: {$workspace}");
-                $this->printRuntimeStatus($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust);
+                $this->printRuntimeStatus($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust, $modelSelection);
                 $history->load($workspace);
 
                 continue;
@@ -277,6 +301,10 @@ class AiChatCommand extends Command
 
             if (str_starts_with($line, '/provider ')) {
                 $provider = $this->providerKey(trim(Str::after($line, '/provider ')));
+                if ($modelSelection !== null && ! $this->modelSelectionMatchesProvider($modelSelection, $provider)) {
+                    $this->warn('Modelo fixado nao combina com esse provider; override de modelo limpo.');
+                    $modelSelection = null;
+                }
                 $this->line('Provider ativo: '.($provider ?: 'padrao'));
 
                 continue;
@@ -285,7 +313,7 @@ class AiChatCommand extends Command
             if ($line === '/paste-image' || $line === '/clipboard-image') {
                 try {
                     $pendingImages = $this->mergeImageAttachments($pendingImages, [$imageAttachments->fromClipboard($workspace)], $imageAttachments);
-                    $provider = $provider ?: 'codex_cli';
+                    $provider = $provider ?: $this->defaultProviderKey();
                     $this->line('Imagem do clipboard anexada para a proxima mensagem.');
                     $this->printPendingImages($pendingImages);
                 } catch (\Throwable $exception) {
@@ -299,7 +327,7 @@ class AiChatCommand extends Command
                 try {
                     $paths = $this->imageCommandPaths(trim(Str::after($line, '/image ')));
                     $pendingImages = $this->mergeImageAttachments($pendingImages, $imageAttachments->fromPaths($paths, $workspace), $imageAttachments);
-                    $provider = $provider ?: 'codex_cli';
+                    $provider = $provider ?: $this->defaultProviderKey();
                     $this->printPendingImages($pendingImages);
                 } catch (\Throwable $exception) {
                     $this->error($exception->getMessage());
@@ -324,7 +352,7 @@ class AiChatCommand extends Command
             if (str_starts_with($line, '/mode ')) {
                 $mode = $this->workflowMode(trim(Str::after($line, '/mode ')));
                 if ($mode === 'dev' && ! $provider) {
-                    $provider = 'codex_cli';
+                    $provider = $this->defaultProviderKey();
                 }
                 $permissionMode = $this->permissionMode($permissionMode, $mode);
                 $this->line("Modo ativo: {$mode}");
@@ -336,7 +364,7 @@ class AiChatCommand extends Command
             if ($modeShortcut !== null) {
                 $mode = $this->workflowMode($modeShortcut);
                 if ($mode === 'dev' && ! $provider) {
-                    $provider = 'codex_cli';
+                    $provider = $this->defaultProviderKey();
                 }
                 $permissionMode = $this->permissionMode($permissionMode, $mode);
                 $this->line("Modo ativo: {$mode}");
@@ -492,7 +520,7 @@ class AiChatCommand extends Command
 
             $pendingImages = $this->maybeAutoAttachClipboardImage($imageAttachments, $workspace, $line, $pendingImages);
             if ($pendingImages !== [] && ! $provider) {
-                $provider = 'codex_cli';
+                $provider = $this->defaultProviderKey();
             }
 
             $activeTrace = $this->activeTrace($threadId, $workspace);
@@ -505,6 +533,7 @@ class AiChatCommand extends Command
                         'input' => $line,
                         'skills' => $messageSkills,
                         'images' => $pendingImages,
+                        'model' => $modelSelection,
                     ];
                     $pendingImages = [];
                     $this->line('(queued - will send next turn)');
@@ -524,7 +553,7 @@ class AiChatCommand extends Command
             }
 
             $effectivePermission = $this->resolveEffectivePermission($intent, $line, $permissionMode);
-            $trace = $this->send($gateway, $worker, $line, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $messageSkills, $pendingImages);
+            $trace = $this->send($gateway, $worker, $line, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $messageSkills, $pendingImages, $modelSelection);
             $pendingImages = [];
             $threadId = $trace->thread_id ?: $threadId;
             $this->maybeRunDevQualityGate($quality, $workspace, $mode);
@@ -544,6 +573,7 @@ class AiChatCommand extends Command
         bool $newThread,
         array $activatedSkills = [],
         array $imageAttachments = [],
+        ?array $modelSelection = null,
     ): AiTrace {
         $this->streamedAssistantContent = '';
         $this->markdownStreamBuffer = '';
@@ -556,6 +586,10 @@ class AiChatCommand extends Command
         $imageAttachments = $this->normalizeImageAttachments($imageAttachments);
         $inputForPrompt = $imageAttachments === [] ? $input : $this->inputWithImageSummary($input, $imageAttachments);
         $agentSlug = $this->agentSlug($mode);
+        $modelOverride = $this->modelOverrideFromSelection($modelSelection);
+        if ($provider === 'gemini_cli' && $mode === 'dev') {
+            throw new \RuntimeException('Gemini CLI é restrito a análise read-only; use Claude/Codex para modo dev.');
+        }
         $telemetry = app(AtlasCliTelemetry::class);
         $correlationId = $telemetry->correlationId();
         $interactionStartedAt = microtime(true);
@@ -573,6 +607,9 @@ class AiChatCommand extends Command
             [
                 'activated_skills_count' => count($activatedSkills),
                 'image_attachments_count' => count($imageAttachments),
+                'model' => $modelOverride,
+                'model_label' => $modelSelection['label'] ?? null,
+                'model_tier' => $modelSelection['tier'] ?? null,
             ],
         );
         $payload = [
@@ -580,6 +617,10 @@ class AiChatCommand extends Command
             'atlas_workflow_mode' => $mode,
             'workspace' => $workspace,
             'requested_provider' => $provider,
+            'requested_model' => $modelOverride,
+            'requested_model_label' => $modelSelection['label'] ?? null,
+            'requested_model_tier' => $modelSelection['tier'] ?? null,
+            'requested_model_source' => $modelSelection['source'] ?? null,
             'requested_agent' => $agentSlug,
             'workspace_context' => $this->workspaceContext($workspace),
             'tool_permissions' => $this->toolPermissions($workspace, $mode, $provider, $permissionMode),
@@ -604,7 +645,7 @@ class AiChatCommand extends Command
         }
 
         try {
-            $trace = $gateway->enqueueInteraction($inputForPrompt, [
+            $options = [
                 'source_type' => 'manual',
                 'agent_slug' => $agentSlug,
                 'provider' => $provider,
@@ -614,7 +655,12 @@ class AiChatCommand extends Command
                 'include_semantic_context' => true,
                 'timeout_seconds' => min(max((int) $this->option('timeout'), 15), 1800),
                 'payload' => $payload,
-            ]);
+            ];
+            if ($modelOverride !== null) {
+                $options['model'] = $modelOverride;
+            }
+
+            $trace = $gateway->enqueueInteraction($inputForPrompt, $options);
         } catch (\Throwable $exception) {
             $telemetry->interactionFailed($correlationId, $exception, $this->elapsedMs($interactionStartedAt), [
                 'phase' => 'enqueue',
@@ -667,7 +713,7 @@ class AiChatCommand extends Command
     }
 
     /**
-     * @param  array<int,array{input:string,skills:array<int,string>,images?:array<int,array<string,mixed>>}|string>  $queuedMessages
+     * @param  array<int,array{input:string,skills:array<int,string>,images?:array<int,array<string,mixed>>,model?:array<string,mixed>|null}|string>  $queuedMessages
      */
     private function drainQueuedMessages(
         array &$queuedMessages,
@@ -682,6 +728,7 @@ class AiChatCommand extends Command
         ?string $threadId,
         array $activatedSkills = [],
         ?IntentPermissionResolver $intent = null,
+        ?array $modelSelection = null,
     ): ?AiTrace {
         if ($queuedMessages === [] || $this->activeTrace($threadId, $workspace)) {
             return null;
@@ -704,13 +751,17 @@ class AiChatCommand extends Command
             ->flatMap(fn (mixed $item): array => is_array($item) ? (array) ($item['images'] ?? []) : [])
             ->values()
             ->all();
+        $batchModelSelection = collect($items)
+            ->map(fn (mixed $item): mixed => is_array($item) ? ($item['model'] ?? null) : null)
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->last() ?: $modelSelection;
         $messageCount = count($items);
         $this->line("(queued batch - sending {$messageCount} message(s))");
 
         $effectivePermission = $intent
             ? $this->resolveEffectivePermission($intent, $batch, $permissionMode)
             : $permissionMode;
-        $trace = $this->send($gateway, $worker, $batch, $workspace, $provider ?: ($batchImages !== [] ? 'codex_cli' : null), $mode, $effectivePermission, $stream, $threadId, $threadId === null, $batchSkills, $batchImages);
+        $trace = $this->send($gateway, $worker, $batch, $workspace, $provider ?: ($batchImages !== [] ? $this->defaultProviderKey() : null), $mode, $effectivePermission, $stream, $threadId, $threadId === null, $batchSkills, $batchImages, $batchModelSelection);
         $this->maybeRunDevQualityGate($quality, $workspace, $mode);
 
         return $trace;
@@ -767,23 +818,16 @@ class AiChatCommand extends Command
             return null;
         }
 
-        $query = AiTrace::query()
-            ->whereIn('status', ['queued', 'processing'])
-            ->with('thread')
-            ->latest('updated_at');
-
-        if ($threadId) {
-            $query->where('thread_id', $threadId);
-        } else {
-            $query->whereHas('thread', function ($threadQuery) use ($workspace): void {
-                $threadQuery
-                    ->where('surface', 'atlas_cli')
-                    ->where('workspace', $workspace)
-                    ->where('status', 'active');
-            });
+        if (! $threadId) {
+            return null;
         }
 
-        return $query->first();
+        return AiTrace::query()
+            ->whereIn('status', ['queued', 'processing'])
+            ->with('thread')
+            ->where('thread_id', $threadId)
+            ->latest('updated_at')
+            ->first();
     }
 
     private function cancelTrace(AiTrace $trace): void
@@ -894,6 +938,9 @@ class AiChatCommand extends Command
                 'session_id' => $trace->session_id,
                 'status' => $trace->status,
                 'provider' => $trace->provider,
+                'model' => $trace->model,
+                'model_label' => data_get($trace->metadata, 'model_label'),
+                'model_tier' => data_get($trace->metadata, 'model_tier'),
                 'agent' => $trace->agent_slug,
                 'skills_activated' => (array) data_get($trace->metadata, 'skills_activated', []),
                 'response_text' => $trace->response_text,
@@ -915,7 +962,12 @@ class AiChatCommand extends Command
             'failed' => 'fg=red;options=bold',
             default => 'fg=yellow;options=bold',
         };
-        $this->line('<fg=bright-blue;options=bold>Atlas</> <fg=gray>trace '.$this->shortId((string) $trace->id).'</> <'.$statusStyle.'>'.$trace->status.'</> <fg=gray>provider '.$trace->provider.'</>');
+        $runtime = ['provider '.$trace->provider];
+        $modelLabel = data_get($trace->metadata, 'model_label') ?: $trace->model;
+        if (is_string($modelLabel) && trim($modelLabel) !== '') {
+            $runtime[] = 'model '.$modelLabel;
+        }
+        $this->line('<fg=bright-blue;options=bold>Atlas</> <fg=gray>trace '.$this->shortId((string) $trace->id).'</> <'.$statusStyle.'>'.$trace->status.'</> <fg=gray>'.OutputFormatter::escape(implode(' · ', $runtime)).'</>');
         $this->line('<fg=gray>thread '.$this->shortId((string) $trace->thread_id).'</>');
         $activatedSkills = collect((array) data_get($trace->metadata, 'skills_activated', []))
             ->pluck('name')
@@ -1143,6 +1195,8 @@ class AiChatCommand extends Command
                     ['/mode <X>', 'X = direct | plan | review | dev | debug | research'],
                     ['/plan /review ...', 'atalho para /mode <X>'],
                     ['/provider <X>', 'X = claude | codex | conselho | padrao (atlas decide)'],
+                    ['/model <X>', 'X = sonnet | spark | default | model-id explicito'],
+                    ['/models', 'lista modelos e tiers configurados'],
                     ['/permission <X>', 'X = auto | read | write | danger (intent decide auto)'],
                     ['/stream <on|off>', 'streaming token-a-token'],
                     ['/render <X>', 'X = full | compact (compact esconde codigo)'],
@@ -1195,7 +1249,7 @@ class AiChatCommand extends Command
             ],
             [
                 'title' => 'provider handoff',
-                'when' => 'trocar de modelo mid-thread mantendo contexto',
+                'when' => 'trocar de provider mid-thread mantendo contexto',
                 'commands' => [
                     ['/handoff <X>', 'X = claude | codex'],
                 ],
@@ -1618,17 +1672,17 @@ class AiChatCommand extends Command
      * @param  array<int,string>  $activatedSkills
      * @param  array<string,mixed>  $skillTrust
      */
-    private function printWelcome(string $workspace, ?string $provider, string $mode, string $permissionMode, bool $stream, string $busyMode, ?string $threadId, array $activatedSkills = [], array $skillTrust = []): void
+    private function printWelcome(string $workspace, ?string $provider, string $mode, string $permissionMode, bool $stream, string $busyMode, ?string $threadId, array $activatedSkills = [], array $skillTrust = [], ?array $modelSelection = null): void
     {
         $title = (bool) $this->option('cockpit') ? 'atlas dev cockpit' : 'atlas cli';
-        $this->renderConsolePanel($title, $workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust);
+        $this->renderConsolePanel($title, $workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust, $modelSelection);
     }
 
     /**
      * @param  array<int,string>  $activatedSkills
      * @param  array<string,mixed>  $skillTrust
      */
-    private function renderConsolePanel(string $title, string $workspace, ?string $provider, string $mode, string $permissionMode, bool $stream, string $busyMode, ?string $threadId, array $activatedSkills = [], array $skillTrust = []): void
+    private function renderConsolePanel(string $title, string $workspace, ?string $provider, string $mode, string $permissionMode, bool $stream, string $busyMode, ?string $threadId, array $activatedSkills = [], array $skillTrust = [], ?array $modelSelection = null): void
     {
         $context = $this->workspaceContext($workspace);
         $branch = (string) ($context['branch'] ?: '-');
@@ -1638,7 +1692,7 @@ class AiChatCommand extends Command
         $tag = $threadId ? 'thread '.$this->shortId($threadId) : 'nova thread';
         $skillsValue = $activatedSkills === [] ? 'auto' : implode(', ', $activatedSkills);
         $localSkills = $this->skillTrustLabel($skillTrust);
-        $providerLabel = $provider ?: 'padrao';
+        $providerLabel = $provider ? $this->providerDisplayName($provider) : 'padrao ('.$this->providerDisplayName($this->defaultProviderKey()).')';
         $rootsValue = $this->panelRootsSummary();
 
         $panel = AtlasCliPanel::make($decorated, $width)
@@ -1651,6 +1705,7 @@ class AiChatCommand extends Command
             ->blank()
             ->section('runtime')
             ->kv('provider', $providerLabel)
+            ->kv('modelo', $this->modelPanelValue($provider, $modelSelection, $decorated))
             ->kv('modo', $mode)
             ->kv('permissao', $this->panelPermissionValue($permissionMode, $decorated))
             ->kv('stream', $this->panelTogglePair([
@@ -1665,7 +1720,7 @@ class AiChatCommand extends Command
             ->kv('raizes', $rootsValue)
             ->kv('sudo', AtlasTerminalTheme::muted('so com pedido explicito', $decorated))
             ->blank()
-            ->line(AtlasTerminalTheme::dimItalic('/help · /paste-image · /status · /handoff codex|claude · /exit', $decorated))
+            ->line(AtlasTerminalTheme::dimItalic('/help · /model · /paste-image · /status · /handoff codex|claude · /exit', $decorated))
             ->blank()
             ->close()
             ->build();
@@ -1746,10 +1801,10 @@ class AiChatCommand extends Command
      * @param  array<int,string>  $activatedSkills
      * @param  array<string,mixed>  $skillTrust
      */
-    private function printRuntimeStatus(string $workspace, ?string $provider, string $mode, string $permissionMode, bool $stream, string $busyMode, ?string $threadId, array $activatedSkills = [], array $skillTrust = []): void
+    private function printRuntimeStatus(string $workspace, ?string $provider, string $mode, string $permissionMode, bool $stream, string $busyMode, ?string $threadId, array $activatedSkills = [], array $skillTrust = [], ?array $modelSelection = null): void
     {
         $title = (bool) $this->option('cockpit') ? 'atlas dev status' : 'atlas status';
-        $this->renderConsolePanel($title, $workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust);
+        $this->renderConsolePanel($title, $workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust, $modelSelection);
     }
 
     private function permissionBadge(string $permissionMode): string
@@ -2196,18 +2251,396 @@ class AiChatCommand extends Command
         return $output !== '' ? $output : null;
     }
 
+    /**
+     * @return array{model:string,label:string,tier:string,provider:?string,source:string,alias:string}|null
+     */
+    private function modelSelection(?string $value, ?string $currentProvider = null): ?array
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        $raw = trim($value);
+        $normalized = $this->normalizeModelAlias($raw);
+        if (in_array($normalized, ['default', 'padrao', 'auto', 'atlas'], true)) {
+            return null;
+        }
+
+        foreach ($this->modelCatalog() as $item) {
+            $aliases = array_map(fn (string $alias): string => $this->normalizeModelAlias($alias), $item['aliases']);
+            $aliases[] = $this->normalizeModelAlias($item['alias']);
+            $aliases[] = $this->normalizeModelAlias($item['model']);
+            $aliases[] = $this->normalizeModelAlias($item['label']);
+            if (in_array($normalized, array_values(array_unique($aliases)), true)) {
+                return [
+                    'model' => $item['model'],
+                    'label' => $item['label'],
+                    'tier' => $item['tier'],
+                    'provider' => $item['provider'],
+                    'source' => $item['source'],
+                    'alias' => $item['alias'],
+                ];
+            }
+        }
+
+        return [
+            'model' => $raw,
+            'label' => $raw,
+            'tier' => 'manual',
+            'provider' => $this->inferProviderFromModel($raw) ?: $currentProvider,
+            'source' => 'explicit',
+            'alias' => $raw,
+        ];
+    }
+
+    private function handleModelCommand(string $argument, ?string &$provider, ?array &$modelSelection): void
+    {
+        $argument = trim($argument);
+        if ($argument === '') {
+            $this->printModelCatalog($provider, $modelSelection);
+
+            if (! $this->input->isInteractive()) {
+                $this->line('Use /model sonnet, /model spark, /model default ou /model <model-id>.');
+
+                return;
+            }
+
+            $choices = $this->modelChoiceLabels();
+            $argument = $this->modelAliasFromChoice((string) $this->choice('Modelo', $choices, $choices[0] ?? null));
+        }
+
+        $selection = $this->modelSelection($argument, $provider);
+        if ($selection === null) {
+            $modelSelection = null;
+            $this->line('Modelo ativo: padrao do provider.');
+
+            return;
+        }
+
+        $modelSelection = $selection;
+        $selectionProvider = is_string($selection['provider'] ?? null) ? $selection['provider'] : null;
+        if ($selectionProvider !== null && $provider !== $selectionProvider) {
+            $provider = $selectionProvider;
+            $this->line('Provider ajustado: '.$this->providerDisplayName($provider));
+        }
+
+        $this->line('Modelo ativo: '.$this->modelSelectionLabel($modelSelection));
+    }
+
+    private function printModelCatalog(?string $provider, ?array $modelSelection = null): void
+    {
+        $decorated = $this->output->isDecorated();
+        $this->newLine();
+        $this->line(AtlasTerminalTheme::bold('Modelos Atlas CLI', $decorated));
+        $this->line('Atual: '.$this->modelPanelValue($provider, $modelSelection, $decorated));
+        $this->newLine();
+        $this->line(sprintf('  %-14s %-12s %-36s %-10s %s', 'alias', 'provider', 'modelo', 'tier', 'label'));
+        $this->line('  '.str_repeat('-', 88));
+
+        foreach ($this->modelCatalog() as $item) {
+            $active = $modelSelection !== null && ($modelSelection['model'] ?? null) === $item['model'] ? '*' : ' ';
+            $this->line(sprintf(
+                '%s %-14s %-12s %-36s %-10s %s',
+                $active,
+                $item['alias'],
+                $this->providerDisplayName($item['provider']),
+                Str::limit($item['model'], 36, ''),
+                $item['tier'],
+                $item['label'],
+            ));
+        }
+
+        $this->newLine();
+        $this->line('Use /model <alias>, /model default, ou /model <model-id> para um id explicito.');
+        $this->newLine();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function modelChoiceLabels(): array
+    {
+        $choices = ['default - usar modelo padrao do provider'];
+        foreach ($this->modelCatalog() as $item) {
+            $choices[] = $item['alias'].' - '.$item['label'].' ['.$this->providerDisplayName($item['provider']).', '.$item['tier'].']';
+        }
+
+        return $choices;
+    }
+
+    private function modelAliasFromChoice(string $choice): string
+    {
+        return trim(Str::before($choice, ' - '));
+    }
+
+    /**
+     * @return list<array{alias:string,provider:string,model:string,label:string,tier:string,source:string,description:string,aliases:list<string>}>
+     */
+    private function modelCatalog(): array
+    {
+        $rows = [];
+
+        $this->appendModelCatalogRow(
+            $rows,
+            'sonnet',
+            'claude_cli',
+            $this->providerConfiguredModel('claude_cli'),
+            'default',
+            'Claude diario',
+            ['sonnet', 'sonnet-4.6', 'sonnet-4', 'claude-sonnet', 'claude-sonnet-4-6', 'claude'],
+        );
+        $this->appendModelCatalogRow(
+            $rows,
+            'spark',
+            'codex_cli',
+            $this->providerConfiguredModel('codex_cli'),
+            'default',
+            'Codex diario',
+            ['spark', 'codex-spark', 'gpt-5.3-codex-spark', 'gpt-5.3', 'codex'],
+        );
+        $this->appendModelCatalogRow(
+            $rows,
+            'gemini-pro',
+            'gemini_cli',
+            $this->providerConfiguredModel('gemini_cli'),
+            'premium',
+            'Gemini contexto longo e multimodal',
+            ['gemini', 'gemini-pro', 'gemini-3.1-pro-preview', 'gemini-3-1-pro'],
+        );
+        $this->appendModelCatalogRow(
+            $rows,
+            'haiku',
+            'claude_cli',
+            $this->providerNamedModel('claude_cli', 'fallback_model', 'fallback_model_label'),
+            'fallback',
+            'Claude economico',
+            ['haiku', 'claude-haiku', 'fallback-claude'],
+        );
+        $this->appendModelCatalogRow(
+            $rows,
+            'mini',
+            'codex_cli',
+            $this->providerNamedModel('codex_cli', 'fallback_model', 'fallback_model_label'),
+            'fallback',
+            'Codex economico',
+            ['mini', 'codex-mini', 'gpt-5.4-mini', 'fallback-codex'],
+        );
+        $this->appendModelCatalogRow(
+            $rows,
+            'opus',
+            'claude_cli',
+            $this->providerNamedModel('claude_cli', 'premium_model', 'premium_model_label'),
+            'premium',
+            'Claude premium manual',
+            ['opus', 'opus-4.7', 'claude-opus', 'claude-opus-4-7', 'claude-premium'],
+        );
+        $this->appendModelCatalogRow(
+            $rows,
+            'codex-premium',
+            'codex_cli',
+            $this->providerNamedModel('codex_cli', 'premium_model', 'premium_model_label'),
+            'premium',
+            'Codex premium manual',
+            ['codex-premium', 'codex-5.5', 'gpt-5.5', 'gpt-premium', 'premium-codex'],
+        );
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array{alias:string,provider:string,model:string,label:string,tier:string,source:string,description:string,aliases:list<string>}>  $rows
+     * @param  array{model:string,label:string,tier:string}|null  $model
+     * @param  list<string>  $aliases
+     */
+    private function appendModelCatalogRow(array &$rows, string $alias, string $provider, ?array $model, string $source, string $description, array $aliases): void
+    {
+        if ($model === null || $model['model'] === '') {
+            return;
+        }
+
+        foreach ($rows as $row) {
+            if ($row['provider'] === $provider && $row['model'] === $model['model']) {
+                return;
+            }
+        }
+
+        $rows[] = [
+            'alias' => $alias,
+            'provider' => $provider,
+            'model' => $model['model'],
+            'label' => $model['label'],
+            'tier' => $model['tier'],
+            'source' => $source,
+            'description' => $description,
+            'aliases' => array_values(array_unique($aliases)),
+        ];
+    }
+
+    /**
+     * @return array{model:string,label:string,tier:string}|null
+     */
+    private function providerConfiguredModel(string $provider): ?array
+    {
+        $config = app(AtlasAiRuntimeSettings::class)->providerConfig($provider);
+        $model = $this->cleanModelString($config['model'] ?? null) ?: $this->cleanModelString($config['model_identity'] ?? null);
+        if ($model === null || str_ends_with($model, '_default')) {
+            return null;
+        }
+
+        return [
+            'model' => $model,
+            'label' => $this->cleanModelString($config['model_label'] ?? null) ?: $model,
+            'tier' => $this->cleanModelString($config['model_tier'] ?? null) ?: app(AtlasAiRuntimeSettings::class)->defaultTier(),
+        ];
+    }
+
+    /**
+     * @return array{model:string,label:string,tier:string}|null
+     */
+    private function providerNamedModel(string $provider, string $modelKey, string $labelKey): ?array
+    {
+        $config = app(AtlasAiRuntimeSettings::class)->providerConfig($provider);
+        $model = $this->cleanModelString($config[$modelKey] ?? null);
+        if ($model === null || str_ends_with($model, '_default')) {
+            return null;
+        }
+
+        return [
+            'model' => $model,
+            'label' => $this->cleanModelString($config[$labelKey] ?? null) ?: $model,
+            'tier' => $modelKey === 'premium_model'
+                ? 'premium'
+                : ($this->cleanModelString($config['model_tier'] ?? null) ?: app(AtlasAiRuntimeSettings::class)->defaultTier()),
+        ];
+    }
+
+    private function modelOverrideFromSelection(?array $modelSelection): ?string
+    {
+        $model = $modelSelection['model'] ?? null;
+        if (! is_string($model) && ! is_numeric($model)) {
+            return null;
+        }
+
+        $model = trim((string) $model);
+
+        return $model !== '' ? $model : null;
+    }
+
+    private function modelSelectionLabel(array $modelSelection): string
+    {
+        $model = (string) ($modelSelection['model'] ?? '');
+        $label = (string) ($modelSelection['label'] ?? $model);
+        $tier = (string) ($modelSelection['tier'] ?? 'manual');
+        $provider = $this->providerDisplayName(is_string($modelSelection['provider'] ?? null) ? $modelSelection['provider'] : null);
+
+        return "{$label} ({$model}, {$tier}, {$provider})";
+    }
+
+    private function modelSelectionMatchesProvider(array $modelSelection, ?string $provider): bool
+    {
+        $selectionProvider = is_string($modelSelection['provider'] ?? null) ? $modelSelection['provider'] : null;
+        if ($selectionProvider === null) {
+            return true;
+        }
+
+        return $provider === $selectionProvider;
+    }
+
+    private function modelPanelValue(?string $provider, ?array $modelSelection, bool $decorated): string
+    {
+        if ($modelSelection !== null) {
+            $label = (string) ($modelSelection['label'] ?? $modelSelection['model'] ?? 'modelo fixado');
+            $model = (string) ($modelSelection['model'] ?? '');
+            $tier = (string) ($modelSelection['tier'] ?? 'manual');
+
+            return $label.' '.AtlasTerminalTheme::muted('· '.$model.' · '.$tier.' · fixado', $decorated);
+        }
+
+        $provider = $provider ?: $this->defaultProviderKey();
+        if ($provider === 'claude_codex') {
+            return 'Claude + Codex council '.AtlasTerminalTheme::muted('· modelos por provider', $decorated);
+        }
+
+        $configured = $this->providerConfiguredModel($provider);
+        if ($configured !== null) {
+            return $configured['label'].' '.AtlasTerminalTheme::muted('· '.$configured['model'].' · '.$configured['tier'].' · padrao', $decorated);
+        }
+
+        return AtlasTerminalTheme::muted('padrao do provider', $decorated);
+    }
+
+    private function providerDisplayName(?string $provider): string
+    {
+        return match ($provider) {
+            'claude_cli' => 'Claude',
+            'codex_cli' => 'Codex',
+            'gemini_cli' => 'Gemini',
+            'claude_codex' => 'Conselho',
+            default => 'padrao',
+        };
+    }
+
+    private function inferProviderFromModel(string $model): ?string
+    {
+        $normalized = $this->normalizeModelAlias($model);
+        if (Str::contains($normalized, ['claude', 'sonnet', 'haiku', 'opus'])) {
+            return 'claude_cli';
+        }
+        if (Str::contains($normalized, ['gpt', 'codex', 'spark'])) {
+            return 'codex_cli';
+        }
+        if (Str::contains($normalized, ['gemini'])) {
+            return 'gemini_cli';
+        }
+
+        return null;
+    }
+
+    private function normalizeModelAlias(string $value): string
+    {
+        $normalized = strtolower(trim(Str::ascii($value)));
+        $normalized = str_replace(['_', ' '], '-', $normalized);
+        $normalized = preg_replace('/-+/', '-', $normalized) ?? $normalized;
+
+        return trim($normalized, '-');
+    }
+
+    private function cleanModelString(mixed $value): ?string
+    {
+        if (! is_string($value) && ! is_numeric($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? Str::limit($value, 120, '') : null;
+    }
+
     private function providerKey(?string $provider): ?string
     {
         if ($provider === null || trim($provider) === '') {
             return null;
         }
 
-        return match (Str::of($provider)->lower()->trim()->value()) {
-            'claude', 'claude_cli' => 'claude_cli',
-            'codex', 'codex_cli' => 'codex_cli',
-            'conselho', 'council', 'ambos', 'claude_codex' => 'claude_codex',
+        return match ($this->normalizeModelAlias($provider)) {
+            'padrao', 'default', 'auto', 'atlas' => null,
+            'claude', 'claude-cli' => 'claude_cli',
+            'codex', 'codex-cli' => 'codex_cli',
+            'gemini', 'gemini-cli' => 'gemini_cli',
+            'conselho', 'council', 'ambos', 'claude-codex' => 'claude_codex',
             default => throw new \InvalidArgumentException("Provider invalido: {$provider}"),
         };
+    }
+
+    private function defaultProviderKey(): string
+    {
+        try {
+            $provider = app(AtlasAiRuntimeSettings::class)->defaultProvider();
+
+            return in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true) ? $provider : 'claude_cli';
+        } catch (\InvalidArgumentException) {
+            return 'claude_cli';
+        }
     }
 
     private function workflowMode(string $mode): string

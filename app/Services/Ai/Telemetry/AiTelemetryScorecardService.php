@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Telemetry;
 
 use App\Models\AiTraceMetricSummary;
+use App\Services\Ai\Telemetry\AiCostEstimator;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,7 @@ class AiTelemetryScorecardService
 
         $base = $this->baseQuery($since, $until, $basis, $exclusiveUntil);
         $count = (clone $base)->count();
+        $tools = $this->toolMetrics($since, $until, $basis, $exclusiveUntil);
 
         return [
             'available' => true,
@@ -48,13 +50,35 @@ class AiTelemetryScorecardService
                 'context_efficiency_avg' => $this->avg($base, 'context_efficiency_score'),
                 'total_latency_avg_ms' => $this->avg($base, 'total_latency_ms'),
                 'app_visible_avg_ms' => $this->avg($base, 'app_send_to_visible_ms'),
+                // Legacy aggregate — sum across ALL cost modes. Mixes API spend with CLI
+                // operational placeholders, so consumers needing accuracy should use the
+                // segregated fields below. Kept for backward compatibility.
                 'cost_microusd_sum' => (int) ((clone $base)->sum('cost_microusd') ?? 0),
-                'unknown_cost_count' => (clone $base)->where('cost_confidence', 'unknown')->count(),
-                'estimated_cost_count' => (clone $base)->where('cost_confidence', 'estimated')->count(),
-                'actual_cost_count' => (clone $base)->where('cost_confidence', 'actual')->count(),
+                // Segregated cost totals by cost_mode. These do NOT mix moedas:
+                //   - metered_estimate: real provider tokens × configured rate (closest to billing).
+                //   - operational_estimate: CLI placeholders, accounting unit set by the operator.
+                //   - unknown: rate missing → cost is null → sum stays 0 (surfaced for completeness).
+                // Invariant: metered + operational + unknown == cost_microusd_sum.
+                'metered_estimate_cost_microusd_sum' => (int) ((clone $base)->where('cost_mode', 'metered_estimate')->sum('cost_microusd') ?? 0),
+                'operational_estimate_cost_microusd_sum' => (int) ((clone $base)->where('cost_mode', 'operational_estimate')->sum('cost_microusd') ?? 0),
+                'unknown_cost_microusd_sum' => (int) ((clone $base)->where('cost_mode', 'unknown')->sum('cost_microusd') ?? 0),
+                'unknown_cost_count' => (clone $base)->where('cost_confidence', AiCostEstimator::COST_CONFIDENCE_UNKNOWN)->count(),
+                'estimated_cost_count' => (clone $base)->where('cost_confidence', AiCostEstimator::COST_CONFIDENCE_ESTIMATED)->count(),
+                // metered_cost_count is the new vocabulary. It accepts both 'metered' (current writes)
+                // and 'actual' (legacy rows pre-data-migration) so the scorecard stays accurate
+                // during the transition window.
+                'metered_cost_count' => (clone $base)->whereIn('cost_confidence', AiCostEstimator::COST_CONFIDENCE_METERED_ACCEPTED)->count(),
+                // Legacy alias kept for any external consumer pinned to the old key. Same value
+                // as metered_cost_count by design — drop after a release-cycle of dual emission.
+                'actual_cost_count' => (clone $base)->whereIn('cost_confidence', AiCostEstimator::COST_CONFIDENCE_METERED_ACCEPTED)->count(),
                 'operational_estimate_cost_count' => (clone $base)->where('cost_mode', 'operational_estimate')->count(),
                 'first_pass_success_rate' => $this->rate($base, 'first_pass_success'),
                 'needed_remediation_rate' => $this->rate($base, 'needed_remediation'),
+                // router_override_rate is null if the column was never added (legacy schema).
+                // Defensive guard — see comment on by_router_mode below.
+                'router_override_rate' => Schema::hasColumn('ai_trace_metric_summaries', 'router_was_overridden')
+                    ? $this->rate($base, 'router_was_overridden')
+                    : null,
                 'backgrounded_during_run_rate' => $this->rate($base, 'backgrounded_during_run'),
                 'recovered_from_pending_count' => (clone $base)->where('recovered_from_pending', true)->count(),
                 'reask_detected_count' => (clone $base)->where('reask_detected', true)->count(),
@@ -64,8 +88,118 @@ class AiTelemetryScorecardService
             'by_model' => $this->aggregateBy($base, 'model'),
             'by_agent' => $this->aggregateBy($base, 'agent_slug'),
             'by_task_type' => $this->aggregateBy($base, 'task_type'),
-            'risks' => $this->risks($base),
+            // by_router_mode lets the report flag bad routing patterns: e.g., a 'fast'
+            // router mode producing low quality scores, or 'council' producing high cost
+            // without quality gain. Idx_ai_trace_metric_router_mode supports the GROUP BY.
+            // Returns [] when the migration adding router_mode hasn't run on this DB.
+            'by_router_mode' => Schema::hasColumn('ai_trace_metric_summaries', 'router_mode')
+                ? $this->aggregateBy($base, 'router_mode')
+                : [],
+            // Tool diagnostics — Fix 7c F4. Queries ai_tool_events directly (not via
+            // summaries) because tools is a separate event stream and the schema-safe
+            // aggregator only stores aggregated counts in score_components.tools, not
+            // queryable by-tool breakdowns. Joins to summary's window via trace_id.
+            'tools' => $tools,
+            'risks' => $this->risks($base, $tools),
             'recent_low_score' => $this->recentLowScore($base),
+        ];
+    }
+
+    /**
+     * Tool-level metrics computed directly from ai_tool_events. Joins to ai_traces
+     * (or ai_trace_metric_summaries when basis=computed_at) via trace_id so the same
+     * window definition applies to both the summary scorecard and tool aggregations.
+     *
+     * Returns ['available' => false] when the table is missing — every consumer
+     * gets a definite negative signal instead of a key error.
+     *
+     * @return array<string,mixed>
+     */
+    private function toolMetrics(CarbonInterface $since, CarbonInterface $until, string $basis, bool $exclusiveUntil): array
+    {
+        if (! Schema::hasTable('ai_tool_events')) {
+            return ['available' => false];
+        }
+
+        $untilOperator = $exclusiveUntil ? '<' : '<=';
+
+        // Window scope: select tool events whose parent trace's window matches the
+        // scorecard's time range. Using trace_created_at when basis allows (joins to
+        // ai_traces), otherwise computed_at (joins to ai_trace_metric_summaries).
+        $eventsQuery = DB::table('ai_tool_events as e');
+        if ($basis === 'trace_created_at' && Schema::hasTable('ai_traces')) {
+            $eventsQuery->join('ai_traces as t', 't.id', '=', 'e.trace_id')
+                ->where('t.created_at', '>=', $since)
+                ->where('t.created_at', $untilOperator, $until);
+        } else {
+            $eventsQuery->join('ai_trace_metric_summaries as s', 's.trace_id', '=', 'e.trace_id')
+                ->where('s.computed_at', '>=', $since)
+                ->where('s.computed_at', $untilOperator, $until);
+        }
+
+        $totalCalls = (int) (clone $eventsQuery)->count();
+
+        if ($totalCalls === 0) {
+            return [
+                'available' => true,
+                'tool_calls_total' => 0,
+                'tool_failure_count' => 0,
+                'tool_failure_rate' => null,
+                'permission_denied_count' => 0,
+                'permission_denial_rate' => null,
+                'high_risk_tool_count' => 0,
+                'critical_risk_tool_count' => 0,
+                'by_tool' => [],
+            ];
+        }
+
+        // Failures: exit_code != 0 OR error string present. Mirrors aggregator's isToolFailure().
+        $failureCount = (int) (clone $eventsQuery)
+            ->where(function ($q): void {
+                $q->where(function ($qq): void {
+                    $qq->whereNotNull('e.exit_code')->where('e.exit_code', '!=', 0);
+                })->orWhere(function ($qq): void {
+                    $qq->whereNotNull('e.error')->where('e.error', '!=', '');
+                });
+            })
+            ->count();
+
+        $deniedCount = (int) (clone $eventsQuery)->where('e.permission_status', 'denied')->count();
+        $highRiskCount = (int) (clone $eventsQuery)->where('e.risk', 'high')->count();
+        $criticalRiskCount = (int) (clone $eventsQuery)->where('e.risk', 'critical')->count();
+
+        // by_tool aggregation: per-tool counts. Bucket name = tool name. Sorted by count desc.
+        $byTool = (clone $eventsQuery)
+            ->select([
+                'e.tool as bucket',
+                DB::raw('COUNT(*) as calls'),
+                DB::raw("SUM(CASE WHEN (e.exit_code IS NOT NULL AND e.exit_code != 0) OR (e.error IS NOT NULL AND e.error != '') THEN 1 ELSE 0 END) as failures"),
+                DB::raw("SUM(CASE WHEN e.permission_status = 'denied' THEN 1 ELSE 0 END) as denied"),
+                DB::raw('SUM(e.duration_ms) as duration_ms_sum'),
+            ])
+            ->groupBy('e.tool')
+            ->orderByDesc('calls')
+            ->get()
+            ->map(fn ($row): array => [
+                'bucket' => (string) $row->bucket,
+                'calls' => (int) $row->calls,
+                'failures' => (int) $row->failures,
+                'denied' => (int) $row->denied,
+                'duration_ms_sum' => (int) $row->duration_ms_sum,
+                'failure_rate' => (int) $row->calls > 0 ? round((int) $row->failures / (int) $row->calls, 4) : null,
+            ])
+            ->all();
+
+        return [
+            'available' => true,
+            'tool_calls_total' => $totalCalls,
+            'tool_failure_count' => $failureCount,
+            'tool_failure_rate' => round($failureCount / $totalCalls, 4),
+            'permission_denied_count' => $deniedCount,
+            'permission_denial_rate' => round($deniedCount / $totalCalls, 4),
+            'high_risk_tool_count' => $highRiskCount,
+            'critical_risk_tool_count' => $criticalRiskCount,
+            'by_tool' => $byTool,
         ];
     }
 
@@ -150,7 +284,7 @@ class AiTelemetryScorecardService
     /**
      * @return array<string,mixed>
      */
-    private function risks(Builder $query): array
+    private function risks(Builder $query, array $tools): array
     {
         return [
             'low_quality_count' => (clone $query)->where('final_quality_score', '<', 60)->count(),
@@ -159,6 +293,16 @@ class AiTelemetryScorecardService
             'needs_remediation_count' => (clone $query)->where('needed_remediation', true)->count(),
             'reask_detected_count' => (clone $query)->where('reask_detected', true)->count(),
             'provider_switch_after_response_count' => (clone $query)->where('provider_switched_after_response', true)->count(),
+            // Tool risks — pure counts; threshold evaluation lives in AiTelemetryHealthService
+            // so it picks up the configurable values from atlas.ai_metrics.tool_*.
+            // Use the already window-scoped tools block; querying ai_tool_events here
+            // directly would let old/out-of-window risks contaminate today's report.
+            'tool_critical_risk_count' => (bool) ($tools['available'] ?? false)
+                ? (int) ($tools['critical_risk_tool_count'] ?? 0)
+                : 0,
+            'tool_high_risk_count' => (bool) ($tools['available'] ?? false)
+                ? (int) ($tools['high_risk_tool_count'] ?? 0)
+                : 0,
         ];
     }
 

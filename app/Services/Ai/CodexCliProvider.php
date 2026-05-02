@@ -11,6 +11,10 @@ class CodexCliProvider implements AiProvider
 {
     use RunsCliProcesses;
 
+    public function __construct(
+        private readonly AtlasAiRuntimeSettings $runtimeSettings,
+    ) {}
+
     public function key(): string
     {
         return 'codex_cli';
@@ -23,7 +27,7 @@ class CodexCliProvider implements AiProvider
 
     public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
     {
-        $provider = config('atlas.ai.providers.codex_cli');
+        $provider = $this->runtimeSettings->providerConfig('codex_cli');
         $binary = (string) ($provider['binary'] ?? 'codex');
         $args = (array) ($provider['args'] ?? ['exec']);
         $tmp = storage_path('app/ai/codex-last-'.bin2hex(random_bytes(6)).'.txt');
@@ -52,6 +56,7 @@ class CodexCliProvider implements AiProvider
             timeoutSeconds: $job->timeout_seconds,
             cwd: $this->workdirForJob($job),
             onEvent: $onEvent,
+            job: $job,
         );
 
         if (File::exists($tmp)) {
@@ -87,7 +92,7 @@ class CodexCliProvider implements AiProvider
 
     public function health(): AiProviderHealthCheck
     {
-        return $this->checkBinary($this->key(), (string) config('atlas.ai.providers.codex_cli.binary', 'codex'));
+        return $this->checkBinary($this->key(), (string) ($this->runtimeSettings->providerConfig('codex_cli')['binary'] ?? 'codex'));
     }
 
     private function invocationModel(AiJob $job, array $provider): ?string
@@ -122,6 +127,10 @@ class CodexCliProvider implements AiProvider
             $args = $this->withRepeatedArgValues($args, '--add-dir', $this->allowedRootsForJob($job));
         }
 
+        if ($mode === 'danger') {
+            $args = $this->withArgValue($args, '--ask-for-approval', 'never');
+        }
+
         return $args;
     }
 
@@ -132,15 +141,41 @@ class CodexCliProvider implements AiProvider
     private function withImageAttachments(array $args, AiJob $job): array
     {
         $images = data_get($job->payload, 'attachments.images', []);
-        if (! is_array($images) || $images === []) {
-            return $args;
-        }
+        $files = data_get($job->payload, 'attachments.files', []);
+        $images = is_array($images) ? $images : [];
+        $files = is_array($files) ? $files : [];
 
         $paths = collect($images)
             ->map(fn (mixed $image): ?string => is_array($image) && is_string($image['path'] ?? null) ? $image['path'] : null)
             ->filter(fn (?string $path): bool => is_string($path) && File::isFile($path))
-            ->values()
-            ->all();
+            ->values();
+
+        $pageLimit = max(0, (int) config('atlas.attachments.pdf.vision_page_limit', 12));
+        if ($pageLimit > 0) {
+            $pageImages = collect($files)
+                ->flatMap(function (mixed $file): array {
+                    if (! is_array($file)) {
+                        return [];
+                    }
+
+                    $rendered = is_array($file['pdf_rendered_pages'] ?? null)
+                        ? $file['pdf_rendered_pages']
+                        : (is_array($file['office_rendered_pages'] ?? null) ? $file['office_rendered_pages'] : []);
+
+                    return $rendered;
+                })
+                ->map(fn (mixed $page): ?string => is_array($page) && is_string($page['path'] ?? null) ? $page['path'] : null)
+                ->filter(fn (?string $path): bool => is_string($path) && File::isFile($path))
+                ->take($pageLimit)
+                ->values();
+
+            $paths = $paths->merge($pageImages);
+        }
+
+        $paths = $paths->unique()->values()->all();
+        if ($paths === []) {
+            return $args;
+        }
 
         return $this->withRepeatedArgValues($args, '--image', $paths);
     }

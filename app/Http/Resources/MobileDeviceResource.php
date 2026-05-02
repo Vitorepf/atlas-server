@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\Ai\Mobile\MobileNotificationPreferences;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,6 +19,7 @@ class MobileDeviceResource extends JsonResource
             'os_version' => $this->os_version,
             'has_push_token' => $this->expo_push_token !== null,
             'notification_permissions' => $this->notification_permissions,
+            'notification_preferences' => app(MobileNotificationPreferences::class)->forDevice($this->resource),
             'last_seen_at' => $this->last_seen_at?->toJSON(),
             'paired_at' => $this->paired_at?->toJSON(),
             'revoked_at' => $this->revoked_at?->toJSON(),

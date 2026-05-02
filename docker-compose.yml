@@ -23,7 +23,13 @@ services:
       dockerfile: Dockerfile
     container_name: atlas-backend
     restart: unless-stopped
-    command: sh -c "php artisan config:clear && php artisan migrate --force && php -S 0.0.0.0:3737 -t public public/index.php"
+    # Sequência de boot:
+    # 1. config:clear  → garante que migrations leem env atual, não cache antigo
+    # 2. migrate       → schema atualizado
+    # 3. config:cache  → compila config/* num único arquivo PHP (boot ~5-15ms mais rápido por request)
+    # 4. route:cache   → compila rotas num arquivo único (resolução de URL O(1))
+    # 5. php -S        → sobe o server
+    command: sh -c "php artisan config:clear && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php -S 0.0.0.0:3737 -t public public/index.php"
     ports:
       - "3737:3737"
     environment:
@@ -68,6 +74,11 @@ services:
       - .:/app
       - atlas-storage:/var/atlas/storage
       - ../AtlasVault:/atlas-vault
+      # Anonymous volume isola bootstrap/cache do bind mount do host.
+      # Sem isso, config:cache/route:cache geram arquivos com DB_HOST=db
+      # (válido só dentro do Docker) que vazam pro Mac e quebram artisan
+      # rodado fora do container.
+      - /app/bootstrap/cache
     depends_on:
       db:
         condition: service_healthy
@@ -78,7 +89,11 @@ services:
       dockerfile: Dockerfile
     container_name: atlas-queue
     restart: unless-stopped
-    command: sh -c "php artisan config:clear && php artisan queue:work --queue=transcription,default --tries=3 --timeout=600"
+    # Queue worker reusa o config:cache que o backend criou no boot.
+    # config:cache é idempotente — rodando aqui também garante que o cache
+    # exista mesmo se queue subir antes do backend (depends_on resolve isso,
+    # mas defesa em profundidade).
+    command: sh -c "php artisan config:cache && php artisan queue:work --queue=transcription,default --tries=3 --timeout=600"
     environment:
       APP_NAME: Atlas
       APP_ENV: production
@@ -119,6 +134,7 @@ services:
       - .:/app
       - atlas-storage:/var/atlas/storage
       - ../AtlasVault:/atlas-vault
+      - /app/bootstrap/cache
     depends_on:
       db:
         condition: service_healthy
@@ -133,7 +149,8 @@ services:
       dockerfile: Dockerfile
     container_name: atlas-scheduler
     restart: unless-stopped
-    command: sh -c "php artisan config:clear && php artisan schedule:work"
+    # Scheduler reusa o config cacheado pelo backend (mesmo padrão do queue).
+    command: sh -c "php artisan config:cache && php artisan schedule:work"
     environment:
       APP_NAME: Atlas
       APP_ENV: production
@@ -168,6 +185,7 @@ services:
       - .:/app
       - atlas-storage:/var/atlas/storage
       - ../AtlasVault:/atlas-vault
+      - /app/bootstrap/cache
     depends_on:
       db:
         condition: service_healthy

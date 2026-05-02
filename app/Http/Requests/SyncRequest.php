@@ -7,6 +7,7 @@ use App\Http\Requests\Concerns\RejectsFutureCheckinRecordedAt;
 use App\Services\AtlasDomainRegistry;
 use App\Support\BehaviorCategories;
 use App\Support\BehaviorLifecycle;
+use App\Support\HealthMetricIntegrity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -94,7 +95,7 @@ class SyncRequest extends FormRequest
             'checkins_to_upload.*.metadata' => ['sometimes', 'array'],
             'passive_signals_to_upload' => ['sometimes', 'array'],
             'passive_signals_to_upload.*.client_id' => ['required', 'uuid'],
-            'passive_signals_to_upload.*.source' => ['required', Rule::in(['healthkit', 'rize'])],
+            'passive_signals_to_upload.*.source' => ['required', Rule::in(HealthMetricIntegrity::PASSIVE_SOURCES)],
             'passive_signals_to_upload.*.signal_type' => ['required', 'string', 'max:128'],
             'passive_signals_to_upload.*.value_numeric' => ['nullable', 'numeric'],
             'passive_signals_to_upload.*.value_text' => ['nullable', 'string', 'max:1024'],
@@ -135,12 +136,12 @@ class SyncRequest extends FormRequest
             'health_snapshots_to_upload.*.steps' => ['nullable', 'numeric'],
             'health_snapshots_to_upload.*.walking_running_distance_m' => ['nullable', 'numeric'],
             'health_snapshots_to_upload.*.vo2max' => ['nullable', 'numeric'],
-            'health_snapshots_to_upload.*.body_mass_kg' => ['nullable', 'numeric'],
-            'health_snapshots_to_upload.*.body_fat_percentage' => ['nullable', 'numeric'],
-            'health_snapshots_to_upload.*.lean_body_mass_kg' => ['nullable', 'numeric'],
-            'health_snapshots_to_upload.*.muscle_mass_percentage' => ['nullable', 'numeric'],
-            'health_snapshots_to_upload.*.body_mass_index' => ['nullable', 'numeric'],
-            'health_snapshots_to_upload.*.waist_circumference_cm' => ['nullable', 'numeric'],
+            'health_snapshots_to_upload.*.body_mass_kg' => ['nullable', 'numeric', 'between:20,350'],
+            'health_snapshots_to_upload.*.body_fat_percentage' => ['nullable', 'numeric', 'between:3,75'],
+            'health_snapshots_to_upload.*.lean_body_mass_kg' => ['nullable', 'numeric', 'between:10,250'],
+            'health_snapshots_to_upload.*.muscle_mass_percentage' => ['nullable', 'numeric', 'between:15,95'],
+            'health_snapshots_to_upload.*.body_mass_index' => ['nullable', 'numeric', 'between:8,90'],
+            'health_snapshots_to_upload.*.waist_circumference_cm' => ['nullable', 'numeric', 'between:30,250'],
             'health_snapshots_to_upload.*.energy_level' => ['nullable', 'integer', 'between:1,5'],
             'health_snapshots_to_upload.*.mood_level' => ['nullable', 'integer', 'between:1,5'],
             'health_snapshots_to_upload.*.state' => ['nullable', Rule::in(['focused', 'disperse', 'blocked', 'pause'])],
@@ -278,20 +279,32 @@ class SyncRequest extends FormRequest
     {
         $validator->after(function ($validator): void {
             $checkins = $this->input('checkins_to_upload', []);
-            if (! is_array($checkins)) {
+
+            if (is_array($checkins)) {
+                foreach ($checkins as $index => $checkin) {
+                    if (! is_array($checkin)) {
+                        continue;
+                    }
+
+                    $this->rejectFutureCheckinRecordedAt(
+                        $validator,
+                        "checkins_to_upload.$index.recorded_at",
+                        $checkin['recorded_at'] ?? null,
+                    );
+                }
+            }
+
+            $signals = $this->input('passive_signals_to_upload', []);
+            if (! is_array($signals)) {
                 return;
             }
 
-            foreach ($checkins as $index => $checkin) {
-                if (! is_array($checkin)) {
+            foreach ($signals as $index => $signal) {
+                if (! is_array($signal)) {
                     continue;
                 }
 
-                $this->rejectFutureCheckinRecordedAt(
-                    $validator,
-                    "checkins_to_upload.$index.recorded_at",
-                    $checkin['recorded_at'] ?? null,
-                );
+                HealthMetricIntegrity::validatePassiveSignal($validator, $signal, "passive_signals_to_upload.$index");
             }
         });
     }

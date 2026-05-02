@@ -5,6 +5,11 @@ use App\Console\Commands\AiChatCommand;
 use App\Console\Commands\AiDoctorCommand;
 use App\Console\Commands\AiEnqueueCommand;
 use App\Console\Commands\AiHealthCommand;
+use App\Console\Commands\AiMetricSnapshotRefreshCommand;
+use App\Console\Commands\AiPerformanceSmokeCommand;
+use App\Console\Commands\AiRecommendationMeasureCommand;
+use App\Console\Commands\AiReportEngineBackfillCommand;
+use App\Console\Commands\AiReportEngineRunCommand;
 use App\Console\Commands\AiTelemetryCostRatesCommand;
 use App\Console\Commands\AiTelemetryHealthCommand;
 use App\Console\Commands\AiTelemetryPerformanceReportCommand;
@@ -15,22 +20,17 @@ use App\Console\Commands\AtlasCliCheckpointCommand;
 use App\Console\Commands\AtlasCliCompareCommand;
 use App\Console\Commands\AtlasCliDashboardCommand;
 use App\Console\Commands\AtlasCliDevCommand;
-use App\Console\Commands\AtlasCliDogfoodCommand;
 use App\Console\Commands\AtlasCliDoctorCommand;
+use App\Console\Commands\AtlasCliDogfoodCommand;
 use App\Console\Commands\AtlasCliFinalCommand;
 use App\Console\Commands\AtlasCliFixCommand;
 use App\Console\Commands\AtlasCliHelpCommand;
-use App\Console\Commands\AtlasCliInstallCommand;
 use App\Console\Commands\AtlasCliInboxCommand;
-use App\Console\Commands\AtlasInsightCommand;
-use App\Console\Commands\AtlasInsightWatchCommand;
-use App\Console\Commands\AtlasInitiativesCommand;
+use App\Console\Commands\AtlasCliInstallCommand;
 use App\Console\Commands\AtlasCliMemoryCommand;
 use App\Console\Commands\AtlasCliMobileCommand;
 use App\Console\Commands\AtlasCliPermissionsCommand;
 use App\Console\Commands\AtlasCliProvidersCommand;
-use App\Console\Commands\AtlasProposalCommand;
-use App\Console\Commands\AtlasProposalScanCommand;
 use App\Console\Commands\AtlasCliQualityCommand;
 use App\Console\Commands\AtlasCliReleaseCommand;
 use App\Console\Commands\AtlasCliRollbackCommand;
@@ -42,9 +42,26 @@ use App\Console\Commands\AtlasCliTraceCommand;
 use App\Console\Commands\AtlasCliTuiCommand;
 use App\Console\Commands\AtlasCliUpdateCommand;
 use App\Console\Commands\AtlasCliVersionCommand;
+use App\Console\Commands\AtlasEngineeringBenchmarkCalibrateCommand;
+use App\Console\Commands\AtlasEngineeringBenchmarkCommand;
+use App\Console\Commands\AtlasEngineeringBenchmarkSeedCommand;
+use App\Console\Commands\AtlasEngineeringDockerCleanupCommand;
+use App\Console\Commands\AtlasEngineeringHarnessabilityCalibrateCommand;
+use App\Console\Commands\AtlasEngineeringQualityScanCommand;
+use App\Console\Commands\AtlasEngineeringReplayCommand;
+use App\Console\Commands\AtlasEngineeringRunCommand;
+use App\Console\Commands\AtlasEngineeringVisualDriverCommand;
+use App\Console\Commands\AtlasEngineeringVisualBaselineCommand;
+use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
+use App\Console\Commands\AtlasInitiativesCommand;
+use App\Console\Commands\AtlasInsightCommand;
+use App\Console\Commands\AtlasInsightWatchCommand;
+use App\Console\Commands\AtlasProposalCommand;
+use App\Console\Commands\AtlasProposalScanCommand;
+use App\Console\Commands\AtlasMemoryReviewQueueCommand;
+use App\Console\Commands\AtlasRuntimeCommand;
 use App\Console\Commands\AtlasSchedulerTickCommand;
 use App\Console\Commands\AtlasSelfDiagnosticCommand;
-use App\Console\Commands\AtlasRuntimeCommand;
 use App\Console\Commands\HealthRepairCommand;
 use App\Console\Commands\RizeInspectCommand;
 use App\Console\Commands\RizeSyncCommand;
@@ -73,6 +90,11 @@ return Application::configure(basePath: dirname(__DIR__))
         AiDoctorCommand::class,
         AiEnqueueCommand::class,
         AiHealthCommand::class,
+        AiMetricSnapshotRefreshCommand::class,
+        AiPerformanceSmokeCommand::class,
+        AiRecommendationMeasureCommand::class,
+        AiReportEngineBackfillCommand::class,
+        AiReportEngineRunCommand::class,
         AiTelemetryCostRatesCommand::class,
         AiTelemetryHealthCommand::class,
         AiTelemetryPerformanceReportCommand::class,
@@ -101,6 +123,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCliProvidersCommand::class,
         AtlasProposalCommand::class,
         AtlasProposalScanCommand::class,
+        AtlasMemoryReviewQueueCommand::class,
         AtlasCliRollbackCommand::class,
         AtlasCliScheduleCommand::class,
         AtlasCliSetupCommand::class,
@@ -110,6 +133,17 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCliTuiCommand::class,
         AtlasCliUpdateCommand::class,
         AtlasCliVersionCommand::class,
+        AtlasEngineeringBenchmarkCalibrateCommand::class,
+        AtlasEngineeringBenchmarkCommand::class,
+        AtlasEngineeringBenchmarkSeedCommand::class,
+        AtlasEngineeringDockerCleanupCommand::class,
+        AtlasEngineeringHarnessabilityCalibrateCommand::class,
+        AtlasEngineeringQualityScanCommand::class,
+        AtlasEngineeringReplayCommand::class,
+        AtlasEngineeringRunCommand::class,
+        AtlasEngineeringVisualDriverCommand::class,
+        AtlasEngineeringVisualBaselineCommand::class,
+        AtlasEngineeringVisualSmokeCommand::class,
         AtlasSchedulerTickCommand::class,
         AtlasSelfDiagnosticCommand::class,
         AtlasRuntimeCommand::class,
@@ -150,6 +184,20 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('atlas:ai:telemetry:health --hours=48 --emit')
             ->hourly()
             ->withoutOverlapping();
+
+        if (config('atlas.ai_metrics.snapshot_refresh_enabled', true)) {
+            $schedule->command('atlas:ai:metrics:snapshot-refresh --days=2 --json')
+                ->dailyAt((string) config('atlas.ai_metrics.snapshot_refresh_time', '06:50'))
+                ->timezone((string) config('atlas.ai_metrics.performance_report_timezone', config('app.timezone', 'UTC')))
+                ->withoutOverlapping();
+        }
+
+        if (config('atlas.report.recommendation_measure_enabled', true)) {
+            $schedule->command('atlas:ai:recommendations:measure --json')
+                ->dailyAt((string) config('atlas.report.recommendation_measure_time', '06:40'))
+                ->timezone((string) config('atlas.ai_metrics.performance_report_timezone', config('app.timezone', 'UTC')))
+                ->withoutOverlapping();
+        }
 
         if (config('atlas.ai_metrics.performance_report_enabled', true)) {
             $reportWindows = implode(',', (array) config('atlas.ai_metrics.performance_report_windows', [3, 7, 15, 30]));

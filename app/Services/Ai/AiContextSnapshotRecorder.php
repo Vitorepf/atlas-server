@@ -10,12 +10,14 @@ use App\Models\AiTrace;
 
 class AiContextSnapshotRecorder
 {
+    public function __construct(private readonly AtlasMemoryUsageService $memoryUsages) {}
+
     public function record(AiTrace $trace, AiSession $session, AiPrompt $prompt, ?AiCompaction $compaction = null, ?AiProviderHandoff $handoff = null): AiContextSnapshot
     {
         $contextPack = $prompt->contextPack;
         $messages = data_get($contextPack, 'conversation.recent_turns', []);
 
-        return AiContextSnapshot::query()->create([
+        $snapshot = AiContextSnapshot::query()->create([
             'trace_id' => $trace->id,
             'thread_id' => $trace->thread_id,
             'session_id' => $session->id,
@@ -34,5 +36,9 @@ class AiContextSnapshotRecorder
                 'created_by' => 'ai_context_snapshot_recorder',
             ],
         ]);
+
+        $this->memoryUsages->recordSnapshotUsages($trace, $snapshot);
+
+        return $snapshot;
     }
 }

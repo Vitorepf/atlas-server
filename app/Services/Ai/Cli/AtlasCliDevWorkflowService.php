@@ -130,6 +130,7 @@ class AtlasCliDevWorkflowService
             'duration_ms' => $metadata['duration_ms'] ?? null,
             'files' => $metadata['files'] ?? null,
             'trace_id' => $metadata['trace_id'] ?? null,
+            'model' => $metadata['model'] ?? null,
             'quality_status' => $metadata['quality_status'] ?? null,
             'error' => $metadata['error'] ?? null,
             'created_at' => now()->toJSON(),
@@ -232,6 +233,7 @@ class AtlasCliDevWorkflowService
         string $task,
         string $workspace,
         ?string $provider,
+        ?string $model,
         string $permission,
         bool $allowWrite,
         bool $autoTest,
@@ -253,6 +255,7 @@ class AtlasCliDevWorkflowService
             'atlas:ai:chat',
             $task,
             '--dev',
+            '--new-thread',
             '--workspace='.$workspace,
             '--permission='.$permission,
             '--timeout='.(string) $timeout,
@@ -261,6 +264,10 @@ class AtlasCliDevWorkflowService
 
         if ($provider) {
             $command[] = '--provider='.$provider;
+        }
+
+        if ($model !== null && trim($model) !== '') {
+            $command[] = '--model='.trim($model);
         }
 
         if ($allowWrite) {

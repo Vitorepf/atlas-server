@@ -103,11 +103,13 @@ return new class extends Migration
             $table->index(['final_efficiency_score', 'computed_at'], 'idx_ai_trace_metric_efficiency');
         });
 
-        DB::statement(<<<'SQL'
-            CREATE TRIGGER trg_ai_trace_metric_summaries_updated_at
-            BEFORE UPDATE ON ai_trace_metric_summaries
-            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-        SQL);
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement(<<<'SQL'
+                CREATE TRIGGER trg_ai_trace_metric_summaries_updated_at
+                BEFORE UPDATE ON ai_trace_metric_summaries
+                FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+            SQL);
+        }
     }
 
     public function down(): void

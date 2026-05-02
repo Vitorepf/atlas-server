@@ -161,7 +161,7 @@ class AiQualityActionService
                     actionType: 'retry_with_continuity',
                     priority: 0,
                     reason: 'Provider perdeu continuidade apesar de haver contexto disponível.',
-                    provider: 'claude_codex',
+                    provider: 'claude_cli',
                 ),
             ];
         }
@@ -185,8 +185,8 @@ class AiQualityActionService
                     trace: $trace,
                     actionType: 'escalate_to_council',
                     priority: 10,
-                    reason: 'Score baixo exige segunda leitura de conselho Claude + Codex.',
-                    provider: 'claude_codex',
+                    reason: 'Score baixo exige reparo automático pelo Claude Sonnet.',
+                    provider: 'claude_cli',
                 ),
                 ...$this->verificationPlanIfNeeded($trace, $flags),
             ];
@@ -341,9 +341,7 @@ TXT,
 
     private function repairProvider(AiTrace $trace): string
     {
-        return in_array($trace->provider, ['claude_cli', 'codex_cli'], true)
-            ? (string) $trace->provider
-            : (string) config('atlas.ai.default_provider', 'claude_cli');
+        return 'claude_cli';
     }
 
     private function agentSlugForAction(AiQualityAction $action, AiTrace $trace): string

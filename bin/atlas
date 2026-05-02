@@ -135,14 +135,14 @@ exec_chat_prompt_with_workspace() {
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --image|--provider|--agent|--thread|--workspace|--mode|--permission|--timeout|--dev-plan|--skill)
+      --image|--provider|--model|--agent|--thread|--workspace|--mode|--permission|--timeout|--dev-plan|--skill)
         pass_args+=("$1")
         shift || true
         if [ "$#" -gt 0 ]; then
           pass_args+=("$1")
         fi
         ;;
-      --image=*|--provider=*|--agent=*|--thread=*|--workspace=*|--mode=*|--permission=*|--timeout=*|--dev-plan=*|--skill=*|--clipboard-image|--no-auto-image|--new-thread|--allow-write|--dangerously-allow-all|--allow-unsandboxed|--compact|--no-intent|--json|--stream|--no-run)
+      --image=*|--provider=*|--model=*|--agent=*|--thread=*|--workspace=*|--mode=*|--permission=*|--timeout=*|--dev-plan=*|--skill=*|--clipboard-image|--no-auto-image|--new-thread|--resume-latest|--allow-write|--dangerously-allow-all|--allow-unsandboxed|--compact|--no-intent|--json|--stream|--no-run)
         pass_args+=("$1")
         ;;
       *)
@@ -281,6 +281,96 @@ case "$cmd" in
     fi
     exec "$PHP_BIN" artisan atlas:cli:quality --run-tests --yes "$@" --workspace="$CALLER_PWD"
     ;;
+  benchmark|bench)
+    shift || true
+    subcmd="${1:-run}"
+    case "$subcmd" in
+      seed|init)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:benchmark:seed "$@"
+        ;;
+      calibrate|calibration|cal)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:benchmark:calibrate "$@"
+        ;;
+      cleanup|docker-cleanup)
+        shift || true
+        exec "$PHP_BIN" artisan atlas:engineering:docker-cleanup "$@"
+        ;;
+    esac
+    exec_artisan_with_workspace atlas:engineering:benchmark "$@"
+    ;;
+  engineering|harness)
+    shift || true
+    subcmd="${1:-run}"
+    case "$subcmd" in
+      seed|init)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:benchmark:seed "$@"
+        ;;
+      cleanup|docker-cleanup)
+        shift || true
+        exec "$PHP_BIN" artisan atlas:engineering:docker-cleanup "$@"
+        ;;
+      quality-scan|quality|scan)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:quality-scan "$@"
+        ;;
+      visual-smoke|visual)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:visual-smoke "$@"
+        ;;
+      visual-driver|driver|playwright|visual-runtime)
+        shift || true
+        exec "$PHP_BIN" artisan atlas:engineering:visual-driver "$@"
+        ;;
+      visual-baseline|baseline)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:visual-baseline "$@"
+        ;;
+      benchmark|bench)
+        shift || true
+        nested="${1:-run}"
+        case "$nested" in
+          seed|init)
+            shift || true
+            exec_artisan_with_workspace atlas:engineering:benchmark:seed "$@"
+            ;;
+          calibrate|calibration|cal)
+            shift || true
+            exec_artisan_with_workspace atlas:engineering:benchmark:calibrate "$@"
+            ;;
+          cleanup|docker-cleanup)
+            shift || true
+            exec "$PHP_BIN" artisan atlas:engineering:docker-cleanup "$@"
+            ;;
+        esac
+        exec_artisan_with_workspace atlas:engineering:benchmark "$@"
+        ;;
+      run|runner)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:run "$@"
+        ;;
+      replay)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:replay "$@"
+        ;;
+      harnessability)
+        shift || true
+        nested="${1:-calibrate}"
+        case "$nested" in
+          calibrate|calibration|cal)
+            shift || true
+            exec "$PHP_BIN" artisan atlas:engineering:harnessability:calibrate "$@"
+            ;;
+        esac
+        exec "$PHP_BIN" artisan atlas:engineering:harnessability:calibrate "$@"
+        ;;
+      *)
+        exec_artisan_with_workspace atlas:engineering:run "$@"
+        ;;
+    esac
+    ;;
   runtime|tool)
     shift || true
     exec_artisan_with_workspace atlas:runtime "$@"
@@ -300,8 +390,79 @@ case "$cmd" in
     shift || true
     exec_artisan_with_workspace atlas:cli:permissions "$@"
     ;;
+  memory:list)
+    shift || true
+    exec_artisan_with_workspace atlas:memory:list "$@"
+    ;;
+  memory:add)
+    shift || true
+    exec_artisan_with_workspace atlas:memory:add "$@"
+    ;;
+  memory:audit)
+    shift || true
+    exec_artisan_with_workspace atlas:memory:audit "$@"
+    ;;
+  memory:promote)
+    shift || true
+    exec_artisan_with_workspace atlas:cli:memory promote "$@"
+    ;;
+  memory:govern|memory:governance)
+    shift || true
+    exec_artisan_with_workspace atlas:memory:govern "$@"
+    ;;
+  memory:review-queue|memory:queue)
+    shift || true
+    exec_artisan_with_workspace atlas:memory:review-queue "$@"
+    ;;
+  memory:relations)
+    shift || true
+    exec_artisan_with_workspace atlas:memory:relations "$@"
+    ;;
+  memory:privacy)
+    shift || true
+    exec_artisan_with_workspace atlas:memory:privacy "$@"
+    ;;
+  memory:verbatim)
+    shift || true
+    exec_artisan_with_workspace atlas:memory:verbatim "$@"
+    ;;
+  memory:projection|memory:project)
+    shift || true
+    exec_artisan_with_workspace atlas:memory:projection "$@"
+    ;;
   memory)
     shift || true
+    subcmd="${1:-review}"
+    case "$subcmd" in
+      audit)
+        shift || true
+        exec_artisan_with_workspace atlas:memory:audit "$@"
+        ;;
+      govern|governance)
+        shift || true
+        exec_artisan_with_workspace atlas:memory:govern "$@"
+        ;;
+      review-queue|queue)
+        shift || true
+        exec_artisan_with_workspace atlas:memory:review-queue "$@"
+        ;;
+      relation|relations)
+        shift || true
+        exec_artisan_with_workspace atlas:memory:relations "$@"
+        ;;
+      privacy)
+        shift || true
+        exec_artisan_with_workspace atlas:memory:privacy "$@"
+        ;;
+      verbatim)
+        shift || true
+        exec_artisan_with_workspace atlas:memory:verbatim "$@"
+        ;;
+      projection|project)
+        shift || true
+        exec_artisan_with_workspace atlas:memory:projection "$@"
+        ;;
+    esac
     exec_artisan_with_workspace atlas:cli:memory "$@"
     ;;
   mobile)

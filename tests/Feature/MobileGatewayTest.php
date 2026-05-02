@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\AuthenticateMobileDevice;
 use App\Models\AiInboxItem;
 use App\Models\AiJob;
+use App\Models\AiPerformanceRecommendation;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiThread;
 use App\Models\AiTrace;
@@ -23,6 +25,7 @@ use App\Services\Ai\Mobile\InsightInboxEmitter;
 use App\Services\Ai\Mobile\InsightWatcherService;
 use App\Services\Ai\Mobile\InboxActionRegistry;
 use App\Services\Ai\Mobile\JobResultInboxEmitter;
+use App\Services\Ai\Mobile\MobilePairingService;
 use App\Services\Ai\Mobile\MobilePushService;
 use App\Services\Ai\Mobile\MobileReliabilityMonitor;
 use App\Services\Ai\Mobile\ProposalInboxEmitter;
@@ -46,6 +49,7 @@ class MobileGatewayTest extends TestCase
 
         config()->set('atlas.token', 'testing-atlas-token-with-enough-length');
         config()->set('atlas.mobile.enabled', false);
+        config()->set('atlas.ai_metrics.performance_report_emit', false);
         Cache::flush();
         app(ExpoCircuitBreaker::class)->reset();
         $this->createMobileTables();
@@ -53,6 +57,7 @@ class MobileGatewayTest extends TestCase
 
     protected function tearDown(): void
     {
+        Carbon::setTestNow();
         $this->dropMobileTables();
 
         parent::tearDown();
@@ -87,6 +92,8 @@ class MobileGatewayTest extends TestCase
             ->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/v1/mobile/devices')
             ->assertOk()
+            ->assertJsonPath('current_device_id', $deviceId)
+            ->assertJsonPath('current_device.id', $deviceId)
             ->assertJsonCount(1, 'devices');
 
         $this
@@ -99,6 +106,44 @@ class MobileGatewayTest extends TestCase
             ->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/v1/mobile/devices')
             ->assertUnauthorized();
+    }
+
+    public function test_mobile_device_notification_preferences_can_be_updated(): void
+    {
+        $token = $this->pairedDeviceToken('ExponentPushToken[test]');
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/devices/notification-preferences', [
+                'critical_push_enabled' => false,
+                'daily_report_push_enabled' => false,
+            ])
+            ->assertOk()
+            ->assertJsonPath('device.notification_preferences.critical_push_enabled', false)
+            ->assertJsonPath('device.notification_preferences.telemetry_health_push_enabled', true)
+            ->assertJsonPath('device.notification_preferences.daily_report_push_enabled', false)
+            ->assertJsonPath('device.notification_preferences.quiet_hours_enabled', false);
+
+        $device = AtlasMobileDevice::query()->firstOrFail();
+        $this->assertFalse(data_get($device->metadata, 'notification_preferences.critical_push_enabled'));
+        $this->assertFalse(data_get($device->metadata, 'notification_preferences.daily_report_push_enabled'));
+    }
+
+    public function test_mobile_bearer_recovers_from_stale_serialized_device_cache(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $hash = app(MobilePairingService::class)->hashSecret($token);
+        $cacheKey = AuthenticateMobileDevice::deviceCacheKey($hash);
+
+        Cache::put($cacheKey, unserialize('O:19:"MissingMobileDevice":0:{}'), now()->addMinute());
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/v1/mobile/devices')
+            ->assertOk()
+            ->assertJsonCount(1, 'devices');
+
+        $this->assertSame(AtlasMobileDevice::query()->firstOrFail()->id, Cache::get($cacheKey));
     }
 
     public function test_pairing_tracks_invalid_attempts_and_locks_code_when_pairing_id_is_provided(): void
@@ -290,6 +335,142 @@ class MobileGatewayTest extends TestCase
         $this->assertSame('read', $item->refresh()->status);
     }
 
+    public function test_mobile_recommendation_api_lists_shows_and_transitions_recommendations(): void
+    {
+        $token = $this->pairedDeviceToken();
+        Carbon::setTestNow(Carbon::parse('2026-05-04 07:00:00'));
+        $recommendation = AiPerformanceRecommendation::query()->create([
+            'user_id' => 'vitor',
+            'origin_report_date' => '2026-05-01',
+            'kind' => 'quality_drop',
+            'target_metric' => 'final_quality_avg',
+            'target_dimension' => ['provider' => 'claude_cli'],
+            'expected_impact' => ['direction' => 'increase', 'magnitude' => 0.10, 'confidence' => 0.81],
+            'state' => 'proposed',
+            'state_history' => [[
+                'state' => 'proposed',
+                'at' => now()->toJSON(),
+                'reason' => 'test_seed',
+            ]],
+            'baseline_snapshot' => ['mean' => 70.0, 'sample_n' => 12],
+            'measurement_window_days' => 14,
+            'priority_score' => 80,
+        ]);
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/v1/mobile/ai/recommendations?state=open')
+            ->assertOk()
+            ->assertJsonPath('items.0.id', $recommendation->id)
+            ->assertJsonPath('items.0.state', 'proposed')
+            ->assertJsonPath('items.0.target_metric', 'final_quality_avg');
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/v1/mobile/ai/recommendations/'.$recommendation->id)
+            ->assertOk()
+            ->assertJsonPath('item.id', $recommendation->id)
+            ->assertJsonPath('item.target_dimension.provider', 'claude_cli');
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/ai/recommendations/'.$recommendation->id.'/transition', [
+                'state' => 'acknowledged',
+                'reason' => 'vi no app',
+            ])
+            ->assertOk()
+            ->assertJsonPath('item.state', 'acknowledged');
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/ai/recommendations/'.$recommendation->id.'/transition', [
+                'state' => 'applied',
+                'reason' => 'ajuste aplicado',
+            ])
+            ->assertOk()
+            ->assertJsonPath('item.state', 'applied')
+            ->assertJsonPath('item.measurement_due_at', '2026-05-18T07:00:00.000000Z');
+
+        $this->assertSame('applied', $recommendation->refresh()->state);
+        Carbon::setTestNow();
+    }
+
+    public function test_mobile_inbox_snooze_and_dismiss_keep_recommendation_state_in_sync(): void
+    {
+        $token = $this->pairedDeviceToken();
+        Carbon::setTestNow(Carbon::parse('2026-05-04 07:00:00'));
+        $recommendation = AiPerformanceRecommendation::query()->create([
+            'user_id' => 'vitor',
+            'origin_report_date' => '2026-05-01',
+            'kind' => 'quality_drop',
+            'target_metric' => 'final_quality_avg',
+            'target_dimension' => ['provider' => 'claude_cli'],
+            'expected_impact' => ['direction' => 'increase', 'magnitude' => 0.10, 'confidence' => 0.81],
+            'state' => 'proposed',
+            'state_history' => [[
+                'state' => 'proposed',
+                'at' => now()->toJSON(),
+                'reason' => 'test_seed',
+            ]],
+            'measurement_window_days' => 14,
+            'priority_score' => 80,
+        ]);
+        $item = AiInboxItem::query()->create([
+            'user_id' => 'vitor',
+            'type' => 'insight',
+            'category' => 'atlas_ai_recommendation',
+            'severity' => 'warning',
+            'status' => 'unread',
+            'title' => 'Atlas: recomendacao para final_quality_avg',
+            'summary' => 'Ajuste recomendado.',
+            'source_type' => 'ai_performance_recommendation',
+            'source_id' => $recommendation->id,
+            'available_actions' => [
+                ['id' => 'acknowledge_recommendation', 'label' => 'Reconhecer'],
+                ['id' => 'apply_recommendation', 'label' => 'Marcar aplicada'],
+                ['id' => 'reject_recommendation', 'label' => 'Rejeitar'],
+                ['id' => 'snooze', 'label' => 'Adiar'],
+                ['id' => 'dismiss', 'label' => 'Descartar'],
+            ],
+            'payload' => [
+                'recommendation' => [
+                    'id' => $recommendation->id,
+                    'state' => 'proposed',
+                    'target_metric' => 'final_quality_avg',
+                ],
+            ],
+            'push_policy' => ['send' => 'none'],
+        ]);
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/snooze', [
+                'snoozed_until' => '2026-05-06T07:00:00Z',
+                'reason' => 'aguardar janela',
+            ])
+            ->assertOk()
+            ->assertJsonPath('item.status', 'snoozed')
+            ->assertJsonPath('item.payload.recommendation.state', 'snoozed');
+
+        $recommendation->refresh();
+        $this->assertSame('snoozed', $recommendation->state);
+        $this->assertSame('2026-05-06T07:00:00.000000Z', $recommendation->snoozed_until?->toJSON());
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/dismiss', [
+                'reason' => 'nao aplicar',
+            ])
+            ->assertOk()
+            ->assertJsonPath('item.status', 'dismissed')
+            ->assertJsonPath('item.payload.recommendation.state', 'rejected');
+
+        $recommendation->refresh();
+        $this->assertSame('rejected', $recommendation->state);
+        $this->assertSame('nao aplicar', $recommendation->closed_reason);
+        Carbon::setTestNow();
+    }
+
     public function test_mobile_inbox_supports_active_severity_filter_and_cursor(): void
     {
         $token = $this->pairedDeviceToken();
@@ -438,6 +619,8 @@ class MobileGatewayTest extends TestCase
                         && ($options['source_type'] ?? null) === 'app'
                         && data_get($options, 'payload.app_surface') === 'mobile_thread'
                         && data_get($options, 'payload.thread_source') === 'mobile_gateway_inbox'
+                        && data_get($options, 'payload.atlas_focus') === 'operational'
+                        && data_get($options, 'payload.capability_profile') === 'mobile_operational_read'
                         && is_string(data_get($options, 'payload.mobile_device_id'));
                 }))
                 ->andReturn(tap(new AiTrace(), fn (AiTrace $trace) => $trace->forceFill([
@@ -466,6 +649,276 @@ class MobileGatewayTest extends TestCase
             ->assertAccepted()
             ->assertJsonPath('trace.thread_id', $threadId)
             ->assertJsonPath('thread.id', $threadId);
+    }
+
+    public function test_discuss_creates_atlas_ai_operational_thread_contract(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $bundle = app(ContextBundleService::class)->create([
+            'purpose' => 'telemetry_health',
+            'title' => 'Contexto de revisao operacional',
+            'summary' => 'Resumo seguro para a conversa.',
+            'body_for_thread' => 'Scorecard, traces, custo, latencia e continuidade devem ser revisados antes de alterar prompts ou automacoes.',
+            'source_refs' => [['type' => 'report', 'id' => 'daily']],
+            'trace_refs' => [['id' => (string) Str::uuid()]],
+            'metric_refs' => [['name' => 'final_quality_avg', 'value' => 48.67]],
+            'file_refs' => [['path' => 'docs/atlas-ai-performance-reports.md']],
+        ]);
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'category' => 'telemetry_health',
+            'title' => 'Saude do Atlas precisa de revisao',
+            'summary' => 'Contexto operacional pronto.',
+            'context_bundle_id' => $bundle->id,
+        ]);
+
+        $threadId = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/discuss')
+            ->assertOk()
+            ->json('result.thread_id');
+
+        $thread = AiThread::query()->findOrFail($threadId);
+        $this->assertSame('mobile', $thread->surface);
+        $this->assertSame('inbox_item', $thread->source_type);
+        $this->assertSame($item->id, $thread->source_id);
+        $this->assertSame('operational', data_get($thread->metadata, 'atlas_focus'));
+        $this->assertSame('operational', data_get($thread->metadata, 'initial_focus'));
+        $this->assertSame('ai_inbox_item', data_get($thread->metadata, 'source_type'));
+        $this->assertSame($item->id, data_get($thread->metadata, 'source_id'));
+        $this->assertSame('Inbox - Telemetry Health', data_get($thread->metadata, 'context_label'));
+        $this->assertSame('mobile_operational_read', data_get($thread->metadata, 'capability_profile'));
+        $this->assertSame('read_only_until_approval', data_get($thread->metadata, 'permission_policy'));
+        $this->assertSame('no_code_execution', data_get($thread->metadata, 'execution_policy'));
+        $this->assertSame(
+            'Vamos discutir este item com o Atlas.',
+            $thread->messages()->where('position', 2)->value('content'),
+        );
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/v1/mobile/threads/'.$threadId)
+            ->assertOk()
+            ->assertJsonPath('mobile_context.source.id', $item->id)
+            ->assertJsonPath('mobile_context.source.type', 'ai_inbox_item')
+            ->assertJsonPath('mobile_context.context_bundle.id', $bundle->id)
+            ->assertJsonPath('mobile_context.context_bundle.title', 'Contexto de revisao operacional')
+            ->assertJsonPath('mobile_context.policy.atlas_focus', 'operational')
+            ->assertJsonPath('mobile_context.policy.capability_profile', 'mobile_operational_read')
+            ->assertJsonPath('mobile_context.policy.allows_code_execution', false)
+            ->assertJsonPath('mobile_context.policy.requires_approval_for_changes', true)
+            ->assertJsonPath('mobile_context.refs_count.sources', 1)
+            ->assertJsonPath('mobile_context.refs_count.traces', 1)
+            ->assertJsonPath('mobile_context.refs_count.metrics', 1)
+            ->assertJsonPath('mobile_context.refs_count.files', 1)
+            ->assertJsonPath('mobile_context.refs_count.total', 4);
+    }
+
+    public function test_mobile_thread_reply_forces_safe_read_runtime_policy(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'title' => 'Discutir runtime seguro',
+            'summary' => 'Contexto pronto.',
+            'available_actions' => [['id' => 'discuss', 'label' => 'Discutir com Atlas']],
+        ]);
+        $threadId = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/discuss')
+            ->json('result.thread_id');
+        $clientId = (string) Str::uuid();
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($threadId, $clientId): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->with('Preciso entender o alerta', \Mockery::on(function (array $options) use ($threadId, $clientId): bool {
+                    return ($options['client_id'] ?? null) === $clientId
+                        && ($options['thread_id'] ?? null) === $threadId
+                        && data_get($options, 'payload.custom') === 'kept'
+                        && data_get($options, 'payload.permission_mode') === 'read'
+                        && data_get($options, 'payload.tool_permissions.mode') === 'read'
+                        && data_get($options, 'payload.tool_permissions.confirmed') === false
+                        && data_get($options, 'payload.tool_permissions.allow_unsandboxed_provider') === false
+                        && data_get($options, 'payload.mobile_runtime_policy.allows_code_execution') === false;
+                }))
+                ->andReturn(tap(new AiTrace(), fn (AiTrace $trace) => $trace->forceFill([
+                    'id' => (string) Str::uuid(),
+                    'trace_key' => 'trace_mobile_safe_policy_test',
+                    'thread_id' => $threadId,
+                    'status' => 'queued',
+                    'operator_input' => 'Preciso entender o alerta',
+                    'agent_slug' => 'orquestrador',
+                    'provider' => 'claude_cli',
+                    'skill_versions' => [],
+                    'context_refs' => [],
+                    'metadata' => ['client_id' => $clientId],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])));
+        });
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/threads/'.$threadId.'/reply', [
+                'input_text' => 'Preciso entender o alerta',
+                'client_id' => $clientId,
+                'payload' => [
+                    'custom' => 'kept',
+                    'permission_mode' => 'danger',
+                    'tool_permissions' => [
+                        'mode' => 'danger',
+                        'confirmed' => true,
+                        'allow_unsandboxed_provider' => true,
+                    ],
+                ],
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('trace.thread_id', $threadId);
+    }
+
+    public function test_atlas_ai_sheet_cannot_escalate_operational_mobile_thread_runtime_policy(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'category' => 'telemetry_health',
+            'title' => 'Revisar saude operacional',
+            'summary' => 'Contexto operacional seguro.',
+        ]);
+        $threadId = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/discuss')
+            ->json('result.thread_id');
+        $clientId = (string) Str::uuid();
+        $capturedOptions = null;
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($threadId, $clientId, &$capturedOptions): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->with('Quero revisar pelo Atlas principal', \Mockery::on(function (array $options) use ($threadId, $clientId, &$capturedOptions): bool {
+                    $capturedOptions = $options;
+
+                    return ($options['client_id'] ?? null) === $clientId
+                        && ($options['thread_id'] ?? null) === $threadId;
+                }))
+                ->andReturn(tap(new AiTrace(), fn (AiTrace $trace) => $trace->forceFill([
+                    'id' => (string) Str::uuid(),
+                    'trace_key' => 'trace_main_sheet_safe_policy_test',
+                    'thread_id' => $threadId,
+                    'status' => 'queued',
+                    'operator_input' => 'Quero revisar pelo Atlas principal',
+                    'agent_slug' => 'orquestrador',
+                    'provider' => 'codex_cli',
+                    'skill_versions' => [],
+                    'context_refs' => [],
+                    'metadata' => ['client_id' => $clientId],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])));
+        });
+
+        $this
+            ->withHeader('X-Atlas-Token', 'testing-atlas-token-with-enough-length')
+            ->postJson('/ai/interactions', [
+                'input_text' => 'Quero revisar pelo Atlas principal',
+                'client_id' => $clientId,
+                'thread_id' => $threadId,
+                'new_thread' => false,
+                'agent_slug' => 'orquestrador',
+                'provider' => 'codex_cli',
+                'kind' => 'analysis',
+                'source_type' => 'app',
+                'payload' => [
+                    'app_surface' => 'atlas_ai_sheet',
+                    'permission_mode' => 'danger',
+                    'execution_policy' => 'single_provider',
+                    'tool_permissions' => [
+                        'mode' => 'danger',
+                        'confirmed' => true,
+                        'allow_unsandboxed_provider' => true,
+                    ],
+                    'mobile_runtime_policy' => [
+                        'allows_code_execution' => true,
+                    ],
+                ],
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('trace.thread_id', $threadId);
+
+        $this->assertSame('atlas_ai_sheet', data_get($capturedOptions, 'payload.app_surface'));
+        $this->assertSame('mobile_gateway_inbox', data_get($capturedOptions, 'payload.thread_source'));
+        $this->assertSame($item->id, data_get($capturedOptions, 'payload.inbox_item_id'));
+        $this->assertSame('atlas_full_access', data_get($capturedOptions, 'payload.capability_profile'));
+        $this->assertSame('danger', data_get($capturedOptions, 'payload.permission_mode'));
+        $this->assertSame('full_access', data_get($capturedOptions, 'payload.permission_policy'));
+        $this->assertSame('provider_execution_allowed', data_get($capturedOptions, 'payload.execution_policy'));
+        $this->assertSame('danger', data_get($capturedOptions, 'payload.tool_permissions.mode'));
+        $this->assertTrue(data_get($capturedOptions, 'payload.tool_permissions.confirmed'));
+        $this->assertTrue(data_get($capturedOptions, 'payload.tool_permissions.allow_unsandboxed_provider'));
+        $this->assertTrue(data_get($capturedOptions, 'payload.mobile_runtime_policy.allows_code_execution'));
+    }
+
+    public function test_atlas_sheet_preserves_execution_permissions_for_non_operational_session(): void
+    {
+        $clientId = (string) Str::uuid();
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($clientId): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->with('Execute um webscrape controlado', \Mockery::on(function (array $options) use ($clientId): bool {
+                    return ($options['client_id'] ?? null) === $clientId
+                        && ($options['thread_id'] ?? null) === null
+                        && data_get($options, 'payload.app_surface') === 'atlas_ai_sheet'
+                        && data_get($options, 'payload.atlas_focus') === 'programming'
+                        && data_get($options, 'payload.permission_mode') === 'danger'
+                        && data_get($options, 'payload.execution_policy') === 'single_provider'
+                        && data_get($options, 'payload.tool_permissions.mode') === 'danger'
+                        && data_get($options, 'payload.tool_permissions.confirmed') === true
+                        && data_get($options, 'payload.tool_permissions.allow_unsandboxed_provider') === true;
+                }))
+                ->andReturn(tap(new AiTrace(), fn (AiTrace $trace) => $trace->forceFill([
+                    'id' => (string) Str::uuid(),
+                    'trace_key' => 'trace_main_sheet_dev_policy_test',
+                    'thread_id' => (string) Str::uuid(),
+                    'status' => 'queued',
+                    'operator_input' => 'Execute um webscrape controlado',
+                    'agent_slug' => 'desenvolvedor',
+                    'provider' => 'codex_cli',
+                    'skill_versions' => [],
+                    'context_refs' => [],
+                    'metadata' => ['client_id' => $clientId],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])));
+        });
+
+        $this
+            ->withHeader('X-Atlas-Token', 'testing-atlas-token-with-enough-length')
+            ->postJson('/ai/interactions', [
+                'input_text' => 'Execute um webscrape controlado',
+                'client_id' => $clientId,
+                'new_thread' => true,
+                'agent_slug' => 'desenvolvedor',
+                'provider' => 'codex_cli',
+                'kind' => 'interaction',
+                'source_type' => 'app',
+                'payload' => [
+                    'app_surface' => 'atlas_ai_sheet',
+                    'atlas_focus' => 'programming',
+                    'permission_mode' => 'danger',
+                    'execution_policy' => 'single_provider',
+                    'tool_permissions' => [
+                        'mode' => 'danger',
+                        'confirmed' => true,
+                        'allow_unsandboxed_provider' => true,
+                    ],
+                ],
+            ])
+            ->assertAccepted();
     }
 
     public function test_mobile_thread_show_requires_thread_linked_to_device_inbox_item(): void
@@ -1122,6 +1575,157 @@ class MobileGatewayTest extends TestCase
         $this->assertArrayNotHasKey('summary', $payload['data']);
         $this->assertArrayNotHasKey('body', $payload['data']);
         $this->assertArrayNotHasKey('title', $payload['data']);
+    }
+
+    public function test_telemetry_health_push_uses_specific_operational_copy(): void
+    {
+        config()->set('atlas.mobile.enabled', true);
+        config()->set('atlas.mobile.batching.enabled', false);
+        config()->set('atlas.mobile.quiet_hours.enabled', false);
+        Http::fake(['*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-health']], 200)]);
+        $this->pairedDeviceToken('ExponentPushToken[test]');
+
+        app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'category' => 'atlas',
+            'severity' => 'critical',
+            'title' => 'Atlas precisa de revisao operacional',
+            'summary' => 'Telemetry health critical; score 0/100.',
+            'body' => 'Payload tecnico nao deve ir para o push.',
+            'payload' => [
+                'insight_kind' => 'atlas_ai_telemetry_health',
+                'health' => [
+                    'status' => 'critical',
+                    'health_score' => 0,
+                ],
+            ],
+            'push_policy' => ['send' => 'immediate'],
+        ]);
+
+        $payload = MobilePushDelivery::query()->firstOrFail()->request_payload;
+
+        $this->assertSame('Atlas precisa de revisao', $payload['title']);
+        $this->assertSame('Saude do Atlas esta critica: score 0/100. Toque para ver causas e proximos passos.', $payload['body']);
+        $this->assertStringNotContainsString('Payload tecnico', json_encode($payload, JSON_UNESCAPED_SLASHES));
+    }
+
+    public function test_insight_emitter_can_create_non_interruptive_operational_item_without_push(): void
+    {
+        config()->set('atlas.mobile.enabled', true);
+        config()->set('atlas.mobile.batching.enabled', false);
+        config()->set('atlas.mobile.quiet_hours.enabled', false);
+        Http::fake(['*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-health']], 200)]);
+        $this->pairedDeviceToken('ExponentPushToken[test]');
+
+        $item = app(InsightInboxEmitter::class)->emit([
+            'title' => 'Atlas precisa de revisao operacional',
+            'summary' => 'Saude critica: score 0/100, amostra pequena.',
+            'body' => 'Diagnostico importante, mas nao interruptivo.',
+            'category' => 'atlas',
+            'insight_kind' => 'atlas_ai_telemetry_health',
+            'severity' => 'critical',
+            'dedupe_key' => 'insight:atlas-ai-telemetry-health:test:critical',
+            'push_policy' => [
+                'send' => 'none',
+                'reason' => 'telemetry_health_daily_digest',
+            ],
+        ]);
+
+        $this->assertInstanceOf(AiInboxItem::class, $item);
+        $this->assertSame('none', data_get($item->push_policy, 'send'));
+        $this->assertSame('telemetry_health_daily_digest', data_get($item->push_policy, 'reason'));
+        $this->assertDatabaseCount('mobile_push_deliveries', 0);
+        Http::assertSentCount(0);
+    }
+
+    public function test_push_dispatch_dedupes_devices_with_same_expo_token(): void
+    {
+        config()->set('atlas.mobile.enabled', true);
+        config()->set('atlas.mobile.batching.enabled', false);
+        config()->set('atlas.mobile.quiet_hours.enabled', false);
+        Http::fake(['*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-deduped']], 200)]);
+        $this->pairedDeviceToken('ExponentPushToken[same]');
+
+        AtlasMobileDevice::query()->create([
+            'user_id' => 'vitor',
+            'device_label' => 'iPhone Test Duplicate',
+            'platform' => 'ios',
+            'expo_push_token' => 'ExponentPushToken[same]',
+            'device_token_hash' => 'duplicate-device-token-hash',
+            'notification_permissions' => 'granted',
+            'last_seen_at' => now()->addMinute(),
+            'paired_at' => now(),
+        ]);
+
+        app(AtlasInboxService::class)->create([
+            'type' => 'alert',
+            'severity' => 'critical',
+            'title' => 'Alerta unico',
+            'push_policy' => ['send' => 'immediate'],
+        ]);
+
+        $this->assertDatabaseCount('mobile_push_deliveries', 1);
+        Http::assertSentCount(1);
+    }
+
+    public function test_disabled_critical_push_preference_blocks_push_dispatch(): void
+    {
+        config()->set('atlas.mobile.enabled', true);
+        config()->set('atlas.mobile.batching.enabled', false);
+        config()->set('atlas.mobile.quiet_hours.enabled', false);
+        Http::fake(['*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-disabled']], 200)]);
+        $token = $this->pairedDeviceToken('ExponentPushToken[test]');
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/devices/notification-preferences', [
+                'critical_push_enabled' => false,
+            ])
+            ->assertOk();
+
+        app(AtlasInboxService::class)->create([
+            'type' => 'alert',
+            'severity' => 'critical',
+            'title' => 'Alerta silenciado',
+            'push_policy' => ['send' => 'immediate', 'force' => true],
+        ]);
+
+        $this->assertDatabaseCount('mobile_push_deliveries', 0);
+        $this->assertSame(1, AuditEvent::query()->where('event_type', 'push.skipped')->count());
+        $this->assertSame('critical_push_disabled', data_get(AuditEvent::query()->where('event_type', 'push.skipped')->first()?->evidence, 'reason'));
+        Http::assertSentCount(0);
+    }
+
+    public function test_disabled_telemetry_health_preference_blocks_health_push(): void
+    {
+        config()->set('atlas.mobile.enabled', true);
+        config()->set('atlas.mobile.batching.enabled', false);
+        config()->set('atlas.mobile.quiet_hours.enabled', false);
+        Http::fake(['*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-health-disabled']], 200)]);
+        $token = $this->pairedDeviceToken('ExponentPushToken[test]');
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/devices/notification-preferences', [
+                'telemetry_health_push_enabled' => false,
+            ])
+            ->assertOk();
+
+        app(InsightInboxEmitter::class)->emit([
+            'title' => 'Atlas precisa de revisao',
+            'summary' => 'Saude critica.',
+            'body' => 'Saude critica.',
+            'category' => 'atlas',
+            'insight_kind' => 'atlas_ai_telemetry_health',
+            'severity' => 'critical',
+            'dedupe_key' => 'insight:atlas-ai-telemetry-health:disabled:critical',
+            'push_policy' => ['send' => 'immediate', 'force' => true],
+            'payload' => ['health' => ['status' => 'critical', 'health_score' => 0]],
+        ]);
+
+        $this->assertDatabaseCount('mobile_push_deliveries', 0);
+        $this->assertSame('telemetry_health_push_disabled', data_get(AuditEvent::query()->where('event_type', 'push.skipped')->first()?->evidence, 'reason'));
+        Http::assertSentCount(0);
     }
 
     public function test_quiet_hours_defer_non_critical_push_and_critical_bypasses(): void
@@ -2091,6 +2695,74 @@ PHP);
         $this->assertDatabaseCount('audit_events', 0);
     }
 
+    public function test_mobile_reliability_monitor_waits_for_first_performance_report_delivery_before_alerting(): void
+    {
+        config()->set('atlas.ai_metrics.performance_report_enabled', true);
+        config()->set('atlas.ai_metrics.performance_report_emit', true);
+        config()->set('atlas.ai_metrics.performance_report_timezone', 'America/Sao_Paulo');
+        config()->set('atlas.ai_metrics.performance_report_time', '07:05');
+        config()->set('atlas.ai_metrics.performance_report_grace_minutes', 30);
+        Carbon::setTestNow(Carbon::parse('2026-05-01 08:00:00', 'America/Sao_Paulo'));
+        Cache::put(MobileReliabilityMonitor::SCHEDULER_TICK_KEY, now()->toJSON(), now()->addHour());
+
+        $snapshot = app(MobileReliabilityMonitor::class)->snapshot();
+        $checks = collect($snapshot['checks'])->keyBy('name');
+
+        $this->assertSame('healthy', data_get($checks, 'performance_report_fresh.status'));
+        $this->assertTrue(data_get($checks, 'performance_report_fresh.evidence.first_delivery_pending'));
+        $this->assertSame('2026-04-30', data_get($checks, 'performance_report_fresh.evidence.report_date'));
+    }
+
+    public function test_mobile_reliability_monitor_detects_missing_daily_performance_report_after_grace(): void
+    {
+        config()->set('atlas.ai_metrics.performance_report_enabled', true);
+        config()->set('atlas.ai_metrics.performance_report_emit', true);
+        config()->set('atlas.ai_metrics.performance_report_timezone', 'America/Sao_Paulo');
+        config()->set('atlas.ai_metrics.performance_report_time', '07:05');
+        config()->set('atlas.ai_metrics.performance_report_grace_minutes', 30);
+        Carbon::setTestNow(Carbon::parse('2026-05-01 08:00:00', 'America/Sao_Paulo'));
+        Cache::put(MobileReliabilityMonitor::SCHEDULER_TICK_KEY, now()->toJSON(), now()->addHour());
+        AiInboxItem::query()->create([
+            'user_id' => 'vitor',
+            'type' => 'insight',
+            'category' => 'atlas_ai_performance',
+            'severity' => 'info',
+            'status' => 'unread',
+            'title' => 'Atlas: relatorio de performance de 29/04/2026',
+            'available_actions' => [],
+            'payload' => [],
+            'push_policy' => ['send' => 'none'],
+            'dedupe_key' => 'atlas-ai-performance:daily:2026-04-29',
+            'priority_score' => 50,
+        ]);
+
+        $missing = app(MobileReliabilityMonitor::class)->snapshot();
+        $missingChecks = collect($missing['checks'])->keyBy('name');
+
+        $this->assertSame('critical', $missing['status']);
+        $this->assertSame('critical', data_get($missingChecks, 'performance_report_fresh.status'));
+        $this->assertSame('2026-04-30', data_get($missingChecks, 'performance_report_fresh.evidence.report_date'));
+
+        AiInboxItem::query()->create([
+            'user_id' => 'vitor',
+            'type' => 'insight',
+            'category' => 'atlas_ai_performance',
+            'severity' => 'info',
+            'status' => 'unread',
+            'title' => 'Atlas: relatorio de performance de 30/04/2026',
+            'available_actions' => [],
+            'payload' => [],
+            'push_policy' => ['send' => 'none'],
+            'dedupe_key' => 'atlas-ai-performance:daily:2026-04-30',
+            'priority_score' => 50,
+        ]);
+
+        $fresh = app(MobileReliabilityMonitor::class)->snapshot();
+        $freshChecks = collect($fresh['checks'])->keyBy('name');
+
+        $this->assertSame('healthy', data_get($freshChecks, 'performance_report_fresh.status'));
+    }
+
     public function test_mobile_alert_check_apply_sends_webhook_once_per_cooldown_and_records_recovery(): void
     {
         config()->set('atlas.mobile.alerts.webhook_url', 'https://alerts.test/atlas');
@@ -2551,6 +3223,8 @@ PHP);
             $table->timestamps();
         });
 
+        (require database_path('migrations/2026_05_01_011000_create_ai_performance_recommendations.php'))->up();
+
         Schema::create('ai_threads', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->text('title');
@@ -2590,6 +3264,7 @@ PHP);
     {
         Schema::dropIfExists('ai_messages');
         Schema::dropIfExists('ai_threads');
+        Schema::dropIfExists('ai_performance_recommendations');
         Schema::dropIfExists('ai_quality_evaluations');
         Schema::dropIfExists('ai_traces');
         Schema::dropIfExists('ai_jobs');

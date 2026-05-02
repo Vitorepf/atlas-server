@@ -24,11 +24,13 @@ return new class extends Migration
             $table->index(['selected_provider', 'created_at']);
         });
 
-        DB::statement(<<<'SQL'
-            CREATE TRIGGER trg_ai_router_decisions_updated_at
-            BEFORE UPDATE ON ai_router_decisions
-            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-        SQL);
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement(<<<'SQL'
+                CREATE TRIGGER trg_ai_router_decisions_updated_at
+                BEFORE UPDATE ON ai_router_decisions
+                FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+            SQL);
+        }
     }
 
     public function down(): void

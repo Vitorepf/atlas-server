@@ -3,25 +3,34 @@
 namespace App\Console\Commands;
 
 use App\Models\AiMemoryDelta;
+use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AiMemoryDeltaProposer;
+use App\Services\Ai\AtlasMemoryDeltaPromotionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
+use RuntimeException;
 
 class AtlasCliMemoryCommand extends Command
 {
     protected $signature = 'atlas:cli:memory
-        {action=review : review, accept, reject, list, show or propose}
+        {action=review : review, accept, reject, promote, list, show or propose}
         {delta? : Delta id}
         {--workspace= : Workspace path. Defaults to current directory}
         {--type=*}
         {--scope=}
         {--all : Apply action to all pending deltas in scope}
+        {--force : Promote a non-accepted delta}
+        {--memory-type= : Override promoted registry memory type}
+        {--scope-type= : Override promoted registry scope type}
+        {--scope-id= : Override promoted registry scope id}
+        {--limit=50 : Maximum rows for list and bulk actions}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Review and apply typed Atlas AI memory deltas.';
+    protected $description = 'Review and apply typed Atlas memory deltas.';
 
-    public function handle(AiMemoryDeltaProposer $proposer): int
+    public function handle(AiMemoryDeltaProposer $proposer, AtlasMemoryDeltaPromotionService $promoter): int
     {
         if (! Schema::hasTable('ai_memory_deltas')) {
             $this->error('Tabela ai_memory_deltas ainda nao existe. Rode migrations.');
@@ -37,6 +46,7 @@ class AtlasCliMemoryCommand extends Command
             'show' => $this->show(),
             'accept' => $this->setStatus('accepted'),
             'reject' => $this->setStatus('rejected'),
+            'promote' => $this->promote($promoter),
             default => $this->invalid($action),
         };
     }
@@ -57,7 +67,7 @@ class AtlasCliMemoryCommand extends Command
         }
 
         $payload = $query->latest('created_at')
-            ->limit(50)
+            ->limit((int) $this->option('limit'))
             ->get()
             ->map(fn (AiMemoryDelta $delta): array => $this->row($delta))
             ->all();
@@ -103,6 +113,43 @@ class AtlasCliMemoryCommand extends Command
         return $this->print(['ok' => true, 'memory_delta' => $this->row($delta->refresh(), full: true)]);
     }
 
+    private function promote(AtlasMemoryDeltaPromotionService $promoter): int
+    {
+        try {
+            if ((bool) $this->option('all')) {
+                $entries = $promoter->promoteAccepted($this->promotionOptions() + [
+                    'scope' => $this->stringOption('scope'),
+                    'types' => array_values(array_filter((array) $this->option('type'), 'is_string')),
+                    'limit' => (int) $this->option('limit'),
+                ]);
+
+                return $this->print([
+                    'ok' => true,
+                    'promoted' => $entries->map(fn (AtlasMemoryEntry $entry): array => $this->memoryRow($entry))->values()->all(),
+                ]);
+            }
+
+            $delta = $this->delta();
+            if (! $delta) {
+                $this->error('Memory delta nao encontrado.');
+
+                return self::FAILURE;
+            }
+
+            $entry = $promoter->promote($delta, $this->promotionOptions());
+
+            return $this->print([
+                'ok' => true,
+                'memory_delta' => $this->row($delta->refresh(), full: true),
+                'memory' => $this->memoryRow($entry),
+            ]);
+        } catch (InvalidArgumentException|RuntimeException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
+    }
+
     private function delta(): ?AiMemoryDelta
     {
         $id = $this->argument('delta');
@@ -141,6 +188,8 @@ class AtlasCliMemoryCommand extends Command
             'scope' => $delta->scope,
             'confidence' => $delta->confidence,
             'valid_until' => $delta->valid_until?->toJSON(),
+            'promoted_memory_entry_id' => $delta->promoted_memory_entry_id,
+            'promoted_at' => $delta->promoted_at?->toJSON(),
         ];
 
         return $full ? $row + [
@@ -163,8 +212,30 @@ class AtlasCliMemoryCommand extends Command
             return self::SUCCESS;
         }
 
+        if (isset($payload['memory'])) {
+            $memory = (array) $payload['memory'];
+            $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Memoria promovida</>', (string) ($memory['id'] ?? '-'));
+            $this->components->twoColumnDetail('Type', (string) ($memory['memory_type'] ?? '-'));
+            $this->components->twoColumnDetail('Scope', (string) ($memory['scope'] ?? '-'));
+            $this->components->twoColumnDetail('Source delta', (string) ($memory['source_id'] ?? '-'));
+
+            return self::SUCCESS;
+        }
+
         if (isset($payload['memory_delta'])) {
             $this->line(json_encode($payload['memory_delta'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        }
+
+        if (isset($payload['promoted'])) {
+            $this->table(['id', 'type', 'scope', 'source_delta', 'summary'], collect($payload['promoted'])->map(fn (array $row): array => [
+                $row['id'],
+                $row['memory_type'],
+                $row['scope'],
+                $row['source_id'],
+                Str::limit((string) ($row['summary'] ?: $row['body']), 100),
+            ])->all());
 
             return self::SUCCESS;
         }
@@ -195,5 +266,47 @@ class AtlasCliMemoryCommand extends Command
         $this->error("Acao invalida para atlas memory: {$action}");
 
         return self::FAILURE;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function promotionOptions(): array
+    {
+        return array_filter([
+            'force' => (bool) $this->option('force'),
+            'memory_type' => $this->stringOption('memory-type'),
+            'scope_type' => $this->stringOption('scope-type'),
+            'scope_id' => $this->stringOption('scope-id'),
+        ], fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function memoryRow(AtlasMemoryEntry $entry): array
+    {
+        return [
+            'id' => $entry->id,
+            'memory_type' => $entry->memory_type,
+            'scope_type' => $entry->scope_type,
+            'scope_id' => $entry->scope_id,
+            'scope' => $entry->scope_id ? $entry->scope_type.':'.$entry->scope_id : $entry->scope_type,
+            'title' => $entry->title,
+            'summary' => $entry->summary,
+            'body' => $entry->body,
+            'priority' => $entry->priority,
+            'importance' => $entry->importance,
+            'source_type' => $entry->source_type,
+            'source_id' => $entry->source_id,
+            'status' => $entry->status,
+        ];
+    }
+
+    private function stringOption(string $key): ?string
+    {
+        $value = $this->option($key);
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 }

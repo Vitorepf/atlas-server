@@ -14,7 +14,7 @@ class AiDoctorCommand extends Command
 {
     protected $signature = 'atlas:ai:doctor {--hours=24 : Observation window in hours} {--json : Print machine-readable JSON}';
 
-    protected $description = 'Summarize Atlas AI operational health, quality scores and pending remediation actions.';
+    protected $description = 'Summarize Atlas operational health, quality scores and pending remediation actions.';
 
     public function handle(): int
     {
@@ -47,7 +47,7 @@ class AiDoctorCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->info("Atlas AI Doctor ({$hours}h)");
+        $this->info("Atlas Doctor ({$hours}h)");
         $this->line("threads active={$data['threads']['active']} cli={$data['threads']['atlas_cli']}");
         $this->line("traces total={$data['traces']['total']} queued={$data['traces']['queued']} processing={$data['traces']['processing']} failed={$data['traces']['failed']}");
         $this->line("jobs queued={$data['jobs']['queued']} processing={$data['jobs']['processing']} failed={$data['jobs']['failed']}");

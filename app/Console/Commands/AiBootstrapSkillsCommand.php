@@ -9,7 +9,7 @@ class AiBootstrapSkillsCommand extends Command
 {
     protected $signature = 'atlas:ai:bootstrap-skills';
 
-    protected $description = 'Create Atlas AI master prompt and default skill files inside the AtlasVault.';
+    protected $description = 'Create Atlas master prompt and default skill files inside the AtlasVault.';
 
     public function handle(AiSkillStore $skills): int
     {

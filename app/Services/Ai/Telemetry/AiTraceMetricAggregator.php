@@ -15,6 +15,25 @@ use Illuminate\Support\Facades\Schema;
 
 class AiTraceMetricAggregator
 {
+    /**
+     * Weights applied to each quality component when composing final_quality_score.
+     *
+     * Sums to 1.00. weightedScore() renormalizes by the sum of present (non-null) weights,
+     * so when components are missing the remaining weights pro-rate. Keep the sum exact
+     * so the declared weights match each component's actual contribution when fully covered.
+     *
+     * Values were derived as the legacy weights (0.45/0.20/0.20/0.15/0.10) divided by their
+     * legacy sum (1.10), then rounded to two decimals. This preserves historical scores
+     * within ±1 point in the all-components-present case (the dominant production scenario).
+     */
+    public const QUALITY_SCORE_WEIGHTS = [
+        'auto_quality'   => 0.41,
+        'continuity'     => 0.18,
+        'human_feedback' => 0.18,
+        'outcome'        => 0.14,
+        'remediation'    => 0.09,
+    ];
+
     public function __construct(
         private readonly AiCostEstimator $costEstimator,
         private readonly AiProviderModelResolver $models,
@@ -26,8 +45,19 @@ class AiTraceMetricAggregator
             throw new \RuntimeException('ai_trace_metric_summaries table is not available.');
         }
 
+        // Conditional eager-loads — older test fixtures and partial schemas may
+        // not have these tables yet. Skipping when the table is missing prevents
+        // "no such table" errors. Downstream code uses schema-safe accessors.
+        $eagerLoads = ['jobs.attemptHistory', 'qualityEvaluation', 'qualityActions'];
+        if (Schema::hasTable('ai_router_decisions')) {
+            $eagerLoads[] = 'routerDecision';
+        }
+        if (Schema::hasTable('ai_tool_events')) {
+            $eagerLoads[] = 'toolEvents';
+        }
+
         $trace = AiTrace::query()
-            ->with(['jobs.attemptHistory', 'qualityEvaluation', 'qualityActions'])
+            ->with($eagerLoads)
             ->findOrFail($traceId);
 
         $jobs = $trace->jobs;
@@ -83,11 +113,11 @@ class AiTraceMetricAggregator
             $flags,
         );
         $finalQualityScore = $this->weightedScore([
-            [$autoQualityScore, 0.45],
-            [$continuityScore, 0.20],
-            [$humanFeedbackScore, 0.20],
-            [$outcomeScore, 0.15],
-            [$remediationScore, 0.10],
+            [$autoQualityScore, self::QUALITY_SCORE_WEIGHTS['auto_quality']],
+            [$continuityScore, self::QUALITY_SCORE_WEIGHTS['continuity']],
+            [$humanFeedbackScore, self::QUALITY_SCORE_WEIGHTS['human_feedback']],
+            [$outcomeScore, self::QUALITY_SCORE_WEIGHTS['outcome']],
+            [$remediationScore, self::QUALITY_SCORE_WEIGHTS['remediation']],
         ]);
         $finalEfficiencyScore = $this->weightedScore([
             [$this->latencyScore($totalLatency), 0.35],
@@ -117,11 +147,42 @@ class AiTraceMetricAggregator
             ],
             'context' => $context,
             'flags' => $flags,
+            // Router signal — surfaces what the router decided so the daily report can
+            // break quality/efficiency by router_mode and detect bad routing patterns.
+            // signals/reason are the rich attribution payload kept inside score_components
+            // (not promoted to columns) since they're free-form JSON for diagnosis.
+            'router' => $this->routerDiagnostics($this->routerDecisionFor($trace)),
+            // Diagnostic: telemetry events grouped by event_phase. Forward-looking signal —
+            // when phases get differentiated (pre_provider/provider/post_provider) the
+            // aggregator already has the count breakdown without further changes.
+            'diagnostics' => [
+                'events_by_phase' => $this->eventsByPhase($events),
+                'numeric_signals' => $this->numericSignals($events),
+            ],
+            // Tools — populated when ai_tool_events table exists AND the trace has
+            // tool events. Otherwise an "available => false" stub so consumers can
+            // distinguish "no tools used" from "tool data not captured for this trace".
+            // See routerDiagnostics for the same pattern.
+            'tools' => $this->toolDiagnosticsFor($trace),
         ];
+
+        // Router columns are conditionally written. They were added in
+        // migration 2026_05_01_005000 — older test fixtures and deploys without
+        // that migration applied still have the table but not the columns.
+        // Schema::hasColumn check keeps the aggregator schema-tolerant.
+        $routerDecision = $this->routerDecisionFor($trace);
+        $routerColumns = Schema::hasColumn('ai_trace_metric_summaries', 'router_mode')
+            ? [
+                'router_mode' => $routerDecision?->mode,
+                'router_selected_provider' => $routerDecision?->selected_provider,
+                'router_fallback_provider' => $routerDecision?->fallback_provider,
+                'router_was_overridden' => (bool) ($routerDecision?->was_overridden ?? false),
+            ]
+            : [];
 
         return AiTraceMetricSummary::query()->updateOrCreate(
             ['trace_id' => $trace->id],
-            [
+            array_merge([
                 'thread_id' => $trace->thread_id,
                 'session_id' => $trace->session_id,
                 'client_id' => $clientId,
@@ -169,13 +230,21 @@ class AiTraceMetricAggregator
                 'provider_switched_after_response' => $providerSwitchedAfterResponse,
                 'score_components' => $scoreComponents,
                 'metadata' => [
-                    'aggregator_version' => 'ai_trace_metric_aggregator_v1',
+                    // v2 bump: traces aggregated after Fix 7c carry score_components.tools.
+                    // Statistical analysis layer (planned Phase 5 engine) uses this as a
+                    // discriminator so trend tests don't compare v1 traces (no tools data)
+                    // with v2 traces (tools present) in the same window.
+                    // See docs/atlas-ai-aggregator-versions.md for the changelog.
+                    'aggregator_version' => 'ai_trace_metric_aggregator_v2',
                     'events_count' => $events->count(),
                     'jobs_count' => $jobs->count(),
                     'outcomes_count' => $outcomes->count(),
+                    'tool_events_count' => ($scoreComponents['tools']['available'] ?? false)
+                        ? (int) ($scoreComponents['tools']['tool_calls_total'] ?? 0)
+                        : 0,
                 ],
                 'computed_at' => now(),
-            ],
+            ], $routerColumns),
         );
     }
 
@@ -571,5 +640,183 @@ class AiTraceMetricAggregator
     private function clampScore(int $score): int
     {
         return max(0, min(100, $score));
+    }
+
+    /**
+     * Schema-safe accessor for $trace->routerDecision. Returns null when the
+     * ai_router_decisions table is missing (legacy schema, partial test fixtures)
+     * instead of throwing "no such table". This keeps the aggregator runnable on
+     * any subset of the metric stack.
+     */
+    private function routerDecisionFor(AiTrace $trace): ?\App\Models\AiRouterDecision
+    {
+        if (! Schema::hasTable('ai_router_decisions')) {
+            return null;
+        }
+
+        return $trace->routerDecision;
+    }
+
+    /**
+     * Schema-safe accessor for $trace->toolEvents. Returns empty Collection
+     * when ai_tool_events is missing — same pattern as routerDecisionFor.
+     */
+    private function toolEventsFor(AiTrace $trace): Collection
+    {
+        if (! Schema::hasTable('ai_tool_events')) {
+            return collect();
+        }
+
+        return $trace->toolEvents ?? collect();
+    }
+
+    /**
+     * Project the trace's tool events into a structured diagnostic block.
+     *
+     * Output (when tool events present):
+     *   - available: true
+     *   - tools_used: distinct tool count
+     *   - tool_calls_total: total event count
+     *   - tool_failures: events with exit_code != 0 OR error present
+     *   - permission_denied_count / permission_approved_count
+     *   - total_duration_ms: sum across all tool calls
+     *   - per_tool: [{ tool, count, failures, denied, duration_ms }]
+     *   - risk_distribution: { low, medium, high, critical }
+     *   - changed_files_count: distinct files touched
+     *
+     * Output when no tool events: { available: false }. Consumers distinguish
+     * "no tools used" from "tool data not captured" by this flag.
+     *
+     * @return array<string,mixed>
+     */
+    private function toolDiagnosticsFor(AiTrace $trace): array
+    {
+        $events = $this->toolEventsFor($trace);
+        if ($events->isEmpty()) {
+            return ['available' => false];
+        }
+
+        $perTool = $events
+            ->groupBy('tool')
+            ->map(fn (Collection $group): array => [
+                'count' => $group->count(),
+                'failures' => $group->filter(fn (\App\Models\AiToolEvent $e): bool => $this->isToolFailure($e))->count(),
+                'denied' => $group->where('permission_status', 'denied')->count(),
+                'duration_ms' => (int) $group->sum('duration_ms'),
+            ])
+            ->map(fn (array $stats, string $tool): array => array_merge(['tool' => $tool], $stats))
+            ->values()
+            ->all();
+
+        $riskDistribution = $events
+            ->groupBy('risk')
+            ->map(fn (Collection $group): int => $group->count())
+            ->all();
+
+        // Distinct changed_files across all tool events. JSON column → array via cast.
+        $changedFiles = $events
+            ->flatMap(fn (\App\Models\AiToolEvent $e): array => is_array($e->changed_files) ? $e->changed_files : [])
+            ->unique()
+            ->values()
+            ->all();
+
+        return [
+            'available' => true,
+            'tools_used' => count($perTool),
+            'tool_calls_total' => $events->count(),
+            'tool_failures' => $events->filter(fn (\App\Models\AiToolEvent $e): bool => $this->isToolFailure($e))->count(),
+            'permission_denied_count' => $events->where('permission_status', 'denied')->count(),
+            'permission_approved_count' => $events->where('permission_status', 'approved')->count(),
+            'total_duration_ms' => (int) $events->sum('duration_ms'),
+            'per_tool' => $perTool,
+            'risk_distribution' => array_merge([
+                // Always emit all 4 levels so downstream consumers don't need null
+                // checks. Zero count is a real signal (no critical risk operations).
+                'low' => 0, 'medium' => 0, 'high' => 0, 'critical' => 0,
+            ], $riskDistribution),
+            'changed_files_count' => count($changedFiles),
+        ];
+    }
+
+    /**
+     * A tool event is "failed" when exit_code != 0 OR an error message is present.
+     * Either signal alone is sufficient — some failure paths set error without
+     * exit_code (runtime exceptions, permission_denied), others set exit_code
+     * without error (process returned non-zero with empty stderr).
+     */
+    private function isToolFailure(\App\Models\AiToolEvent $event): bool
+    {
+        if ($event->exit_code !== null && $event->exit_code !== 0) {
+            return true;
+        }
+
+        return is_string($event->error) && $event->error !== '';
+    }
+
+    /**
+     * Project the router decision into the score_components.router block.
+     * Lives in JSON (not promoted columns) because signals/reason are free-form
+     * diagnostic payload, not aggregation keys.
+     *
+     * @return array<string,mixed>
+     */
+    private function routerDiagnostics(?\App\Models\AiRouterDecision $decision): array
+    {
+        if (! $decision) {
+            return [
+                'available' => false,
+            ];
+        }
+
+        return [
+            'available' => true,
+            'mode' => $decision->mode,
+            'selected_provider' => $decision->selected_provider,
+            'fallback_provider' => $decision->fallback_provider,
+            'was_overridden' => (bool) $decision->was_overridden,
+            'reason' => $decision->reason,
+            'signals' => is_array($decision->signals) ? $decision->signals : [],
+        ];
+    }
+
+    /**
+     * Count of telemetry events grouped by event_phase. Today event_phase is mostly
+     * 'server' across the gateway, so the breakdown is shallow — but the aggregator
+     * captures it now so a future split into 'pre_provider'/'provider'/'post_provider'
+     * is immediately diagnosable from the report without re-instrumenting.
+     *
+     * @param  Collection<int,AiTelemetryEvent>  $events
+     * @return array<string,int>
+     */
+    private function eventsByPhase(Collection $events): array
+    {
+        return $events
+            ->groupBy(fn (AiTelemetryEvent $event): string => (string) ($event->event_phase ?? 'unspecified'))
+            ->map(fn (Collection $group): int => $group->count())
+            ->all();
+    }
+
+    /**
+     * Surfaces telemetry events that carry a numeric_value + unit, keeping at most
+     * 12 to stay within JSON budget. Today the CLI emits input_chars; future emitters
+     * can publish anything (response_chars, queue_depth, retry_count) and they show
+     * up in the report without aggregator changes.
+     *
+     * @param  Collection<int,AiTelemetryEvent>  $events
+     * @return array<int,array<string,mixed>>
+     */
+    private function numericSignals(Collection $events): array
+    {
+        return $events
+            ->filter(fn (AiTelemetryEvent $event): bool => $event->numeric_value !== null)
+            ->take(12)
+            ->map(fn (AiTelemetryEvent $event): array => [
+                'event_name' => $event->event_name,
+                'phase' => $event->event_phase,
+                'unit' => $event->unit,
+                'value' => is_numeric($event->numeric_value) ? (float) $event->numeric_value : null,
+            ])
+            ->values()
+            ->all();
     }
 }

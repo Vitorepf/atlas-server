@@ -78,6 +78,24 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertContains('--allow-unsandboxed', $payload['chat_command']);
     }
 
+    public function test_plan_only_model_override_infers_provider_and_forwards_model(): void
+    {
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['implementar', 'getter'],
+            '--workspace' => $this->workspace,
+            '--model' => 'claude-opus-4-1',
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('claude_cli', data_get($payload, 'workflow.selected_provider'));
+        $this->assertSame('claude-opus-4-1', data_get($payload, 'workflow.selected_model.model'));
+        $this->assertSame('claude-opus-4-1', data_get($payload, 'dev_execution_plan.operator_options.model'));
+        $this->assertContains('--model=claude-opus-4-1', $payload['chat_command']);
+    }
+
     public function test_global_operator_defaults_promote_dev_command_without_operator_flag(): void
     {
         config([
@@ -111,11 +129,23 @@ class AtlasCliDevCommandTest extends TestCase
 
         $this->assertContains('atlas:ai:chat', $command);
         $this->assertContains('--dev', $command);
+        $this->assertContains('--new-thread', $command);
         $this->assertContains('--cockpit', $command);
         $this->assertContains('--no-skill-prompt', $command);
         $this->assertContains('--provider=codex_cli', $command);
         $this->assertContains('--permission=danger', $command);
         $this->assertContains('--dangerously-allow-all', $command);
+    }
+
+    public function test_interactive_dev_forwards_model_override(): void
+    {
+        $command = $this->interactiveCommand([
+            '--permission' => 'write',
+            '--provider' => 'codex_cli',
+            '--model' => 'gpt-5.4-mini',
+        ]);
+
+        $this->assertContains('--model=gpt-5.4-mini', $command);
     }
 
     public function test_workspace_auto_detects_git_project_root(): void

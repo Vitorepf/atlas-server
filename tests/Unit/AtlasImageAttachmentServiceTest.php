@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\Ai\Cli\AtlasImageAttachmentService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use RuntimeException;
 use Tests\TestCase;
@@ -54,5 +55,22 @@ class AtlasImageAttachmentServiceTest extends TestCase
         $this->expectExceptionMessage('fora das raizes autorizadas');
 
         app(AtlasImageAttachmentService::class)->fromPath($outside, $this->workspace);
+    }
+
+    public function test_builds_image_attachment_from_uploaded_file(): void
+    {
+        $source = $this->root.'/upload.png';
+        File::put($source, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII='));
+
+        $upload = new UploadedFile($source, 'print.png', 'image/png', null, true);
+        $attachment = app(AtlasImageAttachmentService::class)->fromUploadedFile($upload, $this->workspace, 'mobile_upload');
+
+        $this->assertFileExists($attachment['path']);
+        $this->assertStringContainsString('/storage/app/ai/attachments/upload-', $attachment['path']);
+        $this->assertSame('image/png', $attachment['mime_type']);
+        $this->assertSame('mobile_upload', $attachment['source']);
+        $this->assertSame(hash_file('sha256', $source), $attachment['sha256']);
+
+        File::delete($attachment['path']);
     }
 }

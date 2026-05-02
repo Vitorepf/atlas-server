@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Mobile;
 
 use App\Models\AiJob;
+use App\Models\AiInboxItem;
 use App\Models\MobilePushDelivery;
 use App\Services\AuditLogService;
 use Illuminate\Support\Carbon;
@@ -49,6 +50,7 @@ class MobileReliabilityMonitor
     {
         $checks = [
             $this->schedulerStaleCheck(),
+            $this->performanceReportFreshCheck(),
             $this->pushDegradedCheck(),
             $this->circuitStuckCheck(),
             $this->jobsSilentCheck(),
@@ -126,6 +128,100 @@ class MobileReliabilityMonitor
                 'threshold_minutes' => $thresholdMinutes,
             ],
         );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function performanceReportFreshCheck(): array
+    {
+        if (! (bool) config('atlas.ai_metrics.performance_report_enabled', true)) {
+            return $this->checkResult('performance_report_fresh', 'healthy', 'Relatorio de performance desabilitado.', ['skipped' => true]);
+        }
+
+        if (! (bool) config('atlas.ai_metrics.performance_report_emit', true)) {
+            return $this->checkResult('performance_report_fresh', 'healthy', 'Emissao mobile do relatorio de performance desabilitada.', ['skipped' => true]);
+        }
+
+        if (! Schema::hasTable('ai_inbox_items')) {
+            return $this->checkResult('performance_report_fresh', 'warning', 'Tabela de Inbox ausente para validar entrega do relatorio.', ['skipped' => true]);
+        }
+
+        $timezone = (string) config('atlas.ai_metrics.performance_report_timezone', config('app.timezone', 'UTC'));
+        $timezone = trim($timezone) !== '' ? $timezone : 'UTC';
+        $now = Carbon::now($timezone);
+        $graceMinutes = max(0, (int) config('atlas.ai_metrics.performance_report_grace_minutes', 90));
+        $dueAt = $this->performanceReportDueAt($now, $graceMinutes);
+        $reportDate = $now->copy()->subDay()->toDateString();
+        $dedupeKey = 'atlas-ai-performance:daily:'.$reportDate;
+        $evidence = [
+            'report_date' => $reportDate,
+            'dedupe_key' => $dedupeKey,
+            'timezone' => $timezone,
+            'due_at' => $dueAt->toJSON(),
+            'grace_minutes' => $graceMinutes,
+        ];
+
+        if ($now->lt($dueAt)) {
+            return $this->checkResult('performance_report_fresh', 'healthy', 'Relatorio diario ainda dentro da janela esperada de entrega.', [
+                ...$evidence,
+                'not_due_yet' => true,
+            ]);
+        }
+
+        $item = AiInboxItem::query()
+            ->where('category', 'atlas_ai_performance')
+            ->where('dedupe_key', $dedupeKey)
+            ->latest('updated_at')
+            ->first();
+
+        if (! $item instanceof AiInboxItem) {
+            if (
+                (bool) config('atlas.ai_metrics.performance_report_alert_require_history', true)
+                && ! $this->hasPriorDailyPerformanceReportDelivery($dedupeKey)
+            ) {
+                return $this->checkResult('performance_report_fresh', 'healthy', 'Aguardando primeira entrega do relatorio diario antes de alertar ausencia.', [
+                    ...$evidence,
+                    'first_delivery_pending' => true,
+                    'skipped' => true,
+                ]);
+            }
+
+            return $this->checkResult('performance_report_fresh', 'critical', 'Relatorio diario de performance nao foi entregue no Inbox depois da janela esperada.', $evidence);
+        }
+
+        return $this->checkResult('performance_report_fresh', 'healthy', 'Relatorio diario de performance entregue no Inbox.', [
+            ...$evidence,
+            'item_id' => $item->id,
+            'item_status' => $item->status,
+            'item_updated_at' => $item->updated_at?->toJSON(),
+        ]);
+    }
+
+    private function hasPriorDailyPerformanceReportDelivery(string $currentDedupeKey): bool
+    {
+        return AiInboxItem::query()
+            ->where('category', 'atlas_ai_performance')
+            ->where('dedupe_key', 'like', 'atlas-ai-performance:daily:%')
+            ->where('dedupe_key', '<>', $currentDedupeKey)
+            ->exists();
+    }
+
+    private function performanceReportDueAt(Carbon $now, int $graceMinutes): Carbon
+    {
+        $raw = (string) config('atlas.ai_metrics.performance_report_time', '07:05');
+        $hour = 7;
+        $minute = 5;
+
+        if (preg_match('/^(\d{1,2}):(\d{2})$/', trim($raw), $matches) === 1) {
+            $hour = max(0, min(23, (int) $matches[1]));
+            $minute = max(0, min(59, (int) $matches[2]));
+        }
+
+        return $now->copy()
+            ->startOfDay()
+            ->setTime($hour, $minute)
+            ->addMinutes($graceMinutes);
     }
 
     /**

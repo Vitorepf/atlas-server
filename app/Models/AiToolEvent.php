@@ -13,6 +13,7 @@ class AiToolEvent extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'event_key',
         'trace_id',
         'session_id',
         'thread_id',

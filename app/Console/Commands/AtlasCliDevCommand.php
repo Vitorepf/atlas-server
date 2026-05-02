@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasTask;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
+use App\Services\Ai\Cli\AtlasCliModelCatalogService;
 use App\Services\Ai\Cli\AtlasCliQualityService;
 use App\Services\Ai\Cli\AtlasTerminalNotifier;
 use App\Services\Ai\Cli\AtlasTerminalTheme;
@@ -24,6 +25,7 @@ class AtlasCliDevCommand extends Command
         {--task-id= : Load an Atlas task and attach its engineering contract}
         {--workspace= : Workspace path. Defaults to current directory}
         {--provider= : Force claude_cli, codex_cli or claude_codex}
+        {--model= : Force model alias/id for the selected provider, for example sonnet, opus, spark, codex-premium, claude-opus-4-7 or gpt-5.5}
         {--critical : Prefer council/dual review when available}
         {--permission=auto : auto, read, write or danger}
         {--allow-write : Confirm scoped workspace writes for this run}
@@ -51,6 +53,7 @@ class AtlasCliDevCommand extends Command
 
     public function handle(
         AtlasCliDevWorkflowService $workflow,
+        AtlasCliModelCatalogService $models,
         AtlasCliQualityService $quality,
         AtlasTerminalNotifier $notifier,
         EngineeringTaskContractService $contracts,
@@ -88,7 +91,19 @@ class AtlasCliDevCommand extends Command
         }
 
         $provider = $this->provider();
+        $modelSelection = $models->select($this->modelOption(), $provider);
+        if ($modelSelection !== null && $provider === null && is_string($modelSelection['provider'] ?? null)) {
+            $provider = $modelSelection['provider'];
+        }
+        if ($modelSelection !== null && ! $models->matchesProvider($modelSelection, $provider)) {
+            return $this->modelProviderMismatch($models->label($modelSelection), $provider, $json);
+        }
+        $modelOverride = is_string($modelSelection['model'] ?? null) ? trim((string) $modelSelection['model']) : null;
+        $modelOverride = $modelOverride !== '' ? $modelOverride : null;
         $preflight = $workflow->preflight($workspace, $task, $provider, (bool) $this->option('critical'));
+        if ($modelSelection !== null) {
+            $preflight['selected_model'] = $this->compactModelSelection($modelSelection);
+        }
         $planOnly = (bool) $this->option('plan-only');
         $complete = (bool) $this->option('complete');
         $maxIterations = $this->maxIterations();
@@ -104,6 +119,9 @@ class AtlasCliDevCommand extends Command
             mode: $complete ? 'multi_step' : 'single_shot',
         );
         $devPlan['quality_gate_policy'] = $workflow->qualityGatePolicy($complete, $maxIterations, $skills);
+        if ($modelSelection !== null) {
+            $devPlan['selected_model'] = $this->compactModelSelection($modelSelection);
+        }
         if ($atlasTask instanceof AtlasTask && $engineeringContract !== null) {
             $devPlan['atlas_task'] = $contracts->taskSummary($atlasTask);
             $devPlan['engineering_contract'] = $engineeringContract;
@@ -117,6 +135,10 @@ class AtlasCliDevCommand extends Command
             'task' => $task,
             'task_id' => $taskId,
             'provider' => $provider,
+            'model' => $modelOverride,
+            'model_label' => $modelSelection['label'] ?? null,
+            'model_tier' => $modelSelection['tier'] ?? null,
+            'model_source' => $modelSelection['source'] ?? null,
             'critical' => (bool) $this->option('critical'),
             'permission' => $this->permission(),
             'allow_write' => $this->allowWrite(),
@@ -147,6 +169,7 @@ class AtlasCliDevCommand extends Command
                     task: $providerPrompt,
                     workspace: $workspace,
                     provider: (string) $preflight['selected_provider'],
+                    model: $modelOverride,
                     permission: $this->permission(),
                     allowWrite: $this->allowWrite(),
                     allowDanger: $this->allowDanger(),
@@ -179,7 +202,7 @@ class AtlasCliDevCommand extends Command
         $startedAt = microtime(true);
 
         if ($progress) {
-            $this->renderHeader($reporter, $workspace, $preflight, $task, $maxIterations, $complete);
+            $this->renderHeader($reporter, $workspace, $preflight, $task, $maxIterations, $complete, $modelSelection);
         } elseif (! $json) {
             $this->renderPreflightLegacy($preflight);
         }
@@ -221,12 +244,14 @@ class AtlasCliDevCommand extends Command
             $devPlan = $workflow->markStep($devPlan, $phase, 'running', [
                 'iteration' => $iteration,
                 'tool' => 'atlas:ai:chat',
+                'model' => $modelOverride,
             ]);
 
             $command = $workflow->chatCommand(
                 task: $prompt,
                 workspace: $workspace,
                 provider: (string) $preflight['selected_provider'],
+                model: $modelOverride,
                 permission: $this->permission(),
                 allowWrite: $this->allowWrite(),
                 allowDanger: $this->allowDanger(),
@@ -249,7 +274,14 @@ class AtlasCliDevCommand extends Command
 
             $run = $this->runProviderCommand($command, $workspace, passthrough: $passthrough);
             $traceId = $this->extractTraceId($run['stdout']);
-            $runs[] = $run + ['trace_id' => $traceId, 'iteration' => $iteration];
+            $runs[] = $run + [
+                'trace_id' => $traceId,
+                'iteration' => $iteration,
+                'model' => $modelOverride,
+                'model_label' => $modelSelection['label'] ?? null,
+                'model_tier' => $modelSelection['tier'] ?? null,
+                'model_source' => $modelSelection['source'] ?? null,
+            ];
 
             $iterationCompletion = $quality->evaluate(
                 workspace: $workspace,
@@ -436,11 +468,21 @@ class AtlasCliDevCommand extends Command
     /**
      * @param  array<string,mixed>  $preflight
      */
-    private function renderHeader(DevProgressReporter $reporter, string $workspace, array $preflight, string $task, int $maxIterations, bool $complete): void
-    {
+    private function renderHeader(
+        DevProgressReporter $reporter,
+        string $workspace,
+        array $preflight,
+        string $task,
+        int $maxIterations,
+        bool $complete,
+        ?array $modelSelection = null,
+    ): void {
         $reporter->blank();
         $reporter->note('workspace', $workspace);
         $reporter->note('provider', (string) $preflight['selected_provider']);
+        if ($modelSelection !== null) {
+            $reporter->note('modelo', $this->modelSelectionNote($modelSelection));
+        }
         $online = (bool) data_get($preflight, 'provider_strategy.has_online_provider');
         $reporter->note('online', $online ? 'sim' : 'nao');
         $reporter->note('tarefa', Str::limit($task, 80));
@@ -459,6 +501,9 @@ class AtlasCliDevCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Dev Workflow</>', 'preflight');
         $this->components->twoColumnDetail('Workspace', (string) $preflight['workspace']);
         $this->components->twoColumnDetail('Provider', (string) $preflight['selected_provider']);
+        if (is_array($preflight['selected_model'] ?? null)) {
+            $this->components->twoColumnDetail('Model', $this->modelSelectionNote((array) $preflight['selected_model']));
+        }
         $this->components->twoColumnDetail('Provider online', ((bool) data_get($preflight, 'provider_strategy.has_online_provider')) ? 'yes' : 'no');
         $this->line((string) data_get($preflight, 'provider_strategy.reason'));
         $this->line('Preflight quality: '.data_get($preflight, 'preflight_quality.status'));
@@ -676,6 +721,7 @@ class AtlasCliDevCommand extends Command
             base_path('artisan'),
             'atlas:ai:chat',
             '--dev',
+            '--new-thread',
             '--workspace='.$workspace,
             '--permission='.$this->permission(),
             '--stream',
@@ -685,6 +731,10 @@ class AtlasCliDevCommand extends Command
 
         if ($provider = $this->provider()) {
             $command[] = '--provider='.$provider;
+        }
+
+        if ($model = $this->modelOption()) {
+            $command[] = '--model='.$model;
         }
 
         if ($this->allowWrite()) {
@@ -793,6 +843,13 @@ class AtlasCliDevCommand extends Command
         return is_string($taskId) && trim($taskId) !== '' ? trim($taskId) : null;
     }
 
+    private function modelOption(): ?string
+    {
+        $model = $this->option('model');
+
+        return is_string($model) && trim($model) !== '' ? trim($model) : null;
+    }
+
     private function taskNotFound(string $taskId, bool $json): int
     {
         if ($json) {
@@ -811,11 +868,58 @@ class AtlasCliDevCommand extends Command
         return self::FAILURE;
     }
 
+    private function modelProviderMismatch(string $modelLabel, ?string $provider, bool $json): int
+    {
+        $message = 'Modelo '.$modelLabel.' nao combina com provider '.($provider ?: 'padrao').'. Use --provider correto ou remova --model.';
+        if ($json) {
+            $this->line(json_encode(AtlasSecurity::redactArray([
+                'ok' => false,
+                'phase' => 'preflight',
+                'error' => 'atlas_model_provider_mismatch',
+                'message' => $message,
+            ]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $this->error($message);
+
+        return self::FAILURE;
+    }
+
     private function provider(): ?string
     {
         $provider = $this->option('provider');
 
         return is_string($provider) && $provider !== '' ? $provider : null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $selection
+     * @return array<string,mixed>
+     */
+    private function compactModelSelection(array $selection): array
+    {
+        return array_filter([
+            'model' => $selection['model'] ?? null,
+            'label' => $selection['label'] ?? null,
+            'tier' => $selection['tier'] ?? null,
+            'provider' => $selection['provider'] ?? null,
+            'source' => $selection['source'] ?? null,
+            'alias' => $selection['alias'] ?? null,
+        ], fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    /**
+     * @param  array<string,mixed>  $selection
+     */
+    private function modelSelectionNote(array $selection): string
+    {
+        $label = (string) ($selection['label'] ?? $selection['model'] ?? '-');
+        $model = (string) ($selection['model'] ?? '-');
+        $tier = (string) ($selection['tier'] ?? 'manual');
+
+        return "{$label} · {$model} · {$tier}";
     }
 
     private function permission(): string

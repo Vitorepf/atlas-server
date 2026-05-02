@@ -16,7 +16,7 @@ class AiTelemetryHealthCommand extends Command
         {--fail-on-critical : Return a non-zero exit code when status is critical}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Evaluate Atlas AI telemetry health and optionally emit an operational insight.';
+    protected $description = 'Evaluate Atlas telemetry health and optionally emit an operational insight.';
 
     public function handle(AiTelemetryHealthService $health, AiTraceMetricAggregator $aggregator): int
     {

@@ -113,4 +113,10 @@ class AiTrace extends Model
     {
         return $this->hasMany(AiMessage::class, 'trace_id');
     }
+
+    public function memoryUsages(): HasMany
+    {
+        return $this->hasMany(AtlasMemoryEntryUsage::class, 'trace_id')
+            ->orderBy('position');
+    }
 }

@@ -43,5 +43,8 @@ class AtlasCliDoctorCommandTest extends TestCase
         $this->assertStringContainsString('"readiness"', $output);
         $this->assertStringContainsString('"permission_scope"', $output);
         $this->assertStringContainsString('"provider_binaries"', $output);
+        $this->assertStringContainsString('"provider_projection"', $output);
+        $this->assertFileDoesNotExist($this->workspace.'/CLAUDE.md');
+        $this->assertFileDoesNotExist($this->workspace.'/AGENTS.md');
     }
 }

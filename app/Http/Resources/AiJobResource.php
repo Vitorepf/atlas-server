@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Support\Metadata;
+use App\Support\AiAttachmentPayload;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -28,7 +29,7 @@ class AiJobResource extends JsonResource
             'model' => $this->model,
             'input_text' => $this->input_text,
             'context_refs' => Metadata::listForResponse($this->context_refs),
-            'payload' => Metadata::forResponse($this->payload),
+            'payload' => Metadata::forResponse(AiAttachmentPayload::sanitizePayload($this->payload)),
             'result_text' => $this->result_text,
             'result_json' => Metadata::forResponse($this->result_json),
             'error_code' => $this->error_code,

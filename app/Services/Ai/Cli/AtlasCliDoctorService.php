@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Cli;
 
 use App\Services\Ai\AiProviderHealthService;
+use App\Services\Ai\AtlasProviderProjectionService;
 use App\Services\Ai\Scheduling\AtlasSchedulerInstallService;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use Illuminate\Support\Facades\Schema;
@@ -16,6 +17,7 @@ class AtlasCliDoctorService
         private readonly AtlasCliQualityService $quality,
         private readonly SkillDiscoveryService $skills,
         private readonly AtlasSchedulerInstallService $schedulerInstall,
+        private readonly AtlasProviderProjectionService $projection,
     ) {}
 
     /**
@@ -36,6 +38,7 @@ class AtlasCliDoctorService
             quality: $this->quality->compact($this->quality->evaluate($workspace, $runTests, approved: true)),
             skills: $this->skills->health($workspace),
             scheduler: $this->schedulerGate(),
+            projection: $this->projectionGate($workspace),
         );
     }
 
@@ -45,9 +48,10 @@ class AtlasCliDoctorService
      * @param  array<string, mixed>  $quality
      * @param  array<string, mixed>  $skills
      * @param  array<string, mixed>  $scheduler
+     * @param  array<string, mixed>  $projection
      * @return array<string, mixed>
      */
-    private function payload(string $workspace, array $setup, array $providerStrategy, array $quality, array $skills, array $scheduler): array
+    private function payload(string $workspace, array $setup, array $providerStrategy, array $quality, array $skills, array $scheduler, array $projection): array
     {
         $permission = $this->permissionGate($workspace);
         $gates = [
@@ -77,6 +81,7 @@ class AtlasCliDoctorService
                 'errors' => data_get($skills, 'errors', []),
             ],
             $scheduler,
+            $projection,
             [
                 'name' => 'workspace_quality',
                 'status' => $this->workspaceQualityStatus($quality),
@@ -95,6 +100,7 @@ class AtlasCliDoctorService
             'permission' => $permission,
             'skills' => $skills,
             'scheduler' => $scheduler,
+            'provider_projection' => $projection,
             'quality' => $quality,
             'readiness' => $readiness,
         ];
@@ -123,6 +129,21 @@ class AtlasCliDoctorService
             },
             'cron' => $cron,
             'has_table' => $hasTable,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function projectionGate(string $workspace): array
+    {
+        $status = $this->projection->status('all', ['workspace' => $workspace]);
+
+        return [
+            'name' => 'provider_projection',
+            'status' => ($status['status'] ?? null) === 'passed' ? 'passed' : 'needs_review',
+            'detail' => (string) ($status['detail'] ?? 'Provider projections precisam de revisao.'),
+            'projection' => $status,
         ];
     }
 
@@ -271,6 +292,7 @@ class AtlasCliDoctorService
                 'permission_scope' => 'Ajuste ATLAS_AI_TOOL_ALLOWED_ROOTS e rode atlas bootstrap --strict.',
                 'skills_health' => 'Rode atlas skills doctor e corrija bundles com erro ou quarentena.',
                 'scheduler_cron' => 'Rode php artisan migrate e depois atlas bootstrap --install-scheduler-cron --strict.',
+                'provider_projection' => 'Rode atlas memory projection status --target=all e use write/adopt somente apos revisar o resultado.',
                 'workspace_quality' => 'Rode atlas bootstrap --doctor-run-tests --strict antes de declarar final.',
                 default => 'Revise o gate '.$gate['name'].' e rode atlas bootstrap --strict.',
             };

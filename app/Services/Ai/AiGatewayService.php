@@ -14,6 +14,7 @@ use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\ValueObjects\AiThreadResolution;
 use App\Services\AuditLogService;
 use App\Services\CapturePrivacyService;
+use App\Support\AiAttachmentPayload;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -22,6 +23,7 @@ use RuntimeException;
 class AiGatewayService
 {
     private const COUNCIL_PROVIDERS = ['claude_cli', 'codex_cli'];
+    private const INVOCATION_PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli'];
     private const TRANSACTION_ATTEMPTS = 5;
 
     public function __construct(
@@ -35,13 +37,15 @@ class AiGatewayService
         private readonly AiConversationRecorder $conversation,
         private readonly CapturePrivacyService $privacy,
         private readonly AiProviderModelResolver $models,
+        private readonly AtlasAiRuntimeSettings $runtimeSettings,
+        private readonly AiRuntimeBudgetService $budgets,
         private readonly AuditLogService $audit,
     ) {}
 
     public function enqueueInteraction(string $input, array $options = []): AiTrace
     {
         if (! config('atlas.ai.enabled')) {
-            throw new RuntimeException('Atlas AI is disabled.');
+            throw new RuntimeException('Atlas is disabled.');
         }
 
         $input = trim($input);
@@ -72,6 +76,7 @@ class AiGatewayService
 
         $modelResolution = $this->models->resolveWithSource($provider, $prompt->model ?: ($options['model'] ?? null));
         $model = $modelResolution['model'];
+        $this->budgets->assertAllows($provider, $model, $options);
         $now = now();
 
         return DB::transaction(function () use ($input, $options, $prompt, $provider, $model, $modelResolution, $now, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff): AiTrace {
@@ -101,7 +106,7 @@ class AiGatewayService
                     'session' => $this->sessionMetadata($lockedSession),
                     'auto_compaction_id' => $autoCompaction?->id,
                     'provider_handoff_id' => $providerHandoff?->id,
-                    'model_identity_source' => $modelResolution['source'],
+                    ...$this->modelRuntimeMetadata($modelResolution),
                     'task_request' => $prompt->taskRequest,
                     'context_pack' => $prompt->contextPack,
                     'execution_plan' => $prompt->executionPlan,
@@ -129,7 +134,7 @@ class AiGatewayService
                     'session' => $this->sessionMetadata($lockedSession),
                     'auto_compaction_id' => $autoCompaction?->id,
                     'provider_handoff_id' => $providerHandoff?->id,
-                    'model_identity_source' => $modelResolution['source'],
+                    ...$this->modelRuntimeMetadata($modelResolution),
                     'task_request' => $prompt->taskRequest,
                     'context_pack' => $prompt->contextPack,
                     'execution_plan' => $prompt->executionPlan,
@@ -137,7 +142,7 @@ class AiGatewayService
                 ],
                 'available_at' => $options['available_at'] ?? $now,
                 'max_attempts' => (int) ($options['max_attempts'] ?? config('atlas.ai.max_attempts', 1)),
-                'timeout_seconds' => (int) ($options['timeout_seconds'] ?? config('atlas.ai.timeout_seconds', 7200)),
+                'timeout_seconds' => (int) ($options['timeout_seconds'] ?? config('atlas.ai.timeout_seconds', 600)),
                 'metadata' => [
                     'intent' => $prompt->intent,
                     'skill_versions' => $prompt->skillVersions,
@@ -146,7 +151,7 @@ class AiGatewayService
                     'session' => $this->sessionMetadata($lockedSession),
                     'auto_compaction_id' => $autoCompaction?->id,
                     'provider_handoff_id' => $providerHandoff?->id,
-                    'model_identity_source' => $modelResolution['source'],
+                    ...$this->modelRuntimeMetadata($modelResolution),
                     'task_request' => $prompt->taskRequest,
                     'context_pack' => $prompt->contextPack,
                     'execution_plan' => $prompt->executionPlan,
@@ -159,6 +164,7 @@ class AiGatewayService
                 'source' => 'ai_gateway',
                 'thread_resolution' => $threadResolution->toArray(),
                 'session_id' => $lockedSession->id,
+                ...$this->attachmentMetadata($options),
             ]);
 
             $this->states->updateForUserInput($lockedThread, $lockedSession, $input, $this->optionsWithPromptContracts($options, $prompt));
@@ -169,7 +175,7 @@ class AiGatewayService
                 'metadata' => [
                     'source_type' => $trace->source_type,
                     'kind' => $job->kind,
-                    'model_identity_source' => $modelResolution['source'],
+                    ...$this->modelRuntimeMetadata($modelResolution),
                     'task_type' => data_get($prompt->taskRequest, 'task_type'),
                     'workflow' => data_get($prompt->executionPlan, 'workflow'),
                 ],
@@ -181,6 +187,7 @@ class AiGatewayService
                     'priority' => $job->priority,
                     'available_at' => $job->available_at?->toJSON(),
                     'max_attempts' => $job->max_attempts,
+                    ...$this->modelRuntimeMetadata($modelResolution),
                 ],
             ]);
 
@@ -192,7 +199,7 @@ class AiGatewayService
                     'agent_slug' => $prompt->agentSlug,
                     'provider' => $provider,
                     'model' => $model,
-                    'model_identity_source' => $modelResolution['source'],
+                    ...$this->modelRuntimeMetadata($modelResolution),
                     'source_type' => $trace->source_type,
                     'source_id' => $trace->source_id,
                     'input_text' => $input,
@@ -239,6 +246,11 @@ class AiGatewayService
             $lockedSession = $this->lockSessionForTrace($session);
             $traceModelResolution = $this->models->resolveWithSource('claude_codex', $options['model'] ?? null);
 
+            foreach ($providers as $provider) {
+                $providerModelResolution = $this->models->resolveWithSource($provider, $options['model'] ?? null);
+                $this->budgets->assertAllows($provider, $providerModelResolution['model'], $options);
+            }
+
             $trace = AiTrace::query()->create([
                 'trace_key' => 'trace_'.Str::orderedUuid()->toString(),
                 'thread_id' => $lockedThread->id,
@@ -263,7 +275,7 @@ class AiGatewayService
                     'session' => $this->sessionMetadata($lockedSession),
                     'auto_compaction_id' => $autoCompaction?->id,
                     'provider_handoff_id' => $providerHandoff?->id,
-                    'model_identity_source' => $traceModelResolution['source'],
+                    ...$this->modelRuntimeMetadata($traceModelResolution),
                     'council_providers' => $providers,
                     'council_status' => 'queued',
                     'council_progress' => [
@@ -302,7 +314,7 @@ class AiGatewayService
                         'session' => $this->sessionMetadata($lockedSession),
                         'auto_compaction_id' => $autoCompaction?->id,
                         'provider_handoff_id' => $providerHandoff?->id,
-                        'model_identity_source' => $jobModelResolution['source'],
+                        ...$this->modelRuntimeMetadata($jobModelResolution),
                         'council_role' => $role,
                         'council_provider' => $provider,
                         'council_providers' => $providers,
@@ -313,7 +325,7 @@ class AiGatewayService
                     ]),
                     'available_at' => $options['available_at'] ?? $now,
                     'max_attempts' => (int) ($options['max_attempts'] ?? config('atlas.ai.max_attempts', 1)),
-                    'timeout_seconds' => (int) ($options['timeout_seconds'] ?? config('atlas.ai.timeout_seconds', 7200)),
+                    'timeout_seconds' => (int) ($options['timeout_seconds'] ?? config('atlas.ai.timeout_seconds', 600)),
                     'metadata' => [
                         'intent' => $prompt->intent,
                         'skill_versions' => $prompt->skillVersions,
@@ -323,7 +335,7 @@ class AiGatewayService
                         'session' => $this->sessionMetadata($lockedSession),
                         'auto_compaction_id' => $autoCompaction?->id,
                         'provider_handoff_id' => $providerHandoff?->id,
-                        'model_identity_source' => $jobModelResolution['source'],
+                        ...$this->modelRuntimeMetadata($jobModelResolution),
                         'council_role' => $role,
                         'task_request' => $prompt->taskRequest,
                         'context_pack' => $prompt->contextPack,
@@ -342,7 +354,7 @@ class AiGatewayService
                         'max_attempts' => $job->max_attempts,
                         'execution_policy' => 'dual_review',
                         'council_role' => $role,
-                        'model_identity_source' => $jobModelResolution['source'],
+                        ...$this->modelRuntimeMetadata($jobModelResolution),
                     ],
                 ]);
 
@@ -354,7 +366,7 @@ class AiGatewayService
                         'agent_slug' => $prompt->agentSlug,
                         'provider' => $provider,
                         'model' => $jobModelResolution['model'],
-                        'model_identity_source' => $jobModelResolution['source'],
+                        ...$this->modelRuntimeMetadata($jobModelResolution),
                         'source_type' => $trace->source_type,
                         'source_id' => $trace->source_id,
                         'input_text' => $input,
@@ -381,6 +393,7 @@ class AiGatewayService
                 'thread_resolution' => $threadResolution->toArray(),
                 'execution_policy' => 'dual_review',
                 'session_id' => $lockedSession->id,
+                ...$this->attachmentMetadata($options),
             ]);
 
             $this->states->updateForUserInput($lockedThread, $lockedSession, $input, $this->optionsWithPromptContracts($options, $prompt));
@@ -395,7 +408,7 @@ class AiGatewayService
                     'source_type' => $trace->source_type,
                     'execution_policy' => 'dual_review',
                     'council_providers' => $providers,
-                    'model_identity_source' => $traceModelResolution['source'],
+                    ...$this->modelRuntimeMetadata($traceModelResolution),
                     'task_type' => data_get($prompt->taskRequest, 'task_type'),
                     'workflow' => data_get($prompt->executionPlan, 'workflow'),
                 ],
@@ -512,6 +525,21 @@ class AiGatewayService
         ]);
     }
 
+    /**
+     * @param  array<string,mixed>  $resolution
+     * @return array<string,mixed>
+     */
+    private function modelRuntimeMetadata(array $resolution): array
+    {
+        return [
+            'model_identity_source' => $resolution['source'] ?? 'unresolved',
+            'model_label' => $resolution['model_label'] ?? $resolution['model'] ?? null,
+            'model_tier' => $resolution['model_tier'] ?? config('atlas.ai.default_tier', 'daily'),
+            'model_allow_auto' => (bool) ($resolution['allow_auto'] ?? true),
+            'model_allow_manual' => (bool) ($resolution['allow_manual'] ?? true),
+        ];
+    }
+
     private function optionsWithResolvedRuntime(array $options, string $threadId, string $sessionId, ?string $compactionId = null, ?string $handoffId = null): array
     {
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
@@ -543,6 +571,16 @@ class AiGatewayService
         $options['payload'] = $payload;
 
         return $options;
+    }
+
+    /**
+     * @return array{attachments?:array<int,array<string,mixed>>}
+     */
+    private function attachmentMetadata(array $options): array
+    {
+        $attachments = AiAttachmentPayload::publicAttachmentsFromPayload($options['payload'] ?? []);
+
+        return $attachments === [] ? [] : ['attachments' => $attachments];
     }
 
     private function sessionMetadata($session): array
@@ -589,9 +627,11 @@ class AiGatewayService
 
     private function shouldRunCouncil(array $options): bool
     {
-        return data_get($options, 'payload.execution_policy') === 'dual_review'
+        $requested = data_get($options, 'payload.execution_policy') === 'dual_review'
             || data_get($options, 'payload.requested_provider') === 'claude_codex'
             || ($options['provider'] ?? null) === 'claude_codex';
+
+        return $requested && $this->providerAllowedForInvocation('claude_codex', $options) === 'claude_codex';
     }
 
     private function providerFromOptions(array $options): string
@@ -601,15 +641,99 @@ class AiGatewayService
             || data_get($payload, 'requested_provider') === 'claude_codex'
             || data_get($payload, 'execution_policy') === 'dual_review'
         ) {
-            return 'claude_codex';
+            return $this->providerAllowedForInvocation('claude_codex', $options);
         }
 
         $provider = $options['provider'] ?? data_get($payload, 'requested_provider');
-        if (in_array($provider, self::COUNCIL_PROVIDERS, true)) {
-            return (string) $provider;
+        if (in_array($provider, self::INVOCATION_PROVIDERS, true)) {
+            return $this->providerAllowedForInvocation((string) $provider, $options, explicitProvider: true);
         }
 
-        return (string) config('atlas.ai.default_provider', 'claude_cli');
+        return $this->providerAllowedForInvocation($this->runtimeSettings->defaultProvider(), $options, explicitProvider: false);
+    }
+
+    private function providerAllowedForInvocation(string $provider, array $options, bool $explicitProvider = false): string
+    {
+        if (! $explicitProvider && $provider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
+            return $this->geminiFallbackProvider();
+        }
+
+        if (! $this->isAutomaticInvocation($options)) {
+            return (bool) ($this->runtimeSettings->providerConfig($provider)['allow_manual'] ?? true)
+                ? $provider
+                : $this->manualFallbackProvider($provider, $options);
+        }
+
+        if ($provider === 'claude_codex') {
+            return $this->runtimeSettings->councilAllowAuto()
+                ? $provider
+                : $this->automaticFallbackProvider($options);
+        }
+
+        if ((bool) ($this->runtimeSettings->providerConfig($provider)['allow_auto'] ?? true)) {
+            return $provider;
+        }
+
+        return $this->automaticFallbackProvider($options);
+    }
+
+    private function manualFallbackProvider(string $provider, array $options): string
+    {
+        $default = $this->runtimeSettings->defaultProvider();
+        if ($default !== $provider
+            && $default !== 'claude_codex'
+            && ! ($default === 'gemini_cli' && $this->geminiBlockedForInvocation($options))
+            && (bool) ($this->runtimeSettings->providerConfig($default)['allow_manual'] ?? true)
+        ) {
+            return $default;
+        }
+
+        return $provider === 'claude_cli' ? 'codex_cli' : 'claude_cli';
+    }
+
+    private function automaticFallbackProvider(array $options = []): string
+    {
+        $default = $this->runtimeSettings->defaultProvider();
+        if ($default !== 'claude_codex'
+            && ! ($default === 'gemini_cli' && $this->geminiBlockedForInvocation($options))
+            && (bool) ($this->runtimeSettings->providerConfig($default)['allow_auto'] ?? true)
+        ) {
+            return $default;
+        }
+
+        return 'claude_cli';
+    }
+
+    private function geminiFallbackProvider(): string
+    {
+        return 'claude_cli';
+    }
+
+    private function isAutomaticInvocation(array $options): bool
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $sourceType = $options['source_type'] ?? null;
+
+        return (bool) data_get($payload, 'automatic', false)
+            || in_array($sourceType, ['capture', 'scheduled', 'system'], true);
+    }
+
+    private function geminiBlockedForInvocation(array $options): bool
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $workflowMode = strtolower(trim((string) data_get($payload, 'atlas_workflow_mode', '')));
+        $taskType = strtolower(trim((string) data_get($payload, 'task_type', '')));
+        $agent = strtolower(trim((string) ($options['agent_slug'] ?? data_get($payload, 'requested_agent', ''))));
+
+        if (in_array($workflowMode, ['dev', 'debug', 'execute', 'quality_repair'], true)) {
+            return true;
+        }
+
+        if (in_array($taskType, ['dev', 'debug', 'code', 'coding', 'programming', 'quality_repair'], true)) {
+            return true;
+        }
+
+        return in_array($agent, ['desenvolvedor', 'developer', 'debugger'], true);
     }
 
     private function existingTraceForClient(mixed $clientId): ?AiTrace

@@ -18,7 +18,7 @@ class AtlasCliTraceCommand extends Command
         {--full : Show less-redacted payloads}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Inspect Atlas AI traces, tool events, quality gates and replay-safe command summaries.';
+    protected $description = 'Inspect Atlas traces, tool events, quality gates and replay-safe command summaries.';
 
     public function handle(): int
     {

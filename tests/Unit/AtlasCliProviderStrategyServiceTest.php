@@ -87,4 +87,60 @@ class AtlasCliProviderStrategyServiceTest extends TestCase
 
         $this->assertSame('claude_codex', $payload['recommended_provider']);
     }
+
+    public function test_dev_mode_never_recommends_gemini_even_when_default_and_online(): void
+    {
+        config()->set('atlas.ai.default_provider', 'gemini_cli');
+
+        AiProviderHealthSnapshot::query()->create([
+            'provider' => 'gemini_cli',
+            'status' => 'online',
+            'checked_at' => now(),
+            'operational_pain_score' => 0,
+            'p50_latency_ms' => 10,
+            'metadata' => [],
+            'created_at' => now(),
+        ]);
+        AiProviderHealthSnapshot::query()->create([
+            'provider' => 'codex_cli',
+            'status' => 'online',
+            'checked_at' => now(),
+            'operational_pain_score' => 1,
+            'p50_latency_ms' => 100,
+            'metadata' => [],
+            'created_at' => now(),
+        ]);
+        AiProviderHealthSnapshot::query()->create([
+            'provider' => 'claude_cli',
+            'status' => 'offline',
+            'checked_at' => now(),
+            'operational_pain_score' => 4,
+            'metadata' => [],
+            'created_at' => now(),
+        ]);
+
+        $payload = app(AtlasCliProviderStrategyService::class)->recommend('dev');
+
+        $this->assertSame('codex_cli', $payload['recommended_provider']);
+    }
+
+    public function test_dev_mode_does_not_fall_back_to_gemini_when_it_is_the_only_online_provider(): void
+    {
+        config()->set('atlas.ai.default_provider', 'gemini_cli');
+
+        AiProviderHealthSnapshot::query()->create([
+            'provider' => 'gemini_cli',
+            'status' => 'online',
+            'checked_at' => now(),
+            'operational_pain_score' => 0,
+            'p50_latency_ms' => 10,
+            'metadata' => [],
+            'created_at' => now(),
+        ]);
+
+        $payload = app(AtlasCliProviderStrategyService::class)->recommend('debug');
+
+        $this->assertSame('claude_cli', $payload['recommended_provider']);
+        $this->assertNull($payload['fallback_provider']);
+    }
 }

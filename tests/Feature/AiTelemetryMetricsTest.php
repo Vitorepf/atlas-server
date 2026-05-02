@@ -232,6 +232,9 @@ class AiTelemetryMetricsTest extends TestCase
 
     public function test_rollup_resolves_provider_default_model_identity_for_costing(): void
     {
+        config()->set('atlas.ai.providers.claude_cli.model', null);
+        config()->set('atlas.ai.providers.claude_cli.model_identity', 'claude_cli_default');
+
         $trace = $this->seedCompletedTrace();
         $trace->update(['model' => null]);
         AiJob::query()->where('trace_id', $trace->id)->update(['model' => null]);

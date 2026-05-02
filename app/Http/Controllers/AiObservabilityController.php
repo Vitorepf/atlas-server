@@ -11,11 +11,17 @@ use App\Services\Ai\Telemetry\AiTelemetryHealthService;
 use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class AiObservabilityController extends Controller
 {
+    // Observability é monitoring, não auditoria — pode atrasar 30s
+    // sem prejuízo. Antes: 15+ COUNT/GROUP BY por chamada × clientes
+    // monitorando a cada 10s = ~2 queries/s só de observability.
+    private const CACHE_TTL_SECONDS = 30;
+
     public function __invoke(
         Request $request,
         AiTelemetryScorecardService $scorecards,
@@ -26,32 +32,41 @@ class AiObservabilityController extends Controller
             'hours' => ['nullable', 'integer', 'between:1,720'],
         ]);
 
-        $since = now()->subHours((int) ($data['hours'] ?? 24));
+        $hours = (int) ($data['hours'] ?? 24);
+        $payload = Cache::remember(
+            'atlas.ai.observability:hours='.$hours,
+            self::CACHE_TTL_SECONDS,
+            function () use ($hours, $scorecards, $health): array {
+                $since = now()->subHours($hours);
 
-        return response()->json([
-            'window' => [
-                'since' => $since->toJSON(),
-                'until' => now()->toJSON(),
-            ],
-            'threads' => [
-                'active' => AiThread::query()->where('status', 'active')->count(),
-                'atlas_cli' => AiThread::query()->where('surface', 'atlas_cli')->count(),
-            ],
-            'traces' => [
-                'total' => AiTrace::query()->where('created_at', '>=', $since)->count(),
-                'by_status' => $this->countsBy(AiTrace::query()->where('created_at', '>=', $since), 'status'),
-                'by_provider' => $this->countsBy(AiTrace::query()->where('created_at', '>=', $since), 'provider'),
-            ],
-            'jobs' => [
-                'queued' => AiJob::query()->where('status', 'queued')->count(),
-                'processing' => AiJob::query()->where('status', 'processing')->count(),
-                'failed_24h' => AiJob::query()->where('status', 'failed')->where('updated_at', '>=', now()->subDay())->count(),
-            ],
-            'quality' => $this->quality($since),
-            'metrics' => $scorecards->build($since),
-            'metrics_health' => $health->evaluate($since),
-            'actions' => $this->actions(),
-        ]);
+                return [
+                    'window' => [
+                        'since' => $since->toJSON(),
+                        'until' => now()->toJSON(),
+                    ],
+                    'threads' => [
+                        'active' => AiThread::query()->where('status', 'active')->count(),
+                        'atlas_cli' => AiThread::query()->where('surface', 'atlas_cli')->count(),
+                    ],
+                    'traces' => [
+                        'total' => AiTrace::query()->where('created_at', '>=', $since)->count(),
+                        'by_status' => $this->countsBy(AiTrace::query()->where('created_at', '>=', $since), 'status'),
+                        'by_provider' => $this->countsBy(AiTrace::query()->where('created_at', '>=', $since), 'provider'),
+                    ],
+                    'jobs' => [
+                        'queued' => AiJob::query()->where('status', 'queued')->count(),
+                        'processing' => AiJob::query()->where('status', 'processing')->count(),
+                        'failed_24h' => AiJob::query()->where('status', 'failed')->where('updated_at', '>=', now()->subDay())->count(),
+                    ],
+                    'quality' => $this->quality($since),
+                    'metrics' => $scorecards->build($since),
+                    'metrics_health' => $health->evaluate($since),
+                    'actions' => $this->actions(),
+                ];
+            },
+        );
+
+        return response()->json($payload);
     }
 
     private function quality($since): array

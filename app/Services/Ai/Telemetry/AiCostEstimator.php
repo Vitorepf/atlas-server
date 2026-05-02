@@ -10,6 +10,38 @@ use Illuminate\Support\Facades\Schema;
 
 class AiCostEstimator
 {
+    /**
+     * cost_confidence vocabulary.
+     *
+     * METERED:   tokens reported by the provider × manually-configured rate.
+     *            Closest the system gets to a real bill — but still an estimate
+     *            because the rate is a snapshot configured by the operator,
+     *            not the provider's invoiced amount.
+     * ESTIMATED: tokens estimated from chars OR provider is a CLI placeholder.
+     * UNKNOWN:   no rate available; cost is null.
+     *
+     * Legacy alias: 'actual' meant METERED but the name implied invoice-grade
+     * accuracy, which it never had. Readers must accept both 'actual' and
+     * 'metered' until the data migration ('actual' → 'metered') has run on
+     * every environment.
+     */
+    public const COST_CONFIDENCE_METERED = 'metered';
+    public const COST_CONFIDENCE_ESTIMATED = 'estimated';
+    public const COST_CONFIDENCE_UNKNOWN = 'unknown';
+
+    /**
+     * Legacy value still recognized on read for back-compat. Migration
+     * 2026_05_01_004000_normalize_cost_confidence_actual_to_metered rewrites
+     * stored rows. Retire once the migration has run on every environment.
+     */
+    public const LEGACY_COST_CONFIDENCE_ACTUAL = 'actual';
+
+    /** @var array<int,string> */
+    public const COST_CONFIDENCE_METERED_ACCEPTED = [
+        self::COST_CONFIDENCE_METERED,
+        self::LEGACY_COST_CONFIDENCE_ACTUAL,
+    ];
+
     public function __construct(private readonly AiProviderModelResolver $models)
     {
     }
@@ -47,7 +79,7 @@ class AiCostEstimator
                 'estimated_tokens' => $estimatedTokens,
                 'token_source' => $tokenSource,
                 'cost_microusd' => null,
-                'cost_confidence' => 'unknown',
+                'cost_confidence' => self::COST_CONFIDENCE_UNKNOWN,
                 'cost_source' => $this->costSource($provider, $tokenSource, false),
                 'cost_mode' => 'unknown',
             ];
@@ -139,10 +171,12 @@ class AiCostEstimator
     private function costConfidence(?string $provider, ?int $estimatedTokens): string
     {
         if ($this->isCliProvider($provider)) {
-            return 'estimated';
+            return self::COST_CONFIDENCE_ESTIMATED;
         }
 
-        return $estimatedTokens === null ? 'actual' : 'estimated';
+        return $estimatedTokens === null
+            ? self::COST_CONFIDENCE_METERED
+            : self::COST_CONFIDENCE_ESTIMATED;
     }
 
     private function costSource(?string $provider, ?string $tokenSource, bool $hasRate): string
@@ -171,7 +205,7 @@ class AiCostEstimator
 
     private function isCliProvider(?string $provider): bool
     {
-        return in_array($provider, ['claude_cli', 'codex_cli', 'claude_codex'], true);
+        return in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'claude_codex'], true);
     }
 
     private function estimateTokens(string $text): int

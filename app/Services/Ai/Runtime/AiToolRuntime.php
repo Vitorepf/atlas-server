@@ -93,23 +93,63 @@ class AiToolRuntime
             return;
         }
 
-        AiToolEvent::query()->create([
-            'trace_id' => $traceId,
-            'session_id' => $invocation->sessionId ?: data_get($invocation->metadata, 'session_id'),
-            'thread_id' => data_get($invocation->metadata, 'thread_id'),
-            'tool' => $invocation->tool,
-            'risk' => $risk,
-            'permission_status' => $permissionStatus,
-            'approval_source' => is_string(data_get($invocation->metadata, 'approval_source')) ? data_get($invocation->metadata, 'approval_source') : null,
-            'input_summary' => $this->inputSummary($invocation),
-            'output_summary' => $this->outputSummary($result),
-            'changed_files' => $result->changedFiles ?: null,
-            'checkpoint_id' => $result->checkpointPath ? basename($result->checkpointPath) : null,
-            'exit_code' => $result->exitCode,
-            'duration_ms' => $result->durationMs,
-            'error' => $result->errorMessage,
-            'created_at' => now(),
-        ]);
+        // Deterministic event_key: same (trace, tool, invocation_id, status) always
+        // produces the same hash. Worker retries that re-execute the same
+        // invocation collide on the UNIQUE constraint and fail fast — exactly
+        // the behavior we want to prevent silent duplicate inserts.
+        // See migration 2026_05_01_006000_harden_ai_tool_events for the constraint.
+        $eventKey = $this->eventKeyFor($traceId, $invocation, $permissionStatus);
+
+        // Idempotent persistence: if the same event_key was already inserted
+        // (worker double-fire, exception path then success path), updateOrCreate
+        // refreshes the row instead of throwing on the UNIQUE constraint.
+        AiToolEvent::query()->updateOrCreate(
+            ['event_key' => $eventKey],
+            [
+                'trace_id' => $traceId,
+                'session_id' => $invocation->sessionId ?: data_get($invocation->metadata, 'session_id'),
+                'thread_id' => data_get($invocation->metadata, 'thread_id'),
+                'tool' => $invocation->tool,
+                'risk' => $risk,
+                'permission_status' => $permissionStatus,
+                'approval_source' => is_string(data_get($invocation->metadata, 'approval_source')) ? data_get($invocation->metadata, 'approval_source') : null,
+                'input_summary' => $this->inputSummary($invocation),
+                'output_summary' => $this->outputSummary($result),
+                'changed_files' => $result->changedFiles ?: null,
+                'checkpoint_id' => $result->checkpointPath ? basename($result->checkpointPath) : null,
+                'exit_code' => $result->exitCode,
+                'duration_ms' => $result->durationMs,
+                'error' => $result->errorMessage,
+                'created_at' => now(),
+            ],
+        );
+    }
+
+    /**
+     * Builds the deterministic event_key written to ai_tool_events.event_key.
+     *
+     * Inputs:
+     *   - trace_id: scopes the key to a trace (different traces with the same
+     *     invocation_id never collide)
+     *   - invocation->id: unique per call (provided by ToolInvocation, e.g. a uuid
+     *     allocated when the invocation was queued)
+     *   - tool name: defensive — protects against invocation_id reuse across tools
+     *   - permission_status: lets the denied-permission and the approved-execution
+     *     paths emit DIFFERENT keys for the same invocation, since both call
+     *     recordToolEvent (see lines 52 and 84). Without this, the second insert
+     *     would clobber the first via updateOrCreate, losing the denial record.
+     *
+     * Output: 'tool:' + 64-hex-char sha256 prefix, total length ≤ 70 chars
+     * (well under the column's 180-char limit).
+     */
+    private function eventKeyFor(string $traceId, ToolInvocation $invocation, string $permissionStatus): string
+    {
+        return 'tool:'.substr(hash('sha256', implode(':', [
+            $traceId,
+            $invocation->tool,
+            $invocation->id,
+            $permissionStatus,
+        ])), 0, 64);
     }
 
     private function riskFor(ToolInvocation $invocation): string

@@ -6,6 +6,7 @@ use App\Models\AiJob;
 use App\Models\AiSession;
 use App\Models\AiThread;
 use App\Models\AiTrace;
+use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,10 @@ use Symfony\Component\Process\Process;
 
 class AtlasCliDogfoodService
 {
+    public function __construct(
+        private readonly AtlasAiRuntimeSettings $runtimeSettings,
+    ) {}
+
     /**
      * @return array<int,string>
      */
@@ -393,7 +398,7 @@ class AtlasCliDogfoodService
         return [
             'ask_session' => [
                 'description' => 'cria thread Atlas CLI sem chamar provider',
-                'provider' => (string) config('atlas.ai.default_provider', 'claude_cli'),
+                'provider' => $this->runtimeSettings->defaultProvider(),
                 'timeout' => 120,
                 'command' => [PHP_BINARY, 'artisan', 'atlas:ai:chat', 'Dogfood smoke: crie uma sessao Atlas CLI sem executar provider.', '--workspace='.$workspace, '--new-thread', '--no-run', '--json'],
             ],
@@ -405,7 +410,7 @@ class AtlasCliDogfoodService
             ],
             'debug_fix' => [
                 'description' => 'cria trace de debug sem executar provider',
-                'provider' => (string) config('atlas.ai.default_provider', 'claude_cli'),
+                'provider' => $this->runtimeSettings->defaultProvider(),
                 'timeout' => 120,
                 'command' => [PHP_BINARY, 'artisan', 'atlas:ai:chat', 'Dogfood smoke: investigue sem executar provider.', '--workspace='.$workspace, '--mode=debug', '--no-run', '--json'],
             ],

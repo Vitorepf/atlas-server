@@ -215,6 +215,61 @@ class AiSessionManagerTest extends TestCase
         $this->assertFalse($resolution->created);
     }
 
+    public function test_thread_resolver_creates_new_thread_by_default_even_for_short_continuation_text(): void
+    {
+        $workspace = (string) config('atlas.ai.workdir');
+        $existingThread = AiThread::query()->create([
+            'title' => 'Thread que nao deve ser reutilizada',
+            'status' => 'active',
+            'surface' => 'atlas_ai_sheet',
+            'workspace' => $workspace,
+            'last_message_at' => now(),
+            'metadata' => [],
+        ]);
+
+        $resolution = app(AiThreadResolver::class)->resolve('continua', [
+            'source_type' => 'app',
+            'payload' => [
+                'app_surface' => 'atlas_ai_sheet',
+                'conversation_context' => [
+                    'turns' => [
+                        ['role' => 'user', 'content' => 'mensagem de outra conversa'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertNotSame($existingThread->id, $resolution->thread->id);
+        $this->assertSame('implicit_new_thread', $resolution->strategy);
+        $this->assertTrue($resolution->created);
+        $this->assertSame(2, AiThread::query()->count());
+    }
+
+    public function test_thread_resolver_only_uses_latest_candidate_when_implicit_continuation_is_enabled(): void
+    {
+        $workspace = (string) config('atlas.ai.workdir');
+        $existingThread = AiThread::query()->create([
+            'title' => 'Thread retomada explicitamente',
+            'status' => 'active',
+            'surface' => 'atlas_ai_sheet',
+            'workspace' => $workspace,
+            'last_message_at' => now(),
+            'metadata' => [],
+        ]);
+
+        $resolution = app(AiThreadResolver::class)->resolve('continua', [
+            'source_type' => 'app',
+            'allow_implicit_thread_continuation' => true,
+            'payload' => [
+                'app_surface' => 'atlas_ai_sheet',
+            ],
+        ]);
+
+        $this->assertSame($existingThread->id, $resolution->thread->id);
+        $this->assertSame('latest_continuation_candidate', $resolution->strategy);
+        $this->assertFalse($resolution->created);
+    }
+
     public function test_explicit_session_must_belong_to_resolved_thread(): void
     {
         $firstThread = AiThread::query()->create([

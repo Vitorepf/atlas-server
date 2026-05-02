@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\Skills\SkillBundleStore;
+use App\Services\Ai\Attachments\AiAttachmentIndexService;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Services\Ai\Skills\SkillManifest;
 use App\Services\Ai\Search\SessionSearchService;
@@ -20,6 +21,7 @@ class AiPromptBuilder
         private readonly SkillDiscoveryService $skillDiscovery,
         private readonly SkillBundleStore $skillBundles,
         private readonly SessionSearchService $sessionSearch,
+        private readonly ?AiAttachmentIndexService $attachmentIndex = null,
     ) {}
 
     public function build(string $input, array $options = []): AiPrompt
@@ -64,6 +66,7 @@ class AiPromptBuilder
         $activeAgentBundle = $this->skillBundles->find($agent);
         $catalog = $this->skillBundles->catalog();
         $sessionSearchSection = $this->sessionSearchSection($input, $options);
+        $attachmentSearchSection = $this->attachmentSearchSection($input, $options);
         $activeSkillSection = $activeAgentBundle
             ? "# Skill ativa: {$skill->title}\n\nA skill ativa esta carregada como bundle agentskills.io em <skill_content name=\"{$activeAgentBundle->name}\">. Use esse bloco como fonte procedural principal."
             : "# Skill ativa: {$skill->title}\n\n{$skill->body}";
@@ -76,10 +79,12 @@ class AiPromptBuilder
                 : null,
             $this->skillCatalogSection($catalog),
             $sessionSearchSection,
+            $attachmentSearchSection,
             $contextPack->toPromptSection(),
             $executionPlan->toPromptSection(),
             $this->permissionInstructions($options),
             $this->workflowInstructions($options),
+            $this->attachmentInstructions($options, $input),
             $this->outputContract($options),
             $this->activatedSkillContentSection($activatedBundles),
             "# Pedido do operador\n\n{$input}",
@@ -138,6 +143,14 @@ TXT,
             $workspace = (string) config('atlas.ai.workdir', dirname(base_path()));
         }
 
+        // Discovery direto: scaneia o workspace a cada chamada.
+        //
+        // Tinha um Cache::remember aqui (5min TTL) que serializava objetos
+        // SkillManifest. O custo do scan é ~100ms num caminho que termina
+        // gastando 10-60s no provider de IA — ganho imperceptível. O cache
+        // de objetos PHP é frágil: qualquer drift de classe vira
+        // __PHP_Incomplete_Class no unserialize, quebrando o type hint.
+        // Removido em favor da simplicidade.
         $this->skillBundles->clear();
         $this->skillBundles->registerAll($this->skillDiscovery->discoverAll($workspace));
     }
@@ -364,6 +377,211 @@ TXT,
         };
     }
 
+    private function attachmentInstructions(array $options, string $input): string
+    {
+        $images = data_get($options, 'payload.attachments.images', []);
+        $files = data_get($options, 'payload.attachments.files', []);
+        $images = is_array($images) ? $images : [];
+        $files = is_array($files) ? $files : [];
+
+        if ($images === [] && $files === []) {
+            return '';
+        }
+
+        $lines = ['# Anexos enviados'];
+
+        if ($images !== []) {
+            $lines[] = '';
+            $lines[] = '## Imagens';
+            $lines[] = 'Ha imagem(ns) reais anexadas a esta mensagem pelo Atlas. Analise visualmente o conteudo anexado; nao trate como apenas caminho de arquivo.';
+
+            foreach (array_slice($images, 0, 8) as $index => $image) {
+                if (! is_array($image)) {
+                    continue;
+                }
+
+                $number = $index + 1;
+                $mime = is_scalar($image['mime_type'] ?? null) ? (string) $image['mime_type'] : 'image';
+                $bytes = is_scalar($image['bytes'] ?? null) ? (string) $image['bytes'] : 'desconhecido';
+                $source = is_scalar($image['source'] ?? null) ? (string) $image['source'] : 'upload';
+                $lines[] = "- imagem {$number}: {$mime}, {$bytes} bytes, origem {$source}.";
+            }
+        }
+
+        if ($files !== []) {
+            $lines[] = '';
+            $lines[] = '## Arquivos';
+            $lines[] = 'Use o conteudo textual extraido abaixo como contexto do operador. Se um arquivo nao tiver texto extraido, declare essa lacuna em vez de inventar conteudo.';
+
+            foreach (array_slice($files, 0, 4) as $index => $file) {
+                if (! is_array($file)) {
+                    continue;
+                }
+
+                $number = $index + 1;
+                $name = is_scalar($file['original_name'] ?? null) ? (string) $file['original_name'] : "arquivo-{$number}";
+                $mime = is_scalar($file['mime_type'] ?? null) ? (string) $file['mime_type'] : 'application/octet-stream';
+                $bytes = is_scalar($file['bytes'] ?? null) ? (string) $file['bytes'] : 'desconhecido';
+                $excerpt = is_string($file['text_excerpt'] ?? null) ? trim((string) $file['text_excerpt']) : '';
+                $truncated = (bool) ($file['text_truncated'] ?? false);
+                $pdfPages = is_array($file['pdf_pages'] ?? null) ? $file['pdf_pages'] : [];
+                $pdfOcrPages = is_array($file['pdf_ocr_pages'] ?? null) ? $file['pdf_ocr_pages'] : [];
+                $lowerName = strtolower($name);
+                $isPdf = str_contains(strtolower($mime), 'pdf') || str_ends_with($lowerName, '.pdf');
+                $isOffice = str_ends_with($lowerName, '.docx') || str_ends_with($lowerName, '.xlsx') || str_ends_with($lowerName, '.pptx');
+
+                $lines[] = '';
+                $lines[] = "<attached_file index=\"{$number}\" name=\"".htmlspecialchars($name, ENT_QUOTES, 'UTF-8')."\" mime=\"".htmlspecialchars($mime, ENT_QUOTES, 'UTF-8')."\" bytes=\"{$bytes}\">";
+                if ($isPdf && $pdfPages !== []) {
+                    $pageCount = is_scalar($file['pdf_page_count'] ?? null) ? (string) $file['pdf_page_count'] : 'desconhecido';
+                    $processingStatus = is_scalar($file['pdf_processing_status'] ?? null) ? (string) $file['pdf_processing_status'] : 'desconhecido';
+                    $renderStatus = is_scalar($file['pdf_render_status'] ?? null) ? (string) $file['pdf_render_status'] : 'desconhecido';
+                    $ocrStatus = is_scalar($file['pdf_ocr_status'] ?? null) ? (string) $file['pdf_ocr_status'] : 'desconhecido';
+                    $visualStatus = is_scalar($file['pdf_visual_understanding_status'] ?? null) ? (string) $file['pdf_visual_understanding_status'] : 'desconhecido';
+                    $lines[] = "[pdf_metadata pages=\"{$pageCount}\" processing=\"{$processingStatus}\" render=\"{$renderStatus}\" ocr=\"{$ocrStatus}\" visual=\"{$visualStatus}\"]";
+                    $lines[] = 'Use as paginas abaixo com citacoes tipo "p. 3". Quando houver imagem de pagina anexada ao provider, use a visao da pagina para layout, graficos, assinaturas, tabelas e prints; nao dependa apenas do texto.';
+
+                    $selectedPdfPages = $this->selectPdfPagesForPrompt($pdfPages, $input, 24);
+                    foreach ($selectedPdfPages as $page) {
+                        if (! is_array($page)) {
+                            continue;
+                        }
+
+                        $pageNumber = is_scalar($page['page'] ?? null) ? (string) $page['page'] : '?';
+                        $pageExcerpt = is_string($page['text_excerpt'] ?? null) ? trim($page['text_excerpt']) : '';
+                        $classification = is_scalar($page['classification'] ?? null) ? (string) $page['classification'] : 'unknown';
+                        $caption = is_string($page['visual_caption'] ?? null) ? trim($page['visual_caption']) : '';
+                        $tableExcerpt = is_string($page['table_excerpt'] ?? null) ? trim($page['table_excerpt']) : '';
+                        $imageCount = is_scalar($page['image_count'] ?? null) ? (string) $page['image_count'] : '0';
+                        $tableCount = is_scalar($page['table_count'] ?? null) ? (string) $page['table_count'] : '0';
+                        $lines[] = "<pdf_page page=\"{$pageNumber}\" classification=\"".htmlspecialchars($classification, ENT_QUOTES, 'UTF-8')."\">";
+                        if ($caption !== '') {
+                            $lines[] = '<visual_caption>'.htmlspecialchars($caption, ENT_QUOTES, 'UTF-8').'</visual_caption>';
+                        }
+                        $lines[] = "<page_structure images=\"{$imageCount}\" table_like_rows=\"{$tableCount}\" />";
+                        if ($tableExcerpt !== '') {
+                            $lines[] = "<detected_table_excerpt>\n{$tableExcerpt}\n</detected_table_excerpt>";
+                        }
+                        $lines[] = $pageExcerpt !== '' ? $pageExcerpt : '[sem texto nativo extraido nesta pagina]';
+                        $lines[] = '</pdf_page>';
+                    }
+
+                    foreach (array_slice($pdfOcrPages, 0, 12) as $page) {
+                        if (! is_array($page)) {
+                            continue;
+                        }
+
+                        $pageNumber = is_scalar($page['page'] ?? null) ? (string) $page['page'] : '?';
+                        $pageExcerpt = is_string($page['text_excerpt'] ?? null) ? trim($page['text_excerpt']) : '';
+                        if ($pageExcerpt === '') {
+                            continue;
+                        }
+
+                        $lines[] = "<pdf_ocr_page page=\"{$pageNumber}\">";
+                        $lines[] = $pageExcerpt;
+                        $lines[] = '</pdf_ocr_page>';
+                    }
+
+                    if ((bool) ($file['pdf_pages_truncated'] ?? false) || count($pdfPages) > count($selectedPdfPages)) {
+                        $selectedNumbers = collect($selectedPdfPages)
+                            ->map(fn (mixed $page): mixed => is_array($page) ? ($page['page'] ?? null) : null)
+                            ->filter()
+                            ->implode(', ');
+                        $lines[] = '[prompt compacto com paginas selecionadas: '.$selectedNumbers.'. Se a pergunta depender de pagina omitida, declare a lacuna.]';
+                    }
+                } elseif ($isOffice) {
+                    $renderStatus = is_scalar($file['office_render_status'] ?? null) ? (string) $file['office_render_status'] : 'desconhecido';
+                    $pageCount = is_scalar($file['office_rendered_page_count'] ?? null) ? (string) $file['office_rendered_page_count'] : '0';
+                    $processingStatus = is_scalar($file['office_processing_status'] ?? null) ? (string) $file['office_processing_status'] : 'desconhecido';
+                    $lines[] = "[office_metadata processing=\"{$processingStatus}\" render=\"{$renderStatus}\" visual_pages=\"{$pageCount}\"]";
+                    $lines[] = 'Se houver paginas/slides renderizados como imagem anexada ao provider, use tambem a visao do documento para layout, slides, abas de planilha, graficos e tabelas.';
+                    if ($excerpt !== '') {
+                        $lines[] = $excerpt;
+                        if ($truncated) {
+                            $lines[] = '[conteudo truncado pelo Atlas]';
+                        }
+                    } else {
+                        $lines[] = '[sem texto extraido automaticamente deste Office]';
+                    }
+                } elseif ($excerpt !== '') {
+                    $lines[] = $excerpt;
+                    if ($truncated) {
+                        $lines[] = '[conteudo truncado pelo Atlas]';
+                    }
+                } else {
+                    $lines[] = '[sem texto extraido automaticamente deste arquivo]';
+                }
+                $lines[] = '</attached_file>';
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<int,mixed>  $pages
+     * @return array<int,array<string,mixed>>
+     */
+    private function selectPdfPagesForPrompt(array $pages, string $input, int $limit): array
+    {
+        $pages = collect($pages)
+            ->filter(fn (mixed $page): bool => is_array($page))
+            ->values();
+        if ($pages->count() <= $limit) {
+            return $pages->all();
+        }
+
+        $terms = $this->keywords($input);
+        if ($terms === []) {
+            return $pages->take($limit)->all();
+        }
+
+        $head = $pages->take(2)->all();
+        $headNumbers = collect($head)
+            ->map(fn (array $page): int => (int) ($page['page'] ?? 0))
+            ->filter()
+            ->all();
+
+        $ranked = $pages
+            ->reject(fn (array $page): bool => in_array((int) ($page['page'] ?? 0), $headNumbers, true))
+            ->map(function (array $page) use ($terms): array {
+                $text = Str::of((string) ($page['text_excerpt'] ?? ''))->lower()->ascii()->value();
+                $score = 0;
+                foreach ($terms as $term) {
+                    $score += substr_count($text, $term);
+                }
+
+                return [
+                    'page' => $page,
+                    'score' => $score,
+                    'number' => (int) ($page['page'] ?? 0),
+                ];
+            })
+            ->filter(fn (array $item): bool => $item['score'] > 0)
+            ->sortByDesc('score')
+            ->take(max(0, $limit - count($head)))
+            ->pluck('page')
+            ->all();
+
+        $selected = [...$head, ...$ranked];
+        if (count($selected) < $limit) {
+            $selectedNumbers = collect($selected)
+                ->map(fn (array $page): int => (int) ($page['page'] ?? 0))
+                ->filter()
+                ->all();
+            $fill = $pages
+                ->reject(fn (array $page): bool => in_array((int) ($page['page'] ?? 0), $selectedNumbers, true))
+                ->take($limit - count($selected))
+                ->all();
+            $selected = [...$selected, ...$fill];
+        }
+
+        return collect($selected)
+            ->sortBy(fn (array $page): int => (int) ($page['page'] ?? 0))
+            ->values()
+            ->all();
+    }
+
     private function sessionSearchSection(string $input, array $options): string
     {
         if (! Schema::hasTable('ai_messages') || ! Schema::hasTable('ai_threads')) {
@@ -428,6 +646,67 @@ TXT,
             $lines[] = "<session_search_result thread_id=\"{$threadId}\" title=\"{$title}\" last_message_at=\"{$lastMessageAt}\" rank=\"{$result->rank}\" source=\"{$source}\">";
             $lines[] = $excerpt;
             $lines[] = '</session_search_result>';
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private function attachmentSearchSection(string $input, array $options): string
+    {
+        $normalized = Str::of($input)->lower()->ascii()->squish()->value();
+        $shouldSearch = Str::contains($normalized, [
+            'arquivo',
+            'anexo',
+            'pdf',
+            'planilha',
+            'imagem',
+            'foto',
+            'documento',
+            'slide',
+            'ppt',
+            'excel',
+            'xlsx',
+            'docx',
+        ]);
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $force = (bool) data_get($payload, 'attachment_search.force', false);
+        if (! $force && ! $shouldSearch) {
+            return '';
+        }
+
+        $threadId = data_get($payload, 'thread_id', data_get($options, 'thread_id'));
+        $threadId = is_string($threadId) && trim($threadId) !== '' ? $threadId : null;
+
+        try {
+            if (! $this->attachmentIndex) {
+                return '';
+            }
+
+            $results = $this->attachmentIndex->search($input, $threadId, 6);
+        } catch (\Throwable) {
+            return '';
+        }
+
+        if ($results->isEmpty()) {
+            return '';
+        }
+
+        $lines = [
+            '# Anexos historicos recuperados',
+            '',
+            'Use estes trechos para localizar arquivos enviados anteriormente. Eles sao indice de anexos, nao substituem o arquivo original.',
+        ];
+
+        foreach ($results as $entry) {
+            $name = htmlspecialchars((string) ($entry->source_name ?? 'anexo'), ENT_QUOTES, 'UTF-8');
+            $unit = htmlspecialchars((string) $entry->unit_type, ENT_QUOTES, 'UTF-8');
+            $number = $entry->unit_number ? ' number="'.$entry->unit_number.'"' : '';
+            $traceId = htmlspecialchars((string) $entry->trace_id, ENT_QUOTES, 'UTF-8');
+            $excerpt = trim((string) $entry->excerpt);
+            $lines[] = '';
+            $lines[] = "<attachment_search_result trace_id=\"{$traceId}\" name=\"{$name}\" unit=\"{$unit}\"{$number}>";
+            $lines[] = $excerpt;
+            $lines[] = '</attachment_search_result>';
         }
 
         return implode("\n", $lines);

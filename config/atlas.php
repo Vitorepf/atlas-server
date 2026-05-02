@@ -104,6 +104,76 @@ return [
         'busy_input_mode' => env('ATLAS_BUSY_INPUT_MODE', 'interrupt'),
     ],
 
+    'engineering' => [
+        'docker' => [
+            'default_service' => env('ATLAS_ENGINEERING_DOCKER_SERVICE'),
+            'default_image' => env('ATLAS_ENGINEERING_DOCKER_IMAGE'),
+            'workdir' => env('ATLAS_ENGINEERING_DOCKER_WORKDIR', '/workspace'),
+            'cache' => [
+                'mode' => env('ATLAS_ENGINEERING_DOCKER_CACHE', 'auto'),
+            ],
+            'network' => env('ATLAS_ENGINEERING_DOCKER_NETWORK', 'profile'),
+            'healthcheck_services' => env('ATLAS_ENGINEERING_DOCKER_HEALTHCHECK_SERVICES')
+                ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_ENGINEERING_DOCKER_HEALTHCHECK_SERVICES'))), fn (string $service): bool => $service !== ''))
+                : [],
+            'healthcheck_timeout_seconds' => (int) env('ATLAS_ENGINEERING_DOCKER_HEALTHCHECK_TIMEOUT_SECONDS', 45),
+            'artifact_paths' => env('ATLAS_ENGINEERING_DOCKER_ARTIFACT_PATHS')
+                ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_ENGINEERING_DOCKER_ARTIFACT_PATHS'))), fn (string $path): bool => $path !== ''))
+                : ['coverage', 'test-results', 'playwright-report', 'reports', 'build/reports', 'junit.xml'],
+            'artifact_max_files' => (int) env('ATLAS_ENGINEERING_DOCKER_ARTIFACT_MAX_FILES', 100),
+            'artifact_max_bytes' => (int) env('ATLAS_ENGINEERING_DOCKER_ARTIFACT_MAX_BYTES', 10_485_760),
+            'cleanup' => [
+                'cache_retention_days' => (int) env('ATLAS_ENGINEERING_DOCKER_CACHE_RETENTION_DAYS', 14),
+                'artifact_retention_days' => (int) env('ATLAS_ENGINEERING_DOCKER_ARTIFACT_RETENTION_DAYS', 30),
+            ],
+        ],
+        'provider_runtime' => [
+            'default' => env('ATLAS_ENGINEERING_PROVIDER_RUNTIME', 'host'),
+            'docker' => [
+                'compose_file' => env('ATLAS_ENGINEERING_PROVIDER_DOCKER_COMPOSE_FILE', base_path('docker-compose.yml')),
+                'service' => env('ATLAS_ENGINEERING_PROVIDER_DOCKER_SERVICE', 'backend'),
+                'app_dir' => env('ATLAS_ENGINEERING_PROVIDER_DOCKER_APP_DIR', '/app'),
+                'workspace_dir' => env('ATLAS_ENGINEERING_PROVIDER_DOCKER_WORKSPACE_DIR', '/workspace'),
+            ],
+        ],
+        'visual_e2e' => [
+            'mode' => env('ATLAS_ENGINEERING_VISUAL_E2E', 'auto'),
+            'managed_smoke_enabled' => (bool) env('ATLAS_ENGINEERING_VISUAL_SMOKE_ENABLED', true),
+            'managed_smoke_timeout_seconds' => (int) env('ATLAS_ENGINEERING_VISUAL_SMOKE_TIMEOUT_SECONDS', 45),
+            'baseline_mode' => env('ATLAS_ENGINEERING_VISUAL_BASELINE_MODE', 'observe'),
+            'screenshot_driver' => env('ATLAS_ENGINEERING_VISUAL_SCREENSHOT_DRIVER', 'auto'),
+            'playwright_node_modules' => env('ATLAS_ENGINEERING_VISUAL_PLAYWRIGHT_NODE_MODULES')
+                ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_ENGINEERING_VISUAL_PLAYWRIGHT_NODE_MODULES'))), fn (string $path): bool => $path !== ''))
+                : [base_path('node_modules'), storage_path('app/engineering-playwright/node_modules')],
+            'artifact_paths' => env('ATLAS_ENGINEERING_VISUAL_E2E_ARTIFACT_PATHS')
+                ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_ENGINEERING_VISUAL_E2E_ARTIFACT_PATHS'))), fn (string $path): bool => $path !== ''))
+                : ['playwright-report', 'test-results', 'cypress/screenshots', 'cypress/videos', 'atlas-visual-report'],
+            'artifact_max_files' => (int) env('ATLAS_ENGINEERING_VISUAL_E2E_ARTIFACT_MAX_FILES', 200),
+            'artifact_max_bytes' => (int) env('ATLAS_ENGINEERING_VISUAL_E2E_ARTIFACT_MAX_BYTES', 52_428_800),
+        ],
+        'quality_scan' => [
+            'mode' => env('ATLAS_ENGINEERING_QUALITY_SCAN', 'off'),
+            'profile' => env('ATLAS_ENGINEERING_QUALITY_SCAN_PROFILE', 'auto'),
+            'changed_only' => (bool) env('ATLAS_ENGINEERING_QUALITY_SCAN_CHANGED_ONLY', true),
+            'timeout_seconds' => (int) env('ATLAS_ENGINEERING_QUALITY_SCAN_TIMEOUT_SECONDS', 300),
+            'artifact_max_files' => (int) env('ATLAS_ENGINEERING_QUALITY_SCAN_ARTIFACT_MAX_FILES', 100),
+            'artifact_max_bytes' => (int) env('ATLAS_ENGINEERING_QUALITY_SCAN_ARTIFACT_MAX_BYTES', 10_485_760),
+        ],
+    ],
+
+    'attachments' => [
+        'pdf' => [
+            'ocr_languages' => env('ATLAS_PDF_OCR_LANGUAGES', 'por+eng'),
+            'vision_page_limit' => (int) env('ATLAS_PDF_VISION_PAGE_LIMIT', 12),
+            'background_processing_enabled' => (bool) env('ATLAS_ATTACHMENT_BACKGROUND_PROCESSING_ENABLED', true),
+        ],
+        'chunked_upload' => [
+            'enabled' => (bool) env('ATLAS_CHUNKED_UPLOAD_ENABLED', true),
+            'chunk_max_bytes' => (int) env('ATLAS_CHUNKED_UPLOAD_MAX_CHUNK_BYTES', 1_572_864),
+            'ttl_hours' => (int) env('ATLAS_CHUNKED_UPLOAD_TTL_HOURS', 24),
+        ],
+    ],
+
     'mobile' => [
         'enabled' => (bool) env('ATLAS_MOBILE_ENABLED', false),
         'pairing_ttl_minutes' => (int) env('ATLAS_MOBILE_PAIRING_TTL_MINUTES', 60),
@@ -223,10 +293,27 @@ return [
         'health_app_visible_critical_above_ms' => (int) env('ATLAS_AI_HEALTH_APP_VISIBLE_CRITICAL_ABOVE_MS', 120000),
         'health_slow_trace_warning_rate_above' => (float) env('ATLAS_AI_HEALTH_SLOW_TRACE_WARNING_RATE_ABOVE', 0.1),
         'health_low_quality_warning_rate_above' => (float) env('ATLAS_AI_HEALTH_LOW_QUALITY_WARNING_RATE_ABOVE', 0.1),
+        // Tool denial rate thresholds — Fix 7c F4. Default 15% / min 10 calls (decision #2):
+        //  - 10% too sensitive at low volume (1 denial in 10 trips warning)
+        //  - 20% only fires when problem is already significant
+        //  - 15% with min N=10 = at least 2 denials in 10 calls before warning
+        // Tunable per environment without deploy.
+        'tool_denial_warning_above' => (float) env('ATLAS_AI_TOOL_DENIAL_WARNING_ABOVE', 0.15),
+        'tool_denial_critical_above' => (float) env('ATLAS_AI_TOOL_DENIAL_CRITICAL_ABOVE', 0.40),
+        'tool_denial_min_calls' => (int) env('ATLAS_AI_TOOL_DENIAL_MIN_CALLS', 10),
+        // Tool failure rate thresholds — same logic, slightly higher tolerance
+        // because some failures are intentional (probe pattern, expected ENOENT).
+        'tool_failure_warning_above' => (float) env('ATLAS_AI_TOOL_FAILURE_WARNING_ABOVE', 0.20),
+        'tool_failure_critical_above' => (float) env('ATLAS_AI_TOOL_FAILURE_CRITICAL_ABOVE', 0.50),
+        'tool_failure_min_calls' => (int) env('ATLAS_AI_TOOL_FAILURE_MIN_CALLS', 10),
         'performance_report_enabled' => (bool) env('ATLAS_AI_PERFORMANCE_REPORT_ENABLED', true),
         'performance_report_emit' => (bool) env('ATLAS_AI_PERFORMANCE_REPORT_EMIT', true),
         'performance_report_time' => env('ATLAS_AI_PERFORMANCE_REPORT_TIME', '07:05'),
         'performance_report_timezone' => env('ATLAS_AI_PERFORMANCE_REPORT_TIMEZONE', env('RIZE_TIMEZONE', env('APP_TIMEZONE', 'UTC'))),
+        'performance_report_grace_minutes' => (int) env('ATLAS_AI_PERFORMANCE_REPORT_GRACE_MINUTES', 90),
+        'performance_report_alert_require_history' => (bool) env('ATLAS_AI_PERFORMANCE_REPORT_ALERT_REQUIRE_HISTORY', true),
+        'snapshot_refresh_enabled' => (bool) env('ATLAS_AI_SNAPSHOT_REFRESH_ENABLED', true),
+        'snapshot_refresh_time' => env('ATLAS_AI_SNAPSHOT_REFRESH_TIME', '06:50'),
         'performance_report_windows' => array_values(array_filter(array_map(
             'intval',
             explode(',', (string) env('ATLAS_AI_PERFORMANCE_REPORT_WINDOWS', '3,7,15,30')),
@@ -237,9 +324,65 @@ return [
         'cli_outbox_max_files' => (int) env('ATLAS_AI_CLI_OUTBOX_MAX_FILES', 500),
     ],
 
+    // Engine de Relatório (introduzido na Phase 0). Single feature flag controla rollout
+    // em 5 fases: legacy = comportamento atual sem mudança; shadow = engine roda em
+    // paralelo logando resultados sem alterar payload; next = engine substitui code path
+    // legado e bumpa schema_version 1 → 2. Cada fase ship é independentemente reversível
+    // mudando essa única chave. Decisão #4 da síntese das 5 lentes (4/5 a favor de single
+    // flag — cognitive load simples, semântica clara, dead code paths impossíveis).
+    'report' => [
+        'engine_version' => env('ATLAS_REPORT_ENGINE_VERSION', 'legacy'),
+        'engine_run_mode' => env('ATLAS_REPORT_ENGINE_RUN_MODE'),
+        // Janelas de medição de recomendação por kind. Decisão #13: por kind venceu
+        // 3/5 (rigor estatístico) com concessão pragmatismo: hardcoded em config, não
+        // 3 cron jobs separados. Single cron lê esses valores por kind ao agendar
+        // measurement_due_at. Esses defaults derivam do consenso UX/Risk/Arq:
+        //   - cost: 3 dias (custo é determinístico, sem sazonalidade longa)
+        //   - latency: 7 dias (padrão semanal de uso)
+        //   - quality: 14 dias (feedback humano tem ciclo semanal, precisa 2 ciclos)
+        'recommendation_measurement_window_days' => [
+            'cost' => (int) env('ATLAS_REPORT_REC_WINDOW_COST_DAYS', 3),
+            'latency' => (int) env('ATLAS_REPORT_REC_WINDOW_LATENCY_DAYS', 7),
+            'quality' => (int) env('ATLAS_REPORT_REC_WINDOW_QUALITY_DAYS', 14),
+            'default' => (int) env('ATLAS_REPORT_REC_WINDOW_DEFAULT_DAYS', 7),
+        ],
+        'recommendation_measure_enabled' => (bool) env('ATLAS_REPORT_REC_MEASURE_ENABLED', true),
+        'recommendation_measure_time' => env('ATLAS_REPORT_REC_MEASURE_TIME', '06:40'),
+        'recommendation_measure_min_samples' => (int) env('ATLAS_REPORT_REC_MEASURE_MIN_SAMPLES', 3),
+        'recommendation_min_effect_fraction' => (float) env('ATLAS_REPORT_REC_MIN_EFFECT_FRACTION', 0.02),
+        'recommendation_inbox_enabled' => (bool) env('ATLAS_REPORT_REC_INBOX_ENABLED', true),
+        // Gain threshold pra finding ser surfaced (Decisão #10). 35% venceu 3/5 por
+        // assimetria de custo: false positive de recomendação queima credibilidade do
+        // canal mais do que false negative custa em sinal perdido (sinal volta).
+        'finding_min_gain_fraction' => (float) env('ATLAS_REPORT_FINDING_MIN_GAIN', 0.35),
+    ],
+
     'ai' => [
         'enabled' => (bool) env('ATLAS_AI_ENABLED', true),
         'default_provider' => env('ATLAS_AI_DEFAULT_PROVIDER', 'claude_cli'),
+        'default_tier' => env('ATLAS_AI_DEFAULT_TIER', 'daily'),
+        'council_allow_auto' => (bool) env('ATLAS_AI_COUNCIL_ALLOW_AUTO', false),
+        'budget' => [
+            'enabled' => (bool) env('ATLAS_AI_BUDGET_ENABLED', false),
+            'mode' => env('ATLAS_AI_BUDGET_MODE', 'block'),
+            'window_hours' => (int) env('ATLAS_AI_BUDGET_WINDOW_HOURS', 24),
+            'max_visible_tokens' => env('ATLAS_AI_BUDGET_MAX_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_BUDGET_MAX_VISIBLE_TOKENS') : null,
+            'warn_visible_tokens' => env('ATLAS_AI_BUDGET_WARN_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_BUDGET_WARN_VISIBLE_TOKENS') : null,
+            'providers' => [
+                'claude_cli' => [
+                    'max_visible_tokens' => env('ATLAS_AI_CLAUDE_BUDGET_MAX_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_CLAUDE_BUDGET_MAX_VISIBLE_TOKENS') : null,
+                    'warn_visible_tokens' => env('ATLAS_AI_CLAUDE_BUDGET_WARN_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_CLAUDE_BUDGET_WARN_VISIBLE_TOKENS') : null,
+                ],
+                'codex_cli' => [
+                    'max_visible_tokens' => env('ATLAS_AI_CODEX_BUDGET_MAX_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_CODEX_BUDGET_MAX_VISIBLE_TOKENS') : null,
+                    'warn_visible_tokens' => env('ATLAS_AI_CODEX_BUDGET_WARN_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_CODEX_BUDGET_WARN_VISIBLE_TOKENS') : null,
+                ],
+                'gemini_cli' => [
+                    'max_visible_tokens' => env('ATLAS_AI_GEMINI_BUDGET_MAX_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_GEMINI_BUDGET_MAX_VISIBLE_TOKENS') : null,
+                    'warn_visible_tokens' => env('ATLAS_AI_GEMINI_BUDGET_WARN_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_GEMINI_BUDGET_WARN_VISIBLE_TOKENS') : null,
+                ],
+            ],
+        ],
         'default_agent' => env('ATLAS_AI_DEFAULT_AGENT', 'orquestrador'),
         'workdir' => env('ATLAS_AI_WORKDIR', dirname(base_path())),
         'worker_id' => env('ATLAS_AI_WORKER_ID', gethostname() ?: 'atlas-worker'),
@@ -252,6 +395,17 @@ return [
         'retry_delay_seconds' => (int) env('ATLAS_AI_RETRY_DELAY_SECONDS', 300),
         'context_note_limit' => (int) env('ATLAS_AI_CONTEXT_NOTE_LIMIT', 5),
         'context_excerpt_chars' => (int) env('ATLAS_AI_CONTEXT_EXCERPT_CHARS', 1200),
+        'memory_registry_limit' => (int) env('ATLAS_AI_MEMORY_REGISTRY_LIMIT', 8),
+        'memory_registry_excerpt_chars' => (int) env('ATLAS_AI_MEMORY_REGISTRY_EXCERPT_CHARS', 900),
+        'verbatim_recall_limit' => (int) env('ATLAS_AI_VERBATIM_RECALL_LIMIT', 4),
+        'verbatim_recall_budget_chars' => (int) env('ATLAS_AI_VERBATIM_RECALL_BUDGET_CHARS', 1600),
+        'verbatim_recall_item_chars' => (int) env('ATLAS_AI_VERBATIM_RECALL_ITEM_CHARS', 600),
+        'memory_recall_limit' => (int) env('ATLAS_AI_MEMORY_RECALL_LIMIT', 10),
+        'memory_recall_budget_chars' => (int) env('ATLAS_AI_MEMORY_RECALL_BUDGET_CHARS', 2400),
+        'memory_recall_item_chars' => (int) env('ATLAS_AI_MEMORY_RECALL_ITEM_CHARS', 360),
+        'provider_projection_max_lines' => (int) env('ATLAS_AI_PROVIDER_PROJECTION_MAX_LINES', 80),
+        'provider_projection_memory_limit' => (int) env('ATLAS_AI_PROVIDER_PROJECTION_MEMORY_LIMIT', 18),
+        'provider_projection_memory_chars' => (int) env('ATLAS_AI_PROVIDER_PROJECTION_MEMORY_CHARS', 220),
         'context_recent_turn_limit' => (int) env('ATLAS_AI_CONTEXT_RECENT_TURN_LIMIT', 12),
         'context_payload_turn_limit' => (int) env('ATLAS_AI_CONTEXT_PAYLOAD_TURN_LIMIT', 8),
         'session_idle_minutes' => (int) env('ATLAS_AI_SESSION_IDLE_MINUTES', 360),
@@ -263,9 +417,9 @@ return [
             'timeout_seconds' => (int) env('ATLAS_AI_SCHEDULED_TASK_TIMEOUT_SECONDS', 600),
         ],
         'tool_permissions' => [
-            'default_mode' => env('ATLAS_AI_TOOL_PERMISSION_MODE', 'read'),
-            'allow_danger' => (bool) env('ATLAS_AI_TOOL_ALLOW_DANGER', false),
-            'allow_unsandboxed_write' => (bool) env('ATLAS_AI_ALLOW_UNSANDBOXED_WRITE', false),
+            'default_mode' => env('ATLAS_AI_TOOL_PERMISSION_MODE', 'danger'),
+            'allow_danger' => (bool) env('ATLAS_AI_TOOL_ALLOW_DANGER', true),
+            'allow_unsandboxed_write' => (bool) env('ATLAS_AI_ALLOW_UNSANDBOXED_WRITE', true),
             'allowed_roots' => env('ATLAS_AI_TOOL_ALLOWED_ROOTS')
                 ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_TOOL_ALLOWED_ROOTS'))), fn (string $root): bool => $root !== ''))
                 : [dirname(dirname(dirname(base_path()))), dirname(dirname(base_path())), dirname(base_path()), base_path()],
@@ -312,6 +466,13 @@ return [
                             'OPENAI_PROJECT',
                             'CODEX_HOME',
                             'CLAUDE_CONFIG_DIR',
+                            'GEMINI_API_KEY',
+                            'GEMINI_CLI_HOME',
+                            'GEMINI_HOME',
+                            'GOOGLE_API_KEY',
+                            'GOOGLE_CLOUD_PROJECT',
+                            'GOOGLE_CLOUD_LOCATION',
+                            'GOOGLE_GENAI_USE_VERTEXAI',
                             'CLAUDE_CODE_USE_BEDROCK',
                             'AWS_PROFILE',
                             'AWS_REGION',
@@ -353,6 +514,52 @@ return [
                         ],
                         'prefix_allowlist' => [],
                     ],
+                    'provider_runner' => [
+                        'allowlist' => [
+                            'APP_ENV',
+                            'APP_DEBUG',
+                            'APP_KEY',
+                            'APP_URL',
+                            'APP_MAINTENANCE_DRIVER',
+                            'BCRYPT_ROUNDS',
+                            'BROADCAST_CONNECTION',
+                            'CACHE_STORE',
+                            'CACHE_DRIVER',
+                            'DB_CONNECTION',
+                            'DB_HOST',
+                            'DB_PORT',
+                            'DB_DATABASE',
+                            'DB_USERNAME',
+                            'DB_PASSWORD',
+                            'DB_URL',
+                            'MAIL_MAILER',
+                            'QUEUE_CONNECTION',
+                            'SESSION_DRIVER',
+                            'PULSE_ENABLED',
+                            'TELESCOPE_ENABLED',
+                            'NIGHTWATCH_ENABLED',
+                            'ATLAS_TOKEN',
+                            'ATLAS_AI_WORKDIR',
+                            'ATLAS_AI_TOOL_ALLOWED_ROOTS',
+                            'ANTHROPIC_API_KEY',
+                            'ANTHROPIC_BASE_URL',
+                            'OPENAI_API_KEY',
+                            'OPENAI_BASE_URL',
+                            'OPENAI_ORG_ID',
+                            'OPENAI_PROJECT',
+                            'CODEX_HOME',
+                            'CLAUDE_CONFIG_DIR',
+                            'CLAUDE_CODE_USE_BEDROCK',
+                            'AWS_PROFILE',
+                            'AWS_REGION',
+                            'AWS_DEFAULT_REGION',
+                            'AWS_ACCESS_KEY_ID',
+                            'AWS_SECRET_ACCESS_KEY',
+                            'AWS_SESSION_TOKEN',
+                            'GOOGLE_APPLICATION_CREDENTIALS',
+                        ],
+                        'prefix_allowlist' => [],
+                    ],
                 ],
             ],
             'redaction' => [
@@ -369,8 +576,15 @@ return [
             'claude_cli' => [
                 'binary' => env('ATLAS_AI_CLAUDE_BIN', 'claude'),
                 'model' => env('ATLAS_AI_CLAUDE_MODEL', null),
+                'model_label' => env('ATLAS_AI_CLAUDE_MODEL_LABEL', env('ATLAS_AI_CLAUDE_MODEL') ?: 'Claude CLI default'),
+                'model_tier' => env('ATLAS_AI_CLAUDE_MODEL_TIER', env('ATLAS_AI_DEFAULT_TIER', 'daily')),
                 'model_identity' => env('ATLAS_AI_CLAUDE_MODEL_IDENTITY', env('ATLAS_AI_CLAUDE_MODEL') ?: 'claude_cli_default'),
                 'fallback_model' => env('ATLAS_AI_CLAUDE_FALLBACK_MODEL', 'claude-haiku-4-5'),
+                'fallback_model_label' => env('ATLAS_AI_CLAUDE_FALLBACK_MODEL_LABEL', 'Claude Haiku 4.5'),
+                'premium_model' => env('ATLAS_AI_CLAUDE_PREMIUM_MODEL', 'claude-opus-4-7'),
+                'premium_model_label' => env('ATLAS_AI_CLAUDE_PREMIUM_MODEL_LABEL', env('ATLAS_AI_CLAUDE_PREMIUM_MODEL') ?: 'Claude Opus 4.7'),
+                'allow_auto' => (bool) env('ATLAS_AI_CLAUDE_ALLOW_AUTO', true),
+                'allow_manual' => (bool) env('ATLAS_AI_CLAUDE_ALLOW_MANUAL', true),
                 'args' => env('ATLAS_AI_CLAUDE_ARGS')
                     ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_CLAUDE_ARGS'))), fn (string $arg): bool => $arg !== ''))
                     : ['-p', '--output-format', 'stream-json', '--verbose', '--no-session-persistence'],
@@ -378,12 +592,34 @@ return [
             'codex_cli' => [
                 'binary' => env('ATLAS_AI_CODEX_BIN', 'codex'),
                 'model' => env('ATLAS_AI_CODEX_MODEL', null),
+                'model_label' => env('ATLAS_AI_CODEX_MODEL_LABEL', env('ATLAS_AI_CODEX_MODEL') ?: 'Codex CLI default'),
+                'model_tier' => env('ATLAS_AI_CODEX_MODEL_TIER', env('ATLAS_AI_DEFAULT_TIER', 'daily')),
                 'model_identity' => env('ATLAS_AI_CODEX_MODEL_IDENTITY', env('ATLAS_AI_CODEX_MODEL') ?: 'codex_cli_default'),
                 'fallback_model' => env('ATLAS_AI_CODEX_FALLBACK_MODEL', 'gpt-5.4-mini'),
+                'fallback_model_label' => env('ATLAS_AI_CODEX_FALLBACK_MODEL_LABEL', 'GPT-5.4-Mini'),
+                'premium_model' => env('ATLAS_AI_CODEX_PREMIUM_MODEL', 'gpt-5.5'),
+                'premium_model_label' => env('ATLAS_AI_CODEX_PREMIUM_MODEL_LABEL', env('ATLAS_AI_CODEX_PREMIUM_MODEL') ?: 'GPT-5.5'),
+                'allow_auto' => (bool) env('ATLAS_AI_CODEX_ALLOW_AUTO', false),
+                'allow_manual' => (bool) env('ATLAS_AI_CODEX_ALLOW_MANUAL', true),
                 'sandbox' => env('ATLAS_AI_CODEX_SANDBOX', 'read-only'),
                 'args' => env('ATLAS_AI_CODEX_ARGS')
                     ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_CODEX_ARGS'))), fn (string $arg): bool => $arg !== ''))
                     : ['exec', '--skip-git-repo-check'],
+            ],
+            'gemini_cli' => [
+                'binary' => env('ATLAS_AI_GEMINI_BIN', 'gemini'),
+                'model' => 'gemini-3.1-pro-preview',
+                'model_label' => 'Gemini 3.1 Pro Preview',
+                'model_tier' => 'premium',
+                'model_identity' => 'gemini-3.1-pro-preview',
+                'fallback_model' => null,
+                'fallback_provider' => env('ATLAS_AI_GEMINI_FALLBACK_PROVIDER', 'claude_cli'),
+                'allow_auto' => (bool) env('ATLAS_AI_GEMINI_ALLOW_AUTO', false),
+                'allow_manual' => (bool) env('ATLAS_AI_GEMINI_ALLOW_MANUAL', true),
+                'home' => env('ATLAS_AI_GEMINI_HOME'),
+                'args' => env('ATLAS_AI_GEMINI_ARGS')
+                    ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_GEMINI_ARGS'))), fn (string $arg): bool => $arg !== ''))
+                    : [],
             ],
         ],
     ],

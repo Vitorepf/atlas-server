@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesMetadata;
+use App\Models\PassiveSignal;
+use App\Support\HealthMetricIntegrity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,7 +25,7 @@ class UpdatePassiveSignalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'source' => ['sometimes', Rule::in(['healthkit', 'rize'])],
+            'source' => ['sometimes', Rule::in(HealthMetricIntegrity::PASSIVE_SOURCES)],
             'signal_type' => ['sometimes', 'string', 'max:128'],
             'value_numeric' => ['sometimes', 'nullable', 'numeric'],
             'value_text' => ['sometimes', 'nullable', 'string', 'max:1024'],
@@ -53,6 +55,16 @@ class UpdatePassiveSignalRequest extends FormRequest
             if (count(array_intersect($allowed, array_keys($this->all()))) === 0) {
                 $validator->errors()->add('payload', 'At least one field is required.');
             }
+
+            $routeSignal = $this->route('passive_signal') ?? $this->route('passiveSignal');
+            $current = $routeSignal instanceof PassiveSignal
+                ? $routeSignal->only(['source', 'signal_type', 'value_numeric', 'unit'])
+                : [];
+
+            HealthMetricIntegrity::validatePassiveSignal($validator, [
+                ...$current,
+                ...$this->all(),
+            ]);
         });
     }
 }

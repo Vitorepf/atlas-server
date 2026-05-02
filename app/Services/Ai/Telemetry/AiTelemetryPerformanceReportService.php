@@ -7,11 +7,16 @@ use App\Models\AiProviderHealthSnapshot;
 use App\Models\AiTraceMetricSummary;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\Mobile\ContextBundleService;
+use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;
+use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
+use App\Services\Ai\Telemetry\Engine\EngineOrchestrator;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AiTelemetryPerformanceReportService
 {
@@ -20,6 +25,7 @@ class AiTelemetryPerformanceReportService
         private readonly AiTelemetryHealthService $health,
         private readonly ContextBundleService $bundles,
         private readonly AtlasInboxService $inbox,
+        private readonly EngineOrchestrator $engine,
     ) {
     }
 
@@ -34,18 +40,20 @@ class AiTelemetryPerformanceReportService
         $end = $start->addDay();
         $previousStart = $start->subDay();
 
-        $current = $this->windowAnalysis($start, $end, $timezone);
+        $current = $this->windowAnalysis($start, $end, $timezone, 'daily');
         $previous = $this->windowAnalysis($previousStart, $start, $timezone);
         $comparison = $this->compareSummaries($current['summary'], $previous['summary']);
         $actions = $this->dailyActions($current, $comparison);
         $status = $this->statusFromHealth((string) data_get($current, 'health.status', 'unknown'), (int) data_get($current, 'summary.traces', 0));
-        $title = 'Atlas AI: relatorio de performance de '.$date->format('d/m/Y');
+        $title = 'Atlas: relatorio de performance de '.$date->format('d/m/Y');
         $summary = $this->dailySummaryText($current, $comparison);
         $body = $this->dailyBody($date, $timezone, $current, $previous, $comparison, $actions);
+        $enginePayload = is_array($current['engine'] ?? null) ? $current['engine'] : null;
 
         return [
             'report_type' => 'atlas_ai_daily_performance',
-            'schema_version' => 1,
+            'schema_version' => $this->schemaVersionFor($enginePayload),
+            'engine_version' => $this->engineVersion(),
             'generated_at' => now($timezone)->toJSON(),
             'timezone' => $timezone,
             'report_date' => $date->toDateString(),
@@ -72,13 +80,19 @@ class AiTelemetryPerformanceReportService
             'reliability' => $current['reliability'],
             'provider_health' => $current['provider_health'],
             'data_quality' => $current['data_quality'],
+            // Tools — Fix 7c F5. Top-level so the morning report renderer doesn't
+            // need to dig into windowAnalysis. Same shape as in `windows[N]['tools']`
+            // for consistency between daily and multi-window reports.
+            'tools' => $current['tools'],
             'risks' => $current['risks'],
             'actions' => $actions,
             'notable_traces' => $current['notable_traces'],
+            'engine' => $enginePayload,
             'metric_refs' => $this->metricRefs($current['summary']),
             'source_refs' => [
                 ['type' => 'ai_trace_metric_summaries', 'window' => $current['window']],
                 ['type' => 'ai_traces', 'basis' => 'trace_created_at'],
+                ['type' => 'ai_tool_events', 'basis' => 'computed_at'],
             ],
             'dedupe_key' => 'atlas-ai-performance:daily:'.$date->toDateString(),
             'confidence' => $this->confidence($current),
@@ -95,13 +109,18 @@ class AiTelemetryPerformanceReportService
         $date = $this->reportDate($reportDate, $timezone);
         $end = $date->startOfDay()->addDay();
         $windows = $this->normalizeWindows($windows);
+        $largestWindow = max($windows);
+        $enginePayload = null;
         $reports = [];
 
         foreach ($windows as $days) {
             $start = $end->subDays($days);
             $previousStart = $start->subDays($days);
-            $current = $this->windowAnalysis($start, $end, $timezone);
+            $current = $this->windowAnalysis($start, $end, $timezone, $days === $largestWindow ? 'multi_window' : null);
             $previous = $this->windowAnalysis($previousStart, $start, $timezone);
+            if (is_array($current['engine'] ?? null)) {
+                $enginePayload = $current['engine'];
+            }
 
             $reports[] = [
                 'days' => $days,
@@ -121,21 +140,25 @@ class AiTelemetryPerformanceReportService
                 'reliability' => $current['reliability'],
                 'provider_health' => $current['provider_health'],
                 'data_quality' => $current['data_quality'],
+                // Tools — Fix 7c F5. Same shape as the daily report's top-level 'tools'.
+                'tools' => $current['tools'],
                 'risks' => $current['risks'],
                 'actions' => $this->dailyActions($current, $this->compareSummaries($current['summary'], $previous['summary'])),
                 'notable_traces' => $current['notable_traces'],
+                'engine' => $current['engine'] ?? null,
             ];
         }
 
         $status = $this->strongestStatus(collect($reports)->pluck('status')->all());
-        $title = 'Atlas AI: desempenho 3/7/15/30 dias ate '.$date->format('d/m/Y');
+        $title = 'Atlas: desempenho 3/7/15/30 dias ate '.$date->format('d/m/Y');
         $summary = $this->multiSummaryText($reports);
         $actions = $this->multiActions($reports);
         $body = $this->multiBody($date, $timezone, $reports, $actions);
 
         return [
             'report_type' => 'atlas_ai_multi_window_performance',
-            'schema_version' => 1,
+            'schema_version' => $this->schemaVersionFor($enginePayload),
+            'engine_version' => $this->engineVersion(),
             'generated_at' => now($timezone)->toJSON(),
             'timezone' => $timezone,
             'report_date' => $date->toDateString(),
@@ -147,6 +170,7 @@ class AiTelemetryPerformanceReportService
             'executive_summary' => $summary,
             'windows' => $reports,
             'actions' => $actions,
+            'engine' => $enginePayload,
             'metric_refs' => $this->multiMetricRefs($reports),
             'source_refs' => [
                 ['type' => 'ai_trace_metric_summaries', 'windows' => $windows],
@@ -174,8 +198,8 @@ class AiTelemetryPerformanceReportService
         $bundle = $this->bundles->create([
             'user_id' => $userId,
             'purpose' => 'atlas_ai_performance_report',
-            'title' => (string) ($report['title'] ?? 'Relatorio de performance do Atlas AI'),
-            'summary' => (string) ($report['summary_text'] ?? 'Relatorio operacional do Atlas AI.'),
+            'title' => (string) ($report['title'] ?? 'Relatorio de performance do Atlas'),
+            'summary' => (string) ($report['summary_text'] ?? 'Relatorio operacional do Atlas.'),
             'body_for_thread' => $this->threadBody($report),
             'source_refs' => $report['source_refs'] ?? [],
             'trace_refs' => $this->traceRefs($report),
@@ -189,7 +213,7 @@ class AiTelemetryPerformanceReportService
             'type' => 'insight',
             'category' => 'atlas_ai_performance',
             'severity' => $this->severity((string) ($report['status'] ?? 'unknown')),
-            'title' => (string) ($report['title'] ?? 'Relatorio de performance do Atlas AI'),
+            'title' => (string) ($report['title'] ?? 'Relatorio de performance do Atlas'),
             'summary' => Str::limit((string) ($report['summary_text'] ?? ''), 220, '...'),
             'body' => (string) ($report['body'] ?? $report['summary_text'] ?? ''),
             'source_type' => 'atlas_ai_performance_report',
@@ -228,14 +252,14 @@ class AiTelemetryPerformanceReportService
     /**
      * @return array<string,mixed>
      */
-    private function windowAnalysis(CarbonImmutable $start, CarbonImmutable $end, string $timezone): array
+    private function windowAnalysis(CarbonImmutable $start, CarbonImmutable $end, string $timezone, ?string $engineReportType = null): array
     {
         $scorecard = $this->scorecards->build($start, $end, 'trace_created_at', true);
         $health = $this->health->evaluate($start, $end, 'trace_created_at', true);
         $summaries = $this->summaries($start, $end);
         $summary = $this->summary($scorecard, $summaries);
 
-        return [
+        $analysis = [
             'window' => [
                 'start' => $start->toJSON(),
                 'end' => $end->toJSON(),
@@ -259,8 +283,200 @@ class AiTelemetryPerformanceReportService
             'reliability' => $this->reliability($scorecard, $summaries),
             'provider_health' => $this->providerHealth($start, $end),
             'data_quality' => $this->dataQuality($scorecard, $health, $summaries),
+            // Tools — Fix 7c F5. Surfaces the scorecard's tools block directly (the
+            // scorecard is the single source of truth) and adds report-friendly
+            // top-N highlights and threshold-aware status.
+            'tools' => $this->toolsReport($scorecard),
             'risks' => $this->risks($scorecard, $health, $summary),
             'notable_traces' => $this->notableTraces($summaries),
+        ];
+
+        if ($engineReportType !== null) {
+            $analysis['engine'] = $this->runEngine($start, $end, $timezone, $engineReportType, $scorecard, $health, $summary, $summaries);
+        }
+
+        return $analysis;
+    }
+
+    /**
+     * @param  Collection<int,AiTraceMetricSummary>  $summaries
+     * @return array<string,mixed>|null
+     */
+    private function runEngine(
+        CarbonImmutable $start,
+        CarbonImmutable $end,
+        string $timezone,
+        string $reportType,
+        array $scorecard,
+        array $health,
+        array $summary,
+        Collection $summaries,
+    ): ?array {
+        $engineVersion = $this->engineVersion();
+        if ($engineVersion === 'legacy') {
+            return null;
+        }
+
+        try {
+            [$aggregatorVersion, $hasMixedVersions] = $this->aggregatorVersionState($summaries);
+            $ctx = new ReportContext(
+                clock: CarbonImmutable::now($timezone),
+                windowStart: $start,
+                windowEnd: $end,
+                timezone: $timezone,
+                reportType: $reportType,
+                engineVersion: $engineVersion,
+                runMode: $this->engineRunMode($engineVersion),
+            );
+
+            $aggregates = new WindowAggregates(
+                scorecard: $scorecard,
+                health: $health,
+                summary: $summary,
+                summaries: $summaries,
+                aggregatorVersion: $aggregatorVersion,
+                hasMixedAggregatorVersions: $hasMixedVersions,
+            );
+
+            return $this->engine->execute($ctx, $aggregates)->toArray();
+        } catch (Throwable $e) {
+            Log::warning('Atlas report engine execution failed', [
+                'report_type' => $reportType,
+                'window_start' => $start->toIso8601String(),
+                'window_end' => $end->toIso8601String(),
+                'engine_version' => $engineVersion,
+                'exception' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * @param  Collection<int,AiTraceMetricSummary>  $summaries
+     * @return array{0:string,1:bool}
+     */
+    private function aggregatorVersionState(Collection $summaries): array
+    {
+        $counts = $summaries
+            ->map(fn (AiTraceMetricSummary $summary): string => (string) (data_get($summary->metadata, 'aggregator_version') ?: 'unknown'))
+            ->filter(fn (string $version): bool => $version !== '')
+            ->countBy();
+
+        if ($counts->isEmpty()) {
+            return ['unknown', false];
+        }
+
+        return [
+            (string) $counts->sortDesc()->keys()->first(),
+            $counts->count() > 1,
+        ];
+    }
+
+    private function engineVersion(): string
+    {
+        $version = (string) config('atlas.report.engine_version', 'legacy');
+
+        return in_array($version, ['legacy', 'shadow', 'next'], true) ? $version : 'legacy';
+    }
+
+    private function engineRunMode(string $engineVersion): string
+    {
+        $runMode = (string) config('atlas.report.engine_run_mode', '');
+        if (in_array($runMode, ['live', 'shadow', 'replay', 'dry_run'], true)) {
+            return $runMode;
+        }
+
+        return $engineVersion === 'shadow' ? 'shadow' : 'live';
+    }
+
+    private function schemaVersionFor(?array $enginePayload): int
+    {
+        if ($this->engineVersion() !== 'next' || $enginePayload === null) {
+            return 1;
+        }
+
+        return (int) data_get($enginePayload, 'validation.schema_version', 2);
+    }
+
+    /**
+     * Project the scorecard's tools block into a report-shaped digest:
+     *   - status: 'unavailable' | 'idle' | 'healthy' | 'warning' | 'critical'
+     *   - top_used: top 5 tools by call count
+     *   - top_failures: top 3 tools by failure_rate (with min N=10 floor to suppress noise)
+     *   - critical_risk_count: surfaces independently of rates
+     *   - permission_denial_rate / tool_failure_rate: pre-rounded for display
+     *
+     * @param  array<string,mixed>  $scorecard
+     * @return array<string,mixed>
+     */
+    private function toolsReport(array $scorecard): array
+    {
+        $tools = (array) ($scorecard['tools'] ?? ['available' => false]);
+        if (! ($tools['available'] ?? false)) {
+            return ['status' => 'unavailable'];
+        }
+
+        $totalCalls = (int) ($tools['tool_calls_total'] ?? 0);
+        if ($totalCalls === 0) {
+            return [
+                'status' => 'idle',
+                'tool_calls_total' => 0,
+                'critical_risk_count' => 0,
+            ];
+        }
+
+        $denialRate = (float) ($tools['permission_denial_rate'] ?? 0);
+        $failureRate = (float) ($tools['tool_failure_rate'] ?? 0);
+        $criticalCount = (int) ($tools['critical_risk_tool_count'] ?? 0);
+        $denialMinCalls = (int) config('atlas.ai_metrics.tool_denial_min_calls', 10);
+        $failureMinCalls = (int) config('atlas.ai_metrics.tool_failure_min_calls', 10);
+        $canEvaluateDenialRate = $totalCalls >= $denialMinCalls;
+        $canEvaluateFailureRate = $totalCalls >= $failureMinCalls;
+
+        // Status mirrors the health service's logic so report consumers don't need
+        // to query health separately to know if tool metrics are concerning.
+        $status = 'healthy';
+        if ($criticalCount > 0
+            || ($canEvaluateDenialRate && $denialRate > (float) config('atlas.ai_metrics.tool_denial_critical_above', 0.40))
+            || ($canEvaluateFailureRate && $failureRate > (float) config('atlas.ai_metrics.tool_failure_critical_above', 0.50))
+        ) {
+            $status = 'critical';
+        } elseif (($canEvaluateDenialRate && $denialRate > (float) config('atlas.ai_metrics.tool_denial_warning_above', 0.15))
+            || ($canEvaluateFailureRate && $failureRate > (float) config('atlas.ai_metrics.tool_failure_warning_above', 0.20))
+        ) {
+            $status = 'warning';
+        }
+
+        $byTool = collect((array) ($tools['by_tool'] ?? []));
+
+        return [
+            'status' => $status,
+            'tool_calls_total' => $totalCalls,
+            'tool_failure_count' => (int) ($tools['tool_failure_count'] ?? 0),
+            'tool_failure_rate' => $failureRate,
+            'permission_denied_count' => (int) ($tools['permission_denied_count'] ?? 0),
+            'permission_denial_rate' => $denialRate,
+            'high_risk_count' => (int) ($tools['high_risk_tool_count'] ?? 0),
+            'critical_risk_count' => $criticalCount,
+            'min_calls' => [
+                'permission_denial_rate' => $denialMinCalls,
+                'tool_failure_rate' => $failureMinCalls,
+            ],
+            'top_used' => $byTool
+                ->sortByDesc('calls')
+                ->take(5)
+                ->values()
+                ->all(),
+            // top_failures: only tools with >= 10 calls so we don't flag a tool with
+            // "100% failure" based on a single call. Same min-N principle as the
+            // health denial threshold (configurable, see tool_failure_min_calls).
+            'top_failures' => $byTool
+                ->filter(fn (array $t): bool => ($t['calls'] ?? 0) >= (int) config('atlas.ai_metrics.tool_failure_min_calls', 10))
+                ->sortByDesc('failure_rate')
+                ->take(3)
+                ->values()
+                ->all(),
         ];
     }
 
@@ -293,6 +509,12 @@ class AiTelemetryPerformanceReportService
         $traces = (int) ($totals['traces'] ?? $summaries->count());
         $unknownCostCount = (int) ($totals['unknown_cost_count'] ?? 0);
         $costMicrousd = (int) ($totals['cost_microusd_sum'] ?? 0);
+        // Segregated cost totals — surfaced so the report can show CLI placeholders and
+        // real API spend separately. cost_microusd_sum (legacy) sums both, which mistakenly
+        // implies they share a unit. metered_estimate_microusd reflects real billing-track spend.
+        $meteredCostMicrousd = (int) ($totals['metered_estimate_cost_microusd_sum'] ?? 0);
+        $operationalCostMicrousd = (int) ($totals['operational_estimate_cost_microusd_sum'] ?? 0);
+        $unknownCostMicrousd = (int) ($totals['unknown_cost_microusd_sum'] ?? 0);
 
         return [
             'traces' => $traces,
@@ -307,8 +529,16 @@ class AiTelemetryPerformanceReportService
             'reask_rate' => $traces > 0 ? round((int) ($totals['reask_detected_count'] ?? 0) / $traces, 4) : null,
             'cost_microusd_sum' => $costMicrousd,
             'cost_usd_estimate' => round($costMicrousd / 1_000_000, 6),
+            'metered_estimate_cost_microusd_sum' => $meteredCostMicrousd,
+            'metered_estimate_cost_usd_estimate' => round($meteredCostMicrousd / 1_000_000, 6),
+            'operational_estimate_cost_microusd_sum' => $operationalCostMicrousd,
+            'operational_estimate_cost_usd_estimate' => round($operationalCostMicrousd / 1_000_000, 6),
+            'unknown_cost_microusd_sum' => $unknownCostMicrousd,
             'unknown_cost_count' => $unknownCostCount,
             'estimated_cost_count' => (int) ($totals['estimated_cost_count'] ?? 0),
+            // metered_cost_count is the new vocabulary; actual_cost_count is the legacy alias
+            // kept for any external consumer pinned to the old key. Same value during transition.
+            'metered_cost_count' => (int) ($totals['metered_cost_count'] ?? $totals['actual_cost_count'] ?? 0),
             'actual_cost_count' => (int) ($totals['actual_cost_count'] ?? 0),
             'operational_estimate_cost_count' => (int) ($totals['operational_estimate_cost_count'] ?? 0),
             'unknown_cost_rate' => $traces > 0 ? round($unknownCostCount / $traces, 4) : null,
@@ -604,7 +834,7 @@ class AiTelemetryPerformanceReportService
             })
             ->implode(' | ');
 
-        return 'Estrutura de desempenho Atlas AI: '.$parts.'.';
+        return 'Estrutura de desempenho Atlas: '.$parts.'.';
     }
 
     private function dailyBody(CarbonImmutable $date, string $timezone, array $current, array $previous, array $comparison, array $actions): string
@@ -614,7 +844,7 @@ class AiTelemetryPerformanceReportService
         $actionsText = collect($actions)->map(fn (string $action): string => '- '.$action)->implode("\n");
 
         return implode("\n\n", array_filter([
-            'Relatorio diario de performance do Atlas AI - '.$date->format('d/m/Y').' ('.$timezone.').',
+            'Relatorio diario de performance do Atlas - '.$date->format('d/m/Y').' ('.$timezone.').',
             'Resumo executivo: '.$this->dailySummaryText($current, $comparison),
             implode("\n", [
                 'Metricas centrais:',
@@ -657,7 +887,7 @@ class AiTelemetryPerformanceReportService
         $actionsText = collect($actions)->map(fn (string $action): string => '- '.$action)->implode("\n");
 
         return implode("\n\n", [
-            'Relatorio estrutural de performance do Atlas AI ate '.$date->format('d/m/Y').' ('.$timezone.').',
+            'Relatorio estrutural de performance do Atlas ate '.$date->format('d/m/Y').' ('.$timezone.').',
             'Resumo executivo: '.$this->multiSummaryText($reports),
             $windows,
             "Melhorias, pioras e proximas acoes:\n".($actionsText !== '' ? $actionsText : '- Nenhuma acao nova com confianca suficiente.'),
@@ -722,6 +952,22 @@ class AiTelemetryPerformanceReportService
      */
     private function compactReportPayload(array $report): array
     {
+        $enginePayload = is_array($report['engine'] ?? null) ? $report['engine'] : null;
+        if ((int) ($report['schema_version'] ?? 1) >= 2 && $enginePayload !== null && is_string($enginePayload['decision'] ?? null)) {
+            return array_merge($enginePayload, [
+                'report_type' => $report['report_type'] ?? null,
+                'report_date' => $report['report_date'] ?? null,
+                'timezone' => $report['timezone'] ?? null,
+                'status' => $report['status'] ?? null,
+                'health_score' => $report['health_score'] ?? null,
+                'tools' => $report['tools'] ?? data_get($report, 'windows.0.tools'),
+                'validation' => array_merge((array) ($enginePayload['validation'] ?? []), [
+                    'dedupe_key' => $report['dedupe_key'] ?? null,
+                    'schema_version' => $report['schema_version'] ?? 2,
+                ]),
+            ]);
+        }
+
         return [
             'report_type' => $report['report_type'] ?? null,
             'report_date' => $report['report_date'] ?? null,
@@ -732,6 +978,11 @@ class AiTelemetryPerformanceReportService
             'highlights' => $this->highlights($report),
             'next_actions' => $report['actions'] ?? [],
             'risks' => collect($report['risks'] ?? data_get($report, 'windows.0.risks', []))->take(6)->values()->all(),
+            // Tools digest in compact mobile payload — Fix 7c F5. Mobile renderer
+            // (mobile-inbox-item.tsx) already lists payload.report.* keys; adding
+            // 'tools' here surfaces the digest without changing renderer code, since
+            // unknown keys are gracefully ignored.
+            'tools' => $report['tools'] ?? data_get($report, 'windows.0.tools'),
             'validation' => [
                 'basis' => data_get($report, 'window.basis', 'trace_created_at'),
                 'dedupe_key' => $report['dedupe_key'] ?? null,
@@ -766,7 +1017,7 @@ class AiTelemetryPerformanceReportService
     private function threadBody(array $report): string
     {
         return implode("\n\n", [
-            'Use esta conversa para decidir como melhorar o Atlas AI com base no relatorio operacional.',
+            'Use esta conversa para decidir como melhorar o Atlas com base no relatorio operacional.',
             'Resumo: '.(string) ($report['summary_text'] ?? $report['executive_summary'] ?? ''),
             'Relatorio completo:',
             (string) ($report['body'] ?? ''),

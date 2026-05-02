@@ -4,10 +4,13 @@ namespace App\Services\Ai\Mobile;
 
 use App\Models\AiInboxItem;
 use App\Models\AiMessage;
+use App\Models\AiPerformanceRecommendation;
 use App\Models\AiThread;
 use App\Models\AtlasMobileDevice;
 use App\Services\AuditLogService;
+use App\Services\Ai\Telemetry\Engine\RecommendationLifecycleService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -26,6 +29,7 @@ class InboxActionRegistry
         private readonly AtlasInboxService $inbox,
         private readonly AuditLogService $audit,
         private readonly ProposalInboxEmitter $proposals,
+        private readonly RecommendationLifecycleService $recommendations,
     ) {
     }
 
@@ -74,13 +78,18 @@ class InboxActionRegistry
 
             $result = match ($actionId) {
                 'mark_read' => ['item' => $this->inbox->markRead($locked)],
-                'dismiss', 'discard' => ['item' => $this->inbox->dismiss($locked, $this->string($input['reason'] ?? null))],
-                'snooze' => ['item' => $this->inbox->snooze($locked, Carbon::parse((string) ($input['snoozed_until'] ?? '')), $this->string($input['reason'] ?? null))],
+                'dismiss', 'discard' => $this->isRecommendationItem($locked)
+                    ? $this->transitionRecommendation($locked, $actionId, $input)
+                    : ['item' => $this->inbox->dismiss($locked, $this->string($input['reason'] ?? null))],
+                'snooze' => $this->isRecommendationItem($locked)
+                    ? $this->transitionRecommendation($locked, $actionId, $input)
+                    : ['item' => $this->inbox->snooze($locked, Carbon::parse((string) ($input['snoozed_until'] ?? '')), $this->string($input['reason'] ?? null))],
                 'discuss' => $this->discuss($locked),
                 'approve_once', 'approve_session', 'approve_workspace_1h', 'deny' => $this->resolveApproval($locked, $actionId, $input),
                 'view_trace', 'review_patch' => $this->readOnlyResult($locked, $actionId),
                 'create_proposal' => $this->createProposal($locked),
                 'ignore_30d' => $this->ignoreThirtyDays($locked),
+                'acknowledge_recommendation', 'apply_recommendation', 'reject_recommendation' => $this->transitionRecommendation($locked, $actionId, $input),
                 default => throw ValidationException::withMessages(['action' => 'Action handler nao implementado.']),
             };
 
@@ -204,6 +213,7 @@ class InboxActionRegistry
 
         return DB::transaction(function () use ($item, $payload): array {
             $bundle = $item->contextBundle;
+            $focus = $this->atlasFocusForInboxItem($item);
             $thread = AiThread::query()->create([
                 'title' => $item->title,
                 'summary' => $bundle?->summary ?? $item->summary,
@@ -213,8 +223,16 @@ class InboxActionRegistry
                 'source_id' => $item->id,
                 'message_count' => 0,
                 'metadata' => [
+                    'atlas_focus' => $focus,
+                    'initial_focus' => $focus,
+                    'source_type' => 'ai_inbox_item',
+                    'source_id' => $item->id,
                     'inbox_item_id' => $item->id,
                     'context_bundle_id' => $item->context_bundle_id,
+                    'context_label' => $this->contextLabelForInboxItem($item),
+                    'capability_profile' => 'mobile_operational_read',
+                    'permission_policy' => 'read_only_until_approval',
+                    'execution_policy' => 'no_code_execution',
                 ],
             ]);
 
@@ -234,10 +252,10 @@ class InboxActionRegistry
                 'position' => 2,
                 'role' => 'user',
                 'status' => 'final',
-                'content' => 'Vamos discutir este item do Inbox.',
+                'content' => 'Vamos discutir este item com o Atlas.',
                 'token_estimate' => 10,
                 'occurred_at' => now(),
-                'metadata' => ['source' => 'mobile_thread_seed'],
+                'metadata' => ['source' => 'mobile_thread_seed', 'atlas_focus' => $focus],
             ]);
 
             $thread->update([
@@ -258,6 +276,32 @@ class InboxActionRegistry
                 'deep_link' => "atlas://thread/{$thread->id}",
             ];
         });
+    }
+
+    private function atlasFocusForInboxItem(AiInboxItem $item): string
+    {
+        return match ($item->type) {
+            'capture' => 'general',
+            default => 'operational',
+        };
+    }
+
+    private function contextLabelForInboxItem(AiInboxItem $item): string
+    {
+        $category = $this->string($item->category);
+
+        return $category
+            ? 'Inbox - '.$this->humanLabel($category)
+            : 'Inbox operacional';
+    }
+
+    private function humanLabel(string $value): string
+    {
+        return Str::of($value)
+            ->replace(['_', '-'], ' ')
+            ->squish()
+            ->title()
+            ->toString();
     }
 
     /**
@@ -413,6 +457,95 @@ class InboxActionRegistry
             'item' => $item->refresh(),
             'ignored_until' => $until->toJSON(),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{item:AiInboxItem,recommendation_id:string,state:string}
+     */
+    private function transitionRecommendation(AiInboxItem $item, string $actionId, array $input): array
+    {
+        $recommendationId = $this->string(data_get($item->payload ?? [], 'recommendation.id'))
+            ?? ($item->source_type === 'ai_performance_recommendation' ? $this->string($item->source_id) : null);
+
+        if ($recommendationId === null) {
+            throw ValidationException::withMessages(['action' => 'Item nao referencia uma recomendacao de performance.']);
+        }
+
+        /** @var AiPerformanceRecommendation $recommendation */
+        $recommendation = AiPerformanceRecommendation::query()->findOrFail($recommendationId);
+        $state = match ($actionId) {
+            'acknowledge_recommendation' => 'acknowledged',
+            'apply_recommendation' => 'applied',
+            'reject_recommendation', 'dismiss', 'discard' => 'rejected',
+            'snooze' => 'snoozed',
+        };
+
+        $metadata = ['source' => 'mobile_inbox', 'inbox_item_id' => $item->id];
+        $snoozedUntil = null;
+        if ($state === 'snoozed') {
+            $snoozedUntil = $this->string($input['snoozed_until'] ?? null);
+            if ($snoozedUntil === null) {
+                throw ValidationException::withMessages(['snoozed_until' => 'A data de adiamento precisa ser informada.']);
+            }
+            $metadata['snoozed_until'] = $snoozedUntil;
+        }
+
+        $recommendation = $this->recommendations->transition(
+            $recommendation,
+            $state,
+            $this->string($input['reason'] ?? null) ?? $actionId,
+            $metadata,
+        );
+
+        $payload = $item->payload ?? [];
+        data_set($payload, 'recommendation.state', $recommendation->state);
+        data_set($payload, 'recommendation.measurement_due_at', $recommendation->measurement_due_at?->toJSON());
+        data_set($payload, 'recommendation.snoozed_until', $recommendation->snoozed_until?->toJSON());
+        data_set($payload, 'recommendation.closed_at', $recommendation->closed_at?->toJSON());
+        data_set($payload, 'recommendation.closed_reason', $recommendation->closed_reason);
+
+        $updates = [
+            'payload' => $payload,
+            'read_at' => $item->read_at ?? now(),
+            'response' => [
+                'action' => $actionId,
+                'reason' => $this->string($input['reason'] ?? null),
+                'recommendation_id' => $recommendation->id,
+                'state' => $recommendation->state,
+                'snoozed_until' => $recommendation->snoozed_until?->toJSON(),
+                'responded_at' => now()->toJSON(),
+            ],
+        ];
+
+        if (in_array($state, ['applied', 'rejected'], true)) {
+            $updates['resolved_at'] = now();
+            if (in_array($actionId, ['dismiss', 'discard'], true)) {
+                $updates['status'] = 'dismissed';
+                $updates['dismissed_at'] = now();
+            } else {
+                $updates['status'] = 'resolved';
+            }
+        } elseif ($state === 'snoozed') {
+            $updates['status'] = 'snoozed';
+            $updates['snoozed_until'] = Carbon::parse((string) $snoozedUntil);
+        } elseif ($item->status === 'unread') {
+            $updates['status'] = 'read';
+        }
+
+        $item->update($updates);
+
+        return [
+            'item' => $item->refresh(),
+            'recommendation_id' => $recommendation->id,
+            'state' => $recommendation->state,
+        ];
+    }
+
+    private function isRecommendationItem(AiInboxItem $item): bool
+    {
+        return $item->source_type === 'ai_performance_recommendation'
+            || $this->string(data_get($item->payload ?? [], 'recommendation.id')) !== null;
     }
 
     private function fallbackThreadContext(AiInboxItem $item): string

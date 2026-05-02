@@ -25,7 +25,7 @@ class AiTelemetryCostRatesCommand extends Command
         {--effective-until= : Optional effective end datetime}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'List or upsert Atlas AI provider cost rates used by telemetry efficiency scoring.';
+    protected $description = 'List or upsert Atlas provider cost rates used by telemetry efficiency scoring.';
 
     public function handle(AiProviderCostRateService $rates): int
     {

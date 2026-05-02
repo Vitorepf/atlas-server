@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AiContextSnapshot extends Model
 {
@@ -57,5 +58,11 @@ class AiContextSnapshot extends Model
     public function session(): BelongsTo
     {
         return $this->belongsTo(AiSession::class, 'session_id');
+    }
+
+    public function memoryUsages(): HasMany
+    {
+        return $this->hasMany(AtlasMemoryEntryUsage::class, 'context_snapshot_id')
+            ->orderBy('position');
     }
 }

@@ -4,12 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\AtlasTaskEventResource;
 use App\Http\Resources\AtlasTaskResource;
+use App\Models\AtlasEngineeringBenchmarkCase;
+use App\Models\AtlasEngineeringBenchmarkResult;
+use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasProjectBlocker;
 use App\Models\AtlasProjectStep;
 use App\Models\AtlasTask;
 use App\Services\AtlasDomainRegistry;
 use App\Services\Engineering\EngineeringBlueprintService;
 use App\Services\Engineering\EngineeringBlueprintSnapshotService;
+use App\Services\Engineering\EngineeringHarnessRunnerService;
 use App\Services\Engineering\EngineeringRunArtifactService;
 use App\Services\Engineering\EngineeringTaskContractService;
 use App\Services\ProjectBlockerService;
@@ -117,6 +121,7 @@ class AtlasTaskController extends Controller
         EngineeringBlueprintService $blueprints,
         EngineeringBlueprintSnapshotService $snapshots,
         EngineeringRunArtifactService $artifacts,
+        EngineeringHarnessRunnerService $runner,
     ): JsonResponse {
         $data = $request->validate([
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
@@ -127,6 +132,66 @@ class AtlasTaskController extends Controller
         $blueprint = $blueprints->forTask($task, $contract);
         $metadata = is_array($task->metadata) ? $task->metadata : [];
         $evidenceHistory = $artifacts->evidenceHistory($task);
+        $harnessRuns = [];
+        if (Schema::hasTable('atlas_engineering_runs')) {
+            $harnessRuns = AtlasEngineeringRun::query()
+                ->where('task_id', $task->id)
+                ->with(['attempts', 'patchArtifacts', 'controlResults', 'testRuns', 'reviewFindings'])
+                ->latest('created_at')
+                ->limit((int) ($data['limit'] ?? 10))
+                ->get()
+                ->map(fn (AtlasEngineeringRun $run): array => $runner->runSummary($run))
+                ->values()
+                ->all();
+        }
+        $benchmarkCases = [];
+        if (Schema::hasTable('atlas_engineering_benchmark_cases')) {
+            $benchmarkCases = AtlasEngineeringBenchmarkCase::query()
+                ->where('task_id', $task->id)
+                ->with('suite')
+                ->latest('created_at')
+                ->limit((int) ($data['limit'] ?? 10))
+                ->get()
+                ->map(fn (AtlasEngineeringBenchmarkCase $case): array => [
+                    'id' => $case->id,
+                    'suite_id' => $case->suite_id,
+                    'suite_slug' => $case->suite?->slug,
+                    'case_code' => $case->case_code,
+                    'title' => $case->title,
+                    'expected_decision' => $case->expected_decision,
+                    'min_score' => $case->min_score,
+                    'tags' => $case->tags_json,
+                    'status' => $case->status,
+                    'created_at' => $case->created_at?->toJSON(),
+                ])
+                ->values()
+                ->all();
+        }
+        $benchmarkResults = [];
+        if (Schema::hasTable('atlas_engineering_benchmark_results')) {
+            $benchmarkResults = AtlasEngineeringBenchmarkResult::query()
+                ->where('task_id', $task->id)
+                ->with(['benchmarkRun', 'benchmarkCase.suite'])
+                ->latest('created_at')
+                ->limit((int) ($data['limit'] ?? 10))
+                ->get()
+                ->map(fn (AtlasEngineeringBenchmarkResult $result): array => [
+                    'id' => $result->id,
+                    'benchmark_run_id' => $result->benchmark_run_id,
+                    'suite_id' => $result->suite_id,
+                    'suite_slug' => $result->benchmarkCase?->suite?->slug,
+                    'case_id' => $result->case_id,
+                    'case_code' => $result->benchmarkCase?->case_code,
+                    'status' => $result->status,
+                    'passed' => $result->passed,
+                    'decision' => $result->decision,
+                    'score' => $result->score,
+                    'failure_summary' => $result->failure_summary,
+                    'created_at' => $result->created_at?->toJSON(),
+                ])
+                ->values()
+                ->all();
+        }
 
         $events = [];
         if (Schema::hasTable('atlas_task_events')) {
@@ -147,6 +212,10 @@ class AtlasTaskController extends Controller
             'status_snapshot' => $artifacts->statusSnapshot($task, $contract, $blueprint),
             'latest_run' => $metadata['latest_engineering_run'] ?? null,
             'run_history' => array_values((array) ($metadata['engineering_run_history'] ?? [])),
+            'latest_harness_run' => $harnessRuns[0] ?? ($metadata['latest_engineering_harness_run'] ?? null),
+            'harness_runs' => $harnessRuns,
+            'benchmark_cases' => $benchmarkCases,
+            'benchmark_results' => $benchmarkResults,
             'latest_evidence' => $evidenceHistory[0] ?? null,
             'evidence_history' => $evidenceHistory,
             'events' => $events,

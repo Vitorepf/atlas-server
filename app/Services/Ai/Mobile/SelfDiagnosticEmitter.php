@@ -176,7 +176,7 @@ class SelfDiagnosticEmitter
         $hypothesis = $category === 'quality_score_regression'
             ? 'A qualidade media caiu de forma suficiente para sugerir regressao em prompt, contexto, roteamento ou provider.'
             : 'A proporcao de respostas falhando aumentou de forma suficiente para sugerir regressao operacional.';
-        $proposedFix = 'Abrir thread contextual, revisar exemplos recentes com menor score, checar flags dominantes e ajustar prompt/contexto/roteamento antes de automatizar qualquer correcao.';
+        $proposedFix = 'Abrir Atlas com contexto, revisar exemplos recentes com menor score, checar flags dominantes e ajustar prompt/contexto/roteamento antes de automatizar qualquer correcao.';
 
         return [
             'should_emit' => true,

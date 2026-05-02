@@ -48,6 +48,17 @@ class EngineeringTaskContractService
                 $this->listValue($metadata['likely_files'] ?? []),
                 $this->listValue($metadata['files'] ?? []),
             ),
+            'allowed_files' => $this->mergeLists(
+                $this->listValue($existing['allowed_files'] ?? []),
+                $this->listValue($metadata['allowed_files'] ?? []),
+            ),
+            'allowed_paths' => $this->mergeLists(
+                $this->listValue($existing['allowed_paths'] ?? []),
+                $this->listValue($metadata['allowed_paths'] ?? []),
+            ),
+            'strict_file_scope' => (bool) ($existing['strict_file_scope'] ?? $metadata['strict_file_scope'] ?? false),
+            'file_scope' => $this->arrayValue($existing['file_scope'] ?? $metadata['file_scope'] ?? []),
+            'scope_policy' => $this->arrayValue($existing['scope_policy'] ?? $metadata['scope_policy'] ?? []),
             'patterns_to_follow' => $this->mergeLists(
                 $this->listValue($existing['patterns_to_follow'] ?? []),
                 $this->listValue($metadata['patterns_to_follow'] ?? []),

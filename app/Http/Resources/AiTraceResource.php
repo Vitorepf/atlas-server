@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Support\Metadata;
+use App\Support\AiAttachmentPayload;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -35,6 +36,7 @@ class AiTraceResource extends JsonResource
             'feedback_comment' => $this->feedback_comment,
             'completed_at' => $this->completed_at?->toJSON(),
             'metadata' => Metadata::forResponse($this->metadata),
+            'attachments' => $this->publicAttachments(),
             'thread' => $this->whenLoaded('thread', fn () => $this->thread ? new AiThreadResource($this->thread) : null),
             'session' => $this->whenLoaded('session', fn () => $this->session ? new AiSessionResource($this->session) : null),
             'job' => $this->whenLoaded('job', fn () => new AiJobResource($this->job)),
@@ -45,5 +47,57 @@ class AiTraceResource extends JsonResource
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
         ];
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function publicAttachments(): array
+    {
+        $attachments = [];
+
+        if ($this->resource->relationLoaded('job') && $this->job) {
+            $attachments = [
+                ...$attachments,
+                ...AiAttachmentPayload::publicAttachmentsFromPayload($this->job->payload),
+            ];
+        }
+
+        if ($this->resource->relationLoaded('jobs') && $this->jobs) {
+            foreach ($this->jobs as $job) {
+                $attachments = [
+                    ...$attachments,
+                    ...AiAttachmentPayload::publicAttachmentsFromPayload($job->payload),
+                ];
+            }
+        }
+
+        $byId = [];
+        foreach ($attachments as $attachment) {
+            $id = is_string($attachment['id'] ?? null) ? $attachment['id'] : null;
+            if (! $id || isset($byId[$id])) {
+                continue;
+            }
+
+            $attachment['content_url'] = "/ai/interactions/{$this->id}/attachments/{$id}/content";
+            $renderedPageCount = is_numeric($attachment['pdf_rendered_page_count'] ?? null)
+                ? (int) $attachment['pdf_rendered_page_count']
+                : (is_numeric($attachment['office_rendered_page_count'] ?? null)
+                    ? (int) $attachment['office_rendered_page_count']
+                    : 0);
+            if ($renderedPageCount > 0) {
+                $attachment['preview_pages'] = collect(range(1, min($renderedPageCount, 12)))
+                    ->map(fn (int $page): array => [
+                        'page' => $page,
+                        'url' => "/ai/interactions/{$this->id}/attachments/{$id}/pages/{$page}",
+                    ])
+                    ->values()
+                    ->all();
+            }
+
+            $byId[$id] = $attachment;
+        }
+
+        return array_values($byId);
     }
 }

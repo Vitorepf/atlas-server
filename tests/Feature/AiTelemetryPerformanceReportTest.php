@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Console\Commands\AiTelemetryPerformanceReportCommand;
 use App\Models\AiInboxItem;
+use App\Models\AiPerformanceReportRun;
 use App\Models\AiTrace;
 use App\Models\AiTraceMetricSummary;
 use App\Services\Ai\Telemetry\AiTelemetryPerformanceReportService;
@@ -96,6 +98,43 @@ class AiTelemetryPerformanceReportTest extends TestCase
         $this->assertNotEmpty(data_get($multi->payload, 'report.highlights'));
     }
 
+    public function test_auto_report_uses_explicit_report_date_delivery_day_for_backfill(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-01 07:10:00', 'America/Sao_Paulo'));
+
+        $this->seedTraceAt('2026-05-12 09:00:00', ['final_quality_score' => 72]);
+        $this->seedTraceAt('2026-05-13 09:00:00', ['final_quality_score' => 75]);
+        $this->seedTraceAt('2026-05-14 09:00:00', ['final_quality_score' => 82]);
+
+        $this->artisan('atlas:ai:telemetry:performance-report', [
+            '--date' => '2026-05-14',
+            '--type' => 'auto',
+            '--emit' => true,
+            '--json' => true,
+        ])->assertExitCode(0);
+
+        $this->assertDatabaseHas('ai_inbox_items', [
+            'dedupe_key' => 'atlas-ai-performance:daily:2026-05-14',
+        ]);
+        $this->assertDatabaseHas('ai_inbox_items', [
+            'dedupe_key' => 'atlas-ai-performance:multi:2026-05-14',
+        ]);
+    }
+
+    public function test_performance_report_dry_run_restores_engine_run_mode_config(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-01 07:10:00', 'America/Sao_Paulo'));
+        config()->set('atlas.report.engine_run_mode', 'shadow');
+
+        $this->artisan('atlas:ai:telemetry:performance-report', [
+            '--date' => '2026-04-30',
+            '--dry-run' => true,
+            '--json' => true,
+        ])->assertExitCode(0);
+
+        $this->assertSame('shadow', config('atlas.report.engine_run_mode'));
+    }
+
     public function test_daily_report_with_no_data_is_watch_not_false_critical(): void
     {
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-01 07:10:00', 'America/Sao_Paulo'));
@@ -106,6 +145,93 @@ class AiTelemetryPerformanceReportTest extends TestCase
         $this->assertSame(0, $report['summary']['traces']);
         $this->assertLessThan(0.5, $report['confidence']);
         $this->assertContains('Tratar conclusoes como observacao ate acumular amostra minima de traces.', $report['actions']);
+    }
+
+    public function test_shadow_engine_runs_for_current_daily_window_without_changing_legacy_schema(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-01 07:10:00', 'America/Sao_Paulo'));
+        config()->set('atlas.report.engine_version', 'shadow');
+        $this->bootEngineTables();
+
+        $this->seedTraceAt('2026-04-30 12:00:00', [
+            'metadata' => ['aggregator_version' => 'ai_trace_metric_aggregator_v2'],
+        ]);
+
+        $report = app(AiTelemetryPerformanceReportService::class)
+            ->buildDaily('2026-04-30', 'America/Sao_Paulo');
+
+        $this->assertSame(1, $report['schema_version']);
+        $this->assertSame('shadow', $report['engine_version']);
+        $this->assertSame('shadow', data_get($report, 'engine._meta.engine_version'));
+        $this->assertSame('daily', data_get($report, 'engine._meta.report_type'));
+        $this->assertSame(1, AiPerformanceReportRun::query()->count(),
+            'Only the current daily window should run through the engine; comparison baseline must not create a separate run.');
+    }
+
+    public function test_engine_run_command_persists_replayable_input_and_output_snapshots(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-01 07:10:00', 'America/Sao_Paulo'));
+        config()->set('atlas.report.engine_version', 'legacy');
+        config()->set('atlas.report.engine_run_mode', 'live');
+        $this->bootEngineTables();
+        $this->seedTraceAt('2026-04-30 12:00:00', [
+            'metadata' => ['aggregator_version' => 'ai_trace_metric_aggregator_v2'],
+        ]);
+
+        $this->artisan('atlas:ai:engine:run', [
+            '--date' => '2026-04-30',
+            '--timezone' => 'America/Sao_Paulo',
+            '--engine-version' => 'shadow',
+            '--json' => true,
+        ])->assertExitCode(0);
+
+        $this->assertSame('legacy', config('atlas.report.engine_version'));
+        $this->assertSame('live', config('atlas.report.engine_run_mode'));
+
+        $run = AiPerformanceReportRun::query()->firstOrFail();
+        $this->assertSame('shadow', $run->engine_version);
+        $this->assertNotNull($run->input_hash);
+        $this->assertNotNull($run->output_hash);
+        $this->assertNotEmpty($run->input_snapshot);
+        $this->assertNotEmpty($run->output_snapshot);
+        $this->assertSame($run->id, data_get($run->output_snapshot, '_meta.run_id'));
+
+        $this->artisan('atlas:ai:engine:run', [
+            '--replay' => $run->id,
+            '--json' => true,
+        ])->assertExitCode(0);
+    }
+
+    public function test_engine_backfill_dry_run_restores_engine_config_without_persisting_runs(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-01 07:10:00', 'America/Sao_Paulo'));
+        config()->set('atlas.report.engine_version', 'legacy');
+        config()->set('atlas.report.engine_run_mode', 'live');
+        $this->bootEngineTables();
+        $this->seedTraceAt('2026-04-30 12:00:00', [
+            'metadata' => ['aggregator_version' => 'ai_trace_metric_aggregator_v2'],
+        ]);
+
+        $this->artisan('atlas:ai:engine:backfill', [
+            '--from' => '2026-04-30',
+            '--to' => '2026-04-30',
+            '--type' => 'daily',
+            '--engine-version' => 'shadow',
+            '--run-mode' => 'dry_run',
+            '--json' => true,
+        ])->assertExitCode(0);
+
+        $this->assertSame('legacy', config('atlas.report.engine_version'));
+        $this->assertSame('live', config('atlas.report.engine_run_mode'));
+        $this->assertSame(0, AiPerformanceReportRun::query()->count());
+    }
+
+    public function test_recompute_lookback_covers_report_and_comparison_baseline(): void
+    {
+        $this->assertSame(2, AiTelemetryPerformanceReportCommand::recomputeLookbackDays('daily', [3, 7, 15, 30]));
+        $this->assertSame(60, AiTelemetryPerformanceReportCommand::recomputeLookbackDays('multi', [3, 7, 15, 30]));
+        $this->assertSame(60, AiTelemetryPerformanceReportCommand::recomputeLookbackDays('both', [3, 7, 15, 30]));
+        $this->assertSame(6, AiTelemetryPerformanceReportCommand::recomputeLookbackDays('multi', [3]));
     }
 
     private function seedTraceAt(string $localTimestamp, array $summaryOverrides = []): void
@@ -220,9 +346,24 @@ class AiTelemetryPerformanceReportTest extends TestCase
         (require database_path('migrations/2026_04_30_152000_create_ai_inbox_items_table.php'))->up();
     }
 
+    private function bootEngineTables(): void
+    {
+        (require database_path('migrations/2026_05_01_007000_create_ai_performance_report_runs.php'))->up();
+        (require database_path('migrations/2026_05_01_008000_create_ai_data_confidence_audit.php'))->up();
+        (require database_path('migrations/2026_05_01_009000_create_ai_metric_daily_snapshots.php'))->up();
+        (require database_path('migrations/2026_05_01_010000_create_ai_report_findings.php'))->up();
+        (require database_path('migrations/2026_05_01_011000_create_ai_performance_recommendations.php'))->up();
+        (require database_path('migrations/2026_05_01_140000_add_payload_snapshots_to_ai_performance_report_runs.php'))->up();
+    }
+
     private function dropTables(): void
     {
         foreach ([
+            'ai_performance_recommendations',
+            'ai_report_findings',
+            'ai_metric_daily_snapshots',
+            'ai_data_confidence_audit',
+            'ai_performance_report_runs',
             'ai_inbox_items',
             'ai_context_bundles',
             'ai_trace_metric_summaries',

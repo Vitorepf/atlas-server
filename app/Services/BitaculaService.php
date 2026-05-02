@@ -131,7 +131,7 @@ class BitaculaService
             'prompt_cadence_days' => (int) ($data['prompt_cadence_days'] ?? 1),
             'auto_suppress_reason' => $data['auto_suppress_reason'] ?? null,
             'show_in_morning_briefing' => $showInBriefing,
-            'priority_score' => (int) ($data['priority_score'] ?? 0),
+            'priority_score' => $this->priorityScore($data['priority_score'] ?? null),
             'streak_yes' => (int) ($data['streak_yes'] ?? 0),
             'streak_no' => (int) ($data['streak_no'] ?? 0),
             'total_yes_count' => (int) ($data['total_yes_count'] ?? 0),
@@ -140,6 +140,17 @@ class BitaculaService
             'activated_at' => $data['activated_at'] ?? now(),
             'metadata' => Metadata::forStorage($data['metadata'] ?? []),
         ];
+    }
+
+    private function priorityScore(mixed $value): int
+    {
+        if (! is_numeric($value)) {
+            return 50;
+        }
+
+        $score = (int) $value;
+
+        return $score >= 0 && $score <= 100 ? $score : 50;
     }
 
     public function normalizeBehaviorLogPayload(array $data): array

@@ -97,6 +97,19 @@ class AiProviderChoiceBuilderTest extends TestCase
         $this->assertNotContains('downgrade_model', $ids);
     }
 
+    public function test_gemini_rate_limit_offers_claude_without_model_downgrade(): void
+    {
+        config()->set('atlas.ai.providers.gemini_cli.fallback_model', 'gemini-2.5-pro');
+        $builder = new AiProviderChoiceBuilder();
+
+        $options = $builder->build('rate_limited', 'gemini_cli', 'gemini-3.1-pro-preview', null);
+
+        $ids = array_column($options, 'id');
+        $this->assertSame('switch_provider', $options[0]['id']);
+        $this->assertSame('claude_cli', $options[0]['provider']);
+        $this->assertNotContains('downgrade_model', $ids);
+    }
+
     public function test_rate_limited_always_includes_retry_same_at_end(): void
     {
         config()->set('atlas.ai.providers.codex_cli.fallback_model', 'gpt-5-4-mini');

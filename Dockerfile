@@ -22,12 +22,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     ffmpeg \
     git \
+    imagemagick \
     libgomp1 \
     libpq-dev \
+    libreoffice \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-osd \
+    tesseract-ocr-por \
     unzip \
     wget \
-    && docker-php-ext-install pcntl pdo_pgsql \
+    && docker-php-ext-install pcntl pdo_pgsql opcache \
     && rm -rf /var/lib/apt/lists/*
+
+# OPcache config — bytecode cache em shared memory + JIT pra hot paths.
+# Sem isso, cada request HTTP recompila os ~15-18k arquivos PHP do Atlas;
+# com isso, primeira request paga o custo, demais reusam memória.
+COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY --from=whisper-builder /opt/whisper.cpp/build/bin/whisper-cli /usr/local/bin/whisper-cli

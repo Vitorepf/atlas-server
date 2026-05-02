@@ -14,7 +14,7 @@ class AiTelemetryRollupCommand extends Command
         {--trace= : Recompute a single trace id}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Recompute Atlas AI trace metric summaries and print the current telemetry scorecard.';
+    protected $description = 'Recompute Atlas trace metric summaries and print the current telemetry scorecard.';
 
     public function handle(AiTraceMetricAggregator $aggregator, AiTelemetryScorecardService $scorecards): int
     {
@@ -49,7 +49,7 @@ class AiTelemetryRollupCommand extends Command
         }
 
         $totals = (array) data_get($payload, 'scorecard.totals', []);
-        $this->info("Atlas AI telemetry rollup recomputed {$recomputed} trace(s).");
+        $this->info("Atlas telemetry rollup recomputed {$recomputed} trace(s).");
         $this->line('quality avg='.($totals['final_quality_avg'] ?? '-').' efficiency avg='.($totals['final_efficiency_avg'] ?? '-'));
         $this->line('first-pass='.($totals['first_pass_success_rate'] ?? '-').' remediation='.($totals['needed_remediation_rate'] ?? '-'));
         $this->line('latency avg ms='.($totals['total_latency_avg_ms'] ?? '-').' unknown cost='.($totals['unknown_cost_count'] ?? '-'));

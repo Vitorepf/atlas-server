@@ -21,7 +21,7 @@ class AiTelemetryPerformanceReportCommand extends Command
         {--recompute : Recompute trace summaries for the required windows first}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Build and optionally emit Atlas AI daily and multi-window performance reports.';
+    protected $description = 'Build and optionally emit Atlas daily and multi-window performance reports.';
 
     public function handle(AiTelemetryPerformanceReportService $reports, AiTraceMetricAggregator $aggregator): int
     {
@@ -33,54 +33,83 @@ class AiTelemetryPerformanceReportCommand extends Command
 
         $timezone = $this->timezone();
         $reportDate = $this->reportDate($timezone);
-        $type = $this->type();
+        $type = $this->type($reportDate, $timezone);
         $windows = $this->windows();
         $emit = (bool) $this->option('emit') && ! (bool) $this->option('dry-run');
+        $dryRun = (bool) $this->option('dry-run');
         $built = [];
         $emissions = [];
         $recomputed = null;
+        $previousRunMode = config('atlas.report.engine_run_mode');
 
-        if ((bool) $this->option('recompute')) {
-            $maxDays = max($windows ?: [1]);
-            $since = $reportDate->startOfDay()->addDay()->subDays($type === 'daily' ? 1 : $maxDays);
-            $until = $reportDate->startOfDay()->addDay();
-            $recomputed = $aggregator->recomputeWindow($since, $until);
-        }
+        try {
+            if ($dryRun) {
+                config()->set('atlas.report.engine_run_mode', 'dry_run');
+            }
 
-        if (in_array($type, ['daily', 'both'], true)) {
-            $daily = $reports->buildDaily($reportDate, $timezone);
-            $built[] = $daily;
-            $emissions[] = $reports->emit($daily, $this->userId(), ! $emit);
-        }
+            if ((bool) $this->option('recompute')) {
+                $until = $reportDate->startOfDay()->addDay();
+                $since = $until->subDays(self::recomputeLookbackDays($type, $windows));
+                $recomputed = $aggregator->recomputeWindow($since, $until);
+            }
 
-        if (in_array($type, ['multi', 'both'], true)) {
-            $multi = $reports->buildMultiWindow($reportDate, $windows, $timezone);
-            $built[] = $multi;
-            $emissions[] = $reports->emit($multi, $this->userId(), ! $emit);
-        }
+            if (in_array($type, ['daily', 'both'], true)) {
+                $daily = $reports->buildDaily($reportDate, $timezone);
+                $built[] = $daily;
+                $emissions[] = $reports->emit($daily, $this->userId(), ! $emit);
+            }
 
-        $payload = [
-            'ok' => true,
-            'timezone' => $timezone,
-            'report_date' => $reportDate->toDateString(),
-            'type' => $type,
-            'recomputed' => $recomputed,
-            'reports' => $built,
-            'emissions' => $emissions,
-        ];
+            if (in_array($type, ['multi', 'both'], true)) {
+                $multi = $reports->buildMultiWindow($reportDate, $windows, $timezone);
+                $built[] = $multi;
+                $emissions[] = $reports->emit($multi, $this->userId(), ! $emit);
+            }
 
-        if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $payload = [
+                'ok' => true,
+                'timezone' => $timezone,
+                'report_date' => $reportDate->toDateString(),
+                'type' => $type,
+                'recomputed' => $recomputed,
+                'reports' => $built,
+                'emissions' => $emissions,
+            ];
+
+            if ((bool) $this->option('json')) {
+                $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+                return self::SUCCESS;
+            }
+
+            foreach ($built as $report) {
+                $this->line(($report['title'] ?? 'Relatorio Atlas').' status='.($report['status'] ?? 'unknown'));
+                $this->line((string) ($report['summary_text'] ?? $report['executive_summary'] ?? ''));
+            }
 
             return self::SUCCESS;
+        } finally {
+            if ($dryRun) {
+                config()->set('atlas.report.engine_run_mode', $previousRunMode);
+            }
+        }
+    }
+
+    /**
+     * Recompute must include the report window and its comparison baseline:
+     * daily compares against the previous day; multi compares each rolling window
+     * against the immediately previous equivalent window.
+     *
+     * @param  array<int,int>  $windows
+     */
+    public static function recomputeLookbackDays(string $type, array $windows): int
+    {
+        if ($type === 'daily') {
+            return 2;
         }
 
-        foreach ($built as $report) {
-            $this->line(($report['title'] ?? 'Relatorio Atlas AI').' status='.($report['status'] ?? 'unknown'));
-            $this->line((string) ($report['summary_text'] ?? $report['executive_summary'] ?? ''));
-        }
+        $maxDays = max($windows ?: [1]);
 
-        return self::SUCCESS;
+        return max(2, $maxDays * 2);
     }
 
     private function timezone(): string
@@ -105,7 +134,7 @@ class AiTelemetryPerformanceReportCommand extends Command
         return CarbonImmutable::now($timezone)->subDay()->startOfDay();
     }
 
-    private function type(): string
+    private function type(CarbonImmutable $reportDate, string $timezone): string
     {
         $type = $this->option('type');
         $type = is_string($type) ? trim($type) : 'auto';
@@ -117,9 +146,19 @@ class AiTelemetryPerformanceReportCommand extends Command
             return $type;
         }
 
-        $dayOfMonth = CarbonImmutable::now($this->timezone())->day;
+        $deliveryDate = $this->hasExplicitDateOption()
+            ? $reportDate->addDay()
+            : CarbonImmutable::now($timezone);
+        $dayOfMonth = $deliveryDate->day;
 
         return in_array($dayOfMonth, [15, 30], true) ? 'both' : 'daily';
+    }
+
+    private function hasExplicitDateOption(): bool
+    {
+        $value = $this->option('date');
+
+        return is_string($value) && trim($value) !== '';
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesMetadata;
+use App\Support\HealthMetricIntegrity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -28,7 +29,7 @@ class StorePassiveSignalRequest extends FormRequest
     {
         return [
             'client_id' => ['required', 'uuid'],
-            'source' => ['required', Rule::in(['healthkit', 'rize'])],
+            'source' => ['required', Rule::in(HealthMetricIntegrity::PASSIVE_SOURCES)],
             'signal_type' => ['required', 'string', 'max:128'],
             'value_numeric' => ['nullable', 'numeric'],
             'value_text' => ['nullable', 'string', 'max:1024'],
@@ -39,5 +40,12 @@ class StorePassiveSignalRequest extends FormRequest
             'metadata' => ['array'],
             'deleted_at' => ['nullable', 'date'],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            HealthMetricIntegrity::validatePassiveSignal($validator, $this->all());
+        });
     }
 }

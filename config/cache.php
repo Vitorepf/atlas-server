@@ -15,7 +15,10 @@ return [
     |
     */
 
-    'default' => env('CACHE_STORE', 'database'),
+    // Default era 'database' — cada cache hit virava uma query. Fallback agora
+    // é 'file' (memory-mapped, sem round-trip). Em produção sobe para 'redis'
+    // via env CACHE_STORE=redis quando o serviço estiver rodando.
+    'default' => env('CACHE_STORE', 'file'),
 
     /*
     |--------------------------------------------------------------------------

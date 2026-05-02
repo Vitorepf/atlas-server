@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AiMemoryDelta extends Model
 {
@@ -25,6 +26,8 @@ class AiMemoryDelta extends Model
         'requires_confirmation',
         'status',
         'superseded_by',
+        'promoted_memory_entry_id',
+        'promoted_at',
     ];
 
     protected function casts(): array
@@ -39,8 +42,15 @@ class AiMemoryDelta extends Model
             'use_when' => 'array',
             'do_not_use_when' => 'array',
             'requires_confirmation' => 'boolean',
+            'promoted_memory_entry_id' => 'string',
+            'promoted_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
+    }
+
+    public function promotedMemoryEntry(): BelongsTo
+    {
+        return $this->belongsTo(AtlasMemoryEntry::class, 'promoted_memory_entry_id');
     }
 }

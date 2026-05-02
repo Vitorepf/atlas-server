@@ -3,6 +3,8 @@
 namespace App\Services\Ai;
 
 use App\Models\AiMemoryDelta;
+use App\Models\AtlasMemoryEntry;
+use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
 use App\Services\Ai\Security\PromptInjectionScanner;
 use App\Services\Ai\ValueObjects\AiContextPack;
@@ -16,22 +18,76 @@ class AiContextPackBuilder
     public function __construct(
         private readonly SemanticSearchService $search,
         private readonly AiConversationContextBuilder $conversation,
-    ) {}
+        private readonly AtlasMemoryRegistryService $memoryRegistry,
+        ?AtlasMemoryPrivacyService $memoryPrivacy = null,
+        ?AtlasMemorySourcePrivacyPolicy $sourcePrivacy = null,
+        ?AtlasVerbatimMemoryService $verbatimMemory = null,
+        ?AtlasMemoryContextComposer $memoryComposer = null,
+    ) {
+        $this->memoryPrivacy = $memoryPrivacy ?? app(AtlasMemoryPrivacyService::class);
+        $this->sourcePrivacy = $sourcePrivacy ?? app(AtlasMemorySourcePrivacyPolicy::class);
+        $this->verbatimMemory = $verbatimMemory ?? app(AtlasVerbatimMemoryService::class);
+        $this->memoryComposer = $memoryComposer ?? app(AtlasMemoryContextComposer::class);
+    }
+
+    private AtlasMemoryPrivacyService $memoryPrivacy;
+
+    private AtlasMemorySourcePrivacyPolicy $sourcePrivacy;
+
+    private AtlasVerbatimMemoryService $verbatimMemory;
+
+    private AtlasMemoryContextComposer $memoryComposer;
 
     public function build(string $input, AiTaskRequest $task, array $options = []): AiContextPack
     {
         $notes = $this->contextNotes($input, $options);
-        $contextRefs = $notes->map(fn (SemanticNote $note): array => [
-            'type' => 'semantic_note',
-            'id' => $note->id,
-            'path' => $note->path,
-            'title' => $note->title,
-            'score' => isset($note->score) ? round((float) $note->score, 4) : null,
-        ])->values()->all();
+        $contextRefs = $notes->map(function (SemanticNote $note): array {
+            $privacy = $this->semanticNotePrivacy($note);
+
+            return [
+                'type' => 'semantic_note',
+                'id' => $note->id,
+                'path' => $note->path,
+                'title' => data_get($privacy, 'fields.title') ?? $note->title,
+                'score' => isset($note->score) ? round((float) $note->score, 4) : null,
+                'privacy_class' => $privacy['privacy_class'],
+                'external_ai_allowed' => $privacy['external_ai_allowed'],
+                'redaction_status' => $privacy['redaction_status'],
+            ];
+        })->values()->all();
 
         $taskData = $task->toArray();
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
         $conversation = $this->conversation->build($options);
+        $registryMemory = $this->registryMemory($taskData, $payload, $conversation, $options);
+        $registryRefs = $registryMemory->map(fn (AtlasMemoryEntry $entry): array => [
+            'type' => 'atlas_memory_entry',
+            'id' => $entry->id,
+            'memory_type' => $entry->memory_type,
+            'scope_type' => $entry->scope_type,
+            'scope_id' => $entry->scope_id,
+            'priority' => $entry->priority,
+            'source_type' => $entry->source_type,
+            'source_id' => $entry->source_id,
+        ])->values()->all();
+        $verbatimRecall = $this->verbatimRecall($taskData, $payload, $conversation, $options);
+        $verbatimRefs = $verbatimRecall->map(fn (AtlasVerbatimMemory $memory): array => [
+            'type' => 'atlas_verbatim_memory',
+            'id' => $memory->id,
+            'verbatim_type' => $memory->verbatim_type,
+            'scope_type' => $memory->scope_type,
+            'scope_id' => $memory->scope_id,
+            'privacy_class' => $memory->privacy_class,
+            'external_ai_allowed' => $memory->external_ai_allowed,
+            'redaction_status' => $memory->redaction_status,
+            'source_type' => $memory->source_type,
+            'source_id' => $memory->source_id,
+        ])->values()->all();
+        $contextRefs = array_values([...$contextRefs, ...$registryRefs, ...$verbatimRefs]);
+        $registryItems = $this->registryMemoryItems($registryMemory);
+        $verbatimItems = $this->verbatimMemoryItems($verbatimRecall, $options);
+        $semanticItems = $this->semanticMemory($notes);
+        $recallItems = $this->memoryComposer->compose($registryItems, $verbatimItems, $semanticItems, $options);
 
         return new AiContextPack([
             'schema_version' => 1,
@@ -78,10 +134,15 @@ class AiContextPackBuilder
             ],
             'memory' => [
                 'constitutional' => [],
-                'semantic' => $this->semanticMemory($notes),
+                'recall' => $recallItems,
+                'registry' => $registryItems,
+                'verbatim' => $verbatimItems,
+                'semantic' => $semanticItems,
                 'procedural' => $this->memoryDeltas($taskData['workspace'] ?? null, 'process'),
-                'decisions' => [],
+                'decisions' => $this->registryMemoryByType($registryItems, 'decision'),
                 'preferences' => $this->memoryDeltas($taskData['workspace'] ?? null, 'preference'),
+                'registry_preferences' => $this->registryMemoryByType($registryItems, 'preference'),
+                'technical_context' => $this->registryMemoryByType($registryItems, 'technical_context'),
                 'deltas' => $this->memoryDeltas($taskData['workspace'] ?? null),
             ],
             'evidence' => [
@@ -101,6 +162,176 @@ class AiContextPackBuilder
             'excluded_context' => $this->excludedContext($options),
             'open_questions' => $this->openQuestions($notes, $options),
         ], $contextRefs);
+    }
+
+    private function registryMemory(array $taskData, array $payload, array $conversation, array $options)
+    {
+        if (($options['include_memory_registry'] ?? true) === false) {
+            return collect();
+        }
+
+        $limit = (int) ($options['memory_registry_limit'] ?? config('atlas.ai.memory_registry_limit', 8));
+        if ($limit <= 0) {
+            return collect();
+        }
+
+        return $this->memoryRegistry->relevantForContext([
+            'project_id' => data_get($payload, 'project_id'),
+            'task_id' => data_get($payload, 'task_id'),
+            'engineering_run_id' => data_get($payload, 'engineering_run_id', data_get($payload, 'run_id')),
+            'session_id' => data_get($payload, 'session_id', $conversation['active_state']['session_id'] ?? null),
+            'user_id' => data_get($payload, 'user_id'),
+            'workspace' => $taskData['workspace'] ?? null,
+        ], [
+            'types' => array_values(array_filter((array) data_get($payload, 'memory_types', []), 'is_string')),
+        ], $limit)
+            ->filter(fn (AtlasMemoryEntry $entry): bool => $this->memoryPrivacy->providerAllowed($entry))
+            ->values();
+    }
+
+    private function verbatimRecall(array $taskData, array $payload, array $conversation, array $options)
+    {
+        if (($options['include_verbatim_recall'] ?? true) === false) {
+            return collect();
+        }
+
+        $limit = (int) ($options['verbatim_recall_limit'] ?? config('atlas.ai.verbatim_recall_limit', 4));
+        if ($limit <= 0) {
+            return collect();
+        }
+
+        return $this->verbatimMemory->relevantForContext([
+            'project_id' => data_get($payload, 'project_id'),
+            'task_id' => data_get($payload, 'task_id'),
+            'engineering_run_id' => data_get($payload, 'engineering_run_id', data_get($payload, 'run_id')),
+            'session_id' => data_get($payload, 'session_id', $conversation['active_state']['session_id'] ?? null),
+            'user_id' => data_get($payload, 'user_id'),
+            'workspace' => $taskData['workspace'] ?? null,
+        ], [
+            'types' => array_values(array_filter((array) data_get($payload, 'verbatim_types', []), 'is_string')),
+        ], $limit)
+            ->filter(fn (AtlasVerbatimMemory $memory): bool => $memory->external_ai_allowed === true && trim((string) $memory->redacted_text) !== '')
+            ->values();
+    }
+
+    private function registryMemoryItems($entries): array
+    {
+        return $entries->map(fn (AtlasMemoryEntry $entry): array => [
+            'id' => $entry->id,
+            'type' => $entry->memory_type,
+            'scope' => $entry->scope_id ? $entry->scope_type.':'.$entry->scope_id : $entry->scope_type,
+            'scope_type' => $entry->scope_type,
+            'scope_id' => $entry->scope_id,
+            'title' => $this->memoryPrivacy->providerTitle($entry),
+            'summary' => $this->memoryPrivacy->providerSummary($entry),
+            'body' => Str::limit($this->memoryPrivacy->providerBody($entry), (int) config('atlas.ai.memory_registry_excerpt_chars', 900), '...'),
+            'importance' => $entry->importance,
+            'priority' => $entry->priority,
+            'confidence' => $entry->confidence,
+            'privacy_class' => $entry->privacy_class ?? data_get($entry->metadata, 'privacy.class'),
+            'redaction_status' => $entry->redaction_status ?? data_get($entry->metadata, 'privacy.redaction_status'),
+            'source_type' => $entry->source_type,
+            'source_id' => $entry->source_id,
+            'source_label' => $entry->source_label,
+            'recorded_at' => $entry->recorded_at?->toJSON(),
+            'reason' => $this->memoryReason($entry),
+        ])->values()->all();
+    }
+
+    private function verbatimMemoryItems($memories, array $options): array
+    {
+        $budget = (int) ($options['verbatim_recall_budget_chars'] ?? config('atlas.ai.verbatim_recall_budget_chars', 1600));
+        $itemChars = (int) ($options['verbatim_recall_item_chars'] ?? config('atlas.ai.verbatim_recall_item_chars', 600));
+
+        if ($budget <= 0 || $itemChars <= 0) {
+            return [];
+        }
+
+        $items = [];
+        foreach ($memories as $memory) {
+            if (! $memory instanceof AtlasVerbatimMemory) {
+                continue;
+            }
+
+            $available = min($budget, $itemChars);
+            if ($available < 40) {
+                break;
+            }
+
+            $text = trim((string) $memory->redacted_text);
+            $snippet = Str::length($text) > $available
+                ? Str::limit($text, max(1, $available - 3), '...')
+                : $text;
+            if ($snippet === '') {
+                continue;
+            }
+
+            $securityIssues = PromptInjectionScanner::scan($snippet);
+            $blocked = $securityIssues !== [];
+            $blockedMessage = '[BLOCKED: verbatim recall contained potential prompt injection - '.data_get($securityIssues, '0.message', 'suspicious content').']';
+            $safeSnippet = match (true) {
+                ! $blocked => $snippet,
+                Str::length($blockedMessage) > $available => Str::limit($blockedMessage, max(1, $available - 3), '...'),
+                default => $blockedMessage,
+            };
+
+            $items[] = [
+                'id' => $memory->id,
+                'type' => $memory->verbatim_type,
+                'scope' => $memory->scope_id ? $memory->scope_type.':'.$memory->scope_id : $memory->scope_type,
+                'scope_type' => $memory->scope_type,
+                'scope_id' => $memory->scope_id,
+                'title' => $memory->title,
+                'summary' => $memory->summary,
+                'snippet' => $safeSnippet,
+                'privacy_class' => $memory->privacy_class,
+                'redaction_status' => $memory->redaction_status,
+                'source_type' => $memory->source_type,
+                'source_id' => $memory->source_id,
+                'source_label' => $memory->source_label,
+                'recorded_at' => $memory->recorded_at?->toJSON(),
+                'reason' => $this->verbatimReason($memory),
+                'blocked' => $blocked,
+                'security_issues' => $blocked ? $securityIssues : [],
+            ];
+
+            $budget -= Str::length($safeSnippet);
+        }
+
+        return $items;
+    }
+
+    private function registryMemoryByType(array $items, string $type): array
+    {
+        return array_values(array_filter($items, fn (array $item): bool => ($item['type'] ?? null) === $type));
+    }
+
+    private function memoryReason(AtlasMemoryEntry $entry): string
+    {
+        return match ($entry->scope_type) {
+            'global' => 'memoria global ativa',
+            'project' => 'memoria ligada ao projeto atual',
+            'task' => 'memoria ligada a tarefa atual',
+            'engineering_run' => 'aprendizado ligado ao run de engenharia',
+            'workspace' => 'memoria ligada ao workspace atual',
+            'session' => 'memoria ligada a sessao atual',
+            'user' => 'preferencia/contexto ligado ao usuario',
+            default => 'memoria ativa do registry central',
+        };
+    }
+
+    private function verbatimReason(AtlasVerbatimMemory $memory): string
+    {
+        return match ($memory->scope_type) {
+            'global' => 'recall verbatim global aprovado para provider',
+            'project' => 'recall verbatim ligado ao projeto atual',
+            'task' => 'recall verbatim ligado a tarefa atual',
+            'engineering_run' => 'recall verbatim ligado ao run de engenharia',
+            'workspace' => 'recall verbatim ligado ao workspace atual',
+            'session' => 'recall verbatim ligado a sessao atual',
+            'user' => 'recall verbatim ligado ao usuario',
+            default => 'recall verbatim aprovado para provider',
+        };
     }
 
     private function contextNotes(string $input, array $options)
@@ -126,18 +357,31 @@ class AiContextPackBuilder
 
     private function semanticMemoryItem(SemanticNote $note, int $excerptChars): array
     {
-        $excerpt = Str::limit((string) ($note->body_excerpt ?: $note->summary), $excerptChars, '...');
+        $privacy = $this->semanticNotePrivacy($note);
+        $excerpt = Str::limit((string) (data_get($privacy, 'fields.body') ?: data_get($privacy, 'fields.summary') ?: ''), $excerptChars, '...');
         $securityIssues = PromptInjectionScanner::scan($excerpt);
         $base = [
             'type' => $note->type,
             'id' => $note->id,
             'path' => $note->path,
-            'title' => $note->title,
-            'summary' => $note->summary,
+            'title' => data_get($privacy, 'fields.title') ?? $note->title,
+            'summary' => data_get($privacy, 'fields.summary') ?? $note->summary,
             'score' => isset($note->score) ? round((float) $note->score, 4) : null,
             'origin' => 'semantic_search',
             'confidence' => isset($note->score) && (float) $note->score >= 0.72 ? 'high' : 'medium',
+            'privacy_class' => $privacy['privacy_class'],
+            'external_ai_allowed' => $privacy['external_ai_allowed'],
+            'redaction_status' => $privacy['redaction_status'],
+            'privacy_reason' => $privacy['reason'],
         ];
+
+        if (! $privacy['provider_safe']) {
+            return $base + [
+                'excerpt' => '[BLOCKED: semantic note excluded by Atlas source privacy policy - '.$privacy['reason'].']',
+                'blocked' => true,
+                'blocked_reason' => 'source_privacy_policy',
+            ];
+        }
 
         if ($securityIssues === []) {
             return $base + [
@@ -150,6 +394,22 @@ class AiContextPackBuilder
             'blocked' => true,
             'security_issues' => $securityIssues,
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function semanticNotePrivacy(SemanticNote $note): array
+    {
+        return $this->sourcePrivacy->project('semantic_note', [
+            'title' => $note->title,
+            'summary' => $note->summary,
+            'body_excerpt' => $note->body_excerpt,
+            'path' => $note->path,
+            'frontmatter' => $note->frontmatter ?? [],
+            'metadata' => $note->metadata ?? [],
+            'domains' => $note->domains ?? [],
+        ]);
     }
 
     private function memoryDeltas(?string $workspace, ?string $type = null): array

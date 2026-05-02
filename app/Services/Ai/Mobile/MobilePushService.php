@@ -20,6 +20,7 @@ class MobilePushService
     public function __construct(
         private readonly AuditLogService $audit,
         private readonly ExpoCircuitBreaker $circuit,
+        private readonly MobileNotificationPreferences $preferences,
     ) {
     }
 
@@ -37,7 +38,11 @@ class MobilePushService
             ->where('user_id', $item->user_id)
             ->whereNull('revoked_at')
             ->whereNotNull('expo_push_token')
-            ->get();
+            ->orderByDesc('last_seen_at')
+            ->orderByDesc('updated_at')
+            ->get()
+            ->unique(fn (AtlasMobileDevice $device): string => (string) $device->expo_push_token)
+            ->values();
 
         foreach ($devices as $device) {
             $this->dispatchToDevice($device, $item);
@@ -47,6 +52,12 @@ class MobilePushService
     public function dispatchToDevice(AtlasMobileDevice $device, AiInboxItem $item): bool
     {
         if ($device->expo_push_token === null) {
+            return false;
+        }
+
+        if (($reason = $this->preferences->disabledReason($device, $item)) !== null) {
+            $this->recordPushSkipAudit($item, $device, $reason);
+
             return false;
         }
 
@@ -261,6 +272,18 @@ class MobilePushService
      */
     public function sendPayloadFromJob(AtlasMobileDevice $device, MobilePushDelivery $delivery, array $payload, int $jobAttempt = 1): void
     {
+        $item = $delivery->inboxItem;
+        if ($item && ($reason = $this->preferences->disabledReason($device, $item)) !== null) {
+            $delivery->update([
+                'status' => 'skipped_preferences',
+                'error_code' => $reason,
+                'attempted_at' => now(),
+            ]);
+            $this->recordPushAudit('push.skipped', $item, $device, $delivery->refresh(), ['reason' => $reason]);
+
+            return;
+        }
+
         if (! $this->circuit->canAttempt()) {
             $delivery->update([
                 'status' => 'deferred_circuit_open',
@@ -455,6 +478,7 @@ class MobilePushService
                 'push.sent' => 'Push enviado.',
                 'push.failed' => 'Push falhou.',
                 'push.deferred' => 'Push adiado.',
+                'push.skipped' => 'Push bloqueado por preferencia do device.',
                 'push.invalid_token' => 'Push invalidou token do device.',
                 default => $event,
             },
@@ -464,6 +488,26 @@ class MobilePushService
                 'delivery_status' => $delivery->status,
                 'provider' => $delivery->provider,
             ], $extra),
+            'privacy' => ['sensitivity' => 'private'],
+        ]);
+    }
+
+    private function recordPushSkipAudit(AiInboxItem $item, AtlasMobileDevice $device, string $reason): void
+    {
+        $this->audit->record('push.skipped', [
+            'subject_type' => 'ai_inbox_item',
+            'subject_id' => $item->id,
+            'actor_type' => 'system',
+            'severity' => 'info',
+            'summary' => 'Push bloqueado por preferencia do device.',
+            'evidence' => [
+                'inbox_item_id' => $item->id,
+                'device_id' => $device->id,
+                'reason' => $reason,
+                'type' => $item->type,
+                'category' => $item->category,
+                'severity' => $item->severity,
+            ],
             'privacy' => ['sensitivity' => 'private'],
         ]);
     }
@@ -491,7 +535,7 @@ class MobilePushService
 
         return [
             'to' => $device->expo_push_token,
-            'title' => 'Atlas',
+            'title' => $this->pushTitle($item),
             'body' => $this->pushBody($item),
             'sound' => 'atlas-bronze.wav',
             'priority' => $item->severity === 'critical' ? 'high' : 'default',
@@ -613,6 +657,16 @@ class MobilePushService
 
     private function pushBody(AiInboxItem $item): string
     {
+        if ($this->isTelemetryHealthInsight($item)) {
+            $score = data_get($item->payload ?? [], 'health.health_score');
+            $status = (string) data_get($item->payload ?? [], 'health.status', $item->severity);
+            $scoreText = is_numeric($score) ? "score {$score}/100." : '.';
+
+            return $status === 'critical'
+                ? 'Saude do Atlas esta critica: '.$scoreText.' Toque para ver causas e proximos passos.'
+                : 'Atlas precisa de atencao: '.$scoreText.' Toque para revisar o diagnostico.';
+        }
+
         return match ($item->type) {
             'insight' => 'Atlas encontrou um insight para revisar.',
             'proposal' => 'Atlas preparou uma proposta para sua revisao.',
@@ -626,5 +680,21 @@ class MobilePushService
             'thread_update' => 'Uma thread do Atlas foi atualizada.',
             default => 'Atlas tem uma atualizacao no Inbox.',
         };
+    }
+
+    private function pushTitle(AiInboxItem $item): string
+    {
+        if ($this->isTelemetryHealthInsight($item)) {
+            return 'Atlas precisa de revisao';
+        }
+
+        return 'Atlas';
+    }
+
+    private function isTelemetryHealthInsight(AiInboxItem $item): bool
+    {
+        return $item->type === 'insight'
+            && (data_get($item->payload ?? [], 'insight_kind') === 'atlas_ai_telemetry_health'
+                || str_contains((string) $item->dedupe_key, 'atlas-ai-telemetry-health'));
     }
 }
