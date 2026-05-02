@@ -30,6 +30,7 @@ class InboxActionRegistry
         private readonly AuditLogService $audit,
         private readonly ProposalInboxEmitter $proposals,
         private readonly RecommendationLifecycleService $recommendations,
+        private readonly DiscussionBootstrapper $discussionBootstrapper,
     ) {
     }
 
@@ -191,7 +192,7 @@ class InboxActionRegistry
     }
 
     /**
-     * @return array{item:AiInboxItem,thread_id:string,deep_link:string}
+     * @return array{item:AiInboxItem,thread_id:string,deep_link:string,focus:string,bootstrap:array<string,mixed>}
      */
     private function discuss(AiInboxItem $item): array
     {
@@ -201,13 +202,18 @@ class InboxActionRegistry
 
         $payload = $item->payload ?? [];
         $existingThreadId = $payload['discussion_thread_id'] ?? null;
-        if (is_string($existingThreadId) && AiThread::query()->whereKey($existingThreadId)->exists()) {
+        $existingThread = is_string($existingThreadId) ? AiThread::query()->find($existingThreadId) : null;
+        if ($existingThread) {
             $this->inbox->markRead($item);
+            $focus = $this->atlasFocusForInboxItem($item);
+            $bootstrap = $this->discussionBootstrapper->bootstrap($item->refresh(), $existingThread, $focus);
 
             return [
                 'item' => $item->refresh(),
                 'thread_id' => $existingThreadId,
                 'deep_link' => "atlas://thread/{$existingThreadId}",
+                'focus' => $focus,
+                'bootstrap' => $bootstrap,
             ];
         }
 
@@ -233,6 +239,7 @@ class InboxActionRegistry
                     'capability_profile' => 'mobile_operational_read',
                     'permission_policy' => 'read_only_until_approval',
                     'execution_policy' => 'no_code_execution',
+                    'discussion_entrypoint' => 'atlas_ai_sheet',
                 ],
             ]);
 
@@ -270,10 +277,14 @@ class InboxActionRegistry
                 'read_at' => $item->read_at ?? now(),
             ]);
 
+            $bootstrap = $this->discussionBootstrapper->bootstrap($item->refresh(), $thread, $focus);
+
             return [
                 'item' => $item->refresh(),
                 'thread_id' => $thread->id,
                 'deep_link' => "atlas://thread/{$thread->id}",
+                'focus' => $focus,
+                'bootstrap' => $bootstrap,
             ];
         });
     }

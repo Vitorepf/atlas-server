@@ -41,7 +41,7 @@ class AtlasMemoryProjectionCommand extends Command
 
         $payload = match ($action) {
             'audit-summary' => $audits->summary($this->auditFilters(), $this->integerOption('audit-days', 30, 1, 365)),
-            'audit-purge' => $audits->purge($this->auditFilters(), $this->integerOption('retention-days', 90, 1, 3650), ! (bool) $this->option('yes')),
+            'audit-purge' => $this->auditPurge($audits),
             'status' => $projection->status((string) $this->option('target'), $this->projectionContext(), $this->optionsPayload()),
             'review' => $projection->review((string) $this->option('target'), $this->projectionContext(), $this->optionsPayload()),
             'apply' => $this->applyReviewed($projection, $audits),
@@ -84,6 +84,22 @@ class AtlasMemoryProjectionCommand extends Command
             'adopt' => $projection->adopt($target, $this->projectionContext(), $this->optionsPayload()),
             default => $projection->generate($target, $this->projectionContext(), $this->optionsPayload()),
         };
+    }
+
+    private function auditPurge(AtlasProviderProjectionAuditService $audits): array
+    {
+        $filters = $this->auditFilters();
+        $retentionDays = $this->integerOption('retention-days', 90, 1, 3650);
+        if (! (bool) $this->option('yes')) {
+            return $audits->purge($filters, $retentionDays, true);
+        }
+
+        $dryRun = $audits->purge($filters, $retentionDays, true);
+
+        return $audits->purge([
+            ...$filters,
+            'confirmation_fingerprint' => $dryRun['confirmation_fingerprint'] ?? null,
+        ], $retentionDays, false);
     }
 
     private function renderHuman(string $action, array $payload): int

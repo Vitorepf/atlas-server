@@ -74,11 +74,36 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertTrue($result->ok, $result->errorMessage ?? '');
         $this->assertContains('--sandbox', $result->command);
         $this->assertSame('danger-full-access', $result->command[array_search('--sandbox', $result->command, true) + 1]);
-        $this->assertContains('--ask-for-approval', $result->command);
-        $this->assertSame('never', $result->command[array_search('--ask-for-approval', $result->command, true) + 1]);
+        $this->assertContains('--dangerously-bypass-approvals-and-sandbox', $result->command);
+        $this->assertNotContains('--ask-for-approval', $result->command);
         $this->assertContains('--add-dir', $result->command);
         $this->assertContains($this->operatorRoot, $result->command);
         $this->assertContains($this->workspace, $result->command);
+    }
+
+    public function test_codex_provider_ignores_stale_approval_args_from_config(): void
+    {
+        $binary = $this->fakeCodexBinary();
+
+        config([
+            'atlas.ai.providers.codex_cli.binary' => $binary,
+            'atlas.ai.providers.codex_cli.args' => [
+                'exec',
+                '--skip-git-repo-check',
+                '--ask-for-approval',
+                'never',
+                '--ask-for-approval=never',
+                '--full-auto',
+            ],
+        ]);
+
+        $result = app(CodexCliProvider::class)->runStreaming($this->job(), 'teste');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertNotContains('--ask-for-approval', $result->command);
+        $this->assertNotContains('--ask-for-approval=never', $result->command);
+        $this->assertNotContains('--full-auto', $result->command);
+        $this->assertContains('--dangerously-bypass-approvals-and-sandbox', $result->command);
     }
 
     public function test_codex_provider_forwards_image_attachments_to_cli(): void
@@ -149,9 +174,10 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertTrue($result->ok, $result->errorMessage ?? '');
         $this->assertContains('--model', $result->command);
         $this->assertSame('gemini-3.1-pro-preview', $result->command[array_search('--model', $result->command, true) + 1]);
-        $this->assertContains('--approval-mode', $result->command);
-        $this->assertSame('yolo', $result->command[array_search('--approval-mode', $result->command, true) + 1]);
-        $this->assertContains('--yolo', $result->command);
+        $this->assertContains('--approval-mode=yolo', $result->command);
+        $this->assertContains('--skip-trust', $result->command);
+        $this->assertNotContains('--approval-mode', $result->command);
+        $this->assertNotContains('--yolo', $result->command);
         $this->assertNotContains('--sandbox', $result->command);
         $this->assertNotContains('--admin-policy', $result->command);
         $this->assertNotContains('prompt secreto', $result->command);
@@ -247,6 +273,30 @@ SH);
         $this->assertSame([], $result->metadata['observed_models']);
     }
 
+    public function test_gemini_provider_ignores_user_role_events_in_stream_json_output(): void
+    {
+        $binary = $this->fakeExecutable('gemini', <<<'SH'
+#!/usr/bin/env bash
+cat >/dev/null
+printf '{"type":"message","role":"user","content":"prompt secreto"}\n'
+printf '{"type":"message","role":"assistant","content":"resposta limpa","delta":true}\n'
+printf '{"type":"result","status":"success","stats":{"models":["gemini-3.1-pro-preview"]}}\n'
+SH);
+        $policy = $this->fakeGeminiPolicy();
+
+        config([
+            'atlas.ai.providers.gemini_cli.binary' => $binary,
+            'atlas.ai.providers.gemini_cli.args' => [],
+            'atlas.ai.providers.gemini_cli.admin_policy' => $policy,
+        ]);
+
+        $result = app(GeminiCliProvider::class)->runStreaming($this->job(), 'prompt secreto');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertSame('resposta limpa', $result->output);
+        $this->assertStringNotContainsString('prompt secreto', $result->output);
+    }
+
     public function test_gemini_provider_classifies_admin_policy_denial_for_claude_fallback(): void
     {
         $binary = $this->fakeExecutable('gemini', <<<'SH'
@@ -273,6 +323,34 @@ SH);
 
         $this->assertFalse($result->ok);
         $this->assertSame('policy_violation', $result->errorCode);
+    }
+
+    public function test_gemini_provider_aborts_interactive_auth_prompt_for_claude_fallback(): void
+    {
+        $binary = $this->fakeExecutable('gemini', <<<'SH'
+#!/usr/bin/env bash
+printf 'Opening authentication page in your browser. Do you want to continue? [Y/n]: '
+sleep 10
+SH);
+        $policy = $this->fakeGeminiPolicy();
+
+        config([
+            'atlas.ai.providers.gemini_cli.binary' => $binary,
+            'atlas.ai.providers.gemini_cli.args' => [],
+            'atlas.ai.providers.gemini_cli.admin_policy' => $policy,
+        ]);
+
+        $result = app(GeminiCliProvider::class)->runStreaming($this->job([
+            'tool_permissions' => [
+                'mode' => 'read',
+                'workspace' => $this->workspace,
+                'allowed_roots' => [$this->workspace],
+            ],
+        ]), 'teste');
+
+        $this->assertFalse($result->ok);
+        $this->assertSame('auth_expired', $result->errorCode);
+        $this->assertLessThan(5000, $result->durationMs);
     }
 
     public function test_gemini_provider_exposes_attachment_paths_for_read_file_without_putting_prompt_in_command(): void
@@ -365,14 +443,16 @@ SH);
         $this->assertTrue($result->ok, $result->errorMessage ?? '');
         $this->assertSame('gemini-3.1-pro-preview', $result->command[array_search('--model', $result->command, true) + 1]);
         $this->assertSame('', $result->command[array_search('--prompt', $result->command, true) + 1]);
-        $this->assertSame('yolo', $result->command[array_search('--approval-mode', $result->command, true) + 1]);
+        $this->assertContains('--approval-mode=yolo', $result->command);
+        $this->assertContains('--skip-trust', $result->command);
+        $this->assertNotContains('--approval-mode', $result->command);
         $this->assertNotContains('--admin-policy', $result->command);
         $this->assertNotContains('gemini-2.5-pro', $result->command);
         $this->assertNotContains('inline prompt', $result->command);
         $this->assertNotContains('/tmp/other-policy.toml', $result->command);
         $this->assertNotContains('--include-directories', $result->command);
         $this->assertNotContains('--no-sandbox', $result->command);
-        $this->assertContains('--yolo', $result->command);
+        $this->assertNotContains('--yolo', $result->command);
     }
 
     private function job(array $payload = []): AiJob

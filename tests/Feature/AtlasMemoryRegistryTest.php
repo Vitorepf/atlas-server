@@ -26,6 +26,7 @@ use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\AtlasMemoryGovernanceService;
 use App\Services\Ai\AtlasMemoryUsageService;
+use App\Services\Ai\AtlasProviderProjectionAuditPurgePolicy;
 use App\Services\Ai\AtlasVerbatimMemoryService;
 use App\Services\Ai\AtlasProviderProjectionService;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
@@ -1817,16 +1818,19 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame(0, data_get($cliDryRun, 'deleted'));
         $this->assertSame(3, AtlasMemoryProviderProjectionAudit::query()->where('workspace', $workspace)->count());
 
-        $this->postJson('/ai/memory/provider-projection/audits/purge', [
+        $dryRunResponse = $this->postJson('/ai/memory/provider-projection/audits/purge', [
             'workspace' => $workspace,
             'target' => 'all',
             'older_than_days' => 90,
             'dry_run' => true,
-        ], $this->headers)
+        ], $this->headers);
+        $dryRunResponse
             ->assertOk()
             ->assertJsonPath('provider_projection_audit_purge.dry_run', true)
             ->assertJsonPath('provider_projection_audit_purge.matched', 1)
-            ->assertJsonPath('provider_projection_audit_purge.deleted', 0);
+            ->assertJsonPath('provider_projection_audit_purge.deleted', 0)
+            ->assertJsonStructure(['provider_projection_audit_purge' => ['confirmation_fingerprint']]);
+        $fingerprint = $dryRunResponse->json('provider_projection_audit_purge.confirmation_fingerprint');
 
         $this->postJson('/ai/memory/provider-projection/audits/purge', [
             'workspace' => $workspace,
@@ -1844,13 +1848,71 @@ class AtlasMemoryRegistryTest extends TestCase
             'dry_run' => false,
             'confirm' => true,
         ], $this->headers)
+            ->assertStatus(409)
+            ->assertJsonPath('provider_projection_audit_purge.ok', false)
+            ->assertJsonPath('provider_projection_audit_purge.status', 'confirmation_fingerprint_mismatch')
+            ->assertJsonPath('provider_projection_audit_purge.deleted', 0);
+
+        config()->set('atlas.ai.provider_projection_audit_purge.require_operator', true);
+        config()->set('atlas.ai.provider_projection_audit_purge.operator_header', 'X-Atlas-Operator');
+        config()->set('atlas.ai.provider_projection_audit_purge.operator_token', null);
+
+        $this->postJson('/ai/memory/provider-projection/audits/purge', [
+            'workspace' => $workspace,
+            'target' => 'all',
+            'older_than_days' => 90,
+            'dry_run' => true,
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('provider_projection_audit_purge.policy.requires_operator', false);
+
+        $this->postJson('/ai/memory/provider-projection/audits/purge', [
+            'workspace' => $workspace,
+            'target' => 'all',
+            'older_than_days' => 90,
+            'dry_run' => false,
+            'confirm' => true,
+            'confirmation_fingerprint' => $fingerprint,
+        ], $this->headers)
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'OPERATOR_PERMISSION_REQUIRED')
+            ->assertJsonPath('provider_projection_audit_purge.status', 'operator_permission_required')
+            ->assertJsonPath('provider_projection_audit_purge.deleted', 0)
+            ->assertJsonPath('provider_projection_audit_purge.policy.requires_operator', true)
+            ->assertJsonPath('provider_projection_audit_purge.policy.authorized', false);
+
+        $this->postJson('/ai/memory/provider-projection/audits/purge', [
+            'workspace' => $workspace,
+            'target' => 'all',
+            'older_than_days' => 90,
+            'dry_run' => false,
+            'confirm' => true,
+            'confirmation_fingerprint' => $fingerprint,
+        ], $this->headers + ['X-Atlas-Operator' => 'owner'])
             ->assertOk()
             ->assertJsonPath('provider_projection_audit_purge.dry_run', false)
             ->assertJsonPath('provider_projection_audit_purge.matched', 1)
-            ->assertJsonPath('provider_projection_audit_purge.deleted', 1);
+            ->assertJsonPath('provider_projection_audit_purge.deleted', 1)
+            ->assertJsonPath('provider_projection_audit_purge.policy.authorized', true);
 
         $this->assertSame(2, AtlasMemoryProviderProjectionAudit::query()->where('workspace', $workspace)->count());
         $this->assertTrue(AtlasMemoryProviderProjectionAudit::query()->whereKey($recentApi->id)->exists());
+    }
+
+    public function test_provider_projection_audit_purge_policy_requires_operator_token_when_configured(): void
+    {
+        config()->set('atlas.ai.provider_projection_audit_purge.require_operator', true);
+        config()->set('atlas.ai.provider_projection_audit_purge.operator_header', 'X-Atlas-Operator');
+        config()->set('atlas.ai.provider_projection_audit_purge.operator_token', 'secret-operator-token');
+
+        $policy = app(AtlasProviderProjectionAuditPurgePolicy::class);
+
+        $this->assertSame('X-Atlas-Operator', $policy->headerName());
+        $this->assertFalse(data_get($policy->evaluate(false, 'wrong-token'), 'authorized'));
+        $this->assertSame('operator_token', data_get($policy->evaluate(false, 'wrong-token'), 'mode'));
+        $this->assertTrue(data_get($policy->evaluate(false, 'secret-operator-token'), 'authorized'));
+        $this->assertTrue(data_get($policy->evaluate(true, null), 'authorized'));
+        $this->assertFalse(data_get($policy->evaluate(true, null), 'requires_operator'));
     }
 
     private function contextPackForTask(AtlasProject $project, AtlasTask $task, array $options = [])

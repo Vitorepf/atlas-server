@@ -82,6 +82,7 @@ class AiPromptBuilder
             $attachmentSearchSection,
             $contextPack->toPromptSection(),
             $executionPlan->toPromptSection(),
+            $this->atlasModeInstructions($options),
             $this->permissionInstructions($options),
             $this->workflowInstructions($options),
             $this->attachmentInstructions($options, $input),
@@ -375,6 +376,86 @@ Sua função é produzir a versão final que o Atlas deveria entregar ao operado
 TXT,
             default => '',
         };
+    }
+
+    private function atlasModeInstructions(array $options): string
+    {
+        $contract = data_get($options, 'payload.atlas_mode_contract');
+        if (! is_array($contract) || $contract === []) {
+            return '';
+        }
+
+        $mode = (string) data_get($contract, 'mode', data_get($options, 'payload.atlas_mode', 'general'));
+        $objective = (string) data_get($contract, 'objective', 'responder com clareza e continuidade');
+        $expected = $this->stringList(data_get($contract, 'expected_output', []));
+        $quality = data_get($options, 'payload.quality_policy');
+        $qualityRules = is_array($quality) && $quality !== []
+            ? $this->keyValueLines($quality)
+            : '- sem regras adicionais';
+
+        $modeRules = match ($mode) {
+            'programming' => <<<'TXT'
+- Trate esta conversa como trabalho de engenharia: plano, escopo, execução, validação e riscos.
+- Se houver ferramenta/harness disponivel, use-o para leitura, comandos, scripts e testes conforme permissões.
+- Se nao executar algo, explique o bloqueio operacional e deixe o proximo passo concreto.
+TXT,
+            'operational' => <<<'TXT'
+- Trate esta conversa como operacao: explique o que aconteceu, por que importa, evidencias, risco e proxima decisao.
+- Use metricas, traces, context bundles e historico antes de recomendar mudanca.
+- Se o item exigir codigo, promova para programacao com briefing claro em vez de misturar diagnostico e patch sem controle.
+TXT,
+            default => <<<'TXT'
+- Trate esta conversa como geral: nao herde contexto operacional ou de codigo por acidente.
+- Responda com simplicidade, peça lacunas essenciais e sugira proximo passo apenas quando ajudar.
+TXT,
+        };
+
+        $expectedText = $expected === '' ? '- resposta clara' : $expected;
+
+        return <<<TXT
+# Modo Atlas AI
+
+Modo: {$mode}
+Objetivo: {$objective}
+
+Contrato esperado:
+{$expectedText}
+
+Politica de qualidade:
+{$qualityRules}
+
+Regras do modo:
+{$modeRules}
+TXT;
+    }
+
+    private function stringList(mixed $values): string
+    {
+        if (! is_array($values)) {
+            return '';
+        }
+
+        return collect($values)
+            ->filter(fn (mixed $value): bool => is_scalar($value) && trim((string) $value) !== '')
+            ->map(fn (mixed $value): string => '- '.trim((string) $value))
+            ->implode("\n");
+    }
+
+    private function keyValueLines(array $values): string
+    {
+        return collect($values)
+            ->map(function (mixed $value, string|int $key): string {
+                if (is_bool($value)) {
+                    $value = $value ? 'true' : 'false';
+                } elseif (is_array($value)) {
+                    $value = implode(', ', array_map(fn (mixed $item): string => (string) $item, $value));
+                } elseif (! is_scalar($value)) {
+                    $value = 'n/a';
+                }
+
+                return '- '.$key.': '.trim((string) $value);
+            })
+            ->implode("\n");
     }
 
     private function attachmentInstructions(array $options, string $input): string

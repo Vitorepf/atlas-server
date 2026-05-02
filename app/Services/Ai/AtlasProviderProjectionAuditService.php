@@ -115,6 +115,19 @@ class AtlasProviderProjectionAuditService
 
         if (! Schema::hasTable('atlas_memory_provider_projection_audits')) {
             $confirmationFingerprint = $this->purgeConfirmationFingerprint($filters, $olderThanDays, 0);
+            if (! $dryRun && ! hash_equals($confirmationFingerprint, (string) ($filters['confirmation_fingerprint'] ?? ''))) {
+                return [
+                    'ok' => false,
+                    'status' => 'confirmation_fingerprint_mismatch',
+                    'dry_run' => false,
+                    'older_than_days' => $olderThanDays,
+                    'cutoff_at' => $cutoff->toJSON(),
+                    'matched' => 0,
+                    'deleted' => 0,
+                    'confirmation_fingerprint' => $confirmationFingerprint,
+                    'filters' => $this->auditFilters($filters),
+                ];
+            }
 
             return [
                 'ok' => true,

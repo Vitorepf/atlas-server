@@ -542,7 +542,11 @@ class MobilePushService
             'badge' => $unreadCount,
             'data' => [
                 'inbox_id' => $item->id,
-                'deep_link' => $item->deep_link,
+                'thread_id' => $this->string(data_get($item->payload ?? [], 'discussion_thread_id')),
+                'deep_link' => $this->pushDeepLinkForItem($item),
+                'open_action' => $this->shouldOpenAtlasFromPush($item) ? 'discuss' : null,
+                'atlas_mode' => $this->shouldOpenAtlasFromPush($item) ? 'operational' : null,
+                'target' => $this->shouldOpenAtlasFromPush($item) ? 'atlas_ai' : 'inbox',
                 'type' => $item->type,
                 'severity' => $item->severity,
                 'unread_count' => $unreadCount,
@@ -691,10 +695,54 @@ class MobilePushService
         return 'Atlas';
     }
 
+    private function pushDeepLinkForItem(AiInboxItem $item): string
+    {
+        if ($this->shouldOpenAtlasFromPush($item)) {
+            return "atlas://inbox/{$item->id}/discuss";
+        }
+
+        return $item->deep_link ?: "atlas://inbox/{$item->id}";
+    }
+
+    private function shouldOpenAtlasFromPush(AiInboxItem $item): bool
+    {
+        $requestedTarget = data_get($item->push_policy ?? [], 'target');
+        if ($requestedTarget === 'inbox') {
+            return false;
+        }
+
+        if (! $this->hasAction($item, 'discuss')) {
+            return false;
+        }
+
+        if ($requestedTarget === 'atlas_ai') {
+            return true;
+        }
+
+        return $this->isTelemetryHealthInsight($item)
+            || $this->severityRank($item->severity) >= $this->severityRank('warning');
+    }
+
     private function isTelemetryHealthInsight(AiInboxItem $item): bool
     {
         return $item->type === 'insight'
             && (data_get($item->payload ?? [], 'insight_kind') === 'atlas_ai_telemetry_health'
                 || str_contains((string) $item->dedupe_key, 'atlas-ai-telemetry-health'));
+    }
+
+    private function hasAction(AiInboxItem $item, string $actionId): bool
+    {
+        foreach ($item->available_actions ?? [] as $action) {
+            if (data_get($action, 'id') === $actionId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function string(mixed $value): ?string
+    {
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 }

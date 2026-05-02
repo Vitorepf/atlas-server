@@ -24,6 +24,7 @@ use App\Services\Ai\Mobile\ExpoCircuitBreaker;
 use App\Services\Ai\Mobile\InsightInboxEmitter;
 use App\Services\Ai\Mobile\InsightWatcherService;
 use App\Services\Ai\Mobile\InboxActionRegistry;
+use App\Services\Ai\Mobile\DiscussionBootstrapper;
 use App\Services\Ai\Mobile\JobResultInboxEmitter;
 use App\Services\Ai\Mobile\MobilePairingService;
 use App\Services\Ai\Mobile\MobilePushService;
@@ -712,6 +713,42 @@ class MobileGatewayTest extends TestCase
             ->assertJsonPath('mobile_context.refs_count.metrics', 1)
             ->assertJsonPath('mobile_context.refs_count.files', 1)
             ->assertJsonPath('mobile_context.refs_count.total', 4);
+    }
+
+    public function test_discuss_invokes_bootstrapper_and_returns_bootstrap_contract(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $traceId = (string) Str::uuid();
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'category' => 'telemetry_health',
+            'title' => 'Atlas precisa discutir automaticamente',
+            'summary' => 'Nao deve exigir reenvio manual de contexto.',
+        ]);
+
+        $this->mock(DiscussionBootstrapper::class, function (MockInterface $mock) use ($item, $traceId): void {
+            $mock
+                ->shouldReceive('bootstrap')
+                ->once()
+                ->with(
+                    \Mockery::on(fn (AiInboxItem $argument): bool => $argument->id === $item->id),
+                    \Mockery::on(fn (AiThread $thread): bool => $thread->source_id === $item->id),
+                    'operational',
+                )
+                ->andReturn([
+                    'status' => 'queued',
+                    'trace_id' => $traceId,
+                    'context_bundle_id' => null,
+                ]);
+        });
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/discuss')
+            ->assertOk()
+            ->assertJsonPath('result.focus', 'operational')
+            ->assertJsonPath('result.bootstrap.status', 'queued')
+            ->assertJsonPath('result.bootstrap.trace_id', $traceId);
     }
 
     public function test_mobile_thread_reply_forces_safe_read_runtime_policy(): void

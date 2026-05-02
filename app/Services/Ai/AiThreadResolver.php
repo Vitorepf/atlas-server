@@ -33,7 +33,7 @@ class AiThreadResolver
                 $thread->update(['status' => 'active']);
             }
 
-            return new AiThreadResolution($thread->refresh(), 'explicit_thread_id', false);
+            return new AiThreadResolution($this->updateThreadModeFromPayload($thread->refresh(), $payload), 'explicit_thread_id', false);
         }
 
         $explicitSessionId = $this->firstString(
@@ -51,7 +51,7 @@ class AiThreadResolver
                 $session->thread->update(['status' => 'active']);
             }
 
-            return new AiThreadResolution($session->thread->refresh(), 'explicit_session_id', false);
+            return new AiThreadResolution($this->updateThreadModeFromPayload($session->thread->refresh(), $payload), 'explicit_session_id', false);
         }
 
         if ($this->allowsImplicitContinuation($options, $payload)) {
@@ -110,10 +110,83 @@ class AiThreadResolver
                 'requested_provider' => data_get($payload, 'requested_provider') ?: ($options['provider'] ?? null),
                 'app_surface' => data_get($payload, 'app_surface'),
                 'atlas_focus' => data_get($payload, 'atlas_focus'),
+                'initial_focus' => data_get($payload, 'atlas_focus'),
+                'current_focus' => data_get($payload, 'atlas_focus'),
+                'atlas_mode' => data_get($payload, 'atlas_mode'),
+                'current_mode' => data_get($payload, 'atlas_mode'),
                 'routing_task' => data_get($payload, 'routing_task'),
                 'routing_domain' => data_get($payload, 'routing_domain'),
             ],
         ]);
+    }
+
+    private function updateThreadModeFromPayload(AiThread $thread, array $payload): AiThread
+    {
+        $focus = $this->firstString(data_get($payload, 'atlas_focus'));
+        $mode = $this->firstString(data_get($payload, 'atlas_mode'));
+        $routingTask = $this->firstString(data_get($payload, 'routing_task'));
+        $routingDomain = $this->firstString(data_get($payload, 'routing_domain'));
+        $requestedProvider = $this->firstString(data_get($payload, 'requested_provider'));
+
+        if (! $focus && ! $mode && ! $routingTask && ! $routingDomain && ! $requestedProvider) {
+            return $thread;
+        }
+
+        $metadata = $thread->metadata ?? [];
+        $previousFocus = $this->firstString($metadata['atlas_focus'] ?? null);
+        $previousMode = $this->firstString($metadata['atlas_mode'] ?? null);
+        $changed = false;
+
+        if ($focus && $focus !== $previousFocus) {
+            $history = is_array($metadata['focus_history'] ?? null) ? $metadata['focus_history'] : [];
+            $history[] = [
+                'from' => $previousFocus,
+                'to' => $focus,
+                'at' => now()->toJSON(),
+                'source' => 'ai_thread_resolver',
+            ];
+
+            $metadata['initial_focus'] = $metadata['initial_focus'] ?? ($previousFocus ?: $focus);
+            $metadata['atlas_focus'] = $focus;
+            $metadata['current_focus'] = $focus;
+            $metadata['focus_history'] = array_slice($history, -20);
+            $changed = true;
+        }
+
+        if ($mode && $mode !== $previousMode) {
+            $history = is_array($metadata['mode_history'] ?? null) ? $metadata['mode_history'] : [];
+            $history[] = [
+                'from' => $previousMode,
+                'to' => $mode,
+                'at' => now()->toJSON(),
+                'source' => 'ai_thread_resolver',
+            ];
+
+            $metadata['initial_mode'] = $metadata['initial_mode'] ?? ($previousMode ?: $mode);
+            $metadata['atlas_mode'] = $mode;
+            $metadata['current_mode'] = $mode;
+            $metadata['mode_history'] = array_slice($history, -20);
+            $changed = true;
+        }
+
+        foreach ([
+            'routing_task' => $routingTask,
+            'routing_domain' => $routingDomain,
+            'requested_provider' => $requestedProvider,
+        ] as $key => $value) {
+            if ($value && ($metadata[$key] ?? null) !== $value) {
+                $metadata[$key] = $value;
+                $changed = true;
+            }
+        }
+
+        if (! $changed) {
+            return $thread;
+        }
+
+        $thread->update(['metadata' => $metadata]);
+
+        return $thread->refresh();
     }
 
     private function titleFromInput(string $input): string

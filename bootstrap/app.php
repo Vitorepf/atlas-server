@@ -47,6 +47,7 @@ use App\Console\Commands\AtlasEngineeringBenchmarkCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkSeedCommand;
 use App\Console\Commands\AtlasEngineeringDockerCleanupCommand;
 use App\Console\Commands\AtlasEngineeringHarnessabilityCalibrateCommand;
+use App\Console\Commands\AtlasEngineeringKnowledgeCommand;
 use App\Console\Commands\AtlasEngineeringQualityScanCommand;
 use App\Console\Commands\AtlasEngineeringReplayCommand;
 use App\Console\Commands\AtlasEngineeringRunCommand;
@@ -138,6 +139,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringBenchmarkSeedCommand::class,
         AtlasEngineeringDockerCleanupCommand::class,
         AtlasEngineeringHarnessabilityCalibrateCommand::class,
+        AtlasEngineeringKnowledgeCommand::class,
         AtlasEngineeringQualityScanCommand::class,
         AtlasEngineeringReplayCommand::class,
         AtlasEngineeringRunCommand::class,

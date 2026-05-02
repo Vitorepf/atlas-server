@@ -307,6 +307,18 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'Calibra thresholds de autonomia do Harness a partir de runs historicos, divida de qualidade e outcomes reais.',
                 ],
                 [
+                    'command' => 'atlas engineering knowledge sync --prune',
+                    'description' => 'Sincroniza os docs canonicos de engenharia para o registry Postgres usado pelo context pack, manutencao e revisao do Atlas.',
+                ],
+                [
+                    'command' => 'atlas engineering knowledge index-code --prune',
+                    'description' => 'Indexa modulos reais, simbolos, rotas, comandos, migrations, testes e links docs->codigo para a IA entender o Harness pelo codigo atual.',
+                ],
+                [
+                    'command' => 'atlas engineering knowledge modules --docs-status=undocumented',
+                    'description' => 'Mostra lacunas de documentacao tecnica por modulo de codigo para orientar manutencao e revisao do Atlas.',
+                ],
+                [
                     'command' => 'atlas engineering quality-scan --profile=standard --changed-only',
                     'description' => 'Roda scan profissional de qualidade/seguranca com ferramentas gratuitas ou locais detectadas, artifacts e findings normalizados.',
                 ],

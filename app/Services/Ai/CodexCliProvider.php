@@ -29,7 +29,7 @@ class CodexCliProvider implements AiProvider
     {
         $provider = $this->runtimeSettings->providerConfig('codex_cli');
         $binary = (string) ($provider['binary'] ?? 'codex');
-        $args = (array) ($provider['args'] ?? ['exec']);
+        $args = $this->sanitizeConfiguredArgs((array) ($provider['args'] ?? ['exec']));
         $tmp = storage_path('app/ai/codex-last-'.bin2hex(random_bytes(6)).'.txt');
         File::ensureDirectoryExists(dirname($tmp));
 
@@ -128,10 +128,65 @@ class CodexCliProvider implements AiProvider
         }
 
         if ($mode === 'danger') {
-            $args = $this->withArgValue($args, '--ask-for-approval', 'never');
+            if (! in_array('--dangerously-bypass-approvals-and-sandbox', $args, true)) {
+                $args[] = '--dangerously-bypass-approvals-and-sandbox';
+            }
         }
 
         return $args;
+    }
+
+    /**
+     * @param  array<int,mixed>  $args
+     * @return array<int,mixed>
+     */
+    private function sanitizeConfiguredArgs(array $args): array
+    {
+        $valueArgs = [
+            '--ask-for-approval',
+            '--approval-mode',
+        ];
+        $standaloneArgs = [
+            '--full-auto',
+            '--dangerously-bypass-approvals-and-sandbox',
+        ];
+        $sanitized = [];
+        $skipNext = false;
+
+        foreach (array_values($args) as $arg) {
+            if ($skipNext) {
+                $skipNext = false;
+                continue;
+            }
+
+            if (! is_string($arg) && ! is_numeric($arg)) {
+                continue;
+            }
+
+            $arg = trim((string) $arg);
+            if ($arg === '') {
+                continue;
+            }
+
+            if (in_array($arg, $valueArgs, true)) {
+                $skipNext = true;
+                continue;
+            }
+
+            if (in_array($arg, $standaloneArgs, true)) {
+                continue;
+            }
+
+            $blockedWithValue = collect($valueArgs)
+                ->contains(fn (string $name): bool => str_starts_with($arg, $name.'='));
+            if ($blockedWithValue) {
+                continue;
+            }
+
+            $sanitized[] = $arg;
+        }
+
+        return $sanitized;
     }
 
     /**

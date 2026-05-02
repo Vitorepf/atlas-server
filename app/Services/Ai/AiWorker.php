@@ -281,9 +281,18 @@ class AiWorker
 
     private function createAttempt(AiJob $job, string $workerId, string $providerKey): AiJobAttempt
     {
+        $lastAttemptNumber = (int) AiJobAttempt::query()
+            ->where('ai_job_id', $job->id)
+            ->max('attempt_number');
+        $attemptNumber = max((int) $job->attempts, $lastAttemptNumber + 1);
+
+        if ($attemptNumber !== (int) $job->attempts) {
+            $job->forceFill(['attempts' => $attemptNumber])->save();
+        }
+
         return AiJobAttempt::query()->create([
             'ai_job_id' => $job->id,
-            'attempt_number' => $job->attempts,
+            'attempt_number' => $attemptNumber,
             'worker_id' => $workerId,
             'provider' => $providerKey,
             'model' => $job->model,
@@ -1015,7 +1024,7 @@ class AiWorker
             return false;
         }
 
-        if (! in_array($result->errorCode, ['rate_limited', 'policy_violation'], true)) {
+        if (! in_array($result->errorCode, ['rate_limited', 'auth_expired', 'policy_violation'], true)) {
             return false;
         }
 

@@ -35,11 +35,8 @@ class GeminiCliProvider implements AiProvider
         $args = $this->withArgValue($args, '--model', self::REQUIRED_MODEL);
         $args = $this->withArgValue($args, '--prompt', '');
         $args = $this->withArgValue($args, '--output-format', 'stream-json');
-        $args = $this->withArgValue($args, '--approval-mode', 'yolo');
-
-        if (! in_array('--yolo', $args, true)) {
-            $args[] = '--yolo';
-        }
+        $args[] = '--approval-mode=yolo';
+        $args[] = '--skip-trust';
 
         $attachmentWorkspace = null;
         $attachments = $this->attachmentAccessPaths($job);
@@ -89,7 +86,7 @@ class GeminiCliProvider implements AiProvider
     protected function extractOutput(string $stdout): string
     {
         $decoded = json_decode(trim($stdout), true);
-        if (is_array($decoded)) {
+        if (is_array($decoded) && $this->payloadHasAssistantText($decoded)) {
             $text = $this->textFromPayload($decoded);
             if ($text !== '') {
                 return $text;
@@ -107,6 +104,10 @@ class GeminiCliProvider implements AiProvider
 
             $event = json_decode($line, true);
             if (! is_array($event)) {
+                continue;
+            }
+
+            if (! $this->payloadHasAssistantText($event)) {
                 continue;
             }
 
@@ -143,6 +144,10 @@ class GeminiCliProvider implements AiProvider
                 continue;
             }
 
+            if (! $this->payloadHasAssistantText($decoded)) {
+                continue;
+            }
+
             $text = $this->textFromPayload($decoded);
             if ($text === '') {
                 continue;
@@ -168,17 +173,20 @@ class GeminiCliProvider implements AiProvider
      */
     protected function cliProcessEnv(): array
     {
+        $extra = [
+            'TERM' => (string) ($_SERVER['TERM'] ?? getenv('TERM') ?: 'xterm-256color'),
+        ];
         $home = config('atlas.ai.providers.gemini_cli.home');
         if (! is_string($home) || trim($home) === '') {
-            return AtlasSecurity::processEnv(profile: 'provider');
+            return AtlasSecurity::processEnv($extra, 'provider');
         }
 
         $home = trim($home);
         File::ensureDirectoryExists($home);
 
-        return AtlasSecurity::processEnv([
+        return AtlasSecurity::processEnv(array_merge($extra, [
             'GEMINI_CLI_HOME' => $home,
-        ], 'provider');
+        ]), 'provider');
     }
 
     private function withModelPolicyValidation(AiProviderResult $result): AiProviderResult
@@ -314,6 +322,16 @@ class GeminiCliProvider implements AiProvider
         return '';
     }
 
+    private function payloadHasAssistantText(array $payload): bool
+    {
+        $role = $payload['role'] ?? data_get($payload, 'message.role') ?? data_get($payload, 'content.role');
+        if (is_string($role) && ! in_array(strtolower($role), ['assistant', 'model'], true)) {
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * @param  array<int,mixed>  $args
      * @return array<int,string>
@@ -335,6 +353,9 @@ class GeminiCliProvider implements AiProvider
         $standaloneArgs = [
             '--sandbox',
             '--no-sandbox',
+            '--skip-trust',
+            '--yolo',
+            '-y',
             '--all-files',
             '--skip-permissions',
             '--dangerously-skip-permissions',

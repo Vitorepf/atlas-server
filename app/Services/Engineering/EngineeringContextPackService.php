@@ -12,10 +12,18 @@ use Illuminate\Support\Facades\Schema;
 
 class EngineeringContextPackService
 {
+    private EngineeringKnowledgeBaseService $knowledgeBase;
+    private EngineeringCodeIntelligenceService $codeIntelligence;
+
     public function __construct(
         private readonly WorkspaceProfiler $profiler,
         private readonly AtlasMemoryRegistryService $memoryRegistry,
-    ) {}
+        ?EngineeringKnowledgeBaseService $knowledgeBase = null,
+        ?EngineeringCodeIntelligenceService $codeIntelligence = null,
+    ) {
+        $this->knowledgeBase = $knowledgeBase ?? app(EngineeringKnowledgeBaseService::class);
+        $this->codeIntelligence = $codeIntelligence ?? app(EngineeringCodeIntelligenceService::class);
+    }
 
     /**
      * @param  array<string,mixed>  $contract
@@ -39,8 +47,27 @@ class EngineeringContextPackService
             (array) ($metadata['memory_refs'] ?? []),
             $this->registryMemoryRefs($task, $run, $workspace),
         ));
+        $knowledgeRefs = $this->knowledgeBase->contextRefs([
+            'project_id' => $task->project_id,
+            'task_id' => $task->id,
+            'engineering_run_id' => $run?->id,
+            'workspace' => $workspace,
+            'contract' => $contract,
+            'blueprint' => $blueprint,
+        ], 8);
+        $codeRefs = $this->codeIntelligence->contextRefs([
+            'project_id' => $task->project_id,
+            'task_id' => $task->id,
+            'engineering_run_id' => $run?->id,
+            'workspace' => $workspace,
+            'contract' => $contract,
+            'blueprint' => $blueprint,
+        ], 10);
         $selectedFiles = collect((array) ($contract['likely_files'] ?? []))
             ->merge($profile->importantFiles)
+            ->merge(collect($knowledgeRefs)->pluck('canonical_path')->all())
+            ->merge(collect($codeRefs)->pluck('root_path')->all())
+            ->merge(collect($codeRefs)->flatMap(fn (array $ref): array => (array) ($ref['related_tests'] ?? []))->all())
             ->filter(fn (mixed $file): bool => is_string($file) && trim($file) !== '')
             ->unique()
             ->take(80)
@@ -67,11 +94,15 @@ class EngineeringContextPackService
             'selected_files' => $selectedFiles,
             'prior_runs' => array_slice($priorRuns, 0, 10),
             'memory_refs' => $memoryRefs,
+            'knowledge_refs' => $knowledgeRefs,
+            'code_refs' => $codeRefs,
             'prompt_sections' => [
                 ['kind' => 'contract', 'title' => 'Task contract', 'priority' => 1],
                 ['kind' => 'blueprint', 'title' => 'Frozen blueprint', 'priority' => 2],
                 ['kind' => 'controls', 'title' => 'Guides and sensors', 'priority' => 3],
                 ['kind' => 'repo_profile', 'title' => 'Workspace profile', 'priority' => 4],
+                ['kind' => 'engineering_knowledge', 'title' => 'Canonical engineering knowledge', 'priority' => 5],
+                ['kind' => 'code_intelligence', 'title' => 'Indexed code modules and symbols', 'priority' => 6],
             ],
             'token_budget' => [
                 'target' => 6000,
@@ -102,6 +133,10 @@ class EngineeringContextPackService
                 'token_budget_json' => $payload['token_budget'],
                 'metadata' => [
                     'controls' => $payload['controls'],
+                    'knowledge_refs' => $payload['knowledge_refs'],
+                    'knowledge_ref_count' => count($payload['knowledge_refs']),
+                    'code_refs' => $payload['code_refs'],
+                    'code_ref_count' => count($payload['code_refs']),
                     'source' => 'atlas:engineering:runner',
                 ],
             ]);

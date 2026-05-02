@@ -4,11 +4,14 @@ namespace Tests\Unit;
 
 use App\Http\Controllers\AiJobController;
 use App\Models\AiJob;
+use App\Models\AiJobAttempt;
 use App\Models\AiTrace;
 use App\Services\Ai\AiCouncilCoordinator;
+use App\Services\Ai\AiWorker;
 use App\Services\AuditLogService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use ReflectionClass;
 use Tests\TestCase;
 
 class AiJobControlTest extends TestCase
@@ -135,6 +138,39 @@ class AiJobControlTest extends TestCase
         $this->assertSame('cancelled', $trace->refresh()->status);
         $this->assertSame('cancelled', AiJob::query()->where('trace_id', $trace->id)->where('provider', 'claude_cli')->firstOrFail()->status);
         $this->assertSame('cancelled', AiJob::query()->where('trace_id', $trace->id)->where('provider', 'codex_cli')->firstOrFail()->status);
+    }
+
+    public function test_worker_attempt_creation_uses_history_when_counter_was_reopened(): void
+    {
+        $trace = $this->trace();
+        $job = $this->job($trace, [
+            'attempts' => 0,
+            'max_attempts' => 1,
+        ]);
+
+        AiJobAttempt::query()->create([
+            'ai_job_id' => $job->id,
+            'attempt_number' => 1,
+            'worker_id' => 'previous-worker',
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-test',
+            'command' => ['claude'],
+            'prompt_hash' => hash('sha256', $job->prompt),
+            'status' => 'failed',
+            'error_code' => 'cli_error',
+            'started_at' => now()->subMinute(),
+            'finished_at' => now()->subMinute(),
+            'metadata' => [],
+        ]);
+
+        $worker = (new ReflectionClass(AiWorker::class))->newInstanceWithoutConstructor();
+        $method = (new ReflectionClass(AiWorker::class))->getMethod('createAttempt');
+        $method->setAccessible(true);
+
+        $attempt = $method->invoke($worker, $job, 'worker-2', 'claude_cli');
+
+        $this->assertSame(2, $attempt->attempt_number);
+        $this->assertSame(2, $job->refresh()->attempts);
     }
 
     private function trace(array $overrides = []): AiTrace

@@ -47,7 +47,7 @@ _atlas_complete() {
       return 0
       ;;
     engineering|harness)
-      COMPREPLY=( $(compgen -W "run runner replay benchmark bench seed init calibrate calibration cal cleanup docker-cleanup quality-scan quality scan harnessability visual-smoke visual visual-driver driver playwright visual-runtime visual-baseline baseline" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "run runner replay benchmark bench seed init calibrate calibration cal cleanup docker-cleanup quality-scan quality scan knowledge kb knowledge-base harnessability visual-smoke visual visual-driver driver playwright visual-runtime visual-baseline baseline" -- "${cur}") )
       return 0
       ;;
     memory)
@@ -127,6 +127,10 @@ _atlas_complete() {
       ;;
     --quality-profile)
       COMPREPLY=( $(compgen -W "auto fast standard release deep" -- "${cur}") )
+      return 0
+      ;;
+    knowledge|kb|knowledge-base)
+      COMPREPLY=( $(compgen -W "status sync list show context index-code code-status modules symbols show-module --category= --status= --layer= --module= --symbol-type= --language= --docs-status= --q= --limit= --workspace= --dry-run --prune --json" -- "${cur}") )
       return 0
       ;;
     --baseline)

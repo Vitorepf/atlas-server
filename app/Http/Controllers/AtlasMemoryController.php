@@ -39,6 +39,7 @@ use App\Services\Ai\AtlasMemoryPrivacyService;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\AtlasMemoryReviewQueueService;
 use App\Services\Ai\AtlasMemoryUsageService;
+use App\Services\Ai\AtlasProviderProjectionAuditPurgePolicy;
 use App\Services\Ai\AtlasProviderProjectionAuditService;
 use App\Services\Ai\AtlasProviderProjectionService;
 use App\Services\Ai\AtlasVerbatimMemoryService;
@@ -244,13 +245,36 @@ class AtlasMemoryController extends Controller
     public function providerProjectionAuditPurge(
         PurgeAtlasMemoryProviderProjectionAuditRequest $request,
         AtlasProviderProjectionAuditService $audits,
+        AtlasProviderProjectionAuditPurgePolicy $purgePolicy,
     ): JsonResponse {
         $data = $request->validated();
+        $policy = $purgePolicy->evaluate(
+            $request->boolean('dry_run', true),
+            $request->header($purgePolicy->headerName()),
+        );
+        if (! (bool) $policy['authorized']) {
+            return response()->json([
+                'error' => [
+                    'code' => 'OPERATOR_PERMISSION_REQUIRED',
+                    'message' => 'Provider projection audit purge destructive requires operator permission.',
+                ],
+                'provider_projection_audit_purge' => [
+                    'ok' => false,
+                    'status' => 'operator_permission_required',
+                    'dry_run' => false,
+                    'older_than_days' => (int) ($data['older_than_days'] ?? 90),
+                    'deleted' => 0,
+                    'policy' => $policy,
+                ],
+            ], 403);
+        }
+
         $purge = $audits->purge(
             $data,
             (int) ($data['older_than_days'] ?? 90),
             $request->boolean('dry_run', true),
         );
+        $purge['policy'] = $policy;
 
         return response()->json([
             'provider_projection_audit_purge' => $purge,

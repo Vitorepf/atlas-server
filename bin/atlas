@@ -316,6 +316,10 @@ case "$cmd" in
         shift || true
         exec_artisan_with_workspace atlas:engineering:quality-scan "$@"
         ;;
+      knowledge|kb|knowledge-base)
+        shift || true
+        exec "$PHP_BIN" artisan atlas:engineering:knowledge "$@"
+        ;;
       visual-smoke|visual)
         shift || true
         exec_artisan_with_workspace atlas:engineering:visual-smoke "$@"

@@ -28,6 +28,8 @@ trait RunsCliProcesses
         $process->setTimeout($timeoutSeconds > 0 ? $timeoutSeconds : null);
         $stdout = '';
         $stderr = '';
+        $earlyErrorCode = null;
+        $earlyErrorMessage = null;
 
         try {
             $this->emitStreamEvent($onEvent, 'lifecycle', 'process_started', '', [
@@ -36,10 +38,11 @@ trait RunsCliProcesses
                 'timeout_seconds' => $timeoutSeconds,
             ]);
 
-            $process->start(function (string $type, string $buffer) use (&$stdout, &$stderr, $onEvent): void {
+            $process->start(function (string $type, string $buffer) use (&$stdout, &$stderr, &$earlyErrorCode, &$earlyErrorMessage, $onEvent): void {
                 $buffer = AtlasSecurity::redactString($buffer);
                 if ($type === Process::ERR) {
                     $stderr .= $buffer;
+                    [$earlyErrorCode, $earlyErrorMessage] = $this->detectEarlyCliFailure($stdout."\n".$stderr, $earlyErrorCode, $earlyErrorMessage);
                     $this->emitStreamEvent($onEvent, 'stderr', 'stderr', $buffer, [
                         'bytes' => strlen($buffer),
                     ], 'stderr');
@@ -48,6 +51,7 @@ trait RunsCliProcesses
                 }
 
                 $stdout .= $buffer;
+                [$earlyErrorCode, $earlyErrorMessage] = $this->detectEarlyCliFailure($stdout."\n".$stderr, $earlyErrorCode, $earlyErrorMessage);
                 $this->emitStreamEvent($onEvent, 'stdout', 'stdout', $buffer, [
                     'bytes' => strlen($buffer),
                 ], 'stdout');
@@ -69,6 +73,31 @@ trait RunsCliProcesses
             while ($process->isRunning()) {
                 usleep(250_000);
                 $process->checkTimeout();
+
+                if ($earlyErrorCode !== null) {
+                    $process->stop(1, 15);
+                    $durationMs = (int) ((hrtime(true) - $started) / 1_000_000);
+                    $stdout = $stdout ?: AtlasSecurity::redactString($process->getOutput());
+                    $stderr = $stderr ?: AtlasSecurity::redactString($process->getErrorOutput());
+
+                    $message = $earlyErrorMessage ?: trim($stderr) ?: trim($stdout) ?: $earlyErrorCode;
+                    $this->emitStreamEvent($onEvent, 'error', $earlyErrorCode, $message, [
+                        'command' => $this->redactCommand($command),
+                        'duration_ms' => $durationMs,
+                    ]);
+
+                    return new AiProviderResult(
+                        ok: false,
+                        output: '',
+                        command: $this->redactCommand($command),
+                        exitCode: $process->getExitCode(),
+                        durationMs: $durationMs,
+                        stdout: $stdout,
+                        stderr: $stderr,
+                        errorCode: $earlyErrorCode,
+                        errorMessage: AtlasSecurity::redactString($message),
+                    );
+                }
 
                 if ($this->jobWasCancelled($job)) {
                     $process->stop(1, 15);
@@ -162,6 +191,33 @@ trait RunsCliProcesses
             errorMessage: $errorCode ? AtlasSecurity::redactString(trim($stderr) ?: trim($stdout) ?: $errorCode) : null,
             metadata: $metadata,
         );
+    }
+
+    /**
+     * @return array{0:?string,1:?string}
+     */
+    private function detectEarlyCliFailure(string $text, ?string $currentCode, ?string $currentMessage): array
+    {
+        if ($currentCode !== null) {
+            return [$currentCode, $currentMessage];
+        }
+
+        foreach ([
+            '/Opening authentication page in your browser/i',
+            '/Do you want to continue\?\s*\[Y\/n\]/i',
+            '/Manual authorization is required/i',
+            '/Please visit the following URL to authorize/i',
+            '/Enter the authorization code:/i',
+        ] as $pattern) {
+            if (preg_match($pattern, $text) === 1) {
+                return [
+                    'auth_expired',
+                    'Provider CLI requires interactive authentication. Run the provider login in an interactive terminal or configure an API key.',
+                ];
+            }
+        }
+
+        return [null, null];
     }
 
     /**
