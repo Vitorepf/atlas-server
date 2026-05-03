@@ -212,6 +212,22 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_decision_query',
+                'title' => 'Atlas Decision Query',
+                'description' => 'Recall filtrado para apenas decisões canônicas (memory_type=decision). Use quando precisar de "o que foi decidido sobre X" sem misturar com learnings ou preferences.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'query' => ['type' => 'string', 'description' => 'Pergunta ou tópico de decisão.'],
+                        'scope' => ['type' => 'string', 'description' => 'Filtra por scope: global, project, etc.'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace local.'],
+                        'limit' => ['type' => 'integer', 'description' => 'Max decisões retornadas (default 5).'],
+                    ],
+                    'required' => ['query'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -264,6 +280,7 @@ class AtlasOpenBrainMcpService
                 'atlas_capabilities' => $this->toolResponse($id, $this->capabilities()),
                 'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
                 'atlas_recent_changes' => $this->toolResponse($id, $this->recentChanges($arguments)),
+                'atlas_decision_query' => $this->toolResponse($id, $this->decisionQuery($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -629,6 +646,51 @@ class AtlasOpenBrainMcpService
             'index_fresh' => $indexFresh,
             'last_indexed_at' => $lastIndexAt,
             'recommended_action' => $indexFresh ? null : 'reindex_recommended',
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function decisionQuery(array $arguments): array
+    {
+        $query = $this->string($arguments['query'] ?? null);
+        if ($query === null) {
+            return ['ok' => false, 'tool' => 'atlas_decision_query', 'error' => 'query_required'];
+        }
+
+        $context = [];
+        $workspace = $this->workspace($arguments['workspace'] ?? null);
+        if ($workspace !== null) {
+            $context['workspace'] = $workspace;
+        }
+
+        $filters = ['memory_type' => ['decision']];
+        $scope = $this->string($arguments['scope'] ?? null);
+        if ($scope !== null) {
+            $filters['scope_type'] = $scope;
+        }
+
+        $options = ['limit' => min(20, max(1, (int) ($arguments['limit'] ?? 5)))];
+
+        $recall = $this->recall->recall($query, $context, $filters, $options);
+
+        // Post-filter: ensure only decision-type items leak through
+        // (registry items use 'type' key; verbatim/semantic items are not decision-typed)
+        $decisions = array_values(array_filter(
+            $recall['recall'] ?? [],
+            fn (array $item): bool => ($item['type'] ?? null) === 'decision',
+        ));
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_decision_query',
+            'query' => $query,
+            'decisions' => $decisions,
+            'count' => count($decisions),
+            'summary' => $recall['summary'] ?? [],
             'generated_at' => now()->toJSON(),
         ];
     }

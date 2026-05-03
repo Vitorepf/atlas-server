@@ -188,8 +188,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After this phase: 6 tools (3 original + 3 from Phase 1) + 1 new (capabilities) + 1 new (workspace_info) + 1 new (recent_changes) = 9
-        $this->assertCount(9, $structured['tools']);
+        // After this phase: 6 tools (3 original + 3 from Phase 1) + 1 new (capabilities) + 1 new (workspace_info) + 1 new (recent_changes) + 1 new (decision_query) = 10
+        $this->assertCount(10, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
     }
@@ -262,5 +262,59 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertFalse($structured['ok']);
         $this->assertSame('workspace_not_git_repo', $structured['error']);
+    }
+
+    public function test_decision_query_filters_to_decisions_only(): void
+    {
+        \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'decision',
+            'scope_type' => 'global',
+            'title' => 'Use Postgres',
+            'body' => 'Postgres é o DB padrão',
+            'status' => 'active',
+            'privacy_class' => 'normal',
+            'external_ai_allowed' => true,
+            'redaction_status' => 'clean',
+            'recorded_at' => now(),
+        ]);
+        \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'preference',
+            'scope_type' => 'global',
+            'title' => 'Tabs over spaces',
+            'body' => 'Use tabs',
+            'status' => 'active',
+            'privacy_class' => 'normal',
+            'external_ai_allowed' => true,
+            'redaction_status' => 'clean',
+            'recorded_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 11, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_decision_query',
+                'arguments' => ['query' => 'database'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        // Every returned decision must have memory_type=decision (no preferences)
+        foreach ($structured['decisions'] as $d) {
+            $this->assertSame('decision', $d['memory_type'] ?? $d['type'] ?? null);
+        }
+    }
+
+    public function test_decision_query_requires_query(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 12, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_decision_query', 'arguments' => []],
+        ]);
+
+        $this->assertFalse($response['result']['structuredContent']['ok']);
+        $this->assertSame('query_required', $response['result']['structuredContent']['error']);
     }
 }
