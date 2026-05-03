@@ -184,6 +184,19 @@ class AtlasOpenBrainMcpService
                 'inputSchema' => ['type' => 'object', 'properties' => [], 'required' => []],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_workspace_info',
+                'title' => 'Atlas Workspace Info',
+                'description' => 'Retorna metadata do workspace: Atlas o reconhece? quantas entries de memória? quando o code intelligence foi indexado? Usar para decidir profundidade de consulta antes de outros tools.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'workspace' => ['type' => 'string', 'description' => 'Caminho absoluto do workspace.'],
+                    ],
+                    'required' => ['workspace'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -234,6 +247,7 @@ class AtlasOpenBrainMcpService
                 'atlas_code_find_relevant' => $this->toolResponse($id, $this->codeFindRelevant($arguments)),
                 'atlas_docs_lookup' => $this->toolResponse($id, $this->docsLookup($arguments)),
                 'atlas_capabilities' => $this->toolResponse($id, $this->capabilities()),
+                'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -498,6 +512,57 @@ class AtlasOpenBrainMcpService
             'tools' => $this->tools(),
             'transport' => 'stdio',
             'remote_capable' => false,
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function workspaceInfo(array $arguments): array
+    {
+        $workspace = $this->workspace($arguments['workspace'] ?? null);
+
+        // Derive project slug from basename of workspace path
+        $slug = $workspace ? basename($workspace) : null;
+
+        $memoryCount = 0;
+        if ($slug && Schema::hasTable('atlas_memory_entries')) {
+            $memoryCount = AtlasMemoryEntry::query()
+                ->where('status', 'active')
+                ->where(function ($q) use ($slug) {
+                    $q->where(function ($inner) use ($slug) {
+                        $inner->where('scope_type', 'project')->where('scope_id', $slug);
+                    })->orWhere('scope_type', 'global');
+                })
+                ->count();
+        }
+
+        $codeSummary = $this->code->summary();
+        $knowledgeSummary = $this->knowledge->summary();
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_workspace_info',
+            'workspace' => $workspace,
+            'inferred_slug' => $slug,
+            'atlas_tracked' => $memoryCount > 0,
+            'memory_entry_count' => $memoryCount,
+            'code_intelligence' => [
+                'indexed' => ($codeSummary['module_count'] ?? 0) > 0,
+                'last_indexed_at' => $codeSummary['last_indexed_at'] ?? null,
+                'module_count' => $codeSummary['module_count'] ?? 0,
+                'symbol_count' => $codeSummary['symbol_count'] ?? 0,
+            ],
+            'knowledge_base' => [
+                'indexed' => ($knowledgeSummary['active'] ?? 0) > 0,
+                'last_indexed_at' => $knowledgeSummary['last_indexed_at'] ?? null,
+                'doc_count' => $knowledgeSummary['active'] ?? 0,
+            ],
+            'recommended_action' => $memoryCount > 0
+                ? 'consult_atlas_first'
+                : 'fallback_to_local_exploration',
             'generated_at' => now()->toJSON(),
         ];
     }

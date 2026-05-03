@@ -188,9 +188,39 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After this phase: 6 tools (3 original + 3 from Phase 1) + 1 new (capabilities) = 7
-        $this->assertCount(7, $structured['tools']);
+        // After this phase: 6 tools (3 original + 3 from Phase 1) + 1 new (capabilities) + 1 new (workspace_info) = 8
+        $this->assertCount(8, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
+    }
+
+    public function test_workspace_info_returns_metadata_for_atlas_tracked_workspace(): void
+    {
+        \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'decision',
+            'scope_type' => 'project',
+            'scope_id' => 'atlas-server',
+            'title' => 'Test decision',
+            'body' => 'Test body',
+            'status' => 'active',
+            'privacy_class' => 'normal',
+            'external_ai_allowed' => true,
+            'redaction_status' => 'clean',
+            'recorded_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 8, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_workspace_info',
+                'arguments' => ['workspace' => '/Users/vitorepf/Develop/atlas/atlas-server'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertTrue($structured['atlas_tracked']);
+        $this->assertGreaterThan(0, $structured['memory_entry_count']);
     }
 }
