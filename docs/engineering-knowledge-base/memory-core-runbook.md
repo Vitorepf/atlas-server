@@ -17,10 +17,12 @@ capabilities:
   - code_intelligence_index
   - provider_projection
   - context_pack_recall
+  - open_brain_context_injection
 decisions:
   - Operacoes de memoria devem ser auditaveis, repetiveis e pequenas.
   - Dry-run deve preceder operacoes destrutivas ou de escrita em provider projections.
   - Docs canonicos e code index devem ser sincronizados juntos apos mudancas relevantes.
+  - Injecao automatica de Open Brain em fluxos de codigo deve ser validada por CLI, trace e app.
 maintenance:
   - Atualize este runbook quando comandos CLI, rotas ou fluxos de validacao mudarem.
   - Prefira /opt/homebrew/bin/php para Artisan neste projeto.
@@ -30,10 +32,15 @@ related_paths:
   - app/Console/Commands/AtlasMemoryAddCommand.php
   - app/Console/Commands/AtlasMemoryPrivacyCommand.php
   - app/Console/Commands/AtlasMemoryProjectionCommand.php
+  - app/Console/Commands/AtlasMemoryMaintenanceCommand.php
   - app/Console/Commands/AtlasEngineeringKnowledgeCommand.php
   - app/Services/Ai/AtlasMemoryRegistryService.php
+  - app/Services/Ai/AtlasMemoryMaintenanceService.php
   - app/Services/Engineering/EngineeringKnowledgeBaseService.php
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
+  - app/Http/Controllers/AtlasMemoryMaintenanceController.php
+  - atlas-app/app/open-brain.tsx
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
 ---
 
 # Atlas Memory Core Runbook
@@ -56,6 +63,7 @@ auditoria, privacy review, provider projections e validacao de app.
 ```bash
 /opt/homebrew/bin/php artisan migrate:status
 /opt/homebrew/bin/php artisan route:list --path=memory
+/opt/homebrew/bin/php artisan route:list --path=open-brain
 /opt/homebrew/bin/php artisan route:list --path=engineering/knowledge
 /opt/homebrew/bin/php artisan atlas:engineering:knowledge status --json
 /opt/homebrew/bin/php artisan atlas:engineering:knowledge code-status --json
@@ -263,21 +271,159 @@ Exportar um Context Pack auditado para ferramentas locais:
 /opt/homebrew/bin/php artisan atlas:open-brain:context "continuar implementacao de memoria" --workspace=/Users/vitorepf/Develop/atlas/atlas-server --include-prompt --json
 ```
 
+Servir Open Brain para Claude/Codex via MCP local:
+
+```bash
+./bin/atlas open-brain mcp --describe --json
+./bin/atlas open-brain mcp
+```
+
+Request de smoke MCP:
+
+```bash
+./bin/atlas open-brain mcp --once='{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+Endpoint HTTP JSON-RPC autenticado:
+
+```bash
+curl -s \
+  -H "X-Atlas-Token: $ATLAS_TOKEN" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2025-06-18" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+  http://127.0.0.1:8000/ai/open-brain/mcp
+```
+
 Via API:
 
 ```bash
 POST /ai/memory/recall
 POST /ai/open-brain/context-pack
 GET  /ai/open-brain/audits
+POST /ai/memory/maintain
+GET  /ai/open-brain/mcp
+POST /ai/open-brain/mcp
 ```
+
+No app:
+
+- abra `Home > Atlas Open Brain > abrir`;
+- use `Buscar memoria` para recall provider-safe por pergunta;
+- use `Gerar context pack` para ver e copiar o payload que iria para Claude/Codex;
+- use `Auditorias` para recarregar exports Open Brain;
+- use `Rodar maintain` para sync docs, index-code, projection status e health MCP;
+- `Aplicar projection` exige segundo toque e chama o backend com confirmacao explicita.
 
 Regras:
 
 - o recall e `provider_safe_only`;
+- o MCP local e o endpoint HTTP JSON-RPC sao read-only nesta fase;
+- HTTP exige `X-Atlas-Token` e valida `Origin` quando o header existe;
+- HTTP aceita requests JSON-RPC por `POST`; `GET` com `Accept: text/event-stream`
+  retorna `405` ate existir Streamable HTTP/SSE completo;
+- tools MCP disponiveis: `atlas_memory_recall`, `atlas_open_brain_context_pack`,
+  `atlas_memory_maintenance_status`;
 - `ATLAS_SEMANTIC_EMBEDDING_PROVIDER` fica em `local_hash` por padrao;
 - provider externo de embedding exige opt-in explicito e respeita privacy policy;
 - todo export Open Brain grava auditoria quando `atlas_open_brain_access_logs` existe;
-- ChromaDB, MCP remoto e sync multiusuario continuam fora desta entrega.
+- ChromaDB, Streamable HTTP completo com SSE/sessoes persistentes, tools MCP
+  destrutivas e sync multiusuario continuam fora desta entrega.
+
+## Open Brain Context Injection
+
+Status: implementado em `open-brain-context-injection.md` para backend, CLI e
+Atlas AI App runtime.
+
+Fluxo operacional:
+
+```bash
+./bin/atlas chat --mode=dev "implemente a feature X" --json
+./bin/atlas chat --mode=review "revise a alteracao X" --json
+./bin/atlas dev --task-id=<task-id> --plan-only --json
+./bin/atlas continue --json
+```
+
+Em `atlas chat`, o resultado deve expor `open_brain_injection.status`,
+`context_pack_hash`, `audit_id`, contagem de refs e warnings. Em
+`atlas dev --plan-only`, o resultado deve expor `open_brain_preview` com
+`status`, `context_ready`, `provider_execution_allowed`, `context_pack_hash`,
+`audit_id`, contagem de refs e warnings. Nenhum desses campos deve conter
+`prompt_section` nem `context_refs` brutos em metadata persistida ou JSON
+compacto de CLI. Para uma conversa comum:
+
+```bash
+./bin/atlas chat --mode=direct "resuma meu dia" --json
+```
+
+o status esperado e `skipped` ou ausencia de injecao automatica, salvo opt-in
+explicito.
+
+Validacao minima:
+
+```bash
+/opt/homebrew/bin/php artisan test --filter=open_brain_context_injection
+/opt/homebrew/bin/php artisan test --filter=AtlasOpenBrainContextInjectionServiceTest
+/opt/homebrew/bin/php artisan test --filter=AiSessionManagerTest
+/opt/homebrew/bin/php artisan test --filter=AtlasCliDevWorkflowServiceTest
+/opt/homebrew/bin/php artisan test --filter='AtlasPhpBinaryTest|AtlasTestCommandResolverTest|AtlasCliDevCommandTest|AtlasCliContinueCommandTest'
+npm run typecheck
+git diff --check
+./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json
+```
+
+Regras operacionais:
+
+- `atlas dev`, `atlas continue` e `atlas chat --mode=dev|debug|review` devem
+  usar Open Brain automaticamente por padrao;
+- app em `programming`, `review` ou `debug` deve depender do backend para
+  injecao, nao de prompt manual no front;
+- `--no-open-brain` e payload `open_brain.mode=off` devem existir para opt-out;
+- `--require-open-brain` e payload `open_brain.mode=required` devem falhar
+  fechado quando o contexto nao puder ser montado;
+- toda injecao deve ser provider-safe e auditar `context_pack_hash`.
+- comandos internos Artisan devem usar `App\Support\AtlasPhpBinary`; no Mac de
+  desenvolvimento o caminho esperado e `/opt/homebrew/bin/php`, independente do
+  PHP ativo no prompt.
+
+## Rotina De Manutencao Sem Memoria Solta
+
+Para nao depender de lembrar comandos manualmente, use esta ordem quando alterar
+docs, codigo core, memoria ou context packs. O caminho preferido e o comando
+unico:
+
+```bash
+./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json
+```
+
+O mesmo fluxo existe por API para o app:
+
+```bash
+POST /ai/memory/maintain
+```
+
+Quando a projection precisar ser atualizada e a review estiver aceitavel:
+
+```bash
+./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --apply-projection --yes --json
+```
+
+O comando executa a rotina local nesta ordem:
+
+```bash
+./bin/atlas engineering knowledge sync --prune --json
+./bin/atlas engineering knowledge index-code --prune --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json
+./bin/atlas memory projection status --target=all --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json
+./bin/atlas open-brain mcp --once='{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"atlas_memory_maintenance_status","arguments":{"workspace":"/Users/vitorepf/Develop/atlas/atlas-server"}}}'
+```
+
+Se `projection status` retornar `needs_review`, rode review antes do apply:
+
+```bash
+./bin/atlas memory projection review --target=all --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json
+./bin/atlas memory projection apply --target=all --workspace=/Users/vitorepf/Develop/atlas/atlas-server --yes --json
+```
 
 ## Validacao Antes De Encerrar Uma Fase
 

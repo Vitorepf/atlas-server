@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Cli\AtlasCliDoctorService;
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -150,7 +151,7 @@ class AtlasCliFinalCommand extends Command
     private function releasePreflightBlock(): array
     {
         $command = [
-            PHP_BINARY,
+            AtlasPhpBinary::path(),
             'artisan',
             'atlas:cli:release',
             '--release-version=v2.0.0',

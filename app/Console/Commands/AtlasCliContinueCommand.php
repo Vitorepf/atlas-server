@@ -4,8 +4,10 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cli\AtlasCliSessionService;
 use App\Services\Ai\Cli\DevProgressReporter;
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
 class AtlasCliContinueCommand extends Command
@@ -14,6 +16,10 @@ class AtlasCliContinueCommand extends Command
         {--workspace= : Workspace path. Defaults to current directory}
         {--thread= : Specific thread id to resume}
         {--complete : Force --complete on the resumed dev run}
+        {--no-open-brain : Disable automatic Open Brain context injection for the resumed run}
+        {--require-open-brain : Fail if Open Brain context cannot be injected}
+        {--open-brain-refresh : Request a fresh Open Brain context for the resumed run}
+        {--open-brain-budget= : Override Open Brain context budget in characters}
         {--dry-run : Show what would be resumed without re-executing}
         {--json : Print machine-readable JSON}';
 
@@ -74,7 +80,7 @@ class AtlasCliContinueCommand extends Command
 
         $this->newLine();
         $this->line($this->ansi('2;3', '  · retomando').' '.$this->ansi('2', $phaseLabel ?: 'plano anterior'));
-        $this->line($this->ansi('2', '  · plano '.substr($resume['plan_id'], 0, 8).' · '.\Illuminate\Support\Str::limit($resume['task'], 80)));
+        $this->line($this->ansi('2', '  · plano '.substr($resume['plan_id'], 0, 8).' · '.Str::limit($resume['task'], 80)));
         $this->newLine();
 
         if ((bool) $this->option('dry-run')) {
@@ -112,7 +118,7 @@ class AtlasCliContinueCommand extends Command
     private function buildResumeCommand(array $resume, array $operatorOptions, bool $complete): array
     {
         $command = [
-            PHP_BINARY,
+            AtlasPhpBinary::path(),
             base_path('artisan'),
             'atlas:cli:dev',
             (string) $resume['task'],
@@ -148,6 +154,18 @@ class AtlasCliContinueCommand extends Command
         if (! empty($operatorOptions['no_stream'])) {
             $command[] = '--no-stream';
         }
+        $openBrain = $this->openBrainOptions($operatorOptions);
+        if (($openBrain['mode'] ?? null) === 'off') {
+            $command[] = '--no-open-brain';
+        } elseif (($openBrain['mode'] ?? null) === 'required') {
+            $command[] = '--require-open-brain';
+        }
+        if (! empty($openBrain['refresh'])) {
+            $command[] = '--open-brain-refresh';
+        }
+        if (! empty($openBrain['budget_chars'])) {
+            $command[] = '--open-brain-budget='.(int) $openBrain['budget_chars'];
+        }
         $permission = (string) ($operatorOptions['permission'] ?? '');
         if ($permission !== '' && in_array($permission, ['read', 'write', 'danger'], true)) {
             $command[] = '--permission='.$permission;
@@ -159,6 +177,27 @@ class AtlasCliContinueCommand extends Command
         }
 
         return $command;
+    }
+
+    /**
+     * @param  array<string,mixed>  $operatorOptions
+     * @return array<string,mixed>
+     */
+    private function openBrainOptions(array $operatorOptions): array
+    {
+        $stored = is_array($operatorOptions['open_brain'] ?? null) ? $operatorOptions['open_brain'] : [];
+        $budget = $this->option('open-brain-budget');
+        $budgetChars = is_scalar($budget) && trim((string) $budget) !== ''
+            ? max(2000, (int) $budget)
+            : (isset($stored['budget_chars']) ? (int) $stored['budget_chars'] : null);
+
+        return array_filter([
+            'mode' => (bool) $this->option('no-open-brain')
+                ? 'off'
+                : ((bool) $this->option('require-open-brain') ? 'required' : (string) ($stored['mode'] ?? 'auto')),
+            'refresh' => (bool) $this->option('open-brain-refresh') || (bool) ($stored['refresh'] ?? false),
+            'budget_chars' => $budgetChars,
+        ], fn (mixed $value): bool => $value !== null && $value !== '');
     }
 
     private function ansi(string $code, string $text): string

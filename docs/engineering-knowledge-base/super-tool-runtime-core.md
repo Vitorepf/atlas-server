@@ -30,6 +30,7 @@ decisions:
   - Waivers de findings sao auditaveis e so removem bloqueio de gate enquanto estiverem validos.
 maintenance:
   - Rode atlas tools doctor --workspace=<repo> depois de adicionar uma ferramenta ao catalogo.
+  - Rode atlas tools authority --json depois de alterar tiers ou papeis de autoridade.
   - Rode atlas tools run <tool> --dry-run antes de habilitar execucao nova em fluxo automatico.
   - Rode atlas tools gate --workspace=<repo> --require-evidence antes de usar evidencia como release gate.
   - Rode atlas engineering knowledge sync --prune e atlas engineering knowledge index-code --prune depois de alterar esta camada.
@@ -42,6 +43,7 @@ related_paths:
   - app/Services/Tools/AtlasToolEvidenceStore.php
   - app/Services/Tools/AtlasToolResultNormalizer.php
   - app/Services/Tools/AtlasToolGateService.php
+  - app/Services/Tools/AtlasToolAuthorityMatrixService.php
   - app/Services/Tools/AtlasToolReleaseGateService.php
   - app/Services/Engineering/EngineeringQualityScanService.php
   - app/Services/Engineering/EngineeringApiContractService.php
@@ -72,7 +74,8 @@ O bloco inicial entrega:
 - `atlas_tool_runs`, `atlas_tool_artifacts` e `atlas_tool_findings` como Evidence Store transversal;
 - catalogo inicial para Git, ripgrep, Composer, Pint, PHPStan, Psalm, TypeScript, Biome, ESLint, ShellCheck, Hadolint, Gitleaks, Semgrep, Playwright, Cypress, Docker, Trivy, Syft, Grype, OSV-Scanner e sensores internos `atlas_code_intelligence`, `atlas_visual_smoke` e `atlas_api_contract`;
 - `AtlasToolPolicyEngine` com decisoes auditaveis `allowed`, `denied`, `requires_approval` e `skipped`;
-- `AtlasToolExecutor` com cwd controlado, argv array, timeout, dry-run, output redigido e rejeicao de argumentos inseguros;
+- Policy Engine considera risco, rede, custo, tier, sandbox, privacidade, task type e provider-safe; ferramentas que podem escrever no workspace exigem `worktree`/`docker` ou approval, e outputs inseguros para provider podem ser bloqueados quando o consumidor exige `requires_provider_safe`;
+- `AtlasToolExecutor` com cwd controlado, argv array, timeout, dry-run, env seguro por allowlist de chamada, limite auditavel de stdout/stderr, output redigido e rejeicao de argumentos inseguros;
 - `AtlasToolResultNormalizer` com contrato comum de status, findings, metrics, artifacts, recommendations e blocking failures;
 - normalizacao estruturada compartilhada para outputs JSON de Gitleaks, Semgrep, ESLint, PHPStan, Psalm, ShellCheck, Trivy, OSV-Scanner e Grype;
 - `AtlasToolEvidenceStore` para persistir runs, artifacts, hashes e findings normalizados;
@@ -80,11 +83,12 @@ O bloco inicial entrega:
 - `AtlasToolGateService` para avaliar evidencias normalizadas e produzir gate `passed`, `warning` ou `blocked`;
 - `AtlasToolReleaseGateService` para aplicar um release gate Security/SBOM sobre evidencias persistidas, exigindo secret scan, static security scan, dependency vulnerability scan e SBOM normalizado;
 - `AtlasToolFindingWaiverService` para conceder/revogar waivers auditaveis de findings bloqueantes, com motivo, operador, origem, TTL opcional e historico;
-- CLI `atlas tools doctor|list|status|run|evidence|evidence-show|evidence-export|gate|release-gate|approve|revoke|waive-finding|revoke-finding-waiver|policies`;
+- CLI `atlas tools doctor|list|authority|status|commands|run|run-recipe|evidence|evidence-show|evidence-export|gate|release-gate|approve|revoke|waive-finding|revoke-finding-waiver|policies`;
 - CLI operacional do Engineering Harness tambem expoe `atlas engineering security-scan` e `atlas engineering sbom`, ambos reutilizando o Quality Scan e o Evidence Store genericos com filtro de tools;
-- API `GET /tools`, `GET /tools/doctor`, `GET /tools/evidence`, `GET /tools/evidence/{run}`, `GET /tools/evidence/{run}/export`, `GET /tools/gate`, `GET /tools/release-gate`, `GET /tools/policies`, `GET /tools/{tool}`, `POST /tools/{tool}/run`, `POST /tools/{tool}/approval`, `DELETE /tools/{tool}/approval`, `POST /tools/findings/{finding}/waiver` e `DELETE /tools/findings/{finding}/waiver`;
+- API `GET /tools`, `GET /tools/doctor`, `GET /tools/authority`, `GET /tools/evidence`, `GET /tools/evidence/{run}`, `GET /tools/evidence/{run}/export`, `GET /tools/gate`, `GET /tools/release-gate`, `GET /tools/policies`, `GET /tools/{tool}`, `GET /tools/{tool}/commands`, `POST /tools/{tool}/commands/{recipe}/run`, `POST /tools/{tool}/run`, `POST /tools/{tool}/approval`, `DELETE /tools/{tool}/approval`, `POST /tools/findings/{finding}/waiver` e `DELETE /tools/findings/{finding}/waiver`;
 - API operacional do Engineering Harness tambem expoe `POST /engineering/security-scan` e `POST /engineering/sbom`, protegidos por `atlas.token`, com o mesmo contrato filtrado dos comandos CLI;
 - `AtlasToolApprovalService` para aprovacoes auditaveis por workspace/global, TTL, motivo, operador, permissao de rede e revogacao sem apagar historico;
+- aprovacoes auditaveis tambem persistem guardrails de policy (`max_execution_tier`, `sandbox_mode`, `privacy_level`, `task_type`, `requires_provider_safe`), evitando que approval vire permissao irrestrita;
 - integracao do `EngineeringQualityScanService` gravando evidencias no runtime generico, incluindo `run_context_type`/`run_context_id` quando chamado por automacao;
 - Quality Scan em perfil `standard/release/deep` aciona scanners locais de seguranca e supply chain pelo mesmo contrato: OSV-Scanner quando ha lockfile/manifesto de dependencia, e Trivy, Syft e Grype nos perfis `release/deep`;
 - outputs JSON de OSV-Scanner, Trivy, Syft e Grype tambem produzem metricas normalizadas; Syft publica resumo de SBOM em `artifacts` normalizados sem expor stdout bruto;
@@ -94,6 +98,19 @@ O bloco inicial entrega:
 - integracao do Visual Smoke gerenciado com o controle `atlas_tool_runtime_visual_gate`, avaliando evidencias `engineering_visual_smoke` do run pelo `AtlasToolGateService`;
 - integracao do `EngineeringCodeIntelligenceService` como analyzer interno `atlas_code_intelligence`, registrando index/audit, metricas de modulos/simbolos/doc links, contexto opcional de runtime e findings de drift.
 - integracao inicial do API Contract Harness como sensor interno `atlas_api_contract`, detectando OpenAPI JSON/YAML, validando estrutura minima, comparando paths/metodos contra rotas Laravel, exigindo `responses` por operation, gerando findings por endpoint e persistindo evidencia em `engineering_api_contract`.
+- politica de produto T0-T3 implementada no registry: `atlas_tool_definitions` agora guarda `execution_tier`, `expected_cost`, `default_trigger`, `authority_role` e `authority_group`; `AtlasToolPolicyEngine` inclui esses campos na decisao auditavel e respeita `max_execution_tier` em CLI/API para impedir que ferramentas T2/T3 rodem em fluxos T0/T1.
+- roadmap de Programming Power Tools semeado no Tool Registry como ferramentas opcionais: Serena, Tree-sitter, ast-grep, ctags, CodeQL, Infer, Checkov, Terrascan, kube-linter, kube-score, Dockle, ScanCode, ORT, licensee, Rector, PHPMD, PHPCPD, Composer Require Checker, Composer Unused, Knip, ts-prune, Schemathesis, Pact, Prism, WireMock, Bruno, Infection, Stryker, fast-check, axe-core, Pa11y, Lighthouse CI, dependency-cruiser, Madge, Deptrac, Aider, Continue e OpenHands. Ferramentas ausentes continuam `missing`/`skipped` e nao viram dependencia obrigatoria.
+- `AtlasToolAuthorityMatrixService` expoe a matriz operacional por CLI/API com resumo por tier, grupos de autoridade, papeis `primary|primary_or_complementary|complementary|fallback|executor`, ferramentas high-risk/release-heavy e recomendacoes de governanca.
+- Tool Registry agora publica `safe_commands` por ferramenta e `atlas tools commands <tool>`/`GET /tools/{tool}/commands`, expondo command recipes auditaveis com argv, dry-run default, tier, sandbox, privacidade, task type, rede e provider-safe.
+- recipes podem ser executadas diretamente por `atlas tools run-recipe <tool> --recipe=<name>` e `POST /tools/{tool}/commands/{recipe}/run`, herdando argv e guardrails do registry e registrando `metadata_json.recipe` na evidencia.
+- painel Engineering do app consome `GET /tools/authority` junto com doctor/evidence/gate, mostrando distribuicao T0-T3, recomendacoes, lacunas de primaria, coautoridade e grupos relevantes diretamente no card Super Tool Runtime.
+- client do app expoe `runAtlasTool(tool, input)` com o contrato completo de execucao (`command`, `dry_run`, `approved`, `network_allowed`, `max_execution_tier`, `sandbox_mode`, `privacy_level`, `task_type`, `requires_provider_safe`, `env`, `output_limit`) e as linhas de evidencia exibem tier/sandbox/privacy/task/provider-safe a partir de `policy_decision_json`.
+- client do app tambem expoe `listAtlasToolPolicies`, `approveAtlasTool` e `revokeAtlasToolApproval` com guardrails de approval (`max_execution_tier`, `sandbox_mode`, `privacy_level`, `task_type`, `requires_provider_safe`) e helper para renderizar policy auditavel.
+- painel Engineering do app exibe `Approval policies` no card Super Tool Runtime, consumindo `GET /tools/policies` com o workspace ativo e mostrando status, escopo, TTL e guardrails persistidos para auditoria operacional.
+- painel Engineering tambem opera actions seguras por ferramenta: `Dry-run` registra evidencia auditavel sem executar comando real, `Aprovar 2h` cria approval de workspace com TTL curto, sem rede e guardrails conservadores, e `Revogar` encerra a approval sem apagar historico.
+- action `Dry-run` do app executa a command recipe declarada pelo registry via endpoint de recipe, em vez de montar ou enviar argv ad hoc na UI.
+- `atlas help` e `bin/atlas-completion.bash` incluem `atlas tools authority`, `--tool-env`, `--output-limit`, `--max-execution-tier`, `--sandbox-mode`, `--privacy-level`, `--task-type` e `--requires-provider-safe`, reduzindo dependência de memória/documentação externa para operar o runtime.
+- matriz de autoridade anti-duplicacao iniciada em `AtlasToolFindingCorrelationService`: o gate correlaciona findings bloqueantes entre ferramentas do mesmo `authority_group` por localizacao/titulo ou fingerprint, escolhe o achado autoritativo por `authority_role`/severidade e suprime duplicatas apenas na contagem de bloqueio. A evidencia original permanece intacta no Evidence Store.
 
 ## Como Registrar Nova Ferramenta
 
@@ -227,6 +244,163 @@ Esses agentes nao devem substituir o Atlas. Eles entram como providers de
 capacidade, com policy forte: worktree por padrao, dry-run quando possivel,
 sem rede/segredos sem approval, diff auditavel, testes obrigatorios e Evidence
 Store como contrato comum.
+
+## Politica De Execucao Por Tier
+
+A lista de ferramentas so e produto quando existe custo de execucao explicito.
+O Atlas nao deve rodar ferramentas lentas no mesmo gate de ferramentas
+interativas. Cada tool definition deve declarar `execution_tier`, `expected_cost`
+e `default_trigger`.
+
+| Tier | Quando roda | Budget alvo | Exemplos | Pode bloquear? |
+|---|---|---:|---|---|
+| T0 interactive | durante planejamento, leitura e edicao incremental | <1s por query ou resposta incremental | LSP/Serena leitura, ripgrep, ast-grep query, symbol lookup, repo-map cache | nao por si so; orienta contexto |
+| T1 local fast | antes de concluir patch local ou replay curto | <30s por workspace pequeno/escopo tocado | format check, lint escopado, typecheck incremental, Deptrac pequeno, coverage por arquivo tocado, secret scan em diff | sim, para erros diretos e escopados |
+| T2 PR/review | antes de merge, benchmark ou run de risco medio/alto | <10min | CodeQL, Semgrep full, Schemathesis, axe por rotas tocadas, dependency-cruiser, full typecheck, Docker smoke | sim, com policy por severidade |
+| T3 nightly/release | release, nightly, auditoria ou mudanca critica | minutos a horas | Infection/Stryker, Lighthouse full, license audit, ScanCode/ORT, Trivy filesystem/container full, performance load, mutation suite | sim, normalmente com waiver/approval |
+
+Regras:
+
+- T0 nunca deve executar escrita sem approval explicito.
+- T1 deve preferir changed-files scope e falhar rapido.
+- T2 pode usar cache, worktree e artifacts persistidos; deve ser assinalado como
+  `required` apenas quando a task/risk profile justificar.
+- T3 nao deve bloquear fluxo interativo; bloqueia release/nightly ou gera debt
+  priorizado.
+- O `AtlasToolPolicyEngine` deve poder elevar ou rebaixar tier por workspace,
+  task type, risco, superficie, historico de flakiness e disponibilidade de
+  cache.
+- O app/CLI deve mostrar quando um gate ficou lento por decisao de policy, nao
+  por surpresa operacional.
+
+Implementado inicialmente:
+
+```bash
+atlas tools list --json
+atlas tools authority --json
+atlas tools commands ripgrep --workspace=<repo> --json
+atlas tools run-recipe ripgrep --recipe=version --workspace=<repo> --json
+atlas tools doctor --workspace=<repo> --json
+atlas tools run codeql --workspace=<repo> --command=codeql --command=--version --approved --network-allowed --max-execution-tier=T1 --json
+atlas tools run ripgrep --workspace=<repo> --command=rg --command=--version --tool-env=ATLAS_TOOL_MODE=fixture --output-limit=12000 --json
+atlas tools run ast_grep --workspace=<repo> --command=ast-grep --command=--version --sandbox-mode=worktree --task-type=refactor --privacy-level=standard --json
+```
+
+O ultimo exemplo registra uma run `skipped` com motivo
+`execution_tier_above_policy_budget`, porque `codeql` e T2 e o operador limitou
+o budget a T1. A mesma politica esta disponivel em `POST /tools/{tool}/run` via
+payload `max_execution_tier` e `network_allowed`.
+
+Execucoes podem receber env explicito apenas por contrato seguro. No CLI use
+`--tool-env=KEY=VALUE`, porque `--env` e reservado pelo Artisan. Na API use
+`env` como objeto ou lista de `KEY=VALUE`. Chaves sensiveis como token, secret,
+password, cookie, credential, auth, bearer, private key e API key sao rejeitadas
+antes da execucao. `output_limit` controla quanto de stdout/stderr redigido e
+persistido por stream; metadados `env_keys`, `output_limit`,
+`stdout_truncated` e `stderr_truncated` ficam no Evidence Store.
+
+Dimensoes de policy disponiveis no CLI/API:
+
+- `sandbox_mode`: `workspace`, `worktree`, `docker`, `host` ou `none`.
+- `privacy_level`: `standard`, `sensitive` ou `restricted`.
+- `task_type`: identificador curto como `manual`, `quality_scan`,
+  `security_scan`, `refactor`, `release_gate` ou `agent_execution`.
+- `requires_provider_safe`: quando true, outputs marcados como sensiveis para
+  provider/modelo geram `skipped` ou `requires_approval`.
+
+Esses campos aparecem em `policy_decision_json` para auditoria. A regra pratica
+e: leitura local barata deve fluir; rede, escrita e material sensivel precisam
+de sandbox, approval ou waiver explicito.
+
+Approvals nao substituem policy. `atlas tools approve <tool>` pode gravar TTL,
+rede e guardrails:
+
+```bash
+atlas tools approve codeql --workspace=<repo> --network-allowed --max-execution-tier=T2 --ttl-hours=24 --json
+atlas tools approve ast_grep --workspace=<repo> --sandbox-mode=worktree --task-type=refactor --ttl-hours=2 --json
+atlas tools approve gitleaks --workspace=<repo> --requires-provider-safe --ttl-hours=1 --json
+```
+
+Runs posteriores herdam esses metadados quando o operador nao passa override no
+run. Isso e intencional: uma policy pode aprovar CodeQL para PR/release sem
+permitir que ele rode em budget T0/T1, ou aprovar ast-grep apenas quando a
+execucao efetiva acontece em worktree.
+
+`atlas tools authority --json` e `GET /tools/authority` retornam o diagnostico
+operacional da politica de produto: `summary`, `tiers`, `authority_groups` e
+`recommendations`. O payload mostra primarias, complementares, fallbacks,
+executores, ferramentas high-risk/release-heavy e lacunas como grupos sem
+primaria ou agentes externos que precisam permanecer atras do boundary do Atlas.
+
+## Matriz De Autoridade Anti-Duplicacao
+
+Ferramentas sobrepostas sao uteis quando o Atlas declara quem manda. Cada
+categoria deve ter uma ferramenta primaria, ferramentas complementares e
+fallbacks. Findings duplicados devem ser correlacionados por fingerprint, arquivo,
+linha, regra e categoria.
+
+| Categoria | Autoridade primaria | Complementares | Fallback | Regra de bloqueio |
+|---|---|---|---|---|
+| PHP static analysis | PHPStan ou Psalm, conforme repo | Psalm taint, PHP Mess Detector | `composer test`/PHPUnit failures | primaria bloqueia; complementares bloqueiam apenas high/critical ou policy explicita |
+| TS/JS type/lint | `tsc` + ESLint/Biome conforme repo | Knip, ts-prune | npm scripts detectados | type/lint bloqueia em T1/T2; dead-code vira warning salvo release policy |
+| Architecture PHP | Deptrac | custom Atlas boundary rules | Code Intelligence drift | boundary nova bloqueia; debt antigo requer baseline/waiver |
+| Architecture TS/JS | dependency-cruiser | Madge | custom import scan | ciclos novos bloqueiam em core; ciclos existentes viram debt |
+| Semantic SAST | CodeQL | Semgrep, Psalm taint | pattern scan Atlas | critical/high bloqueia em T2/T3; duplicatas nao contam duas vezes |
+| Secret scan | Gitleaks | Trivy secret scan | Atlas redaction scanner | qualquer segredo real bloqueia T1+ |
+| Dependency vulnerability | OSV-Scanner | Trivy, Grype | package manager audit quando local | critical/high bloqueia release sem waiver |
+| SBOM | Syft | Trivy SBOM quando disponivel | package lock inventory | release exige artifact SBOM quando policy `release` |
+| API contract | `atlas_api_contract` para diff estrutural | Schemathesis, Pact, Prism, WireMock, Bruno | feature tests | operation quebrada bloqueia; fuzz/compat entra por tier |
+| Acessibilidade | axe-core | Pa11y | Playwright DOM checks | critical/serious em rota tocada bloqueia T2 |
+| Performance frontend | Lighthouse CI | bundle analyzer, source-map-explorer | bundle size script | bloqueia por budget, nao por score absoluto generico |
+| Visual regression | Playwright screenshots + pixelmatch | trace analyzer | DOM snapshot | diff strict bloqueia; observe vira warning |
+| Mutation testing | Infection/Stryker | coverage reports | targeted tests | T3 bloqueia release apenas quando policy exige mutation score |
+| License compliance | ScanCode/ORT | licensee | package metadata | copyleft/prohibited license bloqueia release por policy |
+
+Regras:
+
+- Um achado correlacionado nao deve aparecer como tres bloqueios independentes.
+- A ferramenta primaria define severidade default; complementares podem elevar
+  severidade quando trazem evidencia mais precisa.
+- Quando duas ferramentas discordam, o Evidence Store preserva ambas, mas o gate
+  usa a `authority_matrix` para decidir bloqueio.
+- Baselines sao permitidas para debt legado; novas violacoes devem ser
+  separadas de legado.
+- Waiver deve apontar para finding/fingerprint e nao para "desligar ferramenta".
+
+Implementado inicialmente:
+
+- `AtlasToolFindingCorrelationService` agrupa findings bloqueantes nao-waived por
+  `authority_group`.
+- `AtlasToolGateService` retorna `finding_correlations` e os contadores
+  `correlated_finding_group_count` e `suppressed_duplicate_finding_count`.
+- Duplicatas sao suprimidas somente do gate; `atlas_tool_findings` preserva
+  todos os achados e artifacts.
+
+## Contrato Para Agentes Externos
+
+Aider, Continue, OpenHands, Serena/MCP com escrita e agentes semelhantes so
+entram como executores governados. O produto final desejado e: Atlas indexa,
+governa, valida e aprende; agentes externos podem editar dentro desse envelope.
+
+Contrato minimo:
+
+- `Atlas` fornece contexto: Code Intelligence, semantic graph, task contract,
+  recent evidence refs, policy, selected files e constraints.
+- `Agent` executa em worktree/sandbox, produz patch, plano, arquivos tocados,
+  comandos rodados e rationale resumido.
+- `Atlas` valida: diff scope, tests, quality scan, security scan, API/visual
+  contract, architecture boundaries e release gate conforme tier.
+- `Atlas` persiste: tool run, artifacts, findings, patch metadata, stdout/stderr
+  redigidos, custo, duracao e decisao de gate.
+- `Agent` nunca recebe secrets, artifacts privados brutos ou rede sem approval.
+- `Agent` nunca marca run como resolvido; so o Harness/Gate/Operator decidem.
+- Quando MCP/IDE bridge estiver disponivel, agentes externos devem consumir o
+  indice do Atlas; quando nao estiver, ainda podem rodar, mas perdem autoridade e
+  ficam sujeitos a validacao mais conservadora.
+
+Essa regra impede que o Atlas vire apenas "mais um launcher de agentes". O Atlas
+continua sendo o substrato: indice, memoria, policies, evidencias, gates e
+aprendizado.
 
 ## Aprovacoes Auditaveis
 

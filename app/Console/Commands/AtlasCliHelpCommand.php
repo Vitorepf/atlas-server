@@ -263,8 +263,24 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'Lista o registry canonico do Super Tool Runtime, detecta instalacoes, registra skips auditaveis e mostra postura de risco/custo.',
                 ],
                 [
-                    'command' => 'atlas tools run <tool> --command=<argv> --dry-run|--approved',
+                    'command' => 'atlas tools authority --json',
+                    'description' => 'Mostra matriz T0-T3, grupos de autoridade, primarias/complementares/fallbacks/executores e recomendacoes anti-buffet.',
+                ],
+                [
+                    'command' => 'atlas tools commands <tool> --workspace=<repo> --json',
+                    'description' => 'Lista command recipes seguros do registry para a ferramenta, incluindo argv, dry-run default, tier, sandbox, privacidade e task type.',
+                ],
+                [
+                    'command' => 'atlas tools run-recipe <tool> --recipe=version --workspace=<repo> --json',
+                    'description' => 'Executa uma recipe declarada no registry, herdando argv e guardrails em vez de aceitar comando ad hoc.',
+                ],
+                [
+                    'command' => 'atlas tools run <tool> --command=<argv> --sandbox-mode=worktree --privacy-level=standard --task-type=refactor --dry-run|--approved',
                     'description' => 'Executa ou planeja uma ferramenta pelo contrato generico de politica, executor seguro, normalizador e evidence store.',
+                ],
+                [
+                    'command' => 'atlas tools run <tool> --tool-env=KEY=VALUE --output-limit=12000 --requires-provider-safe',
+                    'description' => 'Passa env seguro, limita stdout/stderr persistido e exige output seguro para provider/modelo quando aplicavel.',
                 ],
                 [
                     'command' => 'atlas tools approve|revoke|policies <tool> --scope=workspace --ttl-hours=24',

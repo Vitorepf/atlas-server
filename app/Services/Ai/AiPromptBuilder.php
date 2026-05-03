@@ -2,13 +2,14 @@
 
 namespace App\Services\Ai;
 
-use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Attachments\AiAttachmentIndexService;
+use App\Services\Ai\Search\SessionSearchService;
+use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Services\Ai\Skills\SkillManifest;
-use App\Services\Ai\Search\SessionSearchService;
 use App\Services\Ai\ValueObjects\AiExecutionPlan;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -22,6 +23,7 @@ class AiPromptBuilder
         private readonly SkillBundleStore $skillBundles,
         private readonly SessionSearchService $sessionSearch,
         private readonly ?AiAttachmentIndexService $attachmentIndex = null,
+        private readonly ?AtlasOpenBrainContextInjectionService $openBrainInjection = null,
     ) {}
 
     public function build(string $input, array $options = []): AiPrompt
@@ -48,6 +50,10 @@ class AiPromptBuilder
         $intent = (string) $route['intent'];
         $taskRequest = AiTaskRequest::fromInput($input, $options, $route);
         $contextPack = $this->contexts->build($input, $taskRequest, $options);
+        $openBrain = $this->openBrainInjection ?? app(AtlasOpenBrainContextInjectionService::class);
+        $openBrainInjection = $openBrain->inject($input, $taskRequest, $contextPack, $options);
+        $openBrain->assertAllowed($openBrainInjection);
+        $openBrainMetadata = $this->openBrainMetadata($openBrainInjection);
         $executionPlan = AiExecutionPlan::fromTask(
             task: $taskRequest,
             agent: $agent,
@@ -61,7 +67,7 @@ class AiPromptBuilder
         $outputGovernor = $this->shouldAttachOutputGovernor($options, $agent) && ! in_array('comunicador-claro', $activatedBundleNames, true)
             ? $this->skills->load('comunicador-claro')
             : null;
-        $contextRefs = $contextPack->contextRefs();
+        $contextRefs = $this->contextRefsWithOpenBrain($contextPack->contextRefs(), $openBrainInjection);
         $activatedBundles = $this->activatedBundles($activatedBundleNames);
         $activeAgentBundle = $this->skillBundles->find($agent);
         $catalog = $this->skillBundles->catalog();
@@ -80,7 +86,7 @@ class AiPromptBuilder
             $this->skillCatalogSection($catalog),
             $sessionSearchSection,
             $attachmentSearchSection,
-            $contextPack->toPromptSection(),
+            $this->contextPackPromptSection($contextPack, $openBrainInjection),
             $executionPlan->toPromptSection(),
             $this->atlasModeInstructions($options),
             $this->permissionInstructions($options),
@@ -133,7 +139,47 @@ TXT,
             executionPlan: $executionPlan->toArray(),
             activatedSkills: $activatedBundles->map(fn (SkillManifest $manifest): array => $manifest->activationMetadata())->values()->all(),
             skillCatalog: $catalog,
+            openBrainInjection: $openBrainMetadata,
         );
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $contextRefs
+     * @param  array<string,mixed>  $openBrainInjection
+     * @return array<int,array<string,mixed>>
+     */
+    private function contextRefsWithOpenBrain(array $contextRefs, array $openBrainInjection): array
+    {
+        $openBrainRefs = is_array($openBrainInjection['context_refs'] ?? null) ? $openBrainInjection['context_refs'] : [];
+
+        return collect([...$contextRefs, ...$openBrainRefs])
+            ->filter(fn (mixed $ref): bool => is_array($ref))
+            ->unique(fn (array $ref): string => (string) ($ref['type'] ?? 'unknown').':'.(string) ($ref['id'] ?? $ref['slug'] ?? $ref['canonical_path'] ?? $ref['root_path'] ?? md5(json_encode($ref) ?: '')))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $openBrainInjection
+     */
+    private function contextPackPromptSection($contextPack, array $openBrainInjection): string
+    {
+        $section = $openBrainInjection['prompt_section'] ?? null;
+
+        return is_string($section) && trim($section) !== ''
+            ? $section
+            : $contextPack->toPromptSection();
+    }
+
+    /**
+     * @param  array<string,mixed>  $openBrainInjection
+     * @return array<string,mixed>
+     */
+    private function openBrainMetadata(array $openBrainInjection): array
+    {
+        unset($openBrainInjection['prompt_section'], $openBrainInjection['context_refs']);
+
+        return $openBrainInjection;
     }
 
     private function bootSkillBundles(array $options): void
@@ -197,7 +243,7 @@ TXT,
 
     /**
      * @param  array<int,string>  $names
-     * @return \Illuminate\Support\Collection<int,SkillManifest>
+     * @return Collection<int,SkillManifest>
      */
     private function activatedBundles(array $names)
     {
@@ -287,7 +333,7 @@ TXT,
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int,SkillManifest>  $manifests
+     * @param  Collection<int,SkillManifest>  $manifests
      */
     private function activatedSkillContentSection($manifests): string
     {
@@ -315,7 +361,7 @@ TXT;
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int,SkillManifest>  $manifests
+     * @param  Collection<int,SkillManifest>  $manifests
      * @return array<string,array<string,mixed>>
      */
     private function bundleSkillVersions($manifests): array
@@ -512,7 +558,7 @@ TXT;
                 $isOffice = str_ends_with($lowerName, '.docx') || str_ends_with($lowerName, '.xlsx') || str_ends_with($lowerName, '.pptx');
 
                 $lines[] = '';
-                $lines[] = "<attached_file index=\"{$number}\" name=\"".htmlspecialchars($name, ENT_QUOTES, 'UTF-8')."\" mime=\"".htmlspecialchars($mime, ENT_QUOTES, 'UTF-8')."\" bytes=\"{$bytes}\">";
+                $lines[] = "<attached_file index=\"{$number}\" name=\"".htmlspecialchars($name, ENT_QUOTES, 'UTF-8').'" mime="'.htmlspecialchars($mime, ENT_QUOTES, 'UTF-8')."\" bytes=\"{$bytes}\">";
                 if ($isPdf && $pdfPages !== []) {
                     $pageCount = is_scalar($file['pdf_page_count'] ?? null) ? (string) $file['pdf_page_count'] : 'desconhecido';
                     $processingStatus = is_scalar($file['pdf_processing_status'] ?? null) ? (string) $file['pdf_processing_status'] : 'desconhecido';
@@ -535,7 +581,7 @@ TXT;
                         $tableExcerpt = is_string($page['table_excerpt'] ?? null) ? trim($page['table_excerpt']) : '';
                         $imageCount = is_scalar($page['image_count'] ?? null) ? (string) $page['image_count'] : '0';
                         $tableCount = is_scalar($page['table_count'] ?? null) ? (string) $page['table_count'] : '0';
-                        $lines[] = "<pdf_page page=\"{$pageNumber}\" classification=\"".htmlspecialchars($classification, ENT_QUOTES, 'UTF-8')."\">";
+                        $lines[] = "<pdf_page page=\"{$pageNumber}\" classification=\"".htmlspecialchars($classification, ENT_QUOTES, 'UTF-8').'">';
                         if ($caption !== '') {
                             $lines[] = '<visual_caption>'.htmlspecialchars($caption, ENT_QUOTES, 'UTF-8').'</visual_caption>';
                         }

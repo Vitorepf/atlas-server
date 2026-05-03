@@ -14,8 +14,10 @@ use App\Http\Controllers\AiThreadController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasDomainController;
 use App\Http\Controllers\AtlasMemoryController;
+use App\Http\Controllers\AtlasMemoryMaintenanceController;
 use App\Http\Controllers\AtlasMemoryRecallController;
 use App\Http\Controllers\AtlasOpenBrainController;
+use App\Http\Controllers\AtlasOpenBrainMcpController;
 use App\Http\Controllers\AtlasProjectBlockerController;
 use App\Http\Controllers\AtlasProjectController;
 use App\Http\Controllers\AtlasProjectPlanProposalController;
@@ -139,6 +141,7 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::post('/engineering/sbom', [EngineeringToolScanController::class, 'sbom']);
     Route::get('/tools', [AtlasToolRuntimeController::class, 'index']);
     Route::get('/tools/doctor', [AtlasToolRuntimeController::class, 'doctor']);
+    Route::get('/tools/authority', [AtlasToolRuntimeController::class, 'authority']);
     Route::get('/tools/evidence', [AtlasToolRuntimeController::class, 'evidence']);
     Route::get('/tools/evidence/{run}', [AtlasToolRuntimeController::class, 'evidenceShow']);
     Route::get('/tools/evidence/{run}/export', [AtlasToolRuntimeController::class, 'evidenceExport']);
@@ -147,6 +150,8 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/tools/policies', [AtlasToolRuntimeController::class, 'policies']);
     Route::post('/tools/findings/{finding}/waiver', [AtlasToolRuntimeController::class, 'waiveFinding']);
     Route::delete('/tools/findings/{finding}/waiver', [AtlasToolRuntimeController::class, 'revokeFindingWaiver']);
+    Route::get('/tools/{tool}/commands', [AtlasToolRuntimeController::class, 'commands']);
+    Route::post('/tools/{tool}/commands/{recipe}/run', [AtlasToolRuntimeController::class, 'runRecipe']);
     Route::get('/tools/{tool}', [AtlasToolRuntimeController::class, 'show']);
     Route::post('/tools/{tool}/run', [AtlasToolRuntimeController::class, 'run']);
     Route::post('/tools/{tool}/approval', [AtlasToolRuntimeController::class, 'approve']);
@@ -273,8 +278,10 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/ai/memory', [AtlasMemoryController::class, 'index']);
     Route::post('/ai/memory', [AtlasMemoryController::class, 'store']);
     Route::post('/ai/memory/recall', AtlasMemoryRecallController::class);
+    Route::post('/ai/memory/maintain', AtlasMemoryMaintenanceController::class);
     Route::post('/ai/open-brain/context-pack', [AtlasOpenBrainController::class, 'contextPack']);
     Route::get('/ai/open-brain/audits', [AtlasOpenBrainController::class, 'audits']);
+    Route::match(['GET', 'POST'], '/ai/open-brain/mcp', AtlasOpenBrainMcpController::class);
     Route::get('/ai/memory/audit/traces/{trace}', [AtlasMemoryController::class, 'auditTrace']);
     Route::post('/ai/memory/deltas/{delta}/promote', [AtlasMemoryController::class, 'promoteDelta']);
     Route::post('/ai/memory/governance/scan', [AtlasMemoryController::class, 'scanGovernance']);

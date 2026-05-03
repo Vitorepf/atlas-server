@@ -21,7 +21,7 @@ _atlas_complete() {
     threads sessions status dashboard tui state steer compact handoff switch \
     interrupt stop cancel continue resume start focus work worker daemon \
     checkpoint checkpoints quality finish test benchmark bench engineering harness tools runtime tool search trace \
-    permissions memory memory:list memory:add memory:audit memory:promote memory:govern memory:governance memory:review-queue memory:queue memory:relations memory:privacy memory:verbatim memory:projection memory:recall memory:seed-core memory:seed open-brain brain mobile inbox insight insight-watch watch-insights \
+    permissions memory memory:list memory:add memory:audit memory:promote memory:govern memory:governance memory:review-queue memory:queue memory:relations memory:privacy memory:verbatim memory:projection memory:recall memory:maintain memory:maintenance memory:seed-core memory:seed open-brain open-brain:mcp brain brain:mcp mcp mobile inbox insight insight-watch watch-insights \
     proposal proposal-scan proposals-scan scan-proposals self-diagnostic diagnostic \
     initiatives initiative schedule cron skills profile health providers \
     setup init bootstrap configure version update rollback install \
@@ -51,11 +51,11 @@ _atlas_complete() {
       return 0
       ;;
     memory)
-      COMPREPLY=( $(compgen -W "review review-queue queue list show accept reject promote propose govern governance relation relations privacy verbatim projection project recall seed seed-core release block redact resolve dismiss scan apply preview diff write inspect status adopt memory verbatim relations --area= --trace-id= --memory-type= --scope-type= --scope-id= --source-id= --target-id= --source-status= --target-status= --privacy= --privacy-class= --allow-external-ai --block-external-ai --redacted-text= --redacted-body= --re-redact --include-verbatim --include-unreviewed --target= --max-lines= --memory-limit= --limit= --budget= --item-chars= --force --yes --dry-run --json" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "review review-queue queue list show accept reject promote propose govern governance relation relations privacy verbatim projection project recall maintain maintenance seed seed-core release block redact resolve dismiss scan apply preview diff write inspect status adopt memory verbatim relations --area= --trace-id= --memory-type= --scope-type= --scope-id= --source-id= --target-id= --source-status= --target-status= --privacy= --privacy-class= --allow-external-ai --block-external-ai --redacted-text= --redacted-body= --re-redact --include-verbatim --include-unreviewed --target= --max-lines= --memory-limit= --limit= --budget= --item-chars= --workspace= --include-drift-audit --apply-projection --no-sync --no-index-code --no-prune --force --yes --dry-run --json" -- "${cur}") )
       return 0
       ;;
     open-brain|brain)
-      COMPREPLY=( $(compgen -W "context context-pack export --workspace= --task-type= --desired-mode= --agent= --intent= --requester= --payload-json= --include-prompt --json" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "context context-pack export mcp serve server --workspace= --task-type= --desired-mode= --agent= --intent= --requester= --payload-json= --include-prompt --once= --describe --json" -- "${cur}") )
       return 0
       ;;
     benchmark|bench)
@@ -75,7 +75,7 @@ _atlas_complete() {
       return 0
       ;;
     tools)
-      COMPREPLY=( $(compgen -W "doctor list status run evidence evidence-show evidence-export gate release-gate approve revoke waive-finding revoke-finding-waiver policies --workspace= --command= --dry-run --approved --required --scope= --reason= --ttl-hours= --network-allowed --finding-id= --surface= --status= --policy-decision= --context-type= --context-id= --run-id= --required-only --required-tool= --fail-status= --require-evidence --release-profile= --limit= --json" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "doctor list authority matrix status commands run run-recipe recipe evidence evidence-show evidence-export gate release-gate approve revoke waive-finding revoke-finding-waiver policies --workspace= --command= --recipe= --tool-env= --output-limit= --dry-run --approved --required --max-execution-tier= --sandbox-mode= --privacy-level= --task-type= --requires-provider-safe --scope= --reason= --ttl-hours= --network-allowed --finding-id= --surface= --status= --policy-decision= --context-type= --context-id= --run-id= --required-only --required-tool= --fail-status= --require-evidence --release-profile= --limit= --json" -- "${cur}") )
       return 0
       ;;
     completion)
@@ -111,6 +111,26 @@ _atlas_complete() {
       ;;
     --sandbox)
       COMPREPLY=( $(compgen -W "workspace worktree docker" -- "${cur}") )
+      return 0
+      ;;
+    --sandbox-mode)
+      COMPREPLY=( $(compgen -W "workspace worktree docker host none" -- "${cur}") )
+      return 0
+      ;;
+    --privacy-level)
+      COMPREPLY=( $(compgen -W "standard sensitive restricted" -- "${cur}") )
+      return 0
+      ;;
+    --max-execution-tier)
+      COMPREPLY=( $(compgen -W "T0 T1 T2 T3" -- "${cur}") )
+      return 0
+      ;;
+    --task-type)
+      COMPREPLY=( $(compgen -W "manual quality_scan security_scan sbom api_contract refactor release_gate agent_execution visual_smoke code_intelligence" -- "${cur}") )
+      return 0
+      ;;
+    --release-profile)
+      COMPREPLY=( $(compgen -W "security_sbom_release" -- "${cur}") )
       return 0
       ;;
     --provider-runtime)

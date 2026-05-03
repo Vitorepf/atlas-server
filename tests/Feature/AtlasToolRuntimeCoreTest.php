@@ -78,10 +78,133 @@ class AtlasToolRuntimeCoreTest extends TestCase
         $this->assertSame('ready', data_get($visualSmoke, 'status'));
         $this->assertSame('atlas_internal', data_get($visualSmoke, 'execution_layer'));
         $this->assertSame('ready', data_get($codeIntelligence, 'status'));
+        $this->assertSame('T1', data_get($gitleaks, 'execution_tier'));
+        $this->assertSame('secret_scan', data_get($gitleaks, 'authority_group'));
+        $this->assertSame('primary', data_get($gitleaks, 'authority_role'));
+        $this->assertSame(['gitleaks', '--version'], data_get($gitleaks, 'safe_commands.0.command'));
+        $this->assertTrue((bool) data_get($gitleaks, 'safe_commands.0.dry_run_default'));
         $this->assertDatabaseHas('atlas_tool_definitions', ['slug' => 'gitleaks']);
         $this->assertDatabaseHas('atlas_tool_definitions', ['slug' => 'atlas_visual_smoke']);
         $this->assertDatabaseHas('atlas_tool_definitions', ['slug' => 'atlas_code_intelligence']);
         $this->assertDatabaseHas('atlas_tool_installations', ['status' => 'ready']);
+    }
+
+    public function test_tool_command_catalog_is_exposed_by_cli_and_api(): void
+    {
+        $this->installFakeBinary('rg', 'echo "ripgrep 99.0.0"');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'commands',
+            'tool' => 'ripgrep',
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('ripgrep', data_get($payload, 'tool.slug'));
+        $this->assertSame('version', data_get($payload, 'commands.0.name'));
+        $this->assertSame(['rg', '--version'], data_get($payload, 'commands.0.command'));
+        $this->assertSame('diagnostic', data_get($payload, 'commands.0.task_type'));
+        $this->assertFalse((bool) data_get($payload, 'commands.0.network_allowed'));
+
+        $this->getJson('/tools/ripgrep/commands?workspace='.urlencode($this->workspace), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('tool.slug', 'ripgrep')
+            ->assertJsonPath('commands.0.command.0', 'rg')
+            ->assertJsonPath('commands.0.dry_run_default', true);
+    }
+
+    public function test_tool_recipe_can_be_executed_by_cli_and_api(): void
+    {
+        $this->installFakeBinary('rg', 'echo "ripgrep 99.0.0"');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run-recipe',
+            'tool' => 'ripgrep',
+            '--recipe' => 'version',
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('skipped', data_get($payload, 'run.status'));
+        $this->assertSame('version', data_get($payload, 'run.metadata_json.recipe'));
+        $this->assertSame('cli_recipe', data_get($payload, 'run.surface'));
+
+        $this->postJson('/tools/ripgrep/commands/version/run', [
+            'workspace' => $this->workspace,
+            'dry_run' => true,
+        ], $this->headers)
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'skipped')
+            ->assertJsonPath('data.metadata_json.recipe', 'version')
+            ->assertJsonPath('data.surface', 'api_recipe');
+    }
+
+    public function test_registry_seeds_programming_power_tools_with_execution_policy_metadata(): void
+    {
+        Artisan::call('atlas:tools', [
+            'action' => 'list',
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+        $serena = collect($payload['tools'] ?? [])->firstWhere('slug', 'serena');
+        $infection = collect($payload['tools'] ?? [])->firstWhere('slug', 'infection');
+        $codeql = collect($payload['tools'] ?? [])->firstWhere('slug', 'codeql');
+
+        $this->assertSame('semantic_code_intelligence', data_get($serena, 'category'));
+        $this->assertSame('T0', data_get($serena, 'execution_tier'));
+        $this->assertSame('complementary', data_get($serena, 'authority_role'));
+        $this->assertSame('T3', data_get($infection, 'execution_tier'));
+        $this->assertSame('mutation_testing', data_get($infection, 'authority_group'));
+        $this->assertSame('T2', data_get($codeql, 'execution_tier'));
+        $this->assertSame('semantic_sast', data_get($codeql, 'authority_group'));
+        $this->assertDatabaseHas('atlas_tool_definitions', [
+            'slug' => 'serena',
+            'execution_tier' => 'T0',
+            'authority_group' => 'semantic_code_intelligence',
+        ]);
+    }
+
+    public function test_cli_authority_matrix_exposes_tiers_roles_and_recommendations(): void
+    {
+        $exit = Artisan::call('atlas:tools', [
+            'action' => 'authority',
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+        $semanticSast = collect($payload['authority_groups'] ?? [])->firstWhere('authority_group', 'semantic_sast');
+        $semanticCode = collect($payload['authority_groups'] ?? [])->firstWhere('authority_group', 'semantic_code_intelligence');
+        $vulnerabilityScan = collect($payload['authority_groups'] ?? [])->firstWhere('authority_group', 'vulnerability_scan');
+        $externalAgents = collect($payload['authority_groups'] ?? [])->firstWhere('authority_group', 'external_coding_agent');
+        $recommendationCodes = collect($payload['recommendations'] ?? [])->pluck('code')->all();
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('ok', data_get($payload, 'status'));
+        $this->assertGreaterThanOrEqual(60, data_get($payload, 'summary.tool_count'));
+        $this->assertGreaterThan(0, data_get($payload, 'summary.t0_count'));
+        $this->assertGreaterThan(0, data_get($payload, 'summary.t3_count'));
+        $this->assertSame('codeql', data_get($semanticSast, 'primary_tools.0.slug'));
+        $this->assertSame('semgrep', data_get($semanticSast, 'complementary_tools.0.slug'));
+        $this->assertContains('T2', data_get($semanticSast, 'tier_span', []));
+        $this->assertSame('atlas_code_intelligence', data_get($semanticCode, 'primary_tools.0.slug'));
+        $this->assertContains('serena', collect(data_get($semanticCode, 'complementary_tools', []))->pluck('slug')->all());
+        $this->assertSame('trivy', data_get($vulnerabilityScan, 'primary_tools.0.slug'));
+        $this->assertSame('grype', data_get($vulnerabilityScan, 'complementary_tools.0.slug'));
+        $this->assertSame('aider', data_get($externalAgents, 'executor_tools.0.slug'));
+        $this->assertContains('external_agents_require_policy_boundary', $recommendationCodes);
+        $this->assertNotContains('authority_group_missing_primary', collect($payload['recommendations'] ?? [])->where('authority_group', 'semantic_code_intelligence')->pluck('code')->all());
+    }
+
+    public function test_api_authority_route_is_static_and_not_treated_as_tool_slug(): void
+    {
+        $this->getJson('/tools/authority', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'ok')
+            ->assertJsonPath('authority_groups.0.authority_group', 'accessibility')
+            ->assertJsonPath('tiers.T0.tools.0.execution_tier', 'T0');
     }
 
     public function test_policy_requires_approval_for_high_risk_tool_and_records_auditable_run(): void
@@ -103,6 +226,162 @@ class AtlasToolRuntimeCoreTest extends TestCase
             'tool_slug' => 'gitleaks',
             'policy_decision' => 'requires_approval',
         ]);
+    }
+
+    public function test_policy_skips_tool_above_allowed_execution_tier_budget(): void
+    {
+        $this->installFakeBinary('codeql', 'echo "codeql ok"');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'codeql',
+            '--workspace' => $this->workspace,
+            '--command' => ['codeql', '--version'],
+            '--approved' => true,
+            '--network-allowed' => true,
+            '--max-execution-tier' => 'T1',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('skipped', data_get($payload, 'run.status'));
+        $this->assertSame('skipped', data_get($payload, 'run.policy_decision'));
+        $this->assertSame('T2', data_get($payload, 'run.policy_decision_json.execution_tier'));
+        $this->assertSame('T1', data_get($payload, 'run.policy_decision_json.max_execution_tier'));
+        $this->assertContains('execution_tier_above_policy_budget', data_get($payload, 'run.policy_decision_json.reasons', []));
+    }
+
+    public function test_policy_requires_sandbox_or_approval_for_workspace_writing_tools(): void
+    {
+        $this->installFakeBinary('ast-grep', 'echo "ast-grep ok"');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'ast_grep',
+            '--workspace' => $this->workspace,
+            '--command' => ['ast-grep', '--version'],
+            '--json' => true,
+        ]);
+        $blocked = json_decode(Artisan::output(), true);
+
+        $this->assertSame('requires_approval', data_get($blocked, 'run.status'));
+        $this->assertSame('workspace', data_get($blocked, 'run.policy_decision_json.sandbox_mode'));
+        $this->assertContains('workspace_write_requires_sandbox_or_approval', data_get($blocked, 'run.policy_decision_json.reasons', []));
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'ast_grep',
+            '--workspace' => $this->workspace,
+            '--command' => ['ast-grep', '--version'],
+            '--sandbox-mode' => 'worktree',
+            '--json' => true,
+        ]);
+        $allowed = json_decode(Artisan::output(), true);
+
+        $this->assertSame('passed', data_get($allowed, 'run.status'));
+        $this->assertSame('worktree', data_get($allowed, 'run.policy_decision_json.sandbox_mode'));
+    }
+
+    public function test_policy_blocks_provider_unsafe_outputs_when_required(): void
+    {
+        $this->installFakeBinary('gitleaks', 'echo "gitleaks ok"');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'gitleaks',
+            '--workspace' => $this->workspace,
+            '--command' => ['gitleaks', '--version'],
+            '--requires-provider-safe' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('skipped', data_get($payload, 'run.status'));
+        $this->assertFalse((bool) data_get($payload, 'run.policy_decision_json.provider_safe'));
+        $this->assertTrue((bool) data_get($payload, 'run.policy_decision_json.requires_provider_safe'));
+        $this->assertContains('provider_unsafe_output', data_get($payload, 'run.policy_decision_json.reasons', []));
+    }
+
+    public function test_approval_policy_preserves_execution_tier_budget_guardrail(): void
+    {
+        $this->installFakeBinary('codeql', 'echo "codeql ok"');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'approve',
+            'tool' => 'codeql',
+            '--workspace' => $this->workspace,
+            '--network-allowed' => true,
+            '--max-execution-tier' => 'T1',
+            '--json' => true,
+        ]);
+        $approval = json_decode(Artisan::output(), true);
+
+        $this->assertSame('T1', data_get($approval, 'policy.metadata.max_execution_tier'));
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'codeql',
+            '--workspace' => $this->workspace,
+            '--command' => ['codeql', '--version'],
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('skipped', data_get($payload, 'run.status'));
+        $this->assertSame('approved', data_get($payload, 'run.policy_decision_json.approval_status'));
+        $this->assertSame('T1', data_get($payload, 'run.policy_decision_json.max_execution_tier'));
+        $this->assertContains('execution_tier_above_policy_budget', data_get($payload, 'run.policy_decision_json.reasons', []));
+    }
+
+    public function test_approval_policy_can_require_sandbox_and_provider_safe_guardrails(): void
+    {
+        $this->installFakeBinary('ast-grep', 'echo "ast-grep ok"');
+        $this->installFakeBinary('gitleaks', 'echo "gitleaks ok"');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'approve',
+            'tool' => 'ast_grep',
+            '--workspace' => $this->workspace,
+            '--sandbox-mode' => 'worktree',
+            '--task-type' => 'refactor',
+            '--json' => true,
+        ]);
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'ast_grep',
+            '--workspace' => $this->workspace,
+            '--command' => ['ast-grep', '--version'],
+            '--json' => true,
+        ]);
+        $allowed = json_decode(Artisan::output(), true);
+
+        $this->assertSame('passed', data_get($allowed, 'run.status'));
+        $this->assertSame('worktree', data_get($allowed, 'run.policy_decision_json.sandbox_mode'));
+        $this->assertSame('refactor', data_get($allowed, 'run.policy_decision_json.task_type'));
+
+        Artisan::call('atlas:tools', [
+            'action' => 'approve',
+            'tool' => 'gitleaks',
+            '--workspace' => $this->workspace,
+            '--requires-provider-safe' => true,
+            '--json' => true,
+        ]);
+        $approval = json_decode(Artisan::output(), true);
+
+        $this->assertTrue((bool) data_get($approval, 'policy.metadata.requires_provider_safe'));
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'gitleaks',
+            '--workspace' => $this->workspace,
+            '--command' => ['gitleaks', '--version'],
+            '--json' => true,
+        ]);
+        $blocked = json_decode(Artisan::output(), true);
+
+        $this->assertSame('skipped', data_get($blocked, 'run.status'));
+        $this->assertContains('provider_unsafe_output', data_get($blocked, 'run.policy_decision_json.reasons', []));
     }
 
     public function test_tool_approval_policy_allows_high_risk_tool_and_can_be_revoked(): void
@@ -218,6 +497,50 @@ class AtlasToolRuntimeCoreTest extends TestCase
             'tool_run_id' => $runId,
             'type' => 'stdout',
         ]);
+    }
+
+    public function test_executor_applies_safe_env_and_audits_output_truncation(): void
+    {
+        $this->installFakeBinary('rg', <<<'BASH'
+printf 'mode=%s\n' "$ATLAS_TOOL_MODE"
+printf '%*s' 1500 '' | tr ' ' A
+BASH);
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'ripgrep',
+            '--workspace' => $this->workspace,
+            '--command' => ['rg', '--version'],
+            '--tool-env' => ['ATLAS_TOOL_MODE=fixture'],
+            '--output-limit' => 1000,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+        $runId = data_get($payload, 'run.id');
+        $run = AtlasToolRun::query()->with('artifacts')->find($runId);
+        $stdout = $run?->artifacts->firstWhere('type', 'stdout');
+
+        $this->assertSame('passed', data_get($payload, 'run.status'));
+        $this->assertSame(['ATLAS_TOOL_MODE'], data_get($payload, 'run.metadata_json.env_keys'));
+        $this->assertSame(1000, data_get($payload, 'run.metadata_json.output_limit'));
+        $this->assertTrue((bool) data_get($payload, 'run.metadata_json.stdout_truncated'));
+        $this->assertNotNull($stdout);
+        $this->assertStringContainsString('mode=fixture', (string) data_get($stdout?->preview_json, 'excerpt'));
+        $this->assertLessThanOrEqual(1000, mb_strlen((string) data_get($stdout?->preview_json, 'excerpt')));
+    }
+
+    public function test_api_rejects_sensitive_tool_env_keys(): void
+    {
+        $this->postJson('/tools/ripgrep/run', [
+            'workspace' => $this->workspace,
+            'command' => ['rg', '--version'],
+            'dry_run' => true,
+            'env' => [
+                'GITHUB_TOKEN' => 'ghp_should_not_be_allowed',
+            ],
+        ], $this->headers)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Sensitive env key rejected.');
     }
 
     public function test_executor_normalizes_structured_tool_output_into_findings(): void
@@ -580,6 +903,51 @@ BASH);
             ->assertJsonPath('summary.blocking_failure_count', 0);
     }
 
+    public function test_gate_correlates_duplicate_blocking_findings_across_authority_group(): void
+    {
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('codeql', $this->workspace, [
+            'status' => 'passed',
+            'findings' => [[
+                'rule_id' => 'codeql.sql-injection',
+                'title' => 'SQL injection risk',
+                'message' => 'User input reaches SQL query.',
+                'severity' => 'high',
+                'file' => 'app/Http/Controllers/SearchController.php',
+                'line' => 42,
+                'blocks_resolved' => true,
+            ]],
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'passed',
+            'findings' => [[
+                'rule_id' => 'php.lang.security.sql-injection',
+                'title' => 'SQL injection risk',
+                'message' => 'Potential SQL injection.',
+                'severity' => 'high',
+                'file' => 'app/Http/Controllers/SearchController.php',
+                'line' => 42,
+                'blocks_resolved' => true,
+            ]],
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('summary.run_count', 2)
+            ->assertJsonPath('summary.blocking_failure_count', 1)
+            ->assertJsonPath('summary.correlated_finding_group_count', 1)
+            ->assertJsonPath('summary.suppressed_duplicate_finding_count', 1)
+            ->assertJsonPath('finding_correlations.0.authority_group', 'semantic_sast')
+            ->assertJsonPath('finding_correlations.0.authoritative_tool_slug', 'codeql');
+    }
+
     public function test_finding_waivers_are_auditable_and_excluded_from_gates_until_revoked(): void
     {
         $run = app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
@@ -741,12 +1109,16 @@ BASH);
             'ttl_hours' => 1,
         ], $this->headers)->assertCreated();
 
-        $this->getJson('/tools/release-gate?workspace='.urlencode($this->workspace), $this->headers)
+        $passedGatePayload = $this->getJson('/tools/release-gate?workspace='.urlencode($this->workspace), $this->headers)
             ->assertOk()
             ->assertJsonPath('status', 'passed')
             ->assertJsonPath('allowed', true)
             ->assertJsonPath('summary.release_requirement_failure_count', 0)
-            ->assertJsonPath('runs.3.waived_finding_count', 1);
+            ->json();
+
+        $waivedSemgrepRun = collect($passedGatePayload['runs'] ?? [])
+            ->firstWhere('tool_slug', 'semgrep');
+        $this->assertSame(1, data_get($waivedSemgrepRun, 'waived_finding_count'));
 
         Artisan::call('atlas:tools', [
             'action' => 'release-gate',
@@ -882,6 +1254,11 @@ BASH);
             $table->string('default_failure_policy')->default('advisory');
             $table->string('risk_level')->default('low');
             $table->string('status')->default('active');
+            $table->string('execution_tier')->default('T1');
+            $table->string('expected_cost')->default('local_fast');
+            $table->string('default_trigger')->default('manual_or_policy');
+            $table->string('authority_role')->default('primary');
+            $table->string('authority_group')->nullable();
             $table->string('detected_version')->nullable();
             $table->json('capabilities_json')->nullable();
             $table->json('runtime_json')->nullable();

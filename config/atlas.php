@@ -100,6 +100,29 @@ return [
         ))),
     ],
 
+    'open_brain' => [
+        'injection' => [
+            'enabled' => (bool) env('ATLAS_OPEN_BRAIN_INJECTION_ENABLED', true),
+            'budget_chars' => (int) env('ATLAS_OPEN_BRAIN_INJECTION_BUDGET_CHARS', 20000),
+            'required_for_complete' => (bool) env('ATLAS_OPEN_BRAIN_INJECTION_REQUIRED_FOR_COMPLETE', true),
+            'knowledge_ref_limit' => (int) env('ATLAS_OPEN_BRAIN_INJECTION_KNOWLEDGE_REF_LIMIT', 6),
+            'code_ref_limit' => (int) env('ATLAS_OPEN_BRAIN_INJECTION_CODE_REF_LIMIT', 8),
+        ],
+        'mcp' => [
+            'http_enabled' => (bool) env('ATLAS_OPEN_BRAIN_MCP_HTTP_ENABLED', true),
+            'allowed_origins' => env('ATLAS_OPEN_BRAIN_MCP_ALLOWED_ORIGINS')
+                ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_OPEN_BRAIN_MCP_ALLOWED_ORIGINS'))), fn (string $origin): bool => $origin !== ''))
+                : [
+                    'http://localhost',
+                    'http://127.0.0.1',
+                    'http://localhost:3000',
+                    'http://127.0.0.1:3000',
+                    'http://localhost:5173',
+                    'http://127.0.0.1:5173',
+                ],
+        ],
+    ],
+
     'display' => [
         'busy_input_mode' => env('ATLAS_BUSY_INPUT_MODE', 'interrupt'),
     ],
@@ -630,6 +653,15 @@ return [
     ],
 
     'cli' => [
+        'php_binary' => env('ATLAS_PHP_BIN'),
+        'php_binary_candidates' => env('ATLAS_PHP_BIN_CANDIDATES')
+            ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_PHP_BIN_CANDIDATES'))), fn (string $path): bool => $path !== ''))
+            : [
+                '/opt/homebrew/bin/php',
+                '/opt/homebrew/opt/php/bin/php',
+                '/opt/homebrew/opt/php@8.5/bin/php',
+                '/opt/homebrew/opt/php@8.4/bin/php',
+            ],
         'dogfood_path' => env('ATLAS_CLI_DOGFOOD_PATH') ?: storage_path('app/atlas-cli/dogfood.json'),
         'final_product_doc_paths' => [
             base_path('docs/atlas-cli-final-product.md'),

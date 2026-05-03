@@ -23,6 +23,7 @@ use App\Services\Ai\Cli\IntentPermissionResolver;
 use App\Services\Ai\Cli\IntentResolution;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use App\Support\TerminalMarkdownRenderer;
 use Illuminate\Console\Command;
@@ -63,6 +64,10 @@ class AiChatCommand extends Command
         {--auto-test : Run detected tests after dev responses}
         {--no-quality-gate : Skip automatic Atlas quality gate in dev mode}
         {--dev-plan= : JSON encoded Atlas dev execution plan}
+        {--no-open-brain : Disable automatic Open Brain context injection for this prompt}
+        {--require-open-brain : Fail if Open Brain context cannot be injected}
+        {--open-brain-refresh : Request a fresh Open Brain context instead of reusing a prior hash}
+        {--open-brain-budget= : Override Open Brain context budget in characters}
         {--skill=* : Activate one or more agentskills bundle names}
         {--list-threads : List recent Atlas CLI threads and exit}
         {--no-run : Enqueue only; do not run the local worker inline}
@@ -611,6 +616,7 @@ class AiChatCommand extends Command
                 'model_tier' => $modelSelection['tier'] ?? null,
             ],
         );
+        $devPlan = $this->devExecutionPlanOption();
         $payload = [
             'app_surface' => 'atlas_cli',
             'atlas_workflow_mode' => $mode,
@@ -625,6 +631,7 @@ class AiChatCommand extends Command
             'requested_agent' => $agentSlug,
             'workspace_context' => $this->workspaceContext($workspace),
             'tool_permissions' => $this->toolPermissions($workspace, $mode, $provider, $permissionMode),
+            'open_brain' => $this->openBrainPayload($mode, $devPlan),
         ];
         if ($activatedSkills !== []) {
             $payload['activated_skills'] = $activatedSkills;
@@ -635,7 +642,6 @@ class AiChatCommand extends Command
             ];
         }
 
-        $devPlan = $this->devExecutionPlanOption();
         if ($devPlan !== null) {
             $payload['dev_execution_plan'] = $devPlan;
         }
@@ -945,6 +951,7 @@ class AiChatCommand extends Command
                 'model_tier' => data_get($trace->metadata, 'model_tier'),
                 'agent' => $trace->agent_slug,
                 'skills_activated' => (array) data_get($trace->metadata, 'skills_activated', []),
+                'open_brain_injection' => data_get($trace->metadata, 'open_brain_injection'),
                 'response_text' => $trace->response_text,
                 'quality' => $quality ? [
                     'score' => $quality->score,
@@ -977,6 +984,14 @@ class AiChatCommand extends Command
             ->implode(', ');
         if ($activatedSkills !== '') {
             $this->line('<fg=gray>skills '.$activatedSkills.'</>');
+        }
+
+        $openBrain = data_get($trace->metadata, 'open_brain_injection');
+        if (is_array($openBrain) && ($openBrain['status'] ?? null) && ($openBrain['status'] ?? null) !== 'skipped') {
+            $style = in_array($openBrain['status'], ['injected'], true) ? 'fg=green' : 'fg=yellow';
+            $hash = is_string($openBrain['context_pack_hash'] ?? null) ? substr((string) $openBrain['context_pack_hash'], 0, 10) : 'sem hash';
+            $refs = (int) data_get($openBrain, 'summary.context_refs', 0);
+            $this->line('<'.$style.'>open brain '.$openBrain['status'].'</> <fg=gray>hash '.$hash.' · refs '.$refs.'</>');
         }
 
         if ($quality) {
@@ -1571,7 +1586,7 @@ class AiChatCommand extends Command
      */
     private function runLocalAtlasCommand(array $arguments): void
     {
-        $process = new Process(array_merge([PHP_BINARY, 'artisan'], $arguments), base_path(), AtlasSecurity::processEnv(profile: 'internal'));
+        $process = new Process(array_merge([AtlasPhpBinary::path(), 'artisan'], $arguments), base_path(), AtlasSecurity::processEnv(profile: 'internal'));
         $process->setTimeout(120);
         $process->run(function (string $type, string $buffer): void {
             $this->output->write(AtlasSecurity::redactString($buffer));
@@ -2703,6 +2718,31 @@ class AiChatCommand extends Command
         $decoded = json_decode($raw, true);
 
         return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function openBrainPayload(string $mode, ?array $devPlan = null): array
+    {
+        $budget = $this->option('open-brain-budget');
+        $budgetChars = is_scalar($budget) && trim((string) $budget) !== ''
+            ? max(2000, (int) $budget)
+            : null;
+        $surface = $devPlan === null
+            ? 'cli_chat'
+            : (data_get($devPlan, 'resumed_at') ? 'cli_continue' : 'cli_dev');
+
+        return array_filter([
+            'mode' => (bool) $this->option('no-open-brain')
+                ? 'off'
+                : ((bool) $this->option('require-open-brain') ? 'required' : 'auto'),
+            'surface' => $surface,
+            'workflow_mode' => $mode,
+            'budget_chars' => $budgetChars,
+            'refresh' => (bool) $this->option('open-brain-refresh'),
+            'provider_safe_only' => true,
+        ], fn (mixed $value): bool => $value !== null);
     }
 
     private function agentSlug(string $mode): ?string

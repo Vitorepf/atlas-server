@@ -10,6 +10,7 @@ class AtlasToolGateService
     public function __construct(
         private readonly AtlasToolEvidenceQueryService $evidence,
         private readonly AtlasToolFindingWaiverService $waivers,
+        private readonly AtlasToolFindingCorrelationService $correlations,
     ) {}
 
     /**
@@ -27,6 +28,8 @@ class AtlasToolGateService
         $requiredTools = $this->stringList($options['required_tools'] ?? []);
         $requireEvidence = (bool) ($options['require_evidence'] ?? false);
         $waiverAwareFailedRuns = (bool) ($options['waiver_aware_failed_runs'] ?? false);
+        $correlationResult = $this->correlations->correlate($runs);
+        $suppressedFindingIds = (array) ($correlationResult['suppressed_finding_ids'] ?? []);
         $blockingFailures = [];
         $warnings = [];
 
@@ -50,7 +53,7 @@ class AtlasToolGateService
         foreach ($runs as $run) {
             $blockingFailures = [
                 ...$blockingFailures,
-                ...$this->blockingFailuresForRun($run, $failStatuses, $waiverAwareFailedRuns),
+                ...$this->blockingFailuresForRun($run, $failStatuses, $waiverAwareFailedRuns, $suppressedFindingIds),
             ];
 
             if ($run->status === 'skipped') {
@@ -77,9 +80,12 @@ class AtlasToolGateService
                 'failed_run_count' => $runs->whereIn('status', $failStatuses)->count(),
                 'blocking_failure_count' => count($blockingFailures),
                 'warning_count' => count($warnings),
+                'correlated_finding_group_count' => count((array) ($correlationResult['correlations'] ?? [])),
+                'suppressed_duplicate_finding_count' => count($suppressedFindingIds),
             ],
             'blocking_failures' => $blockingFailures,
             'warnings' => $warnings,
+            'finding_correlations' => $correlationResult['correlations'] ?? [],
             'runs' => $runs->map(fn (AtlasToolRun $run): array => $this->runSummary($run))->values()->all(),
         ];
     }
@@ -88,7 +94,7 @@ class AtlasToolGateService
      * @param  array<int,string>  $failStatuses
      * @return array<int,array<string,mixed>>
      */
-    private function blockingFailuresForRun(AtlasToolRun $run, array $failStatuses, bool $waiverAwareFailedRuns = false): array
+    private function blockingFailuresForRun(AtlasToolRun $run, array $failStatuses, bool $waiverAwareFailedRuns = false, array $suppressedFindingIds = []): array
     {
         $failures = [];
         $storedBlockingFindings = $run->findings->filter(fn ($finding): bool => (bool) $finding->blocks_resolved)->values();
@@ -117,6 +123,10 @@ class AtlasToolGateService
         }
 
         foreach ($blockingFindings as $finding) {
+            if (in_array((string) $finding->id, $suppressedFindingIds, true)) {
+                continue;
+            }
+
             $failures[] = [
                 'tool_run_id' => $run->id,
                 'tool_slug' => $run->tool_slug,

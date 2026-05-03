@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
@@ -60,12 +61,12 @@ class AtlasCliUpdateCommand extends Command
             return $this->finish(false, 'composer_failed', ['backup_ref' => $backup, 'stderr' => $composer['stderr']]);
         }
 
-        $migrate = $this->runProcess([PHP_BINARY, 'artisan', 'migrate', '--force']);
+        $migrate = $this->runProcess([AtlasPhpBinary::path(), 'artisan', 'migrate', '--force']);
         if ($migrate['exit_code'] !== 0) {
             return $this->finish(false, 'migrate_failed', ['backup_ref' => $backup, 'stderr' => $migrate['stderr']]);
         }
 
-        $doctor = (bool) $this->option('strict') ? $this->runProcess([PHP_BINARY, 'artisan', 'atlas:cli:doctor', '--strict']) : ['exit_code' => 0, 'stdout' => '', 'stderr' => ''];
+        $doctor = (bool) $this->option('strict') ? $this->runProcess([AtlasPhpBinary::path(), 'artisan', 'atlas:cli:doctor', '--strict']) : ['exit_code' => 0, 'stdout' => '', 'stderr' => ''];
 
         return $this->finish($doctor['exit_code'] === 0, 'updated', [
             'backup_ref' => $backup,

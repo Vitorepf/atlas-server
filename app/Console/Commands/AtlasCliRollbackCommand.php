@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
@@ -55,7 +56,7 @@ class AtlasCliRollbackCommand extends Command
             return $this->finish(false, 'composer_failed', ['backup_ref' => $backup, 'stderr' => $composer['stderr']]);
         }
 
-        $doctor = $this->runProcess([PHP_BINARY, 'artisan', 'atlas:cli:doctor', '--strict']);
+        $doctor = $this->runProcess([AtlasPhpBinary::path(), 'artisan', 'atlas:cli:doctor', '--strict']);
 
         return $this->finish($doctor['exit_code'] === 0, 'rolled_back', [
             'backup_ref' => $backup,

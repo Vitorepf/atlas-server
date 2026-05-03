@@ -21,7 +21,8 @@ class AtlasToolEvidenceQueryService
 
         $query = AtlasToolRun::query()
             ->with(['tool', 'artifacts', 'findings'])
-            ->latest('created_at');
+            ->latest('created_at')
+            ->latest('id');
 
         $workspaceHash = $this->workspaceHash($filters['workspace'] ?? null);
         if ($workspaceHash !== null) {

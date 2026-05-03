@@ -16,5 +16,6 @@ class AiPrompt
         public readonly array $executionPlan = [],
         public readonly array $activatedSkills = [],
         public readonly array $skillCatalog = [],
+        public readonly array $openBrainInjection = [],
     ) {}
 }

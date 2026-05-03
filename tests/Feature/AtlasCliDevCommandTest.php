@@ -29,6 +29,8 @@ class AtlasCliDevCommandTest extends TestCase
         $this->workspace = realpath($this->workspace) ?: $this->workspace;
         File::put($this->workspace.'/composer.json', json_encode(['scripts' => ['test' => 'php -r "exit(0);"']], JSON_PRETTY_PRINT));
         (new Process(['git', 'init'], $this->workspace))->run();
+
+        config(['atlas.cli.php_binary' => '/opt/homebrew/bin/php']);
     }
 
     protected function tearDown(): void
@@ -53,6 +55,14 @@ class AtlasCliDevCommandTest extends TestCase
 
         $this->assertSame(0, $exitCode);
         $this->assertIsArray($payload);
+        $this->assertSame('/opt/homebrew/bin/php', $payload['chat_command'][0]);
+        $this->assertArrayHasKey('open_brain_preview', $payload);
+        $this->assertSame('cli_dev', data_get($payload, 'open_brain_preview.surface'));
+        $this->assertSame('required', data_get($payload, 'open_brain_preview.policy.mode'));
+        $this->assertNotSame('preview_failed', data_get($payload, 'open_brain_preview.status'));
+        $this->assertIsBool(data_get($payload, 'open_brain_preview.provider_execution_allowed'));
+        $this->assertArrayNotHasKey('prompt_section', $payload['open_brain_preview']);
+        $this->assertArrayNotHasKey('context_refs', $payload['open_brain_preview']);
         $this->assertContains('dev-quality-gate', $payload['activated_skills']);
         $this->assertContains('--skill=dev-quality-gate', $payload['chat_command']);
         $this->assertSame('passed', data_get($payload, 'dev_execution_plan.quality_gate_policy.required_final_status'));
@@ -197,6 +207,7 @@ class AtlasCliDevCommandTest extends TestCase
             '--provider' => 'codex_cli',
         ]);
 
+        $this->assertSame('/opt/homebrew/bin/php', $command[0]);
         $this->assertContains('atlas:ai:chat', $command);
         $this->assertContains('--dev', $command);
         $this->assertContains('--new-thread', $command);

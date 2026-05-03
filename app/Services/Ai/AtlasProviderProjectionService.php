@@ -10,7 +10,9 @@ use Illuminate\Support\Str;
 class AtlasProviderProjectionService
 {
     public const VERSION = 'atlas_provider_projection_v1';
+
     public const MANUAL_START = '<!-- atlas:manual:start -->';
+
     public const MANUAL_END = '<!-- atlas:manual:end -->';
 
     public function __construct(
@@ -601,6 +603,7 @@ class AtlasProviderProjectionService
                 $ops[] = [' ', $current[$i]];
                 $i++;
                 $j++;
+
                 continue;
             }
 
@@ -675,6 +678,7 @@ class AtlasProviderProjectionService
             '## Atlas Pointers',
             '- Full memory list: `atlas memory:list`',
             '- Runtime search: `atlas search "<query>"`',
+            '- Open Brain MCP: `atlas open-brain mcp --describe`',
             '- This projection should stay short; detailed recall belongs in Atlas Context Packs.',
         ];
         $manualSourceLines = preg_split('/\R/', $manualContent !== '' ? $manualContent : 'Keep local provider notes here. Atlas preserves this block and ignores it for checksum drift.') ?: [];

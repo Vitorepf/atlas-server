@@ -14,6 +14,7 @@ use App\Services\Ai\Runtime\ToolInvocation;
 use App\Services\Ai\Runtime\WorkspaceProfile;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
 use App\Services\Tools\AtlasToolEvidenceStore;
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
@@ -354,7 +355,7 @@ class EngineeringTestMatrixService
         $baseline = (string) config('atlas.engineering.visual_e2e.baseline_mode', 'observe');
         $screenshotDriver = (string) config('atlas.engineering.visual_e2e.screenshot_driver', 'auto');
         $command = implode(' ', array_filter([
-            escapeshellarg(PHP_BINARY),
+            escapeshellarg(AtlasPhpBinary::path()),
             escapeshellarg(base_path('artisan')),
             'atlas:engineering:visual-smoke',
             '--workspace='.escapeshellarg($workspace),
@@ -414,7 +415,7 @@ class EngineeringTestMatrixService
     private function qualityScanCommand(string $workspace, string $profile, bool $changedOnly, int $timeout): string
     {
         return implode(' ', array_filter([
-            escapeshellarg(PHP_BINARY),
+            escapeshellarg(AtlasPhpBinary::path()),
             escapeshellarg(base_path('artisan')),
             'atlas:engineering:quality-scan',
             '--workspace='.escapeshellarg($workspace),

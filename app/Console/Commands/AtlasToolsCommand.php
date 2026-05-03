@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasToolFinding;
 use App\Services\Tools\AtlasToolApprovalService;
+use App\Services\Tools\AtlasToolAuthorityMatrixService;
 use App\Services\Tools\AtlasToolEvidenceQueryService;
 use App\Services\Tools\AtlasToolExecutor;
 use App\Services\Tools\AtlasToolFindingWaiverService;
@@ -15,13 +16,21 @@ use Illuminate\Console\Command;
 class AtlasToolsCommand extends Command
 {
     protected $signature = 'atlas:tools
-        {action=doctor : doctor, list, status, run, evidence, evidence-show, evidence-export, gate, release-gate, approve, revoke, waive-finding, revoke-finding-waiver or policies}
+        {action=doctor : doctor, list, authority, status, commands, run, run-recipe, evidence, evidence-show, evidence-export, gate, release-gate, approve, revoke, waive-finding, revoke-finding-waiver or policies}
         {tool? : Tool slug for status/run, or run id for evidence-show/evidence-export}
         {--workspace= : Target workspace path. Defaults to current directory}
         {--command=* : Command argv for run. Pass one option per argv segment}
+        {--recipe=version : Recipe name for run-recipe}
+        {--tool-env=* : Safe env entry for run. Pass as KEY=VALUE; sensitive keys are rejected}
+        {--output-limit=12000 : Max stdout/stderr bytes persisted per stream}
         {--dry-run : Register the planned run without executing}
         {--approved : Allow high-risk tools}
         {--required : Mark this tool as required evidence}
+        {--max-execution-tier= : Highest execution tier allowed for this run: T0, T1, T2 or T3}
+        {--sandbox-mode= : Policy sandbox context: workspace, worktree, docker, host or none}
+        {--privacy-level= : Policy privacy context: standard, sensitive or restricted}
+        {--task-type= : Policy task type context}
+        {--requires-provider-safe : Require outputs to be safe for provider/model context}
         {--scope=workspace : Approval scope: workspace or global}
         {--reason= : Approval reason}
         {--ttl-hours=24 : Approval TTL in hours}
@@ -47,6 +56,7 @@ class AtlasToolsCommand extends Command
         AtlasToolRegistryService $registry,
         AtlasToolExecutor $executor,
         AtlasToolApprovalService $approvals,
+        AtlasToolAuthorityMatrixService $authority,
         AtlasToolEvidenceQueryService $evidenceQuery,
         AtlasToolGateService $gate,
         AtlasToolFindingWaiverService $waivers,
@@ -64,12 +74,20 @@ class AtlasToolsCommand extends Command
                     'category' => $tool->category,
                     'risk_level' => $tool->risk_level,
                     'cost_posture' => $tool->cost_posture,
+                    'execution_tier' => $tool->execution_tier ?? data_get($tool->metadata, 'execution_tier', 'T1'),
+                    'expected_cost' => $tool->expected_cost ?? data_get($tool->metadata, 'expected_cost', 'local_fast'),
+                    'default_trigger' => $tool->default_trigger ?? data_get($tool->metadata, 'default_trigger', 'manual_or_policy'),
+                    'authority_role' => $tool->authority_role ?? data_get($tool->metadata, 'authority_role', 'primary'),
+                    'authority_group' => $tool->authority_group ?? data_get($tool->metadata, 'authority_group'),
                     'status' => $tool->status,
                     'capabilities' => $tool->capabilities_json,
                 ])->values()->all(),
             ],
+            'authority', 'matrix' => $authority->matrix(),
             'status' => $this->statusPayload($registry, $workspace),
+            'commands' => $this->commandsPayload($registry, $workspace),
             'run' => $this->runPayload($executor, $workspace),
+            'run-recipe', 'recipe' => $this->runRecipePayload($executor, $workspace),
             'evidence' => $this->evidencePayload($evidenceQuery, $workspace),
             'evidence-show' => $this->evidenceShowPayload($evidenceQuery),
             'evidence-export' => $this->evidenceExportPayload($evidenceQuery),
@@ -115,6 +133,20 @@ class AtlasToolsCommand extends Command
     /**
      * @return array<string,mixed>
      */
+    private function commandsPayload(AtlasToolRegistryService $registry, string $workspace): array
+    {
+        $slug = (string) $this->argument('tool');
+        if ($slug === '') {
+            return ['status' => 'error', 'error' => 'tool_slug_required'];
+        }
+
+        return $registry->commandCatalog($slug, $workspace)
+            ?? ['status' => 'missing', 'error' => 'tool_not_registered', 'tool' => $slug];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function runPayload(AtlasToolExecutor $executor, string $workspace): array
     {
         $slug = (string) $this->argument('tool');
@@ -128,10 +160,51 @@ class AtlasToolsCommand extends Command
                 'dry_run' => (bool) $this->option('dry-run'),
                 'approved' => (bool) $this->option('approved'),
                 'required' => (bool) $this->option('required'),
+                'network_allowed' => (bool) $this->option('network-allowed'),
+                'max_execution_tier' => $this->option('max-execution-tier'),
+                'sandbox_mode' => $this->option('sandbox-mode'),
+                'privacy_level' => $this->option('privacy-level'),
+                'task_type' => $this->option('task-type'),
+                'requires_provider_safe' => (bool) $this->option('requires-provider-safe') ?: null,
+                'env' => (array) $this->option('tool-env'),
+                'output_limit' => $this->option('output-limit'),
                 'surface' => 'cli',
             ]);
         } catch (\InvalidArgumentException $exception) {
             return ['status' => 'error', 'error' => 'invalid_tool_run_request', 'message' => $exception->getMessage()];
+        } catch (\RuntimeException $exception) {
+            return ['status' => 'error', 'error' => 'tool_runtime_unavailable', 'message' => $exception->getMessage()];
+        }
+
+        return ['run' => $run->load(['artifacts', 'findings'])->toArray()];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runRecipePayload(AtlasToolExecutor $executor, string $workspace): array
+    {
+        $slug = (string) $this->argument('tool');
+        $recipe = trim((string) ($this->option('recipe') ?: 'version'));
+        if ($slug === '' || $recipe === '') {
+            return ['status' => 'error', 'error' => 'tool_and_recipe_required'];
+        }
+
+        try {
+            $options = [
+                'approved' => (bool) $this->option('approved'),
+                'required' => (bool) $this->option('required'),
+                'env' => (array) $this->option('tool-env'),
+                'output_limit' => $this->option('output-limit'),
+                'surface' => 'cli_recipe',
+            ];
+            if ($this->input->hasParameterOption('--dry-run')) {
+                $options['dry_run'] = true;
+            }
+
+            $run = $executor->executeRecipe($slug, $recipe, $workspace, $options);
+        } catch (\InvalidArgumentException $exception) {
+            return ['status' => 'error', 'error' => 'invalid_tool_recipe_request', 'message' => $exception->getMessage()];
         } catch (\RuntimeException $exception) {
             return ['status' => 'error', 'error' => 'tool_runtime_unavailable', 'message' => $exception->getMessage()];
         }
@@ -219,6 +292,11 @@ class AtlasToolsCommand extends Command
             'reason' => (string) ($this->option('reason') ?: 'operator_approved_tool_execution'),
             'ttl_hours' => is_numeric($this->option('ttl-hours')) ? (int) $this->option('ttl-hours') : 24,
             'network_allowed' => (bool) $this->option('network-allowed'),
+            'max_execution_tier' => $this->option('max-execution-tier'),
+            'sandbox_mode' => $this->option('sandbox-mode'),
+            'privacy_level' => $this->option('privacy-level'),
+            'task_type' => $this->option('task-type'),
+            'requires_provider_safe' => (bool) $this->option('requires-provider-safe'),
             'approved_by' => 'atlas_cli',
             'source' => 'atlas_tools_cli',
         ]);
@@ -362,10 +440,40 @@ class AtlasToolsCommand extends Command
         }
 
         if (isset($payload['tool'])) {
+            if (isset($payload['commands'])) {
+                $tool = (array) $payload['tool'];
+                $this->components->twoColumnDetail('Tool', (string) ($tool['slug'] ?? '-'));
+                $this->table(['name', 'dry-run', 'tier', 'sandbox', 'command'], collect($payload['commands'])->map(fn (array $command): array => [
+                    $command['name'] ?? '-',
+                    (bool) ($command['dry_run_default'] ?? false) ? 'yes' : 'no',
+                    $command['max_execution_tier'] ?? '-',
+                    $command['sandbox_mode'] ?? '-',
+                    implode(' ', (array) ($command['command'] ?? [])),
+                ])->all());
+
+                return;
+            }
+
             $tool = (array) $payload['tool'];
             $this->table(['field', 'value'], collect($tool)->map(fn (mixed $value, string $key): array => [
                 $key,
                 is_scalar($value) || $value === null ? (string) $value : json_encode($value, JSON_UNESCAPED_SLASHES),
+            ])->all());
+
+            return;
+        }
+
+        if (isset($payload['authority_groups'], $payload['summary'])) {
+            $this->components->twoColumnDetail('Tools', (string) data_get($payload, 'summary.tool_count', 0));
+            $this->components->twoColumnDetail('Authority groups', (string) data_get($payload, 'summary.authority_group_count', 0));
+            $this->components->twoColumnDetail('Recommendations', (string) count((array) ($payload['recommendations'] ?? [])));
+            $this->table(['group', 'primary', 'complementary', 'fallback', 'executors', 'tiers'], collect($payload['authority_groups'])->map(fn (array $group): array => [
+                $group['authority_group'] ?? '-',
+                collect($group['primary_tools'] ?? [])->pluck('slug')->join(', ') ?: '-',
+                collect($group['complementary_tools'] ?? [])->pluck('slug')->join(', ') ?: '-',
+                collect($group['fallback_tools'] ?? [])->pluck('slug')->join(', ') ?: '-',
+                collect($group['executor_tools'] ?? [])->pluck('slug')->join(', ') ?: '-',
+                implode(', ', (array) ($group['tier_span'] ?? [])) ?: '-',
             ])->all());
 
             return;

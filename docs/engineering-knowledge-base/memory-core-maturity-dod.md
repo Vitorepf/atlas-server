@@ -16,9 +16,11 @@ capabilities:
   - release_gates
   - documentation_hardening
   - validation_policy
+  - open_brain_context_injection
 decisions:
   - Cada fase deve declarar o que foi entregue, validado e deixado para depois.
-  - ChromaDB, MCP remoto, sync multiusuario e embedding externo so entram com fase propria e DoD explicito.
+  - ChromaDB, Streamable HTTP completo/SSE, sync multiusuario e embedding externo so entram com fase propria e DoD explicito.
+  - Open Brain automatico em CLI/app so pode ser marcado implementado com trace metadata, audit log e testes.
 maintenance:
   - Atualize status de maturidade apos cada fase relevante.
   - Nao promova camada para madura sem teste e runbook.
@@ -27,6 +29,7 @@ related_paths:
   - tests/Feature/AtlasEngineeringKnowledgeBaseTest.php
   - app/Services/Ai/AtlasMemoryContextComposer.php
   - app/Services/Engineering/EngineeringContextPackService.php
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
 ---
 
 # Atlas Memory Core Maturity And Definition Of Done
@@ -46,9 +49,10 @@ capacidade vire "pronta" apenas porque existe codigo.
 | L6 | Verbatim recall | evidencia exata, review e recall controlado | Implementado |
 | L7 | Knowledge Base | docs canonicos, sync, API, CLI, app e context refs | Implementado |
 | L8 | Code Intelligence | modulos, simbolos, rotas, comandos, migrations, testes, audit-code e code refs | Implementado backend + app |
-| L9 | Operational UI | app cobre memoria, knowledge, projection e code intelligence | Implementado |
+| L9 | Operational UI | app cobre memoria, Open Brain, knowledge, projection, maintain e code intelligence | Implementado |
 | L10 | Hybrid retrieval | semantic/vector/hybrid search com policy | Implementado local/provider-safe |
-| L11 | Open Brain remoto | multi-tool remoto auditavel | Implementado como API/CLI local auditavel; MCP remoto futuro |
+| L11 | Open Brain multi-tool | context export e MCP auditavel | Implementado como API/CLI/MCP local e HTTP JSON-RPC autenticado; SSE/sessoes futuras |
+| L12 | Open Brain automatic injection | `atlas dev`, `atlas continue`, `atlas chat` e Atlas AI App usam Open Brain automaticamente em codigo/review/debug | Implementado |
 
 ## Definition Of Done Global
 
@@ -77,6 +81,7 @@ Toda fase que altera Memory Core deve entregar:
 | Knowledge Base | docs canonicos, frontmatter, sync, context refs, app status |
 | Code Intelligence | modules, symbols, doc links, code refs, routes/API/CLI e teste fixture |
 | App UI | estados loading/error/empty, sync seguro, typecheck e teste front |
+| Open Brain Injection | service central, policy auto/off/required, trace metadata, audit log, dedupe de prompt e testes CLI/app |
 
 ## Metricas De Saude
 
@@ -90,6 +95,8 @@ Toda fase que altera Memory Core deve entregar:
 | code modules documented | sobe com maturidade | muitos `undocumented` em core |
 | code intelligence audit | `fresh` apos sync/index | `drift_detected` antes de context pack |
 | code refs in context pack | presentes em tarefas de engenharia | ausentes em runs de codigo |
+| open brain injection rate | presente em dev/debug/review | ausente em `atlas dev` ou app programming |
+| open brain duplicate prompt | zero | mesma hash renderizada duas vezes |
 | memory feedback negative | usado para arquivar/rebaixar | ignorado |
 
 ## Gates Para Futuras Fases
@@ -120,17 +127,41 @@ Gate de manutencao:
 - testes provarem que conteudo bloqueado nao entra em recall provider-safe nem em embedding externo;
 - custos, storage e retention estiverem documentados.
 
-### Open Brain Remoto
+### Open Brain MCP/Remoto
 
-Status: implementado como API/CLI local auditavel para exportar context packs; MCP remoto e sync multiusuario continuam fase futura.
+Status: implementado como API/CLI/MCP local, HTTP JSON-RPC autenticado e tela operacional no app para recall, context pack, auditorias e memory maintain. A rotina `atlas:memory:maintain` e `POST /ai/memory/maintain` centralizam sync docs, index-code, provider projection status/apply opcional e health MCP. Streamable HTTP completo com SSE/sessoes persistentes, tools destrutivas e sync multiusuario continuam fase futura.
 
 Gate de manutencao:
 
-- autenticacao/autorizacao multiusuario estiver definida;
-- audit log cobrir leitura e escrita;
+- tools MCP locais/HTTP continuarem read-only ate haver human gate dedicado;
+- audit log cobrir exports via API, CLI e MCP;
+- exportacao provider-safe estiver provada por teste;
+- app permitir ver/copy context pack e rodar maintain sem depender de terminal;
+- endpoint HTTP exigir `X-Atlas-Token` e validar `Origin` quando presente;
+- endpoint HTTP validar `MCP-Protocol-Version` quando enviado e recusar `GET`
+  SSE com `405` ate Streamable HTTP completo existir;
+- Streamable HTTP completo tiver autenticacao/autorizacao multiusuario definida antes de escrita;
 - sync remoto tiver conflito/dedupe;
-- exportacao provider-safe estiver provada;
 - rollback/desativacao estiver documentado.
+
+### Open Brain Context Injection
+
+Status: implementado em `open-brain-context-injection.md`.
+
+Gate de implementacao:
+
+- service central aplica policy por surface/mode;
+- `atlas dev` injeta Open Brain por padrao;
+- `atlas continue` reutiliza ou regenera contexto sem duplicar prompt;
+- `atlas chat --mode=dev|debug|review` injeta por padrao;
+- Atlas AI App injeta em `programming`, `review` e `debug`;
+- direct chat nao injeta por padrao;
+- `--no-open-brain`, `--require-open-brain` e refresh existem onde aplicavel;
+- `AiTrace.metadata.open_brain_injection` registra status, hash e audit id;
+- `atlas_open_brain_access_logs` registra `action=context_injection`;
+- privacy/redaction continuam bloqueando memoria nao provider-safe;
+- testes cobrem service, prompt builder, CLI e app payload/status;
+- docs e runbook registram validacoes reais.
 
 ## Regra De Promocao De Status
 

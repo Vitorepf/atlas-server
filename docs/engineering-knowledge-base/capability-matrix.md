@@ -18,6 +18,7 @@ capabilities:
   - visual_harness
   - quality_scan
   - context_pack_recall
+  - open_brain_context_injection
   - code_intelligence_index
   - engineering_blueprint
   - task_contracts
@@ -41,6 +42,7 @@ related_paths:
   - app/Services/Engineering/EngineeringQualityScanService.php
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
   - docs/engineering-knowledge-base/engineering-blueprint.md
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
 ---
 
 # Matriz De Capacidades
@@ -72,6 +74,7 @@ related_paths:
 |---|---|---|
 | Scenario/Inventory coverage | Parcial | Validator bloqueante cobre screens, APIs, scenarios, visual evidence e database review; wireframe refs dedicados ainda sao maturacao. |
 | App Produto Final | Parcial | Projetos exibem blueprint project-level e QA; Engineering promove runs para Atlas-Bench. Ainda falta polimento de run-start visual por task e filtros globais. |
+| Open Brain Context Injection | Implementado | `atlas dev`, `atlas continue`, `atlas chat` e Atlas AI App usam Open Brain automaticamente em codigo/review/debug com policy, budget, trace metadata, audit log e status no CLI/app. |
 
 ## Maturacao Operacional
 

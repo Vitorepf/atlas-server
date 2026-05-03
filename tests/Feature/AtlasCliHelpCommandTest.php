@@ -32,6 +32,10 @@ class AtlasCliHelpCommandTest extends TestCase
         $this->assertStringContainsString('atlas memory projection', $output);
         $this->assertStringContainsString('atlas engineering harnessability calibrate', $output);
         $this->assertStringContainsString('atlas engineering quality-scan', $output);
+        $this->assertStringContainsString('atlas tools authority --json', $output);
+        $this->assertStringContainsString('--sandbox-mode=worktree', $output);
+        $this->assertStringContainsString('--tool-env=KEY=VALUE', $output);
+        $this->assertStringContainsString('--requires-provider-safe', $output);
         $this->assertStringContainsString('atlas engineering visual-smoke', $output);
         $this->assertStringContainsString('atlas engineering visual-driver install', $output);
         $this->assertStringContainsString('atlas engineering visual-baseline', $output);

@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Runtime;
 
+use App\Support\AtlasPhpBinary;
+
 class AtlasTestCommandResolver
 {
     private const DEFAULT_MEMORY_LIMIT = '1024M';
@@ -18,10 +20,8 @@ class AtlasTestCommandResolver
 
     public function artisanTestCommand(): string
     {
-        $binary = PHP_BINARY !== '' ? PHP_BINARY : 'php';
-
         return implode(' ', [
-            escapeshellarg($binary),
+            escapeshellarg(AtlasPhpBinary::path()),
             '-d',
             'memory_limit='.$this->memoryLimit(),
             'artisan',

@@ -18,12 +18,13 @@ capabilities:
   - engineering_knowledge_base
   - code_intelligence_index
   - provider_projection
+  - open_brain_context_injection
   - documentation_preservation
 decisions:
   - A memoria pertence ao Atlas, nao ao provider.
   - Docs canonicos e Postgres formam a fonte operacional de verdade.
   - Provider files sao projecoes geradas, nao origem da memoria.
-  - ChromaDB, MCP remoto e sync Open Brain multiusuario exigem fase propria e DoD explicito.
+  - ChromaDB, Streamable HTTP completo/SSE e sync Open Brain multiusuario exigem fase propria e DoD explicito.
 maintenance:
   - Leia START_HERE.md antes de continuar este sistema.
   - Atualize esta copia versionada quando o documento mestre da raiz mudar.
@@ -36,6 +37,7 @@ related_paths:
   - docs/engineering-knowledge-base/memory-core-security-privacy.md
   - docs/engineering-knowledge-base/memory-core-failure-modes.md
   - docs/engineering-knowledge-base/memory-core-maturity-dod.md
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
 ---
 
 # Atlas AI Memory Context Core - Open Brain
@@ -109,7 +111,7 @@ Provider Projections controladas
 - `CLAUDE.md`, `AGENTS.md`, Obsidian, Cursor, Claude, Codex e ChatGPT sao consumidores ou superficies auxiliares.
 - Conversa de IA nao vira memoria canonica sem promocao explicita, revisavel e auditavel.
 - Provider projections podem ser regeneradas a partir do Atlas; elas nao devem ser editadas como se fossem memoria primaria.
-- Embeddings externos exigem opt-in explicito e privacy policy; ChromaDB, MCP remoto e sync multiusuario continuam fora desta entrega.
+- Embeddings externos exigem opt-in explicito e privacy policy; ChromaDB, Streamable HTTP completo/SSE e sync multiusuario continuam fora desta entrega.
 
 ### Contratos De Contexto
 
@@ -133,7 +135,7 @@ Provider Projections controladas
 | L5 | Engineering Code Intelligence Index | Implementado no `atlas-server` e navegavel no app |
 | L6 | Feedback loop de qualidade de contexto | Parcial: feedback e auditoria existem; otimizacao continua pendente |
 | L7 | Retrieval hibrido/semantico | Implementado local/provider-safe |
-| L8 | Open Brain remoto/multi-tool | Implementado como API/CLI local auditavel; MCP remoto futuro |
+| L8 | Open Brain multi-tool | Implementado como API/CLI/MCP local e HTTP JSON-RPC autenticado; Streamable HTTP completo/SSE futuro |
 
 ### Estado Atual Consolidado
 
@@ -151,7 +153,7 @@ Provider Projections controladas
 | Documentation Hardening | Implementado | Runbook, contratos, security/privacy, failure modes e DoD canonicos |
 | Documentation Preservation | Implementado | Documento mestre preservado no `atlas-server` e `START_HERE.md` como entrada canonica |
 | App de Knowledge/Memory | Implementado | Memory e Engineering mostram status, sync, detalhe, Code Intelligence navegavel, audit-code visual e gate do Tool Runtime sem escrita |
-| Hybrid Retrieval/Open Brain | Implementado local | Recall provider-safe e export auditado de context packs por API/CLI; ChromaDB/MCP remoto ficam para fase futura |
+| Hybrid Retrieval/Open Brain | Implementado local/remoto controlado | Recall provider-safe e export auditado de context packs por API/CLI/MCP local e HTTP JSON-RPC autenticado; ChromaDB e Streamable HTTP completo ficam para fase futura |
 
 ## Status De Implementacao
 
@@ -2660,7 +2662,7 @@ Ainda fica para as proximas fases:
 
 - aumentar o conjunto de memorias curadas com aprendizados reais de projeto;
 - criar UX mais direta para promover itens da Knowledge Base para Memory Registry;
-- ChromaDB e MCP remoto/multi-tool fora do processo local.
+- ChromaDB fora do processo local; MCP HTTP JSON-RPC entregue depois na Fase 4AJ.
 
 ### Fase 4AG - Hybrid Memory Retrieval
 
@@ -2746,7 +2748,7 @@ Validacao executada:
 
 Ainda fica para fase futura:
 
-- MCP remoto formal;
+- MCP HTTP JSON-RPC entregue depois na Fase 4AJ; Streamable HTTP completo/SSE continua futuro;
 - autorizacao multiusuario granular por ferramenta;
 - sync remoto bidirecional e resolucao de conflito multi-cliente.
 
@@ -2775,6 +2777,311 @@ Ainda fica para fase futura:
 
 - retention explicita de vetores por classe de privacidade;
 - backend ChromaDB opcional com desativacao/rollback documentado.
+
+### Fase 4AJ - Open Brain MCP Local E HTTP
+
+Status: **implementada no `atlas-server` como servidor MCP stdio local e endpoint HTTP JSON-RPC read-only/autenticado**.
+
+Objetivo entregue: permitir que Claude, Codex e outros hosts MCP consultem o Atlas como ferramenta viva de contexto, sem copiar memoria para arquivos estaticos. Esta fase implementa transporte stdio local e uma superficie HTTP JSON-RPC autenticada por `X-Atlas-Token`, com validacao de `Origin` quando presente. O transporte HTTP cobre o fluxo read-only por `POST` JSON-RPC e responde `405` para `GET` SSE, deixando claro que Streamable HTTP completo com SSE/sessoes persistentes, autorizacao multiusuario granular e ferramentas destrutivas continuam fase futura.
+
+Capacidades entregues:
+
+- novo `AtlasOpenBrainMcpService` com contrato JSON-RPC/MCP para `initialize`, `tools/list`, `tools/call` e `ping`;
+- novo comando `atlas:open-brain:mcp` com transporte stdio para hosts MCP locais;
+- novo endpoint `GET|POST /ai/open-brain/mcp` para clientes HTTP JSON-RPC autenticados;
+- guard de `Origin` configuravel por `ATLAS_OPEN_BRAIN_MCP_ALLOWED_ORIGINS`;
+- modo `--once` para validacao automatizada de requests JSON-RPC;
+- modo `--describe` para gerar configuracao local de cliente MCP;
+- tool `atlas_memory_recall` para buscar memoria provider-safe por query/contexto;
+- tool `atlas_open_brain_context_pack` para exportar context pack auditado via surface `mcp`;
+- tool `atlas_memory_maintenance_status` para health check read-only de Memory Registry, Knowledge Base, Code Intelligence e Provider Projection;
+- novo comando `atlas:memory:maintain` para automatizar a rotina local de sync docs, index-code, provider projection status/apply opcional e health MCP;
+- aliases `atlas mcp`, `atlas open-brain mcp`, `atlas brain mcp`, `atlas open-brain:mcp` e `atlas brain:mcp`;
+- aliases `atlas memory maintain`, `atlas memory maintenance`, `atlas memory:maintain` e `atlas memory:maintenance`;
+- completion shell atualizada;
+- teste cobrindo discovery de tools, recall provider-safe, auditoria de context pack via MCP, `Origin`, versao de protocolo e recusa explicita de SSE nao implementado.
+
+Arquivos criados/integrados nesta fase:
+
+- `atlas-server/app/Services/Ai/AtlasOpenBrainMcpService.php`
+- `atlas-server/app/Services/Ai/AtlasMemoryMaintenanceService.php`
+- `atlas-server/app/Console/Commands/AtlasOpenBrainMcpCommand.php`
+- `atlas-server/app/Console/Commands/AtlasMemoryMaintenanceCommand.php`
+- `atlas-server/app/Http/Controllers/AtlasOpenBrainMcpController.php`
+- `atlas-server/app/Http/Controllers/AtlasMemoryMaintenanceController.php`
+- `atlas-server/app/Http/Requests/RunAtlasMemoryMaintenanceRequest.php`
+- `atlas-server/config/atlas.php`
+- `atlas-server/routes/api.php`
+- `atlas-server/bootstrap/app.php`
+- `atlas-server/bin/atlas`
+- `atlas-server/bin/atlas-completion.bash`
+- `atlas-server/tests/Feature/AtlasMemoryRegistryTest.php`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-runbook.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-contracts.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-maturity-dod.md`
+
+Uso local:
+
+```bash
+./bin/atlas open-brain mcp --describe --json
+./bin/atlas open-brain mcp
+```
+
+Configuracao MCP local sugerida:
+
+```json
+{
+  "mcpServers": {
+    "atlas-open-brain": {
+      "command": "/Users/vitorepf/Develop/atlas/atlas-server/bin/atlas",
+      "args": ["open-brain", "mcp"]
+    }
+  }
+}
+```
+
+Endpoint HTTP JSON-RPC:
+
+```bash
+curl -s \
+  -H "X-Atlas-Token: $ATLAS_TOKEN" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2025-06-18" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+  http://127.0.0.1:8000/ai/open-brain/mcp
+```
+
+Rotina local de manutencao:
+
+```bash
+./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json
+./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --apply-projection --yes --json
+```
+
+Validacao executada:
+
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasOpenBrainMcpService.php`
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasMemoryMaintenanceService.php`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasOpenBrainMcpCommand.php`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasMemoryMaintenanceCommand.php`
+- `/opt/homebrew/bin/php -l app/Http/Controllers/AtlasOpenBrainMcpController.php`
+- `/opt/homebrew/bin/php -l app/Http/Controllers/AtlasMemoryMaintenanceController.php`
+- `/opt/homebrew/bin/php -l app/Http/Requests/RunAtlasMemoryMaintenanceRequest.php`
+- `/opt/homebrew/bin/php artisan route:list --path='ai/memory/maintain'`
+- `/opt/homebrew/bin/php artisan test --filter='open_brain_mcp|hybrid_memory_recall|open_brain_context_pack|provider_projection|core_memory_seed'`
+- `/opt/homebrew/bin/php artisan test --filter='open_brain_mcp'`
+- `/opt/homebrew/bin/php artisan test --filter='memory_maintenance_command|open_brain_mcp'`
+- `/opt/homebrew/bin/php artisan test --filter='memory_maintenance'`
+- `./bin/atlas open-brain mcp --describe --json`
+- `./bin/atlas open-brain mcp --once='{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`
+- `./bin/atlas open-brain mcp --once='{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"atlas_memory_maintenance_status","arguments":{"workspace":"/Users/vitorepf/Develop/atlas/atlas-server"}}}'`
+- `./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json`
+- `./bin/atlas memory projection status --target=all --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json`
+- `/opt/homebrew/bin/php artisan test` -> `755 passed`, `5 skipped`, `4590 assertions`
+- `git diff --check`
+
+Estado real pos-validacao:
+
+- MCP local e HTTP JSON-RPC respondem discovery e tool calls;
+- GET HTTP com `Accept: text/event-stream` retorna `405`, porque SSE/sessoes persistentes ainda nao foram implementados;
+- health MCP retornou `overall_status=ready`;
+- rotina `atlas memory maintain` centraliza sync docs, index-code, projection status/apply opcional e health MCP;
+- provider projection retornou `status=passed`, `ready=2`, `stale=0`, `manual_drift=0`, `provider_safe_memory_count=10`;
+- Knowledge Base e Code Intelligence estavam indexados e prontos antes da validacao final;
+- a ordenacao de evidencias do Tool Runtime foi estabilizada para reduzir flakiness em gates e historico recente.
+
+Ainda fica para fase futura:
+
+- Streamable HTTP completo com SSE/sessoes persistentes, quando houver necessidade real;
+- autorizacao multiusuario granular por ferramenta;
+- tools MCP com escrita, apenas depois de human gate explicito e policy dedicada.
+
+### Fase 4AK - Open Brain App Workbench
+
+Status: **implementada no `atlas-app` como tela operacional simples para recall, context pack, auditoria e manutencao**.
+
+Objetivo entregue: permitir uso diario do Open Brain sem depender do terminal. A tela conecta as APIs provider-safe ja existentes para buscar memoria por pergunta, gerar/visualizar/copiar context packs que podem ser usados por Claude/Codex, consultar auditorias Open Brain e rodar a rotina de manutencao de memoria. Esta fase nao implementa embeddings novos, ChromaDB, vector search, Streamable HTTP/SSE, Open Brain remoto multiusuario nem tools MCP com escrita.
+
+Capacidades entregues:
+
+- novo card `Atlas Open Brain` na Home do app;
+- tela `open-brain` com workspace e objetivo editaveis;
+- recall provider-safe via `POST /ai/memory/recall`;
+- context pack provider-safe via `POST /ai/open-brain/context-pack`, com preview e copia para clipboard;
+- listagem de auditorias via `GET /ai/open-brain/audits`;
+- execucao/visualizacao de `memory maintain` via `POST /ai/memory/maintain`;
+- projection apply no app exige segundo toque e `confirm=true` no backend;
+- tratamento de payload `memory_maintenance` mesmo quando o backend retorna `409` para status nao pronto;
+- helpers front testados para resumo de recall, context pack, auditoria e maintain.
+
+Arquivos criados/integrados nesta fase:
+
+- `atlas-app/app/open-brain.tsx`
+- `atlas-app/app/index.tsx`
+- `atlas-app/lib/api/client.ts`
+- `atlas-app/lib/openBrain.ts`
+- `atlas-app/scripts/open-brain.test.ts`
+- `atlas-app/package.json`
+- `atlas-server/app/Services/Ai/AtlasMemoryMaintenanceService.php`
+- `atlas-server/app/Console/Commands/AtlasMemoryMaintenanceCommand.php`
+- `atlas-server/app/Http/Controllers/AtlasMemoryMaintenanceController.php`
+- `atlas-server/app/Http/Requests/RunAtlasMemoryMaintenanceRequest.php`
+- `atlas-server/routes/api.php`
+- `atlas-server/tests/Feature/AtlasMemoryRegistryTest.php`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-runbook.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-contracts.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-maturity-dod.md`
+- `atlas-server/docs/engineering-knowledge-base/START_HERE.md`
+
+Uso no app:
+
+```txt
+Home -> Atlas Open Brain -> abrir
+```
+
+Validacao executada:
+
+- `npm run typecheck`
+- `npm run test:memory`
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasMemoryMaintenanceService.php`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasMemoryMaintenanceCommand.php`
+- `/opt/homebrew/bin/php -l app/Http/Controllers/AtlasMemoryMaintenanceController.php`
+- `/opt/homebrew/bin/php -l app/Http/Requests/RunAtlasMemoryMaintenanceRequest.php`
+- `/opt/homebrew/bin/php -l routes/api.php`
+- `/opt/homebrew/bin/php -l tests/Feature/AtlasMemoryRegistryTest.php`
+- `/opt/homebrew/bin/php artisan route:list --path='ai/memory/maintain'`
+- `/opt/homebrew/bin/php artisan test --filter='memory_maintenance'`
+- `/opt/homebrew/bin/php artisan test --filter='hybrid_memory_recall|open_brain|provider_projection|core_memory_seed|context_pack'`
+- `/opt/homebrew/bin/php artisan test` -> `759 passed`, `5 skipped`, `4624 assertions`
+- `./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json`
+
+Estado real pos-validacao:
+
+- app tem entrada discoverable na Home;
+- tela consegue executar recall/context pack/auditorias/maintain pelas APIs canonicas;
+- backend compartilha a regra de manutencao entre CLI e API via service unico;
+- `POST /ai/memory/maintain` existe e e coberto por teste;
+- app typecheck e testes de memoria passam.
+- `memory maintain` retornou `status=ready`, docs sync `updated=2`, code intelligence com `22` modulos, `8800` simbolos, `258` rotas, `104` comandos, `765` testes e provider projection `passed` sem drift/stale.
+
+Ainda fica para fase futura:
+
+- smoke visual em dispositivo/simulador depois que o servidor/app estiverem rodando;
+- Streamable HTTP completo com SSE/sessoes persistentes;
+- Open Brain remoto multiusuario com autenticacao/autorizacao dedicada;
+- tools MCP com escrita, apenas depois de human gate explicito e policy dedicada.
+
+### Fase 4AL - Open Brain Context Injection
+
+Status: **implementada em 2026-05-03 para backend, CLI e Atlas AI App runtime**.
+
+Objetivo entregue: transformar a necessidade core de o Atlas usar Open Brain
+automaticamente em codigo/review/debug em runtime real. A tela Open Brain
+continua sendo workbench manual; `atlas dev`, `atlas continue`, `atlas chat` e
+Atlas AI App agora declaram intent/policy e o backend injeta contexto
+provider-safe sem copy/paste.
+
+Decisao canonica:
+
+- Open Brain Context Injection e parte do runtime de IA do Atlas;
+- CLI e app declaram intent/policy, mas nao montam memoria no prompt;
+- o backend centraliza policy, budget, privacy, dedupe e audit log;
+- direct chat nao injeta Open Brain por padrao;
+- dev/debug/review/programming injetam por padrao;
+- `required` falha fechado quando Open Brain for indispensavel;
+- qualquer contexto automatico precisa ser provider-safe e auditavel.
+
+Arquivos criados/atualizados nesta fase:
+
+- `atlas-server/app/Services/Ai/AtlasOpenBrainContextInjectionService.php`
+- `atlas-server/app/Services/Ai/AiPrompt.php`
+- `atlas-server/app/Services/Ai/AiPromptBuilder.php`
+- `atlas-server/app/Services/Ai/AiGatewayService.php`
+- `atlas-server/app/Services/Ai/ValueObjects/AiTaskRequest.php`
+- `atlas-server/app/Console/Commands/AiChatCommand.php`
+- `atlas-server/app/Console/Commands/AtlasCliDevCommand.php`
+- `atlas-server/app/Console/Commands/AtlasCliContinueCommand.php`
+- `atlas-server/app/Services/Ai/Cli/AtlasCliDevWorkflowService.php`
+- `atlas-server/app/Support/AtlasPhpBinary.php`
+- `atlas-server/app/Services/Ai/Runtime/AtlasTestCommandResolver.php`
+- `atlas-server/app/Console/Commands/AtlasCliUpdateCommand.php`
+- `atlas-server/app/Console/Commands/AtlasCliRollbackCommand.php`
+- `atlas-server/app/Console/Commands/AtlasCliReleaseCommand.php`
+- `atlas-server/app/Console/Commands/AtlasCliFinalCommand.php`
+- `atlas-server/app/Services/Ai/Cli/AtlasCliDogfoodService.php`
+- `atlas-server/app/Console/Commands/AtlasEngineeringVisualSmokeCommand.php`
+- `atlas-server/app/Services/Engineering/EngineeringTestMatrixService.php`
+- `atlas-server/app/Services/Engineering/EngineeringHarnessRunnerService.php`
+- `atlas-server/app/Services/Ai/Scheduling/AtlasSchedulerInstallService.php`
+- `atlas-server/config/atlas.php`
+- `atlas-server/tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php`
+- `atlas-server/tests/Unit/AtlasPhpBinaryTest.php`
+- `atlas-server/tests/Unit/AtlasTestCommandResolverTest.php`
+- `atlas-server/tests/Feature/AtlasMemoryRegistryTest.php`
+- `atlas-server/tests/Unit/AiSessionManagerTest.php`
+- `atlas-server/tests/Unit/AtlasCliDevWorkflowServiceTest.php`
+- `atlas-server/tests/Feature/AtlasCliDevCommandTest.php`
+- `atlas-server/tests/Feature/AtlasCliContinueCommandTest.php`
+- `atlas-app/components/sheets/AtlasAiSheet.tsx`
+- `atlas-server/docs/engineering-knowledge-base/open-brain-context-injection.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-runbook.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-contracts.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-maturity-dod.md`
+- `atlas-server/docs/engineering-knowledge-base/capability-matrix.md`
+- `atlas-server/docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md`
+
+Validacao executada:
+
+- `./bin/atlas chat --mode=dev --no-run --json --workspace=/Users/vitorepf/Develop/atlas/atlas-server "smoke Open Brain injection sem executar provider"` -> `open_brain_injection.status=injected`, `surface=cli_chat`, `context_refs=24`, `memory_refs=5`, `knowledge_refs=6`, `code_refs=8`, `budget_chars=20000`, `provider_safe=true`.
+- `./bin/atlas chat --mode=dev --no-run --json --workspace=/Users/vitorepf/Develop/atlas/atlas-server --dev-plan='{"plan_id":"smoke-plan"}' "smoke Open Brain surface via atlas dev"` -> `surface=cli_dev`, `status=injected`.
+- `./bin/atlas chat --mode=dev --no-run --json --workspace=/Users/vitorepf/Develop/atlas/atlas-server --dev-plan='{"plan_id":"smoke-plan","resumed_at":"2026-05-03T00:00:00Z"}' "smoke Open Brain surface via atlas continue"` -> `surface=cli_continue`, `status=injected`.
+- `./bin/atlas dev "smoke open brain plan preview" --workspace=/Users/vitorepf/Develop/atlas/atlas-server --provider=codex_cli --plan-only --complete --json` -> `chat_command[0]=/opt/homebrew/bin/php`, `open_brain_preview.status=injected`, `surface=cli_dev`, `context_ready=true`, `provider_execution_allowed=true`, `context_refs=24`, `memory_refs=5`, `knowledge_refs=6`, `code_refs=8`, `operator_options.open_brain.mode=required`, `--require-open-brain=true`.
+- `/opt/homebrew/bin/php artisan test --filter=AtlasOpenBrainContextInjectionServiceTest`
+- `/opt/homebrew/bin/php artisan test --filter='open_brain_context_injection|gateway_records_open_brain_injection|chat_command_forwards_open_brain_policy_options'`
+- `/opt/homebrew/bin/php artisan test --filter='AtlasPhpBinaryTest|AtlasTestCommandResolverTest|AtlasCliDevWorkflowServiceTest|AtlasCliDevCommandTest|AtlasCliContinueCommandTest'` -> 27 testes, 110 assercoes.
+- `/opt/homebrew/bin/php artisan test --filter=AiSessionManagerTest`
+- `/opt/homebrew/bin/php artisan test --filter=AtlasMemoryRegistryTest`
+- `/opt/homebrew/bin/php artisan test --filter=AtlasCliDevWorkflowServiceTest`
+- `/opt/homebrew/bin/php artisan test --filter=AtlasCliDevCommandTest` -> cobre `open_brain_preview` plan-only sem `prompt_section`/`context_refs` brutos.
+- `npm run typecheck`
+- `npm run test:atlas-ai`
+- `/opt/homebrew/bin/php artisan atlas:memory:maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json` -> `ok=true`, `status=ready`; health atual em 2026-05-03: Knowledge `23` itens totais, Code Intelligence `22` modulos, `8932` simbolos, `5131` doc links, `259` rotas, `104` comandos, `357` migrations, `802` testes, provider projection `passed`, MCP health `ready`.
+- `git diff --check` em `atlas-server` e `atlas-app`
+
+Entregue nesta fase:
+
+- `AtlasOpenBrainContextInjectionService` com policy `auto/off/required`;
+- injecao no `AiPromptBuilder` antes do provider e sem duplicar context pack;
+- metadata compacta em `AiTrace`, `AiJob` e saida JSON da CLI;
+- audit log `atlas_open_brain_access_logs` com `action=context_injection`;
+- previa plan-only com `open_brain_preview` e audit
+  `action=context_injection_preview`;
+- flags `--no-open-brain`, `--require-open-brain`, `--open-brain-refresh` e
+  `--open-brain-budget`;
+- `atlas dev --complete` passa `required` por padrao conforme config;
+- `atlas continue` preserva/sobrescreve policy do plano anterior;
+- Atlas AI App envia `payload.open_brain` em programacao/review/debug e mostra
+  badge/status no trace;
+- `direct` nao injeta por padrao;
+- metadata persistida nao inclui `prompt_section` nem `context_refs` brutos.
+
+Fica para fases futuras:
+
+- smoke visual em dispositivo/simulador quando o app estiver rodando;
+- reuse persistente por hash entre iteracoes longas do repair loop, se for
+  necessario reduzir custo de prompt;
+- Streamable HTTP completo/SSE para MCP remoto multiusuario;
+- tools MCP com escrita, somente depois de policy dedicada e human gate.
+
+Limites preservados:
+
+- nao implementa ChromaDB;
+- nao implementa vector search externo;
+- nao adiciona embeddings externos novos;
+- nao ativa MCP write tools;
+- nao faz projection apply automatico;
+- nao cria sync remoto multiusuario.
 
 ---
 

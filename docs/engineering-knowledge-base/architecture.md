@@ -98,6 +98,11 @@ Essas referencias sao pequenas: slug, titulo, categoria, summary, path e hash.
 Isso evita inflar o prompt, mas garante que qualquer provider saiba quais docs
 canonicos deve considerar antes de editar, revisar ou aprimorar o Atlas.
 
+Para uso automatico por CLI/app, a regra canonica esta em
+`open-brain-context-injection.md`. Esse fluxo transforma context packs em
+injecao auditada para `atlas dev`, `atlas continue`, `atlas chat` e Atlas AI App
+quando a tarefa for programacao, review ou debug.
+
 ## Politica De Privacidade
 
 Esta pasta nao deve conter informacao privada. Informacao privada pertence ao

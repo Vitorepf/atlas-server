@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AtlasToolFinding;
 use App\Services\Tools\AtlasToolApprovalService;
+use App\Services\Tools\AtlasToolAuthorityMatrixService;
 use App\Services\Tools\AtlasToolEvidenceQueryService;
 use App\Services\Tools\AtlasToolExecutor;
 use App\Services\Tools\AtlasToolFindingWaiverService;
@@ -27,6 +28,11 @@ class AtlasToolRuntimeController extends Controller
         return response()->json($registry->doctor($this->workspace($request)));
     }
 
+    public function authority(AtlasToolAuthorityMatrixService $authority): JsonResponse
+    {
+        return response()->json($authority->matrix());
+    }
+
     public function show(string $tool, Request $request, AtlasToolRegistryService $registry): JsonResponse
     {
         $definition = $registry->definition($tool);
@@ -35,6 +41,16 @@ class AtlasToolRuntimeController extends Controller
         }
 
         return response()->json(['data' => $registry->detect($definition, $this->workspace($request))]);
+    }
+
+    public function commands(string $tool, Request $request, AtlasToolRegistryService $registry): JsonResponse
+    {
+        $catalog = $registry->commandCatalog($tool, $this->workspace($request));
+        if (! $catalog) {
+            return response()->json(['message' => 'Tool not registered.'], 404);
+        }
+
+        return response()->json($catalog);
     }
 
     public function run(string $tool, Request $request, AtlasToolExecutor $executor): JsonResponse
@@ -46,6 +62,15 @@ class AtlasToolRuntimeController extends Controller
             'dry_run' => ['sometimes', 'boolean'],
             'approved' => ['sometimes', 'boolean'],
             'required' => ['sometimes', 'boolean'],
+            'network_allowed' => ['sometimes', 'boolean'],
+            'max_execution_tier' => ['sometimes', 'string', 'in:T0,T1,T2,T3,t0,t1,t2,t3'],
+            'sandbox_mode' => ['sometimes', 'string', 'in:workspace,worktree,docker,host,none'],
+            'privacy_level' => ['sometimes', 'string', 'in:standard,sensitive,restricted'],
+            'task_type' => ['sometimes', 'string', 'max:64', 'regex:/^[A-Za-z][A-Za-z0-9_-]*$/'],
+            'requires_provider_safe' => ['sometimes', 'boolean'],
+            'env' => ['sometimes', 'array', 'max:20'],
+            'env.*' => ['string', 'max:2100'],
+            'output_limit' => ['sometimes', 'integer', 'min:1000', 'max:200000'],
         ]);
 
         try {
@@ -53,8 +78,54 @@ class AtlasToolRuntimeController extends Controller
                 'dry_run' => (bool) ($validated['dry_run'] ?? false),
                 'approved' => (bool) ($validated['approved'] ?? false),
                 'required' => (bool) ($validated['required'] ?? false),
+                'network_allowed' => (bool) ($validated['network_allowed'] ?? false),
+                'max_execution_tier' => $validated['max_execution_tier'] ?? null,
+                'sandbox_mode' => $validated['sandbox_mode'] ?? null,
+                'privacy_level' => $validated['privacy_level'] ?? null,
+                'task_type' => $validated['task_type'] ?? null,
+                'requires_provider_safe' => array_key_exists('requires_provider_safe', $validated)
+                    ? (bool) $validated['requires_provider_safe']
+                    : null,
+                'env' => $validated['env'] ?? [],
+                'output_limit' => $validated['output_limit'] ?? null,
                 'surface' => 'api',
             ]);
+        } catch (\InvalidArgumentException $exception) {
+            $status = str_contains($exception->getMessage(), 'not registered') ? 404 : 422;
+
+            return response()->json(['message' => $exception->getMessage()], $status);
+        } catch (\RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 503);
+        }
+
+        return response()->json(['data' => $run->load(['artifacts', 'findings'])], 201);
+    }
+
+    public function runRecipe(string $tool, string $recipe, Request $request, AtlasToolExecutor $executor): JsonResponse
+    {
+        $validated = $request->validate([
+            'workspace' => ['nullable', 'string'],
+            'dry_run' => ['sometimes', 'boolean'],
+            'approved' => ['sometimes', 'boolean'],
+            'required' => ['sometimes', 'boolean'],
+            'env' => ['sometimes', 'array', 'max:20'],
+            'env.*' => ['string', 'max:2100'],
+            'output_limit' => ['sometimes', 'integer', 'min:1000', 'max:200000'],
+        ]);
+
+        try {
+            $options = [
+                'approved' => (bool) ($validated['approved'] ?? false),
+                'required' => (bool) ($validated['required'] ?? false),
+                'env' => $validated['env'] ?? [],
+                'output_limit' => $validated['output_limit'] ?? null,
+                'surface' => 'api_recipe',
+            ];
+            if (array_key_exists('dry_run', $validated)) {
+                $options['dry_run'] = (bool) $validated['dry_run'];
+            }
+
+            $run = $executor->executeRecipe($tool, $recipe, $this->workspace($request), $options);
         } catch (\InvalidArgumentException $exception) {
             $status = str_contains($exception->getMessage(), 'not registered') ? 404 : 422;
 
@@ -74,6 +145,11 @@ class AtlasToolRuntimeController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
             'ttl_hours' => ['sometimes', 'integer', 'min:1', 'max:720'],
             'network_allowed' => ['sometimes', 'boolean'],
+            'max_execution_tier' => ['sometimes', 'string', 'in:T0,T1,T2,T3,t0,t1,t2,t3'],
+            'sandbox_mode' => ['sometimes', 'string', 'in:workspace,worktree,docker,host,none'],
+            'privacy_level' => ['sometimes', 'string', 'in:standard,sensitive,restricted'],
+            'task_type' => ['sometimes', 'string', 'max:64', 'regex:/^[A-Za-z][A-Za-z0-9_-]*$/'],
+            'requires_provider_safe' => ['sometimes', 'boolean'],
         ]);
 
         try {
@@ -82,6 +158,11 @@ class AtlasToolRuntimeController extends Controller
                 'reason' => $validated['reason'] ?? 'operator_approved_tool_execution',
                 'ttl_hours' => $validated['ttl_hours'] ?? 24,
                 'network_allowed' => (bool) ($validated['network_allowed'] ?? false),
+                'max_execution_tier' => $validated['max_execution_tier'] ?? 'T3',
+                'sandbox_mode' => $validated['sandbox_mode'] ?? 'workspace',
+                'privacy_level' => $validated['privacy_level'] ?? 'standard',
+                'task_type' => $validated['task_type'] ?? 'manual',
+                'requires_provider_safe' => (bool) ($validated['requires_provider_safe'] ?? false),
                 'approved_by' => 'atlas_api',
                 'source' => 'atlas_tools_api',
             ]);

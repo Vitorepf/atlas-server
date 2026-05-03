@@ -8,6 +8,7 @@ use App\Models\AtlasEngineeringRunAttempt;
 use App\Models\AtlasTask;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Tools\AtlasToolGateService;
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
@@ -1329,7 +1330,7 @@ class EngineeringHarnessRunnerService
         }
 
         $hostCommand = [
-            PHP_BINARY,
+            AtlasPhpBinary::path(),
             base_path('artisan'),
             'atlas:cli:dev',
             '--task-id='.$task->id,

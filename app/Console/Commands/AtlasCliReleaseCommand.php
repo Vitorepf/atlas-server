@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Cli\AtlasCliDogfoodService;
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -158,7 +159,7 @@ class AtlasCliReleaseCommand extends Command
             ];
         }
 
-        $command = [PHP_BINARY, 'artisan', 'atlas:cli:final', '--strict', '--json', '--workspace='.$this->workspace()];
+        $command = [AtlasPhpBinary::path(), 'artisan', 'atlas:cli:final', '--strict', '--json', '--workspace='.$this->workspace()];
         if ((bool) $this->option('refresh-providers')) {
             $command[] = '--refresh-providers';
         }

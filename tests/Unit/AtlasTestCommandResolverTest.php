@@ -9,9 +9,11 @@ class AtlasTestCommandResolverTest extends TestCase
 {
     public function test_prefers_current_php_binary_for_laravel_test_command(): void
     {
+        config(['atlas.cli.php_binary' => '/opt/homebrew/bin/php']);
+
         $command = app(AtlasTestCommandResolver::class)->preferred(['php artisan test']);
 
-        $this->assertSame(escapeshellarg(PHP_BINARY).' -d memory_limit=1024M artisan test', $command);
+        $this->assertSame("'/opt/homebrew/bin/php' -d memory_limit=1024M artisan test", $command);
     }
 
     public function test_keeps_non_laravel_test_command_unchanged(): void

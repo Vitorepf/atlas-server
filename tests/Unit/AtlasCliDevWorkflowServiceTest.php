@@ -28,6 +28,7 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
             'atlas.ai.runtime.profile_cache_ttl_seconds' => 0,
             'atlas.ai.tool_permissions.allowed_roots' => [$this->workspace],
             'atlas.ai.default_provider' => 'claude_cli',
+            'atlas.cli.php_binary' => '/opt/homebrew/bin/php',
         ]);
     }
 
@@ -68,6 +69,7 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
             noRun: true,
         );
 
+        $this->assertSame('/opt/homebrew/bin/php', $command[0]);
         $this->assertContains('atlas:ai:chat', $command);
         $this->assertContains(base_path('artisan'), $command);
         $this->assertContains('corrigir bug', $command);
@@ -117,6 +119,31 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         );
 
         $this->assertContains('--model=gpt-5.3-codex-spark', $command);
+    }
+
+    public function test_chat_command_forwards_open_brain_policy_options(): void
+    {
+        $command = app(AtlasCliDevWorkflowService::class)->chatCommand(
+            task: 'corrigir bug',
+            workspace: $this->workspace,
+            provider: 'codex_cli',
+            model: null,
+            permission: 'write',
+            allowWrite: true,
+            autoTest: false,
+            timeout: 900,
+            stream: false,
+            noRun: true,
+            openBrain: [
+                'mode' => 'required',
+                'refresh' => true,
+                'budget_chars' => 6000,
+            ],
+        );
+
+        $this->assertContains('--require-open-brain', $command);
+        $this->assertContains('--open-brain-refresh', $command);
+        $this->assertContains('--open-brain-budget=6000', $command);
     }
 
     public function test_quality_gate_skills_auto_attach_for_complete_or_multi_iteration(): void

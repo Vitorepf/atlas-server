@@ -67,7 +67,7 @@ class AiTaskRequest
         $mode = is_string($mode) ? trim($mode) : '';
 
         return match ($mode) {
-            'plan', 'review', 'execute', 'dev', 'quality_repair', 'council', 'semantic_clarification' => $mode,
+            'plan', 'review', 'execute', 'dev', 'debug', 'research', 'programming', 'quality_repair', 'council', 'semantic_clarification' => $mode,
             default => 'direct',
         };
     }
@@ -110,12 +110,20 @@ class AiTaskRequest
             return 'review';
         }
 
-        if (in_array($mode, ['dev', 'execute'], true)) {
+        if ($mode === 'debug') {
+            return 'debug';
+        }
+
+        if (in_array($mode, ['dev', 'execute', 'programming'], true)) {
             return 'dev';
         }
 
         if ($mode === 'quality_repair') {
             return 'quality_repair';
+        }
+
+        if ($mode === 'research') {
+            return 'research';
         }
 
         if ($mode === 'plan') {

@@ -153,6 +153,34 @@ class AiSessionManagerTest extends TestCase
         $this->assertSame($clientId, $trace->jobs()->where('provider', 'claude_cli')->firstOrFail()->client_id);
     }
 
+    public function test_gateway_records_open_brain_injection_for_dev_app_interaction(): void
+    {
+        config([
+            'atlas.ai.enabled' => true,
+        ]);
+        $this->createOpenBrainAuditTable();
+
+        $trace = app(AiGatewayService::class)->enqueueInteraction('implemente uma melhoria no Atlas', [
+            'source_type' => 'app',
+            'provider' => 'codex_cli',
+            'include_semantic_context' => false,
+            'payload' => [
+                'app_surface' => 'atlas_ai_sheet',
+                'atlas_workflow_mode' => 'dev',
+                'workspace' => base_path(),
+            ],
+        ]);
+
+        $this->assertContains(data_get($trace->metadata, 'open_brain_injection.status'), ['injected', 'degraded']);
+        $this->assertSame('app_ai', data_get($trace->metadata, 'open_brain_injection.surface'));
+        $this->assertNotEmpty(data_get($trace->metadata, 'open_brain_injection.context_pack_hash'));
+        $this->assertStringContainsString('Atlas Open Brain Context', (string) $trace->job->prompt);
+        $this->assertDatabaseHas('atlas_open_brain_access_logs', [
+            'surface' => 'app_ai',
+            'action' => 'context_injection',
+        ]);
+    }
+
     public function test_gateway_reuses_existing_trace_for_duplicate_client_id(): void
     {
         config([
@@ -604,6 +632,7 @@ class AiSessionManagerTest extends TestCase
     private function dropAiRuntimeTables(): void
     {
         foreach ([
+            'atlas_open_brain_access_logs',
             'ai_context_snapshots',
             'ai_jobs',
             'ai_traces',
@@ -616,5 +645,13 @@ class AiSessionManagerTest extends TestCase
         ] as $table) {
             Schema::dropIfExists($table);
         }
+    }
+
+    private function createOpenBrainAuditTable(): void
+    {
+        Schema::dropIfExists('atlas_open_brain_access_logs');
+
+        $migration = require database_path('migrations/2026_05_03_130000_create_atlas_open_brain_access_logs_table.php');
+        $migration->up();
     }
 }

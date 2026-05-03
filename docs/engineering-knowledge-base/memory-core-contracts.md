@@ -17,10 +17,12 @@ capabilities:
   - code_refs
   - api_contracts
   - cli_contracts
+  - open_brain_context_injection
 decisions:
   - Context packs devem carregar referencias pequenas e rastreaveis, nao dumps completos.
   - APIs e CLIs devem expor status e dry-run para operacao segura.
   - Contratos de refs sao parte da interface publica interna do Atlas.
+  - Injecao automatica de Open Brain deve ser provider-safe, auditada e centralizada no backend.
 maintenance:
   - Atualize este documento quando rotas, payloads, tabelas ou comandos mudarem.
   - Mantenha exemplos curtos e provider-safe.
@@ -29,7 +31,11 @@ related_paths:
   - app/Http/Controllers/AtlasMemoryController.php
   - app/Http/Controllers/EngineeringKnowledgeController.php
   - app/Services/Ai/AiContextPackBuilder.php
+  - app/Services/Ai/AiPromptBuilder.php
+  - app/Services/Ai/AiGatewayService.php
+  - app/Services/Ai/AtlasOpenBrainService.php
   - app/Services/Engineering/EngineeringContextPackService.php
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
 ---
 
 # Atlas Memory Core Contracts
@@ -183,6 +189,7 @@ Regras:
 | `GET/POST/PATCH` | `/ai/memory/verbatim*` | Verbatim Store |
 | `GET/POST` | `/ai/memory/provider-projection*` | Provider projections e auditoria |
 | `POST` | `/ai/memory/recall` | Recall hibrido provider-safe |
+| `POST` | `/ai/memory/maintain` | Rotina de manutencao para app/API: sync docs, index-code, projection status/apply opcional e health MCP |
 | `POST` | `/ai/open-brain/context-pack` | Exportar context pack Atlas auditado |
 | `GET` | `/ai/open-brain/audits` | Auditar exports Open Brain |
 
@@ -215,8 +222,183 @@ Regras:
 | `atlas:memory:projection` | Provider projections |
 | `atlas:memory:seed-core` | Memorias core provider-safe para projection nao vazia |
 | `atlas:memory:recall` | Recall hibrido provider-safe |
+| `atlas:memory:maintain` | Rotina local de sync docs, index-code, projection status/apply opcional e health MCP |
 | `atlas:open-brain:context` | Exportar context pack Atlas auditado |
+| `atlas:open-brain:mcp` | Servir Open Brain MCP local/read-only por stdio |
 | `atlas:engineering:knowledge` | Knowledge Base, Code Intelligence e auditoria de drift |
+
+## App Surface
+
+| Tela | Entrada | Operacoes |
+|---|---|---|
+| `atlas-app/app/open-brain.tsx` | `Home > Atlas Open Brain` | Recall provider-safe, context pack preview/copy, auditorias Open Brain, memory maintain e projection apply com confirmacao |
+
+Regras da tela:
+
+- recall e context pack usam os mesmos contratos de API/CLI/MCP;
+- preview/copy mostra conteudo provider-safe produzido pelo backend;
+- `Rodar maintain` chama `POST /ai/memory/maintain` com sync docs, index-code e health MCP;
+- `Aplicar projection` exige segundo toque no app e `confirm=true` no backend;
+- respostas `409` de manutencao ainda sao exibiveis quando o payload contem `memory_maintenance`.
+
+## Open Brain Context Injection
+
+Status: implementado em `open-brain-context-injection.md` para service central,
+prompt runtime, CLI e Atlas AI App runtime.
+
+A injecao automatica e diferente do export manual de context pack. O export
+manual permite copiar/usar contexto. A injecao automatica faz o runtime do Atlas
+adicionar Open Brain ao prompt quando CLI/app pedem codigo, review ou debug.
+
+### `open_brain` Payload
+
+Superficies que chamam `AiGatewayService` podem enviar:
+
+```json
+{
+  "open_brain": {
+    "mode": "auto",
+    "surface": "app_ai",
+    "budget_chars": 20000,
+    "refresh": false,
+    "provider_safe_only": true
+  }
+}
+```
+
+Regras:
+
+- `mode` aceita `auto`, `off` ou `required`;
+- `provider_safe_only` deve ser `true` na injecao automatica;
+- backend pode inferir `open_brain.mode=auto` quando `atlas_workflow_mode` for
+  `dev`, `debug`, `review` ou `programming`;
+- app/CLI nao devem montar prompt manual de memoria;
+- direct chat nao injeta por padrao.
+
+### `open_brain_injection` Trace Metadata
+
+Quando houver injecao, o trace deve conter:
+
+```json
+{
+  "open_brain_injection": {
+    "status": "injected",
+    "surface": "cli_dev",
+    "mode": "dev",
+    "context_pack_hash": "sha256",
+    "audit_id": "uuid",
+    "summary": {
+      "memory_refs": 4,
+      "knowledge_refs": 3,
+      "code_refs": 8
+    },
+    "warnings": []
+  }
+}
+```
+
+Statuses permitidos: `injected`, `skipped`, `degraded`, `failed_open`,
+`failed_closed`.
+
+### `open_brain_preview` Em `atlas dev --plan-only`
+
+`atlas dev --plan-only --json` deve retornar uma previa compacta antes de
+executar provider:
+
+```json
+{
+  "open_brain_preview": {
+    "status": "injected",
+    "context_ready": true,
+    "provider_execution_allowed": true,
+    "surface": "cli_dev",
+    "context_pack_hash": "sha256",
+    "audit_id": "uuid",
+    "summary": {
+      "context_refs": 24,
+      "memory_refs": 5,
+      "knowledge_refs": 6,
+      "code_refs": 8
+    },
+    "warnings": []
+  }
+}
+```
+
+Esse payload nao pode conter `prompt_section` nem `context_refs` brutos.
+Previews auditam `atlas_open_brain_access_logs.action=context_injection_preview`.
+
+### CLI Flags Implementadas
+
+| Flag | Comandos | Papel |
+|---|---|---|
+| `--no-open-brain` | `atlas dev`, `atlas continue`, `atlas chat` | Desativa injecao automatica |
+| `--require-open-brain` | `atlas dev`, `atlas continue`, `atlas chat` | Aborta se contexto nao puder ser injetado |
+| `--open-brain-refresh` | `atlas dev`, `atlas continue` | Regera contexto em vez de reutilizar hash |
+| `--open-brain-budget=<chars>` | `atlas dev`, `atlas chat` | Ajusta budget da secao Open Brain |
+
+### PHP Runtime Para Comandos Internos
+
+Comandos Atlas que chamam Artisan como processo filho devem resolver o binario
+por `App\Support\AtlasPhpBinary`, nao por `PHP_BINARY` direto. Isso evita que
+`atlas dev`, `atlas continue`, dogfood, release/final, scheduler e harness
+gerenciado herdem um PHP antigo do shell.
+
+Config:
+
+```php
+config('atlas.cli.php_binary')
+config('atlas.cli.php_binary_candidates')
+```
+
+Env:
+
+- `ATLAS_PHP_BIN`: override explicito;
+- `ATLAS_PHP_BIN_CANDIDATES`: lista separada por virgula.
+
+Default operacional no Mac local: `/opt/homebrew/bin/php`.
+
+### Audit Log
+
+Injeções automaticas devem registrar `atlas_open_brain_access_logs` com
+`action=context_injection` e `surface` em `cli_dev`, `cli_continue`,
+`cli_chat` ou `app_ai`. O log nao deve persistir prompt bruto sensivel.
+
+## MCP Open Brain
+
+Transportes implementados:
+
+| Transporte | Endpoint/comando | Auth | Observacao |
+|---|---|---|---|
+| stdio local | `atlas open-brain mcp` | processo local | Preferido para Claude/Codex no mesmo host |
+| HTTP JSON-RPC | `POST /ai/open-brain/mcp` | `X-Atlas-Token` | Read-only, valida `Origin` quando presente |
+| HTTP status/SSE guard | `GET /ai/open-brain/mcp` | `X-Atlas-Token` | Status humano por JSON; `Accept: text/event-stream` retorna `405` ate existir SSE |
+
+O servidor implementa discovery e chamadas de tools pelo protocolo MCP/JSON-RPC:
+
+| Metodo MCP | Papel |
+|---|---|
+| `initialize` | Negociar versao/capabilities |
+| `tools/list` | Listar tools Atlas expostas ao host |
+| `tools/call` | Executar tool read-only/provider-safe |
+| `ping` | Health check simples |
+
+Tools expostas:
+
+| Tool | Papel | Escrita |
+|---|---|---|
+| `atlas_memory_recall` | Busca memoria provider-safe por query/contexto | Nao |
+| `atlas_open_brain_context_pack` | Exporta context pack provider-safe e auditado | Nao |
+| `atlas_memory_maintenance_status` | Resume health de memoria, docs, code index e provider projection | Nao |
+
+Contrato de seguranca:
+
+- nenhuma tool MCP desta fase executa escrita;
+- toda memoria retornada deve ser provider-safe;
+- context pack via MCP grava auditoria com `surface=mcp`;
+- actions de manutencao retornadas por `atlas_memory_maintenance_status` sao recomendacoes, nao execucao;
+- HTTP valida `MCP-Protocol-Version` quando o header e enviado;
+- Streamable HTTP completo com SSE/sessoes persistentes, multiusuario e tools destrutivas exigem fase propria.
 
 ## Configuracao Relevante
 
@@ -228,6 +410,8 @@ Regras:
 | `ATLAS_AI_VERBATIM_RECALL_BUDGET_CHARS` | Budget total de verbatim |
 | `ATLAS_AI_MEMORY_RECALL_LIMIT` | Limite do recall composto |
 | `ATLAS_AI_MEMORY_RECALL_BUDGET_CHARS` | Budget total do recall composto |
+| `ATLAS_OPEN_BRAIN_MCP_HTTP_ENABLED` | Liga/desliga endpoint HTTP JSON-RPC |
+| `ATLAS_OPEN_BRAIN_MCP_ALLOWED_ORIGINS` | Lista de origins permitidos quando o header `Origin` existe |
 | `ATLAS_AI_MEMORY_RECALL_ITEM_CHARS` | Budget por item de recall |
 | `ATLAS_AI_PROVIDER_PROJECTION_MAX_LINES` | Tamanho maximo da projection |
 | `ATLAS_AI_PROVIDER_PROJECTION_MEMORY_LIMIT` | Quantidade de memorias em projection |

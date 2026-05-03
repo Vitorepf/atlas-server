@@ -61,10 +61,12 @@ use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
-use App\Console\Commands\AtlasMemoryReviewQueueCommand;
+use App\Console\Commands\AtlasMemoryMaintenanceCommand;
 use App\Console\Commands\AtlasMemoryRecallCommand;
+use App\Console\Commands\AtlasMemoryReviewQueueCommand;
 use App\Console\Commands\AtlasMemorySeedCoreCommand;
 use App\Console\Commands\AtlasOpenBrainContextCommand;
+use App\Console\Commands\AtlasOpenBrainMcpCommand;
 use App\Console\Commands\AtlasProposalCommand;
 use App\Console\Commands\AtlasProposalScanCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
@@ -133,10 +135,12 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCliProvidersCommand::class,
         AtlasProposalCommand::class,
         AtlasProposalScanCommand::class,
+        AtlasMemoryMaintenanceCommand::class,
         AtlasMemoryRecallCommand::class,
         AtlasMemoryReviewQueueCommand::class,
         AtlasMemorySeedCoreCommand::class,
         AtlasOpenBrainContextCommand::class,
+        AtlasOpenBrainMcpCommand::class,
         AtlasCliRollbackCommand::class,
         AtlasCliScheduleCommand::class,
         AtlasCliSetupCommand::class,

@@ -21,6 +21,7 @@ capabilities:
   - memory_core_contracts
   - memory_core_security
   - memory_core_maturity
+  - open_brain_context_injection
   - engineering_blueprint
   - project_blueprint_pipeline
   - task_contracts
@@ -34,8 +35,10 @@ decisions:
   - O indice de codigo liga docs canonicos a implementacao real.
   - Obsidian pode ser espelho humano, nunca fonte primaria automatica.
   - Engineering Blueprint define o contrato de produto e qualidade antes de execucao pelo Harness Runner.
+  - Open Brain Context Injection define quando CLI/app devem usar memoria automaticamente em tarefas de codigo.
 maintenance:
   - Leia START_HERE.md antes de continuar implementacoes de memoria/contexto.
+  - Leia open-brain-context-injection.md antes de alterar atlas dev, atlas continue, atlas chat ou AtlasAiSheet.
   - Rode atlas engineering knowledge sync --prune depois de alterar estes docs.
   - Rode atlas engineering knowledge index-code --prune depois de alterar docs ou codigo core.
   - Consulte memory-core-runbook.md antes de executar operacoes destrutivas ou provider projection apply.
@@ -54,6 +57,7 @@ related_paths:
   - docs/engineering-knowledge-base/memory-core-security-privacy.md
   - docs/engineering-knowledge-base/memory-core-failure-modes.md
   - docs/engineering-knowledge-base/memory-core-maturity-dod.md
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
   - docs/engineering-knowledge-base/engineering-blueprint.md
   - docs/engineering-knowledge-base/engineering-blueprint-contracts.md
   - docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md
@@ -124,6 +128,7 @@ detalhe de modulo com docs/testes.
 | `atlas-ai-memory-context-core-open-brain.md` | Documento mestre versionado de memoria, contexto e recall |
 | `architecture.md` | Arquitetura da Engineering Knowledge Base |
 | `context-pack.md` | Como knowledge/code refs entram nos context packs |
+| `open-brain-context-injection.md` | Como CLI e app devem usar Open Brain automaticamente em dev, continue, chat, programming, review e debug |
 | `code-intelligence.md` | Indice de codigo, modulos, simbolos e doc links |
 | `engineering-blueprint.md` | Produto final do Engineering Blueprint System |
 | `engineering-blueprint-contracts.md` | Contratos de blueprint, task, inventory, scenarios, evidencias e findings |

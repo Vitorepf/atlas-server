@@ -7,6 +7,7 @@ use App\Models\AiSession;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -400,40 +401,40 @@ class AtlasCliDogfoodService
                 'description' => 'cria thread Atlas CLI sem chamar provider',
                 'provider' => $this->runtimeSettings->defaultProvider(),
                 'timeout' => 120,
-                'command' => [PHP_BINARY, 'artisan', 'atlas:ai:chat', 'Dogfood smoke: crie uma sessao Atlas CLI sem executar provider.', '--workspace='.$workspace, '--new-thread', '--no-run', '--json'],
+                'command' => [AtlasPhpBinary::path(), 'artisan', 'atlas:ai:chat', 'Dogfood smoke: crie uma sessao Atlas CLI sem executar provider.', '--workspace='.$workspace, '--new-thread', '--no-run', '--json'],
             ],
             'dev_task' => [
                 'description' => 'gera plano de dev sem chamar provider',
                 'provider' => 'codex_cli',
                 'timeout' => 120,
-                'command' => [PHP_BINARY, 'artisan', 'atlas:cli:dev', 'Dogfood smoke: valide o preflight de desenvolvimento.', '--workspace='.$workspace, '--plan-only', '--json'],
+                'command' => [AtlasPhpBinary::path(), 'artisan', 'atlas:cli:dev', 'Dogfood smoke: valide o preflight de desenvolvimento.', '--workspace='.$workspace, '--plan-only', '--json'],
             ],
             'debug_fix' => [
                 'description' => 'cria trace de debug sem executar provider',
                 'provider' => $this->runtimeSettings->defaultProvider(),
                 'timeout' => 120,
-                'command' => [PHP_BINARY, 'artisan', 'atlas:ai:chat', 'Dogfood smoke: investigue sem executar provider.', '--workspace='.$workspace, '--mode=debug', '--no-run', '--json'],
+                'command' => [AtlasPhpBinary::path(), 'artisan', 'atlas:ai:chat', 'Dogfood smoke: investigue sem executar provider.', '--workspace='.$workspace, '--mode=debug', '--no-run', '--json'],
             ],
             'provider_handoff' => [
                 'description' => 'registra handoff de provider na sessao ativa',
                 'provider' => 'codex_cli',
                 'timeout' => 120,
-                'command' => [PHP_BINARY, 'artisan', 'atlas:cli:state', 'handoff', '--workspace='.$workspace, '--provider=codex_cli', '--no-compact', '--json'],
+                'command' => [AtlasPhpBinary::path(), 'artisan', 'atlas:cli:state', 'handoff', '--workspace='.$workspace, '--provider=codex_cli', '--no-compact', '--json'],
             ],
             'quality_gate' => [
                 'description' => 'executa quality gate sem testes destrutivos',
                 'timeout' => 180,
-                'command' => [PHP_BINARY, 'artisan', 'atlas:cli:quality', '--workspace='.$workspace, '--json'],
+                'command' => [AtlasPhpBinary::path(), 'artisan', 'atlas:cli:quality', '--workspace='.$workspace, '--json'],
             ],
             'tui_status' => [
                 'description' => 'renderiza um frame TUI',
                 'timeout' => 120,
-                'command' => [PHP_BINARY, 'artisan', 'atlas:cli:tui', '--workspace='.$workspace, '--once'],
+                'command' => [AtlasPhpBinary::path(), 'artisan', 'atlas:cli:tui', '--workspace='.$workspace, '--once'],
             ],
             'release_check' => [
                 'description' => 'valida gate estrutural de release em preflight',
                 'timeout' => 180,
-                'command' => [PHP_BINARY, 'artisan', 'atlas:cli:release', '--release-version='.$releaseVersion, '--preflight', '--no-final', '--skip-dogfood', '--allow-dirty', '--json'],
+                'command' => [AtlasPhpBinary::path(), 'artisan', 'atlas:cli:release', '--release-version='.$releaseVersion, '--preflight', '--no-final', '--skip-dogfood', '--allow-dirty', '--json'],
             ],
         ];
     }

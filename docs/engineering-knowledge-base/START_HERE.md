@@ -15,10 +15,12 @@ capabilities:
   - canonical_onboarding
   - memory_core_preservation
   - engineering_knowledge_navigation
+  - open_brain_context_injection
   - engineering_blueprint
   - project_blueprint_pipeline
 decisions:
   - Toda IA nova deve ler este arquivo antes de alterar Memory Core, Knowledge Base ou Code Intelligence.
+  - Toda IA nova deve ler Open Brain Context Injection antes de alterar fluxos de programacao por CLI ou app.
   - Toda IA nova deve ler Engineering Blueprint antes de alterar planejamento, task contracts, QA, review ou Postgres gate.
   - O documento mestre preservado no atlas-server e a fonte versionada de direcao.
   - A raiz do workspace pode ter copias auxiliares, mas o conteudo que precisa sobreviver deve estar dentro do repo.
@@ -30,6 +32,7 @@ related_paths:
   - docs/engineering-knowledge-base/README.md
   - docs/engineering-knowledge-base/memory-core-runbook.md
   - docs/engineering-knowledge-base/memory-core-contracts.md
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
   - docs/engineering-knowledge-base/memory-core-security-privacy.md
   - docs/engineering-knowledge-base/memory-core-failure-modes.md
   - docs/engineering-knowledge-base/memory-core-maturity-dod.md
@@ -39,6 +42,7 @@ related_paths:
   - docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md
   - docs/engineering-knowledge-base/engineering-blueprint-runbook.md
   - docs/engineering-knowledge-base/engineering-blueprint-maturity-dod.md
+  - atlas-app/app/open-brain.tsx
 ---
 
 # START HERE - Atlas Memory And Engineering Knowledge
@@ -62,47 +66,59 @@ Atlas.
 4. `memory-core-contracts.md`
    Contratos de tabelas, APIs, CLI, refs e configuracao.
 
-5. `memory-core-security-privacy.md`
+5. `open-brain-context-injection.md`
+   Arquitetura core para CLI/app usarem Open Brain automaticamente em
+   programacao, review e debug.
+
+6. `memory-core-security-privacy.md`
    Politica de privacy, redaction e provider-safety.
 
-6. `memory-core-failure-modes.md`
+7. `memory-core-failure-modes.md`
    Diagnostico e recuperacao por camada.
 
-7. `memory-core-maturity-dod.md`
+8. `memory-core-maturity-dod.md`
    Maturity model e Definition of Done.
 
-8. `code-intelligence.md`
+9. `code-intelligence.md`
    Como o Atlas entende o codigo real via modulos, simbolos, rotas, comandos,
    migrations, testes e doc links.
 
-9. `engineering-blueprint.md`
+10. `engineering-blueprint.md`
    Produto final do Engineering Blueprint System: intencao de produto,
    blueprint, task contracts, Harness, QA, review, Postgres gate e memory delta.
 
-10. `engineering-blueprint-contracts.md`
+11. `engineering-blueprint-contracts.md`
     Schemas e invariantes de project blueprint, task blueprint, task contract,
     inventory, scenarios, evidencias e review findings.
 
-11. `engineering-blueprint-quality-gates.md`
+12. `engineering-blueprint-quality-gates.md`
     Gates de aceite, QA manual, visual smoke, deep review, Postgres review,
     telemetry e Definition of Done de qualidade.
 
-12. `engineering-blueprint-runbook.md`
+13. `engineering-blueprint-runbook.md`
     Como operar e implementar blueprint pelo app, CLI e API.
 
-13. `engineering-blueprint-maturity-dod.md`
+14. `engineering-blueprint-maturity-dod.md`
     Estado real dos 7 itens, fases faltantes e criterio final de conclusao.
 
 ## Regras Para IAs
 
 - Nao assumir contexto de conversa anterior.
 - Ler os docs canonicos antes de alterar Memory Core.
-- Nao implementar ChromaDB, MCP remoto ou sync Open Brain multiusuario sem fase
-  propria e DoD explicito. Embeddings externos exigem opt-in e privacy policy.
+- Nao alterar `atlas dev`, `atlas continue`, `atlas chat` ou `AtlasAiSheet`
+  para fluxos de codigo sem seguir `open-brain-context-injection.md`.
+- MCP Open Brain existe como stdio local e HTTP JSON-RPC autenticado,
+  sempre read-only/provider-safe nesta fase. Nao implementar ChromaDB,
+  Streamable HTTP completo/SSE, tools MCP destrutivas ou sync Open Brain
+  multiusuario sem fase propria e DoD explicito. Embeddings externos exigem
+  opt-in e privacy policy.
 - Nao tratar `CLAUDE.md`, `AGENTS.md`, Obsidian ou chat como fonte primaria.
 - Nao alterar planejamento, task contracts, QA, review ou Postgres gate sem ler
   a familia `engineering-blueprint*.md`.
-- Atualizar docs e rodar sync/index-code quando alterar arquitetura ou regras.
+- Atualizar docs e rodar `atlas memory maintain` quando alterar arquitetura,
+  regras, codigo core ou context packs.
+- Para operar recall/context pack sem terminal, use `Home > Atlas Open Brain`
+  no app. A tela usa APIs canonicas e mostra auditorias/maintain.
 - Preservar mudancas existentes; nunca reverter trabalho de outro operador sem
   pedido explicito.
 
@@ -112,8 +128,8 @@ Checklist minimo:
 
 ```bash
 git status --short
-/opt/homebrew/bin/php artisan atlas:engineering:knowledge sync --prune --json
-/opt/homebrew/bin/php artisan atlas:engineering:knowledge index-code --prune --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json
+/opt/homebrew/bin/php artisan atlas:memory:maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json
+/opt/homebrew/bin/php artisan atlas:open-brain:mcp --describe --json
 /opt/homebrew/bin/php artisan test --filter=AtlasEngineeringKnowledgeBaseTest
 ```
 

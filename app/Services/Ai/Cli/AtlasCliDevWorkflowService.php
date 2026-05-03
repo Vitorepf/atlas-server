@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Cli;
 
 use App\Models\AiTrace;
+use App\Support\AtlasPhpBinary;
 use Illuminate\Support\Str;
 
 class AtlasCliDevWorkflowService
@@ -248,9 +249,10 @@ class AtlasCliDevWorkflowService
         array $imagePaths = [],
         bool $clipboardImage = false,
         bool $noAutoImage = false,
+        array $openBrain = [],
     ): array {
         $command = [
-            PHP_BINARY,
+            AtlasPhpBinary::path(),
             base_path('artisan'),
             'atlas:ai:chat',
             $task,
@@ -296,6 +298,19 @@ class AtlasCliDevWorkflowService
 
         if ($json) {
             $command[] = '--json';
+        }
+
+        $openBrainMode = is_string($openBrain['mode'] ?? null) ? (string) $openBrain['mode'] : 'auto';
+        if ($openBrainMode === 'off') {
+            $command[] = '--no-open-brain';
+        } elseif ($openBrainMode === 'required') {
+            $command[] = '--require-open-brain';
+        }
+        if (! empty($openBrain['refresh'])) {
+            $command[] = '--open-brain-refresh';
+        }
+        if (isset($openBrain['budget_chars']) && (int) $openBrain['budget_chars'] > 0) {
+            $command[] = '--open-brain-budget='.(int) $openBrain['budget_chars'];
         }
 
         if ($devExecutionPlan !== null) {

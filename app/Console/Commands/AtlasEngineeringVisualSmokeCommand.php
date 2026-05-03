@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Tools\AtlasToolEvidenceStore;
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -395,11 +396,11 @@ class AtlasEngineeringVisualSmokeCommand extends Command
     private function detectStartCommand(string $workspace, string $host, int $port): ?string
     {
         if (File::isFile($workspace.'/artisan')) {
-            return escapeshellarg(PHP_BINARY).' artisan serve --host='.escapeshellarg($host).' --port='.escapeshellarg((string) $port);
+            return escapeshellarg(AtlasPhpBinary::path()).' artisan serve --host='.escapeshellarg($host).' --port='.escapeshellarg((string) $port);
         }
 
         if (File::isFile($workspace.'/public/index.php')) {
-            return escapeshellarg(PHP_BINARY).' -S '.escapeshellarg($host.':'.$port).' -t public';
+            return escapeshellarg(AtlasPhpBinary::path()).' -S '.escapeshellarg($host.':'.$port).' -t public';
         }
 
         $package = $this->jsonFile($workspace.'/package.json');

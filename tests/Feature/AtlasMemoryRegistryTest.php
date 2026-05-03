@@ -2,40 +2,45 @@
 
 namespace Tests\Feature;
 
-use App\Models\AtlasEngineeringRun;
 use App\Models\AiMemoryDelta;
+use App\Models\AiSession;
+use App\Models\AiThread;
+use App\Models\AiTrace;
+use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasMemoryEntryUsage;
 use App\Models\AtlasMemoryProviderProjectionAudit;
 use App\Models\AtlasOpenBrainAccessLog;
-use App\Models\AtlasVerbatimMemory;
 use App\Models\AtlasProject;
 use App\Models\AtlasTask;
-use App\Models\AiSession;
-use App\Models\AiThread;
-use App\Models\AiTrace;
+use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
-use App\Services\Ai\AiContextSnapshotRecorder;
-use App\Services\Ai\AiPrompt;
 use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\AiContextSnapshotRecorder;
 use App\Services\Ai\AiConversationContextBuilder;
-use App\Services\Ai\Runtime\WorkspaceProfile;
-use App\Services\Ai\Runtime\WorkspaceProfiler;
-use App\Services\Ai\AtlasMemorySourcePrivacyPolicy;
-use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\AiPrompt;
 use App\Services\Ai\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\AtlasMemoryGovernanceService;
+use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\AtlasMemorySourcePrivacyPolicy;
 use App\Services\Ai\AtlasMemoryUsageService;
+use App\Services\Ai\AtlasOpenBrainContextInjectionService;
+use App\Services\Ai\AtlasOpenBrainMcpService;
 use App\Services\Ai\AtlasProviderProjectionAuditPurgePolicy;
-use App\Services\Ai\AtlasVerbatimMemoryService;
 use App\Services\Ai\AtlasProviderProjectionService;
+use App\Services\Ai\AtlasVerbatimMemoryService;
+use App\Services\Ai\Runtime\WorkspaceProfile;
+use App\Services\Ai\Runtime\WorkspaceProfiler;
+use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Engineering\EngineeringContextPackService;
 use App\Services\Semantic\SemanticSearchService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AtlasMemoryRegistryTest extends TestCase
@@ -271,7 +276,7 @@ class AtlasMemoryRegistryTest extends TestCase
             ],
             'metadata' => [],
         ]);
-        $note->forceFill(['id' => (string) \Illuminate\Support\Str::uuid()]);
+        $note->forceFill(['id' => (string) Str::uuid()]);
         $note->score = 0.91;
 
         $search = $this->createMock(SemanticSearchService::class);
@@ -1150,7 +1155,7 @@ class AtlasMemoryRegistryTest extends TestCase
 
         $this->assertCount(1, $items);
         $this->assertSame($safe->id, data_get($items, '0.id'));
-        $this->assertLessThanOrEqual(96, \Illuminate\Support\Str::length((string) data_get($items, '0.snippet')));
+        $this->assertLessThanOrEqual(96, Str::length((string) data_get($items, '0.snippet')));
         $this->assertStringContainsString('/opt/homebrew/bin/php artisan test', (string) data_get($items, '0.snippet'));
         $this->assertStringNotContainsString('tail should be trimmed', (string) data_get($items, '0.snippet'));
         $this->assertStringContainsString('Recall Verbatim Atlas', $prompt);
@@ -1213,7 +1218,7 @@ class AtlasMemoryRegistryTest extends TestCase
             'frontmatter' => ['privacy_class' => 'normal'],
             'metadata' => [],
         ]);
-        $semantic->forceFill(['id' => (string) \Illuminate\Support\Str::uuid()]);
+        $semantic->forceFill(['id' => (string) Str::uuid()]);
         $semantic->score = 0.76;
 
         $blockedSemantic = new SemanticNote([
@@ -1227,7 +1232,7 @@ class AtlasMemoryRegistryTest extends TestCase
             'frontmatter' => ['privacy_class' => 'sensitive'],
             'metadata' => [],
         ]);
-        $blockedSemantic->forceFill(['id' => (string) \Illuminate\Support\Str::uuid()]);
+        $blockedSemantic->forceFill(['id' => (string) Str::uuid()]);
         $blockedSemantic->score = 0.99;
 
         $search = $this->createMock(SemanticSearchService::class);
@@ -1434,11 +1439,316 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame(2, AtlasOpenBrainAccessLog::query()->count());
     }
 
+    public function test_open_brain_context_injection_audits_dev_prompt_context(): void
+    {
+        $this->migrateOpenBrainAuditTable();
+
+        $payload = [
+            'app_surface' => 'atlas_cli',
+            'atlas_workflow_mode' => 'dev',
+            'workspace' => base_path(),
+            'open_brain' => [
+                'surface' => 'cli_chat',
+                'mode' => 'auto',
+            ],
+        ];
+        $task = AiTaskRequest::fromInput('implemente a injecao Open Brain', [
+            'source_type' => 'manual',
+            'payload' => $payload,
+        ], [
+            'agent' => 'desenvolvedor',
+            'intent' => 'open_brain_context_injection_test',
+        ]);
+        $pack = $this->openBrainTestPack('dev');
+
+        $result = app(AtlasOpenBrainContextInjectionService::class)->inject(
+            'implemente a injecao Open Brain',
+            $task,
+            $pack,
+            [
+                'source_type' => 'manual',
+                'payload' => $payload,
+            ],
+        );
+
+        $this->assertTrue($result['enabled']);
+        $this->assertContains($result['status'], ['injected', 'degraded']);
+        $this->assertSame('cli_chat', $result['surface']);
+        $this->assertNotEmpty($result['context_pack_hash']);
+        $this->assertStringContainsString('Atlas Open Brain Context', (string) $result['prompt_section']);
+        $this->assertStringContainsString('Memory decision', (string) $result['prompt_section']);
+        $this->assertDatabaseHas('atlas_open_brain_access_logs', [
+            'surface' => 'cli_chat',
+            'action' => 'context_injection',
+        ]);
+    }
+
+    public function test_open_brain_context_injection_skips_direct_mode_by_default(): void
+    {
+        $this->migrateOpenBrainAuditTable();
+
+        $payload = [
+            'app_surface' => 'atlas_cli',
+            'atlas_workflow_mode' => 'direct',
+            'workspace' => base_path(),
+        ];
+        $task = AiTaskRequest::fromInput('resuma meu dia', [
+            'source_type' => 'manual',
+            'payload' => $payload,
+        ], [
+            'agent' => 'orquestrador',
+            'intent' => 'direct_chat',
+        ]);
+
+        $result = app(AtlasOpenBrainContextInjectionService::class)->inject(
+            'resuma meu dia',
+            $task,
+            $this->openBrainTestPack('direct'),
+            [
+                'source_type' => 'manual',
+                'payload' => $payload,
+            ],
+        );
+
+        $this->assertFalse($result['enabled']);
+        $this->assertSame('skipped', $result['status']);
+        $this->assertSame('policy_off', $result['reason']);
+        $this->assertNull($result['prompt_section']);
+        $this->assertSame(0, AtlasOpenBrainAccessLog::query()->count());
+    }
+
+    public function test_open_brain_mcp_lists_tools_recalls_memory_and_audits_context_pack(): void
+    {
+        $this->migrateMemoryTable();
+        $this->migrateVerbatimMemoryTable();
+        $this->migrateOpenBrainAuditTable();
+        [$project, $task] = $this->fixtures();
+
+        app(AtlasMemoryRegistryService::class)->record([
+            'memory_type' => 'decision',
+            'scope_type' => 'task',
+            'project_id' => $project->id,
+            'task_id' => $task->id,
+            'title' => 'MCP provider-safe recall',
+            'body' => 'Atlas MCP exposes provider-safe recall and audited Open Brain context for programming.',
+            'summary' => 'MCP should expose provider-safe recall.',
+            'priority' => 98,
+            'importance' => 5,
+            'privacy_class' => 'normal',
+            'source_type' => 'manual',
+        ]);
+        app(AtlasMemoryRegistryService::class)->record([
+            'memory_type' => 'technical_context',
+            'scope_type' => 'task',
+            'project_id' => $project->id,
+            'task_id' => $task->id,
+            'title' => 'Blocked MCP secret',
+            'body' => 'Never expose Bearer abcdefghijklmno through MCP recall.',
+            'priority' => 99,
+            'importance' => 5,
+            'privacy_class' => 'secret',
+            'external_ai_allowed' => false,
+            'source_type' => 'manual',
+        ]);
+
+        $listExit = Artisan::call('atlas:open-brain:mcp', [
+            '--once' => json_encode([
+                'jsonrpc' => '2.0',
+                'id' => 1,
+                'method' => 'tools/list',
+            ]),
+        ]);
+        $listPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $listExit);
+        $this->assertContains('atlas_memory_recall', collect(data_get($listPayload, 'result.tools'))->pluck('name')->all());
+        $this->assertContains('atlas_open_brain_context_pack', collect(data_get($listPayload, 'result.tools'))->pluck('name')->all());
+        $this->assertContains('atlas_memory_maintenance_status', collect(data_get($listPayload, 'result.tools'))->pluck('name')->all());
+
+        $recallExit = Artisan::call('atlas:open-brain:mcp', [
+            '--once' => json_encode([
+                'jsonrpc' => '2.0',
+                'id' => 2,
+                'method' => 'tools/call',
+                'params' => [
+                    'name' => 'atlas_memory_recall',
+                    'arguments' => [
+                        'query' => 'MCP provider-safe programming recall',
+                        'context' => [
+                            'workspace' => base_path(),
+                            'project_id' => $project->id,
+                            'task_id' => $task->id,
+                        ],
+                        'options' => [
+                            'include_semantic' => false,
+                            'limit' => 4,
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+        $recallPayload = json_decode(Artisan::output(), true);
+        $recallText = json_encode(data_get($recallPayload, 'result.structuredContent'), JSON_UNESCAPED_UNICODE);
+
+        $this->assertSame(0, $recallExit);
+        $this->assertSame(false, data_get($recallPayload, 'result.isError'));
+        $this->assertSame('provider_safe_only', data_get($recallPayload, 'result.structuredContent.memory_recall.summary.policy'));
+        $this->assertStringContainsString('MCP provider-safe recall', (string) $recallText);
+        $this->assertStringNotContainsString('abcdefghijklmno', (string) $recallText);
+
+        $contextExit = Artisan::call('atlas:open-brain:mcp', [
+            '--once' => json_encode([
+                'jsonrpc' => '2.0',
+                'id' => 3,
+                'method' => 'tools/call',
+                'params' => [
+                    'name' => 'atlas_open_brain_context_pack',
+                    'arguments' => [
+                        'objective' => 'Use MCP Open Brain for Atlas memory programming.',
+                        'workspace' => base_path(),
+                        'requester' => 'mcp-test',
+                        'include_prompt' => true,
+                        'payload' => [
+                            'project_id' => $project->id,
+                            'task_id' => $task->id,
+                        ],
+                        'options' => [
+                            'include_semantic_context' => false,
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+        $contextPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $contextExit);
+        $this->assertSame(false, data_get($contextPayload, 'result.isError'));
+        $this->assertSame(true, data_get($contextPayload, 'result.structuredContent.open_brain.ok'));
+        $this->assertSame('mcp', data_get($contextPayload, 'result.structuredContent.open_brain.audit.surface'));
+        $this->assertDatabaseHas('atlas_open_brain_access_logs', [
+            'requester' => 'mcp-test',
+            'surface' => 'mcp',
+            'action' => 'context_pack_export',
+        ]);
+    }
+
+    public function test_open_brain_mcp_http_endpoint_is_authenticated_origin_guarded_and_read_only(): void
+    {
+        config()->set('atlas.open_brain.mcp.http_enabled', true);
+        config()->set('atlas.open_brain.mcp.allowed_origins', ['http://localhost:3000']);
+
+        $headers = [
+            ...$this->headers,
+            'Origin' => 'http://localhost:3000',
+            'Accept' => 'application/json, text/event-stream',
+            'MCP-Protocol-Version' => AtlasOpenBrainMcpService::PROTOCOL_VERSION,
+        ];
+
+        $statusPayload = $this->getJson('/ai/open-brain/mcp', [
+            ...$headers,
+            'Accept' => 'application/json',
+        ])
+            ->assertOk()
+            ->assertHeader('MCP-Protocol-Version', AtlasOpenBrainMcpService::PROTOCOL_VERSION)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('read_only', true)
+            ->json();
+        $this->assertContains('tools/list', data_get($statusPayload, 'methods', []));
+
+        $this->get('/ai/open-brain/mcp', [
+            ...$headers,
+            'Accept' => 'text/event-stream',
+        ])
+            ->assertStatus(405)
+            ->assertHeader('Allow', 'POST')
+            ->assertHeader('MCP-Protocol-Version', AtlasOpenBrainMcpService::PROTOCOL_VERSION);
+
+        $listPayload = $this->postJson('/ai/open-brain/mcp', [
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'tools/list',
+        ], $headers)
+            ->assertOk()
+            ->assertHeader('MCP-Protocol-Version', AtlasOpenBrainMcpService::PROTOCOL_VERSION)
+            ->json();
+
+        $this->assertContains('atlas_memory_recall', collect(data_get($listPayload, 'result.tools'))->pluck('name')->all());
+        $this->assertContains('atlas_open_brain_context_pack', collect(data_get($listPayload, 'result.tools'))->pluck('name')->all());
+        $this->assertContains('atlas_memory_maintenance_status', collect(data_get($listPayload, 'result.tools'))->pluck('name')->all());
+
+        $this->postJson('/ai/open-brain/mcp', [
+            'jsonrpc' => '2.0',
+            'id' => 2,
+            'method' => 'tools/list',
+        ], [
+            ...$this->headers,
+            'Origin' => 'https://evil.example',
+        ])->assertForbidden()
+            ->assertJsonPath('error.code', 'ORIGIN_NOT_ALLOWED');
+
+        $this->postJson('/ai/open-brain/mcp', [
+            'jsonrpc' => '2.0',
+            'id' => 3,
+            'method' => 'tools/list',
+        ], [
+            ...$headers,
+            'MCP-Protocol-Version' => '2099-01-01',
+        ])
+            ->assertBadRequest()
+            ->assertJsonPath('error.message', 'Unsupported MCP protocol version.');
+    }
+
+    public function test_memory_maintenance_command_reports_health_and_next_actions(): void
+    {
+        $this->migrateMemoryTable();
+        $this->migrateVerbatimMemoryTable();
+        $this->migrateProjectionAuditTable();
+        $this->migrateOpenBrainAuditTable();
+
+        $exit = Artisan::call('atlas:memory:maintain', [
+            '--workspace' => base_path(),
+            '--no-sync' => true,
+            '--no-index-code' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $exit);
+        $this->assertFalse($payload['ok']);
+        $this->assertSame('needs_memory', data_get($payload, 'stages.mcp_health.overall_status'));
+        $this->assertSame('skipped', data_get($payload, 'stages.knowledge_sync.status'));
+        $this->assertSame('skipped', data_get($payload, 'stages.code_index.status'));
+        $this->assertContains('/opt/homebrew/bin/php artisan atlas:memory:seed-core', data_get($payload, 'stages.mcp_health.next_actions', []));
+    }
+
+    public function test_memory_maintenance_api_reports_health_without_terminal(): void
+    {
+        $this->migrateMemoryTable();
+        $this->migrateVerbatimMemoryTable();
+        $this->migrateProjectionAuditTable();
+        $this->migrateOpenBrainAuditTable();
+
+        $payload = $this->postJson('/ai/memory/maintain', [
+            'workspace' => base_path(),
+            'sync' => false,
+            'index_code' => false,
+        ], $this->headers)
+            ->assertStatus(409)
+            ->assertJsonPath('memory_maintenance.ok', false)
+            ->assertJsonPath('memory_maintenance.status', 'needs_memory')
+            ->assertJsonPath('memory_maintenance.stages.knowledge_sync.status', 'skipped')
+            ->assertJsonPath('memory_maintenance.stages.code_index.status', 'skipped')
+            ->json('memory_maintenance');
+
+        $this->assertContains('/opt/homebrew/bin/php artisan atlas:memory:seed-core', data_get($payload, 'stages.mcp_health.next_actions', []));
+    }
+
     public function test_provider_projection_generates_provider_safe_files_and_detects_drift(): void
     {
         $this->migrateMemoryTable();
         $this->migrateProjectionAuditTable();
-        $workspace = sys_get_temp_dir().'/atlas_projection_'.str_replace('-', '', (string) \Illuminate\Support\Str::uuid());
+        $workspace = sys_get_temp_dir().'/atlas_projection_'.str_replace('-', '', (string) Str::uuid());
         mkdir($workspace, 0777, true);
 
         try {
@@ -1655,14 +1965,14 @@ class AtlasMemoryRegistryTest extends TestCase
             $this->assertSame(0, data_get($cleanReview, 'summary.changed'));
             $this->assertSame('', data_get($cleanReview, 'projections.0.diff'));
         } finally {
-            \Illuminate\Support\Facades\File::deleteDirectory($workspace);
+            File::deleteDirectory($workspace);
         }
     }
 
     public function test_provider_projection_status_flags_empty_provider_safe_memory(): void
     {
         $this->migrateMemoryTable();
-        $workspace = sys_get_temp_dir().'/atlas_projection_empty_'.str_replace('-', '', (string) \Illuminate\Support\Str::uuid());
+        $workspace = sys_get_temp_dir().'/atlas_projection_empty_'.str_replace('-', '', (string) Str::uuid());
         mkdir($workspace, 0777, true);
 
         try {
@@ -1690,14 +2000,14 @@ class AtlasMemoryRegistryTest extends TestCase
             $this->assertSame(0, data_get($payload, 'summary.provider_safe_memory_count'));
             $this->assertStringContainsString('seed-core', implode("\n", (array) data_get($payload, 'next_actions', [])));
         } finally {
-            \Illuminate\Support\Facades\File::deleteDirectory($workspace);
+            File::deleteDirectory($workspace);
         }
     }
 
     public function test_core_memory_seed_makes_provider_projection_actionable(): void
     {
         $this->migrateMemoryTable();
-        $workspace = sys_get_temp_dir().'/atlas_projection_seed_'.str_replace('-', '', (string) \Illuminate\Support\Str::uuid());
+        $workspace = sys_get_temp_dir().'/atlas_projection_seed_'.str_replace('-', '', (string) Str::uuid());
         mkdir($workspace, 0777, true);
 
         try {
@@ -1732,7 +2042,7 @@ class AtlasMemoryRegistryTest extends TestCase
             $this->assertSame('passed', data_get($status, 'status'));
             $this->assertSame(0, data_get($status, 'summary.empty_memory'));
         } finally {
-            \Illuminate\Support\Facades\File::deleteDirectory($workspace);
+            File::deleteDirectory($workspace);
         }
     }
 
@@ -1740,7 +2050,7 @@ class AtlasMemoryRegistryTest extends TestCase
     {
         $this->migrateMemoryTable();
         $this->migrateProjectionAuditTable();
-        $workspace = sys_get_temp_dir().'/atlas_projection_api_'.str_replace('-', '', (string) \Illuminate\Support\Str::uuid());
+        $workspace = sys_get_temp_dir().'/atlas_projection_api_'.str_replace('-', '', (string) Str::uuid());
         mkdir($workspace, 0777, true);
 
         try {
@@ -1879,7 +2189,7 @@ class AtlasMemoryRegistryTest extends TestCase
                 ->assertStatus(422)
                 ->assertJsonValidationErrors('initiator');
         } finally {
-            \Illuminate\Support\Facades\File::deleteDirectory($workspace);
+            File::deleteDirectory($workspace);
         }
     }
 
@@ -1887,7 +2197,7 @@ class AtlasMemoryRegistryTest extends TestCase
     {
         $this->migrateMemoryTable();
         $this->migrateProjectionAuditTable();
-        $workspace = sys_get_temp_dir().'/atlas_projection_api_target_'.str_replace('-', '', (string) \Illuminate\Support\Str::uuid());
+        $workspace = sys_get_temp_dir().'/atlas_projection_api_target_'.str_replace('-', '', (string) Str::uuid());
         mkdir($workspace, 0777, true);
 
         try {
@@ -1942,14 +2252,14 @@ class AtlasMemoryRegistryTest extends TestCase
                 ->assertJsonPath('provider_projection.summary.missing', 1);
             $this->assertSame('claude', AtlasMemoryProviderProjectionAudit::query()->first()?->target);
         } finally {
-            \Illuminate\Support\Facades\File::deleteDirectory($workspace);
+            File::deleteDirectory($workspace);
         }
     }
 
     public function test_provider_projection_audit_summary_and_retention_api_and_cli(): void
     {
         $this->migrateProjectionAuditTable();
-        $workspace = sys_get_temp_dir().'/atlas_projection_audit_ops_'.str_replace('-', '', (string) \Illuminate\Support\Str::uuid());
+        $workspace = sys_get_temp_dir().'/atlas_projection_audit_ops_'.str_replace('-', '', (string) Str::uuid());
 
         $recentApi = AtlasMemoryProviderProjectionAudit::query()->create([
             'action' => 'apply',
@@ -2262,6 +2572,80 @@ class AtlasMemoryRegistryTest extends TestCase
         $migration->up();
     }
 
+    private function openBrainTestPack(string $mode): AiContextPack
+    {
+        $memoryId = (string) Str::uuid();
+
+        return new AiContextPack([
+            'schema_version' => 1,
+            'task' => [
+                'type' => $mode === 'direct' ? 'direct' : 'dev',
+                'desired_mode' => $mode,
+                'objective' => 'implemente a injecao Open Brain',
+                'success_criteria' => [],
+                'risk_level' => 'low',
+                'domain' => 'atlas',
+                'intent' => 'test',
+            ],
+            'surface' => [
+                'kind' => 'mac_cli',
+                'workspace' => base_path(),
+                'source_type' => 'manual',
+                'source_id' => null,
+            ],
+            'conversation' => [
+                'thread_id' => null,
+                'thread_title' => null,
+                'thread_summary' => null,
+                'source' => 'none',
+                'context_window' => null,
+                'recent_turns' => [],
+                'instruction' => 'Use contexto Atlas.',
+            ],
+            'continuity' => [
+                'active_state' => null,
+                'latest_compaction' => null,
+                'latest_provider_handoff' => null,
+            ],
+            'constraints' => [
+                'must_do' => ['Usar portugues brasileiro claro.'],
+                'must_not_do' => ['Nao inventar fatos.'],
+                'privacy_class' => 'normal',
+            ],
+            'memory' => [
+                'recall' => [],
+                'registry' => [[
+                    'id' => $memoryId,
+                    'type' => 'decision',
+                    'scope' => 'global',
+                    'scope_type' => 'global',
+                    'scope_id' => null,
+                    'title' => 'Memory decision',
+                    'summary' => 'Open Brain injection must be audited.',
+                    'body' => 'Atlas must inject provider-safe Open Brain context automatically for dev tasks.',
+                    'importance' => 5,
+                    'priority' => 95,
+                    'source_type' => 'manual',
+                    'source_id' => null,
+                    'reason' => 'test_memory',
+                ]],
+                'verbatim' => [],
+                'semantic' => [],
+            ],
+            'open_questions' => [],
+            'excluded_context' => [],
+        ], [[
+            'type' => 'atlas_memory_entry',
+            'id' => $memoryId,
+            'memory_type' => 'decision',
+            'scope_type' => 'global',
+            'scope_id' => null,
+            'priority' => 95,
+            'source_type' => 'manual',
+            'source_id' => null,
+        ]]);
+    }
+
     private function usage(AtlasMemoryEntry $memory): AtlasMemoryEntryUsage
     {
         return AtlasMemoryEntryUsage::query()->create([
@@ -2353,7 +2737,7 @@ class AtlasMemoryRegistryTest extends TestCase
             'metadata' => [],
         ]);
         $trace = AiTrace::query()->create([
-            'trace_key' => 'trace_memory_audit_'.str_replace('-', '', (string) \Illuminate\Support\Str::uuid()),
+            'trace_key' => 'trace_memory_audit_'.str_replace('-', '', (string) Str::uuid()),
             'thread_id' => $thread->id,
             'session_id' => $session->id,
             'source_type' => 'manual',

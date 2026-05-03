@@ -47,6 +47,11 @@ class AtlasToolApprovalService
                     'approved_by' => (string) ($options['approved_by'] ?? 'atlas_operator'),
                     'approval_reason' => (string) ($options['reason'] ?? 'operator_approved_tool_execution'),
                     'network_allowed' => (bool) ($options['network_allowed'] ?? false),
+                    'max_execution_tier' => $this->executionTier($options['max_execution_tier'] ?? null),
+                    'sandbox_mode' => $this->sandboxMode($options['sandbox_mode'] ?? null),
+                    'privacy_level' => $this->privacyLevel($options['privacy_level'] ?? null),
+                    'task_type' => $this->taskType($options['task_type'] ?? null),
+                    'requires_provider_safe' => (bool) ($options['requires_provider_safe'] ?? false),
                     'workspace_hash' => hash('sha256', realpath($workspace) ?: $workspace),
                     'ttl_hours' => $ttlHours,
                     'approval_source' => (string) ($options['source'] ?? 'cli'),
@@ -143,5 +148,33 @@ class AtlasToolApprovalService
     private function scopeType(string $scopeType): string
     {
         return in_array($scopeType, ['workspace', 'global'], true) ? $scopeType : 'workspace';
+    }
+
+    private function executionTier(mixed $tier): string
+    {
+        $tier = strtoupper(trim((string) ($tier ?: 'T3')));
+
+        return in_array($tier, ['T0', 'T1', 'T2', 'T3'], true) ? $tier : 'T3';
+    }
+
+    private function sandboxMode(mixed $mode): string
+    {
+        $mode = strtolower(trim((string) ($mode ?: 'workspace')));
+
+        return in_array($mode, ['workspace', 'worktree', 'docker', 'host', 'none'], true) ? $mode : 'workspace';
+    }
+
+    private function privacyLevel(mixed $level): string
+    {
+        $level = strtolower(trim((string) ($level ?: 'standard')));
+
+        return in_array($level, ['standard', 'sensitive', 'restricted'], true) ? $level : 'standard';
+    }
+
+    private function taskType(mixed $taskType): string
+    {
+        $taskType = strtolower(trim((string) ($taskType ?: 'manual')));
+
+        return preg_match('/^[a-z][a-z0-9_-]{0,63}$/', $taskType) === 1 ? $taskType : 'manual';
     }
 }

@@ -3,10 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Models\AtlasTask;
+use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliModelCatalogService;
 use App\Services\Ai\Cli\AtlasCliQualityService;
+use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Ai\Cli\AtlasTerminalNotifier;
 use App\Services\Ai\Cli\AtlasTerminalTheme;
 use App\Services\Ai\Cli\DevProgressReporter;
@@ -14,6 +17,7 @@ use App\Services\Engineering\EngineeringBlueprintService;
 use App\Services\Engineering\EngineeringBlueprintSnapshotService;
 use App\Services\Engineering\EngineeringRunArtifactService;
 use App\Services\Engineering\EngineeringTaskContractService;
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -39,6 +43,10 @@ class AtlasCliDevCommand extends Command
         {--complete : Keep running repair iterations until gates pass or max iterations is reached}
         {--max-iterations=3 : Maximum repair iterations for --complete}
         {--resume= : Resume a previous dev execution plan id when present in traces}
+        {--no-open-brain : Disable automatic Open Brain context injection for this dev run}
+        {--require-open-brain : Fail if Open Brain context cannot be injected}
+        {--open-brain-refresh : Request a fresh Open Brain context instead of reusing a prior hash}
+        {--open-brain-budget= : Override Open Brain context budget in characters}
         {--force-offline-provider : Call provider even when health says all providers are offline}
         {--no-run : Enqueue only; do not run local worker inline}
         {--no-stream : Disable provider streaming}
@@ -154,6 +162,7 @@ class AtlasCliDevCommand extends Command
             'complete' => $complete,
             'max_iterations' => $maxIterations,
             'no_stream' => (bool) $this->option('no-stream'),
+            'open_brain' => $this->openBrainOperatorOptions($complete),
             'skills' => $skills,
             'image_count' => count((array) $this->option('image')) + ((bool) $this->option('clipboard-image') ? 1 : 0),
             'auto_image' => ! (bool) $this->option('no-auto-image'),
@@ -165,32 +174,44 @@ class AtlasCliDevCommand extends Command
         $providerPrompt = $workflow->promptWithEngineeringContract($task, $engineeringContract, $engineeringBlueprint);
 
         if ($planOnly) {
+            $chatCommand = $workflow->chatCommand(
+                task: $providerPrompt,
+                workspace: $workspace,
+                provider: (string) $preflight['selected_provider'],
+                model: $modelOverride,
+                permission: $this->permission(),
+                allowWrite: $this->allowWrite(),
+                allowDanger: $this->allowDanger(),
+                allowUnsandboxed: $this->allowUnsandboxed(),
+                autoTest: (bool) $this->option('auto-test'),
+                timeout: (int) $this->option('timeout'),
+                stream: ! (bool) $this->option('no-stream') && ! $json,
+                noRun: (bool) $this->option('no-run'),
+                devExecutionPlan: $devPlan,
+                skills: $skills,
+                json: $json,
+                imagePaths: (array) $this->option('image'),
+                clipboardImage: (bool) $this->option('clipboard-image'),
+                noAutoImage: (bool) $this->option('no-auto-image'),
+                openBrain: $this->openBrainCommandOptions($complete),
+            );
+
             $this->printPayload([
                 'ok' => true,
                 'phase' => 'preflight',
                 'workflow' => $preflight,
                 'dev_execution_plan' => $devPlan,
                 'activated_skills' => $skills,
-                'chat_command' => $workflow->chatCommand(
-                    task: $providerPrompt,
+                'open_brain_preview' => $this->openBrainPlanPreview(
+                    input: $providerPrompt,
                     workspace: $workspace,
                     provider: (string) $preflight['selected_provider'],
                     model: $modelOverride,
-                    permission: $this->permission(),
-                    allowWrite: $this->allowWrite(),
-                    allowDanger: $this->allowDanger(),
-                    allowUnsandboxed: $this->allowUnsandboxed(),
-                    autoTest: (bool) $this->option('auto-test'),
-                    timeout: (int) $this->option('timeout'),
-                    stream: ! (bool) $this->option('no-stream') && ! $json,
-                    noRun: (bool) $this->option('no-run'),
-                    devExecutionPlan: $devPlan,
+                    devPlan: $devPlan,
                     skills: $skills,
-                    json: $json,
-                    imagePaths: (array) $this->option('image'),
-                    clipboardImage: (bool) $this->option('clipboard-image'),
-                    noAutoImage: (bool) $this->option('no-auto-image'),
+                    complete: $complete,
                 ),
+                'chat_command' => $chatCommand,
             ]);
 
             return self::SUCCESS;
@@ -272,6 +293,7 @@ class AtlasCliDevCommand extends Command
                 imagePaths: (array) $this->option('image'),
                 clipboardImage: (bool) $this->option('clipboard-image'),
                 noAutoImage: (bool) $this->option('no-auto-image'),
+                openBrain: $this->openBrainCommandOptions($complete),
             );
 
             if ($progress) {
@@ -723,7 +745,7 @@ class AtlasCliDevCommand extends Command
     private function interactiveChatCommand(string $workspace): array
     {
         $command = [
-            PHP_BINARY,
+            AtlasPhpBinary::path(),
             base_path('artisan'),
             'atlas:ai:chat',
             '--dev',
@@ -839,7 +861,121 @@ class AtlasCliDevCommand extends Command
         }
 
         $this->renderPreflightLegacy((array) $payload['workflow']);
+        $preview = is_array($payload['open_brain_preview'] ?? null) ? $payload['open_brain_preview'] : null;
+        if ($preview) {
+            $hash = is_string($preview['context_pack_hash'] ?? null) ? substr((string) $preview['context_pack_hash'], 0, 10) : 'sem hash';
+            $refs = (int) data_get($preview, 'summary.context_refs', 0);
+            $this->line('Open Brain: '.($preview['status'] ?? 'unknown').' · hash '.$hash.' · refs '.$refs);
+        }
         $this->line('Comando de execucao: '.AtlasSecurity::commandLineForDisplay((array) $payload['chat_command']));
+    }
+
+    /**
+     * @param  array<string,mixed>  $devPlan
+     * @param  array<int,string>  $skills
+     * @return array<string,mixed>
+     */
+    private function openBrainPlanPreview(string $input, string $workspace, ?string $provider, ?string $model, array $devPlan, array $skills, bool $complete): array
+    {
+        $openBrain = $this->openBrainCommandOptions($complete);
+        $surface = data_get($devPlan, 'resumed_at') ? 'cli_continue' : 'cli_dev';
+        $payload = [
+            'app_surface' => 'atlas_cli',
+            'atlas_workflow_mode' => 'dev',
+            'workspace' => $workspace,
+            'decision_mode' => $provider ? 'manual_override' : 'atlas_decide',
+            'operator_requested_provider' => $provider ?: 'auto',
+            'requested_provider' => $provider,
+            'requested_model' => $model,
+            'requested_agent' => 'desenvolvedor',
+            'activated_skills' => $skills,
+            'dev_execution_plan' => $devPlan,
+            'open_brain' => array_filter($openBrain + [
+                'surface' => $surface,
+                'workflow_mode' => 'dev',
+                'provider_safe_only' => true,
+                'preview' => true,
+            ], fn (mixed $value): bool => $value !== null),
+        ];
+        $options = [
+            'source_type' => 'manual',
+            'agent_slug' => 'desenvolvedor',
+            'provider' => $provider,
+            'include_semantic_context' => true,
+            'payload' => $payload,
+            'open_brain' => [
+                'preview' => true,
+            ],
+        ];
+        if ($model !== null && trim($model) !== '') {
+            $options['model'] = trim($model);
+        }
+
+        try {
+            $task = AiTaskRequest::fromInput($input, $options, [
+                'agent' => 'desenvolvedor',
+                'intent' => 'atlas_cli_dev_plan_preview',
+            ]);
+            $contextPack = app(AiContextPackBuilder::class)->build($input, $task, $options);
+            $result = app(AtlasOpenBrainContextInjectionService::class)->inject($input, $task, $contextPack, $options);
+
+            return $this->compactOpenBrainPlanPreview($result);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return [
+                'enabled' => true,
+                'status' => 'preview_failed',
+                'reason' => 'open_brain_preview_exception',
+                'surface' => $surface,
+                'mode' => data_get($openBrain, 'mode', 'auto'),
+                'workspace' => $workspace,
+                'context_ready' => false,
+                'provider_execution_allowed' => ! ((string) data_get($openBrain, 'mode') === 'required'),
+                'context_pack_hash' => null,
+                'audit_id' => null,
+                'summary' => [
+                    'context_refs' => 0,
+                    'memory_refs' => 0,
+                    'knowledge_refs' => 0,
+                    'code_refs' => 0,
+                    'budget_chars' => data_get($openBrain, 'budget_chars', config('atlas.open_brain.injection.budget_chars', 20000)),
+                    'used_chars' => 0,
+                    'provider_safe' => true,
+                ],
+                'warnings' => ['open_brain_preview_exception:'.class_basename($exception)],
+                'next_actions' => ['Inspect logs and run atlas memory maintain before requiring Open Brain.'],
+                'policy' => $openBrain + ['surface' => $surface, 'provider_safe_only' => true],
+                'previewed_at' => now()->toJSON(),
+            ];
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     * @return array<string,mixed>
+     */
+    private function compactOpenBrainPlanPreview(array $result): array
+    {
+        $status = (string) ($result['status'] ?? 'unknown');
+
+        return [
+            'enabled' => (bool) ($result['enabled'] ?? false),
+            'status' => $status,
+            'reason' => $result['reason'] ?? null,
+            'surface' => $result['surface'] ?? null,
+            'mode' => $result['mode'] ?? null,
+            'workspace' => $result['workspace'] ?? null,
+            'context_ready' => in_array($status, ['injected', 'degraded'], true),
+            'provider_execution_allowed' => $status !== 'failed_closed',
+            'context_pack_hash' => $result['context_pack_hash'] ?? null,
+            'audit_id' => $result['audit_id'] ?? null,
+            'summary' => is_array($result['summary'] ?? null) ? $result['summary'] : [],
+            'warnings' => array_values((array) ($result['warnings'] ?? [])),
+            'next_actions' => array_values((array) ($result['next_actions'] ?? [])),
+            'policy' => is_array($result['policy'] ?? null) ? $result['policy'] : [],
+            'previewed_at' => now()->toJSON(),
+        ];
     }
 
     private function taskId(): ?string
@@ -988,6 +1124,35 @@ class AtlasCliDevCommand extends Command
         return (bool) $this->option('operator')
             || (bool) $this->option('allow-unsandboxed')
             || (bool) config('atlas.ai.tool_permissions.allow_unsandboxed_write', false);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function openBrainOperatorOptions(bool $complete): array
+    {
+        return $this->openBrainCommandOptions($complete);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function openBrainCommandOptions(bool $complete): array
+    {
+        $budget = $this->option('open-brain-budget');
+        $budgetChars = is_scalar($budget) && trim((string) $budget) !== ''
+            ? max(2000, (int) $budget)
+            : null;
+        $require = (bool) $this->option('require-open-brain')
+            || ($complete && (bool) config('atlas.open_brain.injection.required_for_complete', true));
+
+        return array_filter([
+            'mode' => (bool) $this->option('no-open-brain')
+                ? 'off'
+                : ($require ? 'required' : 'auto'),
+            'refresh' => (bool) $this->option('open-brain-refresh'),
+            'budget_chars' => $budgetChars,
+        ], fn (mixed $value): bool => $value !== null);
     }
 
     private function maxIterations(): int

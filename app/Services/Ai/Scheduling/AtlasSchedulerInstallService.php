@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Scheduling;
 
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Symfony\Component\Process\Process;
 
@@ -109,7 +110,7 @@ class AtlasSchedulerInstallService
     private function cronLine(): string
     {
         $basePath = str_replace("'", "'\\''", base_path());
-        $phpBinary = str_replace("'", "'\\''", PHP_BINARY);
+        $phpBinary = str_replace("'", "'\\''", AtlasPhpBinary::path());
 
         return "* * * * * cd '{$basePath}' && '{$phpBinary}' artisan schedule:run >> /dev/null 2>&1";
     }
