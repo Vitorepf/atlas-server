@@ -46,7 +46,7 @@ trait CreatesAtlasMemoryEntryTable
             $table->timestamp('governance_checked_at')->nullable();
             $table->timestamp('privacy_reviewed_at')->nullable()->index();
             $table->timestamps();
-            $table->softDeletes();
+            $table->softDeletesTz();
         });
     }
 

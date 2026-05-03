@@ -165,7 +165,7 @@ class AtlasOpenBrainMcpService
                 'title' => 'Atlas Open Brain',
                 'version' => '1.0.0',
             ],
-            'instructions' => 'Use Atlas tools as the provider-safe source of truth for Atlas memory, canonical docs, code intelligence and audited context packs. Tools are read-only in this MCP phase.',
+            'instructions' => 'Use Atlas tools as the provider-safe source of truth for Atlas memory, canonical docs, code intelligence and audited context packs. Read tools are provider-safe by default; the write tool atlas_memory_record persists provider-safe entries with hard-coded defaults.',
         ];
     }
 
