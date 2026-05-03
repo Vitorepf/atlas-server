@@ -56,6 +56,7 @@ Fair Claude Benchmark:
 Documento canonico:
 
 - `docs/atlas-cli-fair-claude-benchmark.md`
+- `docs/atlas-cli-5x-claude-code-plan.md`
 
 Sem essa evidencia, o release pode declarar melhoria do Atlas CLI, mas nao deve
 declarar vitoria justa contra Claude Code CLI.

@@ -3,6 +3,7 @@
 namespace App\Services\Semantic;
 
 use App\Models\SemanticNote;
+use App\Services\Ai\AtlasMemorySourcePrivacyPolicy;
 use App\Support\Metadata;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ class SemanticNoteIndexer
         private readonly VaultFileStore $vault,
         private readonly FrontmatterParser $parser,
         private readonly EmbeddingService $embeddings,
+        private readonly AtlasMemorySourcePrivacyPolicy $privacyPolicy,
     ) {}
 
     public function indexAll(bool $changedOnly = false): array
@@ -59,7 +61,16 @@ class SemanticNoteIndexer
         $type = $this->validType((string) ($frontmatter['type'] ?? 'source_note'));
         $status = $errors ? 'invalid' : $this->validStatus((string) ($frontmatter['status'] ?? 'draft'));
         $textForEmbedding = $this->textForEmbedding($frontmatter, $body);
-        $embeddingVector = $this->embeddings->embedText($textForEmbedding);
+        $privacy = $this->privacyPolicy->project('semantic_note', [
+            'title' => $frontmatter['title'] ?? null,
+            'summary' => $frontmatter['summary'] ?? null,
+            'body_excerpt' => $body,
+            'path' => $path,
+            'frontmatter' => $frontmatter,
+            'metadata' => [],
+            'domains' => $this->arrayValue($frontmatter['domains'] ?? []),
+        ]);
+        $embeddingVector = $this->embeddings->embedText($textForEmbedding, (bool) $privacy['provider_safe']);
         $embedding = $this->embeddings->vectorLiteral($embeddingVector);
         $embeddingInfo = $this->embeddings->lastInfo();
 
@@ -85,7 +96,11 @@ class SemanticNoteIndexer
             'validation_errors' => Metadata::forStorage($errors),
             'metadata' => Metadata::forStorage([
                 'indexer' => 'semantic-note-indexer-v1',
-                'embedding' => $embeddingInfo,
+                'embedding' => $embeddingInfo + [
+                    'external_provider_allowed' => (bool) $privacy['provider_safe'],
+                    'privacy_class' => $privacy['privacy_class'],
+                    'privacy_policy_version' => $privacy['policy_version'],
+                ],
             ]),
         ];
 

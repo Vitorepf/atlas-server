@@ -31,6 +31,17 @@ class AtlasMemoryRegistryService
     }
 
     /**
+     * @param  array<string,mixed>  $identity
+     * @param  array<string,mixed>  $attributes
+     */
+    public function upsert(array $identity, array $attributes): AtlasMemoryEntry
+    {
+        $payload = $this->normalize($attributes);
+
+        return AtlasMemoryEntry::query()->updateOrCreate($identity, $payload);
+    }
+
+    /**
      * @param  array<string,mixed>  $filters
      * @return Collection<int,AtlasMemoryEntry>
      */

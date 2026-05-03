@@ -147,6 +147,7 @@ apenas se o Atlas e melhor produto em volta do mesmo Claude.
 Documento canonico:
 
 - `docs/atlas-cli-fair-claude-benchmark.md`
+- `docs/atlas-cli-5x-claude-code-plan.md`
 
 Comando alvo:
 

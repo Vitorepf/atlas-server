@@ -87,6 +87,7 @@ class AtlasMemoryContextComposer
             $score = (float) ($item['priority'] ?? 50)
                 + ((float) ($item['importance'] ?? 3) * 10)
                 + ((float) ($item['confidence'] ?? 0.7) * 10)
+                + ((float) ($item['hybrid_score'] ?? 0) * 30)
                 + $this->scopeWeight($scope)
                 + $this->typeWeight($type);
 
@@ -123,7 +124,7 @@ class AtlasMemoryContextComposer
 
             $type = (string) ($item['type'] ?? 'verbatim');
             $scope = (string) ($item['scope_type'] ?? $item['scope'] ?? 'global');
-            $score = 82 + $this->scopeWeight($scope) + $this->typeWeight($type);
+            $score = 82 + ((float) ($item['hybrid_score'] ?? 0) * 24) + $this->scopeWeight($scope) + $this->typeWeight($type);
 
             return $this->candidate(
                 'verbatim',

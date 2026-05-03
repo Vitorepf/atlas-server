@@ -18,7 +18,7 @@ return [
     'semantic_memory' => [
         'vault_path' => env('ATLAS_VAULT_PATH', dirname(base_path()).'/AtlasVault'),
         'embedding_dimensions' => (int) env('ATLAS_SEMANTIC_EMBEDDING_DIMENSIONS', 1536),
-        'embedding_provider' => env('ATLAS_SEMANTIC_EMBEDDING_PROVIDER', env('OPENAI_API_KEY') ? 'openai' : 'local_hash'),
+        'embedding_provider' => env('ATLAS_SEMANTIC_EMBEDDING_PROVIDER', 'local_hash'),
         'embedding_model' => env('ATLAS_SEMANTIC_EMBEDDING_MODEL', 'text-embedding-3-small'),
         'embedding_api_key' => env('OPENAI_API_KEY'),
         'embedding_base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),

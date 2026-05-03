@@ -23,7 +23,7 @@ decisions:
   - A memoria pertence ao Atlas, nao ao provider.
   - Docs canonicos e Postgres formam a fonte operacional de verdade.
   - Provider files sao projecoes geradas, nao origem da memoria.
-  - Open Brain remoto e retrieval vetorial exigem fase propria e DoD explicito.
+  - ChromaDB, MCP remoto e sync Open Brain multiusuario exigem fase propria e DoD explicito.
 maintenance:
   - Leia START_HERE.md antes de continuar este sistema.
   - Atualize esta copia versionada quando o documento mestre da raiz mudar.
@@ -97,7 +97,9 @@ Provider Projections controladas
 | Engineering Knowledge Base | Docs canonicos + Postgres | Conhecimento de engenharia versionado, indexavel e reutilizavel em context packs |
 | Code Intelligence Index | Codigo real + Postgres | Modulos, simbolos, rotas, comandos, migrations, testes e links docs->codigo |
 | Context Pack Builder | Servicos Atlas | Composicao deterministica do que entra no prompt, com budget, rastreabilidade e motivo |
+| Hybrid Memory Retrieval | Servicos Atlas + Postgres | Recall provider-safe entre registry, verbatim e notas semanticas com fallback local |
 | Provider Projections | Artefatos gerados | Projecoes locais para ferramentas externas; nunca sao fonte primaria |
+| Open Brain API/CLI | API + CLI + audit log | Exporta context packs Atlas para ferramentas locais/remotas com rastreabilidade |
 
 ### Politica De Fonte Da Verdade
 
@@ -107,7 +109,7 @@ Provider Projections controladas
 - `CLAUDE.md`, `AGENTS.md`, Obsidian, Cursor, Claude, Codex e ChatGPT sao consumidores ou superficies auxiliares.
 - Conversa de IA nao vira memoria canonica sem promocao explicita, revisavel e auditavel.
 - Provider projections podem ser regeneradas a partir do Atlas; elas nao devem ser editadas como se fossem memoria primaria.
-- Embeddings, ChromaDB, vector search e Open Brain remoto continuam fora do core deterministico ate uma fase propria com DoD explicito.
+- Embeddings externos exigem opt-in explicito e privacy policy; ChromaDB, MCP remoto e sync multiusuario continuam fora desta entrega.
 
 ### Contratos De Contexto
 
@@ -118,6 +120,7 @@ Provider Projections controladas
 | `knowledge_refs` | Engineering Knowledge Base | Docs canonicos, categoria, prioridade, path, resumo e razao | Conteudo inteiro de docs sem necessidade |
 | `code_refs` | Code Intelligence Index | Modulos, root paths, testes relacionados, status de docs e contagens | Dump completo de codigo ou simbolos irrelevantes |
 | `provider_projection_refs` | Provider Projection Audit | Target, checksum, estado, drift e operacao | Conteudo privado nao provider-safe |
+| `open_brain_audit_refs` | Open Brain Audit | Export, requester, hash, contagens e policy | Prompt bruto sensivel ou segredos |
 
 ### Modelo De Maturidade
 
@@ -129,8 +132,8 @@ Provider Projections controladas
 | L4 | Engineering Knowledge Base canonica | Implementado |
 | L5 | Engineering Code Intelligence Index | Implementado no `atlas-server` e navegavel no app |
 | L6 | Feedback loop de qualidade de contexto | Parcial: feedback e auditoria existem; otimizacao continua pendente |
-| L7 | Retrieval hibrido/semantico | Nao implementado por decisao |
-| L8 | Open Brain remoto/multi-tool | Nao implementado por decisao |
+| L7 | Retrieval hibrido/semantico | Implementado local/provider-safe |
+| L8 | Open Brain remoto/multi-tool | Implementado como API/CLI local auditavel; MCP remoto futuro |
 
 ### Estado Atual Consolidado
 
@@ -147,8 +150,8 @@ Provider Projections controladas
 | Super Tool Runtime | Implementado backend + app | Registry, policy, executor, evidence store, gates deterministicas e painel operacional no Engineering |
 | Documentation Hardening | Implementado | Runbook, contratos, security/privacy, failure modes e DoD canonicos |
 | Documentation Preservation | Implementado | Documento mestre preservado no `atlas-server` e `START_HERE.md` como entrada canonica |
-| App de Knowledge/Memory | Parcial forte | Memory e Engineering mostram status, sync, detalhe, Code Intelligence navegavel, audit-code visual e gate do Tool Runtime sem escrita |
-| Semantic/vector/Open Brain | Nao implementado | Mantido fora para preservar core deterministico |
+| App de Knowledge/Memory | Implementado | Memory e Engineering mostram status, sync, detalhe, Code Intelligence navegavel, audit-code visual e gate do Tool Runtime sem escrita |
+| Hybrid Retrieval/Open Brain | Implementado local | Recall provider-safe e export auditado de context packs por API/CLI; ChromaDB/MCP remoto ficam para fase futura |
 
 ## Status De Implementacao
 
@@ -2611,6 +2614,167 @@ Ainda fica para as proximas fases:
 - exemplos reais de payloads API capturados de ambiente seeded;
 - retrieval semantico/hibrido com embeddings, ChromaDB e vector search;
 - Open Brain remoto/multi-tool.
+
+### Fase 4AF - Provider Projection Non-Empty Memory Gate
+
+Status: **implementada no `atlas-server` e aplicada ao workspace `atlas-server`**.
+
+Objetivo entregue: corrigir o caso em que `CLAUDE.md`/`AGENTS.md` eram gerenciados e marcados como prontos mesmo contendo "No provider-safe Atlas memory was available for this workspace". A partir desta fase, projection vazia deixa de ser considerada saudavel.
+
+Capacidades entregues:
+
+- `AtlasProviderProjectionService::inspect()` expõe `memory_count` por target;
+- `status` e `review` incluem `summary.empty_memory` e `summary.provider_safe_memory_count`;
+- projection gerenciada, sem drift e sem memoria provider-safe retorna `needs_review`, nao `passed`;
+- `next_actions` orienta rodar `atlas memory seed-core --json` ou revisar memorias no app;
+- novo comando idempotente `atlas:memory:seed-core` cria memorias globais provider-safe minimas para bootstrap real;
+- aliases shell `atlas memory seed-core` e `atlas memory:seed-core`;
+- `CLAUDE.md` e `AGENTS.md` do `atlas-server` foram reaplicados com 5 memorias globais provider-safe;
+- ponteiro gerado para lista de memoria usa `atlas memory:list`, sem `--workspace` invalido.
+
+Arquivos criados/integrados nesta fase:
+
+- `atlas-server/app/Console/Commands/AtlasMemorySeedCoreCommand.php`
+- `atlas-server/app/Services/Ai/AtlasMemoryRegistryService.php`
+- `atlas-server/app/Services/Ai/AtlasProviderProjectionService.php`
+- `atlas-server/bootstrap/app.php`
+- `atlas-server/bin/atlas`
+- `atlas-server/bin/atlas-completion.bash`
+- `atlas-server/CLAUDE.md`
+- `atlas-server/AGENTS.md`
+- `atlas-server/tests/Feature/AtlasMemoryRegistryTest.php`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-runbook.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-contracts.md`
+
+Validacao executada:
+
+- `/opt/homebrew/bin/php artisan test --filter='provider_projection|core_memory_seed'`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasMemorySeedCoreCommand.php`
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasProviderProjectionService.php`
+- `./bin/atlas memory:list --source-type=atlas_memory_core_seed --json`
+- `./bin/atlas memory seed-core --json`
+- `./bin/atlas memory projection apply --target=all --yes --json`
+- `./bin/atlas memory projection status --target=all --json`
+
+Ainda fica para as proximas fases:
+
+- aumentar o conjunto de memorias curadas com aprendizados reais de projeto;
+- criar UX mais direta para promover itens da Knowledge Base para Memory Registry;
+- ChromaDB e MCP remoto/multi-tool fora do processo local.
+
+### Fase 4AG - Hybrid Memory Retrieval
+
+Status: **implementada no `atlas-server` como recall local provider-safe**.
+
+Objetivo entregue: fechar a camada de recuperacao hibrida entre Memory Registry, Verbatim Store e notas semanticas sem depender de ChromaDB ou servico remoto. O Atlas agora possui um endpoint e um comando dedicados para recuperar memoria relevante com budget, ranking e policy.
+
+Capacidades entregues:
+
+- novo `AtlasHybridMemoryRetrievalService` combina registry, verbatim e semantic search;
+- novo endpoint `POST /ai/memory/recall`;
+- novo comando `atlas:memory:recall` e aliases `atlas memory recall` / `atlas memory:recall`;
+- ranking considera prioridade, importancia, confianca, escopo, tipo e sinal lexical da query;
+- recall retorna apenas itens provider-safe;
+- SemanticSearch agora faz merge de vector search PostgreSQL/pgvector com fallback lexical;
+- quando `semantic_notes` ou pgvector nao estao disponiveis, o fallback nao quebra a API;
+- `AtlasMemoryContextComposer` aceita score hibrido sem alterar o contrato antigo do Context Pack.
+
+Arquivos criados/integrados nesta fase:
+
+- `atlas-server/app/Services/Ai/AtlasHybridMemoryRetrievalService.php`
+- `atlas-server/app/Http/Controllers/AtlasMemoryRecallController.php`
+- `atlas-server/app/Http/Requests/RecallAtlasMemoryRequest.php`
+- `atlas-server/app/Console/Commands/AtlasMemoryRecallCommand.php`
+- `atlas-server/app/Services/Ai/AtlasMemoryContextComposer.php`
+- `atlas-server/app/Services/Semantic/SemanticSearchService.php`
+- `atlas-server/routes/api.php`
+- `atlas-server/bootstrap/app.php`
+- `atlas-server/bin/atlas`
+- `atlas-server/bin/atlas-completion.bash`
+- `atlas-server/tests/Feature/AtlasMemoryRegistryTest.php`
+
+Validacao executada:
+
+- `/opt/homebrew/bin/php artisan test --filter='hybrid_memory_recall|open_brain_context_pack|provider_projection|core_memory_seed'`
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasHybridMemoryRetrievalService.php`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasMemoryRecallCommand.php`
+
+Ainda fica para fase futura:
+
+- ChromaDB como backend opcional, se houver decisao explicita;
+- tuning estatistico de ranking com historico real de feedback;
+- metricas agregadas de qualidade do recall por dominio.
+
+### Fase 4AH - Open Brain Context Export
+
+Status: **implementada no `atlas-server` como API/CLI local auditavel**.
+
+Objetivo entregue: permitir que ferramentas externas usem o Atlas como fonte central de contexto sem copiar memoria para providers. O Open Brain atual exporta Context Packs provider-safe via API ou CLI e registra auditoria de acesso.
+
+Capacidades entregues:
+
+- nova tabela `atlas_open_brain_access_logs`;
+- novo model `AtlasOpenBrainAccessLog`;
+- novo `AtlasOpenBrainService`;
+- novo endpoint `POST /ai/open-brain/context-pack`;
+- novo endpoint `GET /ai/open-brain/audits`;
+- novo comando `atlas:open-brain:context` e aliases `atlas open-brain context` / `atlas brain context`;
+- export opcional do prompt renderizado (`include_prompt`);
+- auditoria grava requester, surface, action, hash do context pack, contagens de refs e policy provider-safe;
+- Open Brain reutiliza `AiContextPackBuilder`, Memory Registry, Verbatim, Semantic Search e privacy policy existentes.
+
+Arquivos criados/integrados nesta fase:
+
+- `atlas-server/database/migrations/2026_05_03_130000_create_atlas_open_brain_access_logs_table.php`
+- `atlas-server/app/Models/AtlasOpenBrainAccessLog.php`
+- `atlas-server/app/Services/Ai/AtlasOpenBrainService.php`
+- `atlas-server/app/Http/Controllers/AtlasOpenBrainController.php`
+- `atlas-server/app/Http/Requests/BuildAtlasOpenBrainContextRequest.php`
+- `atlas-server/app/Console/Commands/AtlasOpenBrainContextCommand.php`
+- `atlas-server/routes/api.php`
+- `atlas-server/bootstrap/app.php`
+- `atlas-server/bin/atlas`
+- `atlas-server/bin/atlas-completion.bash`
+- `atlas-server/tests/Feature/AtlasMemoryRegistryTest.php`
+
+Validacao executada:
+
+- `/opt/homebrew/bin/php artisan test --filter='hybrid_memory_recall|open_brain_context_pack|provider_projection|core_memory_seed'`
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasOpenBrainService.php`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasOpenBrainContextCommand.php`
+- `/opt/homebrew/bin/php -l app/Http/Controllers/AtlasOpenBrainController.php`
+
+Ainda fica para fase futura:
+
+- MCP remoto formal;
+- autorizacao multiusuario granular por ferramenta;
+- sync remoto bidirecional e resolucao de conflito multi-cliente.
+
+### Fase 4AI - Embedding Provider Safety
+
+Status: **implementada como hardening de privacidade para embeddings**.
+
+Objetivo entregue: impedir que a existencia de uma chave `OPENAI_API_KEY` ative envio implicito de conteudo semantico para provider externo. O padrao agora e local e conservador.
+
+Capacidades entregues:
+
+- `ATLAS_SEMANTIC_EMBEDDING_PROVIDER` passa a ter padrao `local_hash`;
+- `EmbeddingService::embedText()` aceita controle explicito de uso de provider externo;
+- `SemanticNoteIndexer` consulta `AtlasMemorySourcePrivacyPolicy` antes de permitir embedding externo;
+- notas privadas/sensiveis/secretas usam fallback local, mesmo quando OpenAI esta configurado;
+- metadata do indice registra policy, privacy class e se provider externo foi permitido.
+
+Arquivos criados/integrados nesta fase:
+
+- `atlas-server/config/atlas.php`
+- `atlas-server/app/Services/Semantic/EmbeddingService.php`
+- `atlas-server/app/Services/Semantic/SemanticNoteIndexer.php`
+- `atlas-server/app/Services/Semantic/SemanticSearchService.php`
+
+Ainda fica para fase futura:
+
+- retention explicita de vetores por classe de privacidade;
+- backend ChromaDB opcional com desativacao/rollback documentado.
 
 ---
 

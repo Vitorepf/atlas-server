@@ -51,6 +51,7 @@ contexto de IA de forma rastreavel.
 | `atlas_engineering_code_modules` | Code Intelligence | Modulos operacionais do codigo |
 | `atlas_engineering_code_symbols` | Code Intelligence | Simbolos, rotas, comandos, migrations e testes |
 | `atlas_engineering_doc_links` | Code Intelligence | Links docs->codigo e estado de cobertura |
+| `atlas_open_brain_access_logs` | Open Brain | Auditoria de exports de context pack por API/CLI/ferramenta |
 
 ## Contrato `memory_refs`
 
@@ -181,6 +182,9 @@ Regras:
 | `GET` | `/ai/memory/review-queue` | Fila de revisao |
 | `GET/POST/PATCH` | `/ai/memory/verbatim*` | Verbatim Store |
 | `GET/POST` | `/ai/memory/provider-projection*` | Provider projections e auditoria |
+| `POST` | `/ai/memory/recall` | Recall hibrido provider-safe |
+| `POST` | `/ai/open-brain/context-pack` | Exportar context pack Atlas auditado |
+| `GET` | `/ai/open-brain/audits` | Auditar exports Open Brain |
 
 ## Rotas De Knowledge E Code Intelligence
 
@@ -209,6 +213,9 @@ Regras:
 | `atlas:memory:relations` | Revisao de relacoes |
 | `atlas:memory:verbatim` | Verbatim Store |
 | `atlas:memory:projection` | Provider projections |
+| `atlas:memory:seed-core` | Memorias core provider-safe para projection nao vazia |
+| `atlas:memory:recall` | Recall hibrido provider-safe |
+| `atlas:open-brain:context` | Exportar context pack Atlas auditado |
 | `atlas:engineering:knowledge` | Knowledge Base, Code Intelligence e auditoria de drift |
 
 ## Configuracao Relevante
@@ -226,3 +233,5 @@ Regras:
 | `ATLAS_AI_PROVIDER_PROJECTION_MEMORY_LIMIT` | Quantidade de memorias em projection |
 | `ATLAS_AI_PROVIDER_PROJECTION_MEMORY_CHARS` | Tamanho por memoria em projection |
 | `ATLAS_PRIVACY_BLOCK_EXTERNAL_AI_FOR` | Classes bloqueadas para provider |
+| `ATLAS_SEMANTIC_EMBEDDING_PROVIDER` | Provider de embedding; padrao conservador `local_hash` |
+| `ATLAS_SEMANTIC_EMBEDDING_FALLBACK_ENABLED` | Fallback local quando provider externo falha |

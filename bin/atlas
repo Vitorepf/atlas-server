@@ -503,15 +503,15 @@ case "$cmd" in
     ;;
   memory:list)
     shift || true
-    exec_artisan_with_workspace atlas:memory:list "$@"
+    exec "$PHP_BIN" artisan atlas:memory:list "$@"
     ;;
   memory:add)
     shift || true
-    exec_artisan_with_workspace atlas:memory:add "$@"
+    exec "$PHP_BIN" artisan atlas:memory:add "$@"
     ;;
   memory:audit)
     shift || true
-    exec_artisan_with_workspace atlas:memory:audit "$@"
+    exec "$PHP_BIN" artisan atlas:memory:audit "$@"
     ;;
   memory:promote)
     shift || true
@@ -519,62 +519,89 @@ case "$cmd" in
     ;;
   memory:govern|memory:governance)
     shift || true
-    exec_artisan_with_workspace atlas:memory:govern "$@"
+    exec "$PHP_BIN" artisan atlas:memory:govern "$@"
     ;;
   memory:review-queue|memory:queue)
     shift || true
-    exec_artisan_with_workspace atlas:memory:review-queue "$@"
+    exec "$PHP_BIN" artisan atlas:memory:review-queue "$@"
     ;;
   memory:relations)
     shift || true
-    exec_artisan_with_workspace atlas:memory:relations "$@"
+    exec "$PHP_BIN" artisan atlas:memory:relations "$@"
     ;;
   memory:privacy)
     shift || true
-    exec_artisan_with_workspace atlas:memory:privacy "$@"
+    exec "$PHP_BIN" artisan atlas:memory:privacy "$@"
     ;;
   memory:verbatim)
     shift || true
-    exec_artisan_with_workspace atlas:memory:verbatim "$@"
+    exec "$PHP_BIN" artisan atlas:memory:verbatim "$@"
     ;;
   memory:projection|memory:project)
     shift || true
     exec_artisan_with_workspace atlas:memory:projection "$@"
     ;;
+  memory:recall)
+    shift || true
+    exec_artisan_with_workspace atlas:memory:recall "$@"
+    ;;
+  memory:seed-core|memory:seed)
+    shift || true
+    exec "$PHP_BIN" artisan atlas:memory:seed-core "$@"
+    ;;
   memory)
     shift || true
     subcmd="${1:-review}"
     case "$subcmd" in
+      seed-core|seed)
+        shift || true
+        exec "$PHP_BIN" artisan atlas:memory:seed-core "$@"
+        ;;
       audit)
         shift || true
-        exec_artisan_with_workspace atlas:memory:audit "$@"
+        exec "$PHP_BIN" artisan atlas:memory:audit "$@"
         ;;
       govern|governance)
         shift || true
-        exec_artisan_with_workspace atlas:memory:govern "$@"
+        exec "$PHP_BIN" artisan atlas:memory:govern "$@"
         ;;
       review-queue|queue)
         shift || true
-        exec_artisan_with_workspace atlas:memory:review-queue "$@"
+        exec "$PHP_BIN" artisan atlas:memory:review-queue "$@"
         ;;
       relation|relations)
         shift || true
-        exec_artisan_with_workspace atlas:memory:relations "$@"
+        exec "$PHP_BIN" artisan atlas:memory:relations "$@"
         ;;
       privacy)
         shift || true
-        exec_artisan_with_workspace atlas:memory:privacy "$@"
+        exec "$PHP_BIN" artisan atlas:memory:privacy "$@"
         ;;
       verbatim)
         shift || true
-        exec_artisan_with_workspace atlas:memory:verbatim "$@"
+        exec "$PHP_BIN" artisan atlas:memory:verbatim "$@"
         ;;
       projection|project)
         shift || true
         exec_artisan_with_workspace atlas:memory:projection "$@"
         ;;
+      recall)
+        shift || true
+        exec_artisan_with_workspace atlas:memory:recall "$@"
+        ;;
     esac
     exec_artisan_with_workspace atlas:cli:memory "$@"
+    ;;
+  open-brain|brain)
+    shift || true
+    subcmd="${1:-context}"
+    case "$subcmd" in
+      context|context-pack|export)
+        shift || true
+        exec_artisan_with_workspace atlas:open-brain:context "$@"
+        ;;
+    esac
+    exec_artisan_with_workspace atlas:open-brain:context "$@"
     ;;
   mobile)
     shift || true

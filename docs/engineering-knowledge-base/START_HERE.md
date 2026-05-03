@@ -97,8 +97,8 @@ Atlas.
 
 - Nao assumir contexto de conversa anterior.
 - Ler os docs canonicos antes de alterar Memory Core.
-- Nao implementar embeddings, ChromaDB, vector search ou Open Brain remoto sem
-  fase propria e DoD explicito.
+- Nao implementar ChromaDB, MCP remoto ou sync Open Brain multiusuario sem fase
+  propria e DoD explicito. Embeddings externos exigem opt-in e privacy policy.
 - Nao tratar `CLAUDE.md`, `AGENTS.md`, Obsidian ou chat como fonte primaria.
 - Nao alterar planejamento, task contracts, QA, review ou Postgres gate sem ler
   a familia `engineering-blueprint*.md`.

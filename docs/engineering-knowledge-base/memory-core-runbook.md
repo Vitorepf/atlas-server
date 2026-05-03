@@ -208,11 +208,21 @@ Bloquear ou redigir:
 
 ## Provider Projection
 
+Semear memoria core provider-safe quando a projection estiver vazia:
+
+```bash
+/opt/homebrew/bin/php artisan atlas:memory:seed-core --json
+```
+
 Status:
 
 ```bash
 /opt/homebrew/bin/php artisan atlas:memory:projection status --target=all --workspace=/Users/vitorepf/Develop/atlas --json
 ```
+
+O status nao deve ser considerado pronto quando `summary.empty_memory > 0`.
+Nesse caso, registre/revise memorias provider-safe ou rode `atlas:memory:seed-core`
+antes de aplicar `CLAUDE.md`/`AGENTS.md`.
 
 Review antes de aplicar:
 
@@ -238,6 +248,36 @@ configuracao:
 ```bash
 /opt/homebrew/bin/php artisan atlas:memory:projection audit-purge --older-than-days=30 --dry-run --json
 ```
+
+## Recall Hibrido E Open Brain
+
+Recall provider-safe entre Memory Registry, Verbatim Store e notas semanticas:
+
+```bash
+/opt/homebrew/bin/php artisan atlas:memory:recall "contexto para continuar a implementacao de memoria" --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json
+```
+
+Exportar um Context Pack auditado para ferramentas locais:
+
+```bash
+/opt/homebrew/bin/php artisan atlas:open-brain:context "continuar implementacao de memoria" --workspace=/Users/vitorepf/Develop/atlas/atlas-server --include-prompt --json
+```
+
+Via API:
+
+```bash
+POST /ai/memory/recall
+POST /ai/open-brain/context-pack
+GET  /ai/open-brain/audits
+```
+
+Regras:
+
+- o recall e `provider_safe_only`;
+- `ATLAS_SEMANTIC_EMBEDDING_PROVIDER` fica em `local_hash` por padrao;
+- provider externo de embedding exige opt-in explicito e respeita privacy policy;
+- todo export Open Brain grava auditoria quando `atlas_open_brain_access_logs` existe;
+- ChromaDB, MCP remoto e sync multiusuario continuam fora desta entrega.
 
 ## Validacao Antes De Encerrar Uma Fase
 

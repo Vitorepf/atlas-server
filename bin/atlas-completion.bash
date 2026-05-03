@@ -21,7 +21,7 @@ _atlas_complete() {
     threads sessions status dashboard tui state steer compact handoff switch \
     interrupt stop cancel continue resume start focus work worker daemon \
     checkpoint checkpoints quality finish test benchmark bench engineering harness tools runtime tool search trace \
-    permissions memory memory:list memory:add memory:audit memory:promote memory:govern memory:governance memory:review-queue memory:queue memory:relations memory:privacy memory:verbatim memory:projection mobile inbox insight insight-watch watch-insights \
+    permissions memory memory:list memory:add memory:audit memory:promote memory:govern memory:governance memory:review-queue memory:queue memory:relations memory:privacy memory:verbatim memory:projection memory:recall memory:seed-core memory:seed open-brain brain mobile inbox insight insight-watch watch-insights \
     proposal proposal-scan proposals-scan scan-proposals self-diagnostic diagnostic \
     initiatives initiative schedule cron skills profile health providers \
     setup init bootstrap configure version update rollback install \
@@ -51,7 +51,11 @@ _atlas_complete() {
       return 0
       ;;
     memory)
-      COMPREPLY=( $(compgen -W "review review-queue queue list show accept reject promote propose govern governance relation relations privacy verbatim projection project release block redact resolve dismiss scan apply preview diff write inspect status adopt memory verbatim relations --area= --trace-id= --memory-type= --scope-type= --scope-id= --source-id= --target-id= --source-status= --target-status= --privacy= --privacy-class= --allow-external-ai --block-external-ai --redacted-text= --redacted-body= --re-redact --include-verbatim --include-unreviewed --target= --max-lines= --memory-limit= --force --yes --dry-run --json" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "review review-queue queue list show accept reject promote propose govern governance relation relations privacy verbatim projection project recall seed seed-core release block redact resolve dismiss scan apply preview diff write inspect status adopt memory verbatim relations --area= --trace-id= --memory-type= --scope-type= --scope-id= --source-id= --target-id= --source-status= --target-status= --privacy= --privacy-class= --allow-external-ai --block-external-ai --redacted-text= --redacted-body= --re-redact --include-verbatim --include-unreviewed --target= --max-lines= --memory-limit= --limit= --budget= --item-chars= --force --yes --dry-run --json" -- "${cur}") )
+      return 0
+      ;;
+    open-brain|brain)
+      COMPREPLY=( $(compgen -W "context context-pack export --workspace= --task-type= --desired-mode= --agent= --intent= --requester= --payload-json= --include-prompt --json" -- "${cur}") )
       return 0
       ;;
     benchmark|bench)

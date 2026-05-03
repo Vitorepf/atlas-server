@@ -4,6 +4,8 @@ namespace App\Services\Semantic;
 
 use App\Models\SemanticNote;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class SemanticSearchService
 {
@@ -19,6 +21,26 @@ class SemanticSearchService
             return $this->metadataSearch($filters, $limit);
         }
 
+        $rows = $this->vectorSearch($query, $filters, $limit);
+        $lexical = $this->lexicalSearch($query, $filters, $limit);
+
+        return $rows
+            ->merge($lexical)
+            ->unique('id')
+            ->sortByDesc(fn (SemanticNote $note): float => (float) ($note->score ?? 0))
+            ->take($limit)
+            ->values();
+    }
+
+    /**
+     * @return Collection<int, SemanticNote>
+     */
+    private function vectorSearch(string $query, array $filters, int $limit): Collection
+    {
+        if (! Schema::hasTable('semantic_notes') || DB::getDriverName() !== 'pgsql') {
+            return collect();
+        }
+
         $vector = $this->embeddings->vectorLiteral($this->embeddings->embedText($query));
         $builder = SemanticNote::query()
             ->whereNull('deleted_at')
@@ -26,19 +48,13 @@ class SemanticSearchService
 
         $this->applyFilters($builder, $filters);
 
-        $rows = $builder
+        return $builder
             ->select('semantic_notes.*')
             ->selectRaw('(1 - (embedding <=> ?::vector)) AS score', [$vector])
             ->whereNotNull('embedding')
             ->orderByRaw('embedding <=> ?::vector', [$vector])
             ->limit($limit)
             ->get();
-
-        if ($rows->isNotEmpty()) {
-            return $rows;
-        }
-
-        return $this->lexicalSearch($query, $filters, $limit);
     }
 
     /**
@@ -46,6 +62,10 @@ class SemanticSearchService
      */
     public function metadataSearch(array $filters = [], int $limit = 50): Collection
     {
+        if (! Schema::hasTable('semantic_notes')) {
+            return collect();
+        }
+
         $builder = SemanticNote::query()
             ->whereNull('deleted_at')
             ->orderByDesc('updated_at')
@@ -60,15 +80,22 @@ class SemanticSearchService
      */
     public function lexicalSearch(string $query, array $filters = [], int $limit = 10): Collection
     {
+        if (! Schema::hasTable('semantic_notes')) {
+            return collect();
+        }
+
+        $operator = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
         $builder = SemanticNote::query()
             ->whereNull('deleted_at')
-            ->where(function ($builder) use ($query): void {
+            ->where(function ($builder) use ($query, $operator): void {
                 $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $query).'%';
                 $builder
-                    ->where('title', 'ILIKE', $like)
-                    ->orWhere('summary', 'ILIKE', $like)
-                    ->orWhere('body_excerpt', 'ILIKE', $like);
+                    ->where('title', $operator, $like)
+                    ->orWhere('summary', $operator, $like)
+                    ->orWhere('body_excerpt', $operator, $like);
             })
+            ->select('semantic_notes.*')
+            ->selectRaw('0.62 AS score')
             ->limit($limit);
         $this->applyFilters($builder, $filters);
 

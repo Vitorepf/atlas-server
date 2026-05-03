@@ -17,9 +17,9 @@ class EmbeddingService
     /**
      * @return array<int, float>
      */
-    public function embedText(string $text): array
+    public function embedText(string $text, bool $allowExternalProvider = true): array
     {
-        if ($this->shouldUseOpenAi()) {
+        if ($allowExternalProvider && $this->shouldUseOpenAi()) {
             try {
                 return $this->embedWithOpenAi($text);
             } catch (\Throwable $throwable) {
@@ -31,7 +31,7 @@ class EmbeddingService
             }
         }
 
-        return $this->embedWithLocalHash($text, fallback: $this->shouldUseOpenAi());
+        return $this->embedWithLocalHash($text, fallback: $allowExternalProvider && $this->shouldUseOpenAi());
     }
 
     public function lastInfo(): array

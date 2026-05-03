@@ -18,7 +18,7 @@ capabilities:
   - validation_policy
 decisions:
   - Cada fase deve declarar o que foi entregue, validado e deixado para depois.
-  - Embeddings/vector/Open Brain so entram com fase propria e DoD explicito.
+  - ChromaDB, MCP remoto, sync multiusuario e embedding externo so entram com fase propria e DoD explicito.
 maintenance:
   - Atualize status de maturidade apos cada fase relevante.
   - Nao promova camada para madura sem teste e runbook.
@@ -45,10 +45,10 @@ capacidade vire "pronta" apenas porque existe codigo.
 | L5 | Privacy/redaction | classes, scan/apply/review, provider-safe | Implementado |
 | L6 | Verbatim recall | evidencia exata, review e recall controlado | Implementado |
 | L7 | Knowledge Base | docs canonicos, sync, API, CLI, app e context refs | Implementado |
-| L8 | Code Intelligence | modulos, simbolos, rotas, comandos, migrations, testes, audit-code e code refs | Implementado backend |
-| L9 | Operational UI | app cobre memoria, knowledge, projection e code intelligence | Parcial |
-| L10 | Hybrid retrieval | semantic/vector/hybrid search com policy | Nao implementado |
-| L11 | Open Brain remoto | multi-tool remoto auditavel | Nao implementado |
+| L8 | Code Intelligence | modulos, simbolos, rotas, comandos, migrations, testes, audit-code e code refs | Implementado backend + app |
+| L9 | Operational UI | app cobre memoria, knowledge, projection e code intelligence | Implementado |
+| L10 | Hybrid retrieval | semantic/vector/hybrid search com policy | Implementado local/provider-safe |
+| L11 | Open Brain remoto | multi-tool remoto auditavel | Implementado como API/CLI local auditavel; MCP remoto futuro |
 
 ## Definition Of Done Global
 
@@ -63,7 +63,7 @@ Toda fase que altera Memory Core deve entregar:
 - validacao real registrada no documento mestre;
 - docs atualizados com status real;
 - lista do que ficou para depois;
-- garantia explicita de que embeddings/vector/Open Brain nao foram ativados fora de fase propria.
+- garantia explicita de que infraestrutura externa de memoria nao foi ativada fora de fase propria.
 
 ## Definition Of Done Por Camada
 
@@ -110,19 +110,23 @@ Gate de manutencao:
 
 ### Hybrid Retrieval
 
-So iniciar quando:
+Status: implementado no `atlas-server` como recall hibrido provider-safe.
+
+Gate de manutencao:
 
 - policy de privacy para embeddings estiver escrita;
 - fonte de verdade continuar sendo Postgres/docs;
 - fallback deterministico existir;
-- testes provarem que conteudo bloqueado nao entra em index vetorial;
+- testes provarem que conteudo bloqueado nao entra em recall provider-safe nem em embedding externo;
 - custos, storage e retention estiverem documentados.
 
 ### Open Brain Remoto
 
-So iniciar quando:
+Status: implementado como API/CLI local auditavel para exportar context packs; MCP remoto e sync multiusuario continuam fase futura.
 
-- autenticao/autorizacao multiusuario estiver definida;
+Gate de manutencao:
+
+- autenticacao/autorizacao multiusuario estiver definida;
 - audit log cobrir leitura e escrita;
 - sync remoto tiver conflito/dedupe;
 - exportacao provider-safe estiver provada;

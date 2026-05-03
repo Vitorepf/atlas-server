@@ -14,6 +14,8 @@ use App\Http\Controllers\AiThreadController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasDomainController;
 use App\Http\Controllers\AtlasMemoryController;
+use App\Http\Controllers\AtlasMemoryRecallController;
+use App\Http\Controllers\AtlasOpenBrainController;
 use App\Http\Controllers\AtlasProjectBlockerController;
 use App\Http\Controllers\AtlasProjectController;
 use App\Http\Controllers\AtlasProjectPlanProposalController;
@@ -270,6 +272,9 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/ai/decisions/{decision}', [AiDecisionController::class, 'show']);
     Route::get('/ai/memory', [AtlasMemoryController::class, 'index']);
     Route::post('/ai/memory', [AtlasMemoryController::class, 'store']);
+    Route::post('/ai/memory/recall', AtlasMemoryRecallController::class);
+    Route::post('/ai/open-brain/context-pack', [AtlasOpenBrainController::class, 'contextPack']);
+    Route::get('/ai/open-brain/audits', [AtlasOpenBrainController::class, 'audits']);
     Route::get('/ai/memory/audit/traces/{trace}', [AtlasMemoryController::class, 'auditTrace']);
     Route::post('/ai/memory/deltas/{delta}/promote', [AtlasMemoryController::class, 'promoteDelta']);
     Route::post('/ai/memory/governance/scan', [AtlasMemoryController::class, 'scanGovernance']);

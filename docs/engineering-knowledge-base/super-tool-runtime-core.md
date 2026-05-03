@@ -104,6 +104,130 @@ O bloco inicial entrega:
 5. Adicione normalizacao especifica apenas quando o output estruturado justificar; ate la, use o contrato generico.
 6. Escreva teste com binary fake em PATH ou no workspace.
 
+## Roadmap De Ferramentas Para Programacao Pesada
+
+O Atlas deve ser o control-plane de engenharia: ferramentas entram como
+capabilities registradas, governadas por policy, executadas com sandbox,
+normalizadas e avaliadas por gates. Nenhuma ferramenta abaixo deve virar
+dependencia obrigatoria paga. Ferramentas ausentes geram `skipped` auditavel.
+
+### P0 - Camada Semantica De Codigo
+
+Esta e a maior lacuna para transformar o Atlas em uma ferramenta pesada de
+programacao. O Code Intelligence interno ja indexa modulos, simbolos, rotas,
+comandos, migrations, testes e doc links; a proxima camada deve adicionar
+navegacao/edicao semantica de IDE.
+
+| Ferramenta | Categoria Atlas | Papel | Postura |
+|---|---|---|---|
+| Serena | `semantic_code_intelligence` | LSP/MCP para simbolos, referencias e edicao semantica | opcional, open-source |
+| Tree-sitter graph interno | `code_graph` | grafo canonico local, AST, impacto e comunidades | core futuro |
+| ast-grep | `structural_search` | query/refactor AST multi-linguagem | opcional |
+| ctags/universal-ctags | `symbol_index` | indice simbolico leve | opcional |
+| Semantiq/Vera/Codebase-Memory-like search | `semantic_search` | busca semantica local/token-efficient | opcional |
+| JetBrains MCP | `ide_bridge` | capacidades IDE quando o operador usa JetBrains | opcional |
+| VS Code MCP | `ide_bridge` | capacidades IDE quando o operador usa VS Code | opcional |
+
+Contrato esperado:
+
+- separar capabilities de leitura (`symbol_lookup`, `find_references`,
+  `impact_analysis`, `semantic_search`) e escrita (`rename_symbol`,
+  `edit_symbol`, `apply_refactor`);
+- leitura sem rede deve ser `medium` ou menor; escrita deve ser `high` e exigir
+  approval quando automatizada;
+- evidence deve registrar query, simbolos retornados, arquivos afetados, hashes
+  e recomendacoes, nunca segredos ou artefatos privados brutos;
+- Serena/MCP acelera o agente, mas a autoridade final continua sendo o indice,
+  diff, testes, gates e memoria canonica do Atlas.
+
+### P0 - Qualidade, Tipos E Analise Estatica
+
+| Ferramenta | Categoria Atlas | Papel |
+|---|---|---|
+| PHPStan/Psalm/Psalm taint | `static_analysis` | tipos, contratos e fluxo de dados perigoso |
+| Laravel Pint/Biome/Prettier | `formatter` | estabilizar diffs |
+| ESLint/TypeScript | `lint_typecheck` | qualidade e tipos TS/JS |
+| Rector | `mechanical_refactor` | upgrades/refactors PHP com dry-run |
+| PHP Mess Detector | `maintainability` | smells e complexidade |
+| PHPCPD | `duplication` | copia de codigo |
+| Composer Require Checker | `dependency_hygiene` | deps usadas sem declarar |
+| Composer Unused | `dependency_hygiene` | deps declaradas sem uso |
+| Knip/ts-prune | `dead_code` | exports, arquivos e deps nao usados em TS/JS |
+
+### P0 - Seguranca, Supply Chain E Compliance
+
+| Ferramenta | Categoria Atlas | Papel |
+|---|---|---|
+| Gitleaks | `secret_scan` | bloquear vazamento de segredo |
+| Semgrep | `sast` | bug patterns e security rules |
+| CodeQL CLI | `semantic_sast` | queries semanticas profundas e SARIF |
+| OSV-Scanner | `dependency_vulnerability_scan` | vulnerabilidades por lockfile |
+| Trivy/Grype | `vulnerability_scan` | filesystem/container/deps |
+| Syft | `sbom` | inventario de componentes |
+| Checkov/Terrascan | `iac_security` | Terraform/Kubernetes/CloudFormation |
+| kube-linter/kube-score | `kubernetes_policy` | manifests e operacao Kubernetes |
+| Dockle | `container_hardening` | lint/hardening de imagens Docker |
+| ScanCode Toolkit/ORT/licensee | `license_compliance` | licencas e compliance OSS |
+
+### P1 - Contratos, APIs E Mocking
+
+| Ferramenta | Categoria Atlas | Papel |
+|---|---|---|
+| Schemathesis | `api_contract_fuzzing` | property-based testing de OpenAPI/GraphQL |
+| Pact | `consumer_provider_contract` | compatibilidade cliente/provedor |
+| Prism | `openapi_validation_mock` | mock e validacao OpenAPI |
+| WireMock | `external_api_mock` | simulacao de terceiros |
+| Bruno | `api_collection` | colecoes API locais em arquivo |
+
+O sensor interno `atlas_api_contract` permanece como base gratuita/local. Essas
+ferramentas entram depois como executores externos normalizados, nao como fluxo
+paralelo.
+
+### P1 - Testes Profundos
+
+| Ferramenta | Categoria Atlas | Papel |
+|---|---|---|
+| Infection | `mutation_testing` | mede se testes PHP realmente detectam bugs |
+| Stryker | `mutation_testing` | mutation testing JS/TS |
+| fast-check/Hypothesis | `property_testing` | casos gerados para parsers/policies/normalizers |
+| PHPUnit/Pest/Vitest/Jest coverage | `coverage` | cobertura por arquivo tocado |
+| Playwright trace analyzer | `e2e_diagnostics` | diagnostico reproduzivel de UI |
+
+Mutation testing deve rodar em `deep`/release de alto risco, nao em todo ciclo
+rapido. Mutants sobreviventes viram findings e artifacts.
+
+### P1 - Frontend, Acessibilidade E Produto
+
+| Ferramenta | Categoria Atlas | Papel |
+|---|---|---|
+| axe-core | `accessibility` | falhas a11y critical/serious |
+| Pa11y | `accessibility_smoke` | a11y por rota |
+| Lighthouse CI | `frontend_performance` | performance, best practices e budgets |
+| bundle analyzer/source-map-explorer | `bundle_analysis` | tamanho e composicao de bundle |
+| pixelmatch | `visual_diff` | regressao visual local sem SaaS |
+
+### P1 - Arquitetura E Boundaries
+
+| Ferramenta | Categoria Atlas | Papel |
+|---|---|---|
+| Deptrac | `architecture_boundary` | camadas e dependencias PHP |
+| dependency-cruiser/Madge | `architecture_boundary` | ciclos e imports JS/TS |
+| OpenRewrite/comby/jscodeshift/ts-morph | `mechanical_refactor` | transformacoes seguras por lote |
+| custom Atlas boundary rules | `atlas_architecture_policy` | regras especificas do Harness/Memory/App |
+
+### P2 - Agentes De Codigo Opcionais
+
+| Ferramenta | Categoria Atlas | Papel |
+|---|---|---|
+| Aider | `external_coding_agent` | repo-map, edicao multi-arquivo e benchmark comparativo |
+| Continue CLI/IDE | `external_coding_agent` | assistente open-source IDE/CLI |
+| OpenHands | `external_coding_agent` | agente autonomo open-source para comparacao |
+
+Esses agentes nao devem substituir o Atlas. Eles entram como providers de
+capacidade, com policy forte: worktree por padrao, dry-run quando possivel,
+sem rede/segredos sem approval, diff auditavel, testes obrigatorios e Evidence
+Store como contrato comum.
+
 ## Aprovacoes Auditaveis
 
 Ferramentas `high`/`critical`, ferramentas nao gratuitas ou ferramentas que podem

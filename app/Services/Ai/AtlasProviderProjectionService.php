@@ -120,6 +120,7 @@ class AtlasProviderProjectionService
             return [
                 'target' => $projection['target'],
                 'path' => $path,
+                'memory_count' => $projection['memory_count'],
                 'exists' => false,
                 'managed' => false,
                 'manual_drift' => false,
@@ -134,6 +135,7 @@ class AtlasProviderProjectionService
             return [
                 'target' => $projection['target'],
                 'path' => $path,
+                'memory_count' => $projection['memory_count'],
                 'exists' => true,
                 'managed' => false,
                 'manual_drift' => true,
@@ -148,6 +150,7 @@ class AtlasProviderProjectionService
         return [
             'target' => $projection['target'],
             'path' => $path,
+            'memory_count' => $projection['memory_count'],
             'exists' => true,
             'managed' => true,
             'manual_drift' => $manualDrift,
@@ -180,8 +183,10 @@ class AtlasProviderProjectionService
             'unmanaged' => $projections->filter(fn (array $projection): bool => ($projection['exists'] ?? false) === true && ($projection['managed'] ?? false) !== true)->count(),
             'manual_drift' => $projections->filter(fn (array $projection): bool => ($projection['manual_drift'] ?? false) === true)->count(),
             'stale' => $projections->filter(fn (array $projection): bool => ($projection['stale'] ?? false) === true)->count(),
+            'empty_memory' => $projections->filter(fn (array $projection): bool => (int) ($projection['memory_count'] ?? 0) < 1)->count(),
+            'provider_safe_memory_count' => $projections->sum(fn (array $projection): int => (int) ($projection['memory_count'] ?? 0)),
         ];
-        $status = $summary['ready'] === $summary['total'] && $summary['total'] > 0
+        $status = $summary['ready'] === $summary['total'] && $summary['total'] > 0 && $summary['empty_memory'] === 0
             ? 'passed'
             : 'needs_review';
 
@@ -217,10 +222,12 @@ class AtlasProviderProjectionService
             'update' => $projections->where('change_type', 'update')->count(),
             'manual_drift' => $projections->where('change_type', 'manual_drift')->count(),
             'noop' => $projections->where('change_type', 'none')->count(),
+            'empty_memory' => $projections->filter(fn (array $projection): bool => (int) ($projection['memory_count'] ?? 0) < 1)->count(),
+            'provider_safe_memory_count' => $projections->sum(fn (array $projection): int => (int) ($projection['memory_count'] ?? 0)),
         ];
 
         return [
-            'status' => $summary['changed'] > 0 ? 'needs_review' : 'passed',
+            'status' => $summary['changed'] > 0 || $summary['empty_memory'] > 0 ? 'needs_review' : 'passed',
             'workspace' => $workspace,
             'workspace_exists' => is_dir($workspace),
             'targets' => $targets,
@@ -375,7 +382,8 @@ class AtlasProviderProjectionService
         return ($projection['exists'] ?? false) === true
             && ($projection['managed'] ?? false) === true
             && ($projection['manual_drift'] ?? false) !== true
-            && ($projection['stale'] ?? false) !== true;
+            && ($projection['stale'] ?? false) !== true
+            && (int) ($projection['memory_count'] ?? 0) > 0;
     }
 
     /**
@@ -384,11 +392,15 @@ class AtlasProviderProjectionService
     private function statusDetail(array $summary): string
     {
         if (($summary['ready'] ?? 0) === ($summary['total'] ?? 0) && ($summary['total'] ?? 0) > 0) {
+            if (($summary['empty_memory'] ?? 0) > 0) {
+                return 'Provider projections gerenciadas, mas sem memoria Atlas provider-safe.';
+            }
+
             return 'Provider projections gerenciadas e atualizadas.';
         }
 
         $parts = [];
-        foreach (['missing' => 'ausente(s)', 'unmanaged' => 'nao gerenciado(s)', 'manual_drift' => 'com drift manual', 'stale' => 'stale'] as $key => $label) {
+        foreach (['missing' => 'ausente(s)', 'unmanaged' => 'nao gerenciado(s)', 'manual_drift' => 'com drift manual', 'stale' => 'stale', 'empty_memory' => 'sem memoria provider-safe'] as $key => $label) {
             $count = (int) ($summary[$key] ?? 0);
             if ($count > 0) {
                 $parts[] = $count.' '.$label;
@@ -405,12 +417,12 @@ class AtlasProviderProjectionService
      */
     private function reviewDetail(array $summary): string
     {
-        if (($summary['changed'] ?? 0) === 0) {
+        if (($summary['changed'] ?? 0) === 0 && ($summary['empty_memory'] ?? 0) === 0) {
             return 'Provider projections sem alteracoes pendentes.';
         }
 
         $parts = [];
-        foreach (['create' => 'criacao', 'adopt' => 'adocao', 'update' => 'atualizacao', 'manual_drift' => 'drift manual'] as $key => $label) {
+        foreach (['create' => 'criacao', 'adopt' => 'adocao', 'update' => 'atualizacao', 'manual_drift' => 'drift manual', 'empty_memory' => 'sem memoria provider-safe'] as $key => $label) {
             $count = (int) ($summary[$key] ?? 0);
             if ($count > 0) {
                 $parts[] = $count.' '.$label;
@@ -437,6 +449,16 @@ class AtlasProviderProjectionService
             ->all();
         if ($applicable !== []) {
             $actions[] = 'Aplicar review confirmada: atlas memory projection apply --target='.$this->targetOption($applicable).$workspaceOption.' --yes';
+        }
+
+        $emptyMemory = collect($projections)
+            ->filter(fn (array $projection): bool => (int) ($projection['memory_count'] ?? 0) < 1)
+            ->pluck('target')
+            ->filter()
+            ->values()
+            ->all();
+        if ($emptyMemory !== []) {
+            $actions[] = 'Sem memoria provider-safe: rode atlas memory seed-core --json ou revise memorias em /memory antes de aplicar projection.';
         }
 
         $manualDrift = collect($projections)
@@ -489,6 +511,16 @@ class AtlasProviderProjectionService
             ->all();
         if ($stale !== []) {
             $actions[] = 'Regenerar projeções stale com review confirmada: atlas memory projection apply --target='.$this->targetOption($stale).$workspaceOption.' --yes';
+        }
+
+        $emptyMemory = collect($projections)
+            ->filter(fn (array $projection): bool => (int) ($projection['memory_count'] ?? 0) < 1)
+            ->pluck('target')
+            ->filter()
+            ->values()
+            ->all();
+        if ($emptyMemory !== []) {
+            $actions[] = 'Sem memoria provider-safe: rode atlas memory seed-core --json ou revise memorias em /memory antes de aplicar projection.';
         }
 
         $manualDrift = collect($projections)
@@ -641,7 +673,7 @@ class AtlasProviderProjectionService
         $pointers = [
             '',
             '## Atlas Pointers',
-            '- Full memory list: `atlas memory:list --workspace="'.str_replace('"', '\"', $workspace).'"`',
+            '- Full memory list: `atlas memory:list`',
             '- Runtime search: `atlas search "<query>"`',
             '- This projection should stay short; detailed recall belongs in Atlas Context Packs.',
         ];
