@@ -197,6 +197,21 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_recent_changes',
+                'title' => 'Atlas Recent Changes',
+                'description' => 'Lista arquivos mudados no workspace recentemente (via git log) e cross-referencia com timestamp do code intelligence index. Retorna `index_fresh: false` se filesystem está à frente do índice.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace local (deve ser repo git).'],
+                        'since' => ['type' => 'string', 'description' => 'Período (git --since): "7 days ago", "2 weeks ago", "yesterday". Default: "7 days ago".'],
+                        'limit' => ['type' => 'integer', 'description' => 'Max arquivos retornados (default 50, max 200).'],
+                    ],
+                    'required' => ['workspace'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -248,6 +263,7 @@ class AtlasOpenBrainMcpService
                 'atlas_docs_lookup' => $this->toolResponse($id, $this->docsLookup($arguments)),
                 'atlas_capabilities' => $this->toolResponse($id, $this->capabilities()),
                 'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
+                'atlas_recent_changes' => $this->toolResponse($id, $this->recentChanges($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -563,6 +579,56 @@ class AtlasOpenBrainMcpService
             'recommended_action' => $memoryCount > 0
                 ? 'consult_atlas_first'
                 : 'fallback_to_local_exploration',
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function recentChanges(array $arguments): array
+    {
+        $workspace = $this->workspace($arguments['workspace'] ?? null);
+        if ($workspace === null || ! is_dir($workspace . '/.git')) {
+            return ['ok' => false, 'tool' => 'atlas_recent_changes', 'error' => 'workspace_not_git_repo'];
+        }
+
+        $since = $this->string($arguments['since'] ?? null) ?: '7 days ago';
+        $limit = min(200, max(1, (int) ($arguments['limit'] ?? 50)));
+
+        $process = new \Symfony\Component\Process\Process(
+            ['git', 'log', '--name-only', '--pretty=format:', '--since=' . $since],
+            $workspace
+        );
+        $process->setTimeout(10);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            return ['ok' => false, 'tool' => 'atlas_recent_changes', 'error' => 'git_command_failed'];
+        }
+
+        $files = array_values(array_unique(array_filter(explode("\n", $process->getOutput()))));
+        $files = array_slice($files, 0, $limit);
+
+        $codeSummary = $this->code->summary();
+        $lastIndexAt = $codeSummary['last_indexed_at'] ?? null;
+        $indexFresh = false;
+        if ($lastIndexAt !== null) {
+            $indexFresh = \Illuminate\Support\Carbon::parse($lastIndexAt)
+                ->greaterThan(now()->subDay());
+        }
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_recent_changes',
+            'workspace' => $workspace,
+            'since' => $since,
+            'changed_files' => $files,
+            'count' => count($files),
+            'index_fresh' => $indexFresh,
+            'last_indexed_at' => $lastIndexAt,
+            'recommended_action' => $indexFresh ? null : 'reindex_recommended',
             'generated_at' => now()->toJSON(),
         ];
     }

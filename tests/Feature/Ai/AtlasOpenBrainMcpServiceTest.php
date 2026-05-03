@@ -188,8 +188,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After this phase: 6 tools (3 original + 3 from Phase 1) + 1 new (capabilities) + 1 new (workspace_info) = 8
-        $this->assertCount(8, $structured['tools']);
+        // After this phase: 6 tools (3 original + 3 from Phase 1) + 1 new (capabilities) + 1 new (workspace_info) + 1 new (recent_changes) = 9
+        $this->assertCount(9, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
     }
@@ -222,5 +222,45 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertTrue($structured['ok']);
         $this->assertTrue($structured['atlas_tracked']);
         $this->assertGreaterThan(0, $structured['memory_entry_count']);
+    }
+
+    public function test_recent_changes_returns_files_and_index_freshness(): void
+    {
+        // Use atlas-server itself as test workspace — it IS a git repo
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 9, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_recent_changes',
+                'arguments' => [
+                    'workspace' => base_path(),  // base_path() resolves to atlas-server in this context
+                    'since' => '7 days ago',
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertArrayHasKey('changed_files', $structured);
+        $this->assertIsArray($structured['changed_files']);
+        $this->assertArrayHasKey('index_fresh', $structured);
+    }
+
+    public function test_recent_changes_rejects_non_git_workspace(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 10, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_recent_changes',
+                'arguments' => [
+                    'workspace' => '/tmp',  // Not a git repo
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('workspace_not_git_repo', $structured['error']);
     }
 }
