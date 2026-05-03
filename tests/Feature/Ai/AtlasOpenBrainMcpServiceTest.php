@@ -176,4 +176,21 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertFalse($response['result']['structuredContent']['ok']);
         $this->assertSame('query_required', $response['result']['structuredContent']['error']);
     }
+
+    public function test_capabilities_returns_full_tool_inventory(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 7, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_capabilities', 'arguments' => []],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
+        // After this phase: 6 tools (3 original + 3 from Phase 1) + 1 new (capabilities) = 7
+        $this->assertCount(7, $structured['tools']);
+        $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
+    }
 }

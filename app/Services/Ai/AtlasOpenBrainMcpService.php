@@ -177,6 +177,13 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_capabilities',
+                'title' => 'Atlas Capabilities',
+                'description' => 'Retorna inventário completo de tools MCP do Atlas, com schemas, annotations, protocol version e server info. Use para capability negotiation.',
+                'inputSchema' => ['type' => 'object', 'properties' => [], 'required' => []],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -196,7 +203,7 @@ class AtlasOpenBrainMcpService
             'serverInfo' => [
                 'name' => 'atlas-open-brain',
                 'title' => 'Atlas Open Brain',
-                'version' => '1.0.0',
+                'version' => '1.1.0',
             ],
             'instructions' => 'Use Atlas tools as the provider-safe source of truth for Atlas memory, canonical docs, code intelligence and audited context packs. Read tools are provider-safe by default; the write tool atlas_memory_record persists provider-safe entries with hard-coded defaults.',
         ];
@@ -226,6 +233,7 @@ class AtlasOpenBrainMcpService
                 'atlas_memory_record' => $this->toolResponse($id, $this->memoryRecord($arguments)),
                 'atlas_code_find_relevant' => $this->toolResponse($id, $this->codeFindRelevant($arguments)),
                 'atlas_docs_lookup' => $this->toolResponse($id, $this->docsLookup($arguments)),
+                'atlas_capabilities' => $this->toolResponse($id, $this->capabilities()),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -470,6 +478,26 @@ class AtlasOpenBrainMcpService
             'filters' => $filters,
             'docs' => $result['items'] ?? [],
             'count' => count($result['items'] ?? []),
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function capabilities(): array
+    {
+        return [
+            'ok' => true,
+            'tool' => 'atlas_capabilities',
+            'protocol_version' => self::PROTOCOL_VERSION,
+            'server' => [
+                'name' => 'atlas-open-brain',
+                'version' => '1.1.0',
+            ],
+            'tools' => $this->tools(),
+            'transport' => 'stdio',
+            'remote_capable' => false,
             'generated_at' => now()->toJSON(),
         ];
     }
