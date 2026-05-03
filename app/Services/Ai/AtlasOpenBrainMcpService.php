@@ -154,7 +154,6 @@ class AtlasOpenBrainMcpService
                         'query' => ['type' => 'string', 'description' => 'Termo de busca (matches por substring em symbol_name, file_path e signature).'],
                         'symbol_type' => ['type' => 'string', 'description' => 'Filtra por tipo: class, method, function, route, migration, test, command.'],
                         'language' => ['type' => 'string', 'description' => 'Filtra por linguagem: php, ts, tsx, js, jsx, md.'],
-                        'layer' => ['type' => 'string', 'description' => 'Filtra por layer arquitetural (se módulo tiver layer atribuído).'],
                         'workspace' => ['type' => 'string', 'description' => 'Workspace local.'],
                         'limit' => ['type' => 'integer', 'description' => 'Max símbolos retornados (default 20, max 100).'],
                     ],
