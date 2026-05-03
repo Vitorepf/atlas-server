@@ -130,6 +130,10 @@ class AtlasEngineeringReplayCommand extends Command
      */
     private function successExit(array $payload): int
     {
+        if (data_get($payload, 'run.replay') && data_get($payload, 'run.id')) {
+            return self::SUCCESS;
+        }
+
         $decision = (string) data_get($payload, 'run.decision', 'unresolved');
 
         return in_array($decision, ['resolved', 'partial'], true) ? self::SUCCESS : self::FAILURE;

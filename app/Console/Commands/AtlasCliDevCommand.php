@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\AtlasTask;
+use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliModelCatalogService;
 use App\Services\Ai\Cli\AtlasCliQualityService;
@@ -60,6 +61,7 @@ class AtlasCliDevCommand extends Command
         EngineeringBlueprintService $blueprints,
         EngineeringBlueprintSnapshotService $blueprintSnapshots,
         EngineeringRunArtifactService $artifacts,
+        AtlasAiRuntimeSettings $settings,
     ): int {
         $workspace = $this->workspace();
         $json = (bool) $this->option('json');
@@ -90,13 +92,17 @@ class AtlasCliDevCommand extends Command
             return $this->runInteractiveDev($workspace);
         }
 
-        $provider = $this->provider();
+        $explicitProvider = $this->provider();
+        $provider = $explicitProvider;
         $modelSelection = $models->select($this->modelOption(), $provider);
         if ($modelSelection !== null && $provider === null && is_string($modelSelection['provider'] ?? null)) {
             $provider = $modelSelection['provider'];
         }
         if ($modelSelection !== null && ! $models->matchesProvider($modelSelection, $provider)) {
             return $this->modelProviderMismatch($models->label($modelSelection), $provider, $json);
+        }
+        if (($explicitProvider !== null || $modelSelection !== null) && ! $this->manualProviderAllowed($provider, $settings)) {
+            return $this->manualProviderBlocked((string) $provider, $json);
         }
         $modelOverride = is_string($modelSelection['model'] ?? null) ? trim((string) $modelSelection['model']) : null;
         $modelOverride = $modelOverride !== '' ? $modelOverride : null;
@@ -876,6 +882,35 @@ class AtlasCliDevCommand extends Command
                 'ok' => false,
                 'phase' => 'preflight',
                 'error' => 'atlas_model_provider_mismatch',
+                'message' => $message,
+            ]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $this->error($message);
+
+        return self::FAILURE;
+    }
+
+    private function manualProviderAllowed(?string $provider, AtlasAiRuntimeSettings $settings): bool
+    {
+        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true)) {
+            return true;
+        }
+
+        return (bool) ($settings->providerConfig((string) $provider)['allow_manual'] ?? true);
+    }
+
+    private function manualProviderBlocked(string $provider, bool $json): int
+    {
+        $message = "Provider {$provider} esta bloqueado para uso manual pelas configuracoes do Atlas app.";
+        if ($json) {
+            $this->line(json_encode(AtlasSecurity::redactArray([
+                'ok' => false,
+                'phase' => 'preflight',
+                'error' => 'atlas_manual_provider_blocked',
+                'provider' => $provider,
                 'message' => $message,
             ]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 

@@ -21,7 +21,7 @@ class EngineeringRunScoringService
         $latestAttemptFailed = $latestAttempt && in_array((string) $latestAttempt->status, ['failed', 'timed_out', 'cancelled'], true);
         $openReviewFindings = $run->reviewFindings->where('status', 'open')->values();
         $blockingReviewFindings = $openReviewFindings
-            ->filter(fn ($finding): bool => in_array((string) $finding->severity, ['p0', 'p1'], true))
+            ->filter(fn ($finding): bool => $this->blocksReviewFinding($finding))
             ->values();
         $majorReviewFindings = $openReviewFindings
             ->filter(fn ($finding): bool => (string) $finding->severity === 'p2')
@@ -126,6 +126,14 @@ class EngineeringRunScoringService
             'patch_artifact',
             'primary_test_command',
         ], true);
+    }
+
+    private function blocksReviewFinding(mixed $finding): bool
+    {
+        $severity = (string) $finding->severity;
+        $confidence = $finding->confidence === null ? 1.0 : (float) $finding->confidence;
+
+        return $severity === 'p0' || ($severity === 'p1' && $confidence >= 0.8);
     }
 
     /**

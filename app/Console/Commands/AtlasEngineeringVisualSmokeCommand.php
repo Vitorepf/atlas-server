@@ -23,6 +23,8 @@ class AtlasEngineeringVisualSmokeCommand extends Command
         {--baseline=observe : off, observe or strict DOM baseline comparison}
         {--screenshot-baseline=auto : auto, off, observe or strict pixel screenshot baseline comparison}
         {--screenshot-driver= : auto, workspace, atlas or off. Defaults to config/auto}
+        {--run-context-type= : Optional Atlas Tool Runtime context type}
+        {--run-context-id= : Optional Atlas Tool Runtime context id}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Run Atlas-managed local visual smoke checks and persist route snapshots.';
@@ -167,6 +169,8 @@ class AtlasEngineeringVisualSmokeCommand extends Command
             ], [
                 'surface' => 'engineering_visual_smoke',
                 'source' => 'atlas_engineering_visual_smoke_command',
+                'run_context_type' => $this->stringOption('run-context-type'),
+                'run_context_id' => $this->stringOption('run-context-id'),
                 'metadata' => [
                     'artifact_dir' => $manifest['artifact_dir'] ?? null,
                     'artifact_root_hash' => hash('sha256', $artifactRoot),
@@ -311,6 +315,18 @@ class AtlasEngineeringVisualSmokeCommand extends Command
         }
 
         return $resolved;
+    }
+
+    private function stringOption(string $name): ?string
+    {
+        $value = $this->option($name);
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
     }
 
     private function port(string $workspace): int

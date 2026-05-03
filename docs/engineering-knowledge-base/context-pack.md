@@ -14,15 +14,21 @@ capabilities:
   - compact_recall
   - provider_portability
   - maintenance_context
+  - engineering_blueprint
+  - task_contracts
 decisions:
   - Context pack carrega referencias compactas por padrao.
   - O markdown completo permanece versionado no repo.
+  - Task contract e blueprint snapshot sao entradas obrigatorias para execucao autonoma de engenharia.
 maintenance:
   - Manter summaries curtos e paths corretos para que refs sejam uteis.
   - Aumentar limite de refs apenas se houver evidencia de recall insuficiente.
 related_paths:
   - app/Services/Engineering/EngineeringContextPackService.php
   - app/Services/Engineering/EngineeringKnowledgeBaseService.php
+  - app/Services/Engineering/EngineeringTaskContractService.php
+  - app/Services/Engineering/EngineeringBlueprintService.php
+  - docs/engineering-knowledge-base/engineering-blueprint.md
 ---
 
 # Knowledge Refs No Context Pack
@@ -41,6 +47,26 @@ Cada referencia inclui:
 - content hash;
 - resumo;
 - motivo da inclusao.
+
+## Blueprint Refs
+
+Para tarefas de engenharia, o context pack deve tratar estes dados como nucleo,
+nao como contexto opcional:
+
+- `task_contract`;
+- `engineering_blueprint`;
+- `engineering_blueprint_snapshot` quando existir;
+- `contingency_policy`;
+- `review_gates`;
+- `acceptance_matrix`;
+- `scenario_inventory`;
+- `knowledge_refs` da familia `engineering-blueprint*.md` quando a task tocar
+  planejamento, QA, review, Postgres ou geracao de tasks;
+- `code_refs` para services, rotas, comandos, migrations, app surfaces e testes
+  relacionados.
+
+Sem esses dados, o provider pode ajudar a investigar, mas nao deve receber
+autonomia total para concluir task de risco medio/alto.
 
 ## Beneficio
 

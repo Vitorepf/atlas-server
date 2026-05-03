@@ -21,6 +21,18 @@ class AtlasToolResultNormalizer
             );
         }
 
+        $stdout = is_string($raw['stdout'] ?? null) ? (string) $raw['stdout'] : '';
+        $stderr = is_string($raw['stderr'] ?? null) ? (string) $raw['stderr'] : '';
+        $metrics = (array) ($raw['metrics'] ?? []);
+        if ($metrics === [] && ($stdout !== '' || $stderr !== '')) {
+            $metrics = $this->metricsFromOutput($toolSlug, $stdout, $stderr);
+        }
+
+        $artifacts = (array) ($raw['artifacts'] ?? []);
+        if ($artifacts === [] && ($stdout !== '' || $stderr !== '')) {
+            $artifacts = $this->artifactsFromOutput($toolSlug, $stdout, $stderr);
+        }
+
         $findings = collect($rawFindings)
             ->filter(fn (mixed $finding): bool => is_array($finding))
             ->map(fn (array $finding): array => $this->finding($toolSlug, $finding))
@@ -37,8 +49,8 @@ class AtlasToolResultNormalizer
             'exit_code' => $raw['exit_code'] ?? null,
             'duration_ms' => (int) ($raw['duration_ms'] ?? 0),
             'findings' => $findings,
-            'metrics' => (array) ($raw['metrics'] ?? []),
-            'artifacts' => (array) ($raw['artifacts'] ?? []),
+            'metrics' => $metrics,
+            'artifacts' => $artifacts,
             'recommendations' => (array) ($raw['recommendations'] ?? []),
             'blocking_failures' => $blockingFailures,
             'summary' => [
@@ -68,6 +80,7 @@ class AtlasToolResultNormalizer
             'shellcheck' => $this->parseShellCheck($payload),
             'trivy' => $this->parseTrivy($payload),
             'osv_scanner' => $this->parseOsvScanner($payload),
+            'grype' => $this->parseGrype($payload),
             default => [],
         };
     }
@@ -125,6 +138,46 @@ class AtlasToolResultNormalizer
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function metricsFromOutput(string $toolSlug, string $stdout, string $stderr = ''): array
+    {
+        $payload = $this->jsonPayload($stdout) ?? $this->jsonPayload($stderr);
+        if (! is_array($payload)) {
+            return [];
+        }
+
+        return match ($toolSlug) {
+            'syft' => $this->syftMetrics($payload),
+            'trivy' => $this->trivyMetrics($payload),
+            'grype' => $this->grypeMetrics($payload),
+            'osv_scanner' => $this->osvScannerMetrics($payload),
+            default => [],
+        };
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function artifactsFromOutput(string $toolSlug, string $stdout, string $stderr = ''): array
+    {
+        $payload = $this->jsonPayload($stdout) ?? $this->jsonPayload($stderr);
+        if (! is_array($payload)) {
+            return [];
+        }
+
+        return match ($toolSlug) {
+            'syft' => [[
+                'type' => 'sbom_summary',
+                'name' => 'syft_packages',
+                'package_count' => count((array) ($payload['artifacts'] ?? [])),
+                'source' => data_get($payload, 'source.name') ?: data_get($payload, 'source.target'),
+            ]],
+            default => [],
+        };
     }
 
     /**
@@ -340,6 +393,114 @@ class AtlasToolResultNormalizer
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<int,array<string,mixed>>
+     */
+    private function parseGrype(array $payload): array
+    {
+        return collect((array) ($payload['matches'] ?? []))
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->map(function (array $item): array {
+                $severity = $this->securitySeverity(data_get($item, 'vulnerability.severity', 'UNKNOWN'));
+                $package = data_get($item, 'artifact.name');
+                $version = data_get($item, 'artifact.version');
+                $vulnerabilityId = (string) (data_get($item, 'vulnerability.id') ?: 'grype');
+                $locations = (array) data_get($item, 'artifact.locations', []);
+                $firstLocation = collect($locations)->first(fn (mixed $location): bool => is_array($location));
+
+                return [
+                    'severity' => $severity,
+                    'rule_id' => $vulnerabilityId,
+                    'title' => trim($vulnerabilityId.' '.($package ? 'in '.$package : '')) ?: 'Grype vulnerability',
+                    'file' => is_array($firstLocation) ? data_get($firstLocation, 'path') : null,
+                    'message' => data_get($item, 'vulnerability.description')
+                        ?: trim(sprintf('%s affects %s %s', $vulnerabilityId, (string) $package, (string) $version)),
+                    'blocks_resolved' => in_array($severity, ['critical', 'high'], true),
+                    'metadata' => [
+                        'package' => $package,
+                        'installed_version' => $version,
+                        'fixed_versions' => (array) data_get($item, 'vulnerability.fix.versions', []),
+                        'namespace' => data_get($item, 'vulnerability.namespace'),
+                        'artifact_type' => data_get($item, 'artifact.type'),
+                    ],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function syftMetrics(array $payload): array
+    {
+        $packages = collect((array) ($payload['artifacts'] ?? []))
+            ->filter(fn (mixed $item): bool => is_array($item));
+
+        return [
+            'package_count' => $packages->count(),
+            'package_type_counts' => $packages
+                ->map(fn (array $item): string => (string) ($item['type'] ?? 'unknown'))
+                ->countBy()
+                ->all(),
+            'source_type' => data_get($payload, 'source.type'),
+            'source_name' => data_get($payload, 'source.name') ?: data_get($payload, 'source.target'),
+        ];
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function trivyMetrics(array $payload): array
+    {
+        $findings = $this->parseTrivy($payload);
+
+        return [
+            'result_count' => count((array) ($payload['Results'] ?? [])),
+            'finding_count' => count($findings),
+            'severity_counts' => collect($findings)->countBy('severity')->all(),
+            'blocking_finding_count' => collect($findings)->where('blocks_resolved', true)->count(),
+        ];
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function grypeMetrics(array $payload): array
+    {
+        $findings = $this->parseGrype($payload);
+
+        return [
+            'match_count' => count((array) ($payload['matches'] ?? [])),
+            'finding_count' => count($findings),
+            'severity_counts' => collect($findings)->countBy('severity')->all(),
+            'blocking_finding_count' => collect($findings)->where('blocks_resolved', true)->count(),
+        ];
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function osvScannerMetrics(array $payload): array
+    {
+        $packages = collect((array) ($payload['results'] ?? []))
+            ->filter(fn (mixed $result): bool => is_array($result))
+            ->flatMap(fn (array $result): array => (array) data_get($result, 'packages', []))
+            ->filter(fn (mixed $package): bool => is_array($package));
+
+        return [
+            'result_count' => count((array) ($payload['results'] ?? [])),
+            'package_count' => $packages->count(),
+            'vulnerability_count' => $packages
+                ->sum(fn (array $package): int => count((array) ($package['vulnerabilities'] ?? []))),
+        ];
     }
 
     private function securitySeverity(mixed $severity): string

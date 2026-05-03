@@ -22,21 +22,21 @@ use Throwable;
  * for Agent 4 (Diagnostic) and Agent 5 (Recommendation Lifecycle).
  *
  * Cross-version protection (Decisão #11): skips analysis entirely when the
- * window has mixed v1/v2 aggregator versions. Trust degraded gracefully via
- * empty result with explicit skip_reason.
+ * window has mixed aggregator versions. Trust degraded gracefully via empty
+ * result with explicit skip_reason.
  *
  * Snapshot strategy: read up to 30 trailing days from ai_metric_daily_snapshots
- * (filtered to aggregator_version=v2). Today's value comes from the live scorecard
- * via WindowAggregates. Multi-window analysis just uses different slices of the
- * same snapshot read.
+ * filtered to the same aggregator_version as the live window. Today's value
+ * comes from the live scorecard via WindowAggregates. Multi-window analysis just
+ * uses different slices of the same snapshot read.
  *
  * Metrics analyzed (subset of scorecard.totals — extended over time):
  *   - final_quality_avg (up=good)
  *   - final_efficiency_avg (up=good)
  *   - first_pass_success_rate (up=good)
  *   - needed_remediation_rate (up=bad)
- *   - tool_failure_rate (up=bad, v2-only)
- *   - permission_denial_rate (up=bad, v2-only)
+ *   - tool_failure_rate (up=bad, modern diagnostics only)
+ *   - permission_denial_rate (up=bad, modern diagnostics only)
  *   - app_visible_avg_ms (up=bad)
  */
 class StatisticalAnalysisService
@@ -49,13 +49,13 @@ class StatisticalAnalysisService
         'final_efficiency_avg' => 'up_good',
         'first_pass_success_rate' => 'up_good',
         'needed_remediation_rate' => 'up_bad',
-        'tool_failure_rate' => 'up_bad',           // v2-only
-        'permission_denial_rate' => 'up_bad',      // v2-only
+        'tool_failure_rate' => 'up_bad',           // modern diagnostics only
+        'permission_denial_rate' => 'up_bad',      // modern diagnostics only
         'app_visible_avg_ms' => 'up_bad',
     ];
 
-    /** Metrics that depend on score_components.tools (Fix 7c) — skip on v1 windows. */
-    public const V2_ONLY_METRICS = ['tool_failure_rate', 'permission_denial_rate'];
+    /** Metrics that depend on score_components.tools (Fix 7c) — skip on legacy windows. */
+    public const MODERN_DIAGNOSTIC_METRICS = ['tool_failure_rate', 'permission_denial_rate'];
 
     public function __construct(
         private readonly EwmaDetector $ewma = new EwmaDetector,
@@ -78,6 +78,7 @@ class StatisticalAnalysisService
                 'report_date' => $ctx->windowStart->toDateString(),
                 'trace' => substr((string) $e, 0, 500),
             ]);
+
             return StatisticalResult::empty('exception:'.class_basename($e));
         }
     }
@@ -98,8 +99,8 @@ class StatisticalAnalysisService
         $baselines = [];
 
         foreach (self::METRIC_POLARITY as $metric => $polarity) {
-            // Skip v2-only metrics on v1 windows (defense even if mixed check passed)
-            if (in_array($metric, self::V2_ONLY_METRICS, true) && ! $aggregates->isV2()) {
+            // Skip modern-diagnostic metrics on legacy windows (defense even if mixed check passed).
+            if (in_array($metric, self::MODERN_DIAGNOSTIC_METRICS, true) && ! $aggregates->supportsModernDiagnostics()) {
                 continue;
             }
 
@@ -108,7 +109,7 @@ class StatisticalAnalysisService
                 continue;
             }
 
-            $series = $this->loadHistoricalSeries($ctx, $metric);
+            $series = $this->loadHistoricalSeries($ctx, $metric, $aggregates->aggregatorVersion);
             $series[] = $todayValue;
 
             // Anomaly detection (today vs baseline)
@@ -182,10 +183,12 @@ class StatisticalAnalysisService
     }
 
     /**
-     * Load up to TRAILING_DAYS daily values for a metric, filtering to v2-only.
+     * Load up to TRAILING_DAYS daily values for a metric, filtering to the
+     * exact live aggregator version so trend windows never mix schemas.
+     *
      * @return array<int,float>
      */
-    private function loadHistoricalSeries(ReportContext $ctx, string $metric): array
+    private function loadHistoricalSeries(ReportContext $ctx, string $metric, string $aggregatorVersion): array
     {
         $since = $ctx->windowStart->subDays(self::TRAILING_DAYS);
 
@@ -193,7 +196,7 @@ class StatisticalAnalysisService
             ->where('metric', $metric)
             ->where('snapshot_date', '>=', $since->toDateString())
             ->where('snapshot_date', '<', $ctx->windowStart->toDateString())
-            ->where('aggregator_version', 'ai_trace_metric_aggregator_v2')
+            ->where('aggregator_version', $aggregatorVersion)
             ->orderBy('snapshot_date')
             ->get()
             ->pluck('value_mean')

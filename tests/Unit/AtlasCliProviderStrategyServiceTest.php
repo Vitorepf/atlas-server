@@ -61,11 +61,14 @@ class AtlasCliProviderStrategyServiceTest extends TestCase
         $payload = app(AtlasCliProviderStrategyService::class)->recommend('dev');
 
         $this->assertSame('claude_cli', $payload['recommended_provider']);
-        $this->assertSame('codex_cli', $payload['fallback_provider']);
+        $this->assertNull($payload['fallback_provider']);
     }
 
     public function test_critical_mode_uses_council_when_claude_and_codex_are_online(): void
     {
+        config()->set('atlas.ai.council_allow_auto', true);
+        config()->set('atlas.ai.providers.codex_cli.allow_auto', true);
+
         AiProviderHealthSnapshot::query()->create([
             'provider' => 'codex_cli',
             'status' => 'online',
@@ -121,7 +124,7 @@ class AtlasCliProviderStrategyServiceTest extends TestCase
 
         $payload = app(AtlasCliProviderStrategyService::class)->recommend('dev');
 
-        $this->assertSame('codex_cli', $payload['recommended_provider']);
+        $this->assertSame('claude_cli', $payload['recommended_provider']);
     }
 
     public function test_dev_mode_does_not_fall_back_to_gemini_when_it_is_the_only_online_provider(): void
@@ -142,5 +145,39 @@ class AtlasCliProviderStrategyServiceTest extends TestCase
 
         $this->assertSame('claude_cli', $payload['recommended_provider']);
         $this->assertNull($payload['fallback_provider']);
+    }
+
+    public function test_reason_explains_when_default_provider_is_blocked_for_automatic_use(): void
+    {
+        config()->set('atlas.ai.default_provider', 'codex_cli');
+        config()->set('atlas.ai.providers.codex_cli.allow_auto', false);
+        config()->set('atlas.ai.providers.claude_cli.allow_auto', true);
+
+        AiProviderHealthSnapshot::query()->create([
+            'provider' => 'codex_cli',
+            'status' => 'online',
+            'checked_at' => now(),
+            'operational_pain_score' => 0,
+            'p50_latency_ms' => 50,
+            'metadata' => [],
+            'created_at' => now(),
+        ]);
+        AiProviderHealthSnapshot::query()->create([
+            'provider' => 'claude_cli',
+            'status' => 'online',
+            'checked_at' => now(),
+            'operational_pain_score' => 1,
+            'p50_latency_ms' => 100,
+            'metadata' => [],
+            'created_at' => now(),
+        ]);
+
+        $payload = app(AtlasCliProviderStrategyService::class)->recommend('dev');
+        $codex = collect($payload['providers'])->firstWhere('provider', 'codex_cli');
+
+        $this->assertSame('claude_cli', $payload['recommended_provider']);
+        $this->assertStringContainsString('Default codex_cli esta bloqueado para automatico', $payload['reason']);
+        $this->assertFalse(data_get($codex, 'allow_auto'));
+        $this->assertTrue(data_get($codex, 'allow_manual'));
     }
 }

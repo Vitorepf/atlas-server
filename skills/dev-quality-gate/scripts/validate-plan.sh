@@ -156,7 +156,7 @@ validation_json="$(
       "checked_paths" => $checked,
       "warnings" => $warnings,
   ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-  ' "$PLAN" "$WORKSPACE" 2> >(cat >&2)
+  ' "$PLAN" "$WORKSPACE"
 )"
 
 set +e

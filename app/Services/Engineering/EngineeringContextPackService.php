@@ -3,26 +3,33 @@
 namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringContextPack;
-use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasEngineeringRun;
+use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasTask;
+use App\Models\AtlasToolRun;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
+use App\Services\Tools\AtlasToolEvidenceQueryService;
 use Illuminate\Support\Facades\Schema;
 
 class EngineeringContextPackService
 {
     private EngineeringKnowledgeBaseService $knowledgeBase;
+
     private EngineeringCodeIntelligenceService $codeIntelligence;
+
+    private AtlasToolEvidenceQueryService $toolEvidence;
 
     public function __construct(
         private readonly WorkspaceProfiler $profiler,
         private readonly AtlasMemoryRegistryService $memoryRegistry,
         ?EngineeringKnowledgeBaseService $knowledgeBase = null,
         ?EngineeringCodeIntelligenceService $codeIntelligence = null,
+        ?AtlasToolEvidenceQueryService $toolEvidence = null,
     ) {
         $this->knowledgeBase = $knowledgeBase ?? app(EngineeringKnowledgeBaseService::class);
         $this->codeIntelligence = $codeIntelligence ?? app(EngineeringCodeIntelligenceService::class);
+        $this->toolEvidence = $toolEvidence ?? app(AtlasToolEvidenceQueryService::class);
     }
 
     /**
@@ -63,11 +70,13 @@ class EngineeringContextPackService
             'contract' => $contract,
             'blueprint' => $blueprint,
         ], 10);
+        $toolEvidenceRefs = $this->toolEvidenceRefs($workspace);
         $selectedFiles = collect((array) ($contract['likely_files'] ?? []))
             ->merge($profile->importantFiles)
             ->merge(collect($knowledgeRefs)->pluck('canonical_path')->all())
             ->merge(collect($codeRefs)->pluck('root_path')->all())
             ->merge(collect($codeRefs)->flatMap(fn (array $ref): array => (array) ($ref['related_tests'] ?? []))->all())
+            ->merge(collect($toolEvidenceRefs)->flatMap(fn (array $ref): array => collect((array) ($ref['blocking_findings'] ?? []))->pluck('file_path')->all())->all())
             ->filter(fn (mixed $file): bool => is_string($file) && trim($file) !== '')
             ->unique()
             ->take(80)
@@ -96,6 +105,7 @@ class EngineeringContextPackService
             'memory_refs' => $memoryRefs,
             'knowledge_refs' => $knowledgeRefs,
             'code_refs' => $codeRefs,
+            'tool_evidence_refs' => $toolEvidenceRefs,
             'prompt_sections' => [
                 ['kind' => 'contract', 'title' => 'Task contract', 'priority' => 1],
                 ['kind' => 'blueprint', 'title' => 'Frozen blueprint', 'priority' => 2],
@@ -103,6 +113,7 @@ class EngineeringContextPackService
                 ['kind' => 'repo_profile', 'title' => 'Workspace profile', 'priority' => 4],
                 ['kind' => 'engineering_knowledge', 'title' => 'Canonical engineering knowledge', 'priority' => 5],
                 ['kind' => 'code_intelligence', 'title' => 'Indexed code modules and symbols', 'priority' => 6],
+                ['kind' => 'tool_evidence', 'title' => 'Recent tool runtime evidence', 'priority' => 7],
             ],
             'token_budget' => [
                 'target' => 6000,
@@ -137,6 +148,8 @@ class EngineeringContextPackService
                     'knowledge_ref_count' => count($payload['knowledge_refs']),
                     'code_refs' => $payload['code_refs'],
                     'code_ref_count' => count($payload['code_refs']),
+                    'tool_evidence_refs' => $payload['tool_evidence_refs'],
+                    'tool_evidence_ref_count' => count($payload['tool_evidence_refs']),
                     'source' => 'atlas:engineering:runner',
                 ],
             ]);
@@ -178,6 +191,51 @@ class EngineeringContextPackService
                     'workspace' => 'workspace_memory',
                     default => 'scoped_to_engineering_context',
                 },
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function toolEvidenceRefs(string $workspace): array
+    {
+        return $this->toolEvidence->recent([
+            'workspace' => $workspace,
+            'limit' => 8,
+        ])
+            ->map(fn (AtlasToolRun $run): array => [
+                'type' => 'atlas_tool_run',
+                'id' => $run->id,
+                'tool_slug' => $run->tool_slug,
+                'surface' => $run->surface,
+                'status' => $run->status,
+                'required' => $run->required,
+                'failure_policy' => $run->failure_policy,
+                'policy_decision' => $run->policy_decision,
+                'run_context_type' => $run->run_context_type,
+                'run_context_id' => $run->run_context_id,
+                'duration_ms' => $run->duration_ms,
+                'finished_at' => $run->finished_at?->toJSON(),
+                'created_at' => $run->created_at?->toJSON(),
+                'finding_count' => $run->findings->count(),
+                'blocking_finding_count' => $run->findings->where('blocks_resolved', true)->count(),
+                'artifact_count' => $run->artifacts->count(),
+                'blocking_findings' => $run->findings
+                    ->where('blocks_resolved', true)
+                    ->take(3)
+                    ->map(fn ($finding): array => [
+                        'id' => $finding->id,
+                        'rule_id' => $finding->rule_id,
+                        'title' => $finding->title,
+                        'severity' => $finding->severity,
+                        'file_path' => $finding->file_path,
+                        'line' => $finding->line,
+                    ])
+                    ->values()
+                    ->all(),
+                'reason' => 'recent_workspace_tool_evidence',
             ])
             ->values()
             ->all();

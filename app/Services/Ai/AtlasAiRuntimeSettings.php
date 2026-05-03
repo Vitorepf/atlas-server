@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Schema;
 class AtlasAiRuntimeSettings
 {
     public const KEY = 'default';
+
     private const GEMINI_MODEL = 'gemini-3.1-pro-preview';
 
     /**
@@ -143,6 +144,9 @@ class AtlasAiRuntimeSettings
             $provider = $this->normalizeProvider($patch['default_provider']);
             if ($provider !== null && in_array($provider, $this->providerKeys(), true)) {
                 $normalized['default_provider'] = $provider;
+                if ($provider !== 'claude_codex') {
+                    $normalized['providers'][$provider]['allow_auto'] = true;
+                }
             }
         }
 
@@ -177,6 +181,11 @@ class AtlasAiRuntimeSettings
 
         if (is_array($patch['budget'] ?? null)) {
             $normalized['budget'] = $this->normalizeBudgetPatch($patch['budget']);
+        }
+
+        $defaultProvider = $normalized['default_provider'] ?? $this->defaultProvider();
+        if ($defaultProvider !== 'claude_codex' && in_array($defaultProvider, $this->providerKeys(), true)) {
+            $normalized['providers'][$defaultProvider]['allow_auto'] = true;
         }
 
         return $normalized;

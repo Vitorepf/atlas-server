@@ -3,9 +3,12 @@
 namespace App\Services\Ai\Telemetry;
 
 use App\Models\AiContextSnapshot;
+use App\Models\AiDecision;
 use App\Models\AiJob;
 use App\Models\AiOutcomeLink;
+use App\Models\AiRouterDecision;
 use App\Models\AiTelemetryEvent;
+use App\Models\AiToolEvent;
 use App\Models\AiTrace;
 use App\Models\AiTraceMetricSummary;
 use App\Services\Ai\AiProviderModelResolver;
@@ -27,11 +30,11 @@ class AiTraceMetricAggregator
      * within ±1 point in the all-components-present case (the dominant production scenario).
      */
     public const QUALITY_SCORE_WEIGHTS = [
-        'auto_quality'   => 0.41,
-        'continuity'     => 0.18,
+        'auto_quality' => 0.41,
+        'continuity' => 0.18,
         'human_feedback' => 0.18,
-        'outcome'        => 0.14,
-        'remediation'    => 0.09,
+        'outcome' => 0.14,
+        'remediation' => 0.09,
     ];
 
     public function __construct(
@@ -51,6 +54,9 @@ class AiTraceMetricAggregator
         $eagerLoads = ['jobs.attemptHistory', 'qualityEvaluation', 'qualityActions'];
         if (Schema::hasTable('ai_router_decisions')) {
             $eagerLoads[] = 'routerDecision';
+        }
+        if (Schema::hasTable('ai_decisions')) {
+            $eagerLoads[] = 'atlasDecision';
         }
         if (Schema::hasTable('ai_tool_events')) {
             $eagerLoads[] = 'toolEvents';
@@ -152,6 +158,7 @@ class AiTraceMetricAggregator
             // signals/reason are the rich attribution payload kept inside score_components
             // (not promoted to columns) since they're free-form JSON for diagnosis.
             'router' => $this->routerDiagnostics($this->routerDecisionFor($trace)),
+            'atlas_decide' => $this->atlasDecideDiagnostics($trace, $jobs),
             // Diagnostic: telemetry events grouped by event_phase. Forward-looking signal —
             // when phases get differentiated (pre_provider/provider/post_provider) the
             // aggregator already has the count breakdown without further changes.
@@ -230,12 +237,13 @@ class AiTraceMetricAggregator
                 'provider_switched_after_response' => $providerSwitchedAfterResponse,
                 'score_components' => $scoreComponents,
                 'metadata' => [
-                    // v2 bump: traces aggregated after Fix 7c carry score_components.tools.
+                    // v3 bump: traces aggregated after Atlas Decide multi-stage work carry
+                    // score_components.atlas_decide. v2 introduced score_components.tools.
                     // Statistical analysis layer (planned Phase 5 engine) uses this as a
-                    // discriminator so trend tests don't compare v1 traces (no tools data)
-                    // with v2 traces (tools present) in the same window.
+                    // discriminator so trend tests don't compare older traces missing
+                    // diagnostics with newer traces in the same window.
                     // See docs/atlas-ai-aggregator-versions.md for the changelog.
-                    'aggregator_version' => 'ai_trace_metric_aggregator_v2',
+                    'aggregator_version' => AiTraceMetricAggregatorVersions::CURRENT,
                     'events_count' => $events->count(),
                     'jobs_count' => $jobs->count(),
                     'outcomes_count' => $outcomes->count(),
@@ -648,13 +656,196 @@ class AiTraceMetricAggregator
      * instead of throwing "no such table". This keeps the aggregator runnable on
      * any subset of the metric stack.
      */
-    private function routerDecisionFor(AiTrace $trace): ?\App\Models\AiRouterDecision
+    private function routerDecisionFor(AiTrace $trace): ?AiRouterDecision
     {
         if (! Schema::hasTable('ai_router_decisions')) {
             return null;
         }
 
         return $trace->routerDecision;
+    }
+
+    /**
+     * Schema-safe accessor for $trace->atlasDecision. The Atlas Decide decision
+     * table is optional in older installs and in narrow test fixtures.
+     */
+    private function atlasDecisionFor(AiTrace $trace): ?AiDecision
+    {
+        if (! Schema::hasTable('ai_decisions')) {
+            return null;
+        }
+
+        return $trace->atlasDecision;
+    }
+
+    /**
+     * Project Atlas Decide into a telemetry block that can compare planned vs.
+     * actual provider execution. This is intentionally JSON, not columns: the
+     * stage graph is sparse, provider-specific, and evolves faster than summary
+     * dimensions.
+     *
+     * @param  Collection<int,AiJob>  $jobs
+     * @return array<string,mixed>
+     */
+    private function atlasDecideDiagnostics(AiTrace $trace, Collection $jobs): array
+    {
+        $decision = $this->atlasDecisionFor($trace);
+        $traceMetadata = is_array($trace->metadata) ? $trace->metadata : [];
+        $traceExecution = data_get($traceMetadata, 'atlas_decide_execution');
+        $traceExecution = is_array($traceExecution) ? $traceExecution : [];
+        $stageExecutions = $jobs
+            ->map(fn (AiJob $job): ?array => $this->atlasJobExecution($job))
+            ->filter()
+            ->sortBy(fn (array $execution): int => match ($execution['stage'] ?? null) {
+                'context_scout' => 10,
+                'primary_executor' => 20,
+                default => 30,
+            })
+            ->values();
+
+        if (! $decision instanceof AiDecision && $traceExecution === [] && $stageExecutions->isEmpty()) {
+            return ['available' => false];
+        }
+
+        $scout = $stageExecutions->firstWhere('stage', 'context_scout');
+        $executor = $stageExecutions->firstWhere('stage', 'primary_executor');
+        $fallbacks = $this->providerFallbacks($trace, $jobs);
+        $dependencyState = data_get($traceExecution, 'dependency_state')
+            ?? data_get($executor, 'dependency_state')
+            ?? data_get($scout, 'dependency_state');
+        $runtimeStrategy = data_get($traceExecution, 'strategy');
+        $executionStrategy = $decision?->execution_strategy ?? $runtimeStrategy;
+        $contextStrategy = $decision?->context_strategy ?? data_get($traceExecution, 'context_strategy');
+        $scoutPlanned = $scout !== null
+            || $contextStrategy === 'gemini_scout_then_executor'
+            || $executionStrategy === 'scout_then_execute_planned'
+            || $runtimeStrategy === 'scout_then_execute';
+        $scoutEnabled = $scout !== null
+            || $runtimeStrategy === 'scout_then_execute'
+            || is_string(data_get($traceExecution, 'dependency_provider'));
+        $scoutProvider = $scoutEnabled
+            ? (data_get($scout, 'provider') ?? data_get($traceExecution, 'dependency_provider'))
+            : null;
+        if ($scoutEnabled && (! is_string($scoutProvider) || $scoutProvider === '')) {
+            $scoutProvider = 'gemini_cli';
+        }
+        $scoutPlannedProvider = $scoutProvider;
+        if ($scoutPlanned && (! is_string($scoutPlannedProvider) || $scoutPlannedProvider === '')) {
+            $scoutPlannedProvider = 'gemini_cli';
+        }
+        $scoutModel = data_get($scout, 'model') ?? data_get($traceExecution, 'dependency_model');
+
+        return [
+            'available' => true,
+            'decision_available' => $decision instanceof AiDecision,
+            'decision_mode' => $decision?->decision_mode,
+            'route_mode' => $decision?->route_mode,
+            'task_type' => $decision?->task_type,
+            'risk_level' => $decision?->risk_level,
+            'context_strategy' => $contextStrategy,
+            'execution_strategy' => $executionStrategy,
+            'runtime_strategy' => $runtimeStrategy,
+            'activation_status' => data_get($traceExecution, 'activation_status')
+                ?? data_get($decision?->execution_graph, 'activation_status'),
+            'blocked_reason' => data_get($traceExecution, 'blocked_reason')
+                ?? data_get($decision?->execution_graph, 'activation_blocked_reason'),
+            'dependency_state' => $dependencyState,
+            'scout_planned' => $scoutPlanned,
+            'scout_enabled' => $scoutEnabled,
+            'scout_planned_provider' => $scoutPlannedProvider,
+            'scout_provider' => $scoutProvider,
+            'scout_model' => $scoutModel,
+            'scout_status' => data_get($scout, 'status'),
+            'executor_provider' => data_get($executor, 'provider') ?? $decision?->selected_provider,
+            'executor_model' => data_get($executor, 'model') ?? $decision?->selected_model,
+            'executor_status' => data_get($executor, 'status'),
+            'selected_provider' => $decision?->selected_provider,
+            'selected_model' => $decision?->selected_model,
+            'fallback_provider' => $decision?->fallback_provider,
+            'was_overridden' => $decision instanceof AiDecision ? (bool) $decision->was_overridden : null,
+            'confidence_score' => $decision?->confidence_score,
+            'quality_gates' => data_get($decision?->execution_graph, 'quality_gates', []),
+            'providers_used' => $this->providersUsed($jobs),
+            'provider_sequence' => $stageExecutions->all(),
+            'fallbacks' => $fallbacks,
+            'degraded' => in_array($dependencyState, ['degraded', 'failed'], true) || $fallbacks !== [],
+            'task_profile' => is_array($decision?->task_profile) ? $decision->task_profile : [],
+            'signals' => is_array($decision?->signals) ? $decision->signals : [],
+        ];
+    }
+
+    private function atlasJobExecution(AiJob $job): ?array
+    {
+        $metadata = is_array($job->metadata) ? $job->metadata : [];
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $metadataExecution = data_get($metadata, 'atlas_decide_execution');
+        $payloadExecution = data_get($payload, 'atlas_decide_execution');
+        $execution = is_array($metadataExecution)
+            ? $metadataExecution
+            : (is_array($payloadExecution) ? $payloadExecution : []);
+        $stage = data_get($metadata, 'atlas_decide_stage') ?: data_get($execution, 'atlas_decide_stage');
+        $dependencyState = data_get($metadata, 'dependency_state') ?: data_get($execution, 'dependency_state');
+
+        if (! is_string($stage) && $execution === [] && ! is_string($dependencyState)) {
+            return null;
+        }
+
+        return [
+            'job_id' => $job->id,
+            'stage' => $stage,
+            'strategy' => data_get($execution, 'strategy'),
+            'provider' => $job->provider,
+            'model' => $job->model,
+            'status' => $job->status,
+            'kind' => $job->kind,
+            'priority' => $job->priority,
+            'attempts' => $job->attempts,
+            'duration_ms' => $this->diffMs($job->started_at, $job->finished_at),
+            'dependency_state' => $dependencyState,
+            'dependency_job_id' => data_get($metadata, 'dependency_job_id') ?: data_get($execution, 'dependency_job_id'),
+            'dependent_job_id' => data_get($metadata, 'dependent_job_id') ?: data_get($execution, 'dependent_job_id'),
+        ];
+    }
+
+    /**
+     * @param  Collection<int,AiJob>  $jobs
+     * @return array<int,string>
+     */
+    private function providersUsed(Collection $jobs): array
+    {
+        $jobProviders = $jobs->pluck('provider');
+        $attemptProviders = $jobs
+            ->flatMap(fn (AiJob $job): Collection => $job->relationLoaded('attemptHistory') ? $job->attemptHistory : collect())
+            ->pluck('provider');
+
+        return $jobProviders
+            ->merge($attemptProviders)
+            ->filter(fn (mixed $provider): bool => is_string($provider) && $provider !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int,AiJob>  $jobs
+     * @return array<int,array<string,mixed>>
+     */
+    private function providerFallbacks(AiTrace $trace, Collection $jobs): array
+    {
+        $traceMetadata = is_array($trace->metadata) ? $trace->metadata : [];
+        $fallbacks = collect([data_get($traceMetadata, 'provider_fallback')]);
+
+        $jobs->each(function (AiJob $job) use ($fallbacks): void {
+            $payload = is_array($job->payload) ? $job->payload : [];
+            $metadata = is_array($job->metadata) ? $job->metadata : [];
+            $fallbacks->push(data_get($payload, 'provider_fallback'));
+            $fallbacks->push(data_get($metadata, 'provider_fallback'));
+        });
+
+        return $fallbacks
+            ->filter(fn (mixed $fallback): bool => is_array($fallback))
+            ->values()
+            ->all();
     }
 
     /**
@@ -700,7 +891,7 @@ class AiTraceMetricAggregator
             ->groupBy('tool')
             ->map(fn (Collection $group): array => [
                 'count' => $group->count(),
-                'failures' => $group->filter(fn (\App\Models\AiToolEvent $e): bool => $this->isToolFailure($e))->count(),
+                'failures' => $group->filter(fn (AiToolEvent $e): bool => $this->isToolFailure($e))->count(),
                 'denied' => $group->where('permission_status', 'denied')->count(),
                 'duration_ms' => (int) $group->sum('duration_ms'),
             ])
@@ -715,7 +906,7 @@ class AiTraceMetricAggregator
 
         // Distinct changed_files across all tool events. JSON column → array via cast.
         $changedFiles = $events
-            ->flatMap(fn (\App\Models\AiToolEvent $e): array => is_array($e->changed_files) ? $e->changed_files : [])
+            ->flatMap(fn (AiToolEvent $e): array => is_array($e->changed_files) ? $e->changed_files : [])
             ->unique()
             ->values()
             ->all();
@@ -724,7 +915,7 @@ class AiTraceMetricAggregator
             'available' => true,
             'tools_used' => count($perTool),
             'tool_calls_total' => $events->count(),
-            'tool_failures' => $events->filter(fn (\App\Models\AiToolEvent $e): bool => $this->isToolFailure($e))->count(),
+            'tool_failures' => $events->filter(fn (AiToolEvent $e): bool => $this->isToolFailure($e))->count(),
             'permission_denied_count' => $events->where('permission_status', 'denied')->count(),
             'permission_approved_count' => $events->where('permission_status', 'approved')->count(),
             'total_duration_ms' => (int) $events->sum('duration_ms'),
@@ -744,7 +935,7 @@ class AiTraceMetricAggregator
      * exit_code (runtime exceptions, permission_denied), others set exit_code
      * without error (process returned non-zero with empty stderr).
      */
-    private function isToolFailure(\App\Models\AiToolEvent $event): bool
+    private function isToolFailure(AiToolEvent $event): bool
     {
         if ($event->exit_code !== null && $event->exit_code !== 0) {
             return true;
@@ -760,7 +951,7 @@ class AiTraceMetricAggregator
      *
      * @return array<string,mixed>
      */
-    private function routerDiagnostics(?\App\Models\AiRouterDecision $decision): array
+    private function routerDiagnostics(?AiRouterDecision $decision): array
     {
         if (! $decision) {
             return [

@@ -11,8 +11,9 @@ namespace App\Services\Ai\Telemetry\Engine\Dto;
  *  - baselines[]: per-metric/window baseline values (mean, sigma, sample_n)
  *
  * Per Decisão #11: cross-version protection — when WindowAggregates has mixed
- * v1/v2 traces, all metrics tied to v2-only fields (router_*, tools.*) are
- * skipped at the source. The result still emits, just without those metrics.
+ * aggregator versions, statistical analysis is skipped. Metrics tied to modern
+ * diagnostics are also skipped for legacy pure windows. The result still emits,
+ * just without unsupported metrics.
  */
 final readonly class StatisticalResult
 {

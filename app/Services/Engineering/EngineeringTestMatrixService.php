@@ -8,10 +8,12 @@ use App\Models\AtlasEngineeringRunAttempt;
 use App\Models\AtlasEngineeringTestCase;
 use App\Models\AtlasEngineeringTestRun;
 use App\Models\AtlasTask;
+use App\Models\AtlasToolRun;
 use App\Services\Ai\Runtime\AiToolRuntime;
 use App\Services\Ai\Runtime\ToolInvocation;
-use App\Services\Ai\Runtime\WorkspaceProfiler;
 use App\Services\Ai\Runtime\WorkspaceProfile;
+use App\Services\Ai\Runtime\WorkspaceProfiler;
+use App\Services\Tools\AtlasToolEvidenceStore;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
@@ -25,6 +27,7 @@ class EngineeringTestMatrixService
         private readonly AiToolRuntime $runtime,
         private readonly EngineeringControlRegistryService $controls,
         private readonly EngineeringDockerHarnessService $dockerHarness,
+        private readonly AtlasToolEvidenceStore $toolEvidence,
     ) {}
 
     /**
@@ -153,15 +156,16 @@ class EngineeringTestMatrixService
                 $workspacePlan = (array) ($options['workspace_plan'] ?? []);
                 $caseMetadata = is_array($case->metadata) ? $case->metadata : [];
                 $atlasManagedSensor = (bool) ($caseMetadata['atlas_managed'] ?? false);
+                $caseCommand = $this->commandWithRunContext((string) $case->command, $caseMetadata, $run);
                 $runtimeCommand = $atlasManagedSensor
                     ? [
-                        'command' => (string) $case->command,
+                        'command' => $caseCommand,
                         'runtime' => [
                             'type' => 'host',
                             'reason' => 'atlas_managed_sensor',
                         ],
                     ]
-                    : $this->dockerHarness->testRuntimeCommand((string) $case->command, $workspace, $workspacePlan);
+                    : $this->dockerHarness->testRuntimeCommand($caseCommand, $workspace, $workspacePlan);
                 $result = $this->runtime->execute(ToolInvocation::make('test.run', $workspace, [
                     'command' => $runtimeCommand['command'],
                     'timeout' => $case->timeout_seconds,
@@ -206,7 +210,9 @@ class EngineeringTestMatrixService
                 ]);
                 $artifactExport = $this->dockerHarness->captureArtifacts($run, $testRun->refresh(), $workspace, $workspacePlan);
                 $visualArtifactExport = $this->captureVisualArtifacts($run, $testRun->refresh(), $workspace, $caseMetadata);
+                $this->recordVisualSmokeToolEvidence($run, $workspace, $visualArtifactExport, $caseMetadata);
                 $qualityArtifactExport = $this->captureQualityScanArtifacts($run, $testRun->refresh(), $result->stdout, $caseMetadata);
+                $this->recordQualityScanToolEvidence($run, $workspace, $qualityScanResult);
 
                 $this->controls->recordResult(
                     run: $run,
@@ -417,6 +423,140 @@ class EngineeringTestMatrixService
             $changedOnly ? '--changed-only' : null,
             '--json',
         ], fn (?string $part): bool => $part !== null && $part !== ''));
+    }
+
+    /**
+     * Attach the Engineering run id only at execution time so persisted test case
+     * definitions remain stable and reusable across runs.
+     *
+     * @param  array<string,mixed>  $caseMetadata
+     */
+    private function commandWithRunContext(string $command, array $caseMetadata, AtlasEngineeringRun $run): string
+    {
+        $isContextAwareSensor = is_array($caseMetadata['quality_scan'] ?? null)
+            || is_array($caseMetadata['visual_e2e'] ?? null);
+        if (! $isContextAwareSensor) {
+            return $command;
+        }
+
+        if (! str_contains($command, 'atlas:engineering:quality-scan') && ! str_contains($command, 'atlas:engineering:visual-smoke')) {
+            return $command;
+        }
+
+        return $command
+            .' --run-context-type='.escapeshellarg('engineering_run')
+            .' --run-context-id='.escapeshellarg($run->id);
+    }
+
+    /**
+     * @param  array<string,mixed>  $artifactResult
+     * @param  array<string,mixed>  $caseMetadata
+     */
+    private function recordVisualSmokeToolEvidence(AtlasEngineeringRun $run, string $workspace, array $artifactResult, array $caseMetadata): void
+    {
+        if (! is_array($caseMetadata['visual_e2e'] ?? null) || ! Schema::hasTable('atlas_tool_runs')) {
+            return;
+        }
+
+        if (($artifactResult['status'] ?? null) !== 'captured' || ! is_string($artifactResult['artifact_path'] ?? null)) {
+            return;
+        }
+
+        $artifactRoot = rtrim((string) $artifactResult['artifact_path'], DIRECTORY_SEPARATOR).'/atlas-visual-report';
+        $manifestPath = $artifactRoot.'/manifest.json';
+        if (! File::isFile($manifestPath)) {
+            return;
+        }
+
+        $manifest = json_decode(File::get($manifestPath), true);
+        if (! is_array($manifest)) {
+            return;
+        }
+
+        $alreadyRecorded = AtlasToolRun::query()
+            ->where('tool_slug', 'atlas_visual_smoke')
+            ->where('surface', 'engineering_visual_smoke')
+            ->where('run_context_type', 'engineering_run')
+            ->where('run_context_id', $run->id)
+            ->exists();
+        if ($alreadyRecorded) {
+            return;
+        }
+
+        $this->toolEvidence->recordExternalToolResult('atlas_visual_smoke', $workspace, [
+            'status' => (string) ($manifest['status'] ?? 'unknown'),
+            'required' => (bool) data_get($caseMetadata, 'visual_e2e.required', false),
+            'failure_policy' => (bool) data_get($caseMetadata, 'visual_e2e.required', false) ? 'blocks_resolved' : 'advisory',
+            'policy_decision' => 'allowed',
+            'duration_ms' => (int) ($manifest['duration_ms'] ?? 0),
+            'exit_code' => ($manifest['status'] ?? null) === 'passed' ? 0 : 1,
+            'category' => 'browser_automation',
+            'metrics' => [
+                'route_count' => count((array) ($manifest['routes'] ?? [])),
+                'route_failed_count' => data_get($manifest, 'strict_failure_summary.route_failed_count', 0),
+                'dom_baseline_changed_count' => data_get($manifest, 'strict_failure_summary.dom_baseline_changed_count', 0),
+                'screenshot_failed_count' => data_get($manifest, 'strict_failure_summary.screenshot_failed_count', 0),
+                'screenshot_baseline_changed_count' => data_get($manifest, 'strict_failure_summary.screenshot_baseline_changed_count', 0),
+            ],
+            'artifact_paths' => [
+                'manifest' => $manifestPath,
+            ],
+        ], [
+            'surface' => 'engineering_visual_smoke',
+            'source' => 'engineering_test_matrix_visual_smoke_result',
+            'run_context_type' => 'engineering_run',
+            'run_context_id' => $run->id,
+            'metadata' => [
+                'artifact_root_hash' => hash('sha256', $artifactRoot),
+                'baseline_mode' => $manifest['baseline_mode'] ?? null,
+                'screenshot_baseline_mode' => $manifest['screenshot_baseline_mode'] ?? null,
+                'mirrored_from_test_run_artifacts' => true,
+            ],
+        ]);
+    }
+
+    /**
+     * Subprocess quality scans record evidence themselves in normal databases.
+     * The parent process mirrors captured output when evidence is not visible
+     * yet, which also keeps sqlite in-memory test runs representative.
+     *
+     * @param  array<string,mixed>|null  $qualityScanResult
+     */
+    private function recordQualityScanToolEvidence(AtlasEngineeringRun $run, string $workspace, ?array $qualityScanResult): void
+    {
+        if ($qualityScanResult === null || ! Schema::hasTable('atlas_tool_runs')) {
+            return;
+        }
+
+        foreach ((array) ($qualityScanResult['tools'] ?? []) as $tool) {
+            if (! is_array($tool)) {
+                continue;
+            }
+
+            $slug = (string) ($tool['slug'] ?? 'unknown');
+            $alreadyRecorded = AtlasToolRun::query()
+                ->where('tool_slug', $slug)
+                ->where('surface', 'engineering_quality_scan')
+                ->where('run_context_type', 'engineering_run')
+                ->where('run_context_id', $run->id)
+                ->exists();
+            if ($alreadyRecorded) {
+                continue;
+            }
+
+            $this->toolEvidence->recordExternalToolResult($slug, $workspace, $tool, [
+                'surface' => 'engineering_quality_scan',
+                'source' => 'engineering_test_matrix_quality_scan_result',
+                'run_context_type' => 'engineering_run',
+                'run_context_id' => $run->id,
+                'metadata' => [
+                    'scan_artifact_root_hash' => $qualityScanResult['artifact_root_hash'] ?? null,
+                    'profile' => $qualityScanResult['profile'] ?? null,
+                    'changed_only' => $qualityScanResult['changed_only'] ?? false,
+                    'mirrored_from_test_run_output' => true,
+                ],
+            ]);
+        }
     }
 
     private function canStartManagedVisualSmoke(string $workspace, WorkspaceProfile $profile): bool

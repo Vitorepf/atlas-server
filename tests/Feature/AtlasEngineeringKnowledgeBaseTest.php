@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\AtlasEngineeringKnowledgeItem;
 use App\Models\AtlasTask;
+use App\Models\AtlasToolRun;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\Runtime\WorkspaceProfile;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
@@ -58,6 +60,16 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
 
         $this->assertSame(0, $exitCode);
         $this->assertSame('engineering-knowledge-base-overview', data_get($listPayload, 'items.0.slug'));
+
+        $showExitCode = Artisan::call('atlas:engineering:knowledge', [
+            'action' => 'show',
+            'item' => 'engineering-knowledge-base-overview',
+            '--json' => true,
+        ]);
+        $showPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $showExitCode);
+        $this->assertSame('engineering-knowledge-base-overview', data_get($showPayload, 'knowledge_item.slug'));
 
         $this->getJson('/engineering/knowledge?q=Knowledge&limit=5', $this->headers)
             ->assertOk()
@@ -131,6 +143,76 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
         $this->assertContains('engineering_knowledge', collect($payload['prompt_sections'])->pluck('kind')->all());
         $this->assertContains('docs/engineering-knowledge-base/README.md', $payload['selected_files']);
         $this->assertSame('atlas_engineering_knowledge_item', data_get($payload, 'knowledge_refs.0.type'));
+    }
+
+    public function test_engineering_context_pack_includes_recent_tool_evidence_refs(): void
+    {
+        $workspace = base_path();
+        $task = AtlasTask::query()->create([
+            'title' => 'Usar evidencia operacional recente',
+            'description' => 'O context pack deve carregar sinais recentes do Tool Runtime.',
+            'metadata' => [],
+        ]);
+
+        $toolRun = AtlasToolRun::query()->create([
+            'tool_slug' => 'atlas_code_intelligence',
+            'surface' => 'engineering_code_intelligence',
+            'workspace_hash' => hash('sha256', realpath($workspace) ?: $workspace),
+            'workspace' => $workspace,
+            'run_context_type' => 'engineering_run',
+            'run_context_id' => 'run-with-code-intel',
+            'status' => 'failed',
+            'required' => true,
+            'failure_policy' => 'blocking',
+            'policy_decision' => 'allowed',
+            'duration_ms' => 42,
+            'summary_json' => ['module_count' => 22],
+            'normalized_result_json' => [],
+            'policy_decision_json' => [],
+            'metadata_json' => [],
+        ]);
+        $toolRun->findings()->create([
+            'title' => 'Code intelligence drift detected',
+            'message' => 'Context pack should expose blocking tool evidence.',
+            'severity' => 'high',
+            'file_path' => 'app/Services/Engineering/EngineeringContextPackService.php',
+            'line' => 42,
+            'blocks_resolved' => true,
+            'metadata_json' => [],
+        ]);
+
+        $profiler = $this->createMock(WorkspaceProfiler::class);
+        $profiler->method('profile')->willReturn(new WorkspaceProfile(
+            workspace: $workspace,
+            repoRoot: $workspace,
+            branch: 'main',
+            head: 'abc123',
+            stack: ['php', 'laravel'],
+            testCommands: ['php artisan test'],
+            importantFiles: [],
+        ));
+
+        $payload = (new EngineeringContextPackService(
+            $profiler,
+            app(AtlasMemoryRegistryService::class),
+            app(EngineeringKnowledgeBaseService::class),
+        ))->build($task, null, $workspace, [
+            'goal' => 'Usar evidence refs',
+            'likely_files' => [],
+        ], [
+            'blueprint_id' => 'tool-evidence-refs',
+        ], []);
+
+        $this->assertSame('atlas_tool_run', data_get($payload, 'tool_evidence_refs.0.type'));
+        $this->assertSame('atlas_code_intelligence', data_get($payload, 'tool_evidence_refs.0.tool_slug'));
+        $this->assertSame('failed', data_get($payload, 'tool_evidence_refs.0.status'));
+        $this->assertSame(1, data_get($payload, 'tool_evidence_refs.0.blocking_finding_count'));
+        $this->assertSame(
+            'app/Services/Engineering/EngineeringContextPackService.php',
+            data_get($payload, 'tool_evidence_refs.0.blocking_findings.0.file_path'),
+        );
+        $this->assertContains('tool_evidence', collect($payload['prompt_sections'])->pluck('kind')->all());
+        $this->assertContains('app/Services/Engineering/EngineeringContextPackService.php', $payload['selected_files']);
     }
 
     public function test_code_intelligence_indexes_modules_symbols_routes_commands_migrations_tests_and_doc_links(): void
@@ -224,7 +306,7 @@ class AtlasEngineeringFooTest
 PHP);
 
         try {
-            \App\Models\AtlasEngineeringKnowledgeItem::query()->create([
+            AtlasEngineeringKnowledgeItem::query()->create([
                 'id' => (string) Str::uuid(),
                 'slug' => 'foo-engineering-doc',
                 'title' => 'Foo Engineering Doc',
@@ -251,7 +333,13 @@ PHP);
             ]);
 
             $service = app(EngineeringCodeIntelligenceService::class);
-            $payload = $service->index(['workspace' => $workspace, 'prune' => true]);
+            $runContextId = (string) Str::uuid();
+            $payload = $service->index([
+                'workspace' => $workspace,
+                'prune' => true,
+                'run_context_type' => 'engineering_run',
+                'run_context_id' => $runContextId,
+            ]);
 
             $this->assertTrue($payload['ok']);
             $this->assertGreaterThanOrEqual(5, data_get($payload, 'summary.module_count'));
@@ -281,6 +369,13 @@ PHP);
                 'target_path' => 'app/Services/Engineering/FooService.php',
                 'status' => 'current',
             ]);
+            $this->assertDatabaseHas('atlas_tool_runs', [
+                'tool_slug' => 'atlas_code_intelligence',
+                'surface' => 'engineering_code_intelligence',
+                'run_context_type' => 'engineering_run',
+                'run_context_id' => $runContextId,
+                'status' => 'passed',
+            ]);
 
             $codeRefs = $service->contextRefs(['contract' => ['tags' => ['engineering']]], 5);
             $this->assertNotEmpty($codeRefs);
@@ -290,10 +385,18 @@ PHP);
                 'workspace' => $workspace,
                 'dry_run' => true,
                 'prune' => true,
+                'run_context_type' => 'api_context',
+                'run_context_id' => 'code-index-api',
             ], $this->headers)
                 ->assertOk()
                 ->assertJsonPath('dry_run', true)
                 ->assertJsonPath('ok', true);
+            $this->assertDatabaseHas('atlas_tool_runs', [
+                'tool_slug' => 'atlas_code_intelligence',
+                'run_context_type' => 'api_context',
+                'run_context_id' => 'code-index-api',
+                'status' => 'skipped',
+            ]);
 
             $this->getJson('/engineering/knowledge/code/modules?q=engineering&limit=10', $this->headers)
                 ->assertOk()
@@ -315,6 +418,8 @@ PHP);
                 'action' => 'index-code',
                 '--workspace' => $workspace,
                 '--dry-run' => true,
+                '--run-context-type' => 'cli_context',
+                '--run-context-id' => 'code-index-cli',
                 '--json' => true,
             ]);
             $cliPayload = json_decode(Artisan::output(), true);
@@ -322,6 +427,12 @@ PHP);
             $this->assertSame(0, $exitCode);
             $this->assertTrue((bool) data_get($cliPayload, 'dry_run'));
             $this->assertGreaterThanOrEqual(5, data_get($cliPayload, 'summary.module_count'));
+            $this->assertDatabaseHas('atlas_tool_runs', [
+                'tool_slug' => 'atlas_code_intelligence',
+                'run_context_type' => 'cli_context',
+                'run_context_id' => 'code-index-cli',
+                'status' => 'skipped',
+            ]);
 
             Artisan::call('atlas:engineering:knowledge', [
                 'action' => 'modules',
@@ -366,7 +477,12 @@ class FooService
 }
 PHP);
 
-            $driftAudit = $service->audit(['workspace' => $workspace, 'limit' => 10]);
+            $driftAudit = $service->audit([
+                'workspace' => $workspace,
+                'limit' => 10,
+                'run_context_type' => 'engineering_run',
+                'run_context_id' => $runContextId,
+            ]);
             $this->assertSame('drift_detected', $driftAudit['status']);
             $this->assertGreaterThan(0, data_get($driftAudit, 'summary.drift.total'));
             $this->assertSame(
@@ -374,17 +490,33 @@ PHP);
                 data_get($driftAudit, 'drift.modules.changed.0.slug'),
             );
             $this->assertGreaterThanOrEqual(1, data_get($driftAudit, 'summary.drift.symbols.added'));
+            $auditToolRun = AtlasToolRun::query()
+                ->where('tool_slug', 'atlas_code_intelligence')
+                ->where('run_context_type', 'engineering_run')
+                ->where('run_context_id', $runContextId)
+                ->where('status', 'failed')
+                ->latest()
+                ->firstOrFail();
+            $this->assertSame('audit', data_get($auditToolRun->metadata_json, 'operation'));
 
-            $this->getJson('/engineering/knowledge/code/audit?workspace='.rawurlencode($workspace).'&limit=10', $this->headers)
+            $this->getJson('/engineering/knowledge/code/audit?workspace='.rawurlencode($workspace).'&limit=10&run_context_type=api_context&run_context_id=code-audit-api', $this->headers)
                 ->assertOk()
                 ->assertJsonPath('dry_run', true)
                 ->assertJsonPath('writes', false)
                 ->assertJsonPath('status', 'drift_detected');
+            $this->assertDatabaseHas('atlas_tool_runs', [
+                'tool_slug' => 'atlas_code_intelligence',
+                'run_context_type' => 'api_context',
+                'run_context_id' => 'code-audit-api',
+                'status' => 'failed',
+            ]);
 
             $exitCode = Artisan::call('atlas:engineering:knowledge', [
                 'action' => 'audit-code',
                 '--workspace' => $workspace,
                 '--limit' => 10,
+                '--run-context-type' => 'cli_context',
+                '--run-context-id' => 'code-audit-cli',
                 '--json' => true,
             ]);
             $auditPayload = json_decode(Artisan::output(), true);
@@ -392,6 +524,12 @@ PHP);
             $this->assertSame(0, $exitCode);
             $this->assertSame('drift_detected', data_get($auditPayload, 'status'));
             $this->assertFalse((bool) data_get($auditPayload, 'writes'));
+            $this->assertDatabaseHas('atlas_tool_runs', [
+                'tool_slug' => 'atlas_code_intelligence',
+                'run_context_type' => 'cli_context',
+                'run_context_id' => 'code-audit-cli',
+                'status' => 'failed',
+            ]);
         } finally {
             File::deleteDirectory($workspace);
         }
@@ -511,10 +649,129 @@ PHP);
             $table->timestamp('archived_at')->nullable()->index();
             $table->timestamps();
         });
+
+        Schema::create('atlas_tool_definitions', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('slug', 120)->unique();
+            $table->string('name', 180);
+            $table->string('type', 40)->default('validator');
+            $table->string('category', 80);
+            $table->text('description')->nullable();
+            $table->string('homepage', 240)->nullable();
+            $table->string('license_posture', 80)->default('open_source');
+            $table->string('cost_posture', 80)->default('free_local');
+            $table->boolean('default_enabled')->default(true);
+            $table->unsignedSmallInteger('default_timeout_seconds')->default(120);
+            $table->string('default_failure_policy', 40)->default('advisory');
+            $table->string('risk_level', 24)->default('low');
+            $table->string('status', 32)->default('active');
+            $table->string('detected_version', 120)->nullable();
+            $table->json('capabilities_json')->default('[]');
+            $table->json('runtime_json')->default('{}');
+            $table->json('detect_json')->default('{}');
+            $table->json('outputs_json')->default('[]');
+            $table->json('risks_json')->default('[]');
+            $table->json('metadata')->default('{}');
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_tool_installations', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('tool_definition_id');
+            $table->string('workspace_hash', 64);
+            $table->string('execution_layer', 40);
+            $table->string('status', 32);
+            $table->string('version', 120)->nullable();
+            $table->string('binary_path_hash', 64)->nullable();
+            $table->string('node_modules_path_hash', 64)->nullable();
+            $table->timestamp('detected_at')->nullable();
+            $table->json('metadata_json')->default('{}');
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_tool_policies', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('scope_type', 40)->default('global');
+            $table->string('scope_id', 120)->nullable();
+            $table->string('tool_slug', 120);
+            $table->boolean('enabled')->default(true);
+            $table->json('required_when_json')->default('[]');
+            $table->string('failure_policy', 40)->nullable();
+            $table->unsignedSmallInteger('timeout_seconds')->nullable();
+            $table->json('thresholds_json')->default('{}');
+            $table->json('metadata')->default('{}');
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_tool_runs', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('tool_definition_id')->nullable();
+            $table->string('tool_slug', 120);
+            $table->string('surface', 80)->default('cli');
+            $table->string('workspace_hash', 64)->nullable();
+            $table->text('workspace')->nullable();
+            $table->string('run_context_type', 80)->nullable();
+            $table->string('run_context_id', 120)->nullable();
+            $table->string('status', 32);
+            $table->boolean('required')->default(false);
+            $table->string('failure_policy', 40)->default('advisory');
+            $table->string('policy_decision', 40)->default('allowed');
+            $table->string('command_hash', 64)->nullable();
+            $table->integer('exit_code')->nullable();
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('finished_at')->nullable();
+            $table->integer('duration_ms')->default(0);
+            $table->uuid('stdout_artifact_id')->nullable();
+            $table->uuid('stderr_artifact_id')->nullable();
+            $table->json('summary_json')->default('{}');
+            $table->json('normalized_result_json')->default('{}');
+            $table->json('policy_decision_json')->default('{}');
+            $table->json('metadata_json')->default('{}');
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_tool_artifacts', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('tool_run_id');
+            $table->string('type', 60);
+            $table->text('path');
+            $table->string('filename', 180);
+            $table->string('mime_type', 120)->nullable();
+            $table->unsignedBigInteger('size_bytes')->default(0);
+            $table->string('sha256', 64);
+            $table->boolean('is_redacted')->default(true);
+            $table->json('preview_json')->default('{}');
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_tool_findings', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('tool_run_id');
+            $table->string('rule_id', 180)->nullable();
+            $table->text('title');
+            $table->text('message')->nullable();
+            $table->string('severity', 24)->default('medium');
+            $table->decimal('confidence', 4, 3)->nullable();
+            $table->text('file_path')->nullable();
+            $table->unsignedInteger('line')->nullable();
+            $table->unsignedInteger('end_line')->nullable();
+            $table->string('fingerprint', 64)->nullable();
+            $table->boolean('blocks_resolved')->default(false);
+            $table->string('waiver_id', 120)->nullable();
+            $table->string('status', 32)->default('open');
+            $table->json('metadata_json')->default('{}');
+            $table->timestamps();
+        });
     }
 
     private function dropTables(): void
     {
+        Schema::dropIfExists('atlas_tool_findings');
+        Schema::dropIfExists('atlas_tool_artifacts');
+        Schema::dropIfExists('atlas_tool_runs');
+        Schema::dropIfExists('atlas_tool_policies');
+        Schema::dropIfExists('atlas_tool_installations');
+        Schema::dropIfExists('atlas_tool_definitions');
         Schema::dropIfExists('atlas_engineering_doc_links');
         Schema::dropIfExists('atlas_engineering_code_symbols');
         Schema::dropIfExists('atlas_engineering_code_modules');

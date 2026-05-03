@@ -5,7 +5,6 @@ namespace App\Services\Engineering;
 use App\Models\AtlasEngineeringKnowledgeItem;
 use App\Services\Semantic\FrontmatterParser;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -179,8 +178,13 @@ class EngineeringKnowledgeBaseService
         }
 
         $item = AtlasEngineeringKnowledgeItem::query()
-            ->where('id', $idOrSlug)
-            ->orWhere('slug', $idOrSlug)
+            ->where(function (Builder $query) use ($idOrSlug): void {
+                $query->where('slug', $idOrSlug);
+
+                if (Str::isUuid($idOrSlug)) {
+                    $query->orWhere('id', $idOrSlug);
+                }
+            })
             ->first();
 
         return $item ? $this->itemPayload($item, true) : null;

@@ -22,6 +22,8 @@ class AtlasEngineeringKnowledgeCommand extends Command
         {--q= : Search title, slug, summary or canonical path}
         {--limit=50 : Maximum items}
         {--workspace= : Workspace path to scan for code intelligence}
+        {--run-context-type= : Optional Atlas Tool Runtime context type for code intelligence evidence}
+        {--run-context-id= : Optional Atlas Tool Runtime context id for code intelligence evidence}
         {--dry-run : Preview sync without writing}
         {--prune : Archive canonical records whose markdown no longer exists}
         {--json : Print machine-readable JSON}';
@@ -180,6 +182,8 @@ class AtlasEngineeringKnowledgeCommand extends Command
             'workspace' => $this->stringOption('workspace'),
             'dry_run' => (bool) $this->option('dry-run'),
             'prune' => (bool) $this->option('prune'),
+            'run_context_type' => $this->stringOption('run-context-type'),
+            'run_context_id' => $this->stringOption('run-context-id'),
         ]);
 
         if ($this->json()) {
@@ -227,6 +231,8 @@ class AtlasEngineeringKnowledgeCommand extends Command
         $payload = $code->audit([
             'workspace' => $this->stringOption('workspace'),
             'limit' => (int) $this->option('limit'),
+            'run_context_type' => $this->stringOption('run-context-type'),
+            'run_context_id' => $this->stringOption('run-context-id'),
         ]);
 
         if ($this->json()) {

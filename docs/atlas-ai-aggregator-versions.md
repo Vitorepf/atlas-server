@@ -6,9 +6,10 @@ engine) use to decide whether two traces are comparable.
 
 When the aggregator's output schema evolves in a way that changes what consumers
 read from `score_components` or the summary columns, bump the version and
-document the change here. **Do not bump silently.** Statistical analysis
-(planned engine Phase 5) will refuse to mix versions in trend windows — that
-discipline only works if the version reflects real semantic deltas.
+document the change here. **Do not bump silently.** Statistical analysis refuses
+to mix versions in trend windows. It loads historical snapshots for the exact
+live `aggregator_version`, so a new schema starts a new comparable baseline
+instead of silently blending old and new signals.
 
 ## Versions
 
@@ -39,16 +40,33 @@ Behavioral guarantees added in v2 (none break v1 fields):
 v1 traces predate these fields; the engine's statistical layer must filter by
 `aggregator_version` before computing trend baselines or anomaly thresholds.
 
-## How to detect v1 traces in production
+### `ai_trace_metric_aggregator_v3` (Atlas Decide telemetry, 2026-05-03)
+
+Adds:
+- `score_components.atlas_decide`: structured diagnostics for Atlas Decide
+  routing/execution, including decision availability, decision/route mode, task
+  type, risk level, context/execution strategy, activation status, dependency
+  state, scout/executor providers and models, provider sequence, fallbacks,
+  degradation state, quality gates, task profile and decision signals.
+
+Behavioral guarantees added in v3:
+- `v2` router, diagnostics and tools blocks remain present and compatible.
+- Trend windows compare exact versions only. Pure `v3` windows can use modern
+  diagnostics; mixed `v2`/`v3` windows are treated as mixed until rollup
+  recomputes the older summaries.
+- Trust Gate treats pure `v3` as full version purity and any mixed
+  `aggregator_version` window as unsafe for trend claims.
+
+## How to detect traces that need rollup
 
 ```sql
-SELECT COUNT(*) AS v1_traces_remaining
+SELECT COUNT(*) AS traces_not_on_current_aggregator
 FROM ai_trace_metric_summaries
-WHERE metadata->>'aggregator_version' != 'ai_trace_metric_aggregator_v2'
+WHERE metadata->>'aggregator_version' != 'ai_trace_metric_aggregator_v3'
    OR metadata->>'aggregator_version' IS NULL;
 ```
 
-To upgrade v1 traces to v2 in-place, run the rollup over the affected window:
+To upgrade older traces in-place, run the rollup over the affected window:
 
 ```bash
 php artisan atlas:ai:telemetry:rollup --hours=720

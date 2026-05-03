@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\AtlasToolFinding;
 use App\Models\AtlasToolRun;
+use App\Services\Tools\AtlasToolEvidenceStore;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -281,6 +283,37 @@ BASH);
             ->assertJsonCount(1, 'data');
     }
 
+    public function test_run_errors_are_reported_as_api_and_cli_contracts(): void
+    {
+        $this->postJson('/tools/not-registered/run', [
+            'workspace' => $this->workspace,
+            'command' => ['not-registered', '--version'],
+        ], $this->headers)
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Tool [not-registered] is not registered.');
+
+        $this->installFakeBinary('rg', 'echo "ripgrep 99.0.0"');
+
+        $this->postJson('/tools/ripgrep/run', [
+            'workspace' => $this->workspace,
+            'command' => ['./../bin/rg'],
+        ], $this->headers)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Unsafe command argument rejected.');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'not-registered',
+            '--workspace' => $this->workspace,
+            '--command' => ['not-registered', '--version'],
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('error', $payload['status'] ?? null);
+        $this->assertSame('invalid_tool_run_request', $payload['error'] ?? null);
+    }
+
     public function test_evidence_can_be_filtered_by_workspace_tool_status_and_surface(): void
     {
         $this->installFakeBinary('rg', 'echo "ripgrep 99.0.0"');
@@ -328,6 +361,432 @@ BASH);
         }
     }
 
+    public function test_evidence_run_can_be_shown_and_exported_by_cli_and_api(): void
+    {
+        $this->installFakeBinary('rg', 'echo "ripgrep 99.0.0"');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'ripgrep',
+            '--workspace' => $this->workspace,
+            '--command' => ['rg', '--version'],
+            '--json' => true,
+        ]);
+        $runPayload = json_decode(Artisan::output(), true);
+        $runId = (string) data_get($runPayload, 'run.id');
+
+        $this->assertNotSame('', $runId);
+
+        Artisan::call('atlas:tools', [
+            'action' => 'evidence-show',
+            'tool' => $runId,
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $showPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame($runId, data_get($showPayload, 'run.id'));
+        $this->assertSame('ripgrep', data_get($showPayload, 'run.tool_slug'));
+        $this->assertNotEmpty(data_get($showPayload, 'run.artifacts'));
+
+        Artisan::call('atlas:tools', [
+            'action' => 'evidence-export',
+            '--run-id' => $runId,
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $exportPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('atlas.tool_evidence.v1', $exportPayload['schema'] ?? null);
+        $this->assertSame($runId, data_get($exportPayload, 'integrity.run_id'));
+        $this->assertSame('ripgrep', data_get($exportPayload, 'integrity.tool_slug'));
+        $this->assertNotEmpty(data_get($exportPayload, 'integrity.artifact_hashes'));
+        $this->assertSame($runId, data_get($exportPayload, 'run.id'));
+        $this->assertArrayNotHasKey('workspace', $exportPayload['run']);
+        $this->assertArrayNotHasKey('path', data_get($exportPayload, 'artifacts.0', []));
+        $this->assertArrayNotHasKey('preview_json', data_get($exportPayload, 'artifacts.0', []));
+
+        Artisan::call('atlas:tools', [
+            'action' => 'evidence-export',
+            '--run-id' => $runId,
+            '--json' => true,
+        ]);
+        $unscopedExportPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame($runId, data_get($unscopedExportPayload, 'integrity.run_id'));
+
+        $this->getJson('/tools/evidence/'.$runId.'?workspace='.urlencode($this->workspace), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('data.id', $runId)
+            ->assertJsonPath('data.tool_slug', 'ripgrep');
+
+        $this->getJson('/tools/evidence/'.$runId.'/export?workspace='.urlencode($this->workspace), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('schema', 'atlas.tool_evidence.v1')
+            ->assertJsonPath('integrity.run_id', $runId)
+            ->assertJsonMissingPath('run.workspace')
+            ->assertJsonMissingPath('artifacts.0.path')
+            ->assertJsonMissingPath('artifacts.0.preview_json');
+    }
+
+    public function test_evidence_run_lookup_is_scoped_by_workspace_when_requested(): void
+    {
+        $this->installFakeBinary('rg', 'echo "ripgrep 99.0.0"');
+        $otherWorkspace = sys_get_temp_dir().'/atlas-tool-runtime-other-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($otherWorkspace);
+
+        try {
+            Artisan::call('atlas:tools', [
+                'action' => 'run',
+                'tool' => 'ripgrep',
+                '--workspace' => $this->workspace,
+                '--command' => ['rg', '--version'],
+                '--json' => true,
+            ]);
+            $runId = (string) data_get(json_decode(Artisan::output(), true), 'run.id');
+
+            $this->getJson('/tools/evidence/'.$runId.'?workspace='.urlencode($otherWorkspace), $this->headers)
+                ->assertNotFound();
+
+            Artisan::call('atlas:tools', [
+                'action' => 'evidence-export',
+                '--run-id' => $runId,
+                '--workspace' => $otherWorkspace,
+                '--json' => true,
+            ]);
+            $payload = json_decode(Artisan::output(), true);
+
+            $this->assertSame('missing', $payload['status'] ?? null);
+            $this->assertSame('tool_run_not_found', $payload['error'] ?? null);
+        } finally {
+            File::deleteDirectory($otherWorkspace);
+        }
+    }
+
+    public function test_evidence_export_sanitizes_finding_paths_and_messages(): void
+    {
+        $absoluteFile = $this->workspace.'/app/Secret.php';
+        File::ensureDirectoryExists(dirname($absoluteFile));
+        File::put($absoluteFile, '<?php');
+        $this->installFakeBinary('eslint', <<<BASH
+cat <<'JSON'
+[
+  {
+    "filePath": "{$absoluteFile}",
+    "messages": [
+      {
+        "ruleId": "secret/path",
+        "severity": 2,
+        "message": "Leaked token sk-abcdefghijklmnop at {$absoluteFile}",
+        "line": 7
+      }
+    ]
+  }
+]
+JSON
+exit 1
+BASH);
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'eslint',
+            '--workspace' => $this->workspace,
+            '--command' => ['eslint', '--format', 'json'],
+            '--json' => true,
+        ]);
+        $runId = (string) data_get(json_decode(Artisan::output(), true), 'run.id');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'evidence-export',
+            '--run-id' => $runId,
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('app/Secret.php', data_get($payload, 'findings.0.file_path'));
+        $this->assertStringNotContainsString($this->workspace, (string) data_get($payload, 'findings.0.file_path'));
+        $this->assertStringNotContainsString('sk-abcdefghijklmnop', (string) data_get($payload, 'findings.0.message'));
+        $this->assertStringNotContainsString($this->workspace, (string) data_get($payload, 'findings.0.message'));
+    }
+
+    public function test_gate_blocks_on_failed_evidence_and_missing_required_tools(): void
+    {
+        $this->installFakeBinary('semgrep', <<<'BASH'
+cat <<'JSON'
+{
+  "results": [
+    {
+      "check_id": "php.security.gate",
+      "path": "app/Gate.php",
+      "start": {"line": 5},
+      "extra": {
+        "severity": "ERROR",
+        "message": "Gate blocking finding"
+      }
+    }
+  ]
+}
+JSON
+exit 1
+BASH);
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'semgrep',
+            '--workspace' => $this->workspace,
+            '--command' => ['semgrep', '--json'],
+            '--json' => true,
+        ]);
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=semgrep&required_tool[]=semgrep', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('allowed', false)
+            ->assertJsonPath('summary.run_count', 1)
+            ->assertJsonPath('summary.blocking_failure_count', 2)
+            ->assertJsonPath('blocking_failures.0.reason', 'tool_status_failed');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'gate',
+            '--workspace' => $this->workspace,
+            '--required-tool' => ['ripgrep'],
+            '--require-evidence' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('blocked', $payload['status'] ?? null);
+        $this->assertSame('required_tool_missing', data_get($payload, 'blocking_failures.0.reason'));
+    }
+
+    public function test_gate_passes_when_required_tool_has_passing_evidence(): void
+    {
+        $this->installFakeBinary('rg', 'echo "ripgrep 99.0.0"');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run',
+            'tool' => 'ripgrep',
+            '--workspace' => $this->workspace,
+            '--command' => ['rg', '--version'],
+            '--json' => true,
+        ]);
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=ripgrep&required_tool[]=ripgrep', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'passed')
+            ->assertJsonPath('allowed', true)
+            ->assertJsonPath('summary.run_count', 1)
+            ->assertJsonPath('summary.blocking_failure_count', 0);
+    }
+
+    public function test_finding_waivers_are_auditable_and_excluded_from_gates_until_revoked(): void
+    {
+        $run = app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'passed',
+            'findings' => [[
+                'rule_id' => 'php.security.waiver',
+                'title' => 'Waivable blocking finding',
+                'message' => 'Fixture finding that blocks a release gate.',
+                'severity' => 'high',
+                'file' => 'app/Waiver.php',
+                'line' => 9,
+                'blocks_resolved' => true,
+            ]],
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+        $finding = AtlasToolFinding::query()->where('tool_run_id', $run?->id)->firstOrFail();
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=semgrep', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('summary.blocking_failure_count', 1);
+
+        $this->postJson('/tools/findings/'.$finding->id.'/waiver', [
+            'reason' => 'Accepted false positive in generated fixture.',
+            'ttl_hours' => 2,
+        ], $this->headers)
+            ->assertCreated()
+            ->assertJsonPath('data.id', $finding->id)
+            ->assertJsonPath('data.status', 'waived')
+            ->assertJsonPath('data.metadata_json.waiver.reason', 'Accepted false positive in generated fixture.')
+            ->assertJsonPath('data.metadata_json.waiver.waived_by', 'atlas_api');
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=semgrep', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'passed')
+            ->assertJsonPath('summary.blocking_failure_count', 0)
+            ->assertJsonPath('runs.0.blocking_finding_count', 0)
+            ->assertJsonPath('runs.0.waived_finding_count', 1);
+
+        Artisan::call('atlas:tools', [
+            'action' => 'evidence-export',
+            '--run-id' => $run?->id,
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $exportPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('waived', data_get($exportPayload, 'findings.0.status'));
+        $this->assertSame('Accepted false positive in generated fixture.', data_get($exportPayload, 'findings.0.waiver.reason'));
+        $this->assertNotEmpty(data_get($exportPayload, 'findings.0.waiver.id'));
+
+        Artisan::call('atlas:tools', [
+            'action' => 'revoke-finding-waiver',
+            '--finding-id' => $finding->id,
+            '--reason' => 'Fixture waiver revoked.',
+            '--json' => true,
+        ]);
+        $revoked = json_decode(Artisan::output(), true);
+
+        $this->assertSame('open', $revoked['status'] ?? null);
+        $this->assertSame('open', data_get($revoked, 'finding.status'));
+        $this->assertNull(data_get($revoked, 'finding.waiver_id'));
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=semgrep', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('summary.blocking_failure_count', 1);
+    }
+
+    public function test_expired_finding_waiver_does_not_suppress_blocking_gate(): void
+    {
+        $run = app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'passed',
+            'findings' => [[
+                'rule_id' => 'php.security.expired_waiver',
+                'title' => 'Expired waiver finding',
+                'severity' => 'high',
+                'blocks_resolved' => true,
+            ]],
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+        $finding = AtlasToolFinding::query()->where('tool_run_id', $run?->id)->firstOrFail();
+
+        Artisan::call('atlas:tools', [
+            'action' => 'waive-finding',
+            '--finding-id' => $finding->id,
+            '--reason' => 'Temporary waiver.',
+            '--ttl-hours' => 1,
+            '--json' => true,
+        ]);
+
+        $finding->refresh();
+        $metadata = (array) $finding->metadata_json;
+        data_set($metadata, 'waiver.waived_until', now()->subHour()->toISOString());
+        $finding->forceFill(['metadata_json' => $metadata])->save();
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=semgrep', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('summary.blocking_failure_count', 1)
+            ->assertJsonPath('runs.0.waived_finding_count', 0);
+    }
+
+    public function test_release_gate_requires_security_sbom_evidence_and_honors_valid_waivers(): void
+    {
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('gitleaks', $this->workspace, [
+            'status' => 'passed',
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('trivy', $this->workspace, [
+            'status' => 'passed',
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('syft', $this->workspace, [
+            'status' => 'passed',
+            'stdout' => json_encode([
+                'source' => ['type' => 'directory', 'name' => '.'],
+                'artifacts' => [
+                    ['name' => 'vendor/package', 'version' => '1.0.0', 'type' => 'php-composer-package'],
+                ],
+            ]),
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+        $semgrepRun = app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'failed',
+            'exit_code' => 1,
+            'findings' => [[
+                'rule_id' => 'php.security.release_gate',
+                'title' => 'Release gate security finding',
+                'severity' => 'high',
+                'blocks_resolved' => true,
+            ]],
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+        $finding = AtlasToolFinding::query()->where('tool_run_id', $semgrepRun?->id)->firstOrFail();
+
+        $this->getJson('/tools/release-gate?workspace='.urlencode($this->workspace), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('release_requirements.0.satisfied', true)
+            ->assertJsonPath('release_requirements.1.satisfied', true)
+            ->assertJsonPath('release_requirements.2.satisfied', true)
+            ->assertJsonPath('release_requirements.3.satisfied', true);
+
+        $this->postJson('/tools/findings/'.$finding->id.'/waiver', [
+            'reason' => 'Accepted false positive for release fixture.',
+            'ttl_hours' => 1,
+        ], $this->headers)->assertCreated();
+
+        $this->getJson('/tools/release-gate?workspace='.urlencode($this->workspace), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'passed')
+            ->assertJsonPath('allowed', true)
+            ->assertJsonPath('summary.release_requirement_failure_count', 0)
+            ->assertJsonPath('runs.3.waived_finding_count', 1);
+
+        Artisan::call('atlas:tools', [
+            'action' => 'release-gate',
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('passed', $payload['status'] ?? null);
+        $this->assertTrue((bool) ($payload['allowed'] ?? false));
+    }
+
+    public function test_release_gate_blocks_when_required_sbom_evidence_is_missing(): void
+    {
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('gitleaks', $this->workspace, [
+            'status' => 'passed',
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'passed',
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('trivy', $this->workspace, [
+            'status' => 'passed',
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+
+        $this->getJson('/tools/release-gate?workspace='.urlencode($this->workspace), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('summary.release_requirement_failure_count', 1)
+            ->assertJsonPath('blocking_failures.0.requirement', 'sbom_attached');
+    }
+
     public function test_quality_scan_records_generic_tool_evidence_without_breaking_existing_payload(): void
     {
         File::put($this->workspace.'/eslint.config.js', 'export default [];');
@@ -342,6 +801,32 @@ BASH);
         $this->assertSame('passed', $payload['status'] ?? null);
         $this->assertFileExists($payload['artifact_root'].'/scan.json');
         $this->assertGreaterThan(0, AtlasToolRun::query()->where('surface', 'engineering_quality_scan')->count());
+    }
+
+    public function test_external_sbom_evidence_persists_normalized_metrics_and_artifact_summaries(): void
+    {
+        $run = app(AtlasToolEvidenceStore::class)->recordExternalToolResult('syft', $this->workspace, [
+            'status' => 'passed',
+            'exit_code' => 0,
+            'duration_ms' => 12,
+            'stdout' => json_encode([
+                'source' => ['type' => 'directory', 'name' => '.'],
+                'artifacts' => [
+                    ['name' => 'vendor/package', 'version' => '1.0.0', 'type' => 'php-composer-package'],
+                    ['name' => 'node/package', 'version' => '2.0.0', 'type' => 'npm-package'],
+                ],
+            ]),
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+
+        $this->assertNotNull($run);
+        $this->assertSame(2, data_get($run, 'normalized_result_json.metrics.package_count'));
+        $this->assertSame(1, data_get($run, 'normalized_result_json.metrics.package_type_counts.php-composer-package'));
+        $this->assertSame('sbom_summary', data_get($run, 'normalized_result_json.artifacts.0.type'));
+        $this->assertSame(2, data_get($run, 'normalized_result_json.artifacts.0.package_count'));
+        $this->assertSame(0, data_get($run, 'summary_json.finding_count'));
     }
 
     public function test_visual_smoke_records_generic_tool_evidence_for_internal_sensor(): void

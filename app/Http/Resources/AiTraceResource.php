@@ -2,8 +2,8 @@
 
 namespace App\Http\Resources;
 
-use App\Support\Metadata;
 use App\Support\AiAttachmentPayload;
+use App\Support\Metadata;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -36,6 +36,7 @@ class AiTraceResource extends JsonResource
             'feedback_comment' => $this->feedback_comment,
             'completed_at' => $this->completed_at?->toJSON(),
             'metadata' => Metadata::forResponse($this->metadata),
+            'atlas_decide_execution' => Metadata::forResponse(data_get($this->metadata, 'atlas_decide_execution')),
             'attachments' => $this->publicAttachments(),
             'thread' => $this->whenLoaded('thread', fn () => $this->thread ? new AiThreadResource($this->thread) : null),
             'session' => $this->whenLoaded('session', fn () => $this->session ? new AiSessionResource($this->session) : null),
@@ -66,6 +67,8 @@ class AiTraceResource extends JsonResource
             'route_mode' => $this->atlasDecision->route_mode,
             'task_type' => $this->atlasDecision->task_type,
             'risk_level' => $this->atlasDecision->risk_level,
+            'context_strategy' => $this->atlasDecision->context_strategy,
+            'execution_strategy' => $this->atlasDecision->execution_strategy,
             'selected_provider' => $this->atlasDecision->selected_provider,
             'selected_model' => $this->atlasDecision->selected_model,
             'fallback_provider' => $this->atlasDecision->fallback_provider,
@@ -77,6 +80,8 @@ class AiTraceResource extends JsonResource
             'candidates' => Metadata::listForResponse($this->atlasDecision->candidates),
             'constraints' => Metadata::forResponse($this->atlasDecision->constraints),
             'metrics_snapshot' => Metadata::forResponse($this->atlasDecision->metrics_snapshot),
+            'task_profile' => Metadata::forResponse($this->atlasDecision->task_profile),
+            'execution_graph' => Metadata::forResponse($this->atlasDecision->execution_graph),
             'reason' => $this->atlasDecision->reason,
             'created_at' => $this->atlasDecision->created_at?->toJSON(),
             'updated_at' => $this->atlasDecision->updated_at?->toJSON(),
@@ -122,6 +127,8 @@ class AiTraceResource extends JsonResource
                 'route_mode' => $atlasDecision->route_mode,
                 'task_type' => $atlasDecision->task_type,
                 'risk_level' => $atlasDecision->risk_level,
+                'context_strategy' => $atlasDecision->context_strategy,
+                'execution_strategy' => $atlasDecision->execution_strategy,
                 'selected_provider' => $atlasDecision->selected_provider,
                 'selected_model' => $atlasDecision->selected_model,
                 'fallback_provider' => $atlasDecision->fallback_provider,
@@ -134,6 +141,8 @@ class AiTraceResource extends JsonResource
                 'candidates' => Metadata::listForResponse($atlasDecision->candidates),
                 'constraints' => Metadata::forResponse($atlasDecision->constraints),
                 'metrics_snapshot' => Metadata::forResponse($atlasDecision->metrics_snapshot),
+                'task_profile' => Metadata::forResponse($atlasDecision->task_profile),
+                'execution_graph' => Metadata::forResponse($atlasDecision->execution_graph),
             ]);
         }
 

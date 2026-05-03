@@ -19,6 +19,11 @@ capabilities:
   - quality_scan
   - context_pack_recall
   - code_intelligence_index
+  - engineering_blueprint
+  - task_contracts
+  - qa_evidence
+  - review_gates
+  - postgres_gate
 decisions:
   - Capacidades maduras precisam de teste focado e referencia em docs canonicos.
   - Capacidades calibradas por historico precisam indicar nivel de confianca.
@@ -29,9 +34,13 @@ maintenance:
   - Rode atlas engineering knowledge index-code --prune para atualizar cobertura codigo->docs.
 related_paths:
   - app/Services/Engineering/EngineeringHarnessRunnerService.php
+  - app/Services/Engineering/EngineeringBlueprintService.php
+  - app/Services/Engineering/EngineeringTaskContractService.php
+  - app/Services/Engineering/EngineeringBlueprintSnapshotService.php
   - app/Services/Engineering/EngineeringBenchmarkService.php
   - app/Services/Engineering/EngineeringQualityScanService.php
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
+  - docs/engineering-knowledge-base/engineering-blueprint.md
 ---
 
 # Matriz De Capacidades
@@ -51,6 +60,18 @@ related_paths:
 | Quality Scan | Implementado | Ferramentas locais/gratuitas, artifacts, redaction, findings e recommendations. |
 | Knowledge Base | Implementado | Docs canonicos, registry Postgres, CLI/API e context refs. |
 | Code Intelligence Index | Implementado | Modulos, simbolos, rotas, comandos, migrations, testes, links docs->codigo e code refs no context pack. |
+| Engineering Blueprint task-level | Implementado base | Contrato por task, blueprint deterministico, snapshot congelado, evidence API e injecao no `atlas dev --task-id`. |
+| Engineering Blueprint project-level | Implementado base | `atlas project blueprint prepare/create/validate/freeze`, API equivalente, tabela dedicada, hash deterministico, supersede, staleness, coverage validator e geracao de tasks por fase. |
+| Manual QA workflow | Implementado base | `atlas qa`, API `tasks/{task}/engineering/qa`, evidence `manual_qa` rica e UI de QA manual no app. |
+| Deep Review gate | Implementado base | `confidence`, `category`, recommendation, `atlas review --deep`, API de triagem e threshold P0/P1 com confidence. |
+| Postgres Engineering Review | Implementado base | `PostgresEngineeringReviewService`, `atlas db review/explain`, evidence `database_review` e findings `migration_risk`/`data_integrity`. |
+
+## Implementado Parcialmente
+
+| Capacidade | Estado | Observacao |
+|---|---|---|
+| Scenario/Inventory coverage | Parcial | Validator bloqueante cobre screens, APIs, scenarios, visual evidence e database review; wireframe refs dedicados ainda sao maturacao. |
+| App Produto Final | Parcial | Projetos exibem blueprint project-level e QA; Engineering promove runs para Atlas-Bench. Ainda falta polimento de run-start visual por task e filtros globais. |
 
 ## Maturacao Operacional
 

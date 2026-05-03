@@ -31,11 +31,17 @@ class EngineeringQualityScanService
         $timeout = max(10, (int) ($options['timeout'] ?? 300));
         $changedOnly = (bool) ($options['changed_only'] ?? false);
         $startedAt = hrtime(true);
+        $runContextType = $this->nullableString($options['run_context_type'] ?? null);
+        $runContextId = $this->nullableString($options['run_context_id'] ?? null);
         $artifactRoot = storage_path('app/engineering-quality-scans/'.now()->format('Ymd-His').'-'.substr(hash('sha256', $workspace.random_int(1, PHP_INT_MAX)), 0, 10));
         File::ensureDirectoryExists($artifactRoot);
 
         $targets = $this->changedTargets($workspace, $changedOnly);
-        $plans = $this->plans($workspace, $profile, $targets);
+        $plans = $this->filterPlans(
+            $this->plans($workspace, $profile, $targets),
+            $this->stringList($options['include_categories'] ?? []),
+            $this->stringList($options['include_tools'] ?? []),
+        );
         $tools = [];
         $findings = [];
 
@@ -69,6 +75,10 @@ class EngineeringQualityScanService
             'artifact_root_hash' => hash('sha256', $artifactRoot),
             'changed_only' => $changedOnly,
             'targets' => $targets,
+            'scope' => [
+                'include_categories' => $this->stringList($options['include_categories'] ?? []),
+                'include_tools' => $this->stringList($options['include_tools'] ?? []),
+            ],
             'summary' => $summary,
             'tools' => $tools,
             'findings' => $findings,
@@ -79,7 +89,10 @@ class EngineeringQualityScanService
         ];
 
         File::put($artifactRoot.'/scan.json', json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-        $this->recordToolRuntimeEvidence($workspace, $artifactRoot, $payload);
+        $this->recordToolRuntimeEvidence($workspace, $artifactRoot, $payload, [
+            'run_context_type' => $runContextType,
+            'run_context_id' => $runContextId,
+        ]);
 
         return $payload;
     }
@@ -134,10 +147,38 @@ class EngineeringQualityScanService
         $plans[] = $this->workspaceBinaryPlan('eslint', 'node_modules/.bin/eslint', ['./node_modules/.bin/eslint', ...($frontendTargets ?: ['.']), '--format', 'json'], $workspace, $this->hasAny($workspace, ['eslint.config.js', 'eslint.config.mjs', '.eslintrc', '.eslintrc.json', '.eslintrc.js']));
         $plans[] = $this->globalBinaryPlan('gitleaks', ['gitleaks', 'detect', '--source', '.', '--redact', '--report-format=json'], $workspace, in_array($profile, ['auto', 'standard', 'release', 'deep'], true));
         $plans[] = $this->globalBinaryPlan('semgrep', ['semgrep', '--json', '--quiet', ...($this->targetArgs($targets) ?: ['.'])], $workspace, in_array($profile, ['release', 'deep'], true));
+        $plans[] = $this->globalBinaryPlan('osv_scanner', ['osv-scanner', '--format', 'json', '.'], $workspace, in_array($profile, ['standard', 'release', 'deep'], true) && $this->hasAnyDependencyManifest($workspace));
+        $plans[] = $this->globalBinaryPlan('trivy', ['trivy', 'fs', '--format', 'json', '--quiet', '--scanners', 'vuln,secret,misconfig', '.'], $workspace, in_array($profile, ['release', 'deep'], true));
+        $plans[] = $this->globalBinaryPlan('syft', ['syft', '.', '-o', 'json'], $workspace, in_array($profile, ['release', 'deep'], true));
+        $plans[] = $this->globalBinaryPlan('grype', ['grype', 'dir:.', '-o', 'json'], $workspace, in_array($profile, ['release', 'deep'], true));
         $plans[] = $this->shellCheckPlan($workspace, $targets);
         $plans[] = $this->globalBinaryPlan('hadolint', ['hadolint', 'Dockerfile'], $workspace, File::isFile($workspace.'/Dockerfile'));
 
         return array_values(array_filter($plans));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $plans
+     * @param  array<int,string>  $categories
+     * @param  array<int,string>  $toolSlugs
+     * @return array<int,array<string,mixed>>
+     */
+    private function filterPlans(array $plans, array $categories, array $toolSlugs): array
+    {
+        if ($categories === [] && $toolSlugs === []) {
+            return $plans;
+        }
+
+        return collect($plans)
+            ->filter(function (array $plan) use ($categories, $toolSlugs): bool {
+                $category = (string) ($plan['category'] ?? '');
+                $slug = (string) ($plan['slug'] ?? '');
+
+                return ($categories !== [] && in_array($category, $categories, true))
+                    || ($toolSlugs !== [] && in_array($slug, $toolSlugs, true));
+            })
+            ->values()
+            ->all();
     }
 
     /**
@@ -172,6 +213,23 @@ class EngineeringQualityScanService
         }
 
         return false;
+    }
+
+    private function hasAnyDependencyManifest(string $workspace): bool
+    {
+        return $this->hasAny($workspace, [
+            'composer.lock',
+            'package-lock.json',
+            'pnpm-lock.yaml',
+            'yarn.lock',
+            'bun.lockb',
+            'go.sum',
+            'Cargo.lock',
+            'Gemfile.lock',
+            'poetry.lock',
+            'Pipfile.lock',
+            'requirements.txt',
+        ]);
     }
 
     /**
@@ -225,7 +283,7 @@ class EngineeringQualityScanService
 
         return [
             'slug' => $slug,
-            'category' => in_array($slug, ['gitleaks', 'semgrep'], true) ? 'security' : 'quality',
+            'category' => $this->toolCategory($slug),
             'available' => $resolved !== null,
             'applicable' => $applicable,
             'command' => $command,
@@ -233,6 +291,15 @@ class EngineeringQualityScanService
             'parser' => $slug,
             'required' => false,
         ];
+    }
+
+    private function toolCategory(string $slug): string
+    {
+        return match ($slug) {
+            'gitleaks', 'semgrep', 'trivy', 'osv_scanner' => 'security',
+            'syft', 'grype' => 'supply_chain',
+            default => 'quality',
+        };
     }
 
     /**
@@ -327,10 +394,14 @@ class EngineeringQualityScanService
         $exitCode = $timedOut ? null : ($process->getExitCode() ?? 1);
         $status = $timedOut ? 'timeout' : ($exitCode === 0 ? 'passed' : 'failed');
         $parsed = $this->parseFindings((string) $plan['parser'], $stdout, $stderr);
+        $metrics = $this->toolNormalizer->metricsFromOutput((string) $plan['parser'], $stdout, $stderr);
+        $artifacts = $this->toolNormalizer->artifactsFromOutput((string) $plan['parser'], $stdout, $stderr);
         File::put($toolRoot.'/result.json', json_encode([
             'status' => $status,
             'exit_code' => $exitCode,
             'findings' => $parsed,
+            'metrics' => $metrics,
+            'artifacts' => $artifacts,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return [
@@ -352,6 +423,8 @@ class EngineeringQualityScanService
             'stdout_excerpt' => Str::limit($this->stripAnsi($stdout), self::OUTPUT_LIMIT, "\n...[truncated]"),
             'stderr_excerpt' => Str::limit($this->stripAnsi($stderr), self::OUTPUT_LIMIT, "\n...[truncated]"),
             'findings' => $parsed,
+            'metrics' => $metrics,
+            'artifacts' => $artifacts,
         ];
     }
 
@@ -498,13 +571,33 @@ class EngineeringQualityScanService
                 'install_hint' => 'brew install hadolint',
                 'why' => 'Valida Dockerfile e reduz erro operacional no Docker Harness.',
             ],
+            'osv_scanner' => [
+                'title' => 'Instalar OSV-Scanner local',
+                'install_hint' => 'brew install osv-scanner',
+                'why' => 'Detecta vulnerabilidades conhecidas em lockfiles sem depender de servico pago.',
+            ],
+            'trivy' => [
+                'title' => 'Instalar Trivy local',
+                'install_hint' => 'brew install trivy',
+                'why' => 'Escaneia vulnerabilidades, secrets e misconfiguracoes no filesystem/container.',
+            ],
+            'syft' => [
+                'title' => 'Instalar Syft local',
+                'install_hint' => 'brew install syft',
+                'why' => 'Gera SBOM local para auditoria de supply chain e evidencias de release.',
+            ],
+            'grype' => [
+                'title' => 'Instalar Grype local',
+                'install_hint' => 'brew install grype',
+                'why' => 'Analisa vulnerabilidades de dependencias a partir do workspace ou SBOM.',
+            ],
         ];
 
         if (! isset($catalog[$slug])) {
             return null;
         }
 
-        $securityTool = in_array($slug, ['gitleaks', 'semgrep'], true);
+        $securityTool = in_array($slug, ['gitleaks', 'semgrep', 'trivy', 'osv_scanner', 'grype'], true);
 
         return [
             'tool' => $slug,
@@ -525,10 +618,44 @@ class EngineeringQualityScanService
         return preg_replace('/\x1B(?:[@-Z\\\\-_]|\[[0-?]*[ -\/]*[@-~])/', '', $value) ?? $value;
     }
 
+    private function nullableString(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = explode(',', $value);
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return collect($value)
+            ->filter(fn (mixed $item): bool => is_scalar($item))
+            ->map(fn (mixed $item): string => strtolower(trim((string) $item)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     /**
      * @param  array<string,mixed>  $payload
+     * @param  array{run_context_type?:?string,run_context_id?:?string}  $context
      */
-    private function recordToolRuntimeEvidence(string $workspace, string $artifactRoot, array $payload): void
+    private function recordToolRuntimeEvidence(string $workspace, string $artifactRoot, array $payload, array $context = []): void
     {
         if (! Schema::hasTable('atlas_tool_runs')) {
             return;
@@ -542,6 +669,8 @@ class EngineeringQualityScanService
             $this->toolEvidence->recordExternalToolResult((string) ($tool['slug'] ?? 'unknown'), $workspace, $tool, [
                 'surface' => 'engineering_quality_scan',
                 'source' => 'engineering_quality_scan_service',
+                'run_context_type' => $context['run_context_type'] ?? null,
+                'run_context_id' => $context['run_context_id'] ?? null,
                 'metadata' => [
                     'scan_artifact_root_hash' => hash('sha256', $artifactRoot),
                     'profile' => $payload['profile'] ?? null,

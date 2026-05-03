@@ -10,6 +10,7 @@ use App\Models\AiQualityEvaluation;
 use App\Models\AiTelemetryEvent;
 use App\Models\AiTrace;
 use App\Models\AiTraceMetricSummary;
+use App\Services\Ai\AiProviderModelResolver;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,7 @@ class AiTelemetryMetricsTest extends TestCase
     protected function tearDown(): void
     {
         foreach ([
+            'ai_tool_events',
             'ai_trace_metric_summaries',
             'ai_outcome_links',
             'ai_provider_cost_rates',
@@ -261,10 +263,11 @@ class AiTelemetryMetricsTest extends TestCase
         $trace = $this->seedCompletedTrace();
         $trace->update(['model' => null]);
         AiJob::query()->where('trace_id', $trace->id)->update(['model' => null]);
+        $resolvedModel = app(AiProviderModelResolver::class)->resolve('claude_cli', null);
         AiProviderCostRate::query()->delete();
         AiProviderCostRate::query()->create([
             'provider' => 'claude_cli',
-            'model' => 'claude_cli_default',
+            'model' => $resolvedModel,
             'input_microusd_per_1k' => 1000,
             'output_microusd_per_1k' => 2000,
             'metadata' => ['source' => 'test_estimate'],
@@ -688,6 +691,7 @@ class AiTelemetryMetricsTest extends TestCase
     private function tearDownTablesOnly(): void
     {
         foreach ([
+            'ai_tool_events',
             'ai_trace_metric_summaries',
             'ai_outcome_links',
             'ai_provider_cost_rates',

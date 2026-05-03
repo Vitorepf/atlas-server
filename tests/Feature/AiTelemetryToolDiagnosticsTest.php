@@ -7,6 +7,7 @@ use App\Models\AiProviderCostRate;
 use App\Models\AiToolEvent;
 use App\Models\AiTrace;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
+use App\Services\Ai\Telemetry\AiTraceMetricAggregatorVersions;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -18,7 +19,7 @@ use Tests\TestCase;
  * Properties under test:
  *  1. Trace WITHOUT tool events: tools.available = false (distinguishable from "no data")
  *  2. Trace WITH tool events: structured per_tool / risk / failures / denials populated correctly
- *  3. aggregator_version bumps to v2 always (Fix 7c marker)
+ *  3. aggregator_version uses the current contract marker
  *  4. tool_events_count metadata is populated when tools are present
  */
 class AiTelemetryToolDiagnosticsTest extends TestCase
@@ -66,17 +67,16 @@ class AiTelemetryToolDiagnosticsTest extends TestCase
         );
     }
 
-    public function test_aggregator_version_always_bumps_to_v2_after_fix_7c(): void
+    public function test_aggregator_version_uses_current_contract_marker(): void
     {
         $trace = $this->seedTrace();
 
         $summary = app(AiTraceMetricAggregator::class)->recomputeTrace($trace->id);
 
         $this->assertSame(
-            'ai_trace_metric_aggregator_v2',
+            AiTraceMetricAggregatorVersions::CURRENT,
             $summary->metadata['aggregator_version'],
-            'v2 marker enables the future statistical layer (planned engine Phase 5) '
-                .'to discriminate between v1 and v2 traces in trend analysis windows.'
+            'The version marker lets the statistical layer discriminate schemas in trend windows.'
         );
     }
 
@@ -88,9 +88,9 @@ class AiTelemetryToolDiagnosticsTest extends TestCase
         // Mix of tools, statuses, and outcomes:
         $this->seedToolEvent($traceId, 'shell.run', 'medium', 'approved', exitCode: 0, durationMs: 1200);
         $this->seedToolEvent($traceId, 'shell.run', 'medium', 'approved', exitCode: 1, durationMs: 800, error: 'command failed');
-        $this->seedToolEvent($traceId, 'shell.run', 'medium', 'denied',   exitCode: null, durationMs: 0);
-        $this->seedToolEvent($traceId, 'file.read', 'low',    'auto',     exitCode: 0, durationMs: 50);
-        $this->seedToolEvent($traceId, 'file.read', 'low',    'auto',     exitCode: 0, durationMs: 30);
+        $this->seedToolEvent($traceId, 'shell.run', 'medium', 'denied', exitCode: null, durationMs: 0);
+        $this->seedToolEvent($traceId, 'file.read', 'low', 'auto', exitCode: 0, durationMs: 50);
+        $this->seedToolEvent($traceId, 'file.read', 'low', 'auto', exitCode: 0, durationMs: 30);
         $this->seedToolEvent($traceId, 'git.apply_patch', 'critical', 'approved', exitCode: 0, durationMs: 200);
 
         $summary = app(AiTraceMetricAggregator::class)->recomputeTrace($trace->id);

@@ -12,6 +12,8 @@ class AtlasEngineeringQualityScanCommand extends Command
         {--profile=auto : auto, fast, standard, release or deep}
         {--changed-only : Prefer changed files when a tool supports explicit targets}
         {--timeout=300 : Seconds allowed per tool}
+        {--run-context-type= : Optional Atlas Tool Runtime context type}
+        {--run-context-id= : Optional Atlas Tool Runtime context id}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Run an Atlas Engineering quality/security scan with audited tool detection, artifacts and normalized findings.';
@@ -22,6 +24,8 @@ class AtlasEngineeringQualityScanCommand extends Command
             'profile' => $this->option('profile') ?: 'auto',
             'changed_only' => (bool) $this->option('changed-only'),
             'timeout' => is_numeric($this->option('timeout')) ? (int) $this->option('timeout') : 300,
+            'run_context_type' => $this->stringOption('run-context-type'),
+            'run_context_id' => $this->stringOption('run-context-id'),
         ]);
 
         if ((bool) $this->option('json')) {
@@ -82,5 +86,17 @@ class AtlasEngineeringQualityScanCommand extends Command
         $resolved = realpath($workspace);
 
         return $resolved && is_dir($resolved) ? $resolved : $workspace;
+    }
+
+    private function stringOption(string $name): ?string
+    {
+        $value = $this->option($name);
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
     }
 }

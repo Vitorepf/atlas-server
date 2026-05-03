@@ -76,7 +76,10 @@ class EngineeringTaskContractService
             'test_coverage' => $this->testCoverage($existing, $metadata, $acceptanceCriteria),
             'estimated_size' => $this->estimatedSize($task, $existing),
             'definition_of_done' => $this->definitionOfDone($existing, $metadata, $acceptanceCriteria, $project),
-            'refs' => $this->taskSummary($task),
+            'refs' => [
+                ...$this->arrayValue($existing['refs'] ?? []),
+                ...$this->taskSummary($task),
+            ],
         ];
     }
 
@@ -315,6 +318,13 @@ class EngineeringTaskContractService
         }
 
         if (is_array($value)) {
+            if (! array_is_list($value)) {
+                $statement = $value['statement'] ?? $value['criterion'] ?? $value['title'] ?? $value['goal'] ?? null;
+                if (is_scalar($statement) && trim((string) $statement) !== '') {
+                    return [trim((string) $statement)];
+                }
+            }
+
             $items = [];
             foreach ($value as $entry) {
                 $items = array_merge($items, $this->listValue($entry));

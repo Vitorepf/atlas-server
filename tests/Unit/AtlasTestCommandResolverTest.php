@@ -11,7 +11,7 @@ class AtlasTestCommandResolverTest extends TestCase
     {
         $command = app(AtlasTestCommandResolver::class)->preferred(['php artisan test']);
 
-        $this->assertSame(escapeshellarg(PHP_BINARY).' artisan test', $command);
+        $this->assertSame(escapeshellarg(PHP_BINARY).' -d memory_limit=1024M artisan test', $command);
     }
 
     public function test_keeps_non_laravel_test_command_unchanged(): void

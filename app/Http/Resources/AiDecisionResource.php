@@ -19,6 +19,8 @@ class AiDecisionResource extends JsonResource
             'route_mode' => $this->route_mode,
             'task_type' => $this->task_type,
             'risk_level' => $this->risk_level,
+            'context_strategy' => $this->context_strategy,
+            'execution_strategy' => $this->execution_strategy,
             'selected_provider' => $this->selected_provider,
             'selected_model' => $this->selected_model,
             'fallback_provider' => $this->fallback_provider,
@@ -30,6 +32,8 @@ class AiDecisionResource extends JsonResource
             'candidates' => Metadata::listForResponse($this->candidates),
             'constraints' => Metadata::forResponse($this->constraints),
             'metrics_snapshot' => Metadata::forResponse($this->metrics_snapshot),
+            'task_profile' => Metadata::forResponse($this->task_profile),
+            'execution_graph' => Metadata::forResponse($this->execution_graph),
             'reason' => $this->reason,
             'trace' => $this->whenLoaded('trace', fn () => $this->trace ? new AiTraceResource($this->trace) : null),
             'router_decision' => $this->whenLoaded('routerDecision', fn () => $this->routerDecision ? [

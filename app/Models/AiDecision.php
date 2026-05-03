@@ -18,6 +18,8 @@ class AiDecision extends Model
         'route_mode',
         'task_type',
         'risk_level',
+        'context_strategy',
+        'execution_strategy',
         'selected_provider',
         'selected_model',
         'fallback_provider',
@@ -29,6 +31,8 @@ class AiDecision extends Model
         'candidates',
         'constraints',
         'metrics_snapshot',
+        'task_profile',
+        'execution_graph',
         'reason',
     ];
 
@@ -43,6 +47,8 @@ class AiDecision extends Model
             'candidates' => 'array',
             'constraints' => 'array',
             'metrics_snapshot' => 'array',
+            'task_profile' => 'array',
+            'execution_graph' => 'array',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];

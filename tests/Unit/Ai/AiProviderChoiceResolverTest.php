@@ -6,12 +6,26 @@ use App\Models\AiJob;
 use App\Models\AiTrace;
 use App\Services\Ai\AiProviderChoiceException;
 use App\Services\Ai\AiProviderChoiceResolver;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\CreatesAiJobChoiceTables;
 use Tests\TestCase;
 
 class AiProviderChoiceResolverTest extends TestCase
 {
-    use RefreshDatabase;
+    use CreatesAiJobChoiceTables;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->createAiJobChoiceTables();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->dropAiJobChoiceTables();
+
+        parent::tearDown();
+    }
 
     public function test_switch_provider_requeues_with_new_provider(): void
     {

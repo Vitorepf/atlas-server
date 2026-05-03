@@ -151,6 +151,20 @@ class MobileInboxController extends Controller
         ]);
     }
 
+    public function retryDiscussionBootstrap(Request $request, AiInboxItem $inboxItem, InboxActionRegistry $actions): JsonResponse
+    {
+        $this->authorizeItem($request, $inboxItem);
+
+        $result = $actions->retryDiscussionBootstrap($inboxItem, $this->device($request));
+
+        return response()->json([
+            'ok' => true,
+            'idempotent' => $result['idempotent'],
+            'result' => $result['result'],
+            'item' => (new AiInboxItemResource($result['item']))->resolve(),
+        ]);
+    }
+
     private function authorizeItem(Request $request, AiInboxItem $item): void
     {
         abort_unless($item->user_id === $this->device($request)->user_id, 404);

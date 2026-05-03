@@ -79,10 +79,12 @@ class AiDecisionController extends Controller
             : null;
         $options = $this->optionsWithSelectionMetadata($options, $candidate, $selectedProvider, $fallbackReason);
         $receipt = $decide->receiptForTrace($options, $selectedProvider, $modelResolution['model']);
+        $plan = $decide->decisionPlan($options, $selectedProvider, $modelResolution['model']);
 
         return response()->json([
             'decision' => [
                 ...$receipt,
+                ...$plan,
                 'policy_version' => (string) data_get($options, 'payload.atlas_decide.policy_version', 'atlas-decide-v1'),
                 'route_mode' => (string) (data_get($options, 'payload.atlas_workflow_mode') ?: ($options['mode'] ?? 'direct')),
                 'confidence_score' => $this->confidenceScore($decide, $options, $selectedProvider),

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\ProcessAudioTranscription;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Semantic\CurationProposalService;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Queue;
@@ -16,6 +17,14 @@ use Tests\TestCase;
 
 class CaptureTranscriptionRetryTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        CarbonImmutable::setTestNow();
+
+        parent::tearDown();
+    }
+
     public function test_text_capture_creates_ready_for_curation_event_and_semantic_clarification(): void
     {
         $this->createCaptureTables();
@@ -1976,6 +1985,9 @@ class CaptureTranscriptionRetryTest extends TestCase
         config()->set('atlas.token', 'test-token-with-enough-length-123');
         $headers = ['X-Atlas-Token' => 'test-token-with-enough-length-123'];
         $today = CarbonImmutable::parse('2026-04-30', 'America/Sao_Paulo');
+        $frozenNow = $today->setTime(7, 0)->setTimezone('UTC');
+        Carbon::setTestNow($frozenNow);
+        CarbonImmutable::setTestNow($frozenNow);
 
         $routineId = $this->postJson('/routines', [
             'title' => 'Revisar plano do Atlas',
@@ -2022,6 +2034,7 @@ class CaptureTranscriptionRetryTest extends TestCase
         ]);
         $taskRow = \DB::table('atlas_tasks')->where('routine_id', $routineId)->first();
         $this->assertStringStartsWith($today->toDateString(), (string) $taskRow->routine_occurrence_date);
+        $this->assertSame('08:30', CarbonImmutable::parse((string) $taskRow->planned_start_at, 'UTC')->setTimezone('America/Sao_Paulo')->format('H:i'));
 
         $agenda = $this->getJson('/tasks/agenda?date='.$today->toDateString().'&timezone=America/Sao_Paulo&energy_level=3&capacity_minutes=120', $headers)
             ->assertOk()

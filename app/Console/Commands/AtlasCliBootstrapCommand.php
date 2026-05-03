@@ -9,6 +9,7 @@ use App\Services\Ai\Cli\AtlasCliInstallService;
 use App\Services\Ai\Cli\AtlasCliSetupService;
 use App\Services\Ai\Scheduling\AtlasSchedulerInstallService;
 use Illuminate\Console\Command;
+use Symfony\Component\Console\Output\OutputInterface;
 
 class AtlasCliBootstrapCommand extends Command
 {
@@ -16,6 +17,7 @@ class AtlasCliBootstrapCommand extends Command
         {--target= : Symlink target. Defaults to ~/.local/bin/atlas}
         {--claude-bin= : Absolute path or command name for Claude Code CLI}
         {--codex-bin= : Absolute path or command name for Codex CLI}
+        {--gemini-bin= : Absolute path or command name for Gemini CLI}
         {--env-path= : Custom .env path}
         {--workspace= : Workspace path for the automatic final doctor. Defaults to current directory}
         {--force : Replace an existing launcher target}
@@ -108,7 +110,10 @@ class AtlasCliBootstrapCommand extends Command
         $payload = $this->payload($diagnosis, $envWrite, $install, $shellProfile, $schedulerCron, $projection, $providerRefresh, $finalDoctor, $dryRun);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->getOutput()->writeln(
+                json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                OutputInterface::OUTPUT_RAW,
+            );
 
             return $payload['ok'] || ! (bool) $this->option('strict')
                 ? self::SUCCESS
@@ -130,6 +135,7 @@ class AtlasCliBootstrapCommand extends Command
         return array_filter([
             'claude_cli' => is_string($this->option('claude-bin')) ? trim((string) $this->option('claude-bin')) : null,
             'codex_cli' => is_string($this->option('codex-bin')) ? trim((string) $this->option('codex-bin')) : null,
+            'gemini_cli' => is_string($this->option('gemini-bin')) ? trim((string) $this->option('gemini-bin')) : null,
         ], fn (?string $value): bool => $value !== null && $value !== '');
     }
 

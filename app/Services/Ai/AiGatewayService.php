@@ -24,7 +24,9 @@ use RuntimeException;
 class AiGatewayService
 {
     private const COUNCIL_PROVIDERS = ['claude_cli', 'codex_cli'];
+
     private const INVOCATION_PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli'];
+
     private const TRANSACTION_ATTEMPTS = 5;
 
     public function __construct(
@@ -97,11 +99,18 @@ class AiGatewayService
         $modelResolution = $this->models->resolveWithSource($provider, $prompt->model ?: ($options['model'] ?? null));
         $model = $modelResolution['model'];
         $this->budgets->assertAllows($provider, $model, $options);
+        $scoutGate = $this->atlasScoutGate($this->optionsWithPromptContracts($options, $prompt), $provider, $model);
+        $options = $this->optionsWithAtlasExecutionActivation($options, $scoutGate);
         $now = now();
 
-        return DB::transaction(function () use ($input, $options, $prompt, $provider, $model, $modelResolution, $now, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff): AiTrace {
+        return DB::transaction(function () use ($input, $options, $prompt, $provider, $model, $modelResolution, $scoutGate, $now, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff): AiTrace {
             $lockedThread = $this->lockThreadForTrace($threadResolution);
             $lockedSession = $this->lockSessionForTrace($session);
+            $decisionReceipt = $this->decide->receiptForTrace($this->optionsWithPromptContracts($options, $prompt), $provider, $model);
+            $executorAvailableAt = $scoutGate['enabled']
+                ? $this->atlasScoutDependencyDeadline($options)
+                : ($options['available_at'] ?? $now);
+            $atlasExecution = $this->atlasExecutionPayload($scoutGate);
 
             $trace = AiTrace::query()->create([
                 'trace_key' => 'trace_'.Str::orderedUuid()->toString(),
@@ -132,7 +141,8 @@ class AiGatewayService
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
-                    'decision_receipt' => $this->decide->receiptForTrace($options, $provider, $model),
+                    'decision_receipt' => $decisionReceipt,
+                    'atlas_decide_execution' => $atlasExecution,
                 ],
             ]);
 
@@ -150,6 +160,7 @@ class AiGatewayService
                 'context_refs' => $prompt->contextRefs,
                 'payload' => [
                     ...($options['payload'] ?? []),
+                    'atlas_decide_execution' => $atlasExecution,
                     'privacy' => $privacy,
                     'thread' => $threadResolution->toArray(),
                     'session' => $this->sessionMetadata($lockedSession),
@@ -161,10 +172,11 @@ class AiGatewayService
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                 ],
-                'available_at' => $options['available_at'] ?? $now,
+                'available_at' => $executorAvailableAt,
                 'max_attempts' => (int) ($options['max_attempts'] ?? config('atlas.ai.max_attempts', 1)),
                 'timeout_seconds' => (int) ($options['timeout_seconds'] ?? config('atlas.ai.timeout_seconds', 600)),
                 'metadata' => [
+                    ...$atlasExecution,
                     'intent' => $prompt->intent,
                     'skill_versions' => $prompt->skillVersions,
                     'privacy' => $privacy,
@@ -178,9 +190,25 @@ class AiGatewayService
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
-                    'decision_receipt' => $this->decide->receiptForTrace($options, $provider, $model),
+                    'decision_receipt' => $decisionReceipt,
                 ],
             ]);
+            if ($scoutGate['enabled']) {
+                $this->enqueueAtlasScoutJob(
+                    trace: $trace,
+                    executorJob: $job,
+                    input: $input,
+                    prompt: $prompt,
+                    options: $options,
+                    privacy: $privacy,
+                    threadResolution: $threadResolution,
+                    sessionMetadata: $this->sessionMetadata($lockedSession),
+                    autoCompactionId: $autoCompaction?->id,
+                    providerHandoffId: $providerHandoff?->id,
+                    availableAt: $options['available_at'] ?? $now,
+                    priority: max(0, ((int) ($options['priority'] ?? 50)) - 1),
+                );
+            }
 
             $this->conversation->recordUserMessage($lockedThread, $trace, $input, [
                 'source' => 'ai_gateway',
@@ -267,6 +295,7 @@ class AiGatewayService
             $lockedThread = $this->lockThreadForTrace($threadResolution);
             $lockedSession = $this->lockSessionForTrace($session);
             $traceModelResolution = $this->models->resolveWithSource('claude_codex', $options['model'] ?? null);
+            $decisionReceipt = $this->decide->receiptForTrace($this->optionsWithPromptContracts($options, $prompt), 'claude_codex', $traceModelResolution['model']);
 
             foreach ($providers as $provider) {
                 $providerModelResolution = $this->models->resolveWithSource($provider, $options['model'] ?? null);
@@ -311,7 +340,7 @@ class AiGatewayService
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
-                    'decision_receipt' => $this->decide->receiptForTrace($options, 'claude_codex', $traceModelResolution['model']),
+                    'decision_receipt' => $decisionReceipt,
                 ],
             ]);
 
@@ -534,12 +563,15 @@ class AiGatewayService
             return;
         }
 
-        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
-        $manualProvider = $this->decide->manualOverrideProvider($options);
-        $receipt = $this->decide->receiptForTrace($options, $provider, $model);
+        $decisionOptions = $this->optionsWithPromptContracts($options, $prompt);
+        $payload = is_array($decisionOptions['payload'] ?? null) ? $decisionOptions['payload'] : [];
+        $manualProvider = $this->decide->manualOverrideProvider($decisionOptions);
+        $receipt = $this->decide->receiptForTrace($decisionOptions, $provider, $model);
+        $plan = $this->decide->decisionPlan($decisionOptions, $provider, $model);
+        $taskProfile = is_array($plan['task_profile'] ?? null) ? $plan['task_profile'] : [];
         $signals = [
-            ...$this->decide->signals($options),
-            'decision_mode' => $this->decide->decisionMode($options),
+            ...$this->decide->signals($decisionOptions),
+            'decision_mode' => $this->decide->decisionMode($decisionOptions),
             'operator_requested_provider' => data_get($payload, 'operator_requested_provider') ?: 'auto',
             'requested_provider' => $manualProvider,
             'model_identity_source' => $modelResolution['source'] ?? 'unresolved',
@@ -557,8 +589,10 @@ class AiGatewayService
             'policy_version' => (string) data_get($payload, 'atlas_decide.policy_version', 'atlas-decide-v1'),
             'decision_mode' => $receipt['decision_mode'] ?? 'atlas_decide',
             'route_mode' => (string) (data_get($payload, 'atlas_workflow_mode') ?: data_get($options, 'mode', 'direct')),
-            'task_type' => $this->boundedString(data_get($prompt->taskRequest, 'task_type'), 80),
-            'risk_level' => $this->boundedString(data_get($prompt->taskRequest, 'risk_level'), 40),
+            'task_type' => $this->boundedString(data_get($taskProfile, 'task_type') ?: data_get($prompt->taskRequest, 'task_type'), 80),
+            'risk_level' => $this->boundedString(data_get($taskProfile, 'risk_level') ?: data_get($prompt->taskRequest, 'risk_level'), 40),
+            'context_strategy' => $plan['context_strategy'],
+            'execution_strategy' => $plan['execution_strategy'],
             'selected_provider' => $provider,
             'selected_model' => $model,
             'fallback_provider' => $this->boundedString(
@@ -573,6 +607,8 @@ class AiGatewayService
             'candidates' => $this->decisionCandidates($options, $provider),
             'constraints' => $this->decisionConstraints($options, $provider),
             'metrics_snapshot' => $this->decisionMetricsSnapshot($options, $modelResolution),
+            'task_profile' => $taskProfile,
+            'execution_graph' => $plan['execution_graph'],
             'reason' => (string) ($receipt['reason'] ?? $this->decide->decisionReason($options, $provider)),
         ]);
     }
@@ -695,6 +731,231 @@ class AiGatewayService
             'visible_tokens_budget_enabled' => (bool) data_get($this->runtimeSettings->effective(), 'budget.enabled', false),
             'source_type' => $options['source_type'] ?? null,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array{enabled:bool,activation_status:string,blocked_reason:?string,plan:array<string,mixed>,scout_provider:string,scout_model:?string,dependency_timeout_seconds:int}
+     */
+    private function atlasScoutGate(array $options, string $selectedProvider, ?string $selectedModel): array
+    {
+        $plan = $this->decide->decisionPlan($options, $selectedProvider, $selectedModel);
+        $timeoutSeconds = max(60, (int) config('atlas.ai.atlas_decide.scout_timeout_seconds', 600));
+        $scoutModel = $this->models->resolve('gemini_cli');
+        $base = [
+            'enabled' => false,
+            'activation_status' => (string) data_get($plan, 'execution_graph.activation_status', 'active_single_provider'),
+            'blocked_reason' => null,
+            'plan' => $plan,
+            'scout_provider' => 'gemini_cli',
+            'scout_model' => $scoutModel,
+            'dependency_timeout_seconds' => $timeoutSeconds,
+        ];
+
+        if (($plan['execution_strategy'] ?? null) !== 'scout_then_execute_planned') {
+            return $base;
+        }
+
+        if (! (bool) ($this->runtimeSettings->providerConfig('gemini_cli')['allow_auto'] ?? true)) {
+            return [
+                ...$base,
+                'activation_status' => 'blocked_by_runtime_settings',
+                'blocked_reason' => 'gemini_auto_disabled',
+            ];
+        }
+
+        try {
+            $this->budgets->assertAllows('gemini_cli', $scoutModel, $options);
+        } catch (RuntimeException $exception) {
+            return [
+                ...$base,
+                'activation_status' => 'blocked_by_runtime_budget',
+                'blocked_reason' => 'gemini_budget_blocked',
+            ];
+        }
+
+        return [
+            ...$base,
+            'enabled' => true,
+            'activation_status' => 'active_multi_stage',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  array{enabled:bool,activation_status:string,blocked_reason:?string}  $scoutGate
+     * @return array<string,mixed>
+     */
+    private function optionsWithAtlasExecutionActivation(array $options, array $scoutGate): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $payload['atlas_decide'] = array_merge(
+            is_array($payload['atlas_decide'] ?? null) ? $payload['atlas_decide'] : [],
+            [
+                'execution_graph_activation_status' => $scoutGate['activation_status'],
+                'execution_graph_blocked_reason' => $scoutGate['blocked_reason'],
+                'scout_enabled' => (bool) $scoutGate['enabled'],
+            ],
+        );
+        $options['payload'] = $payload;
+
+        return $options;
+    }
+
+    /**
+     * @param  array{enabled:bool,activation_status:string,blocked_reason:?string,scout_provider:string,scout_model:?string,dependency_timeout_seconds:int}  $scoutGate
+     * @return array<string,mixed>
+     */
+    private function atlasExecutionPayload(array $scoutGate): array
+    {
+        return [
+            'strategy' => $scoutGate['enabled'] ? 'scout_then_execute' : 'single_stage',
+            'activation_status' => $scoutGate['activation_status'],
+            'blocked_reason' => $scoutGate['blocked_reason'],
+            'atlas_decide_stage' => 'primary_executor',
+            'dependency_state' => $scoutGate['enabled'] ? 'pending' : 'none',
+            'dependency_provider' => $scoutGate['enabled'] ? $scoutGate['scout_provider'] : null,
+            'dependency_model' => $scoutGate['enabled'] ? $scoutGate['scout_model'] : null,
+            'dependency_timeout_seconds' => $scoutGate['dependency_timeout_seconds'],
+        ];
+    }
+
+    private function atlasScoutDependencyDeadline(array $options): \DateTimeInterface
+    {
+        $base = $options['available_at'] ?? now();
+        if (! $base instanceof \DateTimeInterface) {
+            $base = now();
+        }
+
+        return now()
+            ->setTimestamp($base->getTimestamp())
+            ->addSeconds(max(60, (int) config('atlas.ai.atlas_decide.scout_timeout_seconds', 600)));
+    }
+
+    /**
+     * @param  array<string,mixed>  $privacy
+     * @param  array<string,mixed>  $sessionMetadata
+     */
+    private function enqueueAtlasScoutJob(
+        AiTrace $trace,
+        AiJob $executorJob,
+        string $input,
+        AiPrompt $prompt,
+        array $options,
+        array $privacy,
+        AiThreadResolution $threadResolution,
+        array $sessionMetadata,
+        ?string $autoCompactionId,
+        ?string $providerHandoffId,
+        \DateTimeInterface $availableAt,
+        int $priority,
+    ): AiJob {
+        $modelResolution = $this->models->resolveWithSource('gemini_cli');
+        $execution = array_merge(
+            is_array(data_get($executorJob->metadata, 'atlas_decide_execution'))
+                ? data_get($executorJob->metadata, 'atlas_decide_execution')
+                : [],
+            [
+                'strategy' => 'scout_then_execute',
+                'activation_status' => 'active_multi_stage',
+                'atlas_decide_stage' => 'context_scout',
+                'dependency_state' => 'source',
+                'dependent_job_id' => $executorJob->id,
+                'dependency_timeout_seconds' => max(60, (int) config('atlas.ai.atlas_decide.scout_timeout_seconds', 600)),
+            ],
+        );
+
+        $payload = [
+            ...($options['payload'] ?? []),
+            'atlas_decide_execution' => $execution,
+            'privacy' => $privacy,
+            'thread' => $threadResolution->toArray(),
+            'session' => $sessionMetadata,
+            'auto_compaction_id' => $autoCompactionId,
+            'provider_handoff_id' => $providerHandoffId,
+            ...$this->modelRuntimeMetadata($modelResolution),
+            'task_request' => $prompt->taskRequest,
+            'context_pack' => $prompt->contextPack,
+            'execution_plan' => $prompt->executionPlan,
+            'skills_activated' => $prompt->activatedSkills,
+        ];
+
+        $job = AiJob::query()->create([
+            'trace_id' => $trace->id,
+            'client_id' => null,
+            'kind' => 'analysis',
+            'status' => 'queued',
+            'priority' => $priority,
+            'agent_slug' => $prompt->agentSlug,
+            'provider' => 'gemini_cli',
+            'model' => $modelResolution['model'],
+            'input_text' => $input,
+            'prompt' => $this->atlasScoutPrompt($input, $prompt, $executorJob->provider, $executorJob->model),
+            'context_refs' => $prompt->contextRefs,
+            'payload' => $payload,
+            'available_at' => $availableAt,
+            'max_attempts' => 2,
+            'timeout_seconds' => (int) ($options['timeout_seconds'] ?? config('atlas.ai.timeout_seconds', 600)),
+            'metadata' => [
+                ...$execution,
+                'intent' => $prompt->intent,
+                'skill_versions' => $prompt->skillVersions,
+                'privacy' => $privacy,
+                'thread' => $threadResolution->toArray(),
+                'session' => $sessionMetadata,
+                'auto_compaction_id' => $autoCompactionId,
+                'provider_handoff_id' => $providerHandoffId,
+                ...$this->modelRuntimeMetadata($modelResolution),
+                'task_request' => $prompt->taskRequest,
+                'context_pack' => $prompt->contextPack,
+                'execution_plan' => $prompt->executionPlan,
+                'skills_activated' => $prompt->activatedSkills,
+            ],
+        ]);
+
+        $executorMetadata = array_merge($executorJob->metadata ?? [], [
+            'dependency_job_id' => $job->id,
+            'dependency_state' => 'pending',
+            'dependency_deadline_at' => $this->atlasScoutDependencyDeadline($options)->format(DATE_ATOM),
+        ]);
+        $executorPayload = is_array($executorJob->payload) ? $executorJob->payload : [];
+        $executorPayload['atlas_decide_execution'] = array_merge(
+            is_array($executorPayload['atlas_decide_execution'] ?? null) ? $executorPayload['atlas_decide_execution'] : [],
+            [
+                'dependency_job_id' => $job->id,
+                'dependency_state' => 'pending',
+            ],
+        );
+        $executorJob->forceFill([
+            'payload' => $executorPayload,
+            'metadata' => $executorMetadata,
+        ])->save();
+
+        return $job;
+    }
+
+    private function atlasScoutPrompt(string $input, AiPrompt $prompt, ?string $executorProvider, ?string $executorModel): string
+    {
+        $executor = trim((string) $executorProvider.($executorModel ? " ({$executorModel})" : ''));
+
+        return <<<PROMPT
+Voce e o scout de contexto do Atlas Decide.
+
+Objetivo: gastar contexto barato/longo antes do executor principal. Nao implemente, nao edite arquivos, nao rode comandos e nao tente finalizar a tarefa. Produza apenas um briefing compacto para o executor {$executor}.
+
+Pedido do operador:
+{$input}
+
+Contrato de saida:
+1. Context digest: fatos, arquivos, decisoes e dependencias que o executor precisa.
+2. Source map: referencias citadas no contexto e por que importam.
+3. Riscos e ambiguidades: pontos que podem quebrar a implementacao.
+4. Plano minimo para o executor: ordem recomendada, verificacoes e criterios de pronto.
+5. O que nao fazer: armadilhas ou caminhos caros/desnecessarios.
+
+Prompt completo que o executor receberia:
+{$prompt->prompt}
+PROMPT;
     }
 
     /**
@@ -832,9 +1093,11 @@ class AiGatewayService
         }
 
         if (! $this->isAutomaticInvocation($options)) {
-            return (bool) ($this->runtimeSettings->providerConfig($provider)['allow_manual'] ?? true)
-                ? $provider
-                : $this->manualFallbackProvider($provider, $options);
+            if ((bool) ($this->runtimeSettings->providerConfig($provider)['allow_manual'] ?? true)) {
+                return $provider;
+            }
+
+            throw new RuntimeException("Provider {$provider} esta bloqueado para uso manual nas Configuracoes do Atlas.");
         }
 
         if ($provider === 'claude_codex') {
@@ -873,20 +1136,6 @@ class AiGatewayService
         }
 
         return 'provider_gate_fallback';
-    }
-
-    private function manualFallbackProvider(string $provider, array $options): string
-    {
-        $default = $this->runtimeSettings->defaultProvider();
-        if ($default !== $provider
-            && $default !== 'claude_codex'
-            && ! ($default === 'gemini_cli' && $this->geminiBlockedForInvocation($options))
-            && (bool) ($this->runtimeSettings->providerConfig($default)['allow_manual'] ?? true)
-        ) {
-            return $default;
-        }
-
-        return $provider === 'claude_cli' ? 'codex_cli' : 'claude_cli';
     }
 
     private function automaticFallbackProvider(array $options = []): string

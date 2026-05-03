@@ -3,28 +3,28 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\AuthenticateMobileDevice;
+use App\Jobs\SendMobilePushJob;
 use App\Models\AiInboxItem;
 use App\Models\AiJob;
 use App\Models\AiPerformanceRecommendation;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiThread;
 use App\Models\AiTrace;
-use App\Models\AuditEvent;
 use App\Models\AtlasInitiativeRun;
 use App\Models\AtlasMobileDevice;
+use App\Models\AuditEvent;
 use App\Models\HealthSnapshot;
 use App\Models\MobilePairingCode;
 use App\Models\MobilePushDelivery;
 use App\Services\Ai\AiGatewayService;
-use App\Jobs\SendMobilePushJob;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\Mobile\AutoImprovementProposalScanner;
 use App\Services\Ai\Mobile\ContextBundleService;
+use App\Services\Ai\Mobile\DiscussionBootstrapper;
 use App\Services\Ai\Mobile\ExpoCircuitBreaker;
+use App\Services\Ai\Mobile\InboxActionRegistry;
 use App\Services\Ai\Mobile\InsightInboxEmitter;
 use App\Services\Ai\Mobile\InsightWatcherService;
-use App\Services\Ai\Mobile\InboxActionRegistry;
-use App\Services\Ai\Mobile\DiscussionBootstrapper;
 use App\Services\Ai\Mobile\JobResultInboxEmitter;
 use App\Services\Ai\Mobile\MobilePairingService;
 use App\Services\Ai\Mobile\MobilePushService;
@@ -32,13 +32,13 @@ use App\Services\Ai\Mobile\MobileReliabilityMonitor;
 use App\Services\Ai\Mobile\ProposalInboxEmitter;
 use App\Services\Ai\Mobile\SelfDiagnosticEmitter;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
-use Illuminate\Support\Carbon;
 use Mockery\MockInterface;
 use RuntimeException;
 use Tests\TestCase;
@@ -337,6 +337,54 @@ class MobileGatewayTest extends TestCase
         $this->assertSame('read', $item->refresh()->status);
     }
 
+    public function test_discuss_repairs_stale_idempotent_response_without_thread_id(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'title' => 'Discussao antiga sem thread',
+            'summary' => 'Resposta idempotente ficou incompleta.',
+            'available_actions' => [['id' => 'discuss', 'label' => 'Discutir com Atlas']],
+        ]);
+        $thread = AiThread::query()->create([
+            'title' => 'Discussao antiga sem thread',
+            'summary' => 'Resposta idempotente ficou incompleta.',
+            'status' => 'active',
+            'surface' => 'mobile',
+            'source_type' => 'inbox_item',
+            'source_id' => $item->id,
+            'message_count' => 0,
+            'metadata' => [
+                'source_type' => 'ai_inbox_item',
+                'inbox_item_id' => $item->id,
+                'capability_profile' => 'mobile_operational_read',
+            ],
+        ]);
+        $item->forceFill([
+            'payload' => [
+                ...($item->payload ?? []),
+                'discussion_thread_id' => $thread->id,
+            ],
+            'response' => [
+                'action' => 'discuss',
+                'idempotency_key' => 'discuss-stale',
+                'result' => [],
+                'responded_at' => now()->toJSON(),
+            ],
+        ])->save();
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->withHeader('Idempotency-Key', 'discuss-stale')
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/discuss')
+            ->assertOk()
+            ->assertJsonPath('result.thread_id', $thread->id)
+            ->assertJsonPath('result.deep_link', 'atlas://thread/'.$thread->id);
+
+        $this->assertSame($thread->id, data_get($item->refresh()->response, 'result.thread_id'));
+        $this->assertDatabaseCount('ai_threads', 1);
+    }
+
     public function test_mobile_recommendation_api_lists_shows_and_transitions_recommendations(): void
     {
         $token = $this->pairedDeviceToken();
@@ -625,7 +673,7 @@ class MobileGatewayTest extends TestCase
                         && data_get($options, 'payload.capability_profile') === 'mobile_operational_read'
                         && is_string(data_get($options, 'payload.mobile_device_id'));
                 }))
-                ->andReturn(tap(new AiTrace(), fn (AiTrace $trace) => $trace->forceFill([
+                ->andReturn(tap(new AiTrace, fn (AiTrace $trace) => $trace->forceFill([
                     'id' => (string) Str::uuid(),
                     'trace_key' => 'trace_mobile_test',
                     'thread_id' => $threadId,
@@ -789,6 +837,166 @@ class MobileGatewayTest extends TestCase
         $this->assertSame('gateway indisponivel', data_get($item->payload, 'discussion_bootstrap_error'));
     }
 
+    public function test_discuss_existing_failed_bootstrap_reports_failed_trace(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'category' => 'telemetry_health',
+            'title' => 'Atlas precisa reabrir falha antiga',
+            'summary' => 'Falha antiga nao deve parecer em fila.',
+        ]);
+        $thread = AiThread::query()->create([
+            'title' => $item->title,
+            'summary' => $item->summary,
+            'status' => 'active',
+            'surface' => 'mobile',
+            'source_type' => 'inbox_item',
+            'source_id' => $item->id,
+            'message_count' => 0,
+            'metadata' => [
+                'atlas_focus' => 'operational',
+                'source_type' => 'ai_inbox_item',
+                'source_id' => $item->id,
+                'inbox_item_id' => $item->id,
+                'capability_profile' => 'mobile_operational_read',
+            ],
+        ]);
+        $trace = new AiTrace;
+        $trace->forceFill([
+            'id' => (string) Str::uuid(),
+            'trace_key' => 'trace_bootstrap_failed_existing',
+            'thread_id' => $thread->id,
+            'source_type' => 'inbox_item',
+            'source_id' => $item->id,
+            'status' => 'failed',
+            'operator_input' => 'Analise este item operacional do Inbox antes da primeira mensagem do operador.',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'skill_versions' => [],
+            'context_refs' => [],
+            'metadata' => [
+                'client_id' => 'inbox-discuss-bootstrap-'.$item->id,
+                'error' => 'provider falhou',
+            ],
+        ]);
+        $trace->save();
+        $item->update([
+            'payload' => [
+                'discussion_thread_id' => $thread->id,
+                'discussion_bootstrap_trace_id' => $trace->id,
+                'discussion_bootstrap_status' => 'queued',
+                'discussion_bootstrap_attempt' => 1,
+            ],
+        ]);
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/discuss')
+            ->assertOk()
+            ->assertJsonPath('result.thread_id', $thread->id)
+            ->assertJsonPath('result.bootstrap.status', 'failed')
+            ->assertJsonPath('result.bootstrap.trace_id', $trace->id)
+            ->assertJsonPath('result.bootstrap.reason', 'provider falhou');
+
+        $thread->refresh();
+        $item->refresh();
+        $this->assertSame('failed', data_get($thread->metadata, 'discussion_bootstrap_status'));
+        $this->assertSame('provider falhou', data_get($thread->metadata, 'discussion_bootstrap_error'));
+        $this->assertSame('failed', data_get($item->payload, 'discussion_bootstrap_status'));
+        $this->assertSame('provider falhou', data_get($item->payload, 'discussion_bootstrap_error'));
+    }
+
+    public function test_discussion_bootstrap_retry_reuses_thread_and_creates_new_attempt(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $this->createGatewaySchemaReadyTables();
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'category' => 'telemetry_health',
+            'title' => 'Atlas precisa recuperar bootstrap',
+            'summary' => 'Retry deve reaproveitar a mesma conversa.',
+        ]);
+        $retryTraceId = (string) Str::uuid();
+        $capturedRetryOptions = null;
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($retryTraceId, &$capturedRetryOptions): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->ordered()
+                ->andThrow(new RuntimeException('gateway indisponivel'));
+
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->ordered()
+                ->with(\Mockery::type('string'), \Mockery::on(function (array $options) use (&$capturedRetryOptions): bool {
+                    $capturedRetryOptions = $options;
+
+                    return str_contains((string) ($options['client_id'] ?? ''), '-retry-2')
+                        && data_get($options, 'payload.discussion_bootstrap.retry') === true
+                        && data_get($options, 'payload.discussion_bootstrap.attempt') === 2;
+                }))
+                ->andReturnUsing(function (string $input, array $options) use ($retryTraceId): AiTrace {
+                    $trace = new AiTrace;
+                    $trace->forceFill([
+                        'id' => $retryTraceId,
+                        'trace_key' => 'trace_bootstrap_retry_test',
+                        'thread_id' => $options['thread_id'] ?? null,
+                        'source_type' => $options['source_type'] ?? 'inbox_item',
+                        'source_id' => $options['source_id'] ?? null,
+                        'status' => 'queued',
+                        'operator_input' => $input,
+                        'agent_slug' => $options['agent_slug'] ?? 'orquestrador',
+                        'provider' => null,
+                        'skill_versions' => [],
+                        'context_refs' => [],
+                        'metadata' => ['client_id' => $options['client_id'] ?? 'retry-test'],
+                    ]);
+                    $trace->save();
+
+                    return $trace;
+                });
+        });
+
+        $threadId = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/discuss')
+            ->assertOk()
+            ->assertJsonPath('result.bootstrap.status', 'failed')
+            ->json('result.thread_id');
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/discussion-bootstrap/retry')
+            ->assertOk()
+            ->assertJsonPath('result.thread_id', $threadId)
+            ->assertJsonPath('result.bootstrap.status', 'queued')
+            ->assertJsonPath('result.bootstrap.trace_id', $retryTraceId)
+            ->assertJsonPath('result.bootstrap.attempt', 2);
+
+        $thread = AiThread::query()->findOrFail($threadId);
+        $this->assertSame('queued', data_get($thread->metadata, 'discussion_bootstrap_status'));
+        $this->assertSame($retryTraceId, data_get($thread->metadata, 'discussion_bootstrap_trace_id'));
+        $this->assertSame(2, data_get($thread->metadata, 'discussion_bootstrap_attempt'));
+        $this->assertSame($threadId, data_get($capturedRetryOptions, 'thread_id'));
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/discussion-bootstrap/retry')
+            ->assertOk()
+            ->assertJsonPath('result.thread_id', $threadId)
+            ->assertJsonPath('result.bootstrap.status', 'already_queued')
+            ->assertJsonPath('result.bootstrap.trace_id', $retryTraceId)
+            ->assertJsonPath('result.bootstrap.attempt', 2);
+
+        $item->refresh();
+        $this->assertSame('queued', data_get($item->payload, 'discussion_bootstrap_status'));
+        $this->assertSame($retryTraceId, data_get($item->payload, 'discussion_bootstrap_trace_id'));
+        $this->assertSame(2, data_get($item->payload, 'discussion_bootstrap_attempt'));
+    }
+
     public function test_mobile_thread_reply_forces_safe_read_runtime_policy(): void
     {
         $token = $this->pairedDeviceToken();
@@ -818,7 +1026,7 @@ class MobileGatewayTest extends TestCase
                         && data_get($options, 'payload.tool_permissions.allow_unsandboxed_provider') === false
                         && data_get($options, 'payload.mobile_runtime_policy.allows_code_execution') === false;
                 }))
-                ->andReturn(tap(new AiTrace(), fn (AiTrace $trace) => $trace->forceFill([
+                ->andReturn(tap(new AiTrace, fn (AiTrace $trace) => $trace->forceFill([
                     'id' => (string) Str::uuid(),
                     'trace_key' => 'trace_mobile_safe_policy_test',
                     'thread_id' => $threadId,
@@ -879,7 +1087,7 @@ class MobileGatewayTest extends TestCase
                     return ($options['client_id'] ?? null) === $clientId
                         && ($options['thread_id'] ?? null) === $threadId;
                 }))
-                ->andReturn(tap(new AiTrace(), fn (AiTrace $trace) => $trace->forceFill([
+                ->andReturn(tap(new AiTrace, fn (AiTrace $trace) => $trace->forceFill([
                     'id' => (string) Str::uuid(),
                     'trace_key' => 'trace_main_sheet_safe_policy_test',
                     'thread_id' => $threadId,
@@ -955,7 +1163,7 @@ class MobileGatewayTest extends TestCase
                         && data_get($options, 'payload.tool_permissions.confirmed') === true
                         && data_get($options, 'payload.tool_permissions.allow_unsandboxed_provider') === true;
                 }))
-                ->andReturn(tap(new AiTrace(), fn (AiTrace $trace) => $trace->forceFill([
+                ->andReturn(tap(new AiTrace, fn (AiTrace $trace) => $trace->forceFill([
                     'id' => (string) Str::uuid(),
                     'trace_key' => 'trace_main_sheet_dev_policy_test',
                     'thread_id' => (string) Str::uuid(),
@@ -994,6 +1202,84 @@ class MobileGatewayTest extends TestCase
                 ],
             ])
             ->assertAccepted();
+    }
+
+    public function test_atlas_sheet_respects_requested_mode_on_operational_thread(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'category' => 'telemetry_health',
+            'title' => 'Promover para programacao',
+            'summary' => 'Contexto operacional precisa de execucao tecnica.',
+        ]);
+        $threadId = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/inbox/'.$item->id.'/discuss')
+            ->json('result.thread_id');
+        $clientId = (string) Str::uuid();
+        $capturedOptions = null;
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($threadId, $clientId, &$capturedOptions): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->with('Agora desenvolva a correcao', \Mockery::on(function (array $options) use ($threadId, $clientId, &$capturedOptions): bool {
+                    $capturedOptions = $options;
+
+                    return ($options['client_id'] ?? null) === $clientId
+                        && ($options['thread_id'] ?? null) === $threadId;
+                }))
+                ->andReturn(tap(new AiTrace, fn (AiTrace $trace) => $trace->forceFill([
+                    'id' => (string) Str::uuid(),
+                    'trace_key' => 'trace_operational_thread_programming_mode_test',
+                    'thread_id' => $threadId,
+                    'status' => 'queued',
+                    'operator_input' => 'Agora desenvolva a correcao',
+                    'agent_slug' => 'desenvolvedor',
+                    'provider' => 'codex_cli',
+                    'skill_versions' => [],
+                    'context_refs' => [],
+                    'metadata' => ['client_id' => $clientId],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])));
+        });
+
+        $this
+            ->withHeader('X-Atlas-Token', 'testing-atlas-token-with-enough-length')
+            ->postJson('/ai/interactions', [
+                'input_text' => 'Agora desenvolva a correcao',
+                'client_id' => $clientId,
+                'thread_id' => $threadId,
+                'new_thread' => false,
+                'agent_slug' => 'desenvolvedor',
+                'provider' => 'codex_cli',
+                'kind' => 'analysis',
+                'source_type' => 'app',
+                'payload' => [
+                    'app_surface' => 'atlas_ai_sheet',
+                    'atlas_focus' => 'programming',
+                    'atlas_mode' => 'programming',
+                    'routing_task' => 'dev',
+                    'permission_mode' => 'danger',
+                    'execution_policy' => 'single_provider',
+                    'tool_permissions' => [
+                        'mode' => 'danger',
+                        'confirmed' => true,
+                        'allow_unsandboxed_provider' => true,
+                    ],
+                ],
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('trace.thread_id', $threadId);
+
+        $this->assertSame('programming', data_get($capturedOptions, 'payload.atlas_focus'));
+        $this->assertSame('programming', data_get($capturedOptions, 'payload.atlas_mode'));
+        $this->assertSame('dev', data_get($capturedOptions, 'payload.routing_task'));
+        $this->assertSame('atlas_full_access', data_get($capturedOptions, 'payload.capability_profile'));
+        $this->assertSame('danger', data_get($capturedOptions, 'payload.permission_mode'));
+        $this->assertTrue(data_get($capturedOptions, 'payload.mobile_runtime_policy.allows_code_execution'));
     }
 
     public function test_mobile_thread_show_requires_thread_linked_to_device_inbox_item(): void
@@ -2729,7 +3015,7 @@ PHP);
         ]);
 
         $job = new SendMobilePushJob($delivery->id, $device->id, ['to' => $device->expo_push_token]);
-        $job->failed(new \RuntimeException('exhausted retries'));
+        $job->failed(new RuntimeException('exhausted retries'));
 
         $this->assertSame('failed_permanent', $delivery->refresh()->status);
     }

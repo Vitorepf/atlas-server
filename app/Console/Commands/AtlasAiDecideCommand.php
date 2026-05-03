@@ -69,8 +69,10 @@ class AtlasAiDecideCommand extends Command
             : null;
         $options = $this->optionsWithSelectionMetadata($options, $candidate, $selectedProvider, $fallbackReason);
         $receipt = $decide->receiptForTrace($options, $selectedProvider, $modelResolution['model']);
+        $plan = $decide->decisionPlan($options, $selectedProvider, $modelResolution['model']);
         $decision = [
             ...$receipt,
+            ...$plan,
             'policy_version' => (string) data_get($options, 'payload.atlas_decide.policy_version', 'atlas-decide-v1'),
             'route_mode' => $mode,
             'candidate_provider' => $candidate,
@@ -98,6 +100,8 @@ class AtlasAiDecideCommand extends Command
             ['override manual', $decision['was_overridden'] ? 'sim' : 'nao'],
             ['candidato inicial', $decision['candidate_provider']],
             ['fallback aplicado', $decision['fallback_provider'] ?: '-'],
+            ['estrategia contexto', $decision['context_strategy']],
+            ['estrategia execucao', $decision['execution_strategy']],
             ['confianca', (string) $decision['confidence_score']],
             ['motivo', $decision['reason']],
         ]);

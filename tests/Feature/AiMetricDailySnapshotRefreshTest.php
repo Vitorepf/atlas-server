@@ -6,6 +6,7 @@ use App\Models\AiMetricDailySnapshot;
 use App\Models\AiToolEvent;
 use App\Models\AiTrace;
 use App\Models\AiTraceMetricSummary;
+use App\Services\Ai\Telemetry\AiTraceMetricAggregatorVersions;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -60,7 +61,7 @@ class AiMetricDailySnapshotRefreshTest extends TestCase
 
         $quality = AiMetricDailySnapshot::query()->where('metric', 'final_quality_avg')->firstOrFail();
         $this->assertSame(2, $quality->n_traces);
-        $this->assertSame('ai_trace_metric_aggregator_v2', $quality->aggregator_version);
+        $this->assertSame(AiTraceMetricAggregatorVersions::CURRENT, $quality->aggregator_version);
         $this->assertEqualsWithDelta(85.0, $quality->value_mean, 0.0001);
 
         $firstPass = AiMetricDailySnapshot::query()->where('metric', 'first_pass_success_rate')->firstOrFail();
@@ -105,7 +106,7 @@ class AiMetricDailySnapshotRefreshTest extends TestCase
         $traceId = (string) Str::uuid();
         $createdAt = CarbonImmutable::parse($localTimestamp, 'America/Sao_Paulo');
 
-        $trace = new AiTrace();
+        $trace = new AiTrace;
         $trace->forceFill([
             'id' => $traceId,
             'trace_key' => 'trace-'.$traceId,
@@ -150,7 +151,7 @@ class AiMetricDailySnapshotRefreshTest extends TestCase
             'final_quality_score' => $quality,
             'final_efficiency_score' => $efficiency,
             'score_components' => [],
-            'metadata' => ['aggregator_version' => 'ai_trace_metric_aggregator_v2'],
+            'metadata' => ['aggregator_version' => AiTraceMetricAggregatorVersions::CURRENT],
             'computed_at' => $createdAt,
         ]);
 

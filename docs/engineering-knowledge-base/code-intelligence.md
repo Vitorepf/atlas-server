@@ -27,12 +27,15 @@ maintenance:
 related_paths:
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
   - app/Services/Engineering/EngineeringContextPackService.php
+  - app/Services/Engineering/EngineeringBlueprintService.php
+  - app/Services/Engineering/EngineeringTaskContractService.php
   - app/Console/Commands/AtlasEngineeringKnowledgeCommand.php
   - app/Http/Controllers/EngineeringKnowledgeController.php
   - app/Models/AtlasEngineeringCodeModule.php
   - app/Models/AtlasEngineeringCodeSymbol.php
   - app/Models/AtlasEngineeringDocLink.php
   - database/migrations/2026_05_02_010000_create_atlas_engineering_code_intelligence_tables.php
+  - docs/engineering-knowledge-base/engineering-blueprint.md
   - routes/api.php
   - tests/Feature/AtlasEngineeringKnowledgeBaseTest.php
 ---
@@ -137,6 +140,17 @@ e `code_refs`.
   sem cobertura.
 - `docs_status=undocumented` vira sinal de lacuna de documentacao, nao sinal de
   ausencia de codigo.
+
+Para tarefas do Engineering Blueprint System, o indice deve apontar no minimo:
+
+- services de blueprint, contracts, snapshots, context pack, runner, scoring,
+  controls e review findings;
+- rotas de task engineering e engineering runs;
+- migrations de blueprints, evidence, runs, controls, tests e findings;
+- comandos `atlas dev`, `atlas engineering run`, benchmark, quality scan e
+  futuros comandos `atlas qa`, `atlas review --deep` e `atlas db review`;
+- superficies do app em `/projects` e `/engineering`;
+- testes unitarios/feature que protegem cada gate.
 
 ## Regra De Manutencao
 

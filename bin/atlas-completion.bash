@@ -47,7 +47,7 @@ _atlas_complete() {
       return 0
       ;;
     engineering|harness)
-      COMPREPLY=( $(compgen -W "run runner replay benchmark bench seed init calibrate calibration cal cleanup docker-cleanup quality-scan quality scan knowledge kb knowledge-base harnessability visual-smoke visual visual-driver driver playwright visual-runtime visual-baseline baseline" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "run runner replay benchmark bench seed init calibrate calibration cal cleanup docker-cleanup quality-scan quality scan api-contract contract contracts security-scan security sec sbom knowledge kb knowledge-base harnessability visual-smoke visual visual-driver driver playwright visual-runtime visual-baseline baseline --spec= --strict --run-context-type= --run-context-id=" -- "${cur}") )
       return 0
       ;;
     memory)
@@ -71,7 +71,7 @@ _atlas_complete() {
       return 0
       ;;
     tools)
-      COMPREPLY=( $(compgen -W "doctor list status run evidence approve revoke policies --workspace= --command= --dry-run --approved --required --scope= --reason= --ttl-hours= --network-allowed --surface= --status= --policy-decision= --context-type= --context-id= --required-only --limit= --json" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "doctor list status run evidence evidence-show evidence-export gate release-gate approve revoke waive-finding revoke-finding-waiver policies --workspace= --command= --dry-run --approved --required --scope= --reason= --ttl-hours= --network-allowed --finding-id= --surface= --status= --policy-decision= --context-type= --context-id= --run-id= --required-only --required-tool= --fail-status= --require-evidence --release-profile= --limit= --json" -- "${cur}") )
       return 0
       ;;
     completion)
@@ -196,7 +196,7 @@ _atlas_complete() {
       --allow-write --dangerously-allow-all --allow-unsandboxed --operator \
       --compact --no-intent --no-progress --no-notify --plan-only --complete \
       --max-iterations --resume --auto-test --critical --timeout \
-      --suite --case --tag --limit --tier --domain --risk --curation-status --provider --model --gate-profile --profile --attempt --test-command --visual-e2e --quality-scan --quality-profile --quality-changed-only --harness-policy --screenshot-driver --runtime-dir --package --skip-browser-install --force --changed-only --no-provider --dry-run --sandbox --max-attempts --no-apply-isolated-patch --refresh-manifest \
+      --suite --case --tag --limit --tier --domain --risk --curation-status --provider --model --gate-profile --profile --attempt --test-command --visual-e2e --quality-scan --quality-profile --quality-changed-only --harness-policy --screenshot-driver --runtime-dir --package --skip-browser-install --force --changed-only --no-provider --dry-run --sandbox --max-attempts --no-apply-isolated-patch --refresh-manifest --spec --strict --run-context-type --run-context-id \
       --provider-projection --provider-projection-target --provider-projection-max-lines --provider-projection-memory-limit --provider-projection-force --provider-projection-yes"
     COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
     return 0

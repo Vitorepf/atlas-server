@@ -5,12 +5,27 @@ namespace Tests\Feature\Console;
 use App\Models\AiJob;
 use App\Models\AiTrace;
 use App\Services\Ai\AiProviderChoiceResolver;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
+use Tests\Concerns\CreatesAiJobChoiceTables;
 use Tests\TestCase;
 
 class AiChatProviderChoiceTest extends TestCase
 {
-    use RefreshDatabase;
+    use CreatesAiJobChoiceTables;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->createAiJobChoiceTables();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->dropAiJobChoiceTables();
+
+        parent::tearDown();
+    }
 
     public function test_operator_picking_switch_provider_requeues_job(): void
     {
@@ -83,5 +98,25 @@ class AiChatProviderChoiceTest extends TestCase
         $this->assertSame('queued', $job->status);
         $this->assertNull(data_get($job->metadata, 'provider_choice_state'),
             'retry_same deve resetar o flag para permitir nova pausa.');
+    }
+
+    public function test_chat_manual_provider_fails_before_enqueue_when_app_blocks_manual_use(): void
+    {
+        config([
+            'atlas.ai.providers.gemini_cli.allow_manual' => false,
+        ]);
+
+        $exitCode = Artisan::call('atlas:ai:chat', [
+            'input' => 'analise sem executar',
+            '--provider' => 'gemini_cli',
+            '--no-run' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame(false, data_get($payload, 'ok'));
+        $this->assertSame('atlas_manual_provider_blocked', data_get($payload, 'error'));
+        $this->assertSame('gemini_cli', data_get($payload, 'provider'));
     }
 }

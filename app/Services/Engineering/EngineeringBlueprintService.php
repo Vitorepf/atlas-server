@@ -27,10 +27,15 @@ class EngineeringBlueprintService
                 'task_id' => $task->id,
                 'project_id' => $task->project_id,
                 'project_step_id' => $task->project_step_id,
+                'project_blueprint_id' => data_get($contract, 'refs.project_blueprint_id'),
+                'project_blueprint_version' => data_get($contract, 'refs.project_blueprint_version'),
             ],
             'acceptance_matrix' => $acceptanceMatrix,
             'scenario_inventory' => $this->scenarioInventory($contract, $uiQa),
             'review_gates' => $this->reviewGates($databaseReview, $uiQa, $acceptanceMatrix),
+            'scenario_refs' => data_get($contract, 'refs.scenario_refs', []),
+            'data_model_refs' => data_get($contract, 'refs.data_model_refs', []),
+            'qa_case_refs' => data_get($contract, 'refs.qa_case_refs', []),
             'contingency_policy' => $this->contingencyPolicy($databaseReview, $uiQa),
         ];
     }

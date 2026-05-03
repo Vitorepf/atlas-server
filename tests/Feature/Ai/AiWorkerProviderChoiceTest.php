@@ -12,12 +12,25 @@ use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\AiWorker;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class AiWorkerProviderChoiceTest extends TestCase
 {
-    use RefreshDatabase;
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->createAiWorkerRuntimeTables();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->dropAiWorkerRuntimeTables();
+
+        parent::tearDown();
+    }
 
     public function test_rate_limited_job_pauses_with_choice_options(): void
     {
@@ -156,17 +169,21 @@ class AiWorkerProviderChoiceTest extends TestCase
 
     private function mockProviderManagerWith(AiProviderResult $result): void
     {
-        $provider = new class($result) implements AiProvider {
+        $provider = new class($result) implements AiProvider
+        {
             public function __construct(private readonly AiProviderResult $result) {}
 
-            public function key(): string { return 'codex_cli'; }
+            public function key(): string
+            {
+                return 'codex_cli';
+            }
 
-            public function run(\App\Models\AiJob $job, string $prompt): AiProviderResult
+            public function run(AiJob $job, string $prompt): AiProviderResult
             {
                 return $this->result;
             }
 
-            public function runStreaming(\App\Models\AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+            public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
             {
                 return $this->result;
             }
@@ -244,5 +261,167 @@ class AiWorkerProviderChoiceTest extends TestCase
 
         $this->assertNotContains('downgrade_model', $optionIds,
             'opção que acabou de falhar não deve reaparecer no menu seguinte');
+    }
+
+    private function createAiWorkerRuntimeTables(): void
+    {
+        $this->dropAiWorkerRuntimeTables();
+
+        Schema::create('ai_threads', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->text('title');
+            $table->text('summary')->nullable();
+            $table->string('status')->default('active');
+            $table->string('surface')->default('app');
+            $table->string('workspace')->nullable();
+            $table->string('source_type')->nullable();
+            $table->uuid('source_id')->nullable();
+            $table->uuid('last_trace_id')->nullable();
+            $table->string('last_provider')->nullable();
+            $table->integer('message_count')->default(0);
+            $table->timestamp('last_message_at')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('ai_sessions', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('thread_id');
+            $table->string('status')->default('active');
+            $table->text('purpose')->nullable();
+            $table->string('provider_primary')->nullable();
+            $table->string('provider_last')->nullable();
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('ended_at')->nullable();
+            $table->integer('message_count')->default(0);
+            $table->integer('token_estimate')->default(0);
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('ai_traces', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('trace_key')->unique();
+            $table->uuid('thread_id')->nullable();
+            $table->uuid('session_id')->nullable();
+            $table->string('source_type')->nullable();
+            $table->uuid('source_id')->nullable();
+            $table->string('status')->default('queued');
+            $table->text('operator_input');
+            $table->string('intent')->nullable();
+            $table->string('agent_slug');
+            $table->string('provider')->nullable();
+            $table->string('model')->nullable();
+            $table->json('skill_versions')->nullable();
+            $table->json('context_refs')->nullable();
+            $table->string('prompt_hash')->nullable();
+            $table->string('response_hash')->nullable();
+            $table->text('response_text')->nullable();
+            $table->integer('latency_ms')->nullable();
+            $table->integer('feedback_score')->nullable();
+            $table->string('feedback_action')->nullable();
+            $table->text('feedback_comment')->nullable();
+            $table->timestamp('completed_at')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('ai_jobs', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('trace_id')->nullable();
+            $table->uuid('client_id')->nullable();
+            $table->string('kind')->default('interaction');
+            $table->string('status')->default('queued');
+            $table->smallInteger('priority')->default(50);
+            $table->string('agent_slug');
+            $table->string('provider')->nullable();
+            $table->string('model')->nullable();
+            $table->text('input_text');
+            $table->text('prompt');
+            $table->json('context_refs')->nullable();
+            $table->json('payload')->nullable();
+            $table->text('result_text')->nullable();
+            $table->json('result_json')->nullable();
+            $table->string('error_code')->nullable();
+            $table->text('error_message')->nullable();
+            $table->timestamp('available_at')->nullable();
+            $table->timestamp('reserved_at')->nullable();
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('finished_at')->nullable();
+            $table->integer('attempts')->default(0);
+            $table->integer('max_attempts')->default(2);
+            $table->integer('timeout_seconds')->default(300);
+            $table->string('worker_id')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('ai_job_attempts', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('ai_job_id');
+            $table->integer('attempt_number');
+            $table->string('worker_id');
+            $table->string('provider');
+            $table->string('model')->nullable();
+            $table->json('command')->nullable();
+            $table->string('command_hash')->nullable();
+            $table->string('prompt_hash');
+            $table->string('response_hash')->nullable();
+            $table->string('status')->default('processing');
+            $table->integer('exit_code')->nullable();
+            $table->integer('duration_ms')->nullable();
+            $table->text('output_text')->nullable();
+            $table->text('stdout_excerpt')->nullable();
+            $table->text('stderr_excerpt')->nullable();
+            $table->string('error_code')->nullable();
+            $table->text('error_message')->nullable();
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('finished_at')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('ai_worker_events', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('worker_id');
+            $table->string('provider')->nullable();
+            $table->uuid('ai_job_id')->nullable();
+            $table->uuid('ai_job_attempt_id')->nullable();
+            $table->string('event_type');
+            $table->string('severity')->default('info');
+            $table->text('message');
+            $table->json('metadata')->nullable();
+            $table->timestamp('occurred_at')->nullable();
+            $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('ai_stream_events', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('trace_id')->nullable();
+            $table->uuid('ai_job_id')->nullable();
+            $table->uuid('ai_job_attempt_id')->nullable();
+            $table->integer('sequence');
+            $table->string('event_type');
+            $table->string('channel')->nullable();
+            $table->text('content')->default('');
+            $table->json('metadata')->nullable();
+            $table->timestamp('occurred_at')->nullable();
+            $table->timestamp('created_at')->nullable();
+        });
+    }
+
+    private function dropAiWorkerRuntimeTables(): void
+    {
+        foreach ([
+            'ai_stream_events',
+            'ai_worker_events',
+            'ai_job_attempts',
+            'ai_jobs',
+            'ai_traces',
+            'ai_sessions',
+            'ai_threads',
+        ] as $table) {
+            Schema::dropIfExists($table);
+        }
     }
 }

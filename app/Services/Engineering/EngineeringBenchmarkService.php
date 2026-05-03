@@ -63,8 +63,11 @@ class EngineeringBenchmarkService
     ];
 
     private const DEFAULT_SUITE_SLUG = 'atlas-core-smoke';
+
     private const DEFAULT_RELEASE_GATE_PROFILE = 'release';
+
     private const BAD_OUTCOME_STATUSES = ['degraded', 'incident', 'rolled_back'];
+
     private const GOOD_OUTCOME_STATUSES = ['healthy', 'accepted'];
 
     /**
@@ -265,6 +268,28 @@ class EngineeringBenchmarkService
             'source_changed_files_count' => count((array) ($patch?->changed_files_json ?? [])),
             'source_risk_flags' => array_values((array) ($patch?->risk_flags_json ?? [])),
             'source_finished_at' => $run->finished_at?->toJSON(),
+            'source_blueprint_snapshot_id' => $run->blueprint_snapshot_id,
+            'source_blueprint_id' => $run->blueprint_id,
+            'source_blueprint' => $this->arrayValue(data_get($run->metadata, 'blueprint', [])),
+            'source_evidence_refs' => $run->task->engineeringEvidence()
+                ->latest('recorded_at')
+                ->limit(20)
+                ->get()
+                ->map(fn ($evidence): array => [
+                    'id' => $evidence->id,
+                    'evidence_type' => $evidence->evidence_type,
+                    'target_id' => $evidence->target_id,
+                    'status' => $evidence->status,
+                    'confidence' => $evidence->confidence === null ? null : (float) $evidence->confidence,
+                    'recorded_at' => $evidence->recorded_at?->toJSON(),
+                ])
+                ->values()
+                ->all(),
+            'memory_delta' => [
+                'status' => 'candidate',
+                'privacy_guard' => true,
+                'summary' => 'Run real promovido para benchmark; preservar apenas refs e evidencias redigidas.',
+            ],
             'promoted_at' => now()->toJSON(),
             'workspace_path_persisted' => $workspace !== null && $persistWorkspace,
         ], $this->arrayValue($data['metadata'] ?? []));
@@ -1511,7 +1536,6 @@ class EngineeringBenchmarkService
     }
 
     /**
-     * @param  mixed  $extraTags
      * @return array<int,string>
      */
     private function tagsForPromotedRun(AtlasEngineeringRun $run, mixed $extraTags = []): array
@@ -2170,7 +2194,6 @@ class EngineeringBenchmarkService
     }
 
     /**
-     * @param  mixed  $tags
      * @return array<int,string>
      */
     private function normalizedTags(mixed $tags): array

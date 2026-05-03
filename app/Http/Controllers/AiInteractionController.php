@@ -346,7 +346,19 @@ class AiInteractionController extends Controller
         $payload['inbox_item_id'] = $this->metadataString($metadata, 'inbox_item_id')
             ?? ($thread->source_type === 'inbox_item' ? $thread->source_id : null);
         $payload['context_bundle_id'] = $this->metadataString($metadata, 'context_bundle_id');
-        $payload['atlas_focus'] = $this->metadataString($metadata, 'atlas_focus') ?? 'operational';
+        $requestedFocus = $this->metadataString($payload, 'atlas_focus')
+            ?? $this->metadataString($payload, 'current_focus')
+            ?? $this->metadataString($metadata, 'current_focus')
+            ?? $this->metadataString($metadata, 'atlas_focus')
+            ?? 'operational';
+        $requestedMode = $this->metadataString($payload, 'atlas_mode')
+            ?? $this->metadataString($payload, 'current_mode')
+            ?? $this->metadataString($metadata, 'current_mode')
+            ?? $this->metadataString($metadata, 'atlas_mode')
+            ?? ($requestedFocus === 'programming' ? 'programming' : 'operational');
+
+        $payload['atlas_focus'] = $requestedFocus;
+        $payload['atlas_mode'] = $requestedMode;
         $payload['capability_profile'] = 'atlas_full_access';
         $payload['permission_policy'] = 'full_access';
         $payload['execution_policy'] = 'provider_execution_allowed';
@@ -490,8 +502,8 @@ class AiInteractionController extends Controller
      * apenas thread/session/job/jobs no caminho quente; qualityActions e
      * streamEvents ficam para a rota show() (1 trace de cada vez).
      *
-     * Schema::hasTable é cacheado em estática local pra não bater
-     * information_schema a cada request.
+     * As relações opcionais só entram quando a tabela existe, preservando
+     * testes e installs parciais sem esconder ausência de schema em cache.
      *
      * @return array<int,string>
      */
@@ -544,52 +556,27 @@ class AiInteractionController extends Controller
 
     private function routerDecisionsAvailable(): bool
     {
-        static $cached = null;
-        if ($cached === null) {
-            $cached = Schema::hasTable('ai_router_decisions');
-        }
-
-        return $cached;
+        return Schema::hasTable('ai_router_decisions');
     }
 
     private function atlasDecisionsAvailable(): bool
     {
-        static $cached = null;
-        if ($cached === null) {
-            $cached = Schema::hasTable('ai_decisions');
-        }
-
-        return $cached;
+        return Schema::hasTable('ai_decisions');
     }
 
     private function qualityEvaluationsAvailable(): bool
     {
-        static $cached = null;
-        if ($cached === null) {
-            $cached = Schema::hasTable('ai_quality_evaluations');
-        }
-
-        return $cached;
+        return Schema::hasTable('ai_quality_evaluations');
     }
 
     private function qualityActionsAvailable(): bool
     {
-        static $cached = null;
-        if ($cached === null) {
-            $cached = Schema::hasTable('ai_quality_actions');
-        }
-
-        return $cached;
+        return Schema::hasTable('ai_quality_actions');
     }
 
     private function streamEventsAvailable(): bool
     {
-        static $cached = null;
-        if ($cached === null) {
-            $cached = Schema::hasTable('ai_stream_events');
-        }
-
-        return $cached;
+        return Schema::hasTable('ai_stream_events');
     }
 
     /**

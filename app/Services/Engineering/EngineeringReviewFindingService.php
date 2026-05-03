@@ -22,26 +22,38 @@ class EngineeringReviewFindingService
 
         $attempt = $this->attemptForRun($run, $data['attempt_id'] ?? null);
 
-        return AtlasEngineeringReviewFinding::query()->create([
+        $payload = [
             'engineering_run_id' => $run->id,
             'attempt_id' => $attempt?->id,
             'task_id' => $run->task_id,
             'source' => $this->source($data['source'] ?? 'manual_review'),
             'severity' => $this->severity($data['severity'] ?? 'p2'),
             'status' => $this->status($data['status'] ?? 'open'),
+            'confidence' => $this->confidence($data['confidence'] ?? null),
+            'category' => $this->category($data['category'] ?? data_get($data, 'evidence.category')),
             'title' => Str::limit(trim((string) ($data['title'] ?? 'Review finding')), 180, ''),
             'body' => isset($data['body']) ? trim((string) $data['body']) : null,
             'file_path' => isset($data['file_path']) ? trim((string) $data['file_path']) : null,
             'start_line' => $this->positiveInt($data['start_line'] ?? null),
             'end_line' => $this->positiveInt($data['end_line'] ?? null),
             'evidence_json' => is_array($data['evidence'] ?? null) ? $data['evidence'] : [],
+            'recommendation' => isset($data['recommendation']) ? trim((string) $data['recommendation']) : null,
             'resolution_json' => [],
             'detected_at' => now(),
             'resolved_at' => null,
             'metadata' => [
                 'recorded_by' => $data['recorded_by'] ?? 'atlas_engineering_runner',
+                'category' => $this->category($data['category'] ?? data_get($data, 'evidence.category')),
             ],
-        ]);
+        ];
+
+        foreach (['confidence', 'category', 'recommendation'] as $column) {
+            if (! Schema::hasColumn('atlas_engineering_review_findings', $column)) {
+                unset($payload[$column]);
+            }
+        }
+
+        return AtlasEngineeringReviewFinding::query()->create($payload);
     }
 
     /**
@@ -54,7 +66,7 @@ class EngineeringReviewFindingService
         $finding->forceFill([
             'status' => $status,
             'resolution_json' => $resolution,
-            'resolved_at' => in_array($status, ['resolved', 'dismissed'], true) ? now() : null,
+            'resolved_at' => in_array($status, ['resolved', 'dismissed', 'fixed', 'false_positive', 'accepted_risk'], true) ? now() : null,
         ])->save();
 
         return $finding->refresh();
@@ -79,7 +91,7 @@ class EngineeringReviewFindingService
     public function summaryForFindings(Collection $findings): array
     {
         $open = $findings->where('status', 'open');
-        $blocking = $open->whereIn('severity', ['p0', 'p1']);
+        $blocking = $open->filter(fn (AtlasEngineeringReviewFinding $finding): bool => $this->blocks($finding));
 
         return [
             'total_count' => $findings->count(),
@@ -91,6 +103,10 @@ class EngineeringReviewFindingService
 
     private function attemptForRun(AtlasEngineeringRun $run, mixed $attemptId): ?AtlasEngineeringRunAttempt
     {
+        if (! Schema::hasTable('atlas_engineering_run_attempts')) {
+            return null;
+        }
+
         if (is_string($attemptId) && Str::isUuid($attemptId)) {
             $attempt = AtlasEngineeringRunAttempt::query()
                 ->where('engineering_run_id', $run->id)
@@ -116,7 +132,34 @@ class EngineeringReviewFindingService
     {
         $value = Str::lower(trim((string) $value));
 
-        return in_array($value, ['open', 'resolved', 'dismissed'], true) ? $value : 'open';
+        return in_array($value, ['open', 'resolved', 'dismissed', 'fixed', 'false_positive', 'accepted_risk'], true) ? $value : 'open';
+    }
+
+    private function blocks(AtlasEngineeringReviewFinding $finding): bool
+    {
+        if ((string) $finding->severity === 'p0') {
+            return true;
+        }
+
+        $confidence = $finding->confidence === null ? 1.0 : (float) $finding->confidence;
+
+        return (string) $finding->severity === 'p1' && $confidence >= 0.8;
+    }
+
+    private function confidence(mixed $value): ?float
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        return max(0.0, min(1.0, round((float) $value, 3)));
+    }
+
+    private function category(mixed $value): ?string
+    {
+        $value = Str::of((string) $value)->lower()->snake()->limit(80, '')->value();
+
+        return $value !== '' ? $value : null;
     }
 
     private function source(mixed $value): string

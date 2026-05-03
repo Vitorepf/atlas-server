@@ -8,9 +8,10 @@ use Illuminate\Console\Command;
 class AtlasCliSetupCommand extends Command
 {
     protected $signature = 'atlas:cli:setup
-        {--provider= : claude_cli or codex_cli}
+        {--provider= : claude_cli, codex_cli or gemini_cli}
         {--claude-bin= : Absolute path or command name for Claude Code CLI}
         {--codex-bin= : Absolute path or command name for Codex CLI}
+        {--gemini-bin= : Absolute path or command name for Gemini CLI}
         {--env-path= : Custom .env path for tests or controlled setup}
         {--write-env : Persist resolved provider binaries into .env}
         {--strict : Return failure when no provider is ready}
@@ -63,6 +64,7 @@ class AtlasCliSetupCommand extends Command
         return match ($provider) {
             'claude' => 'claude_cli',
             'codex' => 'codex_cli',
+            'gemini' => 'gemini_cli',
             default => $provider,
         };
     }
@@ -75,6 +77,7 @@ class AtlasCliSetupCommand extends Command
         return array_filter([
             'claude_cli' => is_string($this->option('claude-bin')) ? trim((string) $this->option('claude-bin')) : null,
             'codex_cli' => is_string($this->option('codex-bin')) ? trim((string) $this->option('codex-bin')) : null,
+            'gemini_cli' => is_string($this->option('gemini-bin')) ? trim((string) $this->option('gemini-bin')) : null,
         ], fn (?string $value): bool => $value !== null && $value !== '');
     }
 

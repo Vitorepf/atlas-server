@@ -271,8 +271,20 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'Gerencia aprovacoes auditaveis para ferramentas de maior risco ou rede pelo Super Tool Runtime.',
                 ],
                 [
+                    'command' => 'atlas tools waive-finding|revoke-finding-waiver --finding-id=<id> --reason=<motivo> --ttl-hours=24',
+                    'description' => 'Gerencia waiver auditavel de findings sem apagar evidencia e com efeito controlado nos gates.',
+                ],
+                [
                     'command' => 'atlas tools evidence [tool] --workspace=<repo> --status=failed --surface=engineering_quality_scan',
                     'description' => 'Consulta evidencias filtradas por workspace, tool, status, surface, policy decision e contexto.',
+                ],
+                [
+                    'command' => 'atlas tools gate [tool] --workspace=<repo> --required-tool=<slug> --require-evidence',
+                    'description' => 'Avalia evidencias normalizadas e retorna gate passed/warning/blocked com falhas bloqueantes auditaveis.',
+                ],
+                [
+                    'command' => 'atlas tools release-gate --workspace=<repo> --surface=engineering_quality_scan',
+                    'description' => 'Avalia release gate Security/SBOM com secret scan, static security, dependency vuln scan, SBOM e waivers validos.',
                 ],
                 [
                     'command' => 'atlas checkpoint',
@@ -315,6 +327,26 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'Roda uma task pelo Engineering Harness Runner com contrato, selecao auditavel de provider/modelo, isolamento, runtime do provider, controles, patch, testes, quality/security scan opcional e score.',
                 ],
                 [
+                    'command' => 'atlas project blueprint prepare|create|validate|freeze --project-id=<id>',
+                    'description' => 'Opera blueprint de engenharia project-level com inventory, scenarios, phase plan, coverage validator, hash deterministico, versionamento e freeze governado.',
+                ],
+                [
+                    'command' => 'atlas project tasks generate --project-id=<id> --from-blueprint=<version>',
+                    'description' => 'Gera tasks tecnicas a partir de blueprint congelado com engineering_contract forte e preservacao de tasks humanas.',
+                ],
+                [
+                    'command' => 'atlas qa --task-id=<id> --status=passed --step="..." --expected="..." --actual="..."',
+                    'description' => 'Registra QA manual rica com passos, resultado esperado/real, screenshot/artifact, console/network, confidence e notas de risco.',
+                ],
+                [
+                    'command' => 'atlas review --deep --task-id=<id>',
+                    'description' => 'Registra review profundo com severity, confidence, category, evidence refs, recommendation e threshold P0/P1 bloqueante.',
+                ],
+                [
+                    'command' => 'atlas db review|explain --task-id=<id> --workspace=<repo>',
+                    'description' => 'Executa gate Postgres para rollback, migrations destrutivas, FK/indices, constraints, JSONB, timezone, query plan, locks, raw SQL e backfill.',
+                ],
+                [
                     'command' => 'atlas engineering replay <run-id> --attempt=1 --model=<model-id> --model-policy=balanced --workspace=<repo> --auto-test',
                     'description' => 'Reexecuta um run ou attempt especifico do Harness em modo replay controlado; quando reexecuta provider, herda ou sobrescreve provider/modelo preservando rastreabilidade contra a origem.',
                 ],
@@ -337,6 +369,18 @@ class AtlasCliHelpCommand extends Command
                 [
                     'command' => 'atlas engineering quality-scan --profile=standard --changed-only',
                     'description' => 'Roda scan profissional de qualidade/seguranca com ferramentas gratuitas ou locais detectadas, artifacts e findings normalizados.',
+                ],
+                [
+                    'command' => 'atlas engineering api-contract --spec=docs/openapi.yaml --strict',
+                    'description' => 'Valida contrato OpenAPI contra rotas Laravel, respostas documentadas e persiste findings por endpoint no Evidence Store.',
+                ],
+                [
+                    'command' => 'atlas engineering security-scan --profile=release',
+                    'description' => 'Roda apenas sensores locais de seguranca/vulnerabilidade pelo Super Tool Runtime: Gitleaks, Semgrep, OSV-Scanner, Trivy e Grype quando disponiveis.',
+                ],
+                [
+                    'command' => 'atlas engineering sbom --profile=release',
+                    'description' => 'Gera evidencia SBOM local via Syft, com metricas e artifact summary normalizados no Evidence Store.',
                 ],
                 [
                     'command' => 'atlas engineering visual-smoke --baseline=strict --screenshot-baseline=strict --screenshot-driver=auto --start-command="npm run dev -- --host 127.0.0.1 --port {port}"',

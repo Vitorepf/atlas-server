@@ -25,6 +25,8 @@ class AtlasEngineeringVisualSmokeCommandTest extends TestCase
         $this->workspace = sys_get_temp_dir().'/atlas-visual-smoke-'.bin2hex(random_bytes(4));
         File::ensureDirectoryExists($this->workspace.'/public');
         File::put($this->workspace.'/public/index.php', '<?php echo "<html><body>Atlas visual ok</body></html>";');
+
+        config()->set('atlas.ai.tool_permissions.allowed_roots', [$this->workspace]);
     }
 
     protected function tearDown(): void
@@ -57,7 +59,7 @@ class AtlasEngineeringVisualSmokeCommandTest extends TestCase
         ]);
         $payload = json_decode(Artisan::output(), true);
 
-        $this->assertSame(0, $exit);
+        $this->assertSame(0, $exit, $this->visualManifestForFailure());
         $this->assertIsArray($payload);
         $this->assertSame('passed', $payload['status'] ?? null);
         $this->assertSame(200, data_get($payload, 'routes.0.status_code'));
@@ -76,7 +78,7 @@ class AtlasEngineeringVisualSmokeCommandTest extends TestCase
         $strictExit = $this->runVisualSmoke($port + 500, 'strict');
         $strictPayload = json_decode(Artisan::output(), true);
 
-        $this->assertSame(1, $strictExit);
+        $this->assertSame(1, $strictExit, Artisan::output());
         $this->assertSame('failed', $strictPayload['status'] ?? null);
         $this->assertSame('changed', data_get($strictPayload, 'routes.0.baseline.status'));
 
@@ -144,7 +146,7 @@ class AtlasEngineeringVisualSmokeCommandTest extends TestCase
         $firstExit = $this->runVisualSmoke($port, 'observe');
         $firstPayload = json_decode(Artisan::output(), true);
 
-        $this->assertSame(0, $firstExit);
+        $this->assertSame(0, $firstExit, $this->visualManifestForFailure());
         $this->assertSame('captured', data_get($firstPayload, 'routes.0.screenshot.status'));
         $this->assertSame('captured', data_get($firstPayload, 'routes.0.screenshot.trace.status'));
         $this->assertSame('workspace', data_get($firstPayload, 'routes.0.screenshot.driver.source'));
@@ -230,7 +232,7 @@ class AtlasEngineeringVisualSmokeCommandTest extends TestCase
         ]);
         $payload = json_decode(Artisan::output(), true);
 
-        $this->assertSame(0, $exit);
+        $this->assertSame(0, $exit, $this->visualManifestForFailure());
         $this->assertSame('ready', data_get($payload, 'screenshot_driver.status'));
         $this->assertSame('atlas_managed', data_get($payload, 'screenshot_driver.source'));
         $this->assertNotEmpty(data_get($payload, 'screenshot_driver.browsers_path_hash'));
@@ -293,5 +295,12 @@ PHP);
         $workspace = realpath($this->workspace) ?: $this->workspace;
 
         return storage_path('app/engineering-visual-baselines/'.substr(hash('sha256', $workspace), 0, 16));
+    }
+
+    private function visualManifestForFailure(): string
+    {
+        $manifest = $this->workspace.'/atlas-visual-report/manifest.json';
+
+        return File::exists($manifest) ? File::get($manifest) : Artisan::output();
     }
 }

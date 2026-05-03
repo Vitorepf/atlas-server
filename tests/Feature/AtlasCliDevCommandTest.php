@@ -96,6 +96,76 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertContains('--model=claude-opus-4-1', $payload['chat_command']);
     }
 
+    public function test_plan_only_automatic_provider_respects_codex_auto_block_even_when_codex_is_default(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'codex_cli',
+            'atlas.ai.providers.codex_cli.allow_auto' => false,
+            'atlas.ai.providers.codex_cli.allow_manual' => true,
+            'atlas.ai.providers.claude_cli.allow_auto' => true,
+        ]);
+
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['implementar', 'parser'],
+            '--workspace' => $this->workspace,
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('claude_cli', data_get($payload, 'workflow.selected_provider'));
+        $this->assertSame('claude_cli', data_get($payload, 'workflow.provider_strategy.recommended_provider'));
+        $this->assertSame('codex_cli', data_get($payload, 'workflow.provider_strategy.policy.default_provider'));
+    }
+
+    public function test_plan_only_manual_codex_model_override_is_allowed_when_codex_auto_is_blocked(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'claude_cli',
+            'atlas.ai.providers.codex_cli.allow_auto' => false,
+            'atlas.ai.providers.codex_cli.allow_manual' => true,
+            'atlas.ai.providers.codex_cli.premium_model' => 'gpt-5.5',
+            'atlas.ai.providers.codex_cli.premium_model_label' => 'GPT-5.5',
+        ]);
+
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['refatorar', 'servico'],
+            '--workspace' => $this->workspace,
+            '--model' => '5.5',
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('codex_cli', data_get($payload, 'workflow.selected_provider'));
+        $this->assertSame('gpt-5.5', data_get($payload, 'workflow.selected_model.model'));
+        $this->assertSame('gpt-5.5', data_get($payload, 'dev_execution_plan.operator_options.model'));
+        $this->assertContains('--model=gpt-5.5', $payload['chat_command']);
+    }
+
+    public function test_plan_only_manual_provider_fails_when_app_blocks_manual_use(): void
+    {
+        config([
+            'atlas.ai.providers.gemini_cli.allow_manual' => false,
+        ]);
+
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['analisar', 'codigo'],
+            '--workspace' => $this->workspace,
+            '--provider' => 'gemini_cli',
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame(false, data_get($payload, 'ok'));
+        $this->assertSame('atlas_manual_provider_blocked', data_get($payload, 'error'));
+        $this->assertSame('gemini_cli', data_get($payload, 'provider'));
+    }
+
     public function test_global_operator_defaults_promote_dev_command_without_operator_flag(): void
     {
         config([

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AiDecision;
 use App\Models\AiJob;
 use App\Models\AiProviderCostRate;
 use App\Models\AiRouterDecision;
@@ -38,6 +39,7 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
             'ai_trace_metric_summaries',
             'ai_outcome_links',
             'ai_provider_cost_rates',
+            'ai_decisions',
             'ai_router_decisions',
             'ai_telemetry_events',
             'ai_stream_events',
@@ -121,6 +123,213 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
         $this->assertSame(['provider_online' => true, 'requested_provider' => 'auto'], $router['signals']);
     }
 
+    public function test_atlas_decide_diagnostics_capture_multi_stage_execution(): void
+    {
+        $trace = $this->seedTrace('claude_cli', 'claude-sonnet-4-6', 900, 180);
+        $executor = AiJob::query()->where('trace_id', $trace->id)->firstOrFail();
+        $this->seedRate('claude_cli', 'claude-sonnet-4-6', 1000, 2000);
+        $this->seedRate('gemini_cli', 'gemini-3.1-pro-preview', 1000, 2000);
+
+        AiDecision::query()->create([
+            'trace_id' => $trace->id,
+            'policy_version' => 'atlas-decide-v1',
+            'decision_mode' => 'atlas_decide',
+            'route_mode' => 'dev',
+            'task_type' => 'programming',
+            'risk_level' => 'high',
+            'context_strategy' => 'gemini_scout_then_executor',
+            'execution_strategy' => 'scout_then_execute_planned',
+            'selected_provider' => 'claude_cli',
+            'selected_model' => 'claude-sonnet-4-6',
+            'fallback_provider' => null,
+            'operator_requested_provider' => 'auto',
+            'requested_provider' => null,
+            'was_overridden' => false,
+            'confidence_score' => 84,
+            'signals' => ['atlas_workflow_mode' => 'dev'],
+            'candidates' => [],
+            'constraints' => [],
+            'metrics_snapshot' => [],
+            'task_profile' => ['wide_code_context_signal' => true, 'context_pressure' => 'long'],
+            'execution_graph' => [
+                'activation_status' => 'active_multi_stage',
+                'quality_gates' => ['diff_scope_review', 'tests_or_static_review'],
+            ],
+            'reason' => 'Atlas Decide selecionou scout antes do executor.',
+        ]);
+
+        $scout = AiJob::query()->create([
+            'trace_id' => $trace->id,
+            'client_id' => (string) Str::uuid(),
+            'kind' => 'context_scout',
+            'status' => 'succeeded',
+            'priority' => 5,
+            'agent_slug' => 'orquestrador',
+            'provider' => 'gemini_cli',
+            'model' => 'gemini-3.1-pro-preview',
+            'input_text' => 'map repo',
+            'prompt' => 'prompt',
+            'context_refs' => [],
+            'payload' => [
+                'atlas_decide_execution' => [
+                    'strategy' => 'scout_then_execute',
+                    'atlas_decide_stage' => 'context_scout',
+                    'dependency_state' => 'source',
+                    'dependent_job_id' => $executor->id,
+                ],
+            ],
+            'result_text' => 'brief',
+            'result_json' => ['usage' => ['prompt_tokens' => 100, 'completion_tokens' => 50, 'total_tokens' => 150]],
+            'available_at' => now()->subSeconds(4),
+            'reserved_at' => now()->subSeconds(3),
+            'started_at' => now()->subSeconds(3),
+            'finished_at' => now()->subSeconds(2),
+            'attempts' => 1,
+            'max_attempts' => 2,
+            'timeout_seconds' => 300,
+            'metadata' => [
+                'atlas_decide_stage' => 'context_scout',
+                'dependent_job_id' => $executor->id,
+            ],
+        ]);
+
+        $executor->forceFill([
+            'metadata' => [
+                'atlas_decide_stage' => 'primary_executor',
+                'dependency_state' => 'satisfied',
+                'dependency_job_id' => $scout->id,
+                'atlas_decide_execution' => [
+                    'strategy' => 'scout_then_execute',
+                    'atlas_decide_stage' => 'primary_executor',
+                    'dependency_state' => 'satisfied',
+                    'dependency_job_id' => $scout->id,
+                ],
+            ],
+        ])->save();
+        $trace->forceFill([
+            'metadata' => [
+                'app_surface' => 'mobile',
+                'atlas_decide_execution' => [
+                    'strategy' => 'scout_then_execute',
+                    'activation_status' => 'active_multi_stage',
+                    'dependency_state' => 'satisfied',
+                    'context_scout_job_id' => $scout->id,
+                ],
+            ],
+        ])->save();
+
+        $summary = app(AiTraceMetricAggregator::class)->recomputeTrace($trace->id);
+        $atlas = $summary->score_components['atlas_decide'];
+
+        $this->assertTrue($atlas['available']);
+        $this->assertTrue($atlas['decision_available']);
+        $this->assertSame('gemini_scout_then_executor', $atlas['context_strategy']);
+        $this->assertSame('scout_then_execute_planned', $atlas['execution_strategy']);
+        $this->assertSame('active_multi_stage', $atlas['activation_status']);
+        $this->assertSame('satisfied', $atlas['dependency_state']);
+        $this->assertTrue($atlas['scout_enabled']);
+        $this->assertSame('gemini_cli', $atlas['scout_provider']);
+        $this->assertSame('claude_cli', $atlas['executor_provider']);
+        $this->assertContains('gemini_cli', $atlas['providers_used']);
+        $this->assertContains('claude_cli', $atlas['providers_used']);
+        $this->assertSame('context_scout', $atlas['provider_sequence'][0]['stage']);
+        $this->assertSame('primary_executor', $atlas['provider_sequence'][1]['stage']);
+    }
+
+    public function test_atlas_decide_diagnostics_do_not_invent_gemini_scout_for_single_stage_decision(): void
+    {
+        $trace = $this->seedTrace('claude_cli', 'claude-sonnet-4-6', 300, 80);
+        $this->seedRate('claude_cli', 'claude-sonnet-4-6', 1000, 2000);
+
+        AiDecision::query()->create([
+            'trace_id' => $trace->id,
+            'policy_version' => 'atlas-decide-v1',
+            'decision_mode' => 'atlas_decide',
+            'route_mode' => 'direct',
+            'task_type' => 'general',
+            'risk_level' => 'low',
+            'context_strategy' => 'direct_context_pack',
+            'execution_strategy' => 'single_provider_response',
+            'selected_provider' => 'claude_cli',
+            'selected_model' => 'claude-sonnet-4-6',
+            'fallback_provider' => null,
+            'operator_requested_provider' => 'auto',
+            'requested_provider' => null,
+            'was_overridden' => false,
+            'confidence_score' => 74,
+            'signals' => [],
+            'candidates' => [],
+            'constraints' => [],
+            'metrics_snapshot' => [],
+            'task_profile' => ['task_type' => 'general', 'context_pressure' => 'normal'],
+            'execution_graph' => ['activation_status' => 'active_single_provider'],
+            'reason' => 'Atlas Decide selecionou o provider padrao.',
+        ]);
+
+        $summary = app(AiTraceMetricAggregator::class)->recomputeTrace($trace->id);
+        $atlas = $summary->score_components['atlas_decide'];
+
+        $this->assertTrue($atlas['available']);
+        $this->assertFalse($atlas['scout_enabled']);
+        $this->assertNull($atlas['scout_provider']);
+        $this->assertSame(['claude_cli'], $atlas['providers_used']);
+        $this->assertFalse($atlas['degraded']);
+    }
+
+    public function test_atlas_decide_diagnostics_do_not_count_blocked_scout_as_executed(): void
+    {
+        $trace = $this->seedTrace('claude_cli', 'claude-sonnet-4-6', 300, 80);
+        $this->seedRate('claude_cli', 'claude-sonnet-4-6', 1000, 2000);
+
+        AiDecision::query()->create([
+            'trace_id' => $trace->id,
+            'policy_version' => 'atlas-decide-v1',
+            'decision_mode' => 'atlas_decide',
+            'route_mode' => 'dev',
+            'task_type' => 'programming',
+            'risk_level' => 'high',
+            'context_strategy' => 'gemini_scout_then_executor',
+            'execution_strategy' => 'scout_then_execute_planned',
+            'selected_provider' => 'claude_cli',
+            'selected_model' => 'claude-sonnet-4-6',
+            'fallback_provider' => 'claude_cli',
+            'operator_requested_provider' => 'auto',
+            'requested_provider' => null,
+            'was_overridden' => false,
+            'confidence_score' => 74,
+            'signals' => ['atlas_workflow_mode' => 'dev'],
+            'candidates' => [],
+            'constraints' => [],
+            'metrics_snapshot' => [],
+            'task_profile' => ['task_type' => 'programming', 'context_pressure' => 'long'],
+            'execution_graph' => [
+                'activation_status' => 'blocked_by_runtime_settings',
+                'activation_blocked_reason' => 'gemini_auto_disabled',
+            ],
+            'reason' => 'Atlas Decide planejou scout, mas runtime bloqueou Gemini automatico.',
+        ]);
+        $trace->forceFill([
+            'metadata' => [
+                'atlas_decide_execution' => [
+                    'strategy' => 'single_stage',
+                    'activation_status' => 'blocked_by_runtime_settings',
+                    'blocked_reason' => 'gemini_auto_disabled',
+                    'dependency_state' => 'none',
+                ],
+            ],
+        ])->save();
+
+        $summary = app(AiTraceMetricAggregator::class)->recomputeTrace($trace->id);
+        $atlas = $summary->score_components['atlas_decide'];
+
+        $this->assertTrue($atlas['available']);
+        $this->assertTrue($atlas['scout_planned']);
+        $this->assertFalse($atlas['scout_enabled']);
+        $this->assertSame('gemini_cli', $atlas['scout_planned_provider']);
+        $this->assertNull($atlas['scout_provider']);
+        $this->assertSame(['claude_cli'], $atlas['providers_used']);
+    }
+
     public function test_scorecard_aggregates_by_router_mode_and_reports_override_rate(): void
     {
         // Seed 3 traces: 2 council (1 overridden), 1 fast (not overridden)
@@ -167,6 +376,50 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
             0.0001,
             'router_override_rate = 1 overridden / 3 total = 0.3333...'
         );
+    }
+
+    public function test_scorecard_reports_atlas_decide_strategy_metrics(): void
+    {
+        $this->seedAtlasDecideMetricSummary(
+            executionStrategy: 'scout_then_execute_planned',
+            contextStrategy: 'gemini_scout_then_executor',
+            selectedProvider: 'claude_cli',
+            scoutProvider: 'gemini_cli',
+            providersUsed: ['gemini_cli', 'claude_cli'],
+            scoutEnabled: true,
+            degraded: false,
+            quality: 82,
+            efficiency: 74,
+        );
+        $this->seedAtlasDecideMetricSummary(
+            executionStrategy: 'single_provider_long_context',
+            contextStrategy: 'gemini_long_context_or_multimodal',
+            selectedProvider: 'gemini_cli',
+            scoutProvider: null,
+            providersUsed: ['gemini_cli'],
+            scoutEnabled: false,
+            degraded: true,
+            quality: 61,
+            efficiency: 58,
+        );
+
+        $scorecard = app(AiTelemetryScorecardService::class)
+            ->build(now()->subHour(), now()->addMinute());
+
+        $this->assertTrue($scorecard['atlas_decide']['available']);
+        $this->assertSame(2, $scorecard['atlas_decide']['traces']);
+        $this->assertSame(1, $scorecard['atlas_decide']['multi_stage_count']);
+        $this->assertSame(1, $scorecard['atlas_decide']['degraded_count']);
+        $this->assertSame(2, $scorecard['totals']['atlas_decide_trace_count']);
+        $this->assertSame(1, $scorecard['totals']['atlas_decide_multi_stage_count']);
+
+        $byExecution = collect($scorecard['by_atlas_decide_execution_strategy'])->keyBy('bucket');
+        $this->assertSame(1, $byExecution['scout_then_execute_planned']['traces']);
+        $this->assertSame(['gemini_cli', 'claude_cli'], $byExecution['scout_then_execute_planned']['providers_used']);
+
+        $byContext = collect($scorecard['by_atlas_decide_context_strategy'])->keyBy('bucket');
+        $this->assertSame(1, $byContext['gemini_long_context_or_multimodal']['traces']);
+        $this->assertSame(1.0, $byContext['gemini_long_context_or_multimodal']['degraded_rate']);
     }
 
     public function test_diagnostics_groups_events_by_phase(): void
@@ -299,6 +552,56 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
         ]);
     }
 
+    /**
+     * @param  array<int,string>  $providersUsed
+     */
+    private function seedAtlasDecideMetricSummary(
+        string $executionStrategy,
+        string $contextStrategy,
+        string $selectedProvider,
+        ?string $scoutProvider,
+        array $providersUsed,
+        bool $scoutEnabled,
+        bool $degraded,
+        int $quality,
+        int $efficiency,
+    ): void {
+        AiTraceMetricSummary::query()->create([
+            'trace_id' => (string) Str::uuid(),
+            'surface' => 'mobile',
+            'runtime' => 'ios',
+            'provider' => $selectedProvider,
+            'model' => 'test-model',
+            'agent_slug' => 'orquestrador',
+            'task_type' => 'programming',
+            'status' => 'succeeded',
+            'total_latency_ms' => 1000,
+            'cost_microusd' => 100,
+            'cost_confidence' => 'estimated',
+            'cost_mode' => 'operational_estimate',
+            'final_quality_score' => $quality,
+            'final_efficiency_score' => $efficiency,
+            'first_pass_success' => ! $degraded,
+            'needed_remediation' => $degraded,
+            'reask_detected' => false,
+            'provider_switched_after_response' => false,
+            'score_components' => [
+                'atlas_decide' => [
+                    'available' => true,
+                    'execution_strategy' => $executionStrategy,
+                    'context_strategy' => $contextStrategy,
+                    'selected_provider' => $selectedProvider,
+                    'scout_provider' => $scoutProvider,
+                    'providers_used' => $providersUsed,
+                    'scout_enabled' => $scoutEnabled,
+                    'degraded' => $degraded,
+                ],
+            ],
+            'metadata' => ['aggregator_version' => 'ai_trace_metric_aggregator_v3'],
+            'computed_at' => now(),
+        ]);
+    }
+
     private function bootMinimalSchema(): void
     {
         foreach ([
@@ -349,6 +652,34 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
             $table->json('signals');
             $table->text('reason');
             $table->boolean('was_overridden')->default(false);
+            $table->timestamps();
+        });
+
+        Schema::create('ai_decisions', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('trace_id')->nullable()->index();
+            $table->uuid('router_decision_id')->nullable()->index();
+            $table->string('policy_version', 32)->default('atlas-decide-v1');
+            $table->string('decision_mode', 32)->default('atlas_decide');
+            $table->string('route_mode', 64)->nullable();
+            $table->string('task_type', 80)->nullable();
+            $table->string('risk_level', 40)->nullable();
+            $table->string('context_strategy', 64)->nullable();
+            $table->string('execution_strategy', 64)->nullable();
+            $table->string('selected_provider', 32);
+            $table->string('selected_model', 120)->nullable();
+            $table->string('fallback_provider', 32)->nullable();
+            $table->string('operator_requested_provider', 32)->default('auto');
+            $table->string('requested_provider', 32)->nullable();
+            $table->boolean('was_overridden')->default(false);
+            $table->unsignedTinyInteger('confidence_score')->nullable();
+            $table->json('signals');
+            $table->json('candidates')->nullable();
+            $table->json('constraints')->nullable();
+            $table->json('metrics_snapshot')->nullable();
+            $table->json('task_profile')->nullable();
+            $table->json('execution_graph')->nullable();
+            $table->text('reason');
             $table->timestamps();
         });
 

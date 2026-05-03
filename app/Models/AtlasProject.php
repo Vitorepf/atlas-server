@@ -96,6 +96,12 @@ class AtlasProject extends Model
         return $this->hasMany(AtlasProjectPlanProposal::class, 'project_id');
     }
 
+    public function engineeringProjectBlueprints(): HasMany
+    {
+        return $this->hasMany(AtlasEngineeringProjectBlueprint::class, 'project_id')
+            ->latest('version');
+    }
+
     public function blockers(): HasMany
     {
         return $this->hasMany(AtlasProjectBlocker::class, 'project_id');

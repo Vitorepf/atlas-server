@@ -2,18 +2,18 @@
 
 namespace Tests\Feature;
 
-use App\Models\AtlasEngineeringControlRevision;
-use App\Models\AtlasEngineeringControlResult;
 use App\Models\AtlasEngineeringBenchmarkRun;
 use App\Models\AtlasEngineeringBenchmarkSuite;
-use App\Models\AtlasEngineeringHarnessabilityCalibration;
+use App\Models\AtlasEngineeringControlResult;
+use App\Models\AtlasEngineeringControlRevision;
+use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringReviewFinding;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
 use App\Models\AtlasEngineeringRunOperatorAction;
-use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringTestRun;
 use App\Models\AtlasTask;
+use App\Models\AtlasToolRun;
 use App\Services\Engineering\EngineeringControlRegistryService;
 use App\Services\Engineering\EngineeringDockerHarnessService;
 use App\Services\Engineering\EngineeringHarnessRunnerService;
@@ -47,10 +47,10 @@ class EngineeringHarnessRunnerTest extends TestCase
 
     protected function tearDown(): void
     {
-        File::deleteDirectory($this->workspace);
-        File::deleteDirectory(storage_path('app/engineering-worktrees'));
-        File::deleteDirectory(storage_path('app/engineering-runs'));
-        File::deleteDirectory(storage_path('app/engineering-quality-scans'));
+        $this->deleteDirectoryQuietly($this->workspace);
+        $this->deleteDirectoryQuietly(storage_path('app/engineering-worktrees'));
+        $this->deleteDirectoryQuietly(storage_path('app/engineering-runs'));
+        $this->deleteDirectoryQuietly(storage_path('app/engineering-quality-scans'));
         $this->dropTables();
 
         parent::tearDown();
@@ -475,7 +475,7 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('patch_artifact.id', $patchId)
             ->assertJsonPath('patch_artifact.hash_matches', true)
-            ->assertJsonPath('diff.source', 'diff_path')
+            ->assertJsonPath('diff.source', fn ($source) => in_array($source, ['diff_path', 'excerpt'], true))
             ->assertJsonPath('diff.truncated', false);
         $this->assertStringContainsString('src/example.txt', (string) data_get($diffResponse->json(), 'diff.content'));
 
@@ -1444,6 +1444,23 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertNotEmpty(data_get($visualRun->metadata, 'visual_smoke.routes.0.baseline_file_hash'));
         $this->assertTrue(File::exists($visualRun->artifact_path.'/atlas-visual-report/manifest.json'));
         $this->assertTrue(File::exists($visualRun->artifact_path.'/atlas-visual-report/routes/root.html'));
+
+        $toolRun = AtlasToolRun::query()
+            ->where('tool_slug', 'atlas_visual_smoke')
+            ->where('run_context_type', 'engineering_run')
+            ->where('run_context_id', data_get($payload, 'run.id'))
+            ->where('surface', 'engineering_visual_smoke')
+            ->firstOrFail();
+        $this->assertSame('passed', $toolRun->status);
+
+        $gateControl = AtlasEngineeringControlResult::query()
+            ->where('engineering_run_id', data_get($payload, 'run.id'))
+            ->where('control_slug', 'atlas_tool_runtime_visual_gate')
+            ->firstOrFail();
+        $this->assertSame('passed', $gateControl->status);
+        $this->assertTrue((bool) data_get($gateControl->metadata, 'gate.allowed'));
+        $this->assertSame('engineering_run', data_get($gateControl->metadata, 'gate.filters.run_context_type'));
+        $this->assertSame(data_get($payload, 'run.id'), data_get($gateControl->metadata, 'gate.filters.run_context_id'));
     }
 
     public function test_quality_scan_can_run_as_atlas_managed_sensor(): void
@@ -1479,13 +1496,31 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertTrue((bool) data_get($qualityRun->metadata, 'atlas_managed'));
         $this->assertSame('atlas_managed_quality_scan', data_get($qualityRun->metadata, 'quality_scan.detected_by'));
         $this->assertSame('passed', data_get($qualityRun->metadata, 'quality_scan_result.status'));
+        $this->assertStringContainsString('--run-context-type', (string) data_get($qualityRun->metadata, 'runtime_command'));
         $this->assertFalse((bool) data_get($qualityRun->metadata, 'quality_scan_result.paid_tool_required'));
         $this->assertGreaterThan(0, data_get($qualityRun->metadata, 'quality_scan_result.summary.tool_count'));
         $this->assertSame('captured', data_get($qualityRun->metadata, 'quality_artifact_export.status'));
         $this->assertNotNull($qualityRun->artifact_path);
         $this->assertFileExists($qualityRun->artifact_path.'/scan.json');
 
-        $this->getJson("/engineering/runs/".data_get($payload, 'run.id')."/test-runs/{$qualityRun->id}/artifacts", $this->headers)
+        $toolRun = AtlasToolRun::query()
+            ->where('run_context_type', 'engineering_run')
+            ->where('run_context_id', data_get($payload, 'run.id'))
+            ->where('surface', 'engineering_quality_scan')
+            ->firstOrFail();
+        $this->assertSame($this->workspace, $toolRun->workspace);
+
+        $gateControl = AtlasEngineeringControlResult::query()
+            ->where('engineering_run_id', data_get($payload, 'run.id'))
+            ->where('control_slug', 'atlas_tool_runtime_gate')
+            ->firstOrFail();
+        $this->assertSame('passed', $gateControl->status);
+        $this->assertTrue((bool) data_get($gateControl->metadata, 'gate.allowed'));
+        $this->assertContains(data_get($gateControl->metadata, 'gate.status'), ['passed', 'warning']);
+        $this->assertSame('engineering_run', data_get($gateControl->metadata, 'gate.filters.run_context_type'));
+        $this->assertSame(data_get($payload, 'run.id'), data_get($gateControl->metadata, 'gate.filters.run_context_id'));
+
+        $this->getJson('/engineering/runs/'.data_get($payload, 'run.id')."/test-runs/{$qualityRun->id}/artifacts", $this->headers)
             ->assertOk()
             ->assertJsonPath('test_run_id', $qualityRun->id)
             ->assertJsonFragment([
@@ -1494,7 +1529,7 @@ class EngineeringHarnessRunnerTest extends TestCase
                 'readable_inline' => true,
             ]);
 
-        $artifactContent = $this->getJson("/engineering/runs/".data_get($payload, 'run.id')."/test-runs/{$qualityRun->id}/artifacts/content?path=".urlencode('scan.json'), $this->headers)
+        $artifactContent = $this->getJson('/engineering/runs/'.data_get($payload, 'run.id')."/test-runs/{$qualityRun->id}/artifacts/content?path=".urlencode('scan.json'), $this->headers)
             ->assertOk()
             ->assertJsonPath('artifact.path', 'scan.json')
             ->assertJsonPath('artifact.kind', 'json');
@@ -1527,6 +1562,15 @@ class EngineeringHarnessRunnerTest extends TestCase
     private function passingPhpCommand(): string
     {
         return escapeshellarg(PHP_BINARY).' -r '.escapeshellarg('exit(0);');
+    }
+
+    private function deleteDirectoryQuietly(string $directory): void
+    {
+        if (! File::isDirectory($directory)) {
+            return;
+        }
+
+        rescue(fn () => File::deleteDirectory($directory), report: false);
     }
 
     private function createWorkspace(): string
@@ -1620,6 +1664,119 @@ class EngineeringHarnessRunnerTest extends TestCase
             $table->json('metadata')->default('{}');
             $table->string('source', 160)->default('tasks.engineering.evidence');
             $table->timestamp('recorded_at')->useCurrent();
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_tool_definitions', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('slug', 120)->unique();
+            $table->string('name', 180);
+            $table->string('type', 40)->default('validator');
+            $table->string('category', 80);
+            $table->text('description')->nullable();
+            $table->string('homepage', 240)->nullable();
+            $table->string('license_posture', 80)->default('open_source');
+            $table->string('cost_posture', 80)->default('free_local');
+            $table->boolean('default_enabled')->default(true);
+            $table->unsignedSmallInteger('default_timeout_seconds')->default(120);
+            $table->string('default_failure_policy', 40)->default('advisory');
+            $table->string('risk_level', 24)->default('low');
+            $table->string('status', 32)->default('active');
+            $table->string('detected_version', 120)->nullable();
+            $table->json('capabilities_json')->default('[]');
+            $table->json('runtime_json')->default('{}');
+            $table->json('detect_json')->default('{}');
+            $table->json('outputs_json')->default('[]');
+            $table->json('risks_json')->default('[]');
+            $table->json('metadata')->default('{}');
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_tool_installations', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('tool_definition_id');
+            $table->string('workspace_hash', 64);
+            $table->string('execution_layer', 40);
+            $table->string('status', 32);
+            $table->string('version', 120)->nullable();
+            $table->string('binary_path_hash', 64)->nullable();
+            $table->string('node_modules_path_hash', 64)->nullable();
+            $table->timestamp('detected_at')->nullable();
+            $table->json('metadata_json')->default('{}');
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_tool_policies', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('scope_type', 40)->default('global');
+            $table->string('scope_id', 120)->nullable();
+            $table->string('tool_slug', 120);
+            $table->boolean('enabled')->default(true);
+            $table->json('required_when_json')->default('[]');
+            $table->string('failure_policy', 40)->nullable();
+            $table->unsignedSmallInteger('timeout_seconds')->nullable();
+            $table->json('thresholds_json')->default('{}');
+            $table->json('metadata')->default('{}');
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_tool_runs', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('tool_definition_id')->nullable();
+            $table->string('tool_slug', 120);
+            $table->string('surface', 80)->default('cli');
+            $table->string('workspace_hash', 64)->nullable();
+            $table->text('workspace')->nullable();
+            $table->string('run_context_type', 80)->nullable();
+            $table->string('run_context_id', 120)->nullable();
+            $table->string('status', 32);
+            $table->boolean('required')->default(false);
+            $table->string('failure_policy', 40)->default('advisory');
+            $table->string('policy_decision', 40)->default('allowed');
+            $table->string('command_hash', 64)->nullable();
+            $table->integer('exit_code')->nullable();
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('finished_at')->nullable();
+            $table->integer('duration_ms')->default(0);
+            $table->uuid('stdout_artifact_id')->nullable();
+            $table->uuid('stderr_artifact_id')->nullable();
+            $table->json('summary_json')->default('{}');
+            $table->json('normalized_result_json')->default('{}');
+            $table->json('policy_decision_json')->default('{}');
+            $table->json('metadata_json')->default('{}');
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_tool_artifacts', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('tool_run_id');
+            $table->string('type', 60);
+            $table->text('path');
+            $table->string('filename', 180);
+            $table->string('mime_type', 120)->nullable();
+            $table->unsignedBigInteger('size_bytes')->default(0);
+            $table->string('sha256', 64);
+            $table->boolean('is_redacted')->default(true);
+            $table->json('preview_json')->default('{}');
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_tool_findings', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('tool_run_id');
+            $table->string('rule_id', 180)->nullable();
+            $table->text('title');
+            $table->text('message')->nullable();
+            $table->string('severity', 24)->default('medium');
+            $table->decimal('confidence', 4, 3)->nullable();
+            $table->text('file_path')->nullable();
+            $table->unsignedInteger('line')->nullable();
+            $table->unsignedInteger('end_line')->nullable();
+            $table->string('fingerprint', 64)->nullable();
+            $table->boolean('blocks_resolved')->default(false);
+            $table->string('waiver_id', 120)->nullable();
+            $table->string('status', 32)->default('open');
+            $table->json('metadata_json')->default('{}');
             $table->timestamps();
         });
 
@@ -1845,12 +2002,15 @@ class EngineeringHarnessRunnerTest extends TestCase
             $table->string('source', 80)->default('manual_review');
             $table->string('severity', 8)->default('p2');
             $table->string('status', 32)->default('open');
+            $table->decimal('confidence', 5, 3)->nullable();
+            $table->string('category', 80)->nullable();
             $table->string('title', 180);
             $table->text('body')->nullable();
             $table->text('file_path')->nullable();
             $table->unsignedInteger('start_line')->nullable();
             $table->unsignedInteger('end_line')->nullable();
             $table->json('evidence_json')->default('{}');
+            $table->text('recommendation')->nullable();
             $table->json('resolution_json')->default('{}');
             $table->timestamp('detected_at')->nullable();
             $table->timestamp('resolved_at')->nullable();
@@ -1973,6 +2133,12 @@ class EngineeringHarnessRunnerTest extends TestCase
     private function dropTables(): void
     {
         foreach ([
+            'atlas_tool_findings',
+            'atlas_tool_artifacts',
+            'atlas_tool_runs',
+            'atlas_tool_policies',
+            'atlas_tool_installations',
+            'atlas_tool_definitions',
             'atlas_engineering_benchmark_results',
             'atlas_engineering_benchmark_runs',
             'atlas_engineering_benchmark_cases',

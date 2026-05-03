@@ -401,7 +401,10 @@ trait RunsCliProcesses
      */
     protected function cliProcessEnv(): array
     {
-        return AtlasSecurity::processEnv(profile: 'provider');
+        return AtlasSecurity::processEnv([
+            'PATH' => $this->providerPath(),
+            'HOME' => (string) ($_SERVER['HOME'] ?? getenv('HOME') ?: ''),
+        ], 'provider');
     }
 
     /**
@@ -442,16 +445,31 @@ trait RunsCliProcesses
     protected function extraCliBinarySearchDirs(): array
     {
         $home = (string) ($_SERVER['HOME'] ?? getenv('HOME') ?: '');
+        $nodeBins = $home !== ''
+            ? glob($home.'/.nvm/versions/node/*/bin') ?: []
+            : [];
+        rsort($nodeBins, SORT_NATURAL);
 
         return array_values(array_filter(array_unique([
             '/opt/homebrew/bin',
             '/usr/local/bin',
             '/usr/bin',
             '/bin',
+            ...$nodeBins,
+            $home !== '' ? $home.'/.volta/bin' : null,
+            $home !== '' ? $home.'/.asdf/shims' : null,
             $home !== '' ? $home.'/.local/bin' : null,
             $home !== '' ? $home.'/.npm-global/bin' : null,
             $home !== '' ? $home.'/Library/pnpm' : null,
         ])));
+    }
+
+    protected function providerPath(): string
+    {
+        $current = (string) ($_SERVER['PATH'] ?? getenv('PATH') ?: '');
+        $dirs = array_merge($this->extraCliBinarySearchDirs(), explode(PATH_SEPARATOR, $current));
+
+        return implode(PATH_SEPARATOR, array_values(array_filter(array_unique($dirs), fn (string $dir): bool => $dir !== '')));
     }
 
     protected function expandHomePath(string $path): string

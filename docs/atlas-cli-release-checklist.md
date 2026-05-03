@@ -42,6 +42,24 @@ Registrar pelo menos 3 dias de uso real com:
 
 Eventos gerados por `atlas dogfood run` nao substituem estes registros. Eles validam que o produto roda; a liberacao final exige uso diario registrado por `atlas dogfood start/record` ou por instrumentacao real equivalente.
 
+## Fair Claude Gate
+
+Para releases cujo objetivo e substituir o Claude Code CLI, rode ou atualize o
+Fair Claude Benchmark:
+
+- Atlas deve usar somente `claude_cli`;
+- Claude Code deve usar o mesmo modelo Opus;
+- Atlas Decide, Codex, Gemini, council e fallback ficam proibidos;
+- o resultado precisa registrar comandos, modelo, repo, commit inicial, testes,
+  intervencoes humanas e score por caso.
+
+Documento canonico:
+
+- `docs/atlas-cli-fair-claude-benchmark.md`
+
+Sem essa evidencia, o release pode declarar melhoria do Atlas CLI, mas nao deve
+declarar vitoria justa contra Claude Code CLI.
+
 ## Tag
 
 Criar tag somente depois dos gates:

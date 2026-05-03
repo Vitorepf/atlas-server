@@ -7,6 +7,7 @@ use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
 use App\Models\AtlasTask;
 use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Tools\AtlasToolGateService;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
@@ -30,6 +31,7 @@ class EngineeringHarnessRunnerService
         private readonly EngineeringRunArtifactService $artifacts,
         private readonly EngineeringReviewFindingService $reviewFindings,
         private readonly AtlasMemoryRegistryService $memoryRegistry,
+        private readonly AtlasToolGateService $toolGate,
     ) {}
 
     /**
@@ -292,6 +294,11 @@ class EngineeringHarnessRunnerService
                 'workspace_plan' => $workspacePlan,
             ])
             : collect();
+        $this->recordToolRuntimeGateControl($run->refresh(), $attempt->refresh(), $executionWorkspace, [
+            'quality_scan' => $qualityScan,
+            'quality_profile' => $qualityProfile,
+        ]);
+        $this->recordVisualToolRuntimeGateControl($run->refresh(), $attempt->refresh(), $executionWorkspace, $visualE2e, $testRuns);
         $this->recordSkippedRequiredControls($run->refresh(), $attempt->refresh(), $controls);
         if ($providerRun !== null) {
             $this->recordProviderReviewFindings($run->refresh(), $attempt->refresh(), $providerRun);
@@ -1128,6 +1135,143 @@ class EngineeringHarnessRunnerService
             metadata: array_merge($this->compactDockerHealthchecks($healthchecks), [
                 'required' => $required,
             ]),
+        );
+    }
+
+    /**
+     * @param  array{quality_scan?:string,quality_profile?:string}  $options
+     */
+    private function recordToolRuntimeGateControl(
+        AtlasEngineeringRun $run,
+        AtlasEngineeringRunAttempt $attempt,
+        string $workspace,
+        array $options,
+    ): void {
+        $qualityScanMode = $this->qualityScanMode($options['quality_scan'] ?? 'off');
+        if ($qualityScanMode === 'off') {
+            return;
+        }
+
+        $qualityProfile = $this->qualityScanProfile($options['quality_profile'] ?? 'auto');
+        $required = $qualityScanMode === 'required' || in_array($qualityProfile, ['release', 'deep'], true);
+        $filters = [
+            'workspace' => $workspace,
+            'surface' => 'engineering_quality_scan',
+            'run_context_type' => 'engineering_run',
+            'run_context_id' => $run->id,
+            'limit' => 100,
+        ];
+        $gate = $this->toolGate->evaluate($filters, [
+            'require_evidence' => $required,
+        ]);
+        $gateStatus = (string) ($gate['status'] ?? 'warning');
+        $controlStatus = match ($gateStatus) {
+            'passed' => 'passed',
+            'warning' => 'passed',
+            'blocked' => $required ? 'failed' : 'warning',
+            default => $required ? 'failed' : 'warning',
+        };
+        $summary = match ($gateStatus) {
+            'passed' => 'Atlas Tool Runtime gate passou para evidencias do quality scan deste run.',
+            'blocked' => 'Atlas Tool Runtime gate bloqueou evidencias do quality scan deste run.',
+            default => 'Atlas Tool Runtime gate registrou avisos para evidencias do quality scan deste run.',
+        };
+
+        $this->controlRegistry->recordResult(
+            run: $run,
+            attempt: $attempt,
+            control: [
+                'slug' => 'atlas_tool_runtime_gate',
+                'name' => 'Atlas Tool Runtime gate',
+                'direction' => 'feedback',
+                'execution_type' => 'computational',
+                'regulation_category' => 'delivery_quality',
+                'timing' => 'post_attempt',
+                'required' => $required,
+                'failure_policy' => $required ? 'blocks_resolved' : 'advisory',
+            ],
+            status: $controlStatus,
+            summary: $summary,
+            outputExcerpt: ($gate['blocking_failures'] ?? []) || ($gate['warnings'] ?? [])
+                ? json_encode([
+                    'blocking_failures' => $gate['blocking_failures'] ?? [],
+                    'warnings' => $gate['warnings'] ?? [],
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+                : null,
+            metadata: [
+                'required' => $required,
+                'quality_scan_mode' => $qualityScanMode,
+                'quality_profile' => $qualityProfile,
+                'tool_runtime_gate' => true,
+                'gate' => $gate,
+            ],
+        );
+    }
+
+    private function recordVisualToolRuntimeGateControl(
+        AtlasEngineeringRun $run,
+        AtlasEngineeringRunAttempt $attempt,
+        string $workspace,
+        string $visualE2eMode,
+        mixed $testRuns,
+    ): void {
+        $hasVisualRun = collect($testRuns)->contains(fn (mixed $testRun): bool => (bool) data_get($testRun, 'metadata.visual_e2e.managed_by_atlas', false));
+        $required = $hasVisualRun && (
+            $visualE2eMode === 'required'
+            || collect($testRuns)->contains(fn (mixed $testRun): bool => (bool) data_get($testRun, 'metadata.visual_e2e.required', false))
+        );
+
+        if (! $hasVisualRun && ! $required) {
+            return;
+        }
+
+        $filters = [
+            'workspace' => $workspace,
+            'surface' => 'engineering_visual_smoke',
+            'run_context_type' => 'engineering_run',
+            'run_context_id' => $run->id,
+            'limit' => 50,
+        ];
+        $gate = $this->toolGate->evaluate($filters, [
+            'require_evidence' => $required,
+        ]);
+        $gateStatus = (string) ($gate['status'] ?? 'warning');
+        $controlStatus = match ($gateStatus) {
+            'passed' => 'passed',
+            'warning' => 'passed',
+            'blocked' => $required ? 'failed' : 'warning',
+            default => $required ? 'failed' : 'warning',
+        };
+
+        $this->controlRegistry->recordResult(
+            run: $run,
+            attempt: $attempt,
+            control: [
+                'slug' => 'atlas_tool_runtime_visual_gate',
+                'name' => 'Atlas Tool Runtime visual gate',
+                'direction' => 'feedback',
+                'execution_type' => 'computational',
+                'regulation_category' => 'behaviour',
+                'timing' => 'post_attempt',
+                'required' => $required,
+                'failure_policy' => $required ? 'blocks_resolved' : 'advisory',
+            ],
+            status: $controlStatus,
+            summary: $gateStatus === 'blocked'
+                ? 'Atlas Tool Runtime visual gate bloqueou evidencias visuais deste run.'
+                : 'Atlas Tool Runtime visual gate validou evidencias visuais deste run.',
+            outputExcerpt: ($gate['blocking_failures'] ?? []) || ($gate['warnings'] ?? [])
+                ? json_encode([
+                    'blocking_failures' => $gate['blocking_failures'] ?? [],
+                    'warnings' => $gate['warnings'] ?? [],
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+                : null,
+            metadata: [
+                'required' => $required,
+                'visual_e2e_mode' => $visualE2eMode,
+                'tool_runtime_gate' => true,
+                'gate' => $gate,
+            ],
         );
     }
 

@@ -22,6 +22,7 @@ class AtlasCliSetupService
         $missing = collect($providers)->where('status', 'missing');
         $codexReady = $ready->contains(fn (array $item): bool => ($item['provider'] ?? null) === 'codex_cli');
         $claudeReady = $ready->contains(fn (array $item): bool => ($item['provider'] ?? null) === 'claude_cli');
+        $geminiReady = $ready->contains(fn (array $item): bool => ($item['provider'] ?? null) === 'gemini_cli');
 
         return [
             'generated_at' => now()->toJSON(),
@@ -34,6 +35,7 @@ class AtlasCliSetupService
                 'dev_ready' => $codexReady || $claudeReady,
                 'codex_ready' => $codexReady,
                 'claude_ready' => $claudeReady,
+                'gemini_ready' => $geminiReady,
                 'council_ready' => $codexReady && $claudeReady,
                 'recommended_next_command' => $ready->isEmpty()
                     ? 'atlas bootstrap'
@@ -178,6 +180,13 @@ class AtlasCliSetupService
                 'default_binary' => 'codex',
                 'preferred_for' => 'desenvolvimento pesado, edição de código e validação técnica',
             ],
+            'gemini_cli' => [
+                'label' => 'Gemini CLI',
+                'env_key' => 'ATLAS_AI_GEMINI_BIN',
+                'config_key' => 'atlas.ai.providers.gemini_cli.binary',
+                'default_binary' => 'gemini',
+                'preferred_for' => 'contexto longo, análise multimodal e scout automático read-only',
+            ],
         ];
     }
 
@@ -273,6 +282,7 @@ class AtlasCliSetupService
         return match ($envKey) {
             'ATLAS_AI_CLAUDE_BIN' => 'claude-bin',
             'ATLAS_AI_CODEX_BIN' => 'codex-bin',
+            'ATLAS_AI_GEMINI_BIN' => 'gemini-bin',
             default => 'provider-bin',
         };
     }
@@ -302,12 +312,19 @@ class AtlasCliSetupService
     private function extraSearchDirs(): array
     {
         $home = (string) ($_SERVER['HOME'] ?? getenv('HOME') ?: '');
+        $nodeBins = $home !== ''
+            ? glob($home.'/.nvm/versions/node/*/bin') ?: []
+            : [];
+        rsort($nodeBins, SORT_NATURAL);
 
         return array_values(array_filter(array_unique([
             '/opt/homebrew/bin',
             '/usr/local/bin',
             '/usr/bin',
             '/bin',
+            ...$nodeBins,
+            $home !== '' ? $home.'/.volta/bin' : null,
+            $home !== '' ? $home.'/.asdf/shims' : null,
             $home !== '' ? $home.'/.local/bin' : null,
             $home !== '' ? $home.'/.npm-global/bin' : null,
             $home !== '' ? $home.'/Library/pnpm' : null,

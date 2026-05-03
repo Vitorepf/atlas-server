@@ -42,7 +42,7 @@ class AiQualityActionServiceTest extends TestCase
         $this->assertSame(1, AiQualityAction::query()->where('trace_id', $trace->id)->count());
         $this->assertSame('retry_with_continuity', $first->first()->action_type);
         $this->assertSame('queued', $first->first()->status);
-        $this->assertSame('claude_codex', $first->first()->payload['provider']);
+        $this->assertSame('claude_cli', $first->first()->payload['provider']);
     }
 
     public function test_depth_limit_blocks_operator_review_instead_of_auto_loop(): void

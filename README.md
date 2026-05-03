@@ -79,6 +79,26 @@ php artisan queue:work --queue=transcription,default --tries=3 --timeout=600
 
 O Atlas AI Gateway e a camada propria do Atlas para chamar IA sem prender o sistema a um provider. A fundacao continua sendo Laravel + PostgreSQL + AtlasVault. Claude CLI e Codex CLI sao apenas motores locais plugaveis, usando as contas ja autenticadas no Mac.
 
+## Engineering Blueprint System
+
+O Atlas Server inclui o pipeline project-level do Engineering Blueprint System:
+
+```bash
+atlas project blueprint prepare --project-id=<id>
+atlas project blueprint create --project-id=<id>
+atlas project blueprint validate --project-id=<id>
+atlas project blueprint freeze --project-id=<id> --version=<n>
+atlas project tasks generate --project-id=<id> --from-blueprint=<n>
+atlas qa --task-id=<id>
+atlas review --deep --task-id=<id>
+atlas db review --task-id=<id>
+atlas db explain --task-id=<id>
+```
+
+O estado operacional fica em Postgres, com blueprints de projeto versionados,
+contracts por task, evidence `manual_qa`/`database_review`, review findings com
+confidence/category e promocao de runs reais para Atlas-Bench.
+
 Principios operacionais:
 
 - O app nunca conversa direto com Claude, Codex ou OpenAI.
@@ -171,6 +191,7 @@ Documentacao operacional unica:
 
 - `docs/atlas-cli-final-product.md`
 - `docs/atlas-cli-release-checklist.md`
+- `docs/atlas-cli-fair-claude-benchmark.md`
 
 O CI obrigatorio do Atlas CLI fica em `.github/workflows/atlas-cli.yml` e roda testes, `git diff --check`, `atlas final --strict` e o gate estrutural de release usando stubs versionados em `scripts/ci`.
 

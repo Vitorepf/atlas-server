@@ -6,6 +6,7 @@ use App\Models\AiInboxItem;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
+use App\Services\AuditLogService;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -13,29 +14,107 @@ class DiscussionBootstrapper
 {
     public function __construct(
         private readonly AiGatewayService $gateway,
-    ) {
-    }
+        private readonly AuditLogService $audit,
+    ) {}
 
     /**
      * @return array<string,mixed>
      */
     public function bootstrap(AiInboxItem $item, AiThread $thread, string $focus): array
     {
+        return $this->bootstrapInternal($item, $thread, $focus);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function retry(AiInboxItem $item, AiThread $thread, string $focus): array
+    {
         $payload = $item->payload ?? [];
+        $previousTraceId = $this->string(data_get($payload, 'discussion_bootstrap_trace_id'));
+        $previousTrace = $previousTraceId ? AiTrace::query()->find($previousTraceId) : null;
+        $previousAttempt = max(1, (int) data_get($payload, 'discussion_bootstrap_attempt', 1));
+
+        if ($previousTrace instanceof AiTrace && $this->traceIsStillAuthoritative($previousTrace)) {
+            $this->recordBootstrapAudit('atlas_ai.bootstrap_retry_reused_active', $item, $thread, [
+                'status' => $previousTrace->status,
+                'trace_id' => $previousTrace->id,
+                'attempt' => $previousAttempt,
+                'retry' => true,
+            ]);
+
+            return $this->bootstrapInternal($item, $thread, $focus, false, $previousAttempt);
+        }
+
+        $attempt = $previousAttempt + 1;
+        $payload['discussion_bootstrap_attempt'] = $attempt;
+        $payload['discussion_bootstrap_previous_trace_id'] = $previousTraceId;
+        $payload['discussion_bootstrap_status'] = 'retrying';
+        $payload['discussion_bootstrap_retry_requested_at'] = now()->toJSON();
+        $payload['discussion_bootstrap_at'] = now()->toJSON();
+        unset($payload['discussion_bootstrap_trace_id'], $payload['discussion_bootstrap_error']);
+        $item->update(['payload' => $payload]);
+
+        $this->syncThreadBootstrapMetadata($thread, [
+            'status' => 'retrying',
+            'trace_id' => null,
+            'error' => null,
+            'context_bundle_id' => $item->context_bundle_id,
+            'attempt' => $attempt,
+        ]);
+
+        return $this->bootstrapInternal($item->refresh(), $thread->refresh(), $focus, true, $attempt);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function bootstrapInternal(AiInboxItem $item, AiThread $thread, string $focus, bool $force = false, ?int $attempt = null): array
+    {
+        $payload = $item->payload ?? [];
+        $attempt ??= max(1, (int) data_get($payload, 'discussion_bootstrap_attempt', 1));
+        $this->recordBootstrapAudit('atlas_ai.bootstrap_started', $item, $thread, [
+            'status' => 'started',
+            'focus' => $focus,
+            'attempt' => $attempt,
+            'retry' => $force,
+        ]);
+
         $existingTraceId = $this->string(data_get($payload, 'discussion_bootstrap_trace_id'));
         $existingTrace = $existingTraceId ? AiTrace::query()->find($existingTraceId) : null;
-        if ($existingTrace instanceof AiTrace) {
+        if ($existingTrace instanceof AiTrace && (! $force || $this->traceIsStillAuthoritative($existingTrace))) {
+            $traceError = $this->traceError($existingTrace);
+            $payload['discussion_bootstrap_trace_id'] = $existingTrace->id;
+            $payload['discussion_bootstrap_status'] = $existingTrace->status;
+            $payload['discussion_bootstrap_at'] = now()->toJSON();
+            $payload['discussion_bootstrap_attempt'] = $attempt;
+            if ($traceError) {
+                $payload['discussion_bootstrap_error'] = $traceError;
+            } else {
+                unset($payload['discussion_bootstrap_error']);
+            }
+            $item->update(['payload' => $payload]);
+
             $this->syncThreadBootstrapMetadata($thread, [
                 'status' => $existingTrace->status,
                 'trace_id' => $existingTrace->id,
-                'error' => $this->traceError($existingTrace),
+                'error' => $traceError,
                 'context_bundle_id' => $item->context_bundle_id,
+                'attempt' => $attempt,
+            ]);
+            $this->recordBootstrapAudit('atlas_ai.bootstrap_existing', $item, $thread, [
+                'status' => $existingTrace->status,
+                'trace_id' => $existingTrace->id,
+                'attempt' => $attempt,
+                'retry' => $force,
             ]);
 
             return [
-                'status' => 'already_queued',
+                'status' => $this->existingTraceResponseStatus($existingTrace),
                 'trace_id' => $existingTraceId,
                 'context_bundle_id' => $item->context_bundle_id,
+                'attempt' => $attempt,
+                ...($traceError ? ['reason' => $traceError] : []),
             ];
         }
 
@@ -43,24 +122,33 @@ class DiscussionBootstrapper
             $payload['discussion_bootstrap_status'] = 'skipped';
             $payload['discussion_bootstrap_error'] = 'ai_gateway_schema_unavailable';
             $payload['discussion_bootstrap_at'] = now()->toJSON();
+            $payload['discussion_bootstrap_attempt'] = $attempt;
             $item->update(['payload' => $payload]);
             $this->syncThreadBootstrapMetadata($thread, [
                 'status' => 'skipped',
                 'trace_id' => null,
                 'error' => 'ai_gateway_schema_unavailable',
                 'context_bundle_id' => $item->context_bundle_id,
+                'attempt' => $attempt,
+            ]);
+            $this->recordBootstrapAudit('atlas_ai.bootstrap_skipped', $item, $thread, [
+                'status' => 'skipped',
+                'reason' => 'ai_gateway_schema_unavailable',
+                'attempt' => $attempt,
+                'retry' => $force,
             ]);
 
             return [
                 'status' => 'skipped',
                 'reason' => 'ai_gateway_schema_unavailable',
                 'context_bundle_id' => $item->context_bundle_id,
+                'attempt' => $attempt,
             ];
         }
 
         try {
             $trace = $this->gateway->enqueueInteraction($this->bootstrapInput($item), [
-                'client_id' => 'inbox-discuss-bootstrap-'.$item->id,
+                'client_id' => $this->clientId($item, $force, $attempt),
                 'thread_id' => $thread->id,
                 'new_thread' => false,
                 'agent_slug' => 'orquestrador',
@@ -71,12 +159,13 @@ class DiscussionBootstrapper
                 'include_semantic_context' => true,
                 'context_note_limit' => 8,
                 'priority' => 70,
-                'payload' => $this->bootstrapPayload($item, $thread, $focus),
+                'payload' => $this->bootstrapPayload($item, $thread, $focus, $attempt, $force),
             ]);
 
             $payload['discussion_bootstrap_trace_id'] = $trace->id;
             $payload['discussion_bootstrap_status'] = 'queued';
             $payload['discussion_bootstrap_at'] = now()->toJSON();
+            $payload['discussion_bootstrap_attempt'] = $attempt;
             unset($payload['discussion_bootstrap_error']);
             $item->update(['payload' => $payload]);
             $this->syncThreadBootstrapMetadata($thread, [
@@ -84,12 +173,20 @@ class DiscussionBootstrapper
                 'trace_id' => $trace->id,
                 'error' => null,
                 'context_bundle_id' => $item->context_bundle_id,
+                'attempt' => $attempt,
+            ]);
+            $this->recordBootstrapAudit('atlas_ai.bootstrap_trace_created', $item, $thread, [
+                'status' => 'queued',
+                'trace_id' => $trace->id,
+                'attempt' => $attempt,
+                'retry' => $force,
             ]);
 
             return [
                 'status' => 'queued',
                 'trace_id' => $trace->id,
                 'context_bundle_id' => $item->context_bundle_id,
+                'attempt' => $attempt,
             ];
         } catch (Throwable $exception) {
             report($exception);
@@ -97,18 +194,27 @@ class DiscussionBootstrapper
             $payload['discussion_bootstrap_status'] = 'failed';
             $payload['discussion_bootstrap_error'] = $exception->getMessage();
             $payload['discussion_bootstrap_at'] = now()->toJSON();
+            $payload['discussion_bootstrap_attempt'] = $attempt;
             $item->update(['payload' => $payload]);
             $this->syncThreadBootstrapMetadata($thread, [
                 'status' => 'failed',
                 'trace_id' => null,
                 'error' => $exception->getMessage(),
                 'context_bundle_id' => $item->context_bundle_id,
+                'attempt' => $attempt,
+            ]);
+            $this->recordBootstrapAudit('atlas_ai.bootstrap_failed', $item, $thread, [
+                'status' => 'failed',
+                'reason' => $exception->getMessage(),
+                'attempt' => $attempt,
+                'retry' => $force,
             ]);
 
             return [
                 'status' => 'failed',
                 'reason' => $exception->getMessage(),
                 'context_bundle_id' => $item->context_bundle_id,
+                'attempt' => $attempt,
             ];
         }
     }
@@ -148,7 +254,7 @@ class DiscussionBootstrapper
     /**
      * @return array<string,mixed>
      */
-    private function bootstrapPayload(AiInboxItem $item, AiThread $thread, string $focus): array
+    private function bootstrapPayload(AiInboxItem $item, AiThread $thread, string $focus, int $attempt, bool $retry): array
     {
         return [
             'app_surface' => 'atlas_ai_sheet',
@@ -197,12 +303,14 @@ class DiscussionBootstrapper
                 'auto_started' => true,
                 'source' => 'inbox_discuss_action',
                 'thread_id' => $thread->id,
+                'attempt' => $attempt,
+                'retry' => $retry,
             ],
         ];
     }
 
     /**
-     * @param  array{status:string,trace_id:?string,error:?string,context_bundle_id:?string}  $state
+     * @param  array{status:string,trace_id:?string,error:?string,context_bundle_id:?string,attempt?:int}  $state
      */
     private function syncThreadBootstrapMetadata(AiThread $thread, array $state): void
     {
@@ -213,8 +321,53 @@ class DiscussionBootstrapper
         $metadata['discussion_bootstrap_context_bundle_id'] = $state['context_bundle_id'];
         $metadata['discussion_bootstrap_at'] = now()->toJSON();
         $metadata['discussion_bootstrap_source'] = 'inbox_discuss_action';
+        $metadata['discussion_bootstrap_attempt'] = $state['attempt'] ?? ($metadata['discussion_bootstrap_attempt'] ?? 1);
 
         $thread->update(['metadata' => $metadata]);
+    }
+
+    private function clientId(AiInboxItem $item, bool $retry, int $attempt): string
+    {
+        if (! $retry) {
+            return 'inbox-discuss-bootstrap-'.$item->id;
+        }
+
+        return 'inbox-discuss-bootstrap-'.$item->id.'-retry-'.$attempt;
+    }
+
+    private function traceIsStillAuthoritative(AiTrace $trace): bool
+    {
+        return in_array($trace->status, ['queued', 'processing', 'succeeded', 'awaiting_user_choice'], true);
+    }
+
+    private function existingTraceResponseStatus(AiTrace $trace): string
+    {
+        if (in_array($trace->status, ['queued', 'processing'], true)) {
+            return 'already_queued';
+        }
+
+        return $trace->status;
+    }
+
+    /**
+     * @param  array<string,mixed>  $evidence
+     */
+    private function recordBootstrapAudit(string $eventType, AiInboxItem $item, AiThread $thread, array $evidence): void
+    {
+        $this->audit->record($eventType, [
+            'subject_type' => 'ai_thread',
+            'subject_id' => $thread->id,
+            'actor_type' => 'system',
+            'severity' => in_array($evidence['status'] ?? null, ['failed', 'skipped'], true) ? 'warning' : 'info',
+            'summary' => 'Atlas AI operational bootstrap: '.($evidence['status'] ?? 'unknown').'.',
+            'evidence' => [
+                ...$evidence,
+                'inbox_item_id' => $item->id,
+                'thread_id' => $thread->id,
+                'context_bundle_id' => $item->context_bundle_id,
+            ],
+            'privacy' => ['sensitivity' => 'private'],
+        ]);
     }
 
     private function traceError(AiTrace $trace): ?string

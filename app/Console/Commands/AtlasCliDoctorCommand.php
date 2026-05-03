@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cli\AtlasCliDoctorService;
 use Illuminate\Console\Command;
+use Symfony\Component\Console\Output\OutputInterface;
 
 class AtlasCliDoctorCommand extends Command
 {
@@ -26,7 +27,10 @@ class AtlasCliDoctorCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->getOutput()->writeln(
+                json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                OutputInterface::OUTPUT_RAW,
+            );
 
             return $payload['readiness']['status'] === 'passed' || ! (bool) $this->option('strict')
                 ? self::SUCCESS

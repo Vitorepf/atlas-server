@@ -297,7 +297,7 @@ SH);
         $this->assertStringNotContainsString('prompt secreto', $result->output);
     }
 
-    public function test_gemini_provider_classifies_admin_policy_denial_for_claude_fallback(): void
+    public function test_gemini_provider_classifies_admin_policy_denial_as_policy_violation(): void
     {
         $binary = $this->fakeExecutable('gemini', <<<'SH'
 #!/usr/bin/env bash

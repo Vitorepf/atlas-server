@@ -30,6 +30,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Formatter\OutputFormatter;
+use Symfony\Component\Console\Terminal;
 use Symfony\Component\Process\Process;
 
 class AiChatCommand extends Command
@@ -102,14 +103,16 @@ class AiChatCommand extends Command
         AtlasImageAttachmentService $imageAttachments,
         IntentPermissionResolver $intent,
         AtlasReplHistory $history,
-    ): int
-    {
+        AtlasAiRuntimeSettings $settings,
+    ): int {
         $workspace = $this->workspace();
-        $provider = $this->providerKey($this->option('conselho') ? 'conselho' : ($this->option('provider') ?: null));
+        $explicitProvider = $this->providerKey($this->option('conselho') ? 'conselho' : ($this->option('provider') ?: null));
+        $provider = $explicitProvider;
         $modelSelection = $this->modelSelection($this->option('model') ?: null, $provider);
         if ($modelSelection !== null && ! $provider && is_string($modelSelection['provider'] ?? null)) {
             $provider = $modelSelection['provider'];
         }
+        $manualProviderRequested = $explicitProvider !== null || $modelSelection !== null;
         $mode = $this->workflowMode($this->option('dev') ? 'dev' : (string) $this->option('mode'));
         if ($this->option('dev') && ! $provider) {
             $provider = $this->defaultProviderKey();
@@ -118,6 +121,9 @@ class AiChatCommand extends Command
             $this->error('Modelo '.$this->modelSelectionLabel($modelSelection).' nao combina com provider '.($provider ? $this->providerDisplayName($provider) : 'padrao').'. Use --provider correto ou remova --model.');
 
             return self::FAILURE;
+        }
+        if ($manualProviderRequested && ! $this->manualProviderAllowed($provider, $settings)) {
+            return $this->manualProviderBlocked((string) $provider);
         }
         $permissionMode = $this->permissionMode((string) $this->option('permission'), $mode);
         $stream = (bool) $this->option('stream') && ! (bool) $this->option('json');
@@ -867,6 +873,7 @@ class AiChatCommand extends Command
                 } catch (AiProviderChoiceException $exception) {
                     $this->error('Erro ao resolver escolha: '.$exception->getMessage());
                     sleep(1);
+
                     continue;
                 }
 
@@ -1774,7 +1781,7 @@ class AiChatCommand extends Command
 
     private function panelWidth(): int
     {
-        $terminal = new \Symfony\Component\Console\Terminal;
+        $terminal = new Terminal;
         $cols = $terminal->getWidth();
         if ($cols <= 0) {
             $cols = 80;
@@ -1833,8 +1840,8 @@ class AiChatCommand extends Command
         $extra = count($roots) > 3 ? ' +'.(count($roots) - 3) : '';
         $meaning = match ($permissionMode) {
             'danger' => 'pode operar dentro das raizes',
-            'write'  => 'pode editar e rodar dentro do workspace',
-            default  => 'so leitura e inspecao',
+            'write' => 'pode editar e rodar dentro do workspace',
+            default => 'so leitura e inspecao',
         };
         $intentLine = $this->intentEnabled
             ? 'intent · ativo · sobe permissao por pedido, nunca por padrao'
@@ -2436,7 +2443,7 @@ class AiChatCommand extends Command
             $this->providerNamedModel('codex_cli', 'premium_model', 'premium_model_label'),
             'premium',
             'Codex premium manual',
-            ['codex-premium', 'codex-5.5', 'gpt-5.5', 'gpt-premium', 'premium-codex'],
+            ['5.5', '55', 'codex-premium', 'codex-5.5', 'gpt-5.5', 'gpt-premium', 'premium-codex'],
         );
 
         return $rows;
@@ -2539,6 +2546,35 @@ class AiChatCommand extends Command
         }
 
         return $provider === $selectionProvider;
+    }
+
+    private function manualProviderAllowed(?string $provider, AtlasAiRuntimeSettings $settings): bool
+    {
+        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true)) {
+            return true;
+        }
+
+        return (bool) ($settings->providerConfig((string) $provider)['allow_manual'] ?? true);
+    }
+
+    private function manualProviderBlocked(string $provider): int
+    {
+        $message = "Provider {$provider} esta bloqueado para uso manual pelas configuracoes do Atlas app.";
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode(AtlasSecurity::redactArray([
+                'ok' => false,
+                'phase' => 'preflight',
+                'error' => 'atlas_manual_provider_blocked',
+                'provider' => $provider,
+                'message' => $message,
+            ]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $this->error($message);
+
+        return self::FAILURE;
     }
 
     private function modelPanelValue(?string $provider, ?array $modelSelection, bool $decorated): string

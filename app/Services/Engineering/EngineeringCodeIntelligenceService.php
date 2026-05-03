@@ -33,6 +33,7 @@ class EngineeringCodeIntelligenceService
         $workspace = $this->workspace($options['workspace'] ?? base_path());
         $dryRun = (bool) ($options['dry_run'] ?? false);
         $prune = (bool) ($options['prune'] ?? false);
+        $context = $this->toolRuntimeContext($options);
         $scan = $this->scanWorkspace($workspace);
         $moduleRows = $scan['modules'];
         $symbolRows = $scan['symbols'];
@@ -47,7 +48,7 @@ class EngineeringCodeIntelligenceService
                 'symbols_preview' => array_slice($symbolRows, 0, 80),
                 'generated_at' => now()->toJSON(),
             ];
-            $this->recordToolRuntimeEvidence('index', $workspace, $payload);
+            $this->recordToolRuntimeEvidence('index', $workspace, $payload, $context);
 
             return $payload;
         }
@@ -66,7 +67,7 @@ class EngineeringCodeIntelligenceService
             'symbol_count' => count($symbolIds),
             'generated_at' => now()->toJSON(),
         ];
-        $this->recordToolRuntimeEvidence('index', $workspace, $payload);
+        $this->recordToolRuntimeEvidence('index', $workspace, $payload, $context);
 
         return $payload;
     }
@@ -81,6 +82,7 @@ class EngineeringCodeIntelligenceService
 
         $workspace = $this->workspace($options['workspace'] ?? base_path());
         $limit = $this->limit((int) ($options['limit'] ?? 50));
+        $context = $this->toolRuntimeContext($options);
         $scan = $this->scanWorkspace($workspace);
         $modules = $this->moduleDrift($scan['modules'], $limit);
         $symbols = $this->symbolDrift($scan['symbols'], $limit);
@@ -117,7 +119,7 @@ class EngineeringCodeIntelligenceService
             ],
             'generated_at' => now()->toJSON(),
         ];
-        $this->recordToolRuntimeEvidence('audit', $workspace, $payload);
+        $this->recordToolRuntimeEvidence('audit', $workspace, $payload, $context);
 
         return $payload;
     }
@@ -360,7 +362,7 @@ class EngineeringCodeIntelligenceService
     /**
      * @param  array<string,mixed>  $payload
      */
-    private function recordToolRuntimeEvidence(string $operation, string $workspace, array $payload): void
+    private function recordToolRuntimeEvidence(string $operation, string $workspace, array $payload, array $context = []): void
     {
         try {
             $summary = (array) ($payload['summary'] ?? []);
@@ -396,6 +398,8 @@ class EngineeringCodeIntelligenceService
             ], [
                 'surface' => 'engineering_code_intelligence',
                 'source' => 'engineering_code_intelligence_service',
+                'run_context_type' => $context['run_context_type'] ?? null,
+                'run_context_id' => $context['run_context_id'] ?? null,
                 'metadata' => [
                     'operation' => $operation,
                     'dry_run' => (bool) ($payload['dry_run'] ?? false),
@@ -407,6 +411,29 @@ class EngineeringCodeIntelligenceService
         } catch (\Throwable) {
             // Code intelligence must remain usable even when the generic runtime tables are absent.
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array{run_context_type:?string,run_context_id:?string}
+     */
+    private function toolRuntimeContext(array $options): array
+    {
+        return [
+            'run_context_type' => $this->nullableString($options['run_context_type'] ?? null),
+            'run_context_id' => $this->nullableString($options['run_context_id'] ?? null),
+        ];
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
     }
 
     /**
@@ -1424,37 +1451,55 @@ class EngineeringCodeIntelligenceService
             ->whereNotNull('module_id')
             ->whereNull('archived_at')
             ->where('status', 'current')
-            ->get()
-            ->groupBy('module_id');
+            ->get(['module_id', 'canonical_path', 'doc_hash'])
+            ->groupBy(fn (AtlasEngineeringDocLink $link): string => (string) $link->module_id);
         $symbolDocs = AtlasEngineeringDocLink::query()
             ->whereNotNull('symbol_id')
             ->whereNull('archived_at')
             ->where('status', 'current')
-            ->get()
-            ->groupBy('symbol_id');
+            ->get(['symbol_id', 'knowledge_item_id'])
+            ->groupBy(fn (AtlasEngineeringDocLink $link): string => (string) $link->symbol_id);
+        $documentedModuleIds = [];
 
-        foreach (AtlasEngineeringCodeModule::query()->active()->get() as $module) {
+        foreach (AtlasEngineeringCodeModule::query()->active()->get(['id']) as $module) {
             $links = $moduleDocs->get($module->id, collect());
             $relatedDocs = $links->pluck('canonical_path')->unique()->values()->all();
             $docsHash = $relatedDocs === [] ? null : hash('sha256', implode('|', $links->pluck('doc_hash')->sort()->all()));
-            $module->forceFill([
+
+            if ($relatedDocs !== []) {
+                $documentedModuleIds[$module->id] = true;
+            }
+
+            AtlasEngineeringCodeModule::query()->whereKey($module->id)->update([
                 'docs_status' => $relatedDocs === [] ? 'undocumented' : 'documented',
-                'related_docs_json' => $relatedDocs,
+                'related_docs_json' => $this->json($relatedDocs),
                 'docs_hash' => $docsHash,
-            ])->save();
+            ]);
         }
 
-        foreach (AtlasEngineeringCodeSymbol::query()->active()->get() as $symbol) {
-            $links = $symbolDocs->get($symbol->id, collect());
-            $relatedDocIds = $links->pluck('knowledge_item_id')->unique()->values()->all();
-            $moduleDocumented = $symbol->module_id
-                ? AtlasEngineeringCodeModule::query()->whereKey($symbol->module_id)->where('docs_status', 'documented')->exists()
-                : false;
-            $symbol->forceFill([
-                'docs_status' => $relatedDocIds !== [] ? 'documented' : ($moduleDocumented ? 'module_documented' : 'undocumented'),
-                'related_doc_ids_json' => $relatedDocIds,
-            ])->save();
-        }
+        AtlasEngineeringCodeSymbol::query()
+            ->active()
+            ->select(['id', 'module_id'])
+            ->chunkById(500, function ($symbols) use ($symbolDocs, $documentedModuleIds): void {
+                foreach ($symbols as $symbol) {
+                    $links = $symbolDocs->get($symbol->id, collect());
+                    $relatedDocIds = $links->pluck('knowledge_item_id')->unique()->values()->all();
+                    $moduleDocumented = is_string($symbol->module_id) && isset($documentedModuleIds[$symbol->module_id]);
+
+                    AtlasEngineeringCodeSymbol::query()->whereKey($symbol->id)->update([
+                        'docs_status' => $relatedDocIds !== [] ? 'documented' : ($moduleDocumented ? 'module_documented' : 'undocumented'),
+                        'related_doc_ids_json' => $this->json($relatedDocIds),
+                    ]);
+                }
+            });
+    }
+
+    /**
+     * @param  array<mixed>  $value
+     */
+    private function json(array $value): string
+    {
+        return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '[]';
     }
 
     /**

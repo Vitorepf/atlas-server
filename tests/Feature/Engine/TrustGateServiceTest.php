@@ -4,6 +4,7 @@ namespace Tests\Feature\Engine;
 
 use App\Models\AiDataConfidenceAudit;
 use App\Models\AiTraceMetricSummary;
+use App\Services\Ai\Telemetry\AiTraceMetricAggregatorVersions;
 use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;
 use App\Services\Ai\Telemetry\Engine\Dto\TrustResult;
 use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
@@ -83,6 +84,31 @@ class TrustGateServiceTest extends TestCase
         $this->assertTrue($result->usableForAttribution);
     }
 
+    public function test_pure_v3_full_coverage_window_scores_sufficient(): void
+    {
+        $summaries = collect();
+        for ($i = 0; $i < 50; $i++) {
+            $summaries->push($this->summary([
+                'provider' => $i % 2 === 0 ? 'openai' : 'anthropic',
+                'model' => $i % 2 === 0 ? 'gpt-4o' : 'claude-opus-4',
+                'agent_slug' => 'orquestrador',
+                'task_type' => 'completion',
+                'surface' => 'mobile',
+                'cost_mode' => 'metered_estimate',
+                'cost_confidence' => 'metered',
+                'metadata' => ['aggregator_version' => AiTraceMetricAggregatorVersions::V3],
+            ]));
+        }
+
+        $result = app(TrustGateService::class)->evaluate(
+            $this->context(),
+            $this->aggregates(summaries: $summaries, aggregatorVersion: AiTraceMetricAggregatorVersions::V3),
+        );
+
+        $this->assertSame('sufficient', $result->trustLevel);
+        $this->assertEqualsWithDelta(1.0, $result->scoreComponents['version_purity'], 0.0001);
+    }
+
     public function test_cost_confidence_uses_trace_fraction_not_spend(): void
     {
         // Decisão #5 — pin trace fraction. Configure 2 traces:
@@ -133,9 +159,9 @@ class TrustGateServiceTest extends TestCase
         );
 
         $this->assertEqualsWithDelta(0.0, $result->scoreComponents['version_purity'], 0.0001,
-            'Mixed v1/v2 windows poison trend analysis — version_purity_score must drop to 0.');
+            'Mixed aggregator versions poison trend analysis — version_purity_score must drop to 0.');
         $this->assertSame(
-            'mixed_v1_v2_in_window',
+            'mixed_aggregator_versions_in_window',
             collect($result->topGaps)->firstWhere('dimension', 'aggregator_version')['gap'] ?? null,
             'Mixed window must surface a top_gap pointing at the rollup command to clean it up.',
         );

@@ -21,17 +21,25 @@ capabilities:
   - memory_core_contracts
   - memory_core_security
   - memory_core_maturity
+  - engineering_blueprint
+  - project_blueprint_pipeline
+  - task_contracts
+  - qa_evidence
+  - review_gates
+  - postgres_gate
 decisions:
   - START_HERE.md e o ponto de entrada para humanos e IAs.
   - Docs versionados sao a fonte de verdade.
   - Postgres guarda indice operacional e estado consultavel.
   - O indice de codigo liga docs canonicos a implementacao real.
   - Obsidian pode ser espelho humano, nunca fonte primaria automatica.
+  - Engineering Blueprint define o contrato de produto e qualidade antes de execucao pelo Harness Runner.
 maintenance:
   - Leia START_HERE.md antes de continuar implementacoes de memoria/contexto.
   - Rode atlas engineering knowledge sync --prune depois de alterar estes docs.
   - Rode atlas engineering knowledge index-code --prune depois de alterar docs ou codigo core.
   - Consulte memory-core-runbook.md antes de executar operacoes destrutivas ou provider projection apply.
+  - Consulte engineering-blueprint-runbook.md antes de alterar planejamento, task contracts, QA, review ou Postgres gate.
   - Revise indexed_at e content_hash antes de confiar em uma sessao longa.
 related_paths:
   - app/Services/Engineering/EngineeringKnowledgeBaseService.php
@@ -46,6 +54,11 @@ related_paths:
   - docs/engineering-knowledge-base/memory-core-security-privacy.md
   - docs/engineering-knowledge-base/memory-core-failure-modes.md
   - docs/engineering-knowledge-base/memory-core-maturity-dod.md
+  - docs/engineering-knowledge-base/engineering-blueprint.md
+  - docs/engineering-knowledge-base/engineering-blueprint-contracts.md
+  - docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md
+  - docs/engineering-knowledge-base/engineering-blueprint-runbook.md
+  - docs/engineering-knowledge-base/engineering-blueprint-maturity-dod.md
 ---
 
 # Atlas Engineering Knowledge Base
@@ -112,6 +125,11 @@ detalhe de modulo com docs/testes.
 | `architecture.md` | Arquitetura da Engineering Knowledge Base |
 | `context-pack.md` | Como knowledge/code refs entram nos context packs |
 | `code-intelligence.md` | Indice de codigo, modulos, simbolos e doc links |
+| `engineering-blueprint.md` | Produto final do Engineering Blueprint System |
+| `engineering-blueprint-contracts.md` | Contratos de blueprint, task, inventory, scenarios, evidencias e findings |
+| `engineering-blueprint-quality-gates.md` | QA, deep review, Postgres gate, thresholds e DoD de qualidade |
+| `engineering-blueprint-runbook.md` | Operacao app/CLI/API para blueprint, run, QA, review e sync |
+| `engineering-blueprint-maturity-dod.md` | Estado real, plano por fases e DoD final dos 7 itens |
 | `super-tool-runtime-core.md` | Registry, politica, executor e evidence store genericos para ferramentas |
 | `capability-matrix.md` | Estado das capacidades do Harness |
 | `maintenance-playbook.md` | Manutencao operacional do Harness |

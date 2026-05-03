@@ -3,12 +3,12 @@
 namespace Tests\Feature\Engine;
 
 use App\Models\AiMetricDailySnapshot;
+use App\Services\Ai\Telemetry\AiTraceMetricAggregatorVersions;
 use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;
 use App\Services\Ai\Telemetry\Engine\Dto\TrustResult;
 use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
 use App\Services\Ai\Telemetry\Engine\StatisticalAnalysisService;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -34,7 +34,7 @@ class StatisticalAnalysisServiceTest extends TestCase
             health: [],
             summary: [],
             summaries: collect(),
-            aggregatorVersion: 'ai_trace_metric_aggregator_v2',
+            aggregatorVersion: AiTraceMetricAggregatorVersions::V2,
             hasMixedAggregatorVersions: true,
         );
 
@@ -83,14 +83,14 @@ class StatisticalAnalysisServiceTest extends TestCase
         );
     }
 
-    public function test_v2_only_metrics_skipped_on_v1_window(): void
+    public function test_modern_diagnostic_metrics_skipped_on_v1_window(): void
     {
         $aggregates = new WindowAggregates(
             scorecard: ['totals' => ['final_quality_avg' => 75.0, 'tool_failure_rate' => 0.10]],
             health: [],
             summary: [],
             summaries: collect(),
-            aggregatorVersion: 'ai_trace_metric_aggregator_v1',
+            aggregatorVersion: AiTraceMetricAggregatorVersions::V1,
             hasMixedAggregatorVersions: false,
         );
 
@@ -98,11 +98,11 @@ class StatisticalAnalysisServiceTest extends TestCase
 
         $this->assertEmpty(
             collect($r->baselines)->where('metric', 'tool_failure_rate'),
-            'tool_failure_rate is v2-only (depends on score_components.tools); must NOT appear on v1 window.'
+            'tool_failure_rate depends on score_components.tools; must NOT appear on v1 window.'
         );
         $this->assertNotEmpty(
             collect($r->baselines)->where('metric', 'final_quality_avg'),
-            'final_quality_avg exists on both v1 and v2 — must still appear.'
+            'final_quality_avg exists on all aggregator versions and must still appear.'
         );
     }
 
@@ -114,7 +114,7 @@ class StatisticalAnalysisServiceTest extends TestCase
             AiMetricDailySnapshot::query()->create([
                 'snapshot_date' => CarbonImmutable::parse('2026-04-01')->addDays($i)->toDateString(),
                 'metric' => 'final_quality_avg',
-                'aggregator_version' => 'ai_trace_metric_aggregator_v1',  // legacy
+                'aggregator_version' => AiTraceMetricAggregatorVersions::V1,
                 'n_traces' => 50,
                 'value_mean' => 999.0, // would corrupt EWMA if loaded
             ]);
@@ -126,6 +126,38 @@ class StatisticalAnalysisServiceTest extends TestCase
         $baseline = collect($r->baselines)->firstWhere('metric', 'final_quality_avg');
         $this->assertLessThan(150.0, $baseline['mean'],
             'Baseline must NOT include v1 rows (value=999) — that would poison the calculation.');
+    }
+
+    public function test_snapshot_filter_uses_exact_v3_history_rows(): void
+    {
+        $this->seedHistory(
+            'final_quality_avg',
+            14,
+            baseValue: 80.0,
+            noiseAmplitude: 2.0,
+            aggregatorVersion: AiTraceMetricAggregatorVersions::V3,
+        );
+
+        for ($i = 0; $i < 5; $i++) {
+            AiMetricDailySnapshot::query()->create([
+                'snapshot_date' => CarbonImmutable::parse('2026-04-01')->addDays($i)->toDateString(),
+                'metric' => 'final_quality_avg',
+                'aggregator_version' => AiTraceMetricAggregatorVersions::V2,
+                'n_traces' => 50,
+                'value_mean' => 999.0,
+            ]);
+        }
+
+        $aggregates = $this->aggregates(
+            ['final_quality_avg' => 75.0],
+            aggregatorVersion: AiTraceMetricAggregatorVersions::V3,
+        );
+
+        $r = app(StatisticalAnalysisService::class)->analyze($this->ctx(), $aggregates, $this->trust());
+        $baseline = collect($r->baselines)->firstWhere('metric', 'final_quality_avg');
+
+        $this->assertLessThan(150.0, $baseline['mean'],
+            'A v3 window must not blend older v2 snapshots into the statistical baseline.');
     }
 
     private function ctx(?CarbonImmutable $clock = null): ReportContext
@@ -149,7 +181,7 @@ class StatisticalAnalysisServiceTest extends TestCase
             coverage: 0.85,
             usableForAttribution: true,
             trustLevel: 'moderate',
-            aggregatorVersion: 'ai_trace_metric_aggregator_v2',
+            aggregatorVersion: AiTraceMetricAggregatorVersions::V2,
             mixedAggregatorVersions: false,
             sampleCount: 50,
             dimensions: [],
@@ -159,20 +191,27 @@ class StatisticalAnalysisServiceTest extends TestCase
         );
     }
 
-    private function aggregates(array $totals): WindowAggregates
-    {
+    private function aggregates(
+        array $totals,
+        string $aggregatorVersion = AiTraceMetricAggregatorVersions::V2,
+    ): WindowAggregates {
         return new WindowAggregates(
             scorecard: ['totals' => $totals],
             health: [],
             summary: [],
             summaries: collect(),
-            aggregatorVersion: 'ai_trace_metric_aggregator_v2',
+            aggregatorVersion: $aggregatorVersion,
             hasMixedAggregatorVersions: false,
         );
     }
 
-    private function seedHistory(string $metric, int $days, float $baseValue, float $noiseAmplitude): void
-    {
+    private function seedHistory(
+        string $metric,
+        int $days,
+        float $baseValue,
+        float $noiseAmplitude,
+        string $aggregatorVersion = AiTraceMetricAggregatorVersions::V2,
+    ): void {
         mt_srand(42);
         $reportDate = CarbonImmutable::parse('2026-05-01');
         for ($i = 0; $i < $days; $i++) {
@@ -180,7 +219,7 @@ class StatisticalAnalysisServiceTest extends TestCase
             AiMetricDailySnapshot::query()->create([
                 'snapshot_date' => $date->toDateString(),
                 'metric' => $metric,
-                'aggregator_version' => 'ai_trace_metric_aggregator_v2',
+                'aggregator_version' => $aggregatorVersion,
                 'n_traces' => 30,
                 'value_mean' => $baseValue + (mt_rand(0, 1000) / 1000.0 - 0.5) * $noiseAmplitude * 2,
             ]);

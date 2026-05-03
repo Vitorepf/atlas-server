@@ -2,8 +2,8 @@
 
 namespace App\Http\Resources;
 
-use App\Support\Metadata;
 use App\Support\AiAttachmentPayload;
+use App\Support\Metadata;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -30,6 +30,11 @@ class AiJobResource extends JsonResource
             'input_text' => $this->input_text,
             'context_refs' => Metadata::listForResponse($this->context_refs),
             'payload' => Metadata::forResponse(AiAttachmentPayload::sanitizePayload($this->payload)),
+            'atlas_decide_execution' => Metadata::forResponse($this->atlasDecideExecutionForResponse()),
+            'atlas_decide_stage' => data_get($this->metadata, 'atlas_decide_stage')
+                ?: data_get($this->payload, 'atlas_decide_execution.atlas_decide_stage'),
+            'dependency_state' => data_get($this->metadata, 'dependency_state')
+                ?: data_get($this->payload, 'atlas_decide_execution.dependency_state'),
             'result_text' => $this->result_text,
             'result_json' => Metadata::forResponse($this->result_json),
             'error_code' => $this->error_code,
@@ -49,5 +54,20 @@ class AiJobResource extends JsonResource
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function atlasDecideExecutionForResponse(): array
+    {
+        $metadataExecution = data_get($this->metadata, 'atlas_decide_execution');
+        $payloadExecution = data_get($this->payload, 'atlas_decide_execution');
+
+        if (is_array($metadataExecution)) {
+            return $metadataExecution;
+        }
+
+        return is_array($payloadExecution) ? $payloadExecution : [];
     }
 }

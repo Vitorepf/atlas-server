@@ -90,8 +90,10 @@ class ReportAssemblerService
         }
         if (! empty($diagnostic->findings)) {
             $count = count($diagnostic->findings);
+
             return sprintf('%d achado(s) diagnóstico(s); %d nova(s) recomendação(ões).', $count, count($rec->created));
         }
+
         return sprintf('Atlas operacional — trust %s, %d traces analisados.', $trust->trustLevel, $trust->sampleCount);
     }
 
@@ -119,6 +121,7 @@ class ReportAssemblerService
                 ->implode(' × ');
             $actions[] = sprintf('[%s] %s — %s', strtoupper($r->kind), $r->target_metric, $dimDesc);
         }
+
         return $actions;
     }
 
@@ -129,11 +132,12 @@ class ReportAssemblerService
             $risks[] = ['kind' => 'trust_gate_skipped', 'severity' => 'warning', 'message' => $trust->skipReason ?? 'unknown'];
         }
         if ($aggregates->hasMixedAggregatorVersions) {
-            $risks[] = ['kind' => 'mixed_aggregator_versions', 'severity' => 'critical', 'message' => 'Window contains v1+v2 traces; trends suppressed.'];
+            $risks[] = ['kind' => 'mixed_aggregator_versions', 'severity' => 'critical', 'message' => 'Window contains mixed aggregator versions; trends suppressed.'];
         }
         if ($trust->trustLevel === 'insufficient') {
             $risks[] = ['kind' => 'trust_insufficient', 'severity' => 'warning', 'message' => sprintf('Trust score %.2f below threshold; downstream claims suppressed.', $trust->trustScore)];
         }
+
         return $risks;
     }
 

@@ -272,19 +272,31 @@ class AiProviderController extends Controller
             ->whereIn('status', ['queued', 'processing', 'awaiting_user_choice'])
             ->orderByDesc('updated_at')
             ->limit(12)
-            ->get(['id', 'trace_id', 'provider', 'model', 'status', 'attempts', 'worker_id', 'payload', 'metadata', 'available_at', 'started_at', 'updated_at'])
+            ->get(['id', 'trace_id', 'kind', 'priority', 'provider', 'model', 'status', 'attempts', 'worker_id', 'payload', 'metadata', 'available_at', 'started_at', 'updated_at'])
             ->map(function (AiJob $job): array {
                 $payload = is_array($job->payload) ? $job->payload : [];
                 $metadata = is_array($job->metadata) ? $job->metadata : [];
+                $atlasExecution = $this->atlasExecutionForJob($payload, $metadata);
 
                 return [
                     'id' => $job->id,
                     'trace_id' => $job->trace_id,
+                    'kind' => $job->kind,
+                    'priority' => $job->priority,
                     'provider' => $job->provider,
                     'model' => $job->model,
                     'model_label' => data_get($metadata, 'model_label') ?: data_get($payload, 'model_label') ?: $job->model,
                     'model_tier' => data_get($metadata, 'model_tier') ?: data_get($payload, 'model_tier'),
                     'model_source' => data_get($metadata, 'model_identity_source') ?: data_get($payload, 'model_identity_source'),
+                    'atlas_decide_execution' => $atlasExecution,
+                    'atlas_decide_stage' => data_get($metadata, 'atlas_decide_stage') ?: data_get($atlasExecution, 'atlas_decide_stage'),
+                    'atlas_decide_strategy' => data_get($atlasExecution, 'strategy'),
+                    'dependency_state' => data_get($metadata, 'dependency_state') ?: data_get($atlasExecution, 'dependency_state'),
+                    'dependency_job_id' => data_get($metadata, 'dependency_job_id') ?: data_get($atlasExecution, 'dependency_job_id'),
+                    'dependent_job_id' => data_get($metadata, 'dependent_job_id') ?: data_get($atlasExecution, 'dependent_job_id'),
+                    'dependency_provider' => data_get($metadata, 'dependency_provider') ?: data_get($atlasExecution, 'dependency_provider'),
+                    'dependency_model' => data_get($metadata, 'dependency_model') ?: data_get($atlasExecution, 'dependency_model'),
+                    'dependency_deadline_at' => data_get($metadata, 'dependency_deadline_at'),
                     'status' => $job->status,
                     'attempts' => $job->attempts,
                     'worker_id' => $job->worker_id,
@@ -294,6 +306,23 @@ class AiProviderController extends Controller
                 ];
             })
             ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $metadata
+     * @return array<string,mixed>
+     */
+    private function atlasExecutionForJob(array $payload, array $metadata): array
+    {
+        $metadataExecution = data_get($metadata, 'atlas_decide_execution');
+        $payloadExecution = data_get($payload, 'atlas_decide_execution');
+
+        if (is_array($metadataExecution)) {
+            return $metadataExecution;
+        }
+
+        return is_array($payloadExecution) ? $payloadExecution : [];
     }
 
     private function providerKeys()
@@ -343,7 +372,7 @@ class AiProviderController extends Controller
     }
 
     /**
-     * @param array<int,array<string,mixed>> $rows
+     * @param  array<int,array<string,mixed>>  $rows
      */
     private function usageTotals(array $rows): array
     {

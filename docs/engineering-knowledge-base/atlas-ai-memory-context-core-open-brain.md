@@ -144,14 +144,15 @@ Provider Projections controladas
 | Provider Projection | Implementado | Preview/write/adopt/status/audit/purge com guardrails |
 | Engineering Knowledge Base | Implementado | Docs canonicos + Postgres + CLI/API + app + context pack |
 | Engineering Code Intelligence Index | Implementado | Modules/symbols/routes/commands/migrations/tests/doc links, `code_refs`, UI dedicada e audit-code |
+| Super Tool Runtime | Implementado backend + app | Registry, policy, executor, evidence store, gates deterministicas e painel operacional no Engineering |
 | Documentation Hardening | Implementado | Runbook, contratos, security/privacy, failure modes e DoD canonicos |
 | Documentation Preservation | Implementado | Documento mestre preservado no `atlas-server` e `START_HERE.md` como entrada canonica |
-| App de Knowledge/Memory | Parcial forte | Memory e Engineering mostram status, sync, detalhe, Code Intelligence navegavel e audit-code visual sem escrita |
+| App de Knowledge/Memory | Parcial forte | Memory e Engineering mostram status, sync, detalhe, Code Intelligence navegavel, audit-code visual e gate do Tool Runtime sem escrita |
 | Semantic/vector/Open Brain | Nao implementado | Mantido fora para preservar core deterministico |
 
 ## Status De Implementacao
 
-Atualizado em 2 de maio de 2026.
+Atualizado em 3 de maio de 2026.
 
 ### Fase 1 - Memory Registry Central
 
@@ -2489,6 +2490,120 @@ Validacao executada:
 - `/opt/homebrew/bin/php artisan atlas:engineering:knowledge index-code --prune --workspace=/Users/vitorepf/Develop/atlas/atlas-server` (22 modulos, 7807 simbolos, 2450 doc links)
 - `/opt/homebrew/bin/php artisan atlas:engineering:knowledge audit-code --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json` (`fresh`, total drift 0)
 - `/opt/homebrew/bin/php artisan atlas:engineering:knowledge code-status --json` (`ready`, 22 modulos, 7807 simbolos, 2450 doc links)
+
+### Fase 4AB - Super Tool Runtime Evidence Gate Hardening
+
+Status: **implementada no `atlas-server` como hardening deterministico de gates**.
+
+Objetivo entregue: fechar o contrato de gates do Super Tool Runtime para que evidencias de ferramentas locais possam bloquear ou liberar fluxos de engenharia sem executar ferramentas novamente e sem contar duas vezes o mesmo achado normalizado. Esta fase nao adiciona embeddings, ChromaDB, vector search, Open Brain remoto nem execucao remota.
+
+Capacidades entregues:
+
+- `AtlasToolGateService` avalia evidencias persistidas por workspace, tool, surface, status, policy decision, contexto e requisito;
+- gate retorna `passed`, `warning` ou `blocked`, com `allowed`, resumo, warnings, blocking failures e runs usadas;
+- CLI `atlas tools gate` e API `GET /tools/gate` ficam registrados na documentacao canonica;
+- failures normalizados que ja viraram `atlas_tool_findings` bloqueantes sao deduplicados, preservando `normalized_blocking_failure` apenas para failures independentes;
+- teste focado cobre gate bloqueado por run falha/finding, required tool ausente e gate passando com evidencia valida.
+
+Arquivos integrados nesta fase:
+
+- `atlas-server/app/Services/Tools/AtlasToolGateService.php`
+- `atlas-server/app/Console/Commands/AtlasToolsCommand.php`
+- `atlas-server/app/Http/Controllers/AtlasToolRuntimeController.php`
+- `atlas-server/routes/api.php`
+- `atlas-server/tests/Feature/AtlasToolRuntimeCoreTest.php`
+- `atlas-server/docs/engineering-knowledge-base/super-tool-runtime-core.md`
+- `Atlas_AI_Memory_Context_Core_Open_Brain.md`
+
+Validacao executada:
+
+- `/opt/homebrew/bin/php -l app/Services/Tools/AtlasToolGateService.php`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasToolsCommand.php`
+- `/opt/homebrew/bin/php -l app/Http/Controllers/AtlasToolRuntimeController.php`
+- `/opt/homebrew/bin/php artisan test --filter=AtlasToolRuntimeCoreTest` (12 testes, 77 assercoes)
+
+### Fase 4AC - Super Tool Runtime Gate UI
+
+Status: **implementada no `atlas-app` como leitura operacional do gate**.
+
+Objetivo entregue: expor a decisao deterministica do `GET /tools/gate` na tela Engineering, junto do registry e do Evidence Store, para que o operador veja rapidamente se o conjunto de evidencias atual libera, alerta ou bloqueia fluxos sem executar ferramentas novamente. Esta fase nao adiciona embeddings, ChromaDB, vector search, Open Brain remoto, execucao remota nem escrita pelo app.
+
+Capacidades entregues:
+
+- a tela Engineering carrega `doctor`, `evidence` e `gate` para o mesmo workspace informado;
+- o card `Super Tool Runtime` mostra status `passed`, `warning`, `blocked` ou `unknown`, decisao liberado/bloqueado, contadores de runs/tools/bloqueios/avisos e o primeiro bloqueio ou aviso relevante;
+- helpers `toolRuntimeGateLine` e `toolRuntimeGateIssueLine` mantem a formatacao de gate testavel fora do componente visual;
+- teste focado cobre resumo de gate bloqueado, issue bloqueante, warning e estado sem gate avaliado.
+
+Arquivos integrados nesta fase:
+
+- `atlas-app/app/engineering.tsx`
+- `atlas-app/lib/engineeringToolRuntime.ts`
+- `atlas-app/scripts/engineering-tool-runtime.test.ts`
+- `atlas-server/docs/engineering-knowledge-base/super-tool-runtime-core.md`
+- `Atlas_AI_Memory_Context_Core_Open_Brain.md`
+
+Validacao executada:
+
+- `npm run typecheck`
+- `npm run test:engineering`
+
+### Fase 4AD - Super Tool Runtime Release Gate Mode
+
+Status: **implementada no `atlas-app` como seletor deterministico de severidade do gate**.
+
+Objetivo entregue: permitir que o operador alterne a avaliacao do Evidence Gate entre modo observacional e modo release diretamente na tela Engineering. No modo observacao, ausencia de evidencia permanece como warning; no modo release, a mesma ausencia de evidencia bloqueia a liberacao. Esta fase nao executa ferramentas, nao escreve estado operacional, nao adiciona embeddings, ChromaDB, vector search, Open Brain remoto nem execucao remota.
+
+Capacidades entregues:
+
+- `buildToolRuntimeGateFilters` centraliza a montagem dos parametros de `GET /tools/gate`;
+- modo `observe` chama o gate com `require_evidence=false`;
+- modo `release` chama o gate com `require_evidence=true`;
+- a tela Engineering exibe chips `observacao`/`release` dentro do bloco `Evidence gate`;
+- a troca de modo recarrega doctor, evidence e gate para o workspace atual;
+- helper `toolRuntimeGateModeLine` documenta visualmente a semantica do modo ativo;
+- testes cobrem filtros de gate, labels de modo e preservam a cobertura dos resumos anteriores.
+
+Arquivos integrados nesta fase:
+
+- `atlas-app/app/engineering.tsx`
+- `atlas-app/lib/engineeringToolRuntime.ts`
+- `atlas-app/scripts/engineering-tool-runtime.test.ts`
+- `atlas-server/docs/engineering-knowledge-base/super-tool-runtime-core.md`
+- `Atlas_AI_Memory_Context_Core_Open_Brain.md`
+
+Validacao executada:
+
+- `npm run typecheck`
+- `npm run test:engineering`
+
+### Fase 4AE - Tool Evidence Context Pack Refs
+
+Status: **implementada no `atlas-server` como leitura deterministica de evidencia operacional no context pack**.
+
+Objetivo entregue: fazer o Engineering Context Pack carregar referencias recentes do Super Tool Runtime para o workspace atual, junto de `memory_refs`, `knowledge_refs` e `code_refs`. Assim, o Atlas consegue ver nao apenas quais modulos e simbolos importam, mas tambem quais ferramentas locais produziram evidencia recente, quais status retornaram e quais achados bloqueantes devem orientar a proxima execucao. Esta fase nao executa ferramentas, nao cria tabela nova, nao adiciona embeddings, ChromaDB, vector search, Open Brain remoto nem envio remoto de artefatos.
+
+Capacidades entregues:
+
+- `EngineeringContextPackService` injeta `AtlasToolEvidenceQueryService`;
+- context packs incluem `tool_evidence_refs` com runs recentes filtradas por workspace;
+- cada ref inclui tool, surface, status, required, failure policy, policy decision, contexto de run, duracao, contadores de artifacts/findings e ate 3 achados bloqueantes resumidos;
+- arquivos de achados bloqueantes entram em `selected_files` para orientar a IA para o codigo afetado;
+- `prompt_sections` ganha `tool_evidence` com prioridade posterior a Code Intelligence;
+- quando o context pack e persistido, `metadata.tool_evidence_refs` e `metadata.tool_evidence_ref_count` ficam auditaveis;
+- teste focado cobre inclusao de evidencia recente, achado bloqueante, prompt section e selected file.
+
+Arquivos integrados nesta fase:
+
+- `atlas-server/app/Services/Engineering/EngineeringContextPackService.php`
+- `atlas-server/tests/Feature/AtlasEngineeringKnowledgeBaseTest.php`
+- `atlas-server/docs/engineering-knowledge-base/super-tool-runtime-core.md`
+- `Atlas_AI_Memory_Context_Core_Open_Brain.md`
+
+Validacao executada:
+
+- `/opt/homebrew/bin/php -l app/Services/Engineering/EngineeringContextPackService.php`
+- `/opt/homebrew/bin/php artisan test --filter=AtlasEngineeringKnowledgeBaseTest::test_engineering_context_pack_includes_recent_tool_evidence_refs`
 
 Ainda fica para as proximas fases:
 

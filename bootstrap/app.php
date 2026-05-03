@@ -43,6 +43,7 @@ use App\Console\Commands\AtlasCliTraceCommand;
 use App\Console\Commands\AtlasCliTuiCommand;
 use App\Console\Commands\AtlasCliUpdateCommand;
 use App\Console\Commands\AtlasCliVersionCommand;
+use App\Console\Commands\AtlasEngineeringApiContractCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCalibrateCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkSeedCommand;
@@ -52,6 +53,8 @@ use App\Console\Commands\AtlasEngineeringKnowledgeCommand;
 use App\Console\Commands\AtlasEngineeringQualityScanCommand;
 use App\Console\Commands\AtlasEngineeringReplayCommand;
 use App\Console\Commands\AtlasEngineeringRunCommand;
+use App\Console\Commands\AtlasEngineeringSbomCommand;
+use App\Console\Commands\AtlasEngineeringSecurityScanCommand;
 use App\Console\Commands\AtlasEngineeringVisualBaselineCommand;
 use App\Console\Commands\AtlasEngineeringVisualDriverCommand;
 use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
@@ -140,12 +143,15 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringBenchmarkCalibrateCommand::class,
         AtlasEngineeringBenchmarkCommand::class,
         AtlasEngineeringBenchmarkSeedCommand::class,
+        AtlasEngineeringApiContractCommand::class,
         AtlasEngineeringDockerCleanupCommand::class,
         AtlasEngineeringHarnessabilityCalibrateCommand::class,
         AtlasEngineeringKnowledgeCommand::class,
         AtlasEngineeringQualityScanCommand::class,
         AtlasEngineeringReplayCommand::class,
         AtlasEngineeringRunCommand::class,
+        AtlasEngineeringSbomCommand::class,
+        AtlasEngineeringSecurityScanCommand::class,
         AtlasEngineeringVisualDriverCommand::class,
         AtlasEngineeringVisualBaselineCommand::class,
         AtlasEngineeringVisualSmokeCommand::class,

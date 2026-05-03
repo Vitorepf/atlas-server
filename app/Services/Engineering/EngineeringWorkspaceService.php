@@ -77,6 +77,8 @@ class EngineeringWorkspaceService
             File::deleteDirectory($worktreePath);
         }
 
+        $this->process(['git', 'worktree', 'prune'], (string) $base['repo_root'], 30);
+
         $head = is_string($base['head']) && $base['head'] !== '' ? $base['head'] : 'HEAD';
         $process = $this->process(['git', 'worktree', 'add', '--detach', $worktreePath, $head], (string) $base['repo_root'], 60);
         if ((int) $process['exit_code'] !== 0 || ! is_dir($worktreePath)) {

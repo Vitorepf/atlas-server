@@ -4,17 +4,26 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AiJob;
 use App\Models\AiTrace;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\CreatesAiJobChoiceTables;
 use Tests\TestCase;
 
 class AiJobResumeChoiceTest extends TestCase
 {
-    use RefreshDatabase;
+    use CreatesAiJobChoiceTables;
 
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->createAiJobChoiceTables();
         config()->set('atlas.token', 'testing-atlas-token-with-enough-length');
+    }
+
+    protected function tearDown(): void
+    {
+        $this->dropAiJobChoiceTables();
+
+        parent::tearDown();
     }
 
     private function authed(): static

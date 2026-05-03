@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
+use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -74,6 +74,8 @@ class EngineeringKnowledgeController extends Controller
             'workspace' => ['nullable', 'string', 'max:1000'],
             'dry_run' => ['nullable', 'boolean'],
             'prune' => ['nullable', 'boolean'],
+            'run_context_type' => ['nullable', 'string', 'max:80'],
+            'run_context_id' => ['nullable', 'string', 'max:120'],
         ]);
 
         return response()->json($code->index($data));
@@ -84,6 +86,8 @@ class EngineeringKnowledgeController extends Controller
         $data = $request->validate([
             'workspace' => ['nullable', 'string', 'max:1000'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'run_context_type' => ['nullable', 'string', 'max:80'],
+            'run_context_id' => ['nullable', 'string', 'max:120'],
         ]);
 
         return response()->json($code->audit($data));

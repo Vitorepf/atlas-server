@@ -130,6 +130,40 @@ Cenarios obrigatorios para declarar produto final de uso diario:
 
 O gate final exige cobertura de 3 dias, todos os cenarios obrigatorios passando como uso real, e nenhuma falha bloqueante no periodo. `atlas dogfood report --strict` ativa automaticamente o gate de uso real; para leitura explicita, use `atlas dogfood report --real`.
 
+## Fair Claude Benchmark
+
+Antes de declarar que o Atlas substitui o Claude Code CLI, existe uma fase de
+comparacao justa:
+
+```text
+Atlas CLI + Claude CLI + Claude Opus
+vs
+Claude Code CLI + Claude Opus
+```
+
+Essa fase nao usa Codex, Gemini, conselho, fallback ou Atlas Decide. Ela mede
+apenas se o Atlas e melhor produto em volta do mesmo Claude.
+
+Documento canonico:
+
+- `docs/atlas-cli-fair-claude-benchmark.md`
+
+Comando alvo:
+
+```bash
+atlas dev "tarefa..." --provider=claude_cli --model=opus --single-provider --no-decide --complete --auto-test
+```
+
+Aliases aceitaveis depois de implementados:
+
+```bash
+atlas dev "tarefa..." --claude-only --model=opus --complete --auto-test
+atlas claude dev "tarefa..." --model=opus --complete --auto-test
+```
+
+So depois desse benchmark justo o Atlas Decide multi-modelo entra como etapa de
+superioridade por roteamento.
+
 ## Release
 
 ```bash

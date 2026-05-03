@@ -420,13 +420,16 @@ class EngineeringRunController extends Controller
             'attempt_id' => ['nullable', 'uuid'],
             'source' => ['nullable', 'string', 'max:80'],
             'severity' => ['required', Rule::in(['p0', 'p1', 'p2', 'p3'])],
-            'status' => ['nullable', Rule::in(['open', 'resolved', 'dismissed'])],
+            'status' => ['nullable', Rule::in(['open', 'resolved', 'dismissed', 'fixed', 'false_positive', 'accepted_risk'])],
+            'confidence' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'category' => ['nullable', 'string', 'max:80'],
             'title' => ['required', 'string', 'max:180'],
             'body' => ['nullable', 'string', 'max:12000'],
             'file_path' => ['nullable', 'string', 'max:1000'],
             'start_line' => ['nullable', 'integer', 'min:1'],
             'end_line' => ['nullable', 'integer', 'min:1'],
             'evidence' => ['nullable', 'array'],
+            'recommendation' => ['nullable', 'string', 'max:4000'],
         ]);
 
         $finding = $findings->record($run, $data);
@@ -443,7 +446,7 @@ class EngineeringRunController extends Controller
         EngineeringReviewFindingService $findings,
     ): JsonResponse {
         $data = $request->validate([
-            'status' => ['required', Rule::in(['open', 'resolved', 'dismissed'])],
+            'status' => ['required', Rule::in(['open', 'resolved', 'dismissed', 'fixed', 'false_positive', 'accepted_risk'])],
             'resolution' => ['nullable', 'array'],
         ]);
 
@@ -520,12 +523,15 @@ class EngineeringRunController extends Controller
             'source' => $finding->source,
             'severity' => $finding->severity,
             'status' => $finding->status,
+            'confidence' => $finding->confidence === null ? null : round((float) $finding->confidence, 3),
+            'category' => $finding->category ?: data_get($finding->metadata, 'category'),
             'title' => $finding->title,
             'body' => $finding->body,
             'file_path' => $finding->file_path,
             'start_line' => $finding->start_line,
             'end_line' => $finding->end_line,
             'evidence' => $finding->evidence_json,
+            'recommendation' => $finding->recommendation,
             'resolution' => $finding->resolution_json,
             'detected_at' => $finding->detected_at?->toJSON(),
             'resolved_at' => $finding->resolved_at?->toJSON(),

@@ -15,6 +15,10 @@ class GeminiCliProvider implements AiProvider
 
     private string $streamJsonBuffer = '';
 
+    public function __construct(
+        private readonly AtlasAiRuntimeSettings $runtimeSettings,
+    ) {}
+
     public function key(): string
     {
         return 'gemini_cli';
@@ -27,7 +31,7 @@ class GeminiCliProvider implements AiProvider
 
     public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
     {
-        $provider = config('atlas.ai.providers.gemini_cli');
+        $provider = $this->runtimeSettings->providerConfig('gemini_cli');
         $binary = (string) ($provider['binary'] ?? 'gemini');
         $args = $this->sanitizeConfiguredArgs((array) ($provider['args'] ?? []));
         $this->streamJsonBuffer = '';
@@ -69,7 +73,7 @@ class GeminiCliProvider implements AiProvider
 
     public function health(): AiProviderHealthCheck
     {
-        $provider = (array) config('atlas.ai.providers.gemini_cli', []);
+        $provider = $this->runtimeSettings->providerConfig('gemini_cli');
         $check = $this->checkBinary($this->key(), (string) ($provider['binary'] ?? 'gemini'));
 
         return new AiProviderHealthCheck(
@@ -175,8 +179,10 @@ class GeminiCliProvider implements AiProvider
     {
         $extra = [
             'TERM' => (string) ($_SERVER['TERM'] ?? getenv('TERM') ?: 'xterm-256color'),
+            'PATH' => $this->providerPath(),
+            'HOME' => (string) ($_SERVER['HOME'] ?? getenv('HOME') ?: ''),
         ];
-        $home = config('atlas.ai.providers.gemini_cli.home');
+        $home = $this->runtimeSettings->providerConfig('gemini_cli')['home'] ?? null;
         if (! is_string($home) || trim($home) === '') {
             return AtlasSecurity::processEnv($extra, 'provider');
         }
@@ -367,6 +373,7 @@ class GeminiCliProvider implements AiProvider
         foreach (array_values($args) as $arg) {
             if ($skipNext) {
                 $skipNext = false;
+
                 continue;
             }
 
@@ -381,6 +388,7 @@ class GeminiCliProvider implements AiProvider
 
             if (in_array($arg, $valueArgs, true)) {
                 $skipNext = true;
+
                 continue;
             }
 

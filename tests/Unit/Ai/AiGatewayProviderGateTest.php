@@ -46,21 +46,22 @@ class AiGatewayProviderGateTest extends TestCase
         $this->assertSame('claude_cli', $provider);
     }
 
-    public function test_manual_provider_flag_is_respected_for_gemini(): void
+    public function test_manual_provider_flag_fails_when_provider_manual_use_is_disabled(): void
     {
         config([
             'atlas.ai.default_provider' => 'gemini_cli',
             'atlas.ai.providers.gemini_cli.allow_manual' => false,
         ]);
 
-        $provider = $this->providerFromOptions([
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Provider gemini_cli esta bloqueado para uso manual');
+
+        $this->providerFromOptions([
             'provider' => 'gemini_cli',
             'payload' => [
                 'atlas_workflow_mode' => 'direct',
             ],
         ]);
-
-        $this->assertSame('claude_cli', $provider);
     }
 
     public function test_automatic_gemini_stays_available_for_non_dev_when_enabled(): void

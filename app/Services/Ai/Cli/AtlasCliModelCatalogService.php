@@ -145,7 +145,7 @@ class AtlasCliModelCatalogService
             $this->providerNamedModel('codex_cli', 'premium_model', 'premium_model_label'),
             'premium',
             'Codex premium manual',
-            ['codex-premium', 'codex-5.5', 'gpt-5.5', 'gpt-premium', 'premium-codex'],
+            ['5.5', '55', 'codex-premium', 'codex-5.5', 'gpt-5.5', 'gpt-premium', 'premium-codex'],
         );
 
         return $rows;

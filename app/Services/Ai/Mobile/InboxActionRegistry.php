@@ -7,12 +7,12 @@ use App\Models\AiMessage;
 use App\Models\AiPerformanceRecommendation;
 use App\Models\AiThread;
 use App\Models\AtlasMobileDevice;
-use App\Services\AuditLogService;
 use App\Services\Ai\Telemetry\Engine\RecommendationLifecycleService;
+use App\Services\AuditLogService;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class InboxActionRegistry
@@ -31,8 +31,7 @@ class InboxActionRegistry
         private readonly ProposalInboxEmitter $proposals,
         private readonly RecommendationLifecycleService $recommendations,
         private readonly DiscussionBootstrapper $discussionBootstrapper,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array<string,mixed>  $input
@@ -56,12 +55,15 @@ class InboxActionRegistry
                 && ($existing['idempotency_key'] ?? null) === $idempotencyKey
                 && ($existing['action'] ?? null) === $actionId
             ) {
-                return [
-                    'ok' => true,
-                    'idempotent' => true,
-                    'result' => $existing['result'] ?? [],
-                    'item' => $locked,
-                ];
+                $existingResult = is_array($existing['result'] ?? null) ? $existing['result'] : [];
+                if ($actionId !== 'discuss' || $this->discussResultIsUsable($existingResult)) {
+                    return [
+                        'ok' => true,
+                        'idempotent' => true,
+                        'result' => $existingResult,
+                        'item' => $locked,
+                    ];
+                }
             }
 
             $this->assertActionAvailable($locked, $actionId);
@@ -126,6 +128,88 @@ class InboxActionRegistry
                 'severity' => 'info',
                 'summary' => "Inbox action completed: {$actionId}.",
                 'evidence' => ['action' => $actionId],
+                'privacy' => ['sensitivity' => 'private'],
+            ]);
+
+            return [
+                'ok' => true,
+                'idempotent' => false,
+                'result' => $this->serializableResult($result),
+                'item' => $fresh->refresh(),
+            ];
+        });
+    }
+
+    /**
+     * @return array{ok:bool,idempotent:bool,result:array<string,mixed>,item:AiInboxItem}
+     */
+    public function retryDiscussionBootstrap(AiInboxItem $item, ?AtlasMobileDevice $actor = null): array
+    {
+        return DB::transaction(function () use ($item, $actor): array {
+            /** @var AiInboxItem $locked */
+            $locked = AiInboxItem::query()
+                ->whereKey($item->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->assertItemStateAllowsAction($locked, 'discuss');
+
+            $payload = $locked->payload ?? [];
+            $threadId = $this->string(data_get($payload, 'discussion_thread_id'));
+            $thread = $threadId ? AiThread::query()->find($threadId) : null;
+            if (! $thread) {
+                throw ValidationException::withMessages(['action' => 'Conversa operacional ainda nao existe para retry.']);
+            }
+
+            $this->audit->record('inbox.bootstrap_retry.requested', [
+                'subject_type' => 'ai_inbox_item',
+                'subject_id' => $locked->id,
+                'actor_type' => $actor ? 'mobile_device' : 'operator_cli',
+                'actor_id' => $actor?->id,
+                'severity' => 'info',
+                'summary' => 'Inbox discussion bootstrap retry requested.',
+                'evidence' => [
+                    'thread_id' => $thread->id,
+                    'previous_status' => data_get($payload, 'discussion_bootstrap_status'),
+                    'previous_trace_id' => data_get($payload, 'discussion_bootstrap_trace_id'),
+                ],
+                'privacy' => ['sensitivity' => 'private'],
+            ]);
+
+            $focus = $this->atlasFocusForInboxItem($locked);
+            $bootstrap = $this->discussionBootstrapper->retry($locked, $thread, $focus);
+            $fresh = $locked->refresh();
+            $response = $fresh->response ?? [];
+            $result = [
+                'item' => $fresh,
+                'thread_id' => $thread->id,
+                'deep_link' => "atlas://thread/{$thread->id}",
+                'focus' => $focus,
+                'bootstrap' => $bootstrap,
+            ];
+
+            $fresh->update([
+                'response' => [
+                    ...$response,
+                    'action' => 'retry_discussion_bootstrap',
+                    'result' => $this->serializableResult($result),
+                    'responded_at' => now()->toJSON(),
+                ],
+                'read_at' => $fresh->read_at ?? now(),
+                'status' => $fresh->status === 'unread' ? 'read' : $fresh->status,
+            ]);
+
+            $this->audit->record('inbox.bootstrap_retry.completed', [
+                'subject_type' => 'ai_inbox_item',
+                'subject_id' => $fresh->id,
+                'actor_type' => $actor ? 'mobile_device' : 'operator_cli',
+                'actor_id' => $actor?->id,
+                'severity' => ($bootstrap['status'] ?? null) === 'failed' ? 'warning' : 'info',
+                'summary' => 'Inbox discussion bootstrap retry completed.',
+                'evidence' => [
+                    'thread_id' => $thread->id,
+                    'bootstrap' => $bootstrap,
+                ],
                 'privacy' => ['sensitivity' => 'private'],
             ]);
 
@@ -557,6 +641,17 @@ class InboxActionRegistry
     {
         return $item->source_type === 'ai_performance_recommendation'
             || $this->string(data_get($item->payload ?? [], 'recommendation.id')) !== null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     */
+    private function discussResultIsUsable(array $result): bool
+    {
+        $threadId = $this->string($result['thread_id'] ?? null)
+            ?? $this->string(data_get($result, 'thread.id'));
+
+        return $threadId !== null && AiThread::query()->whereKey($threadId)->exists();
     }
 
     private function fallbackThreadContext(AiInboxItem $item): string

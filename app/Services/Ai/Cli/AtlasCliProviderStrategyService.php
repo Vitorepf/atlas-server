@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Cli;
 
 use App\Models\AiProviderHealthSnapshot;
+use App\Services\Ai\AiRuntimeBudgetService;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use Illuminate\Support\Facades\Schema;
 
@@ -10,6 +11,7 @@ class AtlasCliProviderStrategyService
 {
     public function __construct(
         private readonly AtlasAiRuntimeSettings $settings,
+        private readonly AiRuntimeBudgetService $budgets,
     ) {}
 
     /**
@@ -20,7 +22,12 @@ class AtlasCliProviderStrategyService
         $mode = in_array($mode, ['direct', 'plan', 'review', 'dev', 'debug', 'research'], true) ? $mode : 'direct';
         $providers = $this->providers();
         $preferred = $this->preferredOrder($mode);
-        $online = collect($providers)->filter(fn (array $provider): bool => ($provider['status'] ?? null) === 'online');
+        $autoEligible = fn (array $provider): bool => $this->allowsAuto((string) ($provider['provider'] ?? ''))
+            && $this->budgetAllows((string) ($provider['provider'] ?? ''));
+        $online = collect($providers)
+            ->filter(fn (array $provider): bool => ($provider['status'] ?? null) === 'online')
+            ->filter($autoEligible);
+        $eligibleProviders = collect($providers)->filter($autoEligible);
 
         if ($critical && $online->whereIn('provider', ['claude_cli', 'codex_cli'])->pluck('provider')->unique()->count() >= 2) {
             return [
@@ -36,8 +43,9 @@ class AtlasCliProviderStrategyService
 
         $strictMode = in_array($mode, ['dev', 'debug'], true);
         $recommended = $this->firstAvailable($online, $preferred, $strictMode)
-            ?: $this->firstAvailable(collect($providers), $preferred, $strictMode)
-            ?: ($preferred[0] ?? $this->settings->defaultProvider());
+            ?: $this->firstAvailable($eligibleProviders, $preferred, $strictMode)
+            ?: $this->firstConfiguredAutoProvider($preferred)
+            ?: $this->settings->defaultProvider();
 
         return [
             'mode' => $mode,
@@ -47,6 +55,11 @@ class AtlasCliProviderStrategyService
             'reason' => $this->reason($recommended, $mode, $providers),
             'fallback_provider' => $this->fallback($recommended, $providers, $mode),
             'providers' => $providers,
+            'policy' => [
+                'automatic_respects_app_settings' => true,
+                'default_provider' => $this->settings->defaultProvider(),
+                'budget_mode' => data_get($this->budgets->payload(), 'mode'),
+            ],
         ];
     }
 
@@ -64,14 +77,21 @@ class AtlasCliProviderStrategyService
             ->limit(50)
             ->get()
             ->unique('provider')
-            ->map(fn (AiProviderHealthSnapshot $snapshot): array => [
-                'provider' => $snapshot->provider,
-                'status' => $snapshot->status,
-                'pain' => $snapshot->operational_pain_score,
-                'p50_latency_ms' => $snapshot->p50_latency_ms,
-                'checked_at' => $snapshot->checked_at?->toJSON(),
-                'message' => $snapshot->message,
-            ])
+            ->map(function (AiProviderHealthSnapshot $snapshot): array {
+                $provider = (string) $snapshot->provider;
+
+                return [
+                    'provider' => $provider,
+                    'status' => $snapshot->status,
+                    'pain' => $snapshot->operational_pain_score,
+                    'p50_latency_ms' => $snapshot->p50_latency_ms,
+                    'checked_at' => $snapshot->checked_at?->toJSON(),
+                    'message' => $snapshot->message,
+                    'allow_auto' => (bool) ($this->settings->providerConfig($provider)['allow_auto'] ?? true),
+                    'allow_manual' => (bool) ($this->settings->providerConfig($provider)['allow_manual'] ?? true),
+                    'budget_allows' => $this->budgetAllows($provider),
+                ];
+            })
             ->values()
             ->all();
     }
@@ -82,8 +102,8 @@ class AtlasCliProviderStrategyService
     private function preferredOrder(string $mode): array
     {
         return match ($mode) {
-            'dev', 'debug' => $this->uniqueProviders(['claude_cli', 'codex_cli']),
-            'review', 'plan', 'research' => $this->uniqueProviders(['claude_cli', 'gemini_cli', $this->defaultProvider(), 'codex_cli']),
+            'dev', 'debug' => $this->uniqueProviders([$this->defaultProvider(), 'codex_cli', 'claude_cli']),
+            'review', 'plan', 'research' => $this->uniqueProviders([$this->defaultProvider(), 'claude_cli', 'gemini_cli', 'codex_cli']),
             default => $this->uniqueProviders([$this->defaultProvider(), 'claude_cli', 'codex_cli', 'gemini_cli']),
         };
     }
@@ -94,7 +114,7 @@ class AtlasCliProviderStrategyService
     }
 
     /**
-     * @param array<int,string> $providers
+     * @param  array<int,string>  $providers
      * @return array<int,string>
      */
     private function uniqueProviders(array $providers): array
@@ -132,6 +152,8 @@ class AtlasCliProviderStrategyService
         return collect($providers)
             ->reject(fn (array $provider): bool => ($provider['provider'] ?? null) === $recommended)
             ->reject(fn (array $provider): bool => in_array($mode, ['dev', 'debug'], true) && ($provider['provider'] ?? null) === 'gemini_cli')
+            ->filter(fn (array $provider): bool => $this->allowsAuto((string) ($provider['provider'] ?? ''))
+                && $this->budgetAllows((string) ($provider['provider'] ?? '')))
             ->sortBy([
                 ['status', 'asc'],
                 ['pain', 'asc'],
@@ -142,6 +164,15 @@ class AtlasCliProviderStrategyService
 
     private function reason(string $recommended, string $mode, array $providers): string
     {
+        $default = $this->settings->defaultProvider();
+        if ($recommended !== $default && ! $this->allowsAuto($default)) {
+            return "Default {$default} esta bloqueado para automatico no app; usando {$recommended} para modo {$mode}.";
+        }
+
+        if ($recommended !== $default && ! $this->budgetAllows($default)) {
+            return "Default {$default} esta bloqueado pelo budget em modo block; usando {$recommended} para modo {$mode}.";
+        }
+
         $health = collect($providers)->first(fn (array $provider): bool => ($provider['provider'] ?? null) === $recommended);
         if (! $health) {
             return "Sem snapshot de provider; usando configuracao/default para modo {$mode}.";
@@ -155,5 +186,41 @@ class AtlasCliProviderStrategyService
         }
 
         return "Provider recomendado para modo {$mode}: {$recommended}; status={$status}, pain={$pain}.";
+    }
+
+    private function allowsAuto(string $provider): bool
+    {
+        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true)) {
+            return false;
+        }
+
+        return (bool) ($this->settings->providerConfig($provider)['allow_auto'] ?? true);
+    }
+
+    private function budgetAllows(string $provider): bool
+    {
+        $budget = $this->budgets->payload();
+        if (! (bool) ($budget['enabled'] ?? false) || ($budget['mode'] ?? 'block') !== 'block') {
+            return true;
+        }
+
+        $row = collect((array) ($budget['providers'] ?? []))
+            ->first(fn (array $item): bool => ($item['provider'] ?? null) === $provider);
+
+        return ! is_array($row) || ($row['status'] ?? null) !== 'blocked';
+    }
+
+    /**
+     * @param  array<int,string>  $preferred
+     */
+    private function firstConfiguredAutoProvider(array $preferred): ?string
+    {
+        foreach ($preferred as $provider) {
+            if ($this->allowsAuto($provider) && $this->budgetAllows($provider)) {
+                return $provider;
+            }
+        }
+
+        return null;
     }
 }

@@ -3,9 +3,9 @@
 namespace App\Services\Ai\Telemetry;
 
 use App\Models\AiTraceMetricSummary;
-use App\Services\Ai\Telemetry\AiCostEstimator;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -19,8 +19,7 @@ class AiTelemetryScorecardService
         ?CarbonInterface $until = null,
         string $basis = 'computed_at',
         bool $exclusiveUntil = false,
-    ): array
-    {
+    ): array {
         $until ??= now();
 
         if (! Schema::hasTable('ai_trace_metric_summaries')) {
@@ -34,6 +33,7 @@ class AiTelemetryScorecardService
         $base = $this->baseQuery($since, $until, $basis, $exclusiveUntil);
         $count = (clone $base)->count();
         $tools = $this->toolMetrics($since, $until, $basis, $exclusiveUntil);
+        $atlasDecide = $this->atlasDecideMetrics($base);
 
         return [
             'available' => true,
@@ -82,6 +82,9 @@ class AiTelemetryScorecardService
                 'backgrounded_during_run_rate' => $this->rate($base, 'backgrounded_during_run'),
                 'recovered_from_pending_count' => (clone $base)->where('recovered_from_pending', true)->count(),
                 'reask_detected_count' => (clone $base)->where('reask_detected', true)->count(),
+                'atlas_decide_trace_count' => (int) ($atlasDecide['traces'] ?? 0),
+                'atlas_decide_multi_stage_count' => (int) ($atlasDecide['multi_stage_count'] ?? 0),
+                'atlas_decide_degraded_count' => (int) ($atlasDecide['degraded_count'] ?? 0),
             ],
             'by_surface' => $this->aggregateBy($base, 'surface'),
             'by_provider' => $this->aggregateBy($base, 'provider'),
@@ -95,11 +98,14 @@ class AiTelemetryScorecardService
             'by_router_mode' => Schema::hasColumn('ai_trace_metric_summaries', 'router_mode')
                 ? $this->aggregateBy($base, 'router_mode')
                 : [],
+            'by_atlas_decide_execution_strategy' => (array) ($atlasDecide['by_execution_strategy'] ?? []),
+            'by_atlas_decide_context_strategy' => (array) ($atlasDecide['by_context_strategy'] ?? []),
             // Tool diagnostics — Fix 7c F4. Queries ai_tool_events directly (not via
             // summaries) because tools is a separate event stream and the schema-safe
             // aggregator only stores aggregated counts in score_components.tools, not
             // queryable by-tool breakdowns. Joins to summary's window via trace_id.
             'tools' => $tools,
+            'atlas_decide' => $atlasDecide,
             'risks' => $this->risks($base, $tools),
             'recent_low_score' => $this->recentLowScore($base),
         ];
@@ -203,6 +209,110 @@ class AiTelemetryScorecardService
         ];
     }
 
+    /**
+     * Scorecard-level Atlas Decide metrics are read from score_components instead
+     * of SQL JSON paths so this works consistently across SQLite, Postgres, and
+     * local test schemas.
+     *
+     * @return array<string,mixed>
+     */
+    private function atlasDecideMetrics(Builder $query): array
+    {
+        $rows = (clone $query)
+            ->get([
+                'provider',
+                'final_quality_score',
+                'final_efficiency_score',
+                'total_latency_ms',
+                'cost_microusd',
+                'score_components',
+            ])
+            ->map(fn (AiTraceMetricSummary $summary): array => [
+                'summary' => $summary,
+                'atlas' => data_get($summary->score_components, 'atlas_decide'),
+            ])
+            ->filter(fn (array $row): bool => (bool) data_get($row, 'atlas.available', false))
+            ->values();
+
+        if ($rows->isEmpty()) {
+            return [
+                'available' => false,
+                'traces' => 0,
+                'multi_stage_count' => 0,
+                'multi_stage_rate' => null,
+                'degraded_count' => 0,
+                'degraded_rate' => null,
+                'by_execution_strategy' => [],
+                'by_context_strategy' => [],
+                'by_selected_provider' => [],
+                'by_scout_provider' => [],
+            ];
+        }
+
+        $multiStageCount = $rows->filter(fn (array $row): bool => (bool) data_get($row, 'atlas.scout_enabled', false))->count();
+        $degradedCount = $rows->filter(fn (array $row): bool => (bool) data_get($row, 'atlas.degraded', false))->count();
+
+        return [
+            'available' => true,
+            'traces' => $rows->count(),
+            'multi_stage_count' => $multiStageCount,
+            'multi_stage_rate' => round($multiStageCount / $rows->count(), 4),
+            'degraded_count' => $degradedCount,
+            'degraded_rate' => round($degradedCount / $rows->count(), 4),
+            'by_execution_strategy' => $this->aggregateAtlasDecideRows($rows, 'execution_strategy'),
+            'by_context_strategy' => $this->aggregateAtlasDecideRows($rows, 'context_strategy'),
+            'by_selected_provider' => $this->aggregateAtlasDecideRows($rows, 'selected_provider'),
+            'by_scout_provider' => $this->aggregateAtlasDecideRows($rows, 'scout_provider'),
+        ];
+    }
+
+    /**
+     * @param  Collection<int,array{summary:AiTraceMetricSummary,atlas:mixed}>  $rows
+     * @return array<int,array<string,mixed>>
+     */
+    private function aggregateAtlasDecideRows(Collection $rows, string $field): array
+    {
+        return $rows
+            ->groupBy(fn (array $row): string => (string) (data_get($row, 'atlas.'.$field) ?: 'unknown'))
+            ->map(function (Collection $group, string $bucket): array {
+                $multiStageCount = $group->filter(fn (array $row): bool => (bool) data_get($row, 'atlas.scout_enabled', false))->count();
+                $degradedCount = $group->filter(fn (array $row): bool => (bool) data_get($row, 'atlas.degraded', false))->count();
+
+                return [
+                    'bucket' => $bucket,
+                    'traces' => $group->count(),
+                    'quality_avg' => $this->avgSummaryMetric($group, 'final_quality_score'),
+                    'efficiency_avg' => $this->avgSummaryMetric($group, 'final_efficiency_score'),
+                    'latency_avg_ms' => $this->avgSummaryMetric($group, 'total_latency_ms'),
+                    'cost_microusd_sum' => (int) $group->sum(fn (array $row): int => (int) ($row['summary']->cost_microusd ?? 0)),
+                    'multi_stage_rate' => round($multiStageCount / $group->count(), 4),
+                    'degraded_rate' => round($degradedCount / $group->count(), 4),
+                    'providers_used' => $group
+                        ->flatMap(fn (array $row): array => is_array(data_get($row, 'atlas.providers_used')) ? data_get($row, 'atlas.providers_used') : [])
+                        ->filter(fn (mixed $provider): bool => is_string($provider) && $provider !== '')
+                        ->unique()
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->sortByDesc('traces')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int,array{summary:AiTraceMetricSummary,atlas:mixed}>  $rows
+     */
+    private function avgSummaryMetric(Collection $rows, string $column): ?float
+    {
+        $values = $rows
+            ->map(fn (array $row): mixed => $row['summary']->{$column})
+            ->filter(fn (mixed $value): bool => is_numeric($value))
+            ->values();
+
+        return $values->isEmpty() ? null : round((float) $values->avg(), 2);
+    }
+
     private function baseQuery(CarbonInterface $since, CarbonInterface $until, string $basis, bool $exclusiveUntil): Builder
     {
         $query = AiTraceMetricSummary::query();
@@ -255,8 +365,8 @@ class AiTelemetryScorecardService
                 DB::raw('SUM(COALESCE(cost_microusd, 0)) as cost_microusd_sum'),
                 DB::raw("SUM(CASE WHEN cost_confidence = 'unknown' THEN 1 ELSE 0 END) as unknown_cost_count"),
                 DB::raw("SUM(CASE WHEN cost_confidence = 'estimated' THEN 1 ELSE 0 END) as estimated_cost_count"),
-                DB::raw("SUM(CASE WHEN first_pass_success THEN 1 ELSE 0 END) as first_pass_successes"),
-                DB::raw("SUM(CASE WHEN needed_remediation THEN 1 ELSE 0 END) as needed_remediations"),
+                DB::raw('SUM(CASE WHEN first_pass_success THEN 1 ELSE 0 END) as first_pass_successes'),
+                DB::raw('SUM(CASE WHEN needed_remediation THEN 1 ELSE 0 END) as needed_remediations'),
             ])
             ->groupBy('bucket')
             ->orderByDesc('traces')

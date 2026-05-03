@@ -164,6 +164,25 @@ exec_chat_prompt_with_workspace() {
   exec "$PHP_BIN" artisan atlas:ai:chat "${final_args[@]}" --workspace="$CALLER_PWD"
 }
 
+normalize_blueprint_version_args() {
+  local -a normalized=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --version)
+        normalized+=("--blueprint-version")
+        ;;
+      --version=*)
+        normalized+=("--blueprint-version=${1#--version=}")
+        ;;
+      *)
+        normalized+=("$1")
+        ;;
+    esac
+    shift || true
+  done
+  printf '%s\0' "${normalized[@]}"
+}
+
 cmd="${1:-chat}"
 
 case "$cmd" in
@@ -197,6 +216,10 @@ case "$cmd" in
     ;;
   review)
     shift || true
+    if [ "${1:-}" = "--deep" ]; then
+      shift || true
+      exec_artisan_with_workspace atlas:review:deep "$@"
+    fi
     exec_chat_prompt_with_workspace --mode=review --stream --no-skill-prompt -- "$@"
     ;;
   compare)
@@ -320,6 +343,18 @@ case "$cmd" in
         shift || true
         exec_artisan_with_workspace atlas:engineering:quality-scan "$@"
         ;;
+      api-contract|contract|contracts)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:api-contract "$@"
+        ;;
+      security-scan|security|sec)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:security-scan "$@"
+        ;;
+      sbom)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:sbom "$@"
+        ;;
       knowledge|kb|knowledge-base)
         shift || true
         exec "$PHP_BIN" artisan atlas:engineering:knowledge "$@"
@@ -378,6 +413,70 @@ case "$cmd" in
         exec_artisan_with_workspace atlas:engineering:run "$@"
         ;;
     esac
+    ;;
+  project)
+    shift || true
+    subcmd="${1:-}"
+    case "$subcmd" in
+      blueprint)
+        shift || true
+        action="${1:-prepare}"
+        case "$action" in
+          prepare)
+            shift || true
+            exec_artisan_with_workspace atlas:project:blueprint:prepare "$@"
+            ;;
+          create)
+            shift || true
+            exec_artisan_with_workspace atlas:project:blueprint:create "$@"
+            ;;
+          validate)
+            shift || true
+            mapfile -d '' normalized_args < <(normalize_blueprint_version_args "$@")
+            set -- "${normalized_args[@]}"
+            exec_artisan_with_workspace atlas:project:blueprint:validate "$@"
+            ;;
+          freeze)
+            shift || true
+            mapfile -d '' normalized_args < <(normalize_blueprint_version_args "$@")
+            set -- "${normalized_args[@]}"
+            exec_artisan_with_workspace atlas:project:blueprint:freeze "$@"
+            ;;
+        esac
+        exec_artisan_with_workspace atlas:project:blueprint:prepare "$@"
+        ;;
+      tasks)
+        shift || true
+        action="${1:-generate}"
+        case "$action" in
+          generate)
+            shift || true
+            exec_artisan_with_workspace atlas:project:tasks:generate "$@"
+            ;;
+        esac
+        exec_artisan_with_workspace atlas:project:tasks:generate "$@"
+        ;;
+    esac
+    exec_chat_prompt_with_workspace --mode=project --stream --no-skill-prompt -- "$@"
+    ;;
+  qa)
+    shift || true
+    exec_artisan_with_workspace atlas:qa "$@"
+    ;;
+  db)
+    shift || true
+    subcmd="${1:-review}"
+    case "$subcmd" in
+      review)
+        shift || true
+        exec_artisan_with_workspace atlas:db:review "$@"
+        ;;
+      explain)
+        shift || true
+        exec_artisan_with_workspace atlas:db:explain "$@"
+        ;;
+    esac
+    exec_artisan_with_workspace atlas:db:review "$@"
     ;;
   tools)
     shift || true

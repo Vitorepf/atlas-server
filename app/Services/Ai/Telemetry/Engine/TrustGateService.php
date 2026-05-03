@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Telemetry\Engine;
 
 use App\Models\AiDataConfidenceAudit;
+use App\Services\Ai\Telemetry\AiTraceMetricAggregatorVersions;
 use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;
 use App\Services\Ai\Telemetry\Engine\Dto\TrustResult;
 use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
@@ -27,7 +28,7 @@ use Throwable;
  *       this design refuses; if performance ever matters, cache is 1 hour to
  *       add later.
  *
- *  #11: Aggregator_version v1 vs v2 cross-version protection. Mixed-version
+ *  #11: Aggregator_version cross-version protection. Mixed-version
  *       windows penalize version_purity_score because trend analysis on mixed
  *       data lies silently.
  *
@@ -63,22 +64,22 @@ class TrustGateService
     /** Trust level boundaries (inclusive lower bound). */
     public const LEVEL_THRESHOLDS = [
         'insufficient' => 0.0,
-        'low'          => 0.40,
-        'moderate'     => 0.60,
-        'sufficient'   => 0.80,
+        'low' => 0.40,
+        'moderate' => 0.60,
+        'sufficient' => 0.80,
     ];
 
     /** Score component weights. Sum must equal 1.0. */
     public const SCORE_WEIGHTS = [
-        'volume'          => 0.30,
-        'coverage'        => 0.35,
+        'volume' => 0.30,
+        'coverage' => 0.35,
         'cost_confidence' => 0.20,
-        'version_purity'  => 0.15,
+        'version_purity' => 0.15,
     ];
 
     /**
-     * Dimensions evaluated for usable_for_attribution. The ones tied to
-     * v2-only columns are guarded by Schema::hasColumn() inside dimensionStats().
+     * Dimensions evaluated for usable_for_attribution. The ones tied to newer
+     * migrations are guarded by Schema::hasColumn() inside dimensionStats().
      */
     public const ATTRIBUTION_DIMENSIONS = [
         'provider',
@@ -86,7 +87,7 @@ class TrustGateService
         'agent_slug',
         'task_type',
         'surface',
-        'router_mode',         // v2-only column (Fix 7a)
+        'router_mode',         // Added with the v2 contract (Fix 7a)
         'router_selected_provider',
         'cost_mode',
     ];
@@ -132,14 +133,14 @@ class TrustGateService
         // Component 3: cost_confidence_score — TRACE FRACTION per Decisão #5
         $costConfidenceScore = $this->costConfidenceScoreByTraceFraction($summaries);
 
-        // Component 4: version_purity_score — penalize mixed v1/v2 windows
+        // Component 4: version_purity_score — penalize mixed aggregator versions
         $versionPurityScore = $this->versionPurityScore($summaries);
 
         $components = [
-            'volume'          => $volumeScore,
-            'coverage'        => $coverageScore,
+            'volume' => $volumeScore,
+            'coverage' => $coverageScore,
             'cost_confidence' => $costConfidenceScore,
-            'version_purity'  => $versionPurityScore,
+            'version_purity' => $versionPurityScore,
         ];
 
         // Weighted sum
@@ -203,7 +204,7 @@ class TrustGateService
     }
 
     /**
-     * Per-dimension coverage stats. Schema-safe: dimensions tied to v2-only
+     * Per-dimension coverage stats. Schema-safe: dimensions tied to newer
      * columns (router_mode etc.) are excluded when the column doesn't exist
      * — they don't penalize the score for an unmigrated DB.
      *
@@ -225,6 +226,7 @@ class TrustGateService
                     'usable_for_attribution' => false,
                     'schema_available' => false,
                 ];
+
                 continue;
             }
 
@@ -236,6 +238,7 @@ class TrustGateService
                     'usable_for_attribution' => false,
                     'schema_available' => true,
                 ];
+
                 continue;
             }
 
@@ -276,6 +279,7 @@ class TrustGateService
         }
 
         $sum = array_sum(array_column($available, 'coverage_rate'));
+
         return round($sum / count($available), 4);
     }
 
@@ -309,8 +313,8 @@ class TrustGateService
     }
 
     /**
-     * Version purity score: 1.0 for pure v2 windows, 0.5 for pure v1 (acceptable
-     * but limited), 0.0 for mixed (poison for trend analysis).
+     * Version purity score: 1.0 for pure modern windows, 0.5 for pure v1
+     * (acceptable but limited), 0.0 for mixed/unknown (poison for trend analysis).
      */
     private function versionPurityScore(Collection $summaries): float
     {
@@ -325,23 +329,18 @@ class TrustGateService
             ->all();
 
         $total = array_sum($versions);
-        $v2Count = $versions['ai_trace_metric_aggregator_v2'] ?? 0;
-        $v1Count = $versions['ai_trace_metric_aggregator_v1'] ?? 0;
 
-        if ($v2Count > 0 && $v1Count > 0) {
-            return 0.0; // mixed — poison
+        foreach (AiTraceMetricAggregatorVersions::MODERN_DIAGNOSTIC_VERSIONS as $version) {
+            if (($versions[$version] ?? 0) === $total) {
+                return 1.0;
+            }
         }
 
-        if ($v2Count === $total) {
-            return 1.0;
-        }
-
-        if ($v1Count === $total) {
+        if (($versions[AiTraceMetricAggregatorVersions::V1] ?? 0) === $total) {
             return 0.5; // legacy-pure: works but lacks new fields (router/tools/diagnostics)
         }
 
-        // Some unknown version values present — partial credit
-        return round($v2Count / max(1, $total), 4);
+        return 0.0;
     }
 
     private function trustLevelFor(float $trustScore): string
@@ -372,7 +371,7 @@ class TrustGateService
         if ($aggregates->hasMixedAggregatorVersions) {
             $gaps[] = [
                 'dimension' => 'aggregator_version',
-                'gap' => 'mixed_v1_v2_in_window',
+                'gap' => 'mixed_aggregator_versions_in_window',
                 'action' => 'php artisan atlas:ai:telemetry:rollup --hours=720',
             ];
         }

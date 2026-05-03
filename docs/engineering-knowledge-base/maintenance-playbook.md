@@ -14,15 +14,18 @@ capabilities:
   - maintenance_review
   - release_readiness
   - context_rehydration
+  - engineering_blueprint
 decisions:
   - Toda manutencao relevante deve comecar carregando docs canonicos e registry.
   - Validacao deve cobrir backend, app e docs quando a mudanca atravessa camadas.
+  - Mudancas em planejamento, task contracts, QA, review ou Postgres gate seguem o Engineering Blueprint runbook.
 maintenance:
   - Usar este playbook antes de alterar Harness, Atlas-Bench, visual harness ou quality scan.
   - Registrar novas decisoes como ADR.
 related_paths:
   - app/Console/Commands/AtlasEngineeringKnowledgeCommand.php
   - app/Services/Engineering/EngineeringContextPackService.php
+  - docs/engineering-knowledge-base/engineering-blueprint-runbook.md
 ---
 
 # Playbook De Manutencao
@@ -34,6 +37,8 @@ related_paths:
 3. Leia a matriz de capacidades.
 4. Identifique qual camada sera tocada: CLI, API, service, migration, app, docs ou tests.
 5. Verifique se a mudanca precisa alterar context pack, Atlas-Bench ou release gate.
+6. Se a mudanca tocar planejamento, task contracts, QA, review ou Postgres gate,
+   leia `engineering-blueprint.md` e `engineering-blueprint-runbook.md`.
 
 ## Durante A Implementacao
 
@@ -65,6 +70,7 @@ Quando docs mudarem:
 ```bash
 atlas engineering knowledge sync --prune
 atlas engineering knowledge list --json
+atlas engineering knowledge index-code --prune
 ```
 
 ## Quando Criar ADR
