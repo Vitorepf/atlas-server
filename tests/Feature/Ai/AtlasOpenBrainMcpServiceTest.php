@@ -2,23 +2,29 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Models\AtlasEngineeringCodeModule;
+use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasOpenBrainMcpService;
+use Tests\Concerns\CreatesAtlasEngineeringCodeTables;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;
 use Tests\TestCase;
 
 class AtlasOpenBrainMcpServiceTest extends TestCase
 {
     use CreatesAtlasMemoryEntryTable;
+    use CreatesAtlasEngineeringCodeTables;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->createAtlasMemoryEntryTable();
+        $this->createAtlasEngineeringCodeTables();
     }
 
     protected function tearDown(): void
     {
+        $this->dropAtlasEngineeringCodeTables();
         $this->dropAtlasMemoryEntryTable();
         parent::tearDown();
     }
@@ -83,5 +89,51 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
         $this->assertFalse($structured['ok']);
         $this->assertSame('invalid_memory_type', $structured['error']);
+    }
+
+    public function test_code_find_relevant_returns_symbols_matching_query(): void
+    {
+        $module = AtlasEngineeringCodeModule::create([
+            'slug' => 'memory-service',
+            'name' => 'Memory Service',
+            'layer' => 'service',
+            'primary_language' => 'php',
+            'root_path' => 'app/Services/Memory',
+            'source_hash' => sha1('memory-service'),
+        ]);
+
+        AtlasEngineeringCodeSymbol::create([
+            'module_id' => $module->id,
+            'symbol_name' => 'AtlasHybridMemoryRetrievalService',
+            'symbol_type' => 'class',
+            'language' => 'php',
+            'file_path' => 'app/Services/Memory/AtlasHybridMemoryRetrievalService.php',
+            'source_hash' => sha1('AtlasHybridMemoryRetrievalService'),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 3, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_code_find_relevant',
+                'arguments' => ['query' => 'memory', 'limit' => 5],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertNotEmpty($structured['symbols']);
+    }
+
+    public function test_code_find_relevant_requires_query(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 4, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_code_find_relevant', 'arguments' => []],
+        ]);
+
+        $this->assertFalse($response['result']['structuredContent']['ok']);
+        $this->assertSame('query_required', $response['result']['structuredContent']['error']);
     }
 }

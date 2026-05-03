@@ -144,6 +144,24 @@ class AtlasOpenBrainMcpService
                     'openWorldHint' => false,
                 ],
             ],
+            [
+                'name' => 'atlas_code_find_relevant',
+                'title' => 'Atlas Code Find Relevant',
+                'description' => 'Busca símbolos no índice de código (classes, métodos, funções, rotas, migrations, tests) por nome, layer, type ou language. Não faz semântica vetorial — usa metadados estruturados do índice. O parâmetro query faz match por substring em symbol_name, file_path e signature.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'query' => ['type' => 'string', 'description' => 'Termo de busca (matches por substring em symbol_name, file_path e signature).'],
+                        'symbol_type' => ['type' => 'string', 'description' => 'Filtra por tipo: class, method, function, route, migration, test, command.'],
+                        'language' => ['type' => 'string', 'description' => 'Filtra por linguagem: php, ts, tsx, js, jsx, md.'],
+                        'layer' => ['type' => 'string', 'description' => 'Filtra por layer arquitetural (se módulo tiver layer atribuído).'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace local.'],
+                        'limit' => ['type' => 'integer', 'description' => 'Max símbolos retornados (default 20, max 100).'],
+                    ],
+                    'required' => ['query'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -191,6 +209,7 @@ class AtlasOpenBrainMcpService
                 'atlas_open_brain_context_pack' => $this->toolResponse($id, $this->contextPack($arguments)),
                 'atlas_memory_maintenance_status' => $this->toolResponse($id, $this->maintenanceStatus($arguments)),
                 'atlas_memory_record' => $this->toolResponse($id, $this->memoryRecord($arguments)),
+                'atlas_code_find_relevant' => $this->toolResponse($id, $this->codeFindRelevant($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -372,6 +391,39 @@ class AtlasOpenBrainMcpService
             'memory_type' => $entry->memory_type,
             'scope_type' => $entry->scope_type,
             'recorded_at' => $entry->recorded_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function codeFindRelevant(array $arguments): array
+    {
+        $query = $this->string($arguments['query'] ?? null);
+        if ($query === null) {
+            return ['ok' => false, 'tool' => 'atlas_code_find_relevant', 'error' => 'query_required'];
+        }
+
+        $limit = min(100, max(1, (int) ($arguments['limit'] ?? 20)));
+        $filters = array_filter([
+            'q' => $query,
+            'symbol_type' => $this->string($arguments['symbol_type'] ?? null),
+            'language' => $this->string($arguments['language'] ?? null),
+        ]);
+
+        $result = $this->code->symbols($filters, $limit);
+        $symbols = $result['symbols'] ?? [];
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_code_find_relevant',
+            'workspace' => $this->workspace($arguments['workspace'] ?? null),
+            'query' => $query,
+            'filters' => $filters,
+            'symbols' => $symbols,
+            'count' => count($symbols),
+            'generated_at' => now()->toJSON(),
         ];
     }
 
