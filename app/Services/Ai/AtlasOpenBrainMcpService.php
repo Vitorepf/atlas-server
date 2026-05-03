@@ -19,6 +19,7 @@ class AtlasOpenBrainMcpService
         private readonly AtlasOpenBrainService $openBrain,
         private readonly AtlasProviderProjectionService $projection,
         private readonly AtlasMemoryPrivacyService $privacy,
+        private readonly AtlasMemoryQualityService $quality,
         private readonly EngineeringKnowledgeBaseService $knowledge,
         private readonly EngineeringCodeIntelligenceService $code,
     ) {}
@@ -118,6 +119,31 @@ class AtlasOpenBrainMcpService
                     'openWorldHint' => false,
                 ],
             ],
+            [
+                'name' => 'atlas_memory_record',
+                'title' => 'Atlas Memory Record',
+                'description' => 'Persiste uma decisão, learning ou contexto técnico no registry Atlas. Provider-safe por default. Fecha o loop entre engine e Atlas memory.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'memory_type' => ['type' => 'string', 'description' => 'Tipo: decision, technical_context, harness_learning, preference, feedback, issue, resolution, benchmark_observation.'],
+                        'scope_type' => ['type' => 'string', 'description' => 'Scope: global, project, task, engineering_run, workspace, user, session.'],
+                        'scope_id' => ['type' => 'string', 'description' => 'ID do scope (ex: project slug, task UUID). Omit para scope global.'],
+                        'title' => ['type' => 'string', 'description' => 'Título curto da entry (até 200 chars).'],
+                        'body' => ['type' => 'string', 'description' => 'Corpo completo da decisão/learning.'],
+                        'summary' => ['type' => 'string', 'description' => 'Resumo opcional (até 500 chars).'],
+                        'tags' => ['type' => 'array', 'description' => 'Tags livres para classificação.'],
+                        'evidence' => ['type' => 'array', 'description' => 'Referências (file paths, URLs, commit SHAs).'],
+                        'context' => ['type' => 'object', 'description' => 'Contexto Atlas: workspace, project_id, task_id, run_id.'],
+                    ],
+                    'required' => ['memory_type', 'scope_type', 'title', 'body'],
+                ],
+                'annotations' => [
+                    'readOnlyHint' => false,
+                    'destructiveHint' => false,
+                    'openWorldHint' => false,
+                ],
+            ],
         ];
     }
 
@@ -164,6 +190,7 @@ class AtlasOpenBrainMcpService
                 'atlas_memory_recall' => $this->toolResponse($id, $this->memoryRecall($arguments)),
                 'atlas_open_brain_context_pack' => $this->toolResponse($id, $this->contextPack($arguments)),
                 'atlas_memory_maintenance_status' => $this->toolResponse($id, $this->maintenanceStatus($arguments)),
+                'atlas_memory_record' => $this->toolResponse($id, $this->memoryRecord($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -258,7 +285,10 @@ class AtlasOpenBrainMcpService
         ]);
         $knowledge = $this->knowledge->summary();
         $code = $this->code->summary();
-        $memory = $this->memorySummary();
+        $memory = $this->memorySummary($workspace);
+        $memoryQuality = $this->quality->scorecard([
+            'workspace' => $workspace,
+        ]);
         $includeDriftAudit = (bool) ($arguments['include_drift_audit'] ?? false);
         $codeAudit = $includeDriftAudit
             ? $this->code->audit([
@@ -272,21 +302,83 @@ class AtlasOpenBrainMcpService
             'tool' => 'atlas_memory_maintenance_status',
             'workspace' => $workspace,
             'memory' => $memory,
+            'memory_quality' => $memoryQuality,
             'knowledge' => $knowledge,
             'code_intelligence' => $code,
             'code_audit' => $codeAudit,
             'provider_projection' => $projection,
-            'overall_status' => $this->overallStatus($memory, $knowledge, $code, $projection, $codeAudit),
-            'next_actions' => $this->nextActions($workspace, $memory, $knowledge, $code, $projection, $codeAudit),
+            'overall_status' => $this->overallStatus($memory, $memoryQuality, $knowledge, $code, $projection, $codeAudit),
+            'next_actions' => $this->nextActions($workspace, $memory, $memoryQuality, $knowledge, $code, $projection, $codeAudit),
             'writes' => false,
             'generated_at' => now()->toJSON(),
         ];
     }
 
     /**
+     * @param  array<string,mixed>  $arguments
      * @return array<string,mixed>
      */
-    private function memorySummary(): array
+    private function memoryRecord(array $arguments): array
+    {
+        $memoryType = $this->string($arguments['memory_type'] ?? null);
+        $scopeType = $this->string($arguments['scope_type'] ?? null);
+        $title = $this->string($arguments['title'] ?? null);
+        $body = $this->string($arguments['body'] ?? null);
+
+        if ($memoryType === null || ! in_array($memoryType, AtlasMemoryEntry::TYPES, true)) {
+            return ['ok' => false, 'tool' => 'atlas_memory_record', 'error' => 'invalid_memory_type'];
+        }
+        if ($scopeType === null || ! in_array($scopeType, AtlasMemoryEntry::SCOPES, true)) {
+            return ['ok' => false, 'tool' => 'atlas_memory_record', 'error' => 'invalid_scope_type'];
+        }
+        if ($title === null || $body === null) {
+            return ['ok' => false, 'tool' => 'atlas_memory_record', 'error' => 'title_and_body_required'];
+        }
+
+        $context = $this->object($arguments['context'] ?? []);
+        $tags = is_array($arguments['tags'] ?? null) ? $arguments['tags'] : [];
+        $evidence = is_array($arguments['evidence'] ?? null) ? $arguments['evidence'] : [];
+
+        $entry = AtlasMemoryEntry::create([
+            'memory_type' => $memoryType,
+            'scope_type' => $scopeType,
+            'scope_id' => $this->string($arguments['scope_id'] ?? null),
+            'project_id' => $this->string($context['project_id'] ?? null),
+            'task_id' => $this->string($context['task_id'] ?? null),
+            'engineering_run_id' => $this->string($context['run_id'] ?? null),
+            'session_id' => $this->string($context['session_id'] ?? null),
+            'user_id' => $this->string($context['user_id'] ?? null),
+            'title' => $title,
+            'body' => $body,
+            'summary' => $this->string($arguments['summary'] ?? null),
+            'importance' => 5,
+            'priority' => 5,
+            'confidence' => 0.8,
+            'privacy_class' => 'normal',
+            'external_ai_allowed' => true,
+            'redaction_status' => 'clean',
+            'source_type' => 'mcp_tool',
+            'source_label' => 'atlas_memory_record',
+            'status' => 'active',
+            'tags' => $tags,
+            'metadata' => ['evidence' => $evidence, 'context' => $context],
+            'recorded_at' => now(),
+        ]);
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_memory_record',
+            'memory_entry_id' => (string) $entry->id,
+            'memory_type' => $entry->memory_type,
+            'scope_type' => $entry->scope_type,
+            'recorded_at' => $entry->recorded_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function memorySummary(?string $workspace): array
     {
         $memoryTable = Schema::hasTable('atlas_memory_entries');
         $verbatimTable = Schema::hasTable('atlas_verbatim_memories');
@@ -311,16 +403,20 @@ class AtlasOpenBrainMcpService
             'provider_safe_memory_count' => $providerSafeCount,
             'verbatim_active_count' => $verbatimTable ? AtlasVerbatimMemory::query()->where('status', 'active')->count() : 0,
             'open_brain_audit_count' => $openBrainAuditTable ? AtlasOpenBrainAccessLog::query()->count() : 0,
+            'workspace' => $workspace,
         ];
     }
 
     /**
      * @param  array<string,mixed>|null  $codeAudit
      */
-    private function overallStatus(array $memory, array $knowledge, array $code, array $projection, ?array $codeAudit): string
+    private function overallStatus(array $memory, array $memoryQuality, array $knowledge, array $code, array $projection, ?array $codeAudit): string
     {
         if (($memory['status'] ?? null) !== 'ready') {
             return 'needs_memory';
+        }
+        if (in_array($memoryQuality['status'] ?? null, ['critical'], true)) {
+            return 'needs_memory_quality_review';
         }
         if (($knowledge['status'] ?? null) !== 'ready') {
             return 'needs_knowledge_sync';
@@ -342,13 +438,18 @@ class AtlasOpenBrainMcpService
      * @param  array<string,mixed>|null  $codeAudit
      * @return array<int,string>
      */
-    private function nextActions(?string $workspace, array $memory, array $knowledge, array $code, array $projection, ?array $codeAudit): array
+    private function nextActions(?string $workspace, array $memory, array $memoryQuality, array $knowledge, array $code, array $projection, ?array $codeAudit): array
     {
         $workspaceArg = $workspace ? ' --workspace="'.str_replace('"', '\"', $workspace).'"' : '';
         $actions = [];
 
         if (($memory['provider_safe_memory_count'] ?? 0) < 1) {
             $actions[] = '/opt/homebrew/bin/php artisan atlas:memory:seed-core';
+        }
+        foreach ((array) ($memoryQuality['recommendations'] ?? []) as $action) {
+            if (is_string($action) && $action !== '') {
+                $actions[] = $action;
+            }
         }
         if (($knowledge['status'] ?? null) !== 'ready') {
             $actions[] = './bin/atlas engineering knowledge sync --prune --json';
