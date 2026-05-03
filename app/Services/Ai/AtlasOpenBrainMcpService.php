@@ -161,6 +161,22 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_docs_lookup',
+                'title' => 'Atlas Docs Lookup',
+                'description' => 'Busca em itens da knowledge base (docs/engineering-knowledge-base/*.md indexados). Filtra por categoria, status, slug. Retorna metadata + path do arquivo.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'query' => ['type' => 'string', 'description' => 'Termo de busca em title, slug, summary e canonical_path.'],
+                        'category' => ['type' => 'string', 'description' => 'Filtra por categoria: engineering, architecture, runbook, decision, etc.'],
+                        'status' => ['type' => 'string', 'description' => 'Filtra por status: active, archived, draft.'],
+                        'limit' => ['type' => 'integer', 'description' => 'Max docs retornados (default 10, max 50).'],
+                    ],
+                    'required' => ['query'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -209,6 +225,7 @@ class AtlasOpenBrainMcpService
                 'atlas_memory_maintenance_status' => $this->toolResponse($id, $this->maintenanceStatus($arguments)),
                 'atlas_memory_record' => $this->toolResponse($id, $this->memoryRecord($arguments)),
                 'atlas_code_find_relevant' => $this->toolResponse($id, $this->codeFindRelevant($arguments)),
+                'atlas_docs_lookup' => $this->toolResponse($id, $this->docsLookup($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -422,6 +439,37 @@ class AtlasOpenBrainMcpService
             'filters' => $filters,
             'symbols' => $symbols,
             'count' => count($symbols),
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function docsLookup(array $arguments): array
+    {
+        $query = $this->string($arguments['query'] ?? null);
+        if ($query === null) {
+            return ['ok' => false, 'tool' => 'atlas_docs_lookup', 'error' => 'query_required'];
+        }
+
+        $limit = min(50, max(1, (int) ($arguments['limit'] ?? 10)));
+        $filters = array_filter([
+            'q' => $query,
+            'category' => $this->string($arguments['category'] ?? null),
+            'status' => $this->string($arguments['status'] ?? null) ?: 'active',
+        ]);
+
+        $result = $this->knowledge->catalog($filters, $limit);
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_docs_lookup',
+            'query' => $query,
+            'filters' => $filters,
+            'docs' => $result['items'] ?? [],
+            'count' => count($result['items'] ?? []),
             'generated_at' => now()->toJSON(),
         ];
     }

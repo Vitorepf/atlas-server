@@ -4,9 +4,11 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
+use App\Models\AtlasEngineeringKnowledgeItem;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use Tests\Concerns\CreatesAtlasEngineeringCodeTables;
+use Tests\Concerns\CreatesAtlasEngineeringKnowledgeTables;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;
 use Tests\TestCase;
 
@@ -14,16 +16,19 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 {
     use CreatesAtlasMemoryEntryTable;
     use CreatesAtlasEngineeringCodeTables;
+    use CreatesAtlasEngineeringKnowledgeTables;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->createAtlasMemoryEntryTable();
         $this->createAtlasEngineeringCodeTables();
+        $this->createAtlasEngineeringKnowledgeTables();
     }
 
     protected function tearDown(): void
     {
+        $this->dropAtlasEngineeringKnowledgeTables();
         $this->dropAtlasEngineeringCodeTables();
         $this->dropAtlasMemoryEntryTable();
         parent::tearDown();
@@ -131,6 +136,41 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $response = $service->handleJsonRpc([
             'jsonrpc' => '2.0', 'id' => 4, 'method' => 'tools/call',
             'params' => ['name' => 'atlas_code_find_relevant', 'arguments' => []],
+        ]);
+
+        $this->assertFalse($response['result']['structuredContent']['ok']);
+        $this->assertSame('query_required', $response['result']['structuredContent']['error']);
+    }
+
+    public function test_docs_lookup_returns_matching_kb_items(): void
+    {
+        AtlasEngineeringKnowledgeItem::create([
+            'slug' => 'memory-core-failure-modes',
+            'title' => 'Memory Core Failure Modes',
+            'category' => 'engineering',
+            'status' => 'active',
+            'canonical_path' => 'docs/engineering-knowledge-base/memory-core-failure-modes.md',
+            'source_hash' => sha1('memory-core-failure-modes'),
+            'content_hash' => sha1('memory-core-failure-modes-content'),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 5, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_docs_lookup', 'arguments' => ['query' => 'failure']],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertNotEmpty($structured['docs']);
+    }
+
+    public function test_docs_lookup_requires_query(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 6, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_docs_lookup', 'arguments' => []],
         ]);
 
         $this->assertFalse($response['result']['structuredContent']['ok']);
