@@ -228,6 +228,57 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_task_start',
+                'title' => 'Atlas Task Start',
+                'description' => 'Cria uma task Atlas (status=open) e retorna task_id. Use quando o engine inicia trabalho — permite Atlas observar o ciclo de vida e amarrar memórias gravadas a uma task específica.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'title' => ['type' => 'string', 'description' => 'Título curto da task.'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace local onde a task acontece.'],
+                        'objective' => ['type' => 'string', 'description' => 'Objetivo declarado pelo engine (vai pra description).'],
+                        'domain' => ['type' => 'string', 'description' => 'Domínio: dev, ops, research, etc. Default: dev.'],
+                        'project_id' => ['type' => 'string', 'description' => 'UUID do projeto Atlas (opcional).'],
+                        'metadata' => ['type' => 'object', 'description' => 'Metadata adicional (engine, session_id, etc).'],
+                    ],
+                    'required' => ['title'],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_task_progress',
+                'title' => 'Atlas Task Progress',
+                'description' => 'Registra um milestone/progresso numa task em andamento. Cria AtlasTaskEvent com event_type=milestone e payload customizado.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'task_id' => ['type' => 'string', 'description' => 'UUID da task.'],
+                        'milestone' => ['type' => 'string', 'description' => 'Nome do milestone (tests-passing, design-approved, etc).'],
+                        'details' => ['type' => 'string', 'description' => 'Detalhes opcionais.'],
+                        'progress_pct' => ['type' => 'integer', 'description' => 'Progresso 0-100 (opcional).'],
+                    ],
+                    'required' => ['task_id', 'milestone'],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_task_complete',
+                'title' => 'Atlas Task Complete',
+                'description' => 'Fecha uma task: status=done, completed_at=now, registra AtlasTaskEvent(event_type=completed) com summary e files_changed. Use quando engine termina trabalho.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'task_id' => ['type' => 'string', 'description' => 'UUID da task.'],
+                        'summary' => ['type' => 'string', 'description' => 'Resumo do que foi feito.'],
+                        'files_changed' => ['type' => 'array', 'description' => 'Lista de paths de arquivos modificados.'],
+                        'outcome' => ['type' => 'string', 'description' => 'Status semântico do outcome: success, partial, blocked.'],
+                        'memory_entry_ids' => ['type' => 'array', 'description' => 'IDs de memory entries gravados durante a task (cross-link).'],
+                    ],
+                    'required' => ['task_id'],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -281,6 +332,9 @@ class AtlasOpenBrainMcpService
                 'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
                 'atlas_recent_changes' => $this->toolResponse($id, $this->recentChanges($arguments)),
                 'atlas_decision_query' => $this->toolResponse($id, $this->decisionQuery($arguments)),
+                'atlas_task_start' => $this->toolResponse($id, $this->taskStart($arguments)),
+                'atlas_task_progress' => $this->toolResponse($id, $this->taskProgress($arguments)),
+                'atlas_task_complete' => $this->toolResponse($id, $this->taskComplete($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -692,6 +746,122 @@ class AtlasOpenBrainMcpService
             'count' => count($decisions),
             'summary' => $recall['summary'] ?? [],
             'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function taskStart(array $arguments): array
+    {
+        $title = $this->string($arguments['title'] ?? null);
+        if ($title === null) {
+            return ['ok' => false, 'tool' => 'atlas_task_start', 'error' => 'title_required'];
+        }
+
+        $task = \App\Models\AtlasTask::create([
+            'title' => $title,
+            'description' => $this->string($arguments['objective'] ?? null),
+            'status' => 'open',
+            'domain' => $this->string($arguments['domain'] ?? null) ?: 'dev',
+            'project_id' => $this->string($arguments['project_id'] ?? null),
+            'metadata' => array_merge(
+                $this->object($arguments['metadata'] ?? []),
+                ['workspace' => $this->workspace($arguments['workspace'] ?? null), 'source' => 'mcp_tool'],
+            ),
+        ]);
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_task_start',
+            'task_id' => (string) $task->id,
+            'status' => $task->status,
+            'created_at' => $task->created_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function taskProgress(array $arguments): array
+    {
+        $taskId = $this->string($arguments['task_id'] ?? null);
+        $milestone = $this->string($arguments['milestone'] ?? null);
+
+        if ($taskId === null || $milestone === null) {
+            return ['ok' => false, 'tool' => 'atlas_task_progress', 'error' => 'task_id_and_milestone_required'];
+        }
+
+        $task = \App\Models\AtlasTask::find($taskId);
+        if ($task === null) {
+            return ['ok' => false, 'tool' => 'atlas_task_progress', 'error' => 'task_not_found'];
+        }
+
+        $event = \App\Models\AtlasTaskEvent::create([
+            'task_id' => $taskId,
+            'event_type' => 'milestone',
+            'source' => 'mcp_tool',
+            'payload' => [
+                'milestone' => $milestone,
+                'details' => $this->string($arguments['details'] ?? null),
+                'progress_pct' => isset($arguments['progress_pct']) ? (int) $arguments['progress_pct'] : null,
+            ],
+            'occurred_at' => now(),
+        ]);
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_task_progress',
+            'task_id' => $taskId,
+            'event_id' => (string) $event->id,
+            'milestone' => $milestone,
+            'recorded_at' => $event->occurred_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function taskComplete(array $arguments): array
+    {
+        $taskId = $this->string($arguments['task_id'] ?? null);
+        if ($taskId === null) {
+            return ['ok' => false, 'tool' => 'atlas_task_complete', 'error' => 'task_id_required'];
+        }
+
+        $task = \App\Models\AtlasTask::find($taskId);
+        if ($task === null) {
+            return ['ok' => false, 'tool' => 'atlas_task_complete', 'error' => 'task_not_found'];
+        }
+
+        $task->update([
+            'status' => 'done',
+            'completed_at' => now(),
+        ]);
+
+        $event = \App\Models\AtlasTaskEvent::create([
+            'task_id' => $taskId,
+            'event_type' => 'completed',
+            'source' => 'mcp_tool',
+            'payload' => [
+                'summary' => $this->string($arguments['summary'] ?? null),
+                'files_changed' => is_array($arguments['files_changed'] ?? null) ? $arguments['files_changed'] : [],
+                'outcome' => $this->string($arguments['outcome'] ?? null) ?: 'success',
+                'memory_entry_ids' => is_array($arguments['memory_entry_ids'] ?? null) ? $arguments['memory_entry_ids'] : [],
+            ],
+            'occurred_at' => now(),
+        ]);
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_task_complete',
+            'task_id' => $taskId,
+            'status' => 'done',
+            'event_id' => (string) $event->id,
+            'completed_at' => $task->completed_at?->toJSON(),
         ];
     }
 

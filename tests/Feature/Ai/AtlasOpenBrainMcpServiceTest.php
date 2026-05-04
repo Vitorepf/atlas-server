@@ -321,4 +321,80 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertFalse($response['result']['structuredContent']['ok']);
         $this->assertSame('query_required', $response['result']['structuredContent']['error']);
     }
+
+    public function test_task_start_creates_open_task(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 13, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_task_start',
+                'arguments' => [
+                    'title' => 'Refator de billing',
+                    'workspace' => '/Users/vitorepf/Develop/atlas/atlas-server',
+                    'objective' => 'Implementar cobrança recorrente',
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertArrayHasKey('task_id', $structured);
+
+        $task = \App\Models\AtlasTask::find($structured['task_id']);
+        $this->assertNotNull($task);
+        $this->assertSame('open', $task->status);
+    }
+
+    public function test_task_progress_appends_event(): void
+    {
+        $task = \App\Models\AtlasTask::create([
+            'title' => 'Test', 'status' => 'open', 'domain' => 'dev',
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 14, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_task_progress',
+                'arguments' => [
+                    'task_id' => (string) $task->id,
+                    'milestone' => 'tests-passing',
+                    'details' => 'All 12 unit tests green',
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertSame(1, \App\Models\AtlasTaskEvent::where('task_id', $task->id)->count());
+    }
+
+    public function test_task_complete_sets_status_and_event(): void
+    {
+        $task = \App\Models\AtlasTask::create([
+            'title' => 'Test', 'status' => 'open', 'domain' => 'dev',
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 15, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_task_complete',
+                'arguments' => [
+                    'task_id' => (string) $task->id,
+                    'summary' => 'Implementação completa',
+                    'files_changed' => ['app/X.php', 'tests/Y.php'],
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+
+        $task->refresh();
+        $this->assertSame('done', $task->status);
+        $this->assertNotNull($task->completed_at);
+    }
 }
