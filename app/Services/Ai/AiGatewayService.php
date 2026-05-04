@@ -71,6 +71,12 @@ class AiGatewayService
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
         $payload = $this->enforceFairModeProvider($payload, $provider);
         $options['payload'] = $payload;
+        if ($this->fairClaude->isFairPayload($payload) && ! is_string($options['model'] ?? null)) {
+            $expectedModel = $this->fairClaude->expectedResolvedModel($payload);
+            if ($expectedModel !== null) {
+                $options['model'] = $expectedModel;
+            }
+        }
         $decision = $this->decide->operationalDecision($options, $provider);
         $decisionPayload = $decision->toArray();
         $candidateProvider = $decision->candidateProvider();
@@ -96,11 +102,22 @@ class AiGatewayService
         $session = $this->sessions->ensureActive($threadResolution->thread, $provider, $input, $options);
         $resumeCompaction = $this->maybeCompactSessionResume($threadResolution->thread, $session);
         $autoCompaction = $resumeCompaction ?: $this->compactions->maybeAutoCompact($threadResolution->thread, $session);
-        $providerHandoff = $this->handoffs->createIfSwitching($threadResolution->thread, $session, $provider, $autoCompaction, [
-            'trigger' => 'enqueue_interaction',
-        ]);
+        $fairMode = $this->fairClaude->isFairPayload($payload);
+        $providerHandoff = $fairMode
+            ? null
+            : $this->handoffs->createIfSwitching($threadResolution->thread, $session, $provider, $autoCompaction, [
+                'trigger' => 'enqueue_interaction',
+            ]);
         $options = $this->optionsWithResolvedRuntime($options, $threadResolution->thread->id, $session->id, $autoCompaction?->id, $providerHandoff?->id);
+        if ($fairMode) {
+            $options['payload']['provider_handoff_disabled_by_fair_mode'] = true;
+        }
         $prompt = $this->prompts->build($input, $options);
+        $options = $this->optionsWithPromptContracts($options, $prompt);
+        $this->assertProgrammingContextContractsAllowRuntime($options);
+        $this->assertProgrammingMemoryContractsAllowRuntime($options);
+        $this->assertProgrammingSkillContractsAllowRuntime($options);
+        $this->assertProgrammingToolContractsAllowRuntime($options);
         if ($this->shouldRunCouncil($options)) {
             return $this->enqueueCouncilInteraction($input, $options, $prompt, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff);
         }
@@ -109,6 +126,8 @@ class AiGatewayService
         $model = $modelResolution['model'];
         $this->enforceFairModeModel((array) ($options['payload'] ?? []), $provider, $model);
         $this->budgets->assertAllows($provider, $model, $options);
+        $options = $this->optionsWithProgrammingModelGraphReceipt($options, $provider, $model);
+        $this->assertProgrammingModelGraphAllowsRuntime($options);
         $scoutGate = $this->atlasScoutGate($this->optionsWithPromptContracts($options, $prompt), $provider, $model);
         $options = $this->optionsWithAtlasExecutionActivation($options, $scoutGate);
         $now = now();
@@ -310,6 +329,8 @@ class AiGatewayService
             $lockedThread = $this->lockThreadForTrace($threadResolution);
             $lockedSession = $this->lockSessionForTrace($session);
             $traceModelResolution = $this->models->resolveWithSource('claude_codex', $options['model'] ?? null);
+            $options = $this->optionsWithProgrammingModelGraphReceipt($options, 'claude_codex', $traceModelResolution['model'], $providers);
+            $this->assertProgrammingModelGraphAllowsRuntime($options);
             $decisionReceipt = $this->decide->receiptForTrace($this->optionsWithPromptContracts($options, $prompt), 'claude_codex', $traceModelResolution['model']);
 
             foreach ($providers as $provider) {
@@ -706,6 +727,18 @@ class AiGatewayService
     private function decisionCandidates(array $options, string $selectedProvider): array
     {
         $manualProvider = $this->decide->manualOverrideProvider($options);
+        if ($this->isFairModeOptions($options)) {
+            return [[
+                'provider' => FairClaudePolicy::PROVIDER_LOCK,
+                'selected' => $selectedProvider === FairClaudePolicy::PROVIDER_LOCK,
+                'manual_override' => true,
+                'allow_auto' => true,
+                'allow_manual' => true,
+                'model' => $this->fairClaude->expectedResolvedModel((array) data_get($options, 'payload', []))
+                    ?: $this->models->resolveWithSource(FairClaudePolicy::PROVIDER_LOCK)['model'],
+                'fair_mode_locked' => true,
+            ]];
+        }
 
         return collect(self::INVOCATION_PROVIDERS)
             ->map(fn (string $provider): array => [
@@ -761,16 +794,27 @@ class AiGatewayService
     {
         $plan = $this->decide->decisionPlan($options, $selectedProvider, $selectedModel);
         $timeoutSeconds = max(60, (int) config('atlas.ai.atlas_decide.scout_timeout_seconds', 600));
-        $scoutModel = $this->models->resolve('gemini_cli');
+        $fairMode = $this->isFairModeOptions($options);
+        $scoutProvider = $fairMode ? FairClaudePolicy::PROVIDER_LOCK : 'gemini_cli';
+        $scoutModel = $fairMode ? $selectedModel : $this->models->resolve('gemini_cli');
         $base = [
             'enabled' => false,
-            'activation_status' => (string) data_get($plan, 'execution_graph.activation_status', 'active_single_provider'),
+            'activation_status' => $fairMode
+                ? 'fair_mode_single_provider'
+                : (string) data_get($plan, 'execution_graph.activation_status', 'active_single_provider'),
             'blocked_reason' => null,
             'plan' => $plan,
-            'scout_provider' => 'gemini_cli',
+            'scout_provider' => $scoutProvider,
             'scout_model' => $scoutModel,
             'dependency_timeout_seconds' => $timeoutSeconds,
         ];
+
+        if ($fairMode) {
+            return [
+                ...$base,
+                'blocked_reason' => 'fair_mode_atlas_decide_disabled',
+            ];
+        }
 
         if (($plan['execution_strategy'] ?? null) !== 'scout_then_execute_planned') {
             return $base;
@@ -815,6 +859,7 @@ class AiGatewayService
                 'execution_graph_activation_status' => $scoutGate['activation_status'],
                 'execution_graph_blocked_reason' => $scoutGate['blocked_reason'],
                 'scout_enabled' => (bool) $scoutGate['enabled'],
+                'disabled_by_fair_mode' => $this->isFairModeOptions(['payload' => $payload]),
             ],
         );
         $options['payload'] = $payload;
@@ -1019,7 +1064,31 @@ PROMPT;
             'programming_execution_policy' => data_get($payload, 'programming_execution_policy')
                 ?: data_get($messagePlan, 'policy_profile.execution_policy')
                 ?: data_get($dispatch, 'execution_policy'),
+            'programming_policy_contracts' => $this->programmingPolicyContracts($options),
+            'programming_policy_contract_receipt' => data_get($payload, 'programming_policy_contract_receipt'),
         ], fn (mixed $value): bool => $value !== null);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function programmingPolicyContracts(array $options): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $messagePlan = is_array($payload['programming_message_plan'] ?? null)
+            ? $payload['programming_message_plan']
+            : [];
+        $dispatch = is_array($payload['programming_dispatch'] ?? null)
+            ? $payload['programming_dispatch']
+            : [];
+        $contracts = data_get($payload, 'programming_policy_contracts')
+            ?: data_get($messagePlan, 'policy_contracts')
+            ?: data_get($messagePlan, 'policy_profile.policy_contracts')
+            ?: data_get($messagePlan, 'policy_profile.effective_policy.operational_contracts')
+            ?: data_get($dispatch, 'policy_contracts');
+
+        return is_array($contracts) ? $contracts : [];
     }
 
     private function optionsWithResolvedRuntime(array $options, string $threadId, string $sessionId, ?string $compactionId = null, ?string $handoffId = null): array
@@ -1050,9 +1119,305 @@ PROMPT;
         $payload['context_pack'] = $prompt->contextPack;
         $payload['execution_plan'] = $prompt->executionPlan;
         $payload['skills_activated'] = $prompt->activatedSkills;
+        $payload['open_brain_injection'] = $prompt->openBrainInjection;
+        if ($receipt = $this->programmingPolicyContractReceipt($options, $prompt)) {
+            $payload['programming_policy_contract_receipt'] = array_merge(
+                (array) ($payload['programming_policy_contract_receipt'] ?? []),
+                $receipt,
+            );
+        }
         $options['payload'] = $payload;
 
         return $options;
+    }
+
+    private function optionsWithProgrammingModelGraphReceipt(array $options, string $provider, ?string $model, array $runtimeProviders = []): array
+    {
+        $contracts = $this->programmingPolicyContracts($options);
+        $graph = (array) data_get($contracts, 'model_graph', []);
+        if ($graph === []) {
+            return $options;
+        }
+
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $receipt = (array) ($payload['programming_policy_contract_receipt'] ?? []);
+        $receipt['model_graph'] = $this->modelGraphContractReceipt($graph, $provider, $model, $runtimeProviders);
+        $payload['programming_policy_contract_receipt'] = $receipt;
+        $options['payload'] = $payload;
+
+        return $options;
+    }
+
+    private function assertProgrammingModelGraphAllowsRuntime(array $options): void
+    {
+        $receipt = data_get($options, 'payload.programming_policy_contract_receipt.model_graph');
+        if (! is_array($receipt)) {
+            return;
+        }
+
+        $provider = (string) ($receipt['selected_provider'] ?? 'unknown');
+        $model = (string) ($receipt['selected_model'] ?? 'unknown');
+        $allowed = implode(', ', array_map(fn (mixed $item): string => (string) $item, (array) ($receipt['allowed_providers'] ?? [])));
+
+        if (($receipt['status'] ?? null) === 'out_of_contract') {
+            throw new RuntimeException("atlas_model_graph_policy_violation: provider/model {$provider}/{$model} fora do model_graph permitido".($allowed !== '' ? " ({$allowed})" : '').'.');
+        }
+
+        if (($receipt['status'] ?? null) === 'provider_matched_model_drift' && (bool) ($receipt['strict_model_match'] ?? false)) {
+            throw new RuntimeException("atlas_model_graph_policy_violation: modelo {$model} diverge do model_graph fixo para {$provider}.");
+        }
+    }
+
+    private function assertProgrammingSkillContractsAllowRuntime(array $options): void
+    {
+        $receipt = data_get($options, 'payload.programming_policy_contract_receipt.skills');
+        if (! is_array($receipt) || ! (bool) ($receipt['required'] ?? false) || ($receipt['status'] ?? null) === 'satisfied') {
+            return;
+        }
+
+        $missing = implode(', ', array_map(fn (mixed $item): string => (string) $item, (array) ($receipt['missing'] ?? [])));
+
+        throw new RuntimeException('atlas_skill_contract_policy_violation: skill trace obrigatorio nao satisfeito'.($missing !== '' ? " ({$missing})" : '').'.');
+    }
+
+    private function assertProgrammingContextContractsAllowRuntime(array $options): void
+    {
+        $receipt = data_get($options, 'payload.programming_policy_contract_receipt.context');
+        if (! is_array($receipt) || ! (bool) ($receipt['required'] ?? false) || ($receipt['status'] ?? null) === 'satisfied') {
+            return;
+        }
+
+        throw new RuntimeException('atlas_context_contract_policy_violation: context pack obrigatorio nao foi projetado no prompt.');
+    }
+
+    private function assertProgrammingMemoryContractsAllowRuntime(array $options): void
+    {
+        $receipt = data_get($options, 'payload.programming_policy_contract_receipt.memory');
+        if (! is_array($receipt) || ! (bool) ($receipt['required'] ?? false)) {
+            return;
+        }
+
+        $status = (string) ($receipt['status'] ?? 'unknown');
+        if (in_array($status, ['satisfied', 'degraded'], true)) {
+            return;
+        }
+
+        throw new RuntimeException("atlas_memory_contract_policy_violation: Open Brain/memoria obrigatoria nao foi entregue ({$status}).");
+    }
+
+    private function assertProgrammingToolContractsAllowRuntime(array $options): void
+    {
+        $receipt = data_get($options, 'payload.programming_policy_contract_receipt.tools');
+        if (! is_array($receipt) || ($receipt['status'] ?? null) === 'satisfied') {
+            return;
+        }
+
+        $status = (string) ($receipt['status'] ?? 'unknown');
+
+        throw new RuntimeException("atlas_tool_contract_policy_violation: permissao de ferramenta incompatível com contrato ({$status}).");
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function programmingPolicyContractReceipt(array $options, AiPrompt $prompt): array
+    {
+        $contracts = $this->programmingPolicyContracts($options);
+        if ($contracts === []) {
+            return [];
+        }
+
+        $context = (array) data_get($contracts, 'context', []);
+        $memory = (array) data_get($contracts, 'memory', []);
+        $skills = (array) data_get($contracts, 'skills', []);
+        $tools = (array) data_get($contracts, 'tools', []);
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $contextPackPresent = $prompt->contextPack !== [];
+        $openBrainPresent = $prompt->openBrainInjection !== [];
+        $activatedSkills = collect($prompt->activatedSkills)
+            ->map(fn (mixed $skill): ?string => is_array($skill) && is_string($skill['name'] ?? null) ? strtolower(trim((string) $skill['name'])) : null)
+            ->filter()
+            ->values()
+            ->all();
+        $requiredSkills = collect((array) data_get($skills, 'required_bundles', []))
+            ->map(fn (mixed $skill): string => strtolower(trim((string) $skill)))
+            ->filter()
+            ->values()
+            ->all();
+        $missingSkills = array_values(array_diff($requiredSkills, $activatedSkills));
+        $requiresSkillTrace = (bool) data_get($skills, 'require_skill_trace', false);
+        $requiresContextPack = (bool) data_get($context, 'require_context_pack', false);
+        $includeMemory = (bool) data_get($context, 'include_memory', data_get($memory, 'scope') !== null);
+        $openBrainStatus = is_scalar(data_get($prompt->openBrainInjection, 'status'))
+            ? (string) data_get($prompt->openBrainInjection, 'status')
+            : null;
+        $memoryStatus = match (true) {
+            ! $includeMemory => 'not_required',
+            ! $openBrainPresent => 'missing',
+            in_array($openBrainStatus, ['injected'], true) => 'satisfied',
+            in_array($openBrainStatus, ['degraded'], true) => 'degraded',
+            in_array($openBrainStatus, ['failed_closed', 'failed_open'], true) => 'failed',
+            in_array($openBrainStatus, ['skipped'], true) => 'missing',
+            default => 'pending',
+        };
+
+        return [
+            'schema_version' => 1,
+            'source' => 'ai_gateway_prompt_contract_projection',
+            'context' => [
+                'required' => $requiresContextPack,
+                'status' => ! $requiresContextPack || $contextPackPresent ? 'satisfied' : 'missing',
+                'context_pack_present' => $contextPackPresent,
+                'context_pack_id' => data_get($prompt->contextPack, 'context_pack_id') ?: data_get($prompt->contextPack, 'id'),
+                'context_pack_hash' => data_get($prompt->contextPack, 'hash'),
+                'depth' => data_get($context, 'depth'),
+            ],
+            'memory' => [
+                'required' => $includeMemory,
+                'status' => $memoryStatus,
+                'open_brain_present' => $openBrainPresent,
+                'open_brain_status' => $openBrainStatus,
+                'open_brain_reason' => data_get($prompt->openBrainInjection, 'reason'),
+                'scope' => data_get($memory, 'scope'),
+                'privacy_gate' => data_get($memory, 'privacy_gate'),
+                'recall' => data_get($memory, 'recall', []),
+            ],
+            'skills' => [
+                'required' => $requiresSkillTrace,
+                'status' => ! $requiresSkillTrace || $missingSkills === [] ? 'satisfied' : 'partial',
+                'required_bundles' => $requiredSkills,
+                'activated' => $activatedSkills,
+                'missing' => $missingSkills,
+                'mode' => data_get($skills, 'mode'),
+            ],
+            'tools' => $this->toolContractReceipt($tools, $payload),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $tools
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function toolContractReceipt(array $tools, array $payload): array
+    {
+        $requestedMode = $this->normalizedToolPermissionMode(
+            data_get($payload, 'tool_permissions.mode') ?: data_get($payload, 'permission_mode'),
+        );
+        $confirmed = (bool) data_get($payload, 'tool_permissions.confirmed', false);
+
+        if ($tools === []) {
+            return [
+                'required' => false,
+                'status' => 'satisfied',
+                'mode' => null,
+                'workspace_write_allowed' => null,
+                'destructive_requires_approval' => null,
+                'requested_permission_mode' => $requestedMode,
+                'confirmed' => $confirmed,
+                'require_evidence_packet' => false,
+            ];
+        }
+
+        $contractMode = is_scalar($tools['mode'] ?? null)
+            ? strtolower(trim((string) $tools['mode']))
+            : null;
+        $workspaceWriteAllowed = (bool) data_get($tools, 'workspace_write', in_array($contractMode, ['workspace_write', 'harness'], true));
+        $destructiveRequiresApproval = (bool) data_get($tools, 'destructive_requires_approval', true);
+        $status = match (true) {
+            $requestedMode === null => 'satisfied',
+            ! $workspaceWriteAllowed && in_array($requestedMode, ['write', 'danger'], true) => 'workspace_write_blocked',
+            $destructiveRequiresApproval && $requestedMode === 'danger' && ! $confirmed => 'destructive_approval_missing',
+            default => 'satisfied',
+        };
+
+        return [
+            'required' => true,
+            'status' => $status,
+            'mode' => $contractMode,
+            'workspace_write_allowed' => $workspaceWriteAllowed,
+            'destructive_requires_approval' => $destructiveRequiresApproval,
+            'requested_permission_mode' => $requestedMode,
+            'confirmed' => $confirmed,
+            'require_evidence_packet' => (bool) data_get($tools, 'require_evidence_packet', false),
+        ];
+    }
+
+    private function normalizedToolPermissionMode(mixed $mode): ?string
+    {
+        if (! is_scalar($mode) || trim((string) $mode) === '') {
+            return null;
+        }
+
+        $mode = strtolower(trim((string) $mode));
+
+        return match ($mode) {
+            'readonly', 'read-only', 'ro' => 'read',
+            'workspace-write', 'edit', 'write-scoped' => 'write',
+            'danger-full-access', 'full', 'all' => 'danger',
+            default => in_array($mode, ['read', 'write', 'danger'], true) ? $mode : 'read',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $graph
+     * @return array<string,mixed>
+     */
+    private function modelGraphContractReceipt(array $graph, string $provider, ?string $model, array $runtimeProviders = []): array
+    {
+        $nodes = collect((array) data_get($graph, 'nodes', []))
+            ->filter(fn (mixed $node): bool => is_array($node) && is_string($node['provider'] ?? null))
+            ->values();
+        $matched = $nodes->first(function (mixed $node) use ($provider, $model): bool {
+            if (! is_array($node) || ($node['provider'] ?? null) !== $provider) {
+                return false;
+            }
+
+            $nodeModel = is_string($node['model'] ?? null) ? trim((string) $node['model']) : '';
+
+            return $nodeModel === '' || $model === null || $nodeModel === $model;
+        });
+        $providerNode = $nodes->first(fn (mixed $node): bool => is_array($node) && ($node['provider'] ?? null) === $provider);
+        $fallbackProviders = $nodes
+            ->flatMap(fn (mixed $node): array => is_array($node) ? (array) ($node['fallback_order'] ?? []) : [])
+            ->filter(fn (mixed $item): bool => is_string($item) && trim($item) !== '')
+            ->unique()
+            ->values()
+            ->all();
+        $providerAllowedAsFallback = in_array($provider, $fallbackProviders, true);
+        $runtimeProviders = collect($runtimeProviders)
+            ->map(fn (mixed $item): string => trim((string) $item))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $allowedProviders = $nodes->pluck('provider')->filter()->unique()->values()->all();
+        $runtimeProvidersAllowed = $runtimeProviders !== []
+            && count(array_diff($runtimeProviders, array_values(array_unique([...$allowedProviders, ...$fallbackProviders])))) === 0;
+        $status = match (true) {
+            is_array($matched) => 'satisfied',
+            $provider === 'claude_codex' && $runtimeProvidersAllowed => 'satisfied',
+            is_array($providerNode) => 'provider_matched_model_drift',
+            $providerAllowedAsFallback => 'fallback_provider',
+            default => 'out_of_contract',
+        };
+
+        return [
+            'schema_version' => 1,
+            'source' => 'ai_gateway_model_graph_projection',
+            'status' => $status,
+            'graph' => data_get($graph, 'graph'),
+            'preset' => data_get($graph, 'preset'),
+            'strict_model_match' => (bool) data_get($graph, 'strict_model_match', false),
+            'selected_provider' => $provider,
+            'selected_model' => $model,
+            'runtime_providers' => $runtimeProviders,
+            'matched_node_id' => is_array($matched) ? ($matched['id'] ?? null) : ($runtimeProvidersAllowed ? 'council_runtime' : null),
+            'matched_node_role' => is_array($matched) ? ($matched['role'] ?? null) : ($runtimeProvidersAllowed ? 'council' : null),
+            'allowed_providers' => $allowedProviders,
+            'fallback_providers' => $fallbackProviders,
+        ];
     }
 
     /**
@@ -1109,6 +1474,10 @@ PROMPT;
 
     private function shouldRunCouncil(array $options): bool
     {
+        if ($this->isFairModeOptions($options)) {
+            return false;
+        }
+
         $manualProvider = $this->decide->manualOverrideProvider($options);
         $requested = data_get($options, 'payload.execution_policy') === 'dual_review'
             || $manualProvider === 'claude_codex'
@@ -1119,6 +1488,10 @@ PROMPT;
 
     private function providerFromOptions(array $options): string
     {
+        if ($this->isFairModeOptions($options)) {
+            return FairClaudePolicy::PROVIDER_LOCK;
+        }
+
         $manualProvider = $this->decide->manualOverrideProvider($options);
         if ($manualProvider === 'claude_codex'
             || data_get($options, 'payload.execution_policy') === 'dual_review'
@@ -1186,6 +1559,22 @@ PROMPT;
             'decision_mode' => 'manual_override',
             'operator_requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
             'requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'execution_policy' => null,
+            'council_providers' => null,
+            'council_disabled_by_fair_mode' => true,
+            'atlas_decide' => array_merge(
+                is_array($payload['atlas_decide'] ?? null) ? $payload['atlas_decide'] : [],
+                [
+                    'disabled_by_fair_mode' => true,
+                    'decision_mode' => 'manual_override',
+                    'operator_requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+                    'requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+                    'candidate_provider' => FairClaudePolicy::PROVIDER_LOCK,
+                    'selected_provider' => FairClaudePolicy::PROVIDER_LOCK,
+                    'fallback_provider' => null,
+                    'fallback_reason' => null,
+                ],
+            ),
         ]);
     }
 
@@ -1250,11 +1639,24 @@ PROMPT;
     private function isAutomaticInvocation(array $options): bool
     {
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        if ($this->fairClaude->isFairPayload($payload)) {
+            return false;
+        }
         $sourceType = $options['source_type'] ?? null;
 
         return data_get($payload, 'decision_mode') === 'atlas_decide'
             || (bool) data_get($payload, 'automatic', false)
             || in_array($sourceType, ['capture', 'scheduled', 'system'], true);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     */
+    private function isFairModeOptions(array $options): bool
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+
+        return $this->fairClaude->isFairPayload($payload);
     }
 
     private function geminiBlockedForInvocation(array $options): bool

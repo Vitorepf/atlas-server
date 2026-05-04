@@ -3,6 +3,7 @@
 namespace Tests\Feature\Ai\Scheduling;
 
 use App\Jobs\RunScheduledTaskJob;
+use App\Models\AiJob;
 use App\Models\AiScheduledTask;
 use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
@@ -93,6 +94,74 @@ class RunScheduledTaskJobTest extends TestCase
         $this->assertFalse((bool) data_get($task->metadata, 'last_delivery_suppressed'));
     }
 
+    public function test_job_records_deferred_status_when_mac_background_readiness_delays_trace(): void
+    {
+        $task = AiScheduledTask::query()->create([
+            'title' => 'Refatoracao madrugada',
+            'prompt' => 'Refatore com seguranca.',
+            'schedule' => 'daily',
+            'kind' => 'recurring',
+            'skill_ids' => [],
+            'target_platform' => 'local',
+            'workspace' => base_path(),
+            'enabled' => true,
+            'next_run_at' => now(),
+            'repeat_remaining' => null,
+            'context_from_task_ids' => [],
+            'wrap_response' => true,
+            'metadata' => ['timeout_seconds' => 30],
+        ]);
+        $trace = $this->trace(['status' => 'queued']);
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($trace): void {
+            $mock->shouldReceive('enqueueInteraction')
+                ->once()
+                ->andReturn($trace);
+        });
+        $this->mock(AiWorker::class, function (MockInterface $mock) use ($trace): void {
+            $mock->shouldReceive('runNextForTrace')
+                ->once()
+                ->andReturnUsing(function () use ($trace) {
+                    AiJob::query()->create([
+                        'trace_id' => $trace->id,
+                        'status' => 'queued',
+                        'available_at' => now()->addMinutes(5),
+                        'metadata' => [
+                            'mac_background_readiness' => [
+                                'reason' => 'mac_background_not_ready',
+                                'readiness' => [
+                                    'blockers' => [
+                                        ['code' => 'power_helper_not_ready', 'message' => 'Power Helper root ainda nao esta pronto.'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]);
+                    $trace->update([
+                        'status' => 'queued',
+                        'metadata' => [
+                            'mac_background_readiness' => [
+                                'reason' => 'mac_background_not_ready',
+                            ],
+                        ],
+                    ]);
+
+                    return null;
+                });
+        });
+
+        RunScheduledTaskJob::dispatchSync($task->id);
+
+        $task->refresh();
+        $this->assertSame('deferred', $task->last_status);
+        $this->assertSame('deferred_until_ready', data_get($task->metadata, 'last_delivery_status'));
+        $this->assertFileExists($task->last_output_path);
+        $output = File::get($task->last_output_path);
+        $this->assertStringContainsString('Scheduled task deferred.', $output);
+        $this->assertStringContainsString('mac_background_not_ready', $output);
+        $this->assertStringContainsString('power_helper_not_ready', $output);
+    }
+
     private function trace(array $overrides = []): AiTrace
     {
         return AiTrace::query()->create(array_merge([
@@ -170,6 +239,7 @@ class RunScheduledTaskJobTest extends TestCase
             $table->string('error_code')->nullable();
             $table->text('error_message')->nullable();
             $table->timestamp('available_at')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamps();
         });
     }

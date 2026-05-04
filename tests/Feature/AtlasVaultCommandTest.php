@@ -2,12 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Services\Semantic\AtlasVaultManagedNoteService;
 use App\Models\AtlasVaultSyncItem;
 use App\Models\SemanticNote;
+use App\Services\Semantic\AtlasVaultManagedNoteService;
+use App\Services\Semantic\VaultFileStore;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -69,6 +70,7 @@ class AtlasVaultCommandTest extends TestCase
             'status' => 'reviewed',
             'path' => 'Atlas/SemanticNotes/reviewed.md',
             'content_hash' => hash('sha256', 'reviewed'),
+            'conflict_type' => 'previously_reviewed_conflict',
             'frontmatter_json' => [],
             'links_json' => [],
             'metadata' => [],
@@ -85,6 +87,7 @@ class AtlasVaultCommandTest extends TestCase
         $this->assertSame(1, data_get($payload, 'vault.sync_queue.open'));
         $this->assertSame(1, data_get($payload, 'vault.sync_queue.blocked'));
         $this->assertSame(1, data_get($payload, 'vault.sync_queue.conflicts'));
+        $this->assertSame(2, data_get($payload, 'vault.sync_queue.historical_conflicts'));
         $this->assertSame(1, data_get($payload, 'vault.sync_queue.reviewed'));
         $this->assertSame(1, data_get($payload, 'vault.sync_queue.resolved'));
         $this->assertSame(1, data_get($payload, 'vault.sync_queue.by_direction.vault_to_atlas'));
@@ -258,6 +261,70 @@ class AtlasVaultCommandTest extends TestCase
         $this->assertSame('atlas_managed_note_not_importable', data_get($payload, 'conflict_type'));
     }
 
+    public function test_import_json_returns_error_for_missing_file(): void
+    {
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'import',
+            '--path' => 'Research/missing.md',
+            '--dry-run' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exit);
+        $this->assertFalse(data_get($payload, 'ok'));
+        $this->assertSame('Vault file not found: Research/missing.md', data_get($payload, 'error'));
+    }
+
+    public function test_import_json_returns_error_for_unsafe_path(): void
+    {
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'import',
+            '--path' => '../outside.md',
+            '--dry-run' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exit);
+        $this->assertFalse(data_get($payload, 'ok'));
+        $this->assertSame('AtlasVault sync path must be a safe vault-relative markdown path.', data_get($payload, 'error'));
+    }
+
+    public function test_import_json_blocks_symlinked_file_outside_vault(): void
+    {
+        if (! function_exists('symlink')) {
+            $this->markTestSkipped('symlink is unavailable on this platform.');
+        }
+
+        $outside = sys_get_temp_dir().'/atlas-vault-command-outside-file-'.bin2hex(random_bytes(4)).'.md';
+        File::put($outside, $this->semanticMarkdown('Outside Vault Note'));
+        $linked = $this->vault.'/outside-link.md';
+        if (! @symlink($outside, $linked)) {
+            File::delete($outside);
+            $this->markTestSkipped('symlink creation failed on this platform.');
+        }
+
+        try {
+            $exit = Artisan::call('atlas:vault', [
+                'action' => 'import',
+                '--path' => 'outside-link.md',
+                '--dry-run' => true,
+                '--json' => true,
+            ]);
+            $payload = json_decode(Artisan::output(), true);
+
+            $this->assertSame(1, $exit);
+            $this->assertFalse(data_get($payload, 'ok'));
+            $this->assertSame('Unsafe vault path.', data_get($payload, 'error'));
+        } finally {
+            if (is_link($linked)) {
+                unlink($linked);
+            }
+            File::delete($outside);
+        }
+    }
+
     public function test_sync_dry_run_scans_vault_without_persistent_writes(): void
     {
         File::ensureDirectoryExists($this->vault.'/Research');
@@ -274,6 +341,174 @@ class AtlasVaultCommandTest extends TestCase
         $this->assertTrue(data_get($payload, 'dry_run'));
         $this->assertSame(1, data_get($payload, 'inspected'));
         $this->assertSame(1, data_get($payload, 'candidates'));
+    }
+
+    public function test_sync_dry_run_blocks_single_file_error_without_aborting_scan(): void
+    {
+        $this->mock(VaultFileStore::class, function ($mock): void {
+            $mock->shouldReceive('listMarkdownFiles')
+                ->once()
+                ->andReturn(collect(['Research/importable.md', 'Research/broken.md']));
+            $mock->shouldReceive('absolutePath')
+                ->andReturnUsing(fn (string $path): string => $this->vault.'/'.$path);
+            $mock->shouldReceive('read')
+                ->with('Research/importable.md')
+                ->andReturn($this->semanticMarkdown('Importable During Sync'));
+            $mock->shouldReceive('read')
+                ->with('Research/broken.md')
+                ->andThrow(new \RuntimeException('Unsafe vault path.'));
+        });
+
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'sync',
+            '--dry-run' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue(data_get($payload, 'ok'));
+        $this->assertSame(2, data_get($payload, 'inspected'));
+        $this->assertSame(1, data_get($payload, 'candidates'));
+        $this->assertSame(1, data_get($payload, 'blocked'));
+        $this->assertSame('sync_file_error', data_get($payload, 'items.1.conflict_type'));
+        $this->assertSame('Unsafe vault path.', data_get($payload, 'items.1.error'));
+    }
+
+    public function test_sync_write_records_blocked_single_file_error(): void
+    {
+        $this->migrateMinimalVaultSyncItems();
+        $this->mock(VaultFileStore::class, function ($mock): void {
+            $mock->shouldReceive('listMarkdownFiles')
+                ->once()
+                ->andReturn(collect(['Research/broken.md']));
+            $mock->shouldReceive('absolutePath')
+                ->andReturnUsing(fn (string $path): string => $this->vault.'/'.$path);
+            $mock->shouldReceive('read')
+                ->with('Research/broken.md')
+                ->andThrow(new \RuntimeException('Unsafe vault path.'));
+        });
+
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'sync',
+            '--write' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue(data_get($payload, 'ok'));
+        $this->assertSame(1, data_get($payload, 'blocked'));
+        $this->assertNotEmpty(data_get($payload, 'items.0.sync_item_id'));
+        $this->assertDatabaseHas('atlas_vault_sync_items', [
+            'path' => 'Research/broken.md',
+            'status' => 'blocked',
+            'conflict_type' => 'sync_file_error',
+        ]);
+    }
+
+    public function test_conflicts_json_filters_review_queue_items(): void
+    {
+        $this->migrateMinimalVaultSyncItems();
+        AtlasVaultSyncItem::query()->create([
+            'direction' => 'vault_to_atlas',
+            'operation' => 'import',
+            'status' => 'blocked',
+            'path' => 'Research/blocked-import.md',
+            'content_hash' => hash('sha256', 'blocked-import'),
+            'conflict_type' => 'privacy_review_required',
+            'frontmatter_json' => [],
+            'links_json' => [],
+            'metadata' => [],
+        ]);
+        AtlasVaultSyncItem::query()->create([
+            'direction' => 'atlas_to_vault',
+            'operation' => 'export_semantic_note',
+            'status' => 'conflict',
+            'path' => 'Atlas/SemanticNotes/conflict-export.md',
+            'content_hash' => hash('sha256', 'conflict-export'),
+            'conflict_type' => 'stale_export',
+            'frontmatter_json' => [],
+            'links_json' => [],
+            'metadata' => [],
+        ]);
+
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'conflicts',
+            '--status' => 'conflict',
+            '--direction' => 'atlas_to_vault',
+            '--operation' => 'export_semantic_note',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'count'));
+        $this->assertSame(['conflict'], data_get($payload, 'filters.statuses'));
+        $this->assertSame('atlas_to_vault', data_get($payload, 'filters.direction'));
+        $this->assertSame('export_semantic_note', data_get($payload, 'filters.operation'));
+        $this->assertSame('Atlas/SemanticNotes/conflict-export.md', data_get($payload, 'items.0.path'));
+    }
+
+    public function test_conflicts_json_rejects_unknown_filter_values(): void
+    {
+        $this->migrateMinimalVaultSyncItems();
+
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'conflicts',
+            '--status' => 'unknown',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exit);
+        $this->assertStringContainsString('Unsupported AtlasVault conflicts status filter', data_get($payload, 'error'));
+    }
+
+    public function test_item_json_returns_persistent_sync_item(): void
+    {
+        $this->migrateMinimalVaultSyncItems();
+        $item = AtlasVaultSyncItem::query()->create([
+            'direction' => 'atlas_to_vault',
+            'operation' => 'export_semantic_note',
+            'status' => 'conflict',
+            'path' => 'Atlas/SemanticNotes/item-detail.md',
+            'content_hash' => hash('sha256', 'item-detail'),
+            'conflict_type' => 'stale_export',
+            'frontmatter_json' => ['atlas_managed' => true],
+            'links_json' => [['label' => 'Semantic Note', 'uri' => 'atlas://semantic-note/note_123']],
+            'metadata' => ['privacy' => ['privacy_class' => 'normal']],
+        ]);
+
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'item',
+            '--item' => $item->id,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue(data_get($payload, 'ok'));
+        $this->assertSame($item->id, data_get($payload, 'item.id'));
+        $this->assertSame('Atlas/SemanticNotes/item-detail.md', data_get($payload, 'item.path'));
+        $this->assertSame('conflict', data_get($payload, 'item.status'));
+        $this->assertContains('regenerate', data_get($payload, 'allowed_resolution_actions'));
+    }
+
+    public function test_item_json_returns_stable_error_for_missing_item(): void
+    {
+        $this->migrateMinimalVaultSyncItems();
+
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'item',
+            '--item' => 'missing-item-id',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exit);
+        $this->assertFalse(data_get($payload, 'ok'));
+        $this->assertSame('AtlasVault sync item not found.', data_get($payload, 'error'));
     }
 
     public function test_export_semantic_dry_run_creates_managed_note_payload(): void
@@ -314,6 +549,23 @@ class AtlasVaultCommandTest extends TestCase
         $this->assertStringContainsString('atlas://semantic-note/'.$note->id, data_get($payload, 'note.markdown'));
     }
 
+    public function test_export_semantic_json_returns_stable_error_for_missing_note(): void
+    {
+        $this->migrateMinimalSemanticNotes();
+
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'export-semantic',
+            '--semantic-note' => '00000000-0000-4000-8000-000000000001',
+            '--dry-run' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exit);
+        $this->assertFalse(data_get($payload, 'ok'));
+        $this->assertSame('Semantic note not found.', data_get($payload, 'error'));
+    }
+
     public function test_resolve_updates_persistent_sync_item(): void
     {
         $this->migrateMinimalVaultSyncItems();
@@ -333,6 +585,7 @@ class AtlasVaultCommandTest extends TestCase
             'action' => 'resolve',
             '--item' => $item->id,
             '--resolution' => 'archive',
+            '--reason' => "Reviewed by operator\nkeeping Atlas canonical source",
             '--json' => true,
         ]);
         $payload = json_decode(Artisan::output(), true);
@@ -340,6 +593,111 @@ class AtlasVaultCommandTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertSame('archived', data_get($payload, 'item.status'));
         $this->assertSame('archive', data_get($payload, 'item.metadata.resolution_action'));
+        $this->assertSame('Reviewed by operator keeping Atlas canonical source', data_get($payload, 'item.metadata.resolution_reason'));
+    }
+
+    public function test_resolve_regenerate_rewrites_semantic_export_when_safe(): void
+    {
+        $this->migrateMinimalVaultSyncItems();
+        $this->migrateMinimalSemanticNotes();
+        $note = SemanticNote::query()->create([
+            'note_key' => 'note_regenerate',
+            'path' => 'Research/regenerate.md',
+            'title' => 'Regenerate Semantic Export',
+            'type' => 'source_note',
+            'status' => 'active',
+            'confidence' => 'low',
+            'maturity' => 'draft',
+            'domains' => [],
+            'summary' => 'Resumo regeneravel',
+            'body_excerpt' => 'Conteudo regenerado provider-safe.',
+            'frontmatter' => [],
+            'when_to_use' => [],
+            'trigger_signals' => [],
+            'do_not_use_when' => [],
+            'postgres_refs' => [],
+            'content_hash' => hash('sha256', 'regenerate'),
+            'validation_errors' => [],
+            'metadata' => [],
+        ]);
+        $item = AtlasVaultSyncItem::query()->create([
+            'direction' => 'atlas_to_vault',
+            'operation' => 'export_semantic_note',
+            'status' => 'conflict',
+            'path' => 'Atlas/SemanticNotes/regenerate-semantic-export-'.$note->id.'.md',
+            'source_type' => 'semantic_note',
+            'source_id' => $note->id,
+            'semantic_note_id' => $note->id,
+            'content_hash' => hash('sha256', 'old-conflict'),
+            'conflict_type' => 'stale_export',
+            'frontmatter_json' => [],
+            'links_json' => [],
+            'metadata' => [],
+        ]);
+
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'resolve',
+            '--item' => $item->id,
+            '--resolution' => 'regenerate',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+        $regeneratedPath = $this->vault.'/'.data_get($payload, 'item.metadata.regeneration.path');
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue(data_get($payload, 'ok'));
+        $this->assertSame('regenerated', data_get($payload, 'item.status'));
+        $this->assertNull(data_get($payload, 'item.conflict_type'));
+        $this->assertTrue(data_get($payload, 'item.metadata.regeneration.ok'));
+        $this->assertTrue(File::exists($regeneratedPath));
+        $this->assertStringContainsString('Conteudo regenerado provider-safe.', File::get($regeneratedPath));
+    }
+
+    public function test_resolve_regenerate_blocks_unsupported_import_item_without_overwrite(): void
+    {
+        $this->migrateMinimalVaultSyncItems();
+        $item = AtlasVaultSyncItem::query()->create([
+            'direction' => 'vault_to_atlas',
+            'operation' => 'import',
+            'status' => 'conflict',
+            'path' => 'Research/import-conflict.md',
+            'content_hash' => hash('sha256', 'import-conflict'),
+            'conflict_type' => 'manual_review_required',
+            'frontmatter_json' => [],
+            'links_json' => [],
+            'metadata' => [],
+        ]);
+
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'resolve',
+            '--item' => $item->id,
+            '--resolution' => 'regenerate',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exit);
+        $this->assertFalse(data_get($payload, 'ok'));
+        $this->assertSame('conflict', data_get($payload, 'item.status'));
+        $this->assertSame('regeneration_supported_only_for_atlas_to_vault_semantic_exports', data_get($payload, 'item.conflict_type'));
+        $this->assertNull(data_get($payload, 'item.resolved_at'));
+    }
+
+    public function test_resolve_json_returns_stable_error_for_missing_item(): void
+    {
+        $this->migrateMinimalVaultSyncItems();
+
+        $exit = Artisan::call('atlas:vault', [
+            'action' => 'resolve',
+            '--item' => 'missing-item-id',
+            '--resolution' => 'dismiss',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exit);
+        $this->assertFalse(data_get($payload, 'ok'));
+        $this->assertSame('AtlasVault sync item not found.', data_get($payload, 'error'));
     }
 
     public function test_note_dry_run_without_json_renders_human_summary(): void

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
 class AtlasEngineeringBenchmarkCommand extends Command
 {
@@ -25,7 +26,7 @@ class AtlasEngineeringBenchmarkCommand extends Command
         {--single-provider : Fair Claude benchmark mode: forbid provider switching}
         {--no-decide : Fair Claude benchmark mode: disable Atlas Decide}
         {--fallback-disabled : Fair Claude benchmark mode: fail instead of falling back to another provider/model}
-        {--allow-unverified-fair-pass : Do not require pass_without_human in the fair scorecard}
+        {--allow-unverified-fair-pass : Legacy non-fair escape hatch. Rejected when any Fair Claude flag is active}
         {--claude-code-baseline=off : off, plan or run Claude Code CLI baseline arm}
         {--claude-code-baseline-model=opus : Claude Code baseline model; opus resolves to the configured Claude premium model}
         {--claude-code-baseline-binary= : Claude Code CLI binary override}
@@ -70,6 +71,10 @@ class AtlasEngineeringBenchmarkCommand extends Command
 
     public function handle(EngineeringBenchmarkService $benchmarks): int
     {
+        if ((bool) $this->option('allow-unverified-fair-pass') && $this->fairModeRequested()) {
+            return $this->fairModeViolation('Fair Claude benchmark mode cannot allow unverified pass_without_human.');
+        }
+
         $suiteRef = is_string($this->option('suite')) ? trim($this->option('suite')) : '';
         if ($suiteRef === '') {
             $this->error('--suite e obrigatorio.');
@@ -77,10 +82,12 @@ class AtlasEngineeringBenchmarkCommand extends Command
             return self::FAILURE;
         }
 
-        $suite = AtlasEngineeringBenchmarkSuite::query()
-            ->where('id', $suiteRef)
-            ->orWhere('slug', $suiteRef)
-            ->first();
+        $suiteQuery = AtlasEngineeringBenchmarkSuite::query()
+            ->where('slug', $suiteRef);
+        if (Str::isUuid($suiteRef)) {
+            $suiteQuery->orWhere('id', $suiteRef);
+        }
+        $suite = $suiteQuery->first();
         if (! $suite) {
             $this->error("Benchmark suite nao encontrada: {$suiteRef}");
 
@@ -154,6 +161,40 @@ class AtlasEngineeringBenchmarkCommand extends Command
         $this->render($payload);
 
         return $benchmarkRun->status === 'passed' ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function fairModeRequested(): bool
+    {
+        return (bool) $this->option('claude-only')
+            || (bool) $this->option('single-provider')
+            || (bool) $this->option('no-decide')
+            || (bool) $this->option('fallback-disabled');
+    }
+
+    private function fairModeViolation(string $message): int
+    {
+        $payload = [
+            'ok' => false,
+            'error' => 'fair_mode_violation',
+            'message' => $message,
+            'details' => [
+                'allow_unverified_fair_pass' => (bool) $this->option('allow-unverified-fair-pass'),
+                'claude_only' => (bool) $this->option('claude-only'),
+                'single_provider' => (bool) $this->option('single-provider'),
+                'no_decide' => (bool) $this->option('no-decide'),
+                'fallback_disabled' => (bool) $this->option('fallback-disabled'),
+            ],
+        ];
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $this->error($message);
+
+        return self::FAILURE;
     }
 
     /**

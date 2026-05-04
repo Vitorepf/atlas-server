@@ -8,8 +8,10 @@ use App\Http\Requests\AtlasVaultResolveRequest;
 use App\Http\Requests\AtlasVaultSyncRequest;
 use App\Services\Semantic\AtlasVaultManagedNoteService;
 use App\Services\Semantic\AtlasVaultSyncService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 
 class AtlasVaultController extends Controller
 {
@@ -27,7 +29,12 @@ class AtlasVaultController extends Controller
     public function import(AtlasVaultImportRequest $request, AtlasVaultSyncService $sync): JsonResponse
     {
         $data = $request->validated();
-        $payload = $sync->importPath((string) $data['path'], $request->writeRequested());
+
+        try {
+            $payload = $sync->importPath((string) $data['path'], $request->writeRequested());
+        } catch (RuntimeException $exception) {
+            return response()->json(['ok' => false, 'error' => $exception->getMessage()], 422);
+        }
 
         return response()->json($payload, (bool) ($payload['ok'] ?? false) ? 200 : 409);
     }
@@ -35,7 +42,14 @@ class AtlasVaultController extends Controller
     public function exportSemantic(AtlasVaultExportSemanticRequest $request, AtlasVaultSyncService $sync): JsonResponse
     {
         $data = $request->validated();
-        $payload = $sync->exportSemanticNote((string) $data['semantic_note_id'], $request->writeRequested());
+
+        try {
+            $payload = $sync->exportSemanticNote((string) $data['semantic_note_id'], $request->writeRequested());
+        } catch (ModelNotFoundException) {
+            return response()->json(['ok' => false, 'error' => 'Semantic note not found.'], 404);
+        } catch (RuntimeException $exception) {
+            return response()->json(['ok' => false, 'error' => $exception->getMessage()], 422);
+        }
 
         return response()->json($payload, (bool) ($payload['ok'] ?? false) ? 200 : 409);
     }
@@ -43,7 +57,12 @@ class AtlasVaultController extends Controller
     public function sync(AtlasVaultSyncRequest $request, AtlasVaultSyncService $sync): JsonResponse
     {
         $data = $request->validated();
-        $payload = $sync->sync($request->writeRequested(), (int) ($data['limit'] ?? 200));
+
+        try {
+            $payload = $sync->sync($request->writeRequested(), (int) ($data['limit'] ?? 200));
+        } catch (RuntimeException $exception) {
+            return response()->json(['ok' => false, 'error' => $exception->getMessage()], 422);
+        }
 
         return response()->json($payload, (bool) ($payload['ok'] ?? false) ? 200 : 409);
     }
@@ -52,13 +71,42 @@ class AtlasVaultController extends Controller
     {
         $limit = max(1, min(1000, (int) $request->integer('limit', 100)));
 
-        return response()->json($sync->conflicts($limit));
+        try {
+            return response()->json($sync->conflicts($limit, [
+                'status' => $request->query('status'),
+                'direction' => $request->query('direction'),
+                'operation' => $request->query('operation'),
+            ]));
+        } catch (RuntimeException $exception) {
+            return response()->json(['ok' => false, 'error' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function item(string $item, AtlasVaultSyncService $sync): JsonResponse
+    {
+        try {
+            return response()->json($sync->item($item));
+        } catch (ModelNotFoundException) {
+            return response()->json(['ok' => false, 'error' => 'AtlasVault sync item not found.'], 404);
+        } catch (RuntimeException $exception) {
+            return response()->json(['ok' => false, 'error' => $exception->getMessage()], 422);
+        }
     }
 
     public function resolve(string $item, AtlasVaultResolveRequest $request, AtlasVaultSyncService $sync): JsonResponse
     {
         $data = $request->validated();
 
-        return response()->json($sync->resolve($item, (string) $data['resolution']));
+        try {
+            return response()->json($sync->resolve(
+                $item,
+                (string) $data['resolution'],
+                isset($data['reason']) ? (string) $data['reason'] : null,
+            ));
+        } catch (ModelNotFoundException) {
+            return response()->json(['ok' => false, 'error' => 'AtlasVault sync item not found.'], 404);
+        } catch (RuntimeException $exception) {
+            return response()->json(['ok' => false, 'error' => $exception->getMessage()], 422);
+        }
     }
 }

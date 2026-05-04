@@ -25,6 +25,24 @@ class FairClaudePolicyTest extends TestCase
         $this->assertSame(['claude_cli'], $policy->metadata()['allowed_providers']);
     }
 
+    public function test_explicit_fair_mode_normalizes_to_full_claude_lock(): void
+    {
+        $policy = app(FairClaudePolicy::class);
+
+        $flags = $policy->normalizeFlags([
+            'fair_mode' => true,
+            'claude_only' => false,
+            'single_provider' => false,
+            'no_decide' => false,
+            'fallback_disabled' => false,
+        ]);
+
+        $this->assertTrue($flags['fair_mode']);
+        $this->assertTrue($flags['single_provider']);
+        $this->assertTrue($flags['no_decide']);
+        $this->assertTrue($flags['fallback_disabled']);
+    }
+
     public function test_accepts_claude_cli_with_opus_premium_selection(): void
     {
         $result = app(FairClaudePolicy::class)->validate('claude_cli', [
@@ -84,5 +102,38 @@ class FairClaudePolicyTest extends TestCase
 
         $this->assertFalse($result['ok']);
         $this->assertSame(FairClaudePolicy::ERROR_CODE, $result['error']);
+    }
+
+    public function test_invocation_rejects_unresolved_actual_model(): void
+    {
+        $result = app(FairClaudePolicy::class)->validateInvocation('claude_cli', null, [
+            'fair_mode' => app(FairClaudePolicy::class)->metadata(),
+            'requested_model' => 'claude-opus-4-7',
+            'requested_model_alias' => 'opus',
+            'requested_model_tier' => 'premium',
+        ]);
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame(FairClaudePolicy::ERROR_CODE, $result['error']);
+        $this->assertSame('claude-opus-4-7', data_get($result, 'details.expected_model'));
+    }
+
+    public function test_runtime_override_locks_effective_policy_to_claude_only(): void
+    {
+        $override = app(FairClaudePolicy::class)->runtimeOverride([
+            'model' => 'claude-opus-4-7',
+            'label' => 'Claude Opus 4.7',
+            'tier' => 'premium',
+        ]);
+
+        $this->assertSame('claude_cli', $override['default_provider']);
+        $this->assertSame(['claude_cli'], $override['enabled_providers']);
+        $this->assertSame(['codex_cli', 'gemini_cli'], $override['disabled_providers']);
+        $this->assertSame(['claude_cli'], $override['fallback_order']);
+        $this->assertFalse($override['allow_council']);
+        $this->assertFalse($override['allow_multistage_graph']);
+        $this->assertSame(['claude-opus-4-7'], data_get($override, 'allowed_models.claude_cli'));
+        $this->assertSame([], data_get($override, 'allowed_models.codex_cli'));
+        $this->assertFalse(data_get($override, 'providers.gemini_cli.allow_auto'));
     }
 }

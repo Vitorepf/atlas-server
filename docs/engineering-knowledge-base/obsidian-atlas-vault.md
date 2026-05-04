@@ -498,7 +498,8 @@ Capacidades entregues:
 - composicao de nota gerenciada com bloco `ATLAS:MANAGED` e `## Manual Notes`;
 - path deterministico para notas gerenciadas e path manual confinado ao vault;
 - confinamento direto de `VaultFileStore::absolutePath()` com cobertura para
-  dry-run sem criacao de root, traversal e symlink para fora do vault;
+  dry-run sem criacao de root, traversal, diretorio symlinkado para fora do
+  vault e arquivo symlinkado diretamente para fora do vault;
 - validacao de IDs, URIs `atlas://` e paths canonicos relativos antes de compor
   markdown;
 - validacao de labels de backlinks e rejeicao de links extras malformados antes
@@ -526,7 +527,7 @@ Capacidades entregues:
 Validacao executada durante a implementacao:
 
 ```bash
-/opt/homebrew/bin/php artisan test --filter=AtlasVault # 70 tests, 204 assertions
+/opt/homebrew/bin/php artisan test --filter=AtlasVault # 110 tests, 371 assertions
 /opt/homebrew/bin/php artisan test --filter=Semantic
 /opt/homebrew/bin/php artisan atlas:vault status --json
 /opt/homebrew/bin/php artisan atlas:vault note --type=memory_entry --id=test-memory --title="Teste AtlasVault" --summary="Dry-run de nota gerenciada" --dry-run --json
@@ -549,9 +550,9 @@ aberta como Fase 2 com escopo proprio.
 
 Atualizado em 3 de maio de 2026.
 
-Status: **implementada** como sync local auditavel. Esta fase transforma a
-fundacao da Fase 1 em operacoes locais de import/export/sync com fila
-persistente de revisao. Ela nao muda a fronteira canonica: Postgres, docs
+Status: **implementada e validada** como sync local auditavel. Esta fase
+transforma a fundacao da Fase 1 em operacoes locais de import/export/sync com
+fila persistente de revisao. Ela nao muda a fronteira canonica: Postgres, docs
 versionados, audits e Open Brain continuam sendo a fonte operacional.
 
 Escopo desta fase:
@@ -560,12 +561,22 @@ Escopo desta fase:
   curadoria, quando privacy/redaction permitirem;
 - exportar `semantic_notes` para nota gerenciada humana no vault;
 - rodar sync local em dry-run ou write, sem provider externo;
+- isolar falha previsivel de arquivo individual durante sync como
+  `sync_file_error`, sem abortar a varredura completa; em `--write`, o bloqueio
+  e registrado na fila persistente e em audit;
 - registrar cada operacao em fila persistente e `audit_events`;
 - listar conflitos e itens pendentes;
+- filtrar a fila local por `status`, `direction` e `operation`;
+- consultar detalhe read-only de um item da fila/conflito por ID;
 - expor status operacional do vault com resumo da fila local de sync;
 - resolver itens da fila por acao explicita de operador (`adopt`, `archive`,
   `merge`, `regenerate`, `force`, `dismiss`) sem sobrescrever conteudo humano
   silenciosamente.
+- registrar justificativa opcional de operador em resolucoes, preservada em
+  metadata/audit como `resolution_reason`;
+- `regenerate` reexecuta export seguro apenas para itens
+  `atlas_to_vault/export_semantic_note`; para import ou outros tipos, a
+  tentativa fica bloqueada como conflito auditavel.
 
 Fora desta fase:
 
@@ -602,13 +613,19 @@ Comandos de Fase 2:
 /opt/homebrew/bin/php artisan atlas:vault sync --dry-run --limit=200 --json
 /opt/homebrew/bin/php artisan atlas:vault sync --write --limit=200 --json
 /opt/homebrew/bin/php artisan atlas:vault conflicts --json
+/opt/homebrew/bin/php artisan atlas:vault conflicts --status=conflict --direction=atlas_to_vault --operation=export_semantic_note --json
+/opt/homebrew/bin/php artisan atlas:vault item --item=<sync-item-id> --json
 /opt/homebrew/bin/php artisan atlas:vault resolve --item=<sync-item-id> --resolution=archive --json
+/opt/homebrew/bin/php artisan atlas:vault resolve --item=<sync-item-id> --resolution=dismiss --reason="Duplicado revisado no vault" --json
+/opt/homebrew/bin/php artisan atlas:vault resolve --item=<sync-item-id> --resolution=regenerate --json
 ```
 
 `atlas:vault status --json` inclui `vault.sync_queue` quando a migration
 `atlas_vault_sync_items` esta presente: `total`, `open`, `blocked`,
-`conflicts`, `reviewed`, `resolved`, `by_status`, `by_direction` e
-`last_activity_at`.
+`conflicts`, `historical_conflicts`, `reviewed`, `resolved`, `by_status`,
+`by_direction` e `last_activity_at`. `conflicts` conta apenas conflitos abertos
+em status de review; `historical_conflicts` inclui itens ja resolvidos que ainda
+mantem `conflict_type` para auditoria.
 
 APIs locais autenticadas por `X-Atlas-Token`:
 
@@ -618,17 +635,49 @@ POST /ai/vault/import
 POST /ai/vault/export-semantic
 POST /ai/vault/sync
 GET  /ai/vault/conflicts
+GET  /ai/vault/conflicts/{item}
 POST /ai/vault/conflicts/{item}/resolve
 ```
 
 Essas APIs sao superficie local para app/backend. Elas nao sao sync remoto
 multiusuario e nao permitem MCP write tools.
 
+`GET /ai/vault/conflicts` aceita filtros query-string equivalentes ao CLI:
+`status`, `direction`, `operation` e `limit`. `status` pode ser uma lista
+separada por virgula. Valores fora do allowlist sao recusados pelo service; a
+API responde `422` com payload JSON `{ok:false,error}`.
+
+`POST /ai/vault/import`, `POST /ai/vault/export-semantic` e
+`POST /ai/vault/sync` traduzem erros previsiveis de path, vault e filesystem em
+`422` com payload JSON `{ok:false,error}`. `export-semantic` com
+`semantic_note_id` inexistente retorna `404` com payload JSON
+`{ok:false,error}`. Modo ambiguo ou ausente (`dry_run`/`write`) tambem retorna
+`422` com payload JSON `{ok:false,error}`.
+
+Na CLI com `--json`, os mesmos casos retornam exit code `1` e payload
+`{ok:false,error}` estavel: arquivo do vault ausente, path inseguro,
+`semantic_note` inexistente, item de fila inexistente em `item` ou `resolve`,
+filtros invalidos e modo de execucao ambiguo.
+
+`atlas:vault item --item=<sync-item-id> --json` e
+`GET /ai/vault/conflicts/{item}` retornam detalhe read-only do item persistente,
+incluindo metadata auditavel e a lista de `allowed_resolution_actions`. Item
+inexistente ou ID malformado na API retorna `404` com payload JSON
+`{ok:false,error}` antes de consultar a coluna UUID no banco. Quando
+`atlas_vault_sync_items` ainda nao esta migrada, detalhe e resolucao retornam
+`422` com payload JSON `{ok:false,error}` em vez de erro interno.
+
+`resolve` aceita `reason` opcional no CLI/API. O valor e normalizado para uma
+linha, limitado a 1000 caracteres e gravado em `metadata.resolution_reason` e
+no evidence do audit event. `reason` nao muda semantica de resolucao nem
+autoriza overwrite. Item inexistente em `resolve` tambem retorna `404` com
+payload JSON `{ok:false,error}`.
+
 Validacao executada:
 
 ```bash
 /opt/homebrew/bin/php artisan migrate --force
-/opt/homebrew/bin/php artisan test --filter=AtlasVault
+/opt/homebrew/bin/php artisan test --filter=AtlasVault # 110 tests, 371 assertions
 /opt/homebrew/bin/php artisan test --filter=Semantic
 /opt/homebrew/bin/php artisan atlas:vault sync --dry-run --limit=5 --json
 /opt/homebrew/bin/php artisan atlas:vault conflicts --json

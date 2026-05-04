@@ -24,6 +24,9 @@ class AtlasVaultFileStoreTest extends TestCase
         if (is_link($this->vault.'/LinkedOutside')) {
             unlink($this->vault.'/LinkedOutside');
         }
+        if (is_link($this->vault.'/LinkedFile.md')) {
+            unlink($this->vault.'/LinkedFile.md');
+        }
         File::deleteDirectory($this->vault);
 
         parent::tearDown();
@@ -70,6 +73,34 @@ class AtlasVaultFileStoreTest extends TestCase
                 unlink($this->vault.'/LinkedOutside');
             }
             File::deleteDirectory($outside);
+        }
+    }
+
+    public function test_absolute_path_blocks_symlinked_file_outside_vault(): void
+    {
+        if (! function_exists('symlink')) {
+            $this->markTestSkipped('symlink is unavailable on this platform.');
+        }
+
+        $outside = sys_get_temp_dir().'/atlas-vault-store-outside-file-'.bin2hex(random_bytes(4)).'.md';
+        File::ensureDirectoryExists($this->vault);
+        File::put($outside, 'outside');
+
+        if (! @symlink($outside, $this->vault.'/LinkedFile.md')) {
+            File::delete($outside);
+            $this->markTestSkipped('symlink creation failed on this platform.');
+        }
+
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('Unsafe vault path');
+
+            (new VaultFileStore)->absolutePath('LinkedFile.md');
+        } finally {
+            if (is_link($this->vault.'/LinkedFile.md')) {
+                unlink($this->vault.'/LinkedFile.md');
+            }
+            File::delete($outside);
         }
     }
 }

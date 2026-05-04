@@ -25,8 +25,13 @@ class EngineeringHarnessExecutionService
             ]);
         }
 
+        $harnessOptions = $this->effectiveHarnessOptions($request);
+        if ($block = $this->policyContractBlock($request, $harnessOptions)) {
+            return ProgrammingExecutionResult::fromArray($block);
+        }
+
         $task = $this->taskFor($request);
-        $payload = $this->runner->run($task, $request->harnessOptions());
+        $payload = $this->runner->run($task, $harnessOptions);
         $decision = (string) data_get($payload, 'run.decision', 'unresolved');
 
         return ProgrammingExecutionResult::fromArray([
@@ -39,6 +44,8 @@ class EngineeringHarnessExecutionService
             'task_id' => $task->id,
             'created_task' => (bool) data_get($task->metadata, 'programming_orchestrator.created_for_harness', false),
             'harness_payload' => $payload,
+            'policy_contracts' => $request->policyContracts(),
+            'policy_contract_enforcement' => $this->policyContractEnforcement($request, $harnessOptions),
             'blocking_failures' => (array) data_get($payload, 'score.blocking_reasons', []),
             'evidence_refs' => array_values(array_filter([
                 data_get($payload, 'run.id') ? 'engineering_run:'.data_get($payload, 'run.id') : null,
@@ -69,6 +76,7 @@ class EngineeringHarnessExecutionService
                     'created_for_harness' => true,
                     'profile' => $request->profile(),
                     'workspace' => $request->workspace(),
+                    'policy_contracts' => $request->policyContracts(),
                     'created_at' => now()->toJSON(),
                 ],
             ],
@@ -97,5 +105,112 @@ class EngineeringHarnessExecutionService
                 'Completion packet ou harness payload disponivel.',
             ],
         ], $contract);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function effectiveHarnessOptions(ProgrammingExecutionRequest $request): array
+    {
+        $options = $request->harnessOptions();
+        $contracts = $request->policyContracts();
+        $gate = (array) data_get($contracts, 'gates', []);
+        $tool = (array) data_get($contracts, 'tools', []);
+
+        if ($this->gateRequiresEvidence($gate)) {
+            $options['auto_test'] = true;
+            $options['complete'] = true;
+            $options['quality_scan'] = $this->upgradeMode((string) ($options['quality_scan'] ?? 'off'), 'required');
+            $options['harness_policy'] = $this->upgradeMode((string) ($options['harness_policy'] ?? 'auto'), 'strict');
+        }
+
+        if ($tool !== [] && ! $this->toolAllowsWorkspaceWrite($tool)) {
+            $options['apply_isolated_patch'] = false;
+            $options['permission'] = 'read';
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>|null
+     */
+    private function policyContractBlock(ProgrammingExecutionRequest $request, array $options): ?array
+    {
+        $tool = (array) data_get($request->policyContracts(), 'tools', []);
+        if ($tool === [] || $this->toolAllowsWorkspaceWrite($tool) || (bool) ($options['no_provider'] ?? false)) {
+            return null;
+        }
+
+        return [
+            'status' => 'blocked',
+            'executor' => 'engineering_harness',
+            'blocking_failures' => ['tool_contract_blocks_workspace_write'],
+            'summary' => 'Engineering Harness bloqueado: contrato de ferramentas esta em modo somente leitura.',
+            'policy_contracts' => $request->policyContracts(),
+            'policy_contract_enforcement' => $this->policyContractEnforcement($request, $options, blockedReason: 'tool_contract_blocks_workspace_write'),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function policyContractEnforcement(ProgrammingExecutionRequest $request, array $options, ?string $blockedReason = null): array
+    {
+        $contracts = $request->policyContracts();
+        $gate = (array) data_get($contracts, 'gates', []);
+        $tool = (array) data_get($contracts, 'tools', []);
+
+        return array_filter([
+            'schema_version' => 1,
+            'source' => 'effective_policy_v2_policy_contracts',
+            'gate_contract_enforced' => $this->gateRequiresEvidence($gate),
+            'tool_contract_enforced' => $tool !== [],
+            'blocked_reason' => $blockedReason,
+            'effective_options' => [
+                'auto_test' => (bool) ($options['auto_test'] ?? false),
+                'complete' => (bool) ($options['complete'] ?? false),
+                'quality_scan' => $options['quality_scan'] ?? null,
+                'harness_policy' => $options['harness_policy'] ?? null,
+                'permission' => $options['permission'] ?? null,
+                'apply_isolated_patch' => (bool) ($options['apply_isolated_patch'] ?? true),
+                'no_provider' => (bool) ($options['no_provider'] ?? false),
+            ],
+        ], fn (mixed $value): bool => $value !== null && $value !== []);
+    }
+
+    /**
+     * @param  array<string,mixed>  $gate
+     */
+    private function gateRequiresEvidence(array $gate): bool
+    {
+        $minimum = strtolower(trim((string) ($gate['minimum_gate'] ?? '')));
+
+        return (bool) ($gate['evidence_required'] ?? false)
+            || in_array($minimum, ['strict', 'release'], true);
+    }
+
+    /**
+     * @param  array<string,mixed>  $tool
+     */
+    private function toolAllowsWorkspaceWrite(array $tool): bool
+    {
+        $mode = strtolower(trim((string) ($tool['mode'] ?? '')));
+        if ($mode === 'read_only') {
+            return false;
+        }
+
+        return (bool) ($tool['workspace_write'] ?? in_array($mode, ['workspace_write', 'harness'], true));
+    }
+
+    private function upgradeMode(string $current, string $required): string
+    {
+        $rank = ['off' => 0, 'auto' => 1, 'strict' => 2, 'required' => 3, 'release' => 4];
+        $current = strtolower(trim($current));
+        $required = strtolower(trim($required));
+
+        return ($rank[$current] ?? 0) >= ($rank[$required] ?? 0) ? $current : $required;
     }
 }

@@ -21,23 +21,34 @@ class AtlasPowerHelperCommand extends Command
 
         do {
             $scheduled = 0;
-            AtlasMaintenanceWindow::query()
-                ->where('host_key', MacAgentService::HOST_KEY)
-                ->where('enabled', true)
-                ->orderBy('wake_time')
-                ->get()
-                ->each(function (AtlasMaintenanceWindow $window) use ($agent, &$scheduled): void {
-                    if ($agent->scheduleWakeForWindow($window)) {
-                        $scheduled++;
-                    }
-                });
             $runningAsRoot = function_exists('posix_geteuid') ? posix_geteuid() === 0 : false;
+
+            if ($runningAsRoot) {
+                AtlasMaintenanceWindow::query()
+                    ->where('host_key', MacAgentService::HOST_KEY)
+                    ->where('enabled', true)
+                    ->orderBy('wake_time')
+                    ->get()
+                    ->unique(fn (AtlasMaintenanceWindow $window): string => implode('|', [
+                        $window->timezone,
+                        $window->wake_time,
+                        $window->duration_minutes,
+                        json_encode($window->days_of_week ?? []),
+                    ]))
+                    ->each(function (AtlasMaintenanceWindow $window) use ($agent, &$scheduled): void {
+                        if ($agent->scheduleWakeForWindow($window)) {
+                            $scheduled++;
+                        }
+                    });
+            }
+
             $agent->recordPowerHelperCheck($runningAsRoot, $scheduled);
 
             $this->line(json_encode([
                 'status' => 'ok',
                 'running_as_root' => $runningAsRoot,
                 'scheduled_windows' => $scheduled,
+                'helper_ready' => $agent->powerHelperStatus()['ready'] ?? false,
                 'checked_at' => now()->toJSON(),
             ], JSON_UNESCAPED_SLASHES));
 

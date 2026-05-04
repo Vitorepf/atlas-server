@@ -76,6 +76,23 @@ class ProgrammingExecutionRequest
     /**
      * @return array<string,mixed>
      */
+    public function policyContracts(): array
+    {
+        $contracts = $this->data['policy_contracts'] ?? null;
+        if (is_array($contracts)) {
+            return $contracts;
+        }
+
+        $effective = data_get($this->data, 'policy_profile.effective_policy.operational_contracts')
+            ?: data_get($this->data, 'programming_message_plan.policy_contracts')
+            ?: data_get($this->data, 'programming_message_plan.policy_profile.policy_contracts');
+
+        return is_array($effective) ? $effective : [];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     public function harnessOptions(): array
     {
         $profile = $this->profile();

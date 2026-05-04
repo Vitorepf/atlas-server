@@ -119,6 +119,9 @@ Fase 1 implementada:
   alvo ambiguo;
 - `--path` customizado para nota gerenciada precisa ser relativo ao vault; paths
   absolutos sao recusados antes da normalizacao/confinamento;
+- `VaultFileStore::absolutePath()` bloqueia traversal, diretorio symlinkado para
+  fora do vault e arquivo symlinkado diretamente para fora do vault antes de
+  permitir leitura ou escrita;
 - `AtlasVaultCommand` expoe `atlas:vault status --json` e
   `atlas:vault note ... --dry-run|--write --json`, com `--content` opcional para
   atualizar apenas o bloco gerenciado;
@@ -165,12 +168,29 @@ Fase 2 implementada:
 - `export-semantic` cria projection humana gerenciada a partir de
   `semantic_notes`, usando `AtlasVaultManagedNoteService`;
 - `sync` executa scan local do vault em dry-run ou write com limite explicito;
+- falha previsivel em arquivo individual durante `sync` vira item bloqueado
+  `sync_file_error`, sem abortar o scan inteiro; em `--write`, esse bloqueio
+  entra na fila persistente e em `audit_events`;
 - `status` inclui resumo operacional da fila local em `vault.sync_queue`
   quando `atlas_vault_sync_items` esta migrada;
+- `vault.sync_queue.conflicts` conta apenas conflitos abertos em status de
+  review; `historical_conflicts` preserva a contagem auditavel incluindo itens
+  resolvidos com `conflict_type`;
 - `conflicts` lista itens pendentes, candidatos, bloqueados ou em conflito;
+- `conflicts` aceita filtros auditaveis por `status`, `direction` e
+  `operation`; `status` pode ser lista separada por virgula no CLI/API, e a
+  API retorna `422` para filtros fora do allowlist;
+- `item` retorna detalhe read-only de um item persistente por ID, incluindo
+  metadata auditavel e a lista de acoes de resolucao permitidas;
 - `resolve` aceita `adopt`, `archive`, `merge`, `regenerate`, `force` e
   `dismiss`; nesta fase essas acoes registram revisao/auditoria e nao fazem
   overwrite destrutivo silencioso;
+- `resolve` aceita `reason` opcional no CLI/API; o valor e normalizado para
+  uma linha, limitado a 1000 caracteres e gravado em
+  `metadata.resolution_reason` e no evidence do audit event;
+- `resolve --resolution=regenerate` reexecuta write seguro somente para itens
+  `atlas_to_vault/export_semantic_note`; sucesso muda o item para
+  `regenerated`, falha preserva `conflict` com `conflict_type` auditavel;
 - `audit_events` registra import, export e resolucao quando a tabela existe.
 
 Rotas HTTP locais autenticadas por `X-Atlas-Token`:
@@ -181,11 +201,26 @@ Rotas HTTP locais autenticadas por `X-Atlas-Token`:
 | `POST` | `/ai/vault/import` | `{path, dry_run|write}` para importar nota local permitida |
 | `POST` | `/ai/vault/export-semantic` | `{semantic_note_id, dry_run|write}` para gerar nota gerenciada |
 | `POST` | `/ai/vault/sync` | `{dry_run|write, limit}` para scan local limitado |
-| `GET` | `/ai/vault/conflicts` | Lista fila local pendente/bloqueada/conflitante |
-| `POST` | `/ai/vault/conflicts/{item}/resolve` | `{resolution}` para registrar decisao explicita |
+| `GET` | `/ai/vault/conflicts` | Lista fila local pendente/bloqueada/conflitante; filtros `status`, `direction`, `operation`, `limit` |
+| `GET` | `/ai/vault/conflicts/{item}` | Detalhe read-only de item persistente da fila/conflito |
+| `POST` | `/ai/vault/conflicts/{item}/resolve` | `{resolution, reason?}` para registrar decisao explicita; `regenerate` e permitido apenas para export de `semantic_note` |
 
 As rotas usam os mesmos services da CLI e nao autorizam sync remoto, UI, MCP
-write tools nem promocao automatica para `atlas_memory_entries`.
+write tools nem promocao automatica para `atlas_memory_entries`. Erros
+previsiveis de path, vault e filesystem em import/export/sync retornam `422`
+com payload JSON `{ok:false,error}`. `semantic_note_id` inexistente em
+`export-semantic` retorna `404` com payload JSON `{ok:false,error}`. Item
+inexistente em detalhe ou resolucao tambem retorna `404` com payload JSON
+`{ok:false,error}`. IDs de item malformados sao recusados antes da query UUID
+para evitar erro SQL em Postgres. Se `atlas_vault_sync_items` ainda nao estiver
+migrada, detalhe e resolucao retornam `422` com payload JSON estavel. Filtros
+malformados e modo
+`dry_run`/`write` ambiguo retornam `422` com payload JSON `{ok:false,error}`.
+
+Na CLI com `--json`, erros equivalentes retornam exit code `1` e payload
+`{ok:false,error}` estavel, incluindo arquivo ausente, path inseguro,
+`semantic_note` inexistente, item inexistente, filtro invalido e modo
+`--dry-run`/`--write` ambiguo.
 
 ## Contrato `memory_refs`
 
@@ -372,8 +407,9 @@ drivers sao diagnostico operacional e nao memoria canonica.
 | `atlas:vault import` | Dry-run ou import local auditado de nota humana para `semantic_notes` e proposta de curadoria |
 | `atlas:vault export-semantic` | Dry-run ou export seguro de `semantic_notes` para nota humana gerenciada |
 | `atlas:vault sync` | Scan local limitado do vault em dry-run ou write |
-| `atlas:vault conflicts` | Lista fila local de review/conflitos |
-| `atlas:vault resolve` | Registra resolucao explicita de item da fila sem overwrite silencioso |
+| `atlas:vault conflicts` | Lista fila local de review/conflitos; filtros `--status`, `--direction`, `--operation`, `--limit` |
+| `atlas:vault item` | Consulta detalhe read-only de item persistente da fila/conflito por `--item` |
+| `atlas:vault resolve` | Registra resolucao explicita de item da fila, com `--reason` opcional, sem overwrite silencioso |
 | `atlas:open-brain:context` | Exportar context pack Atlas auditado |
 | `atlas:open-brain:mcp` | Servir Open Brain MCP local/read-only por stdio |
 | `atlas:engineering:knowledge` | Knowledge Base, Code Intelligence e auditoria de drift |

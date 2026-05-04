@@ -52,6 +52,9 @@ class AtlasProgrammingOrchestrator
                 ],
             ],
         ];
+        if (is_array($options['ai_policy_override'] ?? null) && $options['ai_policy_override'] !== []) {
+            $payload['ai_policy_override'] = $options['ai_policy_override'];
+        }
         $decisionOptions = $this->decide->normalizeOptions([
             'source_type' => 'manual',
             'input_text' => (string) ($options['task'] ?? ''),
@@ -62,6 +65,7 @@ class AtlasProgrammingOrchestrator
         $decision = $this->decide->operationalDecision($decisionOptions);
         $policyProfile = (array) data_get($decision->toArray(), 'policy_profile', $this->policies->effectiveProfile($decisionOptions));
         $executionPolicy = (array) data_get($policyProfile, 'execution_policy', []);
+        $policyContracts = $this->policyContracts($policyProfile);
         $policyMaxIterations = max(1, min(10, (int) data_get($executionPolicy, 'max_iterations', $maxIterations)));
         $policyAutoTest = (bool) data_get($executionPolicy, 'auto_test', $profile === 'forge' || (bool) ($options['auto_test'] ?? false));
 
@@ -88,8 +92,11 @@ class AtlasProgrammingOrchestrator
                     ? 'required'
                     : ($profile === 'forge' ? 'preferred_for_medium_or_high_risk' : 'automatic_when_needed'),
                 'quality_required' => (bool) data_get($executionPolicy, 'quality_required', false),
+                'gate_contract' => data_get($policyContracts, 'gates'),
+                'tool_contract' => data_get($policyContracts, 'tools'),
             ],
             'policy_profile' => $policyProfile,
+            'policy_contracts' => $policyContracts,
             'operational_decision' => $decision->toArray(),
             'created_at' => now()->toJSON(),
         ];
@@ -125,6 +132,9 @@ class AtlasProgrammingOrchestrator
             'policy_profile_id' => data_get($programmingMessagePlan, 'policy_profile.profile_id'),
             'profile_context' => data_get($programmingMessagePlan, 'policy_profile.profile_context'),
             'execution_policy' => data_get($programmingMessagePlan, 'policy_profile.execution_policy'),
+            'policy_contracts' => data_get($programmingMessagePlan, 'policy_contracts')
+                ?: data_get($programmingMessagePlan, 'policy_profile.policy_contracts')
+                ?: data_get($programmingMessagePlan, 'policy_profile.effective_policy.operational_contracts'),
             'operational_decision_id' => data_get($programmingMessagePlan, 'operational_decision.decision_id'),
             'plan_id' => data_get($programmingMessagePlan, 'plan_id'),
             'created_at' => now()->toJSON(),
@@ -152,6 +162,7 @@ class AtlasProgrammingOrchestrator
             'score' => data_get($result, 'harness_payload.run.score'),
             'evidence_refs' => (array) ($result['evidence_refs'] ?? []),
             'blocking_failures' => (array) ($result['blocking_failures'] ?? []),
+            'policy_contracts' => data_get($dispatch, 'policy_contracts'),
             'completed_at' => now()->toJSON(),
         ], fn (mixed $value): bool => $value !== null && $value !== []);
     }
@@ -164,6 +175,10 @@ class AtlasProgrammingOrchestrator
     {
         $executionProfile = (array) data_get($programmingMessagePlan, 'execution_profile', []);
         $policy = (array) data_get($programmingMessagePlan, 'policy_profile.execution_policy', []);
+        $contracts = (array) (data_get($programmingMessagePlan, 'policy_contracts')
+            ?: data_get($programmingMessagePlan, 'policy_profile.policy_contracts')
+            ?: data_get($programmingMessagePlan, 'policy_profile.effective_policy.operational_contracts')
+            ?: []);
         $maxIterations = max(1, min(10, (int) data_get($policy, 'max_iterations', $executionProfile['max_iterations'] ?? 1)));
         $complete = (bool) ($executionProfile['complete'] ?? false);
         $executor = (string) data_get($programmingMessagePlan, 'executor_decision.executor', 'simple_provider_execution');
@@ -182,6 +197,8 @@ class AtlasProgrammingOrchestrator
             'repair_when_status' => ['failed', 'needs_review'],
             'stop_when_status' => $complete ? ['passed'] : ['passed', 'needs_review'],
             'stop_when_quality_worsens' => true,
+            'gate_contract' => data_get($contracts, 'gates'),
+            'tool_contract' => data_get($contracts, 'tools'),
             'created_at' => now()->toJSON(),
         ];
     }
@@ -245,5 +262,17 @@ class AtlasProgrammingOrchestrator
             'policy_profile_id' => data_get($policyProfile, 'profile_id'),
             'policy_executor_preference' => $policyExecutor,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $policyProfile
+     * @return array<string,mixed>
+     */
+    private function policyContracts(array $policyProfile): array
+    {
+        $contracts = data_get($policyProfile, 'policy_contracts')
+            ?: data_get($policyProfile, 'effective_policy.operational_contracts');
+
+        return is_array($contracts) ? $contracts : [];
     }
 }

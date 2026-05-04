@@ -287,4 +287,95 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         $this->assertStringContainsString('implementar feature', $capsule);
         $this->assertStringContainsString('app/Foo.php', $capsule);
     }
+
+    public function test_fair_claude_final_packet_requires_valid_protocol_for_passed_status(): void
+    {
+        $packet = app(AtlasCliDevWorkflowService::class)->fairClaudeFinalPacket(
+            completion: [
+                'status' => 'needs_review',
+                'changed_files' => ['app/Foo.php'],
+                'diff_hash' => 'diff-hash',
+                'quality_gates' => [
+                    ['name' => 'git_status', 'status' => 'passed'],
+                    ['name' => 'tests', 'status' => 'needs_review'],
+                ],
+                'completion_packet' => [
+                    'files_changed' => ['app/Foo.php'],
+                    'tests' => [],
+                    'quality_gates' => [
+                        ['name' => 'git_status', 'status' => 'passed'],
+                        ['name' => 'tests', 'status' => 'needs_review'],
+                    ],
+                ],
+            ],
+            fairProtocol: [
+                'status' => 'unverified',
+                'quality_status' => 'needs_review',
+                'deterministic_gates_passed' => false,
+                'pass_without_human' => false,
+                'human_intervention_count' => 0,
+                'blocking_reasons' => ['quality_status_needs_review', 'deterministic_gates_not_passed'],
+            ],
+            devPlan: [
+                'selected_model' => ['model' => 'claude-opus-test'],
+                'iterations' => ['max' => 3],
+            ],
+            runs: [
+                ['iteration' => 1, 'exit_code' => 0, 'trace_id' => 'trace-1', 'model' => 'claude-opus-test'],
+            ],
+            ok: false,
+        );
+
+        $this->assertSame('atlas_cli_dev_fair_claude_final_packet', $packet['kind']);
+        $this->assertSame('failed', $packet['status']);
+        $this->assertSame('claude_cli', $packet['provider_lock']);
+        $this->assertSame('opus', $packet['model_lock']);
+        $this->assertFalse($packet['protocol_valid']);
+        $this->assertFalse($packet['pass_without_human']);
+        $this->assertFalse($packet['unverified_counts_as_passed']);
+        $this->assertContains('deterministic_gates_not_passed', data_get($packet, 'gates.blocking_reasons'));
+    }
+
+    public function test_fair_claude_final_packet_marks_repair_conversion_when_green_after_retry(): void
+    {
+        $packet = app(AtlasCliDevWorkflowService::class)->fairClaudeFinalPacket(
+            completion: [
+                'status' => 'passed',
+                'quality_gates' => [
+                    ['name' => 'git_status', 'status' => 'passed'],
+                    ['name' => 'tests', 'status' => 'passed'],
+                ],
+                'completion_packet' => [
+                    'files_changed' => ['app/Foo.php', 'tests/FooTest.php'],
+                    'tests' => [['command' => 'php artisan test', 'ok' => true]],
+                ],
+            ],
+            fairProtocol: [
+                'status' => 'valid',
+                'quality_status' => 'passed',
+                'deterministic_gates_passed' => true,
+                'pass_without_human' => true,
+                'human_intervention_count' => 0,
+                'blocking_reasons' => [],
+            ],
+            devPlan: [
+                'selected_model' => ['model' => 'claude-opus-test'],
+                'iterations' => ['max' => 3],
+            ],
+            runs: [
+                ['iteration' => 1, 'exit_code' => 0, 'trace_id' => 'trace-1', 'model' => 'claude-opus-test'],
+                ['iteration' => 2, 'exit_code' => 0, 'trace_id' => 'trace-2', 'model' => 'claude-opus-test'],
+            ],
+            ok: true,
+        );
+
+        $this->assertSame('passed', $packet['status']);
+        $this->assertTrue($packet['protocol_valid']);
+        $this->assertTrue($packet['pass_without_human']);
+        $this->assertSame(2, $packet['attempts']);
+        $this->assertSame(1, data_get($packet, 'repair.repair_attempt_count'));
+        $this->assertTrue(data_get($packet, 'repair.converted_to_green'));
+        $this->assertSame('trace-1', $packet['trace_id']);
+        $this->assertSame(['trace-1', 'trace-2'], $packet['trace_ids']);
+    }
 }

@@ -9,6 +9,8 @@ class AtlasAiPolicyService
     public function __construct(
         private readonly AtlasAiRuntimeSettings $settings,
         private readonly AiRuntimeBudgetService $budgets,
+        private readonly AtlasDomainProfileRegistry $domainProfiles,
+        private readonly AtlasEffectivePolicyComposer $effectivePolicies,
     ) {}
 
     /**
@@ -24,14 +26,36 @@ class AtlasAiPolicyService
         $profileId = $this->profileId($surface, $mode, $task, $payload);
         $runtime = $this->settings->effective();
         $budget = $this->budgets->payload();
+        $domainProfile = $this->domainProfiles->resolve($profileId, [
+            'payload' => $payload,
+            'surface' => $surface,
+            'mode' => $mode,
+            'task' => $task,
+        ]);
         $forge = $profileId === 'programming.forge' || data_get($payload, 'dev_execution_plan.programming_profile') === 'forge';
         $background = in_array($surface, ['background', 'scheduler'], true);
         $programming = str_starts_with($profileId, 'programming.');
+        $complete = $forge || (bool) data_get($payload, 'dev_execution_plan.operator_options.complete', data_get($payload, 'dev_execution_plan.complete', false));
+        $executionPolicy = $this->authoritativeExecutionPolicy(
+            legacy: $this->executionPolicy($profileId, $task, $forge, $background, $payload),
+            domainProfile: $domainProfile,
+            forge: $forge,
+            programming: $programming,
+            complete: $complete,
+        );
 
-        return [
+        $policy = [
             'schema_version' => 1,
             'profile_id' => $profileId,
             'policy_version' => 'atlas-ai-policy-v1',
+            'domain' => (string) data_get($domainProfile, 'domain_id'),
+            'flow' => (string) data_get($domainProfile, 'flow_id'),
+            'domain_profile' => data_get($domainProfile, 'domain_profile', []),
+            'flow_profile' => data_get($domainProfile, 'flow_profile', []),
+            'domain_profile_registry' => [
+                'schema_version' => (int) data_get($domainProfile, 'schema_version', 1),
+                'source' => (string) data_get($domainProfile, 'source', 'static_fallback'),
+            ],
             'surface' => $surface,
             'mode' => $mode,
             'task' => $task,
@@ -51,11 +75,14 @@ class AtlasAiPolicyService
                 'surface' => $surface,
                 'mode' => $mode,
                 'task' => $task,
+                'domain' => (string) data_get($domainProfile, 'domain_id'),
+                'flow' => (string) data_get($domainProfile, 'flow_id'),
                 'background' => $background,
                 'programming' => $programming,
                 'forge' => $forge,
             ],
-            'execution_policy' => $this->executionPolicy($profileId, $task, $forge, $background, $payload),
+            'execution_policy' => $executionPolicy,
+            'execution_authority' => (string) ($executionPolicy['source'] ?? 'legacy_execution_policy'),
             'fallback_order' => $this->fallbackOrder($profileId, (string) ($runtime['default_provider'] ?? 'claude_cli')),
             'budget_policy' => [
                 'enabled' => (bool) ($budget['enabled'] ?? false),
@@ -68,6 +95,8 @@ class AtlasAiPolicyService
                 'background_high_risk_escalates' => $background,
             ],
         ];
+
+        return $this->effectivePolicies->compose($policy, $domainProfile, $runtime, $payload, $options)['policy'];
     }
 
     /**
@@ -259,6 +288,49 @@ class AtlasAiPolicyService
     }
 
     /**
+     * @param  array<string,mixed>  $legacy
+     * @param  array<string,mixed>  $domainProfile
+     * @return array<string,mixed>
+     */
+    private function authoritativeExecutionPolicy(
+        array $legacy,
+        array $domainProfile,
+        bool $forge,
+        bool $programming,
+        bool $complete,
+    ): array {
+        $declared = array_replace_recursive(
+            (array) data_get($domainProfile, 'domain_profile.execution_policy', []),
+            (array) data_get($domainProfile, 'flow_profile.execution_policy', []),
+        );
+        $databaseBacked = data_get($domainProfile, 'source') === 'database';
+        $policy = $databaseBacked && $declared !== []
+            ? array_replace_recursive($legacy, $declared, ['source' => 'domain_flow_profile'])
+            : array_replace_recursive($legacy, ['source' => 'legacy_execution_policy']);
+
+        if ($forge) {
+            $policy['executor_preference'] = 'engineering_harness';
+            $policy['harness_required'] = true;
+            $policy['quality_required'] = true;
+            $policy['max_iterations'] = max(5, (int) ($policy['max_iterations'] ?? 5));
+            $policy['source'] = $databaseBacked && $declared !== []
+                ? 'domain_flow_profile_with_forge_guard'
+                : $policy['source'];
+        } elseif ($programming && $complete && in_array((string) ($policy['executor_preference'] ?? ''), ['', 'simple_provider_execution', 'standard_ai_response'], true)) {
+            $policy['executor_preference'] = 'dev_repair_executor';
+            $policy['quality_required'] = true;
+            $policy['max_iterations'] = max(2, (int) ($policy['max_iterations'] ?? 2));
+            $policy['source'] = $databaseBacked && $declared !== []
+                ? 'domain_flow_profile_with_complete_guard'
+                : $policy['source'];
+        }
+
+        $policy['max_iterations'] = min(10, max(1, (int) ($policy['max_iterations'] ?? 1)));
+
+        return $policy;
+    }
+
+    /**
      * @param  array<string,mixed>  $options
      * @param  array<string,mixed>  $payload
      */
@@ -318,6 +390,11 @@ class AtlasAiPolicyService
      */
     private function profileId(string $surface, string $mode, string $task, array $payload): string
     {
+        $explicitProfile = strtolower(trim((string) data_get($payload, 'atlas_profile_id', '')));
+        if ($explicitProfile !== '' && str_contains($explicitProfile, '.')) {
+            return $explicitProfile;
+        }
+
         if ($task === 'forge' || data_get($payload, 'programming_profile') === 'forge') {
             return 'programming.forge';
         }

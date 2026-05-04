@@ -4,6 +4,7 @@ namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringBenchmarkCase;
 use App\Models\AtlasTask;
+use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Str;
@@ -227,11 +228,20 @@ class EngineeringClaudeCodeBaselineRunnerService
             ? trim((string) ($provider['premium_model'] ?? 'claude-opus-4-7'))
             : $raw;
 
-        if ($model === '' || ! str_contains(strtolower($model), 'opus')) {
+        if (! $this->isLockedOpusModel($model)) {
             throw new InvalidArgumentException('fair_mode_violation: Claude Code baseline must use Claude Opus.');
         }
 
         return $model;
+    }
+
+    private function isLockedOpusModel(string $model): bool
+    {
+        $model = strtolower(trim($model));
+        $configured = strtolower(trim((string) config('atlas.ai.providers.claude_cli.premium_model', '')));
+
+        return $model === FairClaudePolicy::MODEL_LOCK
+            || ($configured !== '' && $model === $configured);
     }
 
     /**

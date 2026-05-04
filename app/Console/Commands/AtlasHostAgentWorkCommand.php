@@ -35,6 +35,7 @@ class AtlasHostAgentWorkCommand extends Command
                 'expired_sessions' => $cycle['expired']['count'],
                 'restarted_caffeinate' => $cycle['reconciled']['restarted'] ?? 0,
                 'failed_caffeinate_restarts' => $cycle['reconciled']['failed'] ?? 0,
+                'cleaned_caffeinate_orphans' => $cycle['caffeinate_cleanup']['removed'] ?? 0,
                 'started_sessions' => count($cycle['started']),
                 'sleep_after_idle' => $cycle['sleep_after_idle'],
                 'checked_at' => now()->toJSON(),
@@ -50,6 +51,10 @@ class AtlasHostAgentWorkCommand extends Command
 
     private function refreshSchedules(MacAgentService $agent): void
     {
+        if ((bool) data_get($agent->status(refresh: false), 'power_helper.ready', false)) {
+            return;
+        }
+
         AtlasMaintenanceWindow::query()
             ->where('host_key', MacAgentService::HOST_KEY)
             ->where('enabled', true)

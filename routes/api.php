@@ -11,6 +11,7 @@ use App\Http\Controllers\AiQualityActionController;
 use App\Http\Controllers\AiTelemetryController;
 use App\Http\Controllers\AiTelemetryMetricsController;
 use App\Http\Controllers\AiThreadController;
+use App\Http\Controllers\AtlasAiPolicyController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasDomainController;
 use App\Http\Controllers\AtlasMemoryController;
@@ -87,6 +88,8 @@ Route::prefix('v1/mobile')->group(function (): void {
         Route::post('/mac/remote-session', [MobileMacAgentController::class, 'startRemoteSession']);
         Route::post('/mac/remote-session/{session}/stop', [MobileMacAgentController::class, 'stopRemoteSession']);
         Route::post('/mac/sleep-now', [MobileMacAgentController::class, 'sleepNow']);
+        Route::post('/mac/bootstrap', [MobileMacAgentController::class, 'bootstrap']);
+        Route::post('/mac/caffeinate/cleanup', [MobileMacAgentController::class, 'cleanupCaffeinate']);
         Route::post('/mac/maintenance-windows', [MobileMacAgentController::class, 'storeMaintenanceWindow']);
         Route::delete('/mac/maintenance-windows/{window}', [MobileMacAgentController::class, 'deleteMaintenanceWindow']);
 
@@ -289,6 +292,10 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/ai/decisions', [AiDecisionController::class, 'index']);
     Route::post('/ai/decisions/preview', [AiDecisionController::class, 'preview']);
     Route::get('/ai/decisions/{decision}', [AiDecisionController::class, 'show']);
+    Route::get('/ai/policies/profiles', [AtlasAiPolicyController::class, 'profiles']);
+    Route::post('/ai/policies/preview', [AtlasAiPolicyController::class, 'preview']);
+    Route::patch('/ai/policies/domains/{domain}', [AtlasAiPolicyController::class, 'updateDomain']);
+    Route::patch('/ai/policies/flows/{flow}', [AtlasAiPolicyController::class, 'updateFlow']);
     Route::get('/ai/memory', [AtlasMemoryController::class, 'index']);
     Route::post('/ai/memory', [AtlasMemoryController::class, 'store']);
     Route::post('/ai/memory/recall', AtlasMemoryRecallController::class);
@@ -327,6 +334,7 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::post('/ai/vault/export-semantic', [AtlasVaultController::class, 'exportSemantic']);
     Route::post('/ai/vault/sync', [AtlasVaultController::class, 'sync']);
     Route::get('/ai/vault/conflicts', [AtlasVaultController::class, 'conflicts']);
+    Route::get('/ai/vault/conflicts/{item}', [AtlasVaultController::class, 'item']);
     Route::post('/ai/vault/conflicts/{item}/resolve', [AtlasVaultController::class, 'resolve']);
     Route::post('/ai/interactions', [AiInteractionController::class, 'store']);
     Route::get('/ai/interactions/{trace}', [AiInteractionController::class, 'show']);

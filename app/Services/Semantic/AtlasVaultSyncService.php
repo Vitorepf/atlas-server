@@ -8,7 +8,8 @@ use App\Models\SemanticNote;
 use App\Services\Ai\AtlasMemorySourcePrivacyPolicy;
 use App\Services\AuditLogService;
 use App\Support\Metadata;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -16,6 +17,14 @@ use RuntimeException;
 class AtlasVaultSyncService
 {
     public const RESOLUTION_ACTIONS = ['adopt', 'archive', 'merge', 'regenerate', 'force', 'dismiss'];
+
+    public const REVIEW_STATUSES = ['pending', 'candidate', 'blocked', 'conflict'];
+
+    public const FILTERABLE_STATUSES = ['pending', 'candidate', 'blocked', 'conflict', 'imported', 'exported', 'reviewed', 'regenerated', 'archived', 'dismissed'];
+
+    public const FILTERABLE_DIRECTIONS = ['vault_to_atlas', 'atlas_to_vault'];
+
+    public const FILTERABLE_OPERATIONS = ['import', 'export_semantic_note'];
 
     public function __construct(
         private readonly VaultFileStore $vault,
@@ -191,7 +200,11 @@ class AtlasVaultSyncService
     {
         $imports = [];
         foreach ($this->vault->listMarkdownFiles()->take($limit) as $path) {
-            $imports[] = $this->importPath($path, $write);
+            try {
+                $imports[] = $this->importPath($path, $write);
+            } catch (RuntimeException $exception) {
+                $imports[] = $this->blockedSyncImport($path, $exception, $write);
+            }
         }
 
         return [
@@ -208,6 +221,69 @@ class AtlasVaultSyncService
     /**
      * @return array<string,mixed>
      */
+    private function blockedSyncImport(string $path, RuntimeException $exception, bool $write): array
+    {
+        $path = ltrim(preg_replace('#/+#', '/', str_replace('\\', '/', trim($path))) ?? $path, '/');
+        $payload = [
+            'ok' => false,
+            'dry_run' => ! $write,
+            'path' => $path,
+            'content_hash' => null,
+            'managed' => null,
+            'status' => 'blocked',
+            'conflict_type' => 'sync_file_error',
+            'frontmatter' => [],
+            'privacy' => null,
+            'semantic_note_id' => null,
+            'proposal_id' => null,
+            'error' => $exception->getMessage(),
+        ];
+
+        if (! $write) {
+            return $payload;
+        }
+
+        $item = $this->recordItem([
+            'direction' => 'vault_to_atlas',
+            'operation' => 'import',
+            'status' => 'blocked',
+            'path' => $path,
+            'source_type' => 'atlas_vault_note',
+            'source_id' => $path,
+            'semantic_note_id' => null,
+            'content_hash' => null,
+            'conflict_type' => 'sync_file_error',
+            'summary' => "AtlasVault sync blocked: {$path}.",
+            'frontmatter_json' => [],
+            'links_json' => [],
+            'metadata' => [
+                'error' => $exception->getMessage(),
+                'blocked_by' => 'atlas-vault-sync-v2',
+            ],
+        ]);
+
+        $this->audit->record('atlas_vault_import', [
+            'subject_type' => 'atlas_vault_sync_item',
+            'subject_id' => $item?->id,
+            'summary' => "AtlasVault import blocked during sync: {$path}.",
+            'evidence' => [
+                'path' => $path,
+                'conflict_type' => 'sync_file_error',
+                'error' => $exception->getMessage(),
+            ],
+            'privacy' => ['sensitivity' => 'normal'],
+            'refs' => ['path' => $path],
+        ]);
+
+        return [
+            ...$payload,
+            'sync_item_id' => $item?->id,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     public function queueSummary(): array
     {
         if (! Schema::hasTable('atlas_vault_sync_items')) {
@@ -217,6 +293,7 @@ class AtlasVaultSyncService
                 'open' => 0,
                 'blocked' => 0,
                 'conflicts' => 0,
+                'historical_conflicts' => 0,
                 'reviewed' => 0,
                 'resolved' => 0,
                 'by_status' => [],
@@ -243,7 +320,8 @@ class AtlasVaultSyncService
             'total' => array_sum($statusCounts),
             'open' => AtlasVaultSyncItem::query()->whereIn('status', ['pending', 'candidate', 'blocked', 'conflict'])->count(),
             'blocked' => (int) ($statusCounts['blocked'] ?? 0),
-            'conflicts' => AtlasVaultSyncItem::query()
+            'conflicts' => $this->openConflictItems()->count(),
+            'historical_conflicts' => AtlasVaultSyncItem::query()
                 ->where(static function ($query): void {
                     $query->where('status', 'conflict')
                         ->orWhereNotNull('conflict_type');
@@ -260,17 +338,29 @@ class AtlasVaultSyncService
     /**
      * @return array<string,mixed>
      */
-    public function conflicts(int $limit = 100): array
+    public function conflicts(int $limit = 100, array $filters = []): array
     {
-        $items = $this->syncItems()
-            ->whereIn('status', ['pending', 'candidate', 'blocked', 'conflict'])
-            ->orderByDesc('created_at')
+        $filters = $this->normalizeConflictFilters($filters);
+        $query = $this->syncItems()
+            ->whereIn('status', $filters['statuses'])
+            ->orderByDesc('created_at');
+
+        if ($filters['direction'] !== null) {
+            $query->where('direction', $filters['direction']);
+        }
+
+        if ($filters['operation'] !== null) {
+            $query->where('operation', $filters['operation']);
+        }
+
+        $items = $query
             ->limit($limit)
             ->get();
 
         return [
             'ok' => true,
             'count' => $items->count(),
+            'filters' => $filters,
             'items' => $items->map(fn (AtlasVaultSyncItem $item): array => $item->toArray())->all(),
         ];
     }
@@ -278,27 +368,53 @@ class AtlasVaultSyncService
     /**
      * @return array<string,mixed>
      */
-    public function resolve(string $id, string $action): array
+    public function item(string $id): array
     {
+        $this->assertSyncItemId($id);
+        $item = $this->syncItems()->findOrFail($id);
+
+        return [
+            'ok' => true,
+            'item' => $item->toArray(),
+            'allowed_resolution_actions' => self::RESOLUTION_ACTIONS,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function resolve(string $id, string $action, ?string $reason = null): array
+    {
+        $this->assertSyncItemId($id);
         $action = strtolower(trim($action));
         if (! in_array($action, self::RESOLUTION_ACTIONS, true)) {
             throw new RuntimeException('Unsupported AtlasVault resolution action: '.$action);
         }
+        $reason = $this->normalizeResolutionReason($reason);
 
         $item = $this->syncItems()->findOrFail($id);
+        $regeneration = $action === 'regenerate' ? $this->regenerateSyncItem($item) : null;
+        $resolved = $regeneration === null || (bool) ($regeneration['ok'] ?? false);
         $item->forceFill([
-            'status' => match ($action) {
-                'archive' => 'archived',
-                'dismiss' => 'dismissed',
-                default => 'reviewed',
-            },
+            'status' => $regeneration !== null
+                ? ((bool) ($regeneration['ok'] ?? false) ? 'regenerated' : 'conflict')
+                : match ($action) {
+                    'archive' => 'archived',
+                    'dismiss' => 'dismissed',
+                    default => 'reviewed',
+                },
             'reviewed_at' => now(),
-            'resolved_at' => now(),
+            'resolved_at' => $resolved ? now() : null,
+            'conflict_type' => $regeneration !== null
+                ? ((bool) ($regeneration['ok'] ?? false) ? null : (string) ($regeneration['conflict_type'] ?? 'regeneration_blocked'))
+                : $item->conflict_type,
             'metadata' => Metadata::forStorage([
                 ...($item->metadata ?? []),
                 'resolution_action' => $action,
+                'resolution_reason' => $reason,
                 'resolved_by' => 'operator',
                 'resolution_policy' => 'phase2_review_queue_no_silent_overwrite',
+                'regeneration' => $regeneration,
             ]),
         ])->save();
 
@@ -308,12 +424,141 @@ class AtlasVaultSyncService
             'actor_type' => 'operator',
             'actor_id' => 'vitor',
             'summary' => "AtlasVault sync item resolved with {$action}.",
-            'evidence' => ['id' => $item->id, 'path' => $item->path, 'action' => $action],
+            'evidence' => ['id' => $item->id, 'path' => $item->path, 'action' => $action, 'reason' => $reason, 'regeneration' => $regeneration],
             'privacy' => ['sensitivity' => data_get($item->metadata, 'privacy.privacy_class', 'normal')],
             'refs' => ['sync_item_id' => $item->id],
         ]);
 
-        return ['ok' => true, 'item' => $item->refresh()->toArray()];
+        return ['ok' => $resolved, 'item' => $item->refresh()->toArray(), 'regeneration' => $regeneration];
+    }
+
+    /**
+     * @return Builder<AtlasVaultSyncItem>
+     */
+    private function openConflictItems(): Builder
+    {
+        return AtlasVaultSyncItem::query()
+            ->whereIn('status', self::REVIEW_STATUSES)
+            ->where(static function ($query): void {
+                $query->where('status', 'conflict')
+                    ->orWhereNotNull('conflict_type');
+            });
+    }
+
+    private function normalizeResolutionReason(?string $reason): ?string
+    {
+        if ($reason === null) {
+            return null;
+        }
+
+        $reason = trim(preg_replace('/\s+/', ' ', $reason) ?? $reason);
+
+        return $reason !== '' ? Str::limit($reason, 1000, '') : null;
+    }
+
+    private function assertSyncItemId(string $id): void
+    {
+        if (! Str::isUuid($id)) {
+            throw (new ModelNotFoundException())->setModel(AtlasVaultSyncItem::class, [$id]);
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function regenerateSyncItem(AtlasVaultSyncItem $item): array
+    {
+        if ($item->direction !== 'atlas_to_vault' || $item->operation !== 'export_semantic_note') {
+            return [
+                'ok' => false,
+                'status' => 'blocked',
+                'conflict_type' => 'regeneration_supported_only_for_atlas_to_vault_semantic_exports',
+            ];
+        }
+
+        $semanticNoteId = $item->semantic_note_id ?: $item->source_id;
+        if (! is_string($semanticNoteId) || trim($semanticNoteId) === '') {
+            return [
+                'ok' => false,
+                'status' => 'blocked',
+                'conflict_type' => 'missing_semantic_note_id',
+            ];
+        }
+
+        try {
+            $result = $this->exportSemanticNote($semanticNoteId, write: true);
+        } catch (\Throwable $exception) {
+            return [
+                'ok' => false,
+                'status' => 'blocked',
+                'conflict_type' => 'regeneration_exception',
+                'error' => $exception->getMessage(),
+            ];
+        }
+
+        return [
+            'ok' => (bool) ($result['ok'] ?? false),
+            'status' => (string) ($result['status'] ?? 'unknown'),
+            'sync_item_id' => $result['sync_item_id'] ?? null,
+            'path' => data_get($result, 'note.path'),
+            'conflict_type' => data_get($result, 'note.conflicts.0'),
+            'content_hash' => data_get($result, 'note.metadata.proposed_content_hash'),
+        ];
+    }
+
+    /**
+     * @return array{statuses: array<int,string>, direction: ?string, operation: ?string}
+     */
+    private function normalizeConflictFilters(array $filters): array
+    {
+        $statuses = $filters['statuses'] ?? $filters['status'] ?? self::REVIEW_STATUSES;
+        if (is_string($statuses)) {
+            $statuses = explode(',', $statuses);
+        }
+        if (! is_array($statuses)) {
+            throw new RuntimeException('AtlasVault conflicts status filter must be a string or array.');
+        }
+
+        $statuses = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $status): string => strtolower(trim((string) $status)),
+            $statuses,
+        ), static fn (string $status): bool => $status !== '')));
+        if ($statuses === []) {
+            $statuses = self::REVIEW_STATUSES;
+        }
+
+        foreach ($statuses as $status) {
+            if (! in_array($status, self::FILTERABLE_STATUSES, true)) {
+                throw new RuntimeException('Unsupported AtlasVault conflicts status filter: '.$status);
+            }
+        }
+
+        $direction = $this->nullableFilter($filters['direction'] ?? null);
+        if ($direction !== null && ! in_array($direction, self::FILTERABLE_DIRECTIONS, true)) {
+            throw new RuntimeException('Unsupported AtlasVault conflicts direction filter: '.$direction);
+        }
+
+        $operation = $this->nullableFilter($filters['operation'] ?? null);
+        if ($operation !== null && ! in_array($operation, self::FILTERABLE_OPERATIONS, true)) {
+            throw new RuntimeException('Unsupported AtlasVault conflicts operation filter: '.$operation);
+        }
+
+        return ['statuses' => $statuses, 'direction' => $direction, 'operation' => $operation];
+    }
+
+    private function nullableFilter(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (! is_string($value)) {
+            throw new RuntimeException('AtlasVault conflicts filter must be a string.');
+        }
+
+        $value = strtolower(trim($value));
+
+        return $value !== '' ? $value : null;
     }
 
     private function createProposal(SemanticNote $note, string $path, array $parsed, array $privacy, string $contentHash): ?SemanticCurationProposal
@@ -398,9 +643,9 @@ class AtlasVaultSyncService
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<AtlasVaultSyncItem>
+     * @return Builder<AtlasVaultSyncItem>
      */
-    private function syncItems(): \Illuminate\Database\Eloquent\Builder
+    private function syncItems(): Builder
     {
         if (! Schema::hasTable('atlas_vault_sync_items')) {
             throw new RuntimeException('atlas_vault_sync_items table is not migrated.');

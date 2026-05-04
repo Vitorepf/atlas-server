@@ -55,10 +55,12 @@ class RunScheduledTaskJob implements ShouldQueue
         try {
             $trace = $gateway->enqueueInteraction($this->guardedPrompt($task), $this->gatewayOptions($task));
             $trace = $this->waitForTrace($trace, $worker, $this->timeoutSeconds($task));
-            $status = $trace->status === 'succeeded' ? 'success' : 'failure';
-            $output = $status === 'success'
-                ? (string) $trace->response_text
-                : $this->failureOutput($trace);
+            $status = $this->scheduledRunStatus($trace);
+            $output = match ($status) {
+                'success' => (string) $trace->response_text,
+                'deferred' => $this->deferredOutput($trace),
+                default => $this->failureOutput($trace),
+            };
         } catch (Throwable $exception) {
             $error = $exception;
             $status = 'failure';
@@ -130,6 +132,19 @@ class RunScheduledTaskJob implements ShouldQueue
             ->where('status', 'queued')
             ->where('available_at', '>', now())
             ->exists();
+    }
+
+    private function scheduledRunStatus(AiTrace $trace): string
+    {
+        if ($trace->status === 'succeeded') {
+            return 'success';
+        }
+
+        if ($trace->status === 'queued' && $this->hasDelayedRetry($trace)) {
+            return 'deferred';
+        }
+
+        return 'failure';
     }
 
     /**
@@ -220,6 +235,33 @@ TXT);
         return implode("\n", $parts);
     }
 
+    private function deferredOutput(AiTrace $trace): string
+    {
+        $job = $trace->jobs()->where('status', 'queued')->latest('available_at')->first();
+        $readiness = data_get($job?->metadata, 'mac_background_readiness')
+            ?: data_get($trace->metadata, 'mac_background_readiness', []);
+        $retryAt = $job?->available_at?->toJSON();
+        $blockers = collect((array) data_get($readiness, 'readiness.blockers', []))
+            ->map(fn (mixed $item): string => '- '.(string) data_get($item, 'code', 'unknown').': '.(string) data_get($item, 'message', ''))
+            ->implode("\n");
+
+        $parts = [
+            'Scheduled task deferred.',
+            '',
+            'Trace: '.$trace->id,
+            'Reason: '.((string) data_get($readiness, 'reason') ?: 'delayed_retry'),
+            'Retry at: '.($retryAt ?: 'pending'),
+        ];
+
+        if ($blockers !== '') {
+            $parts[] = '';
+            $parts[] = 'Mac readiness blockers:';
+            $parts[] = $blockers;
+        }
+
+        return implode("\n", $parts);
+    }
+
     private function writeOutput(AiScheduledTask $task, string $status, string $output, int $durationMs, ?AiTrace $trace, ?Throwable $error): string
     {
         $timestamp = now()->format('Ymd_His');
@@ -268,6 +310,10 @@ MD)."\n";
 
     private function deliveryStatus(AiScheduledTask $task, string $status, bool $silent): string
     {
+        if ($status === 'deferred') {
+            return 'deferred_until_ready';
+        }
+
         if ($status === 'failure') {
             return $task->target_platform === 'local' ? 'saved_failure' : 'pending_p6_failure_delivery';
         }

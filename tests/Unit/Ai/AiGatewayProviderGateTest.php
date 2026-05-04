@@ -209,6 +209,93 @@ class AiGatewayProviderGateTest extends TestCase
         ], 'claude_cli', 'claude-haiku');
     }
 
+    public function test_fair_mode_disables_atlas_scout_and_limits_decision_candidates_to_claude(): void
+    {
+        $service = app(AiGatewayService::class);
+        $options = app(AtlasDecideService::class)->normalizeOptions([
+            'provider' => 'claude_cli',
+            'source_type' => 'system',
+            'payload' => [
+                'automatic' => true,
+                'atlas_workflow_mode' => 'dev',
+                'fair_mode' => app(FairClaudePolicy::class)->metadata(),
+                'requested_model' => 'claude-opus-4-7',
+                'requested_model_alias' => 'opus',
+                'requested_model_tier' => 'premium',
+                'ai_policy_override' => app(FairClaudePolicy::class)->runtimeOverride([
+                    'model' => 'claude-opus-4-7',
+                    'label' => 'Claude Opus 4.7',
+                    'tier' => 'premium',
+                ]),
+            ],
+        ]);
+
+        $providerMethod = (new ReflectionClass($service))->getMethod('providerFromOptions');
+        $providerMethod->setAccessible(true);
+        $provider = $providerMethod->invoke($service, $options);
+
+        $this->assertSame('claude_cli', $provider);
+
+        $scoutMethod = (new ReflectionClass($service))->getMethod('atlasScoutGate');
+        $scoutMethod->setAccessible(true);
+        $scoutGate = $scoutMethod->invoke($service, $options, 'claude_cli', 'claude-opus-4-7');
+
+        $this->assertFalse($scoutGate['enabled']);
+        $this->assertSame('fair_mode_single_provider', $scoutGate['activation_status']);
+        $this->assertSame('fair_mode_atlas_decide_disabled', $scoutGate['blocked_reason']);
+        $this->assertSame('claude_cli', $scoutGate['scout_provider']);
+        $this->assertSame('claude-opus-4-7', $scoutGate['scout_model']);
+
+        $candidatesMethod = (new ReflectionClass($service))->getMethod('decisionCandidates');
+        $candidatesMethod->setAccessible(true);
+        $candidates = $candidatesMethod->invoke($service, $options, 'claude_cli');
+
+        $this->assertCount(1, $candidates);
+        $this->assertSame('claude_cli', $candidates[0]['provider']);
+        $this->assertTrue($candidates[0]['fair_mode_locked']);
+    }
+
+    public function test_fair_mode_strips_tampered_dual_review_and_never_runs_council(): void
+    {
+        $service = app(AiGatewayService::class);
+        $policy = app(FairClaudePolicy::class);
+        $providerMethod = (new ReflectionClass($service))->getMethod('providerFromOptions');
+        $providerMethod->setAccessible(true);
+
+        $this->assertSame('claude_cli', $providerMethod->invoke($service, [
+            'provider' => 'claude_cli',
+            'payload' => [
+                'fair_mode' => $policy->metadata(),
+                'execution_policy' => 'dual_review',
+                'council_providers' => ['claude_cli', 'codex_cli'],
+            ],
+        ]));
+
+        $enforceMethod = (new ReflectionClass($service))->getMethod('enforceFairModeProvider');
+        $enforceMethod->setAccessible(true);
+        $payload = $enforceMethod->invoke($service, [
+            'fair_mode' => $policy->metadata(),
+            'execution_policy' => 'dual_review',
+            'council_providers' => ['claude_cli', 'codex_cli'],
+        ], 'claude_cli');
+
+        $this->assertNull($payload['execution_policy']);
+        $this->assertNull($payload['council_providers']);
+        $this->assertTrue($payload['council_disabled_by_fair_mode']);
+
+        $shouldRunCouncilMethod = (new ReflectionClass($service))->getMethod('shouldRunCouncil');
+        $shouldRunCouncilMethod->setAccessible(true);
+
+        $this->assertFalse($shouldRunCouncilMethod->invoke($service, [
+            'provider' => 'claude_cli',
+            'payload' => [
+                ...$payload,
+                'execution_policy' => 'dual_review',
+                'council_providers' => ['claude_cli', 'codex_cli'],
+            ],
+        ]));
+    }
+
     /**
      * @param  array<string,mixed>  $options
      */

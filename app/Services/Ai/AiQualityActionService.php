@@ -15,6 +15,7 @@ class AiQualityActionService
     public function __construct(
         private readonly AiGatewayService $gateway,
         private readonly AuditLogService $audit,
+        private readonly FairClaudePolicy $fairClaude,
     ) {}
 
     /**
@@ -154,6 +155,8 @@ class AiQualityActionService
             return [$this->operatorReviewPlan($trace, $evaluation, 'Limite de auto-remediação atingido.')];
         }
 
+        $fairMode = $this->isFairTrace($trace);
+
         if (in_array('lost_continuity', $flags, true)) {
             return [
                 $this->autoPlan(
@@ -180,6 +183,19 @@ class AiQualityActionService
         }
 
         if ($evaluation->score < 55 && $trace->provider !== 'claude_codex') {
+            if ($fairMode) {
+                return [
+                    $this->autoPlan(
+                        trace: $trace,
+                        actionType: 'fair_claude_repair',
+                        priority: 10,
+                        reason: 'Fair Claude mode exige reparo pelo mesmo Claude Opus, sem council ou fallback.',
+                        provider: FairClaudePolicy::PROVIDER_LOCK,
+                    ),
+                    ...$this->verificationPlanIfNeeded($trace, $flags),
+                ];
+            }
+
             return [
                 $this->autoPlan(
                     trace: $trace,
@@ -259,16 +275,19 @@ class AiQualityActionService
         $provider = (string) data_get($action->payload, 'provider', $this->repairProvider($trace));
         $depth = (int) data_get($trace->metadata, 'quality_loop.depth', 0);
         $input = $this->remediationInput($action, $trace);
+        $fairPayload = $this->fairRemediationPayload($trace);
 
         return $this->gateway->enqueueInteraction($input, [
             'source_type' => 'system',
             'thread_id' => $trace->thread_id,
             'session_id' => $trace->session_id,
             'provider' => $provider,
+            'model' => $fairPayload['requested_model'] ?? null,
             'agent_slug' => $this->agentSlugForAction($action, $trace),
             'priority' => max(0, (int) $action->priority - 1),
             'include_semantic_context' => true,
             'payload' => [
+                ...$fairPayload,
                 'app_surface' => data_get($trace->metadata, 'context_pack.surface.kind', 'atlas_quality_loop'),
                 'atlas_workflow_mode' => 'quality_repair',
                 'workspace' => data_get($trace->metadata, 'context_pack.surface.workspace'),
@@ -318,6 +337,19 @@ Falhas detectadas: {$flags}
 
 Faça uma resposta final melhor, apontando decisão operacional, riscos reais e verificação necessária. Não despeje código salvo se o operador pedir explicitamente.
 TXT,
+            'fair_claude_repair' => <<<TXT
+O Atlas marcou a resposta anterior como insuficiente no benchmark Fair Claude.
+
+Pedido original do operador:
+{$originalInput}
+
+Resposta anterior:
+{$badResponse}
+
+Falhas detectadas: {$flags}
+
+Refaça a resposta usando somente o mesmo Claude Opus configurado para esta execução. Não acione council, Codex, Gemini, Atlas Decide ou fallback. Produza uma resposta final melhor, com decisão operacional, riscos reais e verificação necessária.
+TXT,
             default => <<<TXT
 Reescreva a resposta abaixo como saída final do Atlas para o operador.
 
@@ -342,6 +374,62 @@ TXT,
     private function repairProvider(AiTrace $trace): string
     {
         return 'claude_cli';
+    }
+
+    private function isFairTrace(AiTrace $trace): bool
+    {
+        $metadata = is_array($trace->metadata) ? $trace->metadata : [];
+
+        return $this->fairClaude->isFairPayload($metadata)
+            || (bool) data_get($metadata, 'fair_mode.fair_mode');
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function fairRemediationPayload(AiTrace $trace): array
+    {
+        if (! $this->isFairTrace($trace)) {
+            return [];
+        }
+
+        $metadata = is_array($trace->metadata) ? $trace->metadata : [];
+        $fairMode = $this->fairClaude->metadataFromPayload($metadata);
+        $model = data_get($metadata, 'dev_execution_plan.selected_model.model')
+            ?: data_get($metadata, 'requested_model')
+            ?: $trace->model;
+
+        $payload = [
+            'fair_mode' => $fairMode,
+            'requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'operator_requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'decision_mode' => 'manual_override',
+            'fallback_disabled' => true,
+            'single_provider' => true,
+            'atlas_decide' => [
+                'disabled_by_fair_mode' => true,
+                'decision_mode' => 'manual_override',
+                'requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+                'operator_requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+                'candidate_provider' => FairClaudePolicy::PROVIDER_LOCK,
+                'selected_provider' => FairClaudePolicy::PROVIDER_LOCK,
+                'fallback_provider' => null,
+                'fallback_reason' => null,
+            ],
+        ];
+
+        if (is_string($model) && trim($model) !== '') {
+            $payload['requested_model'] = trim($model);
+            $payload['requested_model_alias'] = FairClaudePolicy::MODEL_LOCK;
+            $payload['requested_model_tier'] = 'premium';
+            $payload['ai_policy_override'] = $this->fairClaude->runtimeOverride([
+                'model' => trim($model),
+                'alias' => FairClaudePolicy::MODEL_LOCK,
+                'tier' => 'premium',
+            ]);
+        }
+
+        return $payload;
     }
 
     private function agentSlugForAction(AiQualityAction $action, AiTrace $trace): string

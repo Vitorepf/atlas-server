@@ -1,0 +1,86 @@
+{
+    "status": "failed",
+    "failure": null,
+    "workspace_hash": "d9dc9edfda6920e49303a2cb8e1045156839010bbc61aeb6bcd1b29dd11f9877",
+    "base_url": "http://127.0.0.1:49409",
+    "routes": [
+        {
+            "route": "/",
+            "url": "http://127.0.0.1:49409/",
+            "ok": false,
+            "status_code": 404,
+            "content_type": "application/json",
+            "body_hash": "30cbec0bce16eaec65222795d3b5359efe8eee5d002148266768225b49e8a311",
+            "bytes": 10033,
+            "duration_ms": 9,
+            "slug": "root",
+            "artifact": "routes/root.html",
+            "headers_artifact": "routes/root.headers.json",
+            "baseline": {
+                "current_hash": "30cbec0bce16eaec65222795d3b5359efe8eee5d002148266768225b49e8a311",
+                "baseline_file_hash": "3b4db5d86a6237ec910a8c6073adbe1d9cca13927951b66258bf7b17942736cc",
+                "baseline_root_hash": "71b2ca02d72d9c0863f6626860fc42f52a0e09238e5c989178e0103b229b23c0",
+                "status": "first_baseline",
+                "strict": false
+            },
+            "screenshot": {
+                "status": "skipped",
+                "reason": "route_not_ok",
+                "driver": {
+                    "status": "ready",
+                    "mode": "atlas",
+                    "source": "atlas_managed",
+                    "required": false,
+                    "reason": null,
+                    "node_modules_hash": "0435b6660647d79b9cf303ba34ad40b9b3a274ccb8c138d83e03420940815bc4",
+                    "require_from_hash": "bea38c60fad8bf5f7f0fd05df3de2cd354cf369f125bbea9c48af67525facec0",
+                    "browsers_path_hash": "958ff0e76dd8e2bb8adb215a5754008c2dbc357a5095adc34afecd707f85d273",
+                    "searched_count": 0
+                }
+            }
+        }
+    ],
+    "screenshot": {
+        "status": "skipped",
+        "reason": "route_not_ok",
+        "driver": {
+            "status": "ready",
+            "mode": "atlas",
+            "source": "atlas_managed",
+            "required": false,
+            "reason": null,
+            "node_modules_hash": "0435b6660647d79b9cf303ba34ad40b9b3a274ccb8c138d83e03420940815bc4",
+            "require_from_hash": "bea38c60fad8bf5f7f0fd05df3de2cd354cf369f125bbea9c48af67525facec0",
+            "browsers_path_hash": "958ff0e76dd8e2bb8adb215a5754008c2dbc357a5095adc34afecd707f85d273",
+            "searched_count": 0
+        }
+    },
+    "screenshot_driver": {
+        "status": "ready",
+        "mode": "atlas",
+        "source": "atlas_managed",
+        "required": false,
+        "reason": null,
+        "node_modules_hash": "0435b6660647d79b9cf303ba34ad40b9b3a274ccb8c138d83e03420940815bc4",
+        "require_from_hash": "bea38c60fad8bf5f7f0fd05df3de2cd354cf369f125bbea9c48af67525facec0",
+        "browsers_path_hash": "958ff0e76dd8e2bb8adb215a5754008c2dbc357a5095adc34afecd707f85d273",
+        "searched_count": 0
+    },
+    "baseline_mode": "observe",
+    "screenshot_baseline_mode": "observe",
+    "strict_failure_summary": {
+        "route_failed_count": 1,
+        "dom_baseline_changed_count": 0,
+        "screenshot_failed_count": 0,
+        "screenshot_baseline_changed_count": 0,
+        "screenshot_required_failed_count": 0
+    },
+    "artifact_dir": "atlas-visual-report",
+    "started_command": "'/opt/homebrew/bin/php' artisan serve --host='127.0.0.1' --port='49409'",
+    "duration_ms": 433,
+    "process": {
+        "exit_code": 0,
+        "stdout_excerpt": "\n   INFO  Server running on [http://127.0.0.1:49409].  \n\n  Press Ctrl+C to stop the server\n\n  2026-05-03 23:30:25 / ............................................ ~ 0.03ms\n  2026-05-03 23:30:25 / ............................................ ~ 0.01ms\n",
+        "stderr_excerpt": ""
+    }
+}

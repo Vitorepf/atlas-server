@@ -4,18 +4,18 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasTask;
 use App\Services\Ai\AiContextPackBuilder;
-use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\AtlasAiRuntimeSettings;
-use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliModelCatalogService;
 use App\Services\Ai\Cli\AtlasCliQualityService;
-use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
-use App\Services\Ai\Programming\ProgrammingExecutionRequest;
-use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Ai\Cli\AtlasTerminalNotifier;
 use App\Services\Ai\Cli\AtlasTerminalTheme;
 use App\Services\Ai\Cli\DevProgressReporter;
+use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
+use App\Services\Ai\Programming\ProgrammingExecutionRequest;
+use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Engineering\EngineeringBlueprintService;
 use App\Services\Engineering\EngineeringBlueprintSnapshotService;
 use App\Services\Engineering\EngineeringRunArtifactService;
@@ -32,6 +32,7 @@ class AtlasCliDevCommand extends Command
         {task?* : Development task}
         {--task-id= : Load an Atlas task and attach its engineering contract}
         {--workspace= : Workspace path. Defaults to current directory}
+        {--ai= : Session AI/provider alias: claude, codex, gemini or conselho}
         {--provider= : Force claude_cli, codex_cli or claude_codex}
         {--model= : Force model alias/id for the selected provider, for example sonnet, opus, spark, codex-premium, claude-opus-4-7 or gpt-5.5}
         {--claude-only : Fair Claude benchmark mode: force claude_cli + Claude Opus and disable fallback/decide/council}
@@ -147,6 +148,7 @@ class AtlasCliDevCommand extends Command
         }
         $modelOverride = is_string($modelSelection['model'] ?? null) ? trim((string) $modelSelection['model']) : null;
         $modelOverride = $modelOverride !== '' ? $modelOverride : null;
+        $aiPolicyOverride = $this->aiPolicyOverride($provider, $modelSelection, $modelOverride, fairMode: $fairMode);
         $preflight = $workflow->preflight(
             $workspace,
             $task,
@@ -182,6 +184,7 @@ class AtlasCliDevCommand extends Command
             'complete' => $complete,
             'auto_test' => (bool) $this->option('auto-test') || $programmingProfile === 'forge',
             'max_iterations' => $maxIterations,
+            'ai_policy_override' => $aiPolicyOverride,
         ]);
         $devPlan['orchestrator'] = 'AtlasProgrammingOrchestrator';
         $devPlan['programming_profile'] = $programmingProfile;
@@ -224,6 +227,10 @@ class AtlasCliDevCommand extends Command
             'image_count' => count((array) $this->option('image')) + ((bool) $this->option('clipboard-image') ? 1 : 0),
             'auto_image' => ! (bool) $this->option('no-auto-image'),
         ];
+        if ($aiPolicyOverride !== []) {
+            $devPlan['operator_options']['ai_policy_override'] = $aiPolicyOverride;
+            $devPlan['ai_policy_override'] = $aiPolicyOverride;
+        }
         if ($programmingProfile === 'forge') {
             $devPlan['operator_options']['harness_overrides'] = array_filter([
                 'sandbox' => $this->stringOption('sandbox'),
@@ -325,6 +332,10 @@ class AtlasCliDevCommand extends Command
                 'harness_policy' => $this->stringOption('harness-policy'),
                 'apply_isolated_patch' => ! (bool) $this->option('no-apply-isolated-patch'),
                 'contract' => is_array($engineeringContract) ? $engineeringContract : [],
+                'policy_contracts' => data_get($devPlan, 'programming_session_plan.policy_contracts')
+                    ?: data_get($devPlan, 'programming_session_plan.policy_profile.policy_contracts')
+                    ?: data_get($devPlan, 'programming_session_plan.policy_profile.effective_policy.operational_contracts')
+                    ?: [],
             ]))->toArray();
 
             if ($json) {
@@ -568,6 +579,15 @@ class AtlasCliDevCommand extends Command
             $qualityOk = $qualityOk && (string) ($fairProtocol['status'] ?? 'unverified') === 'valid';
         }
         $ok = $providerOk && $qualityOk;
+        $fairFinalPacket = $fairProtocol !== null
+            ? $workflow->fairClaudeFinalPacket((array) $completion, $fairProtocol, $devPlan, $runs, $ok)
+            : null;
+        if ($fairFinalPacket !== null) {
+            $devPlan['final_packet'] = $fairFinalPacket;
+            if (is_string($lastTraceId) && $lastTraceId !== '') {
+                $workflow->persistPlan($lastTraceId, $devPlan);
+            }
+        }
 
         if ($json) {
             $this->line(json_encode(AtlasSecurity::redactArray([
@@ -579,6 +599,7 @@ class AtlasCliDevCommand extends Command
                 'provider_runs' => $runs,
                 'completion' => $completion,
                 'fair_mode_result' => $fairProtocol,
+                'final_packet' => $fairFinalPacket,
                 'engineering_artifact' => $engineeringArtifact,
             ]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         } elseif ($progress) {
@@ -1262,9 +1283,60 @@ class AtlasCliDevCommand extends Command
 
     private function provider(): ?string
     {
-        $provider = $this->option('provider');
+        $provider = $this->option('provider') ?: $this->option('ai');
+        if (is_string($provider) && trim($provider) !== '') {
+            $provider = Str::of($provider)->lower()->trim()->replace(['_', ' '], '-')->toString();
+
+            return match ($provider) {
+                'claude', 'claude-cli' => 'claude_cli',
+                'codex', 'codex-cli' => 'codex_cli',
+                'gemini', 'gemini-cli' => 'gemini_cli',
+                'conselho', 'council', 'ambos', 'claude-codex' => 'claude_codex',
+                default => str_replace('-', '_', $provider),
+            };
+        }
 
         return is_string($provider) && $provider !== '' ? $provider : null;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $modelSelection
+     * @return array<string,mixed>
+     */
+    private function aiPolicyOverride(?string $provider, ?array $modelSelection = null, ?string $modelOverride = null, bool $fairMode = false): array
+    {
+        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true)) {
+            return [];
+        }
+
+        if ($fairMode) {
+            return app(FairClaudePolicy::class)->runtimeOverride($modelSelection, $modelOverride);
+        }
+
+        $override = [
+            'default_provider' => $provider,
+            'enabled_providers' => ['claude_cli', 'codex_cli', 'gemini_cli'],
+            'disabled_providers' => [],
+            'fallback_order' => array_values(array_unique([$provider, 'claude_cli', 'codex_cli', 'gemini_cli'])),
+            'allow_council' => false,
+            'allow_multistage_graph' => false,
+        ];
+
+        $model = $modelOverride ?: (is_string($modelSelection['model'] ?? null) ? (string) $modelSelection['model'] : null);
+        if (is_string($model) && trim($model) !== '') {
+            $model = trim($model);
+            $override['providers'][$provider] = array_filter([
+                'model' => $model,
+                'model_label' => is_string($modelSelection['label'] ?? null) ? (string) $modelSelection['label'] : null,
+                'model_tier' => is_string($modelSelection['tier'] ?? null) ? (string) $modelSelection['tier'] : null,
+                'model_identity' => $model,
+                'allow_auto' => true,
+                'allow_manual' => true,
+            ], fn (mixed $value): bool => $value !== null);
+            $override['allowed_models'][$provider] = [$model];
+        }
+
+        return $override;
     }
 
     /**

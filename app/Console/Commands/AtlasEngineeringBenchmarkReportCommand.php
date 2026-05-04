@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
 class AtlasEngineeringBenchmarkReportCommand extends Command
 {
@@ -24,10 +25,12 @@ class AtlasEngineeringBenchmarkReportCommand extends Command
             return self::FAILURE;
         }
 
-        $suite = AtlasEngineeringBenchmarkSuite::query()
-            ->where('id', $suiteRef)
-            ->orWhere('slug', $suiteRef)
-            ->first();
+        $suiteQuery = AtlasEngineeringBenchmarkSuite::query()
+            ->where('slug', $suiteRef);
+        if (Str::isUuid($suiteRef)) {
+            $suiteQuery->orWhere('id', $suiteRef);
+        }
+        $suite = $suiteQuery->first();
         if (! $suite) {
             $this->error("Benchmark suite nao encontrada: {$suiteRef}");
 
@@ -61,6 +64,7 @@ class AtlasEngineeringBenchmarkReportCommand extends Command
         $allPaired = (array) ($payload['all_paired_scorecard'] ?? []);
         $baseline = (array) ($payload['claude_code_baseline'] ?? []);
         $replay = (array) ($payload['replay_manifest'] ?? []);
+        $corpus = (array) ($payload['corpus_manifest'] ?? []);
 
         $this->newLine();
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Fair Claude Benchmark Report</>', (string) ($readiness['status'] ?? 'unknown'));
@@ -69,6 +73,8 @@ class AtlasEngineeringBenchmarkReportCommand extends Command
         $this->components->twoColumnDetail('Official fair runs', (string) ($scope['fair_run_count'] ?? 0));
         $this->components->twoColumnDetail('Official fair results', (string) ($scope['fair_result_count'] ?? 0));
         $this->components->twoColumnDetail('Non-fair paired results', (string) ($scope['non_fair_paired_result_count'] ?? 0));
+        $this->components->twoColumnDetail('Active corpus cases', (string) ($corpus['active_cases'] ?? $readiness['active_corpus_case_count'] ?? 0));
+        $this->components->twoColumnDetail('Release corpus cases', (string) (data_get($corpus, 'official_subsets.release') ?? $readiness['release_corpus_case_count'] ?? 0));
         $this->components->twoColumnDetail('Official comparable', (string) ($paired['comparable_count'] ?? 0));
         $this->components->twoColumnDetail('All paired comparable', (string) ($allPaired['comparable_count'] ?? 0));
         $this->components->twoColumnDetail('Atlas wins', (string) ($paired['atlas_win_count'] ?? 0));
@@ -76,6 +82,10 @@ class AtlasEngineeringBenchmarkReportCommand extends Command
         $this->components->twoColumnDetail('Ties', (string) ($paired['tie_count'] ?? 0));
         $this->components->twoColumnDetail('Atlas pass_without_human', (string) ($paired['pass_without_human_rate'] ?? $paired['atlas_pass_without_human_rate'] ?? '-').'%');
         $this->components->twoColumnDetail('Claude Code pass_without_human', (string) ($paired['baseline_pass_without_human_rate'] ?? '-').'%');
+        $this->components->twoColumnDetail('Repair conversion', (string) ($paired['repair_conversion_rate'] ?? '-').'%');
+        $this->components->twoColumnDetail('Atlas time to green', (string) (data_get($paired, 'time_to_green.atlas_avg_ms') ?? '-').' ms');
+        $this->components->twoColumnDetail('Claude Code time to green', (string) (data_get($paired, 'time_to_green.claude_code_baseline_avg_ms') ?? '-').' ms');
+        $this->components->twoColumnDetail('Cost per green', (string) (data_get($paired, 'cost_per_green_case.usd') ?? '-').' USD');
         $this->components->twoColumnDetail('Autonomous success lift', (string) ($paired['autonomous_success_lift'] ?? '-').' pp');
         $this->components->twoColumnDetail('Provider violations', (string) ($paired['provider_violation_count'] ?? 0));
         $this->components->twoColumnDetail('Fallback violations', (string) ($paired['fallback_violation_count'] ?? 0));

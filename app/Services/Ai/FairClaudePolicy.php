@@ -17,7 +17,8 @@ class FairClaudePolicy
      */
     public function isEnabled(array $flags): bool
     {
-        return (bool) ($flags['claude_only'] ?? false)
+        return (bool) ($flags['fair_mode'] ?? false)
+            || (bool) ($flags['claude_only'] ?? false)
             || (bool) ($flags['single_provider'] ?? false)
             || (bool) ($flags['no_decide'] ?? false)
             || (bool) ($flags['fallback_disabled'] ?? false);
@@ -116,6 +117,53 @@ class FairClaudePolicy
     }
 
     /**
+     * @param  array<string,mixed>|null  $modelSelection
+     * @return array<string,mixed>
+     */
+    public function runtimeOverride(?array $modelSelection = null, ?string $modelOverride = null): array
+    {
+        $model = $modelOverride ?: (is_string($modelSelection['model'] ?? null) ? (string) $modelSelection['model'] : null);
+        $model = is_string($model) && trim($model) !== '' ? trim($model) : null;
+
+        $override = [
+            'default_provider' => self::PROVIDER_LOCK,
+            'enabled_providers' => [self::PROVIDER_LOCK],
+            'disabled_providers' => ['codex_cli', 'gemini_cli'],
+            'fallback_order' => [self::PROVIDER_LOCK],
+            'allow_council' => false,
+            'allow_multistage_graph' => false,
+            'providers' => [
+                'codex_cli' => [
+                    'allow_auto' => false,
+                    'allow_manual' => false,
+                ],
+                'gemini_cli' => [
+                    'allow_auto' => false,
+                    'allow_manual' => false,
+                ],
+            ],
+            'allowed_models' => [
+                'codex_cli' => [],
+                'gemini_cli' => [],
+            ],
+        ];
+
+        if ($model !== null) {
+            $override['providers'][self::PROVIDER_LOCK] = array_filter([
+                'model' => $model,
+                'model_label' => is_string($modelSelection['label'] ?? null) ? (string) $modelSelection['label'] : null,
+                'model_tier' => is_string($modelSelection['tier'] ?? null) ? (string) $modelSelection['tier'] : null,
+                'model_identity' => $model,
+                'allow_auto' => true,
+                'allow_manual' => true,
+            ], fn (mixed $value): bool => $value !== null);
+            $override['allowed_models'][self::PROVIDER_LOCK] = [$model];
+        }
+
+        return $override;
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      */
     public function isFairPayload(array $payload): bool
@@ -165,7 +213,17 @@ class FairClaudePolicy
             );
         }
 
-        if ($expectedModel !== null && $model !== null && $model !== $expectedModel) {
+        if ($model === null || trim($model) === '') {
+            return $this->violation(
+                message: 'Fair Claude mode requires the locked Claude Opus model at invocation time.',
+                details: [
+                    'model' => $model,
+                    'expected_model' => $expectedModel,
+                ],
+            );
+        }
+
+        if ($model !== $expectedModel) {
             return $this->violation(
                 message: 'Fair Claude mode requires the locked Claude Opus model.',
                 details: [

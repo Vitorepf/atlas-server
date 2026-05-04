@@ -25,7 +25,7 @@ class AtlasVaultExportSemanticRequest extends FormRequest
         $dryRun = (bool) $this->boolean('dry_run', false);
         $write = (bool) $this->boolean('write', false);
         if ($dryRun === $write) {
-            abort(422, 'Use exactly one of dry_run or write.');
+            throw new \RuntimeException('Use exactly one of dry_run or write.');
         }
 
         return $write;

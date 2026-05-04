@@ -4,6 +4,7 @@ namespace App\Services\Ai\Cli;
 
 use App\Models\AiTrace;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\FairClaudePolicy;
 use App\Support\AtlasPhpBinary;
 use Illuminate\Support\Str;
 
@@ -206,6 +207,90 @@ class AtlasCliDevWorkflowService
             'unverified_counts_as_passed' => false,
             'blocking_reasons' => array_values(array_unique($blockingReasons)),
             'evaluated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $completion
+     * @param  array<string,mixed>  $fairProtocol
+     * @param  array<string,mixed>  $devPlan
+     * @param  array<int,array<string,mixed>>  $runs
+     * @return array<string,mixed>
+     */
+    public function fairClaudeFinalPacket(
+        array $completion,
+        array $fairProtocol,
+        array $devPlan,
+        array $runs,
+        bool $ok,
+    ): array {
+        $qualityStatus = (string) ($fairProtocol['quality_status'] ?? $completion['status'] ?? data_get($completion, 'completion_packet.status', 'unknown'));
+        $protocolStatus = (string) ($fairProtocol['status'] ?? 'unverified');
+        $status = match (true) {
+            ! $ok || $protocolStatus === 'failed' => 'failed',
+            $protocolStatus === 'valid' => 'passed',
+            default => 'unverified',
+        };
+        $tests = (array) data_get($completion, 'completion_packet.tests', []);
+        $failedTests = collect($tests)
+            ->filter(fn (mixed $test): bool => is_array($test) && array_key_exists('ok', $test) && ! (bool) $test['ok'])
+            ->values()
+            ->all();
+        $qualityGates = (array) data_get($completion, 'quality_gates', data_get($completion, 'completion_packet.quality_gates', []));
+        $providerRuns = collect($runs);
+        $traceIds = $providerRuns
+            ->pluck('trace_id')
+            ->filter(fn (mixed $traceId): bool => is_string($traceId) && trim($traceId) !== '')
+            ->values()
+            ->all();
+
+        return [
+            'schema_version' => 1,
+            'kind' => 'atlas_cli_dev_fair_claude_final_packet',
+            'status' => $status,
+            'ok' => $ok,
+            'fair_mode' => true,
+            'provider_lock' => FairClaudePolicy::PROVIDER_LOCK,
+            'model_lock' => FairClaudePolicy::MODEL_LOCK,
+            'selected_model' => data_get($devPlan, 'selected_model.model'),
+            'quality_status' => $qualityStatus,
+            'protocol_status' => $protocolStatus,
+            'protocol_valid' => $protocolStatus === 'valid',
+            'pass_without_human' => (bool) ($fairProtocol['pass_without_human'] ?? false),
+            'human_intervention_count' => (int) ($fairProtocol['human_intervention_count'] ?? 0),
+            'deterministic_gates_passed' => (bool) ($fairProtocol['deterministic_gates_passed'] ?? false),
+            'unverified_counts_as_passed' => false,
+            'attempts' => $providerRuns->count(),
+            'max_attempts' => (int) data_get($devPlan, 'iterations.max', 1),
+            'files_changed_count' => count((array) data_get($completion, 'completion_packet.files_changed', $completion['changed_files'] ?? [])),
+            'diff_hash' => $completion['diff_hash'] ?? null,
+            'tests' => [
+                'test_count' => count($tests),
+                'failed_test_count' => count($failedTests),
+                'failed_tests' => $failedTests,
+            ],
+            'gates' => [
+                'quality_gates' => $qualityGates,
+                'blocking_reasons' => array_values((array) ($fairProtocol['blocking_reasons'] ?? [])),
+            ],
+            'repair' => [
+                'repair_attempt_count' => max(0, $providerRuns->count() - 1),
+                'repair_used' => $providerRuns->count() > 1,
+                'converted_to_green' => $providerRuns->count() > 1 && $status === 'passed',
+            ],
+            'provider_runs' => $providerRuns
+                ->map(fn (array $run): array => [
+                    'iteration' => $run['iteration'] ?? null,
+                    'exit_code' => $run['exit_code'] ?? null,
+                    'trace_id' => $run['trace_id'] ?? null,
+                    'model' => $run['model'] ?? null,
+                    'model_label' => $run['model_label'] ?? null,
+                ])
+                ->values()
+                ->all(),
+            'trace_id' => $traceIds[0] ?? null,
+            'trace_ids' => $traceIds,
+            'generated_at' => now()->toJSON(),
         ];
     }
 

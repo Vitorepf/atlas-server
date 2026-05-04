@@ -59,7 +59,7 @@ _atlas_complete() {
       return 0
       ;;
     benchmark|bench)
-      COMPREPLY=( $(compgen -W "seed init calibrate calibration cal report claude-fair fair-claude prepare run run-atlas run-claude-code replay replay-manifest manifest cleanup docker-cleanup --suite= --workspace= --limit= --case= --tag= --tier= --domain= --risk= --curation-status= --provider= --model= --model-policy= --claude-only --single-provider --no-decide --fallback-disabled --allow-unverified-fair-pass --claude-code-baseline= --claude-code-baseline-model= --claude-code-baseline-binary= --claude-code-baseline-workspace= --claude-code-baseline-timeout= --claude-code-baseline-validation-timeout= --sandbox= --docker-service= --docker-image= --docker-workdir= --docker-cache= --docker-network= --docker-healthcheck-service= --docker-healthcheck-timeout= --docker-artifact-path= --docker-artifact-max-files= --docker-artifact-max-bytes= --provider-runtime= --provider-docker-compose-file= --provider-docker-service= --provider-docker-app-dir= --provider-docker-workspace-dir= --gate-profile= --from-run= --from-recent-runs= --min-source-score= --expected-decision= --min-score= --cache-retention-days= --artifact-retention-days= --apply --refresh-manifest --no-provider --auto-test --no-auto-test --visual-e2e= --harness-policy= --test-command= --json" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "seed init calibrate calibration cal report claude-fair fair-claude prepare run run-atlas run-claude-code readiness ready runbook doctor battery preflight replay replay-manifest manifest cleanup docker-cleanup --suite= --workspace= --limit= --case= --tag= --tier= --domain= --risk= --curation-status= --provider= --model= --model-policy= --claude-only --single-provider --no-decide --fallback-disabled --allow-unverified-fair-pass --claude-code-baseline= --claude-code-baseline-model= --claude-code-baseline-binary= --claude-code-baseline-workspace= --claude-code-baseline-timeout= --claude-code-baseline-validation-timeout= --sandbox= --docker-service= --docker-image= --docker-workdir= --docker-cache= --docker-network= --docker-healthcheck-service= --docker-healthcheck-timeout= --docker-artifact-path= --docker-artifact-max-files= --docker-artifact-max-bytes= --provider-runtime= --provider-docker-compose-file= --provider-docker-service= --provider-docker-app-dir= --provider-docker-workspace-dir= --gate-profile= --run-id= --from-run= --from-recent-runs= --fair-claude-corpus --min-source-score= --expected-decision= --min-score= --cache-retention-days= --artifact-retention-days= --apply --refresh-manifest --no-provider --auto-test --no-auto-test --visual-e2e= --harness-policy= --test-command= --json" -- "${cur}") )
       return 0
       ;;
     state)
@@ -228,13 +228,13 @@ _atlas_complete() {
   esac
 
   if [[ "$cur" == --* ]]; then
-    local opts="--workspace --provider --mode --permission --skill --json --stream --no-stream --new-thread --thread \
+    local opts="--workspace --ai --provider --mode --permission --skill --json --stream --no-stream --new-thread --thread \
       --allow-write --dangerously-allow-all --allow-unsandboxed --operator \
       --compact --no-intent --no-progress --no-notify --plan-only --complete \
       --claude-only --single-provider --no-decide --fallback-disabled --allow-unverified-fair-pass \
       --claude-code-baseline --claude-code-baseline-model --claude-code-baseline-workspace --claude-code-baseline-timeout --claude-code-baseline-validation-timeout \
       --max-iterations --resume --auto-test --critical --timeout \
-      --suite --case --tag --limit --tier --domain --risk --curation-status --provider --model --gate-profile --profile --attempt --test-command --visual-e2e --quality-scan --quality-profile --quality-changed-only --harness-policy --screenshot-driver --runtime-dir --package --skip-browser-install --force --changed-only --no-provider --dry-run --sandbox --max-attempts --no-apply-isolated-patch --refresh-manifest --spec --strict --run-context-type --run-context-id \
+      --suite --case --tag --limit --tier --domain --risk --curation-status --ai --provider --model --gate-profile --profile --attempt --test-command --visual-e2e --quality-scan --quality-profile --quality-changed-only --harness-policy --screenshot-driver --runtime-dir --package --skip-browser-install --force --changed-only --no-provider --dry-run --sandbox --max-attempts --no-apply-isolated-patch --refresh-manifest --spec --strict --run-context-type --run-context-id \
       --provider-projection --provider-projection-target --provider-projection-max-lines --provider-projection-memory-limit --provider-projection-force --provider-projection-yes"
     COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
     return 0

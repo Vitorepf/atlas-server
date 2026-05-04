@@ -12,7 +12,7 @@ use App\Services\Ai\AiProviderChoiceResolver;
 use App\Services\Ai\AiSessionStateService;
 use App\Services\Ai\AiWorker;
 use App\Services\Ai\AtlasAiRuntimeSettings;
-use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliPanel;
 use App\Services\Ai\Cli\AtlasCliQualityService;
 use App\Services\Ai\Cli\AtlasCliSessionService;
@@ -22,6 +22,7 @@ use App\Services\Ai\Cli\AtlasReplHistory;
 use App\Services\Ai\Cli\AtlasTerminalTheme;
 use App\Services\Ai\Cli\IntentPermissionResolver;
 use App\Services\Ai\Cli\IntentResolution;
+use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;
 use App\Services\Ai\Skills\SkillBundleStore;
@@ -43,6 +44,7 @@ class AiChatCommand extends Command
 
     protected $signature = 'atlas:ai:chat
         {input? : One-shot input. Omit it to open the interactive Atlas CLI loop}
+        {--ai= : Session AI/provider alias: claude, codex, gemini or conselho}
         {--provider= : claude, codex, gemini, conselho, claude_cli, codex_cli, gemini_cli or claude_codex}
         {--model= : Model alias/id for this run, for example sonnet, opus, spark, codex-premium, claude-opus-4-7 or gpt-5.5}
         {--claude-only : Fair Claude benchmark mode: force claude_cli + Claude Opus and disable fallback/decide/council}
@@ -122,7 +124,7 @@ class AiChatCommand extends Command
         $devPlan = $this->devExecutionPlanOption();
         $fairFlags = $fairClaude->normalizeFlags($this->fairClaudeFlags($devPlan));
         $fairMode = (bool) ($fairFlags['fair_mode'] ?? false);
-        $explicitProvider = $this->providerKey($this->option('conselho') ? 'conselho' : ($this->option('provider') ?: null));
+        $explicitProvider = $this->providerKey($this->option('conselho') ? 'conselho' : ($this->option('provider') ?: $this->option('ai') ?: null));
         $provider = $explicitProvider;
         if ($fairMode && $provider === null) {
             $provider = FairClaudePolicy::PROVIDER_LOCK;
@@ -614,6 +616,7 @@ class AiChatCommand extends Command
         $inputForPrompt = $imageAttachments === [] ? $input : $this->inputWithImageSummary($input, $imageAttachments);
         $agentSlug = $this->agentSlug($mode);
         $modelOverride = $this->modelOverrideFromSelection($modelSelection);
+        $aiPolicyOverride = $this->aiPolicyOverride($provider, $modelSelection, $modelOverride, fairMode: $fairModeMetadata !== null);
         if ($fairModeMetadata !== null) {
             $inputForPrompt = $this->fairClaudePromptContract($inputForPrompt);
         }
@@ -660,6 +663,9 @@ class AiChatCommand extends Command
             'tool_permissions' => $this->toolPermissions($workspace, $mode, $provider, $permissionMode),
             'open_brain' => $this->openBrainPayload($mode, $devPlan),
         ];
+        if ($aiPolicyOverride !== []) {
+            $payload['ai_policy_override'] = $aiPolicyOverride;
+        }
         if ($activatedSkills !== []) {
             $payload['activated_skills'] = $activatedSkills;
         }
@@ -672,7 +678,7 @@ class AiChatCommand extends Command
         if ($devPlan !== null) {
             $payload['dev_execution_plan'] = $devPlan;
         }
-        $programmingMessagePlan = $this->programmingMessagePlan($workspace, $mode, $input, $provider, $modelOverride, $devPlan);
+        $programmingMessagePlan = $this->programmingMessagePlan($workspace, $mode, $input, $provider, $modelOverride, $devPlan, $aiPolicyOverride);
         if ($programmingMessagePlan !== null) {
             $payload['programming_profile'] = (string) ($programmingMessagePlan['programming_profile'] ?? $this->programmingProfileFromDevPlan($devPlan));
             $payload['programming_session_plan'] = $devPlan;
@@ -2801,6 +2807,10 @@ class AiChatCommand extends Command
             'quality_scan' => is_string($overrides['quality_scan'] ?? null) ? $overrides['quality_scan'] : null,
             'harness_policy' => is_string($overrides['harness_policy'] ?? null) ? $overrides['harness_policy'] : null,
             'apply_isolated_patch' => (bool) ($overrides['apply_isolated_patch'] ?? true),
+            'policy_contracts' => data_get($programmingMessagePlan, 'policy_contracts')
+                ?: data_get($programmingMessagePlan, 'policy_profile.policy_contracts')
+                ?: data_get($programmingMessagePlan, 'policy_profile.effective_policy.operational_contracts')
+                ?: [],
         ];
     }
 
@@ -2871,7 +2881,7 @@ class AiChatCommand extends Command
 
     private function fairClaudePromptContract(string $prompt): string
     {
-        return app(\App\Services\Ai\Cli\AtlasCliDevWorkflowService::class)
+        return app(AtlasCliDevWorkflowService::class)
             ->fairClaudePromptContract($prompt);
     }
 
@@ -2907,6 +2917,46 @@ class AiChatCommand extends Command
             'claude_codex' => 'Conselho',
             default => 'padrao',
         };
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $modelSelection
+     * @return array<string,mixed>
+     */
+    private function aiPolicyOverride(?string $provider, ?array $modelSelection = null, ?string $modelOverride = null, bool $fairMode = false): array
+    {
+        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true)) {
+            return [];
+        }
+
+        if ($fairMode) {
+            return app(FairClaudePolicy::class)->runtimeOverride($modelSelection, $modelOverride);
+        }
+
+        $override = [
+            'default_provider' => $provider,
+            'enabled_providers' => ['claude_cli', 'codex_cli', 'gemini_cli'],
+            'disabled_providers' => [],
+            'fallback_order' => array_values(array_unique([$provider, 'claude_cli', 'codex_cli', 'gemini_cli'])),
+            'allow_council' => false,
+            'allow_multistage_graph' => false,
+        ];
+
+        $model = $modelOverride ?: (is_string($modelSelection['model'] ?? null) ? (string) $modelSelection['model'] : null);
+        if (is_string($model) && trim($model) !== '') {
+            $model = trim($model);
+            $override['providers'][$provider] = array_filter([
+                'model' => $model,
+                'model_label' => is_string($modelSelection['label'] ?? null) ? (string) $modelSelection['label'] : null,
+                'model_tier' => is_string($modelSelection['tier'] ?? null) ? (string) $modelSelection['tier'] : null,
+                'model_identity' => $model,
+                'allow_auto' => true,
+                'allow_manual' => true,
+            ], fn (mixed $value): bool => $value !== null);
+            $override['allowed_models'][$provider] = [$model];
+        }
+
+        return $override;
     }
 
     private function inferProviderFromModel(string $model): ?string
@@ -3013,6 +3063,7 @@ class AiChatCommand extends Command
         ?string $provider,
         ?string $model,
         ?array $devPlan,
+        array $aiPolicyOverride = [],
     ): ?array {
         if ($mode !== 'dev' || $devPlan === null) {
             return null;
@@ -3031,6 +3082,7 @@ class AiChatCommand extends Command
                 'auto_test' => (bool) ($executionProfile['auto_test'] ?? ($profile === 'forge')),
                 'max_iterations' => (int) ($executionProfile['max_iterations'] ?? ($profile === 'forge' ? 5 : 3)),
                 'parent_plan_id' => is_string($devPlan['plan_id'] ?? null) ? $devPlan['plan_id'] : null,
+                'ai_policy_override' => $aiPolicyOverride,
             ]);
         } catch (\Throwable $exception) {
             return [

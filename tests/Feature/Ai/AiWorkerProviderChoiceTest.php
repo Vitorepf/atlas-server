@@ -296,6 +296,131 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertSame($fingerprint, data_get($trace->refresh()->metadata, 'claude_invocation_fingerprint'));
     }
 
+    public function test_programming_provider_execution_blocks_strict_gate_without_evidence_path(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'implemente com gate strict',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'implemente com gate strict',
+            'prompt' => 'prompt',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 3,
+            'payload' => [
+                'programming_dispatch' => [
+                    'status' => 'selected',
+                    'dispatch_path' => 'ai_gateway_provider',
+                    'executor' => 'simple_provider_execution',
+                    'policy_contracts' => [
+                        'gates' => [
+                            'minimum_gate' => 'strict',
+                            'evidence_required' => true,
+                        ],
+                        'tools' => [
+                            'mode' => 'workspace_write',
+                            'workspace_write' => true,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->mockProviderManagerWith(new AiProviderResult(
+            ok: true,
+            output: 'provider should not run',
+            command: ['codex'],
+            exitCode: 0,
+            durationMs: 100,
+            stdout: 'provider should not run',
+            stderr: '',
+        ));
+
+        app(AiWorker::class)->runNext();
+
+        $job->refresh();
+        $trace->refresh();
+        $attempt = $job->attemptHistory()->first();
+
+        $this->assertSame('failed', $job->status);
+        $this->assertSame('policy_violation', $job->error_code);
+        $this->assertSame('failed', $trace->status);
+        $this->assertSame('blocked', data_get($job->metadata, 'programming_completion.status'));
+        $this->assertSame('policy_violation', data_get($job->metadata, 'programming_completion.error_code'));
+        $this->assertSame('gate_contract_requires_evidence_without_provider_evidence_path', data_get($job->metadata, 'policy_contract_enforcement.blocked_reason'));
+        $this->assertSame('policy_violation', $attempt?->error_code);
+        $this->assertSame('gate_contract_requires_evidence_without_provider_evidence_path', data_get($attempt?->metadata, 'policy_contract_enforcement.blocked_reason'));
+    }
+
+    public function test_programming_provider_execution_forces_read_permission_for_read_only_tool_contract(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'analise sem escrever',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'analise sem escrever',
+            'prompt' => 'prompt',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'payload' => [
+                'tool_permissions' => [
+                    'mode' => 'write',
+                    'workspace' => base_path(),
+                ],
+                'programming_dispatch' => [
+                    'status' => 'selected',
+                    'dispatch_path' => 'ai_gateway_provider',
+                    'executor' => 'simple_provider_execution',
+                    'policy_contracts' => [
+                        'tools' => [
+                            'mode' => 'read_only',
+                            'workspace_write' => false,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->mockProviderManagerWith(new AiProviderResult(
+            ok: true,
+            output: 'ok',
+            command: ['codex'],
+            exitCode: 0,
+            durationMs: 100,
+            stdout: 'ok',
+            stderr: '',
+        ));
+
+        app(AiWorker::class)->runNext();
+
+        $job->refresh();
+
+        $this->assertSame('succeeded', $job->status);
+        $this->assertSame('read', data_get($job->payload, 'tool_permissions.mode'));
+        $this->assertTrue((bool) data_get($job->payload, 'tool_permissions.policy_contract_forced_read_only'));
+        $this->assertSame('tool_contract_forces_read_only_provider_runtime', data_get($job->metadata, 'programming_policy_contract_enforcement.provider_runtime.reason'));
+        $this->assertSame('read', data_get($job->metadata, 'programming_policy_contract_enforcement.provider_runtime.effective_tool_permission_mode'));
+    }
+
     private function mockProviderManagerWith(AiProviderResult $result): void
     {
         $provider = new class($result) implements AiProvider

@@ -49,6 +49,7 @@ class AiPromptBuilder
         $route['agent'] = $agent;
         $intent = (string) $route['intent'];
         $taskRequest = AiTaskRequest::fromInput($input, $options, $route);
+        $options = $this->optionsWithPolicyRequiredOpenBrain($options);
         $contextPack = $this->contexts->build($input, $taskRequest, $options);
         $openBrain = $this->openBrainInjection ?? app(AtlasOpenBrainContextInjectionService::class);
         $openBrainInjection = $openBrain->inject($input, $taskRequest, $contextPack, $options);
@@ -207,12 +208,57 @@ TXT,
      */
     private function requestedBundleSkills(array $payload): array
     {
-        return collect((array) data_get($payload, 'activated_skills', []))
+        return collect([
+            ...((array) data_get($payload, 'activated_skills', [])),
+            ...((array) data_get($payload, 'programming_policy_contracts.skills.required_bundles', [])),
+            ...((array) data_get($payload, 'programming_message_plan.policy_contracts.skills.required_bundles', [])),
+            ...((array) data_get($payload, 'programming_message_plan.policy_profile.policy_contracts.skills.required_bundles', [])),
+            ...((array) data_get($payload, 'programming_message_plan.policy_profile.effective_policy.operational_contracts.skills.required_bundles', [])),
+            ...((array) data_get($payload, 'programming_dispatch.policy_contracts.skills.required_bundles', [])),
+        ])
             ->filter(fn (mixed $name): bool => is_string($name) && trim($name) !== '')
             ->map(fn (mixed $name): string => Str::of((string) $name)->lower()->trim()->value())
             ->unique()
             ->values()
             ->all();
+    }
+
+    private function optionsWithPolicyRequiredOpenBrain(array $options): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $mode = data_get($options, 'open_brain.mode', data_get($payload, 'open_brain.mode'));
+        if (is_string($mode) && trim($mode) !== '') {
+            return $options;
+        }
+
+        $contracts = $this->programmingPolicyContracts($payload);
+        $includeMemory = (bool) data_get($contracts, 'context.include_memory', data_get($contracts, 'memory.scope') !== null);
+        if (! $includeMemory) {
+            return $options;
+        }
+
+        $options['open_brain'] = array_merge((array) ($options['open_brain'] ?? []), [
+            'mode' => 'auto',
+        ]);
+
+        return $options;
+    }
+
+    private function programmingPolicyContracts(array $payload): array
+    {
+        $messagePlan = is_array($payload['programming_message_plan'] ?? null)
+            ? $payload['programming_message_plan']
+            : [];
+        $dispatch = is_array($payload['programming_dispatch'] ?? null)
+            ? $payload['programming_dispatch']
+            : [];
+        $contracts = data_get($payload, 'programming_policy_contracts')
+            ?: data_get($messagePlan, 'policy_contracts')
+            ?: data_get($messagePlan, 'policy_profile.policy_contracts')
+            ?: data_get($messagePlan, 'policy_profile.effective_policy.operational_contracts')
+            ?: data_get($dispatch, 'policy_contracts');
+
+        return is_array($contracts) ? $contracts : [];
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
 class AtlasEngineeringBenchmarkCalibrateCommand extends Command
 {
@@ -24,10 +25,12 @@ class AtlasEngineeringBenchmarkCalibrateCommand extends Command
             return self::FAILURE;
         }
 
-        $suite = AtlasEngineeringBenchmarkSuite::query()
-            ->where('id', $suiteRef)
-            ->orWhere('slug', $suiteRef)
-            ->first();
+        $suiteQuery = AtlasEngineeringBenchmarkSuite::query()
+            ->where('slug', $suiteRef);
+        if (Str::isUuid($suiteRef)) {
+            $suiteQuery->orWhere('id', $suiteRef);
+        }
+        $suite = $suiteQuery->first();
         if (! $suite) {
             $this->error("Benchmark suite nao encontrada: {$suiteRef}");
 

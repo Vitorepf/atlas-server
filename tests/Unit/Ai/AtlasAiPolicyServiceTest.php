@@ -4,6 +4,7 @@ namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AtlasAiPolicyService;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\FairClaudePolicy;
 use Tests\TestCase;
 
 class AtlasAiPolicyServiceTest extends TestCase
@@ -27,6 +28,19 @@ class AtlasAiPolicyServiceTest extends TestCase
         ]);
 
         $this->assertSame('programming.forge', $profile['profile_id']);
+        $this->assertSame(2, $profile['schema_version']);
+        $this->assertSame('atlas-ai-policy-v2', $profile['policy_version']);
+        $this->assertSame('programming', $profile['domain']);
+        $this->assertSame('programming.forge', $profile['flow']);
+        $this->assertSame('AtlasProgrammingOrchestrator', data_get($profile, 'domain_profile.orchestrator'));
+        $this->assertSame('EngineeringHarness', data_get($profile, 'flow_profile.runtime'));
+        $this->assertSame('atlas-ai-policy-v2', data_get($profile, 'effective_policy.policy_version'));
+        $this->assertSame('legacy_execution_policy', data_get($profile, 'effective_policy.execution_authority'));
+        $this->assertSame('scout_execute_review', data_get($profile, 'effective_policy.operational_contracts.model_graph.graph'));
+        $this->assertSame('context_scout', data_get($profile, 'effective_policy.operational_contracts.model_graph.nodes.0.role'));
+        $this->assertSame('harness', data_get($profile, 'effective_policy.operational_contracts.tools.mode'));
+        $this->assertSame('strict', data_get($profile, 'effective_policy.operational_contracts.gates.minimum_gate'));
+        $this->assertContains('quality_scan', data_get($profile, 'effective_policy.operational_contracts.gates.required_gates'));
         $this->assertSame('high', $profile['autonomy_level']);
         $this->assertSame('best_quality', $profile['default_model_policy']);
         $this->assertContains('open_brain_required', $profile['required_gates']);
@@ -56,6 +70,8 @@ class AtlasAiPolicyServiceTest extends TestCase
         ]);
 
         $this->assertSame('programming.dev', $profile['profile_id']);
+        $this->assertSame('programming', data_get($profile, 'profile_context.domain'));
+        $this->assertSame('programming.dev', data_get($profile, 'profile_context.flow'));
         $this->assertSame('dev_repair_executor', data_get($profile, 'execution_policy.executor_preference'));
         $this->assertSame(4, data_get($profile, 'execution_policy.max_iterations'));
         $this->assertTrue((bool) data_get($profile, 'execution_policy.auto_test'));
@@ -107,5 +123,79 @@ class AtlasAiPolicyServiceTest extends TestCase
         $this->assertSame('claude_cli', data_get($decision, 'provider_selection.selected_provider'));
         $this->assertSame('candidate_auto_disabled', data_get($decision, 'provider_selection.fallback_reason'));
         $this->assertSame('programming.dev', data_get($decision, 'policy_profile_id'));
+    }
+
+    public function test_session_policy_override_locks_provider_model_without_overriding_executor(): void
+    {
+        $profile = app(AtlasAiPolicyService::class)->effectiveProfile([
+            'source_type' => 'manual',
+            'payload' => [
+                'app_surface' => 'atlas_cli',
+                'atlas_workflow_mode' => 'dev',
+                'ai_policy_override' => [
+                    'default_provider' => 'codex_cli',
+                    'providers' => [
+                        'codex_cli' => [
+                            'model' => 'gpt-5.5',
+                            'model_label' => 'GPT-5.5',
+                            'model_tier' => 'premium',
+                            'allow_auto' => true,
+                        ],
+                    ],
+                    'allowed_models' => [
+                        'codex_cli' => ['gpt-5.5'],
+                    ],
+                    'execution_policy' => [
+                        'executor_preference' => 'engineering_harness',
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('codex_cli', $profile['default_provider']);
+        $this->assertSame(['gpt-5.5'], data_get($profile, 'allowed_models.codex_cli'));
+        $this->assertSame('gpt-5.5', data_get($profile, 'providers.codex_cli.model'));
+        $this->assertSame('premium', data_get($profile, 'providers.codex_cli.model_tier'));
+        $this->assertSame('simple_provider_execution', data_get($profile, 'execution_policy.executor_preference'));
+        $this->assertSame('simple_provider_execution', data_get($profile, 'effective_policy.execution_policy.executor_preference'));
+        $this->assertSame('simple_provider_execution', data_get($profile, 'effective_policy.profile_declared_execution_policy.executor_preference'));
+        $this->assertSame('single_executor', data_get($profile, 'effective_policy.operational_contracts.model_graph.graph'));
+        $this->assertSame('workspace_write', data_get($profile, 'effective_policy.operational_contracts.tools.mode'));
+        $this->assertTrue((bool) data_get($profile, 'effective_policy.session_override.present'));
+        $this->assertContains('providers', data_get($profile, 'effective_policy.session_override.applied_keys'));
+        $this->assertContains(
+            'session_execution_policy_ignored_until_effective_policy_v2_execution_authority',
+            data_get($profile, 'effective_policy.merge_warnings')
+        );
+    }
+
+    public function test_fair_claude_override_collapses_forge_model_graph_to_single_claude_executor(): void
+    {
+        $profile = app(AtlasAiPolicyService::class)->effectiveProfile([
+            'source_type' => 'manual',
+            'payload' => [
+                'app_surface' => 'atlas_cli',
+                'atlas_workflow_mode' => 'dev',
+                'dev_execution_plan' => [
+                    'programming_profile' => 'forge',
+                    'fair_mode' => app(FairClaudePolicy::class)->metadata(),
+                ],
+                'ai_policy_override' => app(FairClaudePolicy::class)->runtimeOverride([
+                    'model' => 'claude-opus-test',
+                    'label' => 'Claude Opus Test',
+                    'tier' => 'premium',
+                ]),
+            ],
+        ]);
+
+        $this->assertSame(['claude_cli'], data_get($profile, 'effective_policy.runtime_policy.enabled_providers'));
+        $this->assertSame(['claude_cli'], data_get($profile, 'effective_policy.runtime_policy.fallback_order'));
+        $this->assertSame(['claude-opus-test'], data_get($profile, 'effective_policy.runtime_policy.allowed_models.claude_cli'));
+        $this->assertNull(data_get($profile, 'effective_policy.runtime_policy.allowed_models.codex_cli'));
+        $this->assertFalse(data_get($profile, 'effective_policy.runtime_policy.providers.codex_cli.allow_manual'));
+        $this->assertSame('single_executor', data_get($profile, 'effective_policy.operational_contracts.model_graph.graph'));
+        $this->assertSame('claude_cli', data_get($profile, 'effective_policy.operational_contracts.model_graph.nodes.0.provider'));
+        $this->assertSame(['claude_cli'], data_get($profile, 'effective_policy.operational_contracts.model_graph.nodes.0.fallback_order'));
+        $this->assertCount(1, data_get($profile, 'effective_policy.operational_contracts.model_graph.nodes'));
     }
 }

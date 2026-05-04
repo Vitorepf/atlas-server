@@ -106,6 +106,13 @@ class VaultFileStore
             throw new RuntimeException('Unsafe vault path.');
         }
 
+        if (File::exists($path)) {
+            $realPath = realpath($path);
+            if ($realPath !== false && ! $this->isWithinRoot($realPath, $realRoot)) {
+                throw new RuntimeException('Unsafe vault path.');
+            }
+        }
+
         return $path;
     }
 

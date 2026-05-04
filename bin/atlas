@@ -135,14 +135,14 @@ exec_chat_prompt_with_workspace() {
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --image|--provider|--model|--agent|--thread|--workspace|--mode|--permission|--timeout|--dev-plan|--skill)
+      --image|--ai|--provider|--model|--agent|--thread|--workspace|--mode|--permission|--timeout|--dev-plan|--skill)
         pass_args+=("$1")
         shift || true
         if [ "$#" -gt 0 ]; then
           pass_args+=("$1")
         fi
         ;;
-      --image=*|--provider=*|--model=*|--agent=*|--thread=*|--workspace=*|--mode=*|--permission=*|--timeout=*|--dev-plan=*|--skill=*|--clipboard-image|--no-auto-image|--new-thread|--resume-latest|--allow-write|--dangerously-allow-all|--allow-unsandboxed|--claude-only|--single-provider|--no-decide|--fallback-disabled|--compact|--no-intent|--json|--stream|--no-run)
+      --image=*|--ai=*|--provider=*|--model=*|--agent=*|--thread=*|--workspace=*|--mode=*|--permission=*|--timeout=*|--dev-plan=*|--skill=*|--clipboard-image|--no-auto-image|--new-thread|--resume-latest|--allow-write|--dangerously-allow-all|--allow-unsandboxed|--claude-only|--single-provider|--no-decide|--fallback-disabled|--compact|--no-intent|--json|--stream|--no-run)
         pass_args+=("$1")
         ;;
       *)
@@ -331,6 +331,10 @@ case "$cmd" in
       claude-fair|fair-claude)
         shift || true
         exec_artisan_with_workspace atlas:engineering:benchmark:claude-fair "$@"
+        ;;
+      run)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:benchmark "$@"
         ;;
       replay-manifest|manifest)
         shift || true

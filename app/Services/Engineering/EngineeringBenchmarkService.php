@@ -2,7 +2,6 @@
 
 namespace App\Services\Engineering;
 
-use App\Services\Ai\FairClaudePolicy;
 use App\Models\AiTraceMetricSummary;
 use App\Models\AtlasEngineeringBenchmarkCase;
 use App\Models\AtlasEngineeringBenchmarkResult;
@@ -10,6 +9,7 @@ use App\Models\AtlasEngineeringBenchmarkRun;
 use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasTask;
+use App\Services\Ai\FairClaudePolicy;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
@@ -201,7 +201,12 @@ class EngineeringBenchmarkService
         $tags = $this->normalizedTags($data['tags'] ?? $data['tags_json'] ?? []);
         $corpus = $this->caseCorpusFields($data, $metadata, $tags, $contract);
 
-        return $suite->cases()->create([
+        $case = AtlasEngineeringBenchmarkCase::query()->firstOrNew([
+            'suite_id' => $suite->id,
+            'case_code' => $caseCode,
+        ]);
+        $case->forceFill([
+            'suite_id' => $suite->id,
             'task_id' => $this->nonEmptyString($data['task_id'] ?? null),
             'case_code' => $caseCode,
             'title' => $this->nonEmptyString($data['title'] ?? null) ?: Str::headline(str_replace('_', ' ', $caseCode)),
@@ -226,7 +231,9 @@ class EngineeringBenchmarkService
             'tags_json' => $tags,
             'status' => $this->nonEmptyString($data['status'] ?? null) ?: 'active',
             'metadata' => $metadata,
-        ]);
+        ])->save();
+
+        return $case->refresh();
     }
 
     /**
@@ -510,9 +517,13 @@ class EngineeringBenchmarkService
             $decision = $this->nonEmptyString(data_get($payload, 'run.decision'));
             $score = data_get($payload, 'run.score');
             $score = is_numeric($score) ? (int) $score : null;
+            $durationMs = $this->durationMs($startedAt);
             $fairScorecard = $this->fairScorecard($payload, $runnerOptions);
             $evaluation = $this->evaluate($case, $decision, $score, $fairScorecard);
             $pairedScorecard = $this->pairedScorecard($case, $evaluation, $fairScorecard, $claudeCodeBaseline, $decision, $score);
+            if (is_array($pairedScorecard)) {
+                $pairedScorecard['atlas']['duration_ms'] = $durationMs;
+            }
 
             return AtlasEngineeringBenchmarkResult::query()->create([
                 'benchmark_run_id' => $benchmarkRun->id,
@@ -524,7 +535,7 @@ class EngineeringBenchmarkService
                 'decision' => $decision,
                 'score' => $score,
                 'passed' => $evaluation['passed'],
-                'duration_ms' => $this->durationMs($startedAt),
+                'duration_ms' => $durationMs,
                 'expectation_json' => $expectation,
                 'observed_json' => [
                     'decision' => $decision,
@@ -750,11 +761,12 @@ class EngineeringBenchmarkService
         $fairRuns = $runs
             ->filter(fn (AtlasEngineeringBenchmarkRun $run): bool => $fairRunIds->contains((int) $run->id))
             ->values();
-        $paired = $this->pairedScorecardSummary($fairResults);
-        $allPaired = $this->pairedScorecardSummary($results);
+        $paired = $this->pairedScorecardSummary($fairResults, $this->runsCostMicrousd($fairRuns));
+        $allPaired = $this->pairedScorecardSummary($results, $this->runsCostMicrousd($runs));
         $baseline = $this->claudeCodeBaselineSummary($fairResults);
         $replay = $this->fairClaudeReplayReport($fairRuns);
-        $readiness = $this->fairClaudeReportReadiness($fairRuns, $paired, $baseline, $replay);
+        $corpusManifest = $this->arrayValue(data_get($suite->metadata ?? [], 'corpus_manifest', []));
+        $readiness = $this->fairClaudeReportReadiness($fairRuns, $paired, $baseline, $replay, $corpusManifest);
 
         return [
             'schema_version' => 1,
@@ -778,6 +790,7 @@ class EngineeringBenchmarkService
                 'non_fair_paired_result_count' => max(0, $results->count() - $fairResults->count()),
             ],
             'readiness' => $readiness,
+            'corpus_manifest' => $corpusManifest,
             'paired_scorecard' => $paired,
             'all_paired_scorecard' => $allPaired,
             'claude_code_baseline' => $baseline,
@@ -1308,7 +1321,42 @@ class EngineeringBenchmarkService
         $caseOptions = $this->arrayValue($case->runner_options_json ?? []);
         $runOverrides = $this->runnerOverrides($overrides);
 
-        return $this->withReleaseQualityScanDefaults(array_replace_recursive($suiteOptions, $caseOptions, $runOverrides));
+        return $this->withReleaseQualityScanDefaults(
+            $this->withCaseValidationDefaults(
+                $case,
+                array_replace_recursive($suiteOptions, $caseOptions, $runOverrides),
+                $runOverrides,
+            ),
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $runOverrides
+     * @return array<string,mixed>
+     */
+    private function withCaseValidationDefaults(AtlasEngineeringBenchmarkCase $case, array $options, array $runOverrides): array
+    {
+        if ($this->nonEmptyString($options['test_command'] ?? null) !== null) {
+            return $options;
+        }
+
+        if (array_key_exists('test_command', $runOverrides)) {
+            return $options;
+        }
+
+        $testCommands = (array) data_get($case->task_contract_json ?? [], 'test_commands', []);
+        foreach ($testCommands as $command) {
+            $command = $this->nonEmptyString($command);
+            if ($command !== null) {
+                $options['test_command'] = $command;
+                $options['test_command_source'] = 'case_task_contract';
+
+                return $options;
+            }
+        }
+
+        return $options;
     }
 
     /**
@@ -1363,7 +1411,11 @@ class EngineeringBenchmarkService
     private function withFairClaudeDefaults(array $options): array
     {
         $claudeOnly = (bool) ($options['claude_only'] ?? false);
-        $fairMode = (bool) ($options['fair_mode'] ?? false) || $claudeOnly;
+        $fairMode = (bool) ($options['fair_mode'] ?? false)
+            || $claudeOnly
+            || (bool) ($options['single_provider'] ?? false)
+            || (bool) ($options['no_decide'] ?? false)
+            || (bool) ($options['fallback_disabled'] ?? false);
         if (! $fairMode) {
             return $options;
         }
@@ -1375,9 +1427,14 @@ class EngineeringBenchmarkService
         $options['single_provider'] = true;
         $options['no_decide'] = true;
         $options['fallback_disabled'] = true;
-        if (! array_key_exists('require_pass_without_human', $options)) {
-            $options['require_pass_without_human'] = true;
+        $options['require_pass_without_human'] = true;
+        if ($this->nonEmptyString($options['provider'] ?? null) === null) {
+            $options['provider'] = FairClaudePolicy::PROVIDER_LOCK;
         }
+        if ($this->nonEmptyString($options['model'] ?? null) === null) {
+            $options['model'] = FairClaudePolicy::MODEL_LOCK;
+        }
+        $options['model_policy'] = 'fixed';
 
         return $options;
     }
@@ -1435,11 +1492,14 @@ class EngineeringBenchmarkService
             ?: data_get($payload, 'run.attempts.0.model');
         $required = (bool) ($runnerOptions['require_pass_without_human'] ?? true);
         $providerLocked = $provider === 'claude_cli';
-        $modelLocked = is_string($model) && str_contains(strtolower($model), 'opus');
+        $modelLocked = $this->fairClaudeModelLocked($model);
         $passWithoutHuman = (bool) ($fairResult['pass_without_human'] ?? false);
         $humanInterventionCount = max(0, (int) ($fairResult['human_intervention_count'] ?? 0));
         $deterministicGatesPassed = (bool) ($fairResult['deterministic_gates_passed'] ?? false);
         $protocolValid = (string) ($fairResult['status'] ?? 'unverified') === 'valid';
+        $attemptCount = (int) (data_get($payload, 'run.attempt_count') ?: count((array) data_get($payload, 'run.attempts', [])));
+        $attemptCount = max(0, $attemptCount);
+        $repairAttemptCount = max(0, $attemptCount - 1);
         $blockingReasons = [];
 
         if (! $providerLocked) {
@@ -1472,11 +1532,28 @@ class EngineeringBenchmarkService
             'pass_without_human' => $passWithoutHuman,
             'provider_violation_count' => $providerLocked ? 0 : 1,
             'fallback_violation_count' => 0,
+            'attempt_count' => $attemptCount,
+            'repair_attempt_count' => $repairAttemptCount,
+            'repair_used' => $repairAttemptCount > 0,
+            'converted_to_green' => $repairAttemptCount > 0 && $protocolValid && $deterministicGatesPassed && $passWithoutHuman,
             'blocking_reasons' => array_values(array_unique(array_merge(
                 $blockingReasons,
                 array_map('strval', (array) ($fairResult['blocking_reasons'] ?? [])),
             ))),
         ];
+    }
+
+    private function fairClaudeModelLocked(mixed $model): bool
+    {
+        if (! is_string($model) || trim($model) === '') {
+            return false;
+        }
+
+        $model = strtolower(trim($model));
+        $configured = strtolower(trim((string) config('atlas.ai.providers.claude_cli.premium_model', '')));
+
+        return $model === FairClaudePolicy::MODEL_LOCK
+            || ($configured !== '' && $model === $configured);
     }
 
     /**
@@ -1568,6 +1645,10 @@ class EngineeringBenchmarkService
                 'human_intervention_count' => $fairScorecard === null ? null : (int) ($fairScorecard['human_intervention_count'] ?? 0),
                 'provider_violation_count' => $fairScorecard === null ? 0 : (int) ($fairScorecard['provider_violation_count'] ?? 0),
                 'fallback_violation_count' => $fairScorecard === null ? 0 : (int) ($fairScorecard['fallback_violation_count'] ?? 0),
+                'attempt_count' => $fairScorecard === null ? null : (int) ($fairScorecard['attempt_count'] ?? 0),
+                'repair_attempt_count' => $fairScorecard === null ? null : (int) ($fairScorecard['repair_attempt_count'] ?? 0),
+                'repair_used' => $fairScorecard === null ? null : (bool) ($fairScorecard['repair_used'] ?? false),
+                'converted_to_green' => $fairScorecard === null ? null : (bool) ($fairScorecard['converted_to_green'] ?? false),
             ],
             'claude_code_baseline' => [
                 'provider' => $claudeCodeBaseline['provider'] ?? null,
@@ -1580,6 +1661,7 @@ class EngineeringBenchmarkService
                 'pass_without_human' => $baselinePassWithoutHuman,
                 'verified' => $baselineVerified,
                 'passed' => $baselinePassed,
+                'duration_ms' => is_numeric($claudeCodeBaseline['duration_ms'] ?? null) ? (int) $claudeCodeBaseline['duration_ms'] : null,
             ],
             'deltas' => [
                 'score' => $atlasScore !== null && $baselineScore !== null ? $atlasScore - $baselineScore : null,
@@ -1772,7 +1854,7 @@ class EngineeringBenchmarkService
         $status = $this->statusAfterReleaseGate($caseStatus, $releaseGate);
         $rollout = $this->rolloutFor($run, $status, $releaseGate);
         $claudeCodeBaselineSummary = $this->claudeCodeBaselineSummary($results);
-        $pairedScorecardSummary = $this->pairedScorecardSummary($results);
+        $pairedScorecardSummary = $this->pairedScorecardSummary($results, (int) ($quality['cost_microusd'] ?? 0));
         $replayManifest = $this->persistReplayManifestArtifact($run, $this->replayManifestSummary(
             run: $run,
             results: $results,
@@ -1989,6 +2071,7 @@ class EngineeringBenchmarkService
             'curation_score' => $case->curation_score,
             'corpus_fingerprint' => $case->corpus_fingerprint,
             'curated_at' => $case->curated_at?->toJSON(),
+            'task_contract' => $case->task_contract_json,
             'tags' => $case->tags_json,
             'status' => $case->status,
             'workspace_path_hash' => $case->workspace_path_hash,
@@ -2059,10 +2142,20 @@ class EngineeringBenchmarkService
      * @param  Collection<int,AtlasEngineeringBenchmarkResult>  $results
      * @return array<string,mixed>
      */
-    private function pairedScorecardSummary(Collection $results): array
+    private function pairedScorecardSummary(Collection $results, ?int $costMicrousd = null): array
     {
         $scorecards = $results
-            ->map(fn (AtlasEngineeringBenchmarkResult $result): mixed => data_get($result->observed_json ?? [], 'paired_scorecard'))
+            ->map(function (AtlasEngineeringBenchmarkResult $result): mixed {
+                $scorecard = data_get($result->observed_json ?? [], 'paired_scorecard');
+                if (! is_array($scorecard)) {
+                    return $scorecard;
+                }
+                if (! is_numeric(data_get($scorecard, 'atlas.duration_ms')) && is_numeric($result->duration_ms)) {
+                    data_set($scorecard, 'atlas.duration_ms', (int) $result->duration_ms);
+                }
+
+                return $scorecard;
+            })
             ->filter(fn (mixed $scorecard): bool => is_array($scorecard))
             ->values();
 
@@ -2097,6 +2190,22 @@ class EngineeringBenchmarkService
             ->sum(fn (array $scorecard): int => max(0, (int) data_get($scorecard, 'atlas.human_intervention_count', 0)));
         $baselineHumanInterventions = $scorecards
             ->sum(fn (array $scorecard): int => max(0, (int) data_get($scorecard, 'claude_code_baseline.human_intervention_count', 0)));
+        $repairUsed = $scorecards
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.repair_used', ((int) data_get($scorecard, 'atlas.repair_attempt_count', 0)) > 0))
+            ->values();
+        $repairConvertedCount = $repairUsed
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.converted_to_green'))
+            ->count();
+        $atlasGreenDurations = $scorecards
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.pass_without_human', data_get($scorecard, 'atlas.verified'))
+                && is_numeric(data_get($scorecard, 'atlas.duration_ms')))
+            ->map(fn (array $scorecard): int => (int) data_get($scorecard, 'atlas.duration_ms'))
+            ->values();
+        $baselineGreenDurations = $scorecards
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'claude_code_baseline.pass_without_human', data_get($scorecard, 'claude_code_baseline.verified'))
+                && is_numeric(data_get($scorecard, 'claude_code_baseline.duration_ms')))
+            ->map(fn (array $scorecard): int => (int) data_get($scorecard, 'claude_code_baseline.duration_ms'))
+            ->values();
         $winners = $scorecards
             ->pluck('winner')
             ->filter(fn (mixed $winner): bool => is_string($winner) && $winner !== '')
@@ -2130,7 +2239,7 @@ class EngineeringBenchmarkService
                 ->count(), max(0, $scorecards
                 ->filter(fn (array $scorecard): bool => in_array(data_get($scorecard, 'case.risk_profile'), ['medium', 'high', 'critical'], true))
                 ->count())),
-            'repair_conversion_rate' => null,
+            'repair_conversion_rate' => $this->rate($repairConvertedCount, $repairUsed->count()),
             'final_gate_pass_rate' => $this->rate($scorecards
                 ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.final_gate_passed', data_get($scorecard, 'atlas.verified')))
                 ->count(), $caseCount),
@@ -2142,8 +2251,20 @@ class EngineeringBenchmarkService
                 - ($this->rate($baselinePassWithoutHumanCount, $caseCount) ?? 0.0),
                 2,
             ),
-            'time_to_green' => null,
-            'cost_per_green_case' => null,
+            'time_to_green' => [
+                'atlas_avg_ms' => $atlasGreenDurations->isNotEmpty() ? (int) round($atlasGreenDurations->avg()) : null,
+                'claude_code_baseline_avg_ms' => $baselineGreenDurations->isNotEmpty() ? (int) round($baselineGreenDurations->avg()) : null,
+                'atlas_green_case_count' => $atlasGreenDurations->count(),
+                'claude_code_baseline_green_case_count' => $baselineGreenDurations->count(),
+            ],
+            'cost_per_green_case' => $costMicrousd !== null && $costMicrousd > 0 && $atlasPassWithoutHumanCount > 0
+                ? [
+                    'microusd' => (int) round($costMicrousd / $atlasPassWithoutHumanCount),
+                    'usd' => round(($costMicrousd / $atlasPassWithoutHumanCount) / 1_000_000, 6),
+                    'green_case_count' => $atlasPassWithoutHumanCount,
+                    'source_cost_microusd' => $costMicrousd,
+                ]
+                : null,
             'invalid_case_count' => $scorecards
                 ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'fair_mode')
                     && ! (bool) data_get($scorecard, 'atlas.protocol_valid', data_get($scorecard, 'atlas.verified')))
@@ -2212,6 +2333,17 @@ class EngineeringBenchmarkService
         ];
     }
 
+    /**
+     * @param  Collection<int,AtlasEngineeringBenchmarkRun>  $runs
+     */
+    private function runsCostMicrousd(Collection $runs): ?int
+    {
+        $cost = $runs
+            ->sum(fn (AtlasEngineeringBenchmarkRun $run): int => max(0, (int) ($run->cost_microusd ?? data_get($run->summary_json ?? [], 'quality_metrics.cost_microusd', 0))));
+
+        return $cost > 0 ? $cost : null;
+    }
+
     private function rate(int|float $numerator, int|float $denominator): ?float
     {
         if ($denominator <= 0) {
@@ -2243,9 +2375,14 @@ class EngineeringBenchmarkService
      * @param  array<string,mixed>  $replay
      * @return array<string,mixed>
      */
-    private function fairClaudeReportReadiness(Collection $runs, array $paired, array $baseline, array $replay): array
+    private function fairClaudeReportReadiness(Collection $runs, array $paired, array $baseline, array $replay, array $corpusManifest): array
     {
         $blocking = [];
+        $releaseCorpusCount = (int) data_get($corpusManifest, 'official_subsets.release', 0);
+        $activeCorpusCount = (int) ($corpusManifest['active_cases'] ?? 0);
+        if ($releaseCorpusCount < 6) {
+            $blocking[] = 'fair_release_corpus_below_minimum';
+        }
         if ($runs->isEmpty()) {
             $blocking[] = 'no_fair_claude_runs';
         }
@@ -2285,6 +2422,9 @@ class EngineeringBenchmarkService
             'tie_count' => $ties,
             'comparable_count' => (int) ($paired['comparable_count'] ?? 0),
             'fair_mode_count' => (int) ($paired['fair_mode_count'] ?? 0),
+            'active_corpus_case_count' => $activeCorpusCount,
+            'release_corpus_case_count' => $releaseCorpusCount,
+            'minimum_release_corpus_case_count' => 6,
         ];
     }
 
@@ -2394,6 +2534,7 @@ class EngineeringBenchmarkService
         $humanInterventionCount = $scorecards
             ->sum(fn (array $scorecard): int => max(0, (int) data_get($scorecard, 'atlas.human_intervention_count', 0))
                 + max(0, (int) data_get($scorecard, 'claude_code_baseline.human_intervention_count', 0)));
+        $pairedSummary = $this->pairedScorecardSummary($results, (int) ($quality['cost_microusd'] ?? 0));
         $finalStatus = match (true) {
             $protocolValid === false => 'invalid',
             $status === 'passed' && (int) ($manifest['packet_count'] ?? 0) > 0
@@ -2421,7 +2562,8 @@ class EngineeringBenchmarkService
             'provider_lock' => $fairScorecards->isNotEmpty() ? FairClaudePolicy::PROVIDER_LOCK : null,
             'model_lock' => $fairScorecards->isNotEmpty() ? FairClaudePolicy::MODEL_LOCK : null,
             'attempts' => (int) ($quality['total_attempts'] ?? 0),
-            'repair_conversion_rate' => null,
+            'repair_conversion_rate' => $pairedSummary['repair_conversion_rate'] ?? null,
+            'time_to_green' => $pairedSummary['time_to_green'] ?? null,
             'human_intervention_count' => $humanInterventionCount,
             'files_changed_count' => (int) ($quality['changed_files_count'] ?? 0),
             'diff_hash' => null,

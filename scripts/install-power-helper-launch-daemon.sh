@@ -6,9 +6,15 @@ LABEL="com.atlas.power-helper"
 PLIST="/Library/LaunchDaemons/$LABEL.plist"
 STDOUT="$ROOT_DIR/storage/logs/$LABEL.log"
 STDERR="$ROOT_DIR/storage/logs/$LABEL.err.log"
+RUNNER="$ROOT_DIR/scripts/run-power-helper.sh"
 
 mkdir -p "$ROOT_DIR/storage/logs"
-chmod +x "$ROOT_DIR/scripts/run-power-helper.sh"
+chmod +x "$RUNNER"
+
+if [[ ! -x "/opt/homebrew/bin/php" ]]; then
+  echo "Missing /opt/homebrew/bin/php. Install Homebrew PHP before installing Atlas Power Helper." >&2
+  exit 1
+fi
 
 TMP_PLIST="$(mktemp)"
 cat > "$TMP_PLIST" <<PLIST
@@ -20,7 +26,7 @@ cat > "$TMP_PLIST" <<PLIST
     <string>$LABEL</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$ROOT_DIR/scripts/run-power-helper.sh</string>
+        <string>$RUNNER</string>
     </array>
     <key>WorkingDirectory</key>
     <string>$ROOT_DIR</string>
@@ -47,5 +53,8 @@ sudo launchctl bootout system "$PLIST" >/dev/null 2>&1 || true
 sudo launchctl bootstrap system "$PLIST"
 sudo launchctl kickstart -k "system/$LABEL"
 
+sudo launchctl print "system/$LABEL" >/dev/null
+
 echo "Atlas Power Helper installed: $PLIST"
 echo "Status: sudo launchctl print system/$LABEL"
+echo "Doctor: cd $ROOT_DIR && /opt/homebrew/bin/php artisan atlas:host doctor --json"

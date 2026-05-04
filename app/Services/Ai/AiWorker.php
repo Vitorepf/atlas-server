@@ -22,6 +22,8 @@ use Illuminate\Support\Str;
 
 class AiWorker
 {
+    private const MAC_BACKGROUND_RETRY_DELAY_SECONDS = 300;
+
     public function __construct(
         private readonly AiProviderManager $providers,
         private readonly AiWorkerLogger $logger,
@@ -71,7 +73,7 @@ class AiWorker
         }
 
         $providerKey = $providerOverride ?: $job->provider ?: $this->runtimeSettings->defaultProvider();
-        if ($violation = $this->fairModeRuntimeViolation($job, $providerKey, $job->model)) {
+        if ($violation = $this->fairModeRuntimeViolation($job, $providerKey, $job->model, requireModel: false)) {
             $attempt = $this->createAttempt($job, $workerId, $providerKey);
 
             return $this->completeAttempt($job, $attempt, $this->fairModeViolationResult($violation), $workerId);
@@ -83,6 +85,7 @@ class AiWorker
             return $this->completeAttempt($job, $attempt, $this->fairModeViolationResult($violation), $workerId);
         }
         $job = $this->applyExpiredAtlasScoutDependency($job);
+        $job = $this->applyProgrammingProviderPolicyRuntime($job);
         $provider = $this->providers->get($providerKey);
         $permission = $this->permissions->authorizeJob($job, $providerKey);
 
@@ -108,6 +111,25 @@ class AiWorker
                 errorCode: 'permission_denied',
                 errorMessage: $permission->denialMessage(),
                 metadata: ['permission' => $permission->toArray()],
+            );
+        } elseif ($policyViolation = $this->programmingProviderPolicyViolation($job)) {
+            $this->emitStreamEvent($job, $attempt, 'policy', 'policy_contract_blocked', (string) ($policyViolation['message'] ?? 'Policy contract blocked provider execution.'), [
+                'policy_contract_enforcement' => $policyViolation,
+            ], null, $onStream);
+
+            $result = new AiProviderResult(
+                ok: false,
+                output: '',
+                command: [],
+                exitCode: null,
+                durationMs: 0,
+                stdout: '',
+                stderr: '',
+                errorCode: 'policy_violation',
+                errorMessage: (string) ($policyViolation['message'] ?? 'Policy contract blocked provider execution.'),
+                metadata: [
+                    'policy_contract_enforcement' => $policyViolation,
+                ],
             );
         } else {
             try {
@@ -189,6 +211,7 @@ class AiWorker
                 ->where('available_at', '<=', now())
                 ->orderBy('priority')
                 ->orderBy('created_at')
+                ->limit(25)
                 ->lockForUpdate();
 
             if ($providerOverride) {
@@ -199,33 +222,120 @@ class AiWorker
                 $query->where('trace_id', $traceId);
             }
 
-            /** @var AiJob|null $job */
-            $job = $query->first();
-            if (! $job) {
-                return null;
+            /** @var Collection<int, AiJob> $jobs */
+            $jobs = $query->get();
+
+            foreach ($jobs as $job) {
+                if ($this->deferForMacBackgroundReadinessIfNeeded($job, $workerId)) {
+                    continue;
+                }
+
+                $job->update([
+                    'status' => 'processing',
+                    'reserved_at' => now(),
+                    'started_at' => now(),
+                    'worker_id' => $workerId,
+                    'attempts' => $job->attempts + 1,
+                ]);
+
+                $job->trace?->update(['status' => 'processing']);
+                $this->logger->event('job_claimed', 'AI job claimed by worker.', 'info', $job->provider, $job, workerId: $workerId);
+                $this->recordTelemetry('job_claimed', $job->refresh(), null, [
+                    'event_phase' => 'worker',
+                    'metadata' => [
+                        'worker_id' => $workerId,
+                        'attempt_number' => $job->attempts,
+                        'provider_override' => $providerOverride,
+                    ],
+                ]);
+
+                return $job->refresh()->load('trace');
             }
 
-            $job->update([
-                'status' => 'processing',
-                'reserved_at' => now(),
-                'started_at' => now(),
-                'worker_id' => $workerId,
-                'attempts' => $job->attempts + 1,
-            ]);
-
-            $job->trace?->update(['status' => 'processing']);
-            $this->logger->event('job_claimed', 'AI job claimed by worker.', 'info', $job->provider, $job, workerId: $workerId);
-            $this->recordTelemetry('job_claimed', $job->refresh(), null, [
-                'event_phase' => 'worker',
-                'metadata' => [
-                    'worker_id' => $workerId,
-                    'attempt_number' => $job->attempts,
-                    'provider_override' => $providerOverride,
-                ],
-            ]);
-
-            return $job->refresh()->load('trace');
+            return null;
         });
+    }
+
+    private function deferForMacBackgroundReadinessIfNeeded(AiJob $job, string $workerId): bool
+    {
+        if (! $defer = $this->macBackgroundReadinessDefer($job)) {
+            return false;
+        }
+
+        $metadata = array_merge($job->metadata ?? [], [
+            'mac_background_readiness' => $defer,
+        ]);
+
+        $job->update([
+            'available_at' => now()->addSeconds(self::MAC_BACKGROUND_RETRY_DELAY_SECONDS),
+            'metadata' => $metadata,
+        ]);
+        $job->trace?->update([
+            'status' => 'queued',
+            'metadata' => array_merge($job->trace->metadata ?? [], [
+                'mac_background_readiness' => $defer,
+            ]),
+        ]);
+
+        $this->logger->event(
+            eventType: 'job_deferred',
+            message: 'AI background job deferred until Mac Agent readiness is satisfied.',
+            severity: 'warning',
+            provider: $job->provider,
+            job: $job,
+            metadata: $defer,
+            workerId: $workerId,
+        );
+
+        return true;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function macBackgroundReadinessDefer(AiJob $job): ?array
+    {
+        if (! $this->requiresMacBackgroundReadiness($job)) {
+            return null;
+        }
+
+        $status = $this->macAgent->status(refresh: true);
+        $readiness = (array) ($status['readiness'] ?? []);
+
+        if (($readiness['ready_for_background_jobs'] ?? false) === true) {
+            return null;
+        }
+
+        return [
+            'schema_version' => 1,
+            'status' => 'deferred',
+            'reason' => 'mac_background_not_ready',
+            'retry_after_seconds' => self::MAC_BACKGROUND_RETRY_DELAY_SECONDS,
+            'checked_at' => now()->toJSON(),
+            'readiness' => [
+                'overall' => $readiness['overall'] ?? 'unknown',
+                'ready_for_remote' => (bool) ($readiness['ready_for_remote'] ?? false),
+                'ready_for_scheduled_wake' => (bool) ($readiness['ready_for_scheduled_wake'] ?? false),
+                'ready_for_background_jobs' => (bool) ($readiness['ready_for_background_jobs'] ?? false),
+                'power_ready_for_background_jobs' => (bool) ($readiness['power_ready_for_background_jobs'] ?? false),
+                'blockers' => $readiness['blockers'] ?? [],
+                'warnings' => $readiness['warnings'] ?? [],
+            ],
+        ];
+    }
+
+    private function requiresMacBackgroundReadiness(AiJob $job): bool
+    {
+        $traceSource = (string) ($job->trace?->source_type ?? '');
+        $payload = $job->payload ?? [];
+
+        if (in_array($traceSource, ['scheduled', 'system'], true)) {
+            return true;
+        }
+
+        return in_array((string) data_get($payload, 'atlas_workflow_mode'), ['scheduled', 'background'], true)
+            || in_array((string) data_get($payload, 'app_surface'), ['atlas_cli_schedule', 'scheduled', 'background'], true)
+            || (bool) data_get($payload, 'scheduled_task.id');
     }
 
     private function recoverStaleProcessingJobs(string $workerId): void
@@ -349,8 +459,7 @@ class AiWorker
         ?string $traceProvider = null,
         ?string $responseHash = null,
         ?string $errorCode = null,
-    ): array
-    {
+    ): array {
         $dispatch = data_get($job->metadata, 'programming_dispatch');
         if (! is_array($dispatch)) {
             $dispatch = data_get($job->payload, 'programming_dispatch');
@@ -385,6 +494,7 @@ class AiWorker
                 'dispatch_path' => data_get($dispatch, 'dispatch_path'),
                 'profile_context' => data_get($dispatch, 'profile_context'),
                 'execution_policy' => data_get($dispatch, 'execution_policy'),
+                'policy_contracts' => data_get($dispatch, 'policy_contracts'),
                 'provider' => $traceProvider ?: $job->provider,
                 'model' => $job->model,
                 'response_hash' => $responseHash,
@@ -406,6 +516,135 @@ class AiWorker
             && data_get($job->payload, 'programming_dispatch.executor') === 'dev_repair_executor';
     }
 
+    private function isProgrammingProviderDispatch(AiJob $job): bool
+    {
+        return ! $this->isCouncilJob($job)
+            && ! $this->isAtlasScoutJob($job)
+            && data_get($job->payload, 'programming_dispatch.dispatch_path') === 'ai_gateway_provider';
+    }
+
+    private function applyProgrammingProviderPolicyRuntime(AiJob $job): AiJob
+    {
+        if (! $this->isProgrammingProviderDispatch($job)) {
+            return $job;
+        }
+
+        $toolContract = $this->programmingProviderToolContract($job);
+        if ($this->programmingRepairAllowsWorkspaceWrite($toolContract)) {
+            return $job;
+        }
+
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $metadata = is_array($job->metadata) ? $job->metadata : [];
+        $toolPermissions = is_array(data_get($payload, 'tool_permissions'))
+            ? data_get($payload, 'tool_permissions')
+            : [];
+        $enforcement = array_filter([
+            'schema_version' => 1,
+            'source' => 'effective_policy_v2_policy_contracts',
+            'scope' => 'provider_runtime',
+            'tool_contract_enforced' => true,
+            'tool_contract' => $toolContract,
+            'effective_tool_permission_mode' => 'read',
+            'reason' => 'tool_contract_forces_read_only_provider_runtime',
+            'enforced_at' => now()->toJSON(),
+        ], fn (mixed $value): bool => $value !== null && $value !== []);
+
+        $payload['tool_permissions'] = array_merge($toolPermissions, [
+            'mode' => 'read',
+            'policy_contract_forced_read_only' => true,
+        ]);
+        $payload['programming_policy_contract_enforcement'] = array_merge(
+            (array) ($payload['programming_policy_contract_enforcement'] ?? []),
+            ['provider_runtime' => $enforcement],
+        );
+
+        $job->forceFill([
+            'payload' => $payload,
+            'metadata' => array_merge($metadata, [
+                'programming_policy_contract_enforcement' => array_merge(
+                    (array) ($metadata['programming_policy_contract_enforcement'] ?? []),
+                    ['provider_runtime' => $enforcement],
+                ),
+            ]),
+        ])->save();
+
+        $job->trace?->forceFill([
+            'metadata' => array_merge($job->trace->metadata ?? [], [
+                'programming_policy_contract_enforcement' => array_merge(
+                    (array) data_get($job->trace->metadata, 'programming_policy_contract_enforcement', []),
+                    ['provider_runtime' => $enforcement],
+                ),
+            ]),
+        ])->save();
+
+        return $job->refresh()->load('trace');
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function programmingProviderPolicyViolation(AiJob $job): ?array
+    {
+        if (! $this->isProgrammingProviderDispatch($job)) {
+            return null;
+        }
+
+        $gateContract = $this->programmingProviderGateContract($job);
+        if (! $this->programmingRepairGateRequiresEvidence($gateContract)) {
+            return null;
+        }
+
+        if ($this->shouldEvaluateNativeProgrammingRepair($job)) {
+            return null;
+        }
+
+        return array_filter([
+            'schema_version' => 1,
+            'source' => 'effective_policy_v2_policy_contracts',
+            'scope' => 'provider_execution',
+            'gate_contract_enforced' => true,
+            'gate_contract' => $gateContract,
+            'blocked_reason' => 'gate_contract_requires_evidence_without_provider_evidence_path',
+            'message' => 'Programming provider execution blocked: policy gate requires evidence, but this executor has no repair/test evidence path.',
+            'enforced_at' => now()->toJSON(),
+        ], fn (mixed $value): bool => $value !== null && $value !== []);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function programmingProviderGateContract(AiJob $job): array
+    {
+        return $this->firstArray([
+            data_get($job->payload, 'programming_policy_contracts.gates'),
+            data_get($job->metadata, 'programming_policy_contracts.gates'),
+            data_get($job->payload, 'programming_message_plan.policy_contracts.gates'),
+            data_get($job->payload, 'programming_message_plan.policy_profile.policy_contracts.gates'),
+            data_get($job->payload, 'programming_message_plan.policy_profile.effective_policy.operational_contracts.gates'),
+            data_get($job->payload, 'programming_dispatch.policy_contracts.gates'),
+            data_get($job->trace?->metadata, 'programming_policy_contracts.gates'),
+            data_get($job->trace?->metadata, 'programming_dispatch.policy_contracts.gates'),
+        ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function programmingProviderToolContract(AiJob $job): array
+    {
+        return $this->firstArray([
+            data_get($job->payload, 'programming_policy_contracts.tools'),
+            data_get($job->metadata, 'programming_policy_contracts.tools'),
+            data_get($job->payload, 'programming_message_plan.policy_contracts.tools'),
+            data_get($job->payload, 'programming_message_plan.policy_profile.policy_contracts.tools'),
+            data_get($job->payload, 'programming_message_plan.policy_profile.effective_policy.operational_contracts.tools'),
+            data_get($job->payload, 'programming_dispatch.policy_contracts.tools'),
+            data_get($job->trace?->metadata, 'programming_policy_contracts.tools'),
+            data_get($job->trace?->metadata, 'programming_dispatch.policy_contracts.tools'),
+        ]);
+    }
+
     private function handleNativeProgrammingRepair(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, ?string $responseHash): ?AiJob
     {
         $workspace = $this->programmingRepairWorkspace($job);
@@ -415,8 +654,12 @@ class AiWorker
 
         $repair = (array) data_get($job->payload, 'programming_repair', []);
         $messagePlan = (array) data_get($job->payload, 'programming_message_plan', []);
+        $gateContract = $this->programmingRepairGateContract($job, $repair, $messagePlan);
+        $toolContract = $this->programmingRepairToolContract($job, $repair, $messagePlan);
         $completeMode = (bool) ($repair['complete_mode'] ?? data_get($messagePlan, 'execution_profile.complete', false));
-        $runTests = $completeMode || (bool) data_get($messagePlan, 'execution_profile.auto_test', false);
+        $runTests = $completeMode
+            || (bool) data_get($messagePlan, 'execution_profile.auto_test', false)
+            || $this->programmingRepairGateRequiresEvidence($gateContract);
         $quality = $this->cliQuality->evaluate(
             workspace: $workspace,
             runTests: $runTests,
@@ -433,8 +676,9 @@ class AiWorker
             && ! $qualityWorsened
             && $currentIteration < $maxIterations;
         $finalPassed = in_array($qualityStatus, (array) ($repair['stop_when_status'] ?? ['passed']), true);
+        $toolBlocksRepair = $shouldRepair && ! $this->programmingRepairAllowsWorkspaceWrite($toolContract);
 
-        if ($shouldRepair) {
+        if ($shouldRepair && ! $toolBlocksRepair) {
             $this->enqueueNativeProgrammingRepairJob($job, $quality, $currentIteration + 1, $maxIterations);
             $metadata = $this->nativeProgrammingRepairMetadata($job, $repair, $quality, [
                 'status' => 'repairing',
@@ -458,9 +702,13 @@ class AiWorker
 
         if (! $finalPassed) {
             $metadata = $this->nativeProgrammingRepairMetadata($job, $repair, $quality, [
-                'status' => $qualityWorsened ? 'stopped' : 'exhausted',
+                'status' => $qualityWorsened || $toolBlocksRepair ? 'stopped' : 'exhausted',
                 'current_iteration' => $currentIteration,
-                'reason_if_stopped' => $qualityWorsened ? 'quality_gate_worsened' : 'max_iterations_or_quality_failed',
+                'reason_if_stopped' => match (true) {
+                    $toolBlocksRepair => 'tool_contract_blocks_workspace_write',
+                    $qualityWorsened => 'quality_gate_worsened',
+                    default => 'max_iterations_or_quality_failed',
+                },
             ], $attempt->provider, $responseHash, blocked: true);
 
             $job->trace?->update([
@@ -490,6 +738,83 @@ class AiWorker
         ])->save();
 
         return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $repair
+     * @param  array<string,mixed>  $messagePlan
+     * @return array<string,mixed>
+     */
+    private function programmingRepairGateContract(AiJob $job, array $repair, array $messagePlan): array
+    {
+        return $this->firstArray([
+            data_get($repair, 'gate_contract'),
+            data_get($messagePlan, 'execution_profile.gate_contract'),
+            data_get($messagePlan, 'policy_contracts.gates'),
+            data_get($messagePlan, 'policy_profile.policy_contracts.gates'),
+            data_get($messagePlan, 'policy_profile.effective_policy.operational_contracts.gates'),
+            data_get($job->payload, 'programming_dispatch.policy_contracts.gates'),
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $repair
+     * @param  array<string,mixed>  $messagePlan
+     * @return array<string,mixed>
+     */
+    private function programmingRepairToolContract(AiJob $job, array $repair, array $messagePlan): array
+    {
+        return $this->firstArray([
+            data_get($repair, 'tool_contract'),
+            data_get($messagePlan, 'execution_profile.tool_contract'),
+            data_get($messagePlan, 'policy_contracts.tools'),
+            data_get($messagePlan, 'policy_profile.policy_contracts.tools'),
+            data_get($messagePlan, 'policy_profile.effective_policy.operational_contracts.tools'),
+            data_get($job->payload, 'programming_dispatch.policy_contracts.tools'),
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $gateContract
+     */
+    private function programmingRepairGateRequiresEvidence(array $gateContract): bool
+    {
+        $minimum = strtolower(trim((string) ($gateContract['minimum_gate'] ?? '')));
+
+        return (bool) ($gateContract['evidence_required'] ?? false)
+            || in_array($minimum, ['strict', 'release'], true);
+    }
+
+    /**
+     * @param  array<string,mixed>  $toolContract
+     */
+    private function programmingRepairAllowsWorkspaceWrite(array $toolContract): bool
+    {
+        if ($toolContract === []) {
+            return true;
+        }
+
+        $mode = strtolower(trim((string) ($toolContract['mode'] ?? '')));
+        if ($mode === 'read_only') {
+            return false;
+        }
+
+        return (bool) ($toolContract['workspace_write'] ?? in_array($mode, ['workspace_write', 'harness'], true));
+    }
+
+    /**
+     * @param  array<int,mixed>  $candidates
+     * @return array<string,mixed>
+     */
+    private function firstArray(array $candidates): array
+    {
+        foreach ($candidates as $candidate) {
+            if (is_array($candidate) && $candidate !== []) {
+                return $candidate;
+            }
+        }
+
+        return [];
     }
 
     private function programmingRepairWorkspace(AiJob $job): ?string
@@ -958,7 +1283,7 @@ class AiWorker
             'started_at' => $finalFailure ? $job->started_at : null,
             'worker_id' => $finalFailure ? $job->worker_id : null,
             'finished_at' => $finalFailure ? now() : null,
-            'metadata' => array_merge($job->metadata ?? [], $this->programmingDispatchUpdate($job, $finalFailure ? 'blocked' : 'retrying', $attempt->provider, null, $result->errorCode)),
+            'metadata' => array_merge($job->metadata ?? [], $result->metadata, $this->programmingDispatchUpdate($job, $finalFailure ? 'blocked' : 'retrying', $attempt->provider, null, $result->errorCode)),
         ]);
 
         if ($finalFailure && $this->isAtlasScoutJob($job)) {
@@ -1042,7 +1367,7 @@ class AiWorker
             'metadata' => array_merge($job->trace->metadata ?? [], [
                 'last_error_code' => $result->errorCode,
                 'last_error_message' => $result->errorMessage,
-            ], $this->programmingDispatchUpdate($job, $finalFailure ? 'blocked' : 'retrying', $attempt->provider, null, $result->errorCode)),
+            ], $result->metadata, $this->programmingDispatchUpdate($job, $finalFailure ? 'blocked' : 'retrying', $attempt->provider, null, $result->errorCode)),
         ]);
 
         if ($finalFailure && $job->trace) {
@@ -1650,11 +1975,22 @@ TEXT);
         }
     }
 
-    private function fairModeRuntimeViolation(AiJob $job, string $providerKey, mixed $model): ?array
+    private function fairModeRuntimeViolation(AiJob $job, string $providerKey, mixed $model, bool $requireModel = true): ?array
     {
         $payload = is_array($job->payload) ? $job->payload : [];
         $metadata = is_array($job->metadata) ? $job->metadata : [];
         if (! $this->fairClaude->isFairPayload($payload) && ! $this->fairClaude->isFairPayload($metadata)) {
+            return null;
+        }
+
+        if (! $requireModel && $providerKey !== FairClaudePolicy::PROVIDER_LOCK) {
+            return $this->fairClaude->violation(
+                message: 'Fair Claude mode requires provider claude_cli.',
+                details: ['provider' => $providerKey],
+            );
+        }
+
+        if (! $requireModel) {
             return null;
         }
 

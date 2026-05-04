@@ -8,7 +8,6 @@ use App\Models\AtlasPowerSession;
 use App\Services\MacAgent\MacAgentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 class MobileMacAgentController extends Controller
@@ -19,6 +18,7 @@ class MobileMacAgentController extends Controller
             'recent_events' => $agent->recentEvents(12),
             'maintenance_windows' => AtlasMaintenanceWindow::query()
                 ->where('host_key', MacAgentService::HOST_KEY)
+                ->where('enabled', true)
                 ->orderBy('wake_time')
                 ->limit(10)
                 ->get()
@@ -37,23 +37,46 @@ class MobileMacAgentController extends Controller
         ]);
 
         $minutes = (int) ($data['duration_minutes'] ?? 240);
-        $session = $agent->startSession(
-            kind: 'remote_manual',
-            reason: (string) ($data['reason'] ?? 'Modo remoto mobile'),
-            expiresAt: now()->addMinutes($minutes),
-            source: 'mobile_remote_mode',
-            deviceId: is_object($device) ? (string) $device->id : null,
-            metadata: [
+        $deviceId = is_object($device) ? (string) $device->id : null;
+        $reason = (string) ($data['reason'] ?? 'Modo remoto mobile');
+        $expiresAt = now()->addMinutes($minutes);
+        $existing = $this->activeRemoteSessionForDevice($deviceId);
+
+        if ($existing) {
+            $metadata = $existing->metadata ?? [];
+            $metadata['duration_minutes'] = $minutes;
+            $metadata['mobile_device_label'] = is_object($device) ? ($device->device_label ?? null) : null;
+            $metadata['renewed_at'] = now()->toJSON();
+            $existing->update([
+                'reason' => $reason,
+                'expires_at' => $expiresAt,
+                'metadata' => $metadata,
+            ]);
+            $session = $existing->refresh();
+            $agent->event('power_session_renewed', 'info', 'Power session renewed from mobile.', [
                 'duration_minutes' => $minutes,
-                'mobile_device_label' => is_object($device) ? ($device->device_label ?? null) : null,
-            ],
-        );
+                'expires_at' => $expiresAt->toJSON(),
+            ], $session);
+        } else {
+            $session = $agent->startSession(
+                kind: 'remote_manual',
+                reason: $reason,
+                expiresAt: $expiresAt,
+                source: 'mobile_remote_mode',
+                deviceId: $deviceId,
+                metadata: [
+                    'duration_minutes' => $minutes,
+                    'mobile_device_label' => is_object($device) ? ($device->device_label ?? null) : null,
+                ],
+            );
+        }
 
         return response()->json([
             'ok' => true,
             'session' => $agent->sessionPayload($session),
             'status' => $agent->status(refresh: true),
-        ], 201);
+            'idempotent' => $existing !== null,
+        ], $existing ? 200 : 201);
     }
 
     public function stopRemoteSession(string $session, MacAgentService $agent): JsonResponse
@@ -67,11 +90,31 @@ class MobileMacAgentController extends Controller
             throw ValidationException::withMessages(['session' => 'Sessao de energia nao encontrada.']);
         }
 
-        $stopped = $agent->stopSession($model, 'mobile_stop');
+        $stoppedSessions = [];
+        $targets = AtlasPowerSession::query()
+            ->where('host_key', MacAgentService::HOST_KEY)
+            ->where('kind', 'remote_manual')
+            ->where('status', 'active')
+            ->where(function ($query) use ($model): void {
+                if ($model->created_by_device_id) {
+                    $query->where('created_by_device_id', $model->created_by_device_id);
+                } else {
+                    $query->whereKey($model->id);
+                }
+            })
+            ->get();
+
+        foreach ($targets as $target) {
+            $stopped = $agent->stopSession($target, 'mobile_stop');
+            if ($stopped) {
+                $stoppedSessions[] = $agent->sessionPayload($stopped);
+            }
+        }
 
         return response()->json([
             'ok' => true,
-            'session' => $stopped ? $agent->sessionPayload($stopped) : null,
+            'session' => $stoppedSessions[0] ?? null,
+            'stopped_sessions' => $stoppedSessions,
             'status' => $agent->status(refresh: true),
         ]);
     }
@@ -84,6 +127,48 @@ class MobileMacAgentController extends Controller
             'ok' => $ok,
             'status' => $agent->status(refresh: true),
         ], $ok ? 200 : 409);
+    }
+
+    public function cleanupCaffeinate(MacAgentService $agent): JsonResponse
+    {
+        $cleanup = $agent->cleanupOrphanCaffeinateJobs();
+
+        return response()->json([
+            'ok' => true,
+            'cleanup' => $cleanup,
+            'status' => $agent->status(refresh: true),
+        ]);
+    }
+
+    public function bootstrap(Request $request, MacAgentService $agent): JsonResponse
+    {
+        $data = $request->validate([
+            'wake_time' => ['nullable', 'date_format:H:i'],
+            'duration_minutes' => ['nullable', 'integer', 'min:15', 'max:480'],
+            'timezone' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        $bootstrap = $agent->safeBootstrap([
+            'name' => 'Janela Atlas',
+            'wake_time' => (string) ($data['wake_time'] ?? '02:00'),
+            'duration_minutes' => (int) ($data['duration_minutes'] ?? 120),
+            'timezone' => (string) ($data['timezone'] ?? MacAgentService::DEFAULT_TIMEZONE),
+        ]);
+
+        return response()->json($bootstrap + [
+            'status' => $bootstrap['status'] + [
+                'recent_events' => $agent->recentEvents(12),
+                'maintenance_windows' => AtlasMaintenanceWindow::query()
+                    ->where('host_key', MacAgentService::HOST_KEY)
+                    ->where('enabled', true)
+                    ->orderBy('wake_time')
+                    ->limit(10)
+                    ->get()
+                    ->map(fn (AtlasMaintenanceWindow $item): array => $this->windowPayload($item))
+                    ->values()
+                    ->all(),
+            ],
+        ]);
     }
 
     public function storeMaintenanceWindow(Request $request, MacAgentService $agent): JsonResponse
@@ -136,5 +221,21 @@ class MobileMacAgentController extends Controller
             'last_completed_at' => $window->last_completed_at?->toJSON(),
             'metadata' => $window->metadata ?? [],
         ];
+    }
+
+    private function activeRemoteSessionForDevice(?string $deviceId): ?AtlasPowerSession
+    {
+        if (! $deviceId) {
+            return null;
+        }
+
+        return AtlasPowerSession::query()
+            ->where('host_key', MacAgentService::HOST_KEY)
+            ->where('kind', 'remote_manual')
+            ->where('source', 'mobile_remote_mode')
+            ->where('status', 'active')
+            ->where('created_by_device_id', $deviceId)
+            ->orderByDesc('created_at')
+            ->first();
     }
 }

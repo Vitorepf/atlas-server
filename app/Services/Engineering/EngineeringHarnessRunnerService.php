@@ -2570,7 +2570,9 @@ class EngineeringHarnessRunnerService
         $fallbackDisabled = (bool) ($options['fallback_disabled'] ?? false) || $claudeOnly;
         $fairMode = (bool) ($options['fair_mode'] ?? false)
             || $claudeOnly
-            || ($singleProvider && $noDecide && $fallbackDisabled);
+            || $singleProvider
+            || $noDecide
+            || $fallbackDisabled;
 
         return [
             'fair_mode' => $fairMode,
@@ -2578,7 +2580,7 @@ class EngineeringHarnessRunnerService
             'single_provider' => $fairMode,
             'no_decide' => $fairMode,
             'fallback_disabled' => $fairMode,
-            'require_pass_without_human' => $fairMode && (bool) ($options['require_pass_without_human'] ?? true),
+            'require_pass_without_human' => $fairMode,
         ];
     }
 
@@ -2595,7 +2597,7 @@ class EngineeringHarnessRunnerService
         if ($provider !== null && $provider !== FairClaudePolicy::PROVIDER_LOCK) {
             throw new \InvalidArgumentException(FairClaudePolicy::ERROR_CODE.': Fair Claude benchmark requires provider '.FairClaudePolicy::PROVIDER_LOCK.'.');
         }
-        if ($model !== null && ! str_contains(strtolower($model), FairClaudePolicy::MODEL_LOCK)) {
+        if ($model !== null && ! $this->isFairClaudeModelLock($model)) {
             throw new \InvalidArgumentException(FairClaudePolicy::ERROR_CODE.': Fair Claude benchmark requires Claude Opus model.');
         }
 
@@ -2604,6 +2606,15 @@ class EngineeringHarnessRunnerService
             $model ?: FairClaudePolicy::MODEL_LOCK,
             'fixed',
         ];
+    }
+
+    private function isFairClaudeModelLock(string $model): bool
+    {
+        $model = strtolower(trim($model));
+        $configured = strtolower(trim((string) config('atlas.ai.providers.claude_cli.premium_model', '')));
+
+        return $model === FairClaudePolicy::MODEL_LOCK
+            || ($configured !== '' && $model === $configured);
     }
 
     /**

@@ -1340,9 +1340,19 @@ class EngineeringCodeIntelligenceService
             return 0;
         }
 
-        $knowledgeItems = AtlasEngineeringKnowledgeItem::query()->active()->get();
-        $modules = AtlasEngineeringCodeModule::query()->active()->get();
-        $symbols = AtlasEngineeringCodeSymbol::query()->active()->get();
+        $knowledgeItems = AtlasEngineeringKnowledgeItem::query()
+            ->active()
+            ->get([
+                'id',
+                'canonical_path',
+                'content_hash',
+                'related_paths_json',
+                'capabilities_json',
+                'tags_json',
+            ]);
+        $modules = AtlasEngineeringCodeModule::query()
+            ->active()
+            ->get(['id', 'slug', 'root_path']);
         $seen = [];
         $count = 0;
 
@@ -1381,22 +1391,23 @@ class EngineeringCodeIntelligenceService
                 $count++;
             }
 
-            foreach ($symbols as $symbol) {
-                $matchedPath = $paths->first(fn (string $path): bool => $path === $symbol->file_path);
-                if (! $matchedPath) {
-                    continue;
-                }
-
-                $link = $this->docLinkRow($workspace, $item, [
-                    'symbol_id' => $symbol->id,
-                    'target_path' => $symbol->file_path,
-                    'link_type' => 'symbol_path',
-                    'metadata' => ['symbol_name' => $symbol->symbol_name, 'symbol_type' => $symbol->symbol_type],
-                ]);
-                $seen[] = $link['link_hash'];
-                AtlasEngineeringDocLink::query()->updateOrCreate(['link_hash' => $link['link_hash']], $link);
-                $count++;
-            }
+            AtlasEngineeringCodeSymbol::query()
+                ->active()
+                ->whereIn('file_path', $paths->all())
+                ->select(['id', 'symbol_name', 'symbol_type', 'file_path'])
+                ->chunkById(500, function (Collection $symbols) use ($workspace, $item, &$seen, &$count): void {
+                    foreach ($symbols as $symbol) {
+                        $link = $this->docLinkRow($workspace, $item, [
+                            'symbol_id' => $symbol->id,
+                            'target_path' => $symbol->file_path,
+                            'link_type' => 'symbol_path',
+                            'metadata' => ['symbol_name' => $symbol->symbol_name, 'symbol_type' => $symbol->symbol_type],
+                        ]);
+                        $seen[] = $link['link_hash'];
+                        AtlasEngineeringDocLink::query()->updateOrCreate(['link_hash' => $link['link_hash']], $link);
+                        $count++;
+                    }
+                });
         }
 
         if ($prune && $seen !== []) {

@@ -79,7 +79,7 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'Modo maximo interativo para tarefas medias/dificeis: Open Brain obrigatorio, auto-test, repair loop e evidencias.',
                 ],
                 [
-                    'command' => 'atlas dev "..." --model=opus|spark|<model-id>',
+                    'command' => 'atlas dev "..." --ai=codex|claude --model=opus|spark|<model-id>',
                     'description' => 'Entrada one-shot ainda suportada; o uso normal recomendado e abrir atlas dev sem prompt.',
                 ],
                 [

@@ -127,6 +127,8 @@ Regras:
 - testes e gates permitidos;
 - worktree permitido;
 - memoria/context pack permitidos se forem registrados no artifact.
+- `--allow-unverified-fair-pass` deve falhar com `fair_mode_violation` quando
+  qualquer flag Fair Claude estiver ativa.
 
 ### Fair Claude One Shot
 
@@ -614,11 +616,16 @@ Adicionar flags:
 Regras:
 
 - `--claude-only` implica `--provider=claude_cli --single-provider --no-decide`;
-- `--single-provider` exige provider resolvido antes do envio;
-- `--no-decide` impede `decision_mode=atlas_decide`;
-- em modo `dev`, se provider for omitido com `--claude-only`, usar `claude_cli`;
-- se provider for omitido com `--single-provider`, usar default do app, mas registrar
-  que a execucao e single-provider.
+- qualquer flag Fair (`--claude-only`, `--single-provider`, `--no-decide` ou
+  `--fallback-disabled`) ativa o contrato Fair Claude completo;
+- em Fair Claude, provider omitido sempre resolve para `claude_cli`;
+- em Fair Claude, `--model=opus` resolve para o modelo premium Claude Opus
+  configurado e `--model-policy=fixed` impede drift;
+- `--single-provider` nesse protocolo nao significa "default AI do app em modo
+  unico"; significa provider unico travado em `claude_cli`;
+- `--no-decide` impede `decision_mode=atlas_decide` e qualquer council;
+- fora dessas flags Fair, o Atlas normal continua usando Default AI, Atlas
+  Decide, provider strategy, budgets, fallbacks e overrides manuais.
 
 Arquivos provaveis:
 
@@ -696,8 +703,9 @@ Criar comando:
 
 ```bash
 atlas benchmark claude-fair prepare --suite=<suite>
+atlas benchmark claude-fair runbook --suite=<suite> --workspace=<atlas-workspace> --claude-code-baseline-workspace=<separate-workspace>
 atlas benchmark claude-fair run-atlas --case=<id>
-atlas benchmark claude-fair record-claude-code --case=<id>
+atlas benchmark claude-fair run-claude-code --case=<id>
 atlas benchmark claude-fair report --suite=<suite>
 ```
 
@@ -724,6 +732,50 @@ O benchmark deve registrar:
 - numero de tentativas;
 - intervencoes humanas;
 - avaliacao final.
+
+### Runbook Da Bateria Real
+
+Antes de executar uma bateria oficial, rode o doctor/runbook:
+
+```bash
+atlas benchmark claude-fair prepare --suite=atlas-fair-claude-v1 --json
+
+atlas benchmark claude-fair runbook \
+  --suite=atlas-fair-claude-v1 \
+  --workspace=/path/to/atlas-arm-workspace \
+  --claude-code-baseline-workspace=/path/to/separate-claude-code-workspace \
+  --claude-code-baseline-binary=claude \
+  --json
+```
+
+O `runbook` deve retornar `ready_to_start_battery=true` antes de uma bateria
+real. Ele valida, no minimo:
+
+- suite preparada;
+- corpus release minimo;
+- workspace Atlas existente;
+- workspace Claude Code baseline existente e separado;
+- binario Claude Code resolvivel;
+- comandos exatos para `run`, `run-atlas`, `run-claude-code`, `report`,
+  `readiness` e `replay`.
+
+Para rodar a bateria pareada completa:
+
+```bash
+atlas benchmark claude-fair run \
+  --suite=atlas-fair-claude-v1 \
+  --workspace=/path/to/atlas-arm-workspace \
+  --claude-code-baseline-workspace=/path/to/separate-claude-code-workspace \
+  --claude-code-baseline-binary=claude \
+  --model=opus \
+  --model-policy=fixed \
+  --gate-profile=strict \
+  --json
+```
+
+Cada caso usa `task_contract.test_commands[0]` como comando deterministico
+default quando o operador nao passa `--test-command`. Um `--test-command`
+manual ainda pode sobrescrever esse default para uma bateria controlada.
 
 Schema minimo de resultado:
 
@@ -1062,7 +1114,9 @@ Human intervention: 0
 Tests: passed
 Files changed: 3
 Protocol violations: 0
-Reproduce: atlas benchmark claude-fair replay --run=<id>
+Reproduce: atlas benchmark claude-fair replay <id>
+# ou:
+atlas benchmark claude-fair replay --run-id=<id>
 ```
 
 ### Resultado invalido

@@ -102,6 +102,28 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertContains('--require-open-brain', $payload['chat_command']);
     }
 
+    public function test_plan_only_projects_session_ai_policy_override_from_ai_and_model_flags(): void
+    {
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['implementar', 'override'],
+            '--workspace' => $this->workspace,
+            '--ai' => 'codex',
+            '--model' => '5.5',
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('codex_cli', data_get($payload, 'dev_execution_plan.ai_policy_override.default_provider'));
+        $this->assertSame('gpt-5.5', data_get($payload, 'dev_execution_plan.ai_policy_override.providers.codex_cli.model'));
+        $this->assertSame(['gpt-5.5'], data_get($payload, 'dev_execution_plan.ai_policy_override.allowed_models.codex_cli'));
+        $this->assertSame('codex_cli', data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.effective_policy.runtime_policy.default_provider'));
+        $this->assertSame(['gpt-5.5'], data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.effective_policy.runtime_policy.allowed_models.codex_cli'));
+        $this->assertContains('--provider=codex_cli', $payload['chat_command']);
+        $this->assertContains('--model=gpt-5.5', $payload['chat_command']);
+    }
+
     public function test_operator_mode_promotes_dev_command_to_explicit_danger_runtime(): void
     {
         $exitCode = Artisan::call('atlas:cli:dev', [
@@ -168,6 +190,16 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertTrue(data_get($payload, 'dev_execution_plan.operator_options.single_provider'));
         $this->assertTrue(data_get($payload, 'dev_execution_plan.operator_options.no_decide'));
         $this->assertTrue(data_get($payload, 'dev_execution_plan.operator_options.fallback_disabled'));
+        $this->assertSame(['claude_cli'], data_get($payload, 'dev_execution_plan.ai_policy_override.enabled_providers'));
+        $this->assertSame(['codex_cli', 'gemini_cli'], data_get($payload, 'dev_execution_plan.ai_policy_override.disabled_providers'));
+        $this->assertSame(['claude_cli'], data_get($payload, 'dev_execution_plan.ai_policy_override.fallback_order'));
+        $this->assertSame(['claude-opus-test'], data_get($payload, 'dev_execution_plan.ai_policy_override.allowed_models.claude_cli'));
+        $this->assertSame(['claude_cli'], data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.effective_policy.runtime_policy.enabled_providers'));
+        $this->assertSame(['claude_cli'], data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.effective_policy.runtime_policy.fallback_order'));
+        $this->assertSame(['claude-opus-test'], data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.effective_policy.runtime_policy.allowed_models.claude_cli'));
+        $this->assertNull(data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.effective_policy.runtime_policy.allowed_models.codex_cli'));
+        $this->assertFalse(data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.effective_policy.runtime_policy.providers.codex_cli.allow_manual'));
+        $this->assertFalse(data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.effective_policy.runtime_policy.providers.gemini_cli.allow_auto'));
         $this->assertSame('passed', data_get($payload, 'dev_execution_plan.quality_gate_policy.required_final_status'));
         $this->assertTrue(data_get($payload, 'dev_execution_plan.quality_gate_policy.deterministic_gate_required'));
         $this->assertFalse(data_get($payload, 'dev_execution_plan.quality_gate_policy.unverified_counts_as_passed'));

@@ -17,6 +17,7 @@ class AtlasVaultResolveRequest extends FormRequest
     {
         return [
             'resolution' => ['required', 'string', Rule::in(AtlasVaultSyncService::RESOLUTION_ACTIONS)],
+            'reason' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

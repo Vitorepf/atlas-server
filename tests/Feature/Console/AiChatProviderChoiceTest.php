@@ -3,10 +3,14 @@
 namespace Tests\Feature\Console;
 
 use App\Models\AiJob;
+use App\Models\AiSession;
+use App\Models\AiThread;
 use App\Models\AiTrace;
+use App\Services\Ai\AiProviderChoiceException;
 use App\Services\Ai\AiProviderChoiceResolver;
 use App\Services\Ai\FairClaudePolicy;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Tests\Concerns\CreatesAiJobChoiceTables;
 use Tests\TestCase;
 
@@ -132,7 +136,7 @@ class AiChatProviderChoiceTest extends TestCase
             ],
         ]);
 
-        $this->expectException(\App\Services\Ai\AiProviderChoiceException::class);
+        $this->expectException(AiProviderChoiceException::class);
 
         app(AiProviderChoiceResolver::class)->resolve($job->refresh(), 'switch_provider');
     }
@@ -172,5 +176,94 @@ class AiChatProviderChoiceTest extends TestCase
         $this->assertFalse(data_get($payload, 'ok'));
         $this->assertSame('fair_mode_violation', data_get($payload, 'error'));
         $this->assertSame('codex_cli', data_get($payload, 'details.provider'));
+    }
+
+    public function test_chat_claude_only_projects_claude_only_session_policy_override(): void
+    {
+        config([
+            'atlas.ai.providers.claude_cli.premium_model' => 'claude-opus-test',
+            'atlas.ai.providers.claude_cli.premium_model_label' => 'Claude Opus Test',
+        ]);
+
+        $exitCode = Artisan::call('atlas:ai:chat', [
+            'input' => 'implemente sem executar',
+            '--claude-only' => true,
+            '--model' => 'opus',
+            '--no-run' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+        $job = AiJob::query()->latest('created_at')->first();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('claude_cli', data_get($payload, 'provider'));
+        $this->assertSame('claude-opus-test', data_get($payload, 'model'));
+        $this->assertSame(['claude_cli'], data_get($job?->payload, 'ai_policy_override.enabled_providers'));
+        $this->assertSame(['codex_cli', 'gemini_cli'], data_get($job?->payload, 'ai_policy_override.disabled_providers'));
+        $this->assertSame(['claude_cli'], data_get($job?->payload, 'ai_policy_override.fallback_order'));
+        $this->assertSame(['claude-opus-test'], data_get($job?->payload, 'ai_policy_override.allowed_models.claude_cli'));
+        $this->assertSame([], data_get($job?->payload, 'ai_policy_override.allowed_models.codex_cli'));
+        $this->assertFalse(data_get($job?->payload, 'ai_policy_override.providers.codex_cli.allow_manual'));
+        $this->assertTrue(data_get($job?->payload, 'fair_mode.fair_mode'));
+    }
+
+    public function test_chat_claude_only_does_not_create_provider_handoff_when_thread_last_provider_differs(): void
+    {
+        config([
+            'atlas.ai.providers.claude_cli.premium_model' => 'claude-opus-test',
+            'atlas.ai.providers.claude_cli.premium_model_label' => 'Claude Opus Test',
+        ]);
+
+        $thread = AiThread::create([
+            'title' => 'Fair benchmark thread',
+            'status' => 'active',
+            'surface' => 'atlas_cli',
+            'workspace' => getcwd(),
+            'last_provider' => 'codex_cli',
+        ]);
+        AiSession::create([
+            'thread_id' => $thread->id,
+            'status' => 'active',
+            'purpose' => 'atlas_cli',
+            'provider_primary' => 'codex_cli',
+            'provider_last' => 'codex_cli',
+            'started_at' => now(),
+        ]);
+
+        $exitCode = Artisan::call('atlas:ai:chat', [
+            'input' => 'continue sem handoff',
+            '--thread' => $thread->id,
+            '--claude-only' => true,
+            '--model' => 'opus',
+            '--no-run' => true,
+            '--json' => true,
+        ]);
+        $job = AiJob::query()->latest('created_at')->first();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame(0, DB::table('ai_provider_handoffs')->count());
+        $this->assertNull(data_get($job?->payload, 'provider_handoff_id'));
+        $this->assertTrue(data_get($job?->payload, 'provider_handoff_disabled_by_fair_mode'));
+        $this->assertTrue(data_get($job?->payload, 'fair_mode.fair_mode'));
+    }
+
+    public function test_chat_ai_model_flags_project_session_policy_override_to_job_payload(): void
+    {
+        $exitCode = Artisan::call('atlas:ai:chat', [
+            'input' => 'implemente sem executar',
+            '--ai' => 'codex',
+            '--model' => '5.5',
+            '--no-run' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+        $job = AiJob::query()->latest('created_at')->first();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('codex_cli', data_get($payload, 'provider'));
+        $this->assertSame('gpt-5.5', data_get($payload, 'model'));
+        $this->assertSame('codex_cli', data_get($job?->payload, 'ai_policy_override.default_provider'));
+        $this->assertSame('gpt-5.5', data_get($job?->payload, 'ai_policy_override.providers.codex_cli.model'));
+        $this->assertSame(['gpt-5.5'], data_get($job?->payload, 'ai_policy_override.allowed_models.codex_cli'));
     }
 }

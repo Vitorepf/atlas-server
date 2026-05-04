@@ -1,0 +1,20 @@
+{
+    "Host": [
+        "127.0.0.1:49409"
+    ],
+    "Connection": [
+        "close"
+    ],
+    "X-Powered-By": [
+        "PHP/8.5.0"
+    ],
+    "Cache-Control": [
+        "no-cache, private"
+    ],
+    "Date": [
+        "Mon, 04 May 2026 02:30:25 GMT"
+    ],
+    "Content-Type": [
+        "application/json"
+    ]
+}

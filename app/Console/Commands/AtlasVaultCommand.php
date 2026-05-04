@@ -5,11 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Semantic\AtlasVaultManagedNoteService;
 use App\Services\Semantic\AtlasVaultSyncService;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class AtlasVaultCommand extends Command
 {
     protected $signature = 'atlas:vault
-        {action : status, note, import, export-semantic, sync, conflicts or resolve}
+        {action : status, note, import, export-semantic, sync, conflicts, item or resolve}
         {--type= : Atlas entity type for note}
         {--id= : Atlas entity id for note}
         {--title= : Note title}
@@ -20,9 +21,13 @@ class AtlasVaultCommand extends Command
         {--redaction-status=clean : clean, redacted, blocked or needs_review}
         {--path= : Optional vault-relative markdown path}
         {--semantic-note= : Semantic note id for export-semantic}
-        {--item= : Atlas vault sync item id for resolve}
+        {--item= : Atlas vault sync item id for item or resolve}
         {--resolution= : Resolution action for resolve}
+        {--reason= : Optional operator reason for resolve}
         {--limit=200 : Max files/items for sync or conflicts}
+        {--status= : Comma-separated status filter for conflicts}
+        {--direction= : Direction filter for conflicts}
+        {--operation= : Operation filter for conflicts}
         {--link=* : Extra atlas link as Label=atlas://type/id}
         {--canonical-doc=* : Extra canonical doc path to include in Links Atlas}
         {--dry-run : Preview note without writing}
@@ -45,10 +50,13 @@ class AtlasVaultCommand extends Command
                 'import' => $this->handleImport($sync),
                 'export-semantic' => $this->handleExportSemantic($sync),
                 'sync' => $this->handleSync($sync),
-                'conflicts' => $sync->conflicts($this->intOption('limit', 100)),
+                'conflicts' => $sync->conflicts($this->intOption('limit', 100), $this->conflictFilters()),
+                'item' => $this->handleItem($sync),
                 'resolve' => $this->handleResolve($sync),
                 default => ['ok' => false, 'error' => "Unsupported action: {$action}"],
             };
+        } catch (ModelNotFoundException) {
+            $payload = ['ok' => false, 'error' => $this->notFoundMessage($action)];
         } catch (\Throwable $exception) {
             $payload = ['ok' => false, 'error' => $exception->getMessage()];
         }
@@ -108,7 +116,28 @@ class AtlasVaultCommand extends Command
         return $sync->resolve(
             (string) $this->stringOption('item'),
             (string) $this->stringOption('resolution'),
+            $this->stringOption('reason'),
         );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function handleItem(AtlasVaultSyncService $sync): array
+    {
+        return $sync->item((string) $this->stringOption('item'));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function conflictFilters(): array
+    {
+        return [
+            'status' => $this->stringOption('status'),
+            'direction' => $this->stringOption('direction'),
+            'operation' => $this->stringOption('operation'),
+        ];
     }
 
     /**
@@ -314,6 +343,15 @@ class AtlasVaultCommand extends Command
     private function yesNo(bool $value): string
     {
         return $value ? 'yes' : 'no';
+    }
+
+    private function notFoundMessage(string $action): string
+    {
+        return match ($action) {
+            'export-semantic' => 'Semantic note not found.',
+            'item', 'resolve' => 'AtlasVault sync item not found.',
+            default => 'AtlasVault resource not found.',
+        };
     }
 
     /**

@@ -22,6 +22,9 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('simple_provider_execution', data_get($normal, 'executor_decision.policy_executor_preference'));
         $this->assertSame('programming.dev', data_get($normal, 'executor_decision.policy_profile_id'));
         $this->assertSame(1, data_get($normal, 'execution_profile.max_iterations'));
+        $this->assertSame('single_executor', data_get($normal, 'policy_contracts.model_graph.graph'));
+        $this->assertSame('workspace_write', data_get($normal, 'execution_profile.tool_contract.mode'));
+        $this->assertSame('standard', data_get($normal, 'execution_profile.gate_contract.minimum_gate'));
 
         $complete = $orchestrator->sessionPlan($workspace, 'dev', [
             'task' => 'implemente fluxo completo',
@@ -46,6 +49,9 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('engineering_harness', data_get($forge, 'executor_decision.policy_executor_preference'));
         $this->assertSame('required', data_get($forge, 'execution_profile.engineering_harness'));
         $this->assertSame(5, data_get($forge, 'execution_profile.max_iterations'));
+        $this->assertSame('scout_execute_review', data_get($forge, 'policy_contracts.model_graph.graph'));
+        $this->assertSame('harness', data_get($forge, 'execution_profile.tool_contract.mode'));
+        $this->assertSame('strict', data_get($forge, 'execution_profile.gate_contract.minimum_gate'));
     }
 
     public function test_dispatch_contract_records_selected_execution_path(): void
@@ -67,6 +73,10 @@ class AtlasProgrammingOrchestratorTest extends TestCase
                     'executor_preference' => 'engineering_harness',
                     'max_iterations' => 5,
                 ],
+                'policy_contracts' => [
+                    'tools' => ['mode' => 'harness'],
+                    'gates' => ['minimum_gate' => 'strict'],
+                ],
             ],
             'operational_decision' => [
                 'decision_id' => 'decision-1',
@@ -81,6 +91,8 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('forge', data_get($dispatch, 'programming_profile'));
         $this->assertSame('programming.forge', data_get($dispatch, 'policy_profile_id'));
         $this->assertSame('engineering_harness', data_get($dispatch, 'execution_policy.executor_preference'));
+        $this->assertSame('harness', data_get($dispatch, 'policy_contracts.tools.mode'));
+        $this->assertSame('strict', data_get($dispatch, 'policy_contracts.gates.minimum_gate'));
         $this->assertTrue((bool) data_get($dispatch, 'profile_context.forge'));
         $this->assertSame('decision-1', data_get($dispatch, 'operational_decision_id'));
         $this->assertSame('plan-harness', data_get($dispatch, 'plan_id'));
@@ -116,6 +128,10 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         ], [
             'dispatch_path' => 'programming_orchestrator_harness',
             'executor' => 'engineering_harness',
+            'policy_contracts' => [
+                'tools' => ['mode' => 'harness'],
+                'gates' => ['minimum_gate' => 'strict'],
+            ],
         ], 'gpt-test');
 
         $this->assertSame('passed', data_get($completion, 'status'));
@@ -127,6 +143,8 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('run-1', data_get($completion, 'engineering_run_id'));
         $this->assertSame(100, data_get($completion, 'score'));
         $this->assertSame(['run:1', 'patch:1'], data_get($completion, 'evidence_refs'));
+        $this->assertSame('harness', data_get($completion, 'policy_contracts.tools.mode'));
+        $this->assertSame('strict', data_get($completion, 'policy_contracts.gates.minimum_gate'));
     }
 
     public function test_repair_execution_contract_makes_dev_repair_executor_actionable(): void
@@ -146,6 +164,10 @@ class AtlasProgrammingOrchestratorTest extends TestCase
                     'quality_required' => true,
                 ],
             ],
+            'policy_contracts' => [
+                'tools' => ['mode' => 'workspace_write'],
+                'gates' => ['minimum_gate' => 'strict'],
+            ],
         ]);
 
         $this->assertSame('active', data_get($contract, 'status'));
@@ -157,6 +179,8 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('passed', data_get($contract, 'required_final_status'));
         $this->assertSame(['failed', 'needs_review'], data_get($contract, 'repair_when_status'));
         $this->assertSame(['passed'], data_get($contract, 'stop_when_status'));
+        $this->assertSame('workspace_write', data_get($contract, 'tool_contract.mode'));
+        $this->assertSame('strict', data_get($contract, 'gate_contract.minimum_gate'));
     }
 
     public function test_repair_prompt_contains_quality_gate_summary(): void

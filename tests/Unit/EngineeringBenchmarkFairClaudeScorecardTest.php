@@ -4,14 +4,21 @@ namespace Tests\Unit;
 
 use App\Models\AtlasEngineeringBenchmarkCase;
 use App\Models\AtlasTask;
-use App\Services\Engineering\EngineeringClaudeCodeBaselineRunnerService;
 use App\Services\Engineering\EngineeringBenchmarkService;
+use App\Services\Engineering\EngineeringClaudeCodeBaselineRunnerService;
 use App\Services\Engineering\EngineeringHarnessRunnerService;
 use ReflectionMethod;
 use Tests\TestCase;
 
 class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('atlas.ai.providers.claude_cli.premium_model', 'claude-opus-test');
+    }
+
     public function test_fair_scorecard_requires_pass_without_human_and_verified_gates(): void
     {
         $scorecard = $this->fairScorecard([
@@ -26,6 +33,7 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
                     'pass_without_human' => true,
                     'blocking_reasons' => [],
                 ],
+                'attempt_count' => 2,
             ],
         ], [
             'claude_only' => true,
@@ -40,6 +48,10 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
         $this->assertSame(0, $scorecard['human_intervention_count']);
         $this->assertSame(0, $scorecard['provider_violation_count']);
         $this->assertSame(0, $scorecard['fallback_violation_count']);
+        $this->assertSame(2, $scorecard['attempt_count']);
+        $this->assertSame(1, $scorecard['repair_attempt_count']);
+        $this->assertTrue($scorecard['repair_used']);
+        $this->assertTrue($scorecard['converted_to_green']);
         $this->assertSame([], $scorecard['blocking_reasons']);
     }
 
@@ -69,6 +81,30 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
         $this->assertContains('deterministic_gates_not_passed', $scorecard['blocking_reasons']);
         $this->assertFalse($evaluation['passed']);
         $this->assertStringContainsString('fair_scorecard_failed', (string) $evaluation['failure_summary']);
+    }
+
+    public function test_fair_scorecard_rejects_loose_opus_substring_model(): void
+    {
+        $scorecard = $this->fairScorecard([
+            'run' => [
+                'model_selection' => [
+                    'selected_provider' => 'claude_cli',
+                    'selected_model' => 'not-opus-but-not-locked',
+                ],
+                'fair_mode_result' => [
+                    'status' => 'valid',
+                    'deterministic_gates_passed' => true,
+                    'pass_without_human' => true,
+                    'blocking_reasons' => [],
+                ],
+            ],
+        ], [
+            'claude_only' => true,
+            'require_pass_without_human' => true,
+        ]);
+
+        $this->assertFalse($scorecard['passed']);
+        $this->assertContains('model_not_locked_to_opus', $scorecard['blocking_reasons']);
     }
 
     public function test_non_fair_benchmark_keeps_existing_decision_and_score_evaluation(): void
@@ -117,6 +153,45 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
         $this->assertTrue($flags['require_pass_without_human']);
     }
 
+    public function test_harness_runner_partial_fair_flag_implies_full_fair_mode(): void
+    {
+        $service = app(EngineeringHarnessRunnerService::class);
+        $method = new ReflectionMethod(EngineeringHarnessRunnerService::class, 'fairModeOptions');
+        $method->setAccessible(true);
+
+        $flags = $method->invoke($service, [
+            'single_provider' => true,
+            'require_pass_without_human' => false,
+        ]);
+
+        $this->assertTrue($flags['fair_mode']);
+        $this->assertTrue($flags['single_provider']);
+        $this->assertTrue($flags['no_decide']);
+        $this->assertTrue($flags['fallback_disabled']);
+        $this->assertTrue($flags['require_pass_without_human']);
+    }
+
+    public function test_benchmark_service_partial_fair_flag_implies_full_fair_defaults(): void
+    {
+        $service = app(EngineeringBenchmarkService::class);
+        $method = new ReflectionMethod(EngineeringBenchmarkService::class, 'withFairClaudeDefaults');
+        $method->setAccessible(true);
+
+        $options = $method->invoke($service, [
+            'fallback_disabled' => true,
+            'require_pass_without_human' => false,
+        ]);
+
+        $this->assertTrue($options['fair_mode']);
+        $this->assertTrue($options['single_provider']);
+        $this->assertTrue($options['no_decide']);
+        $this->assertTrue($options['fallback_disabled']);
+        $this->assertTrue($options['require_pass_without_human']);
+        $this->assertSame('claude_cli', $options['provider']);
+        $this->assertSame('opus', $options['model']);
+        $this->assertSame('fixed', $options['model_policy']);
+    }
+
     public function test_harness_runner_fair_provider_request_locks_claude_opus(): void
     {
         $service = app(EngineeringHarnessRunnerService::class);
@@ -138,6 +213,18 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
         $this->expectExceptionMessage('fair_mode_violation');
 
         $method->invoke($service, 'codex_cli', null, 'fixed', ['fair_mode' => true]);
+    }
+
+    public function test_harness_runner_fair_provider_request_rejects_loose_opus_substring_model(): void
+    {
+        $service = app(EngineeringHarnessRunnerService::class);
+        $method = new ReflectionMethod(EngineeringHarnessRunnerService::class, 'fairProviderRequest');
+        $method->setAccessible(true);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('fair_mode_violation');
+
+        $method->invoke($service, 'claude_cli', 'not-opus-but-not-locked', 'fixed', ['fair_mode' => true]);
     }
 
     public function test_claude_code_baseline_plan_resolves_opus_and_does_not_execute(): void
@@ -180,6 +267,22 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
                 'workspace' => sys_get_temp_dir(),
                 'claude_code_baseline' => 'plan',
                 'claude_code_baseline_model' => 'claude-sonnet-4-5',
+            ],
+        );
+    }
+
+    public function test_claude_code_baseline_rejects_loose_opus_substring_model(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('fair_mode_violation');
+
+        app(EngineeringClaudeCodeBaselineRunnerService::class)->capture(
+            $this->benchmarkCase(),
+            $this->taskModel(),
+            [
+                'workspace' => sys_get_temp_dir(),
+                'claude_code_baseline' => 'plan',
+                'claude_code_baseline_model' => 'not-opus-but-not-locked',
             ],
         );
     }
@@ -303,6 +406,10 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
         ], [
             'required' => true,
             'passed' => true,
+            'attempt_count' => 2,
+            'repair_attempt_count' => 1,
+            'repair_used' => true,
+            'converted_to_green' => true,
         ], [
             'enabled' => true,
             'status' => 'planned',
@@ -325,6 +432,10 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
         ], [
             'required' => true,
             'passed' => true,
+            'attempt_count' => 2,
+            'repair_attempt_count' => 1,
+            'repair_used' => true,
+            'converted_to_green' => true,
         ], [
             'enabled' => true,
             'status' => 'completed',
@@ -343,6 +454,9 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
         $this->assertSame(7, $scorecard['deltas']['score']);
         $this->assertSame('baseline_case', $scorecard['case']['case_code']);
         $this->assertTrue($scorecard['atlas']['pass_without_human']);
+        $this->assertSame(2, $scorecard['atlas']['attempt_count']);
+        $this->assertSame(1, $scorecard['atlas']['repair_attempt_count']);
+        $this->assertTrue($scorecard['atlas']['converted_to_green']);
         $this->assertSame(0, $scorecard['atlas']['provider_violation_count']);
         $this->assertTrue($scorecard['claude_code_baseline']['verified']);
     }

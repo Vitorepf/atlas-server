@@ -11,6 +11,7 @@ use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\AiWorker;
+use App\Services\Ai\FairClaudePolicy;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -94,6 +95,48 @@ class AtlasDecideScoutWorkflowTest extends TestCase
         $this->assertSame('succeeded', $executor->status);
         $this->assertSame('succeeded', $trace->status);
         $this->assertSame('FINAL ANSWER: refatoracao planejada.', $trace->response_text);
+    }
+
+    public function test_fair_claude_mode_never_enqueues_atlas_decide_scout_even_for_automatic_dev_payload(): void
+    {
+        $this->configureScoutRuntime();
+
+        $trace = app(AiGatewayService::class)->enqueueInteraction(
+            'Refatore o modulo de memoria depois de revisar um contexto grande',
+            [
+                'source_type' => 'system',
+                'include_semantic_context' => false,
+                'payload' => [
+                    'automatic' => true,
+                    'decision_mode' => 'manual_override',
+                    'operator_requested_provider' => 'claude_cli',
+                    'requested_provider' => 'claude_cli',
+                    'atlas_workflow_mode' => 'dev',
+                    'fair_mode' => app(FairClaudePolicy::class)->metadata(),
+                    'requested_model' => 'claude-opus-4-7',
+                    'requested_model_alias' => 'opus',
+                    'requested_model_tier' => 'premium',
+                    'ai_policy_override' => app(FairClaudePolicy::class)->runtimeOverride([
+                        'model' => 'claude-opus-4-7',
+                        'label' => 'Claude Opus 4.7',
+                        'tier' => 'premium',
+                    ]),
+                ],
+            ],
+        );
+
+        $jobs = AiJob::query()->where('trace_id', $trace->id)->get();
+        $this->assertCount(1, $jobs);
+
+        $job = $jobs->first();
+        $this->assertSame('claude_cli', $job->provider);
+        $this->assertSame('claude-opus-4-7', $job->model);
+        $this->assertTrue((bool) data_get($job->payload, 'atlas_decide.disabled_by_fair_mode'));
+        $this->assertFalse((bool) data_get($job->payload, 'atlas_decide.scout_enabled'));
+        $this->assertSame('fair_mode_single_provider', data_get($job->payload, 'atlas_decide.execution_graph_activation_status'));
+        $this->assertSame('fair_mode_atlas_decide_disabled', data_get($job->payload, 'atlas_decide.execution_graph_blocked_reason'));
+        $this->assertSame('single_stage', data_get($job->payload, 'atlas_decide_execution.strategy'));
+        $this->assertNull(data_get($job->payload, 'atlas_decide_execution.dependency_provider'));
     }
 
     public function test_gemini_scout_quota_falls_back_to_claude_before_releasing_executor(): void

@@ -75,6 +75,25 @@ class AiQualityActionServiceTest extends TestCase
         $this->assertSame('queued', $actions->first()->status);
     }
 
+    public function test_fair_mode_low_score_repairs_with_claude_only_instead_of_council(): void
+    {
+        $trace = $this->trace([
+            'fair_mode' => app(\App\Services\Ai\FairClaudePolicy::class)->metadata(),
+            'requested_model' => 'claude-opus-4-7',
+        ]);
+        $trace->update(['model' => 'claude-opus-4-7']);
+        $evaluation = $this->evaluation($trace, [
+            ['code' => 'empty_response', 'severity' => 'critical'],
+        ]);
+
+        $actions = app(AiQualityActionService::class)->planFor($trace->refresh(), $evaluation, autoRun: false);
+
+        $this->assertSame('fair_claude_repair', $actions->first()->action_type);
+        $this->assertSame('queued', $actions->first()->status);
+        $this->assertSame('claude_cli', $actions->first()->payload['provider']);
+        $this->assertNotSame('escalate_to_council', $actions->first()->action_type);
+    }
+
     private function trace(array $metadata = []): AiTrace
     {
         return AiTrace::query()->create([

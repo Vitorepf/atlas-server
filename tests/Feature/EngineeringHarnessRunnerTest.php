@@ -2,8 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\AtlasEngineeringBenchmarkRun;
+use App\Models\AtlasEngineeringBenchmarkCase;
 use App\Models\AtlasEngineeringBenchmarkResult;
+use App\Models\AtlasEngineeringBenchmarkRun;
 use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Models\AtlasEngineeringControlResult;
 use App\Models\AtlasEngineeringControlRevision;
@@ -15,9 +16,12 @@ use App\Models\AtlasEngineeringRunOperatorAction;
 use App\Models\AtlasEngineeringTestRun;
 use App\Models\AtlasTask;
 use App\Models\AtlasToolRun;
+use App\Services\Ai\AiGatewayService;
+use App\Services\Ai\AiPrompt;
+use App\Services\Ai\AiPromptBuilder;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;
-use App\Services\Engineering\EngineeringControlRegistryService;
 use App\Services\Engineering\EngineeringBenchmarkService;
+use App\Services\Engineering\EngineeringControlRegistryService;
 use App\Services\Engineering\EngineeringDockerHarnessService;
 use App\Services\Engineering\EngineeringHarnessExecutionService;
 use App\Services\Engineering\EngineeringHarnessRunnerService;
@@ -177,7 +181,8 @@ class EngineeringHarnessRunnerTest extends TestCase
             '--test-command' => $this->passingPhpCommand(),
             '--json' => true,
         ]);
-        $payload = json_decode(Artisan::output(), true);
+        $output = Artisan::output();
+        $payload = json_decode(substr($output, (int) strpos($output, '{')), true);
 
         $this->assertSame(0, $exitCode);
         $this->assertIsArray($payload);
@@ -212,6 +217,74 @@ class EngineeringHarnessRunnerTest extends TestCase
         ]);
     }
 
+    public function test_harness_execution_service_enforces_gate_policy_contracts(): void
+    {
+        File::put($this->workspace.'/src/example.txt', "after\n");
+
+        $result = app(EngineeringHarnessExecutionService::class)
+            ->execute(ProgrammingExecutionRequest::fromArray([
+                'profile' => 'forge',
+                'workspace' => $this->workspace,
+                'objective' => 'Executar harness com gate strict',
+                'no_provider' => true,
+                'auto_test' => false,
+                'quality_scan' => 'off',
+                'harness_policy' => 'auto',
+                'test_command' => $this->passingPhpCommand(),
+                'max_attempts' => 1,
+                'policy_contracts' => [
+                    'gates' => [
+                        'minimum_gate' => 'strict',
+                        'evidence_required' => true,
+                    ],
+                    'tools' => [
+                        'mode' => 'harness',
+                        'workspace_write' => true,
+                    ],
+                ],
+            ]))
+            ->toArray();
+
+        $this->assertSame('passed', data_get($result, 'status'));
+        $this->assertTrue((bool) data_get($result, 'policy_contract_enforcement.gate_contract_enforced'));
+        $this->assertSame(true, data_get($result, 'policy_contract_enforcement.effective_options.auto_test'));
+        $this->assertSame('required', data_get($result, 'policy_contract_enforcement.effective_options.quality_scan'));
+        $this->assertSame('strict', data_get($result, 'policy_contract_enforcement.effective_options.harness_policy'));
+        $this->assertSame('strict', data_get($result, 'policy_contracts.gates.minimum_gate'));
+
+        $run = AtlasEngineeringRun::query()->findOrFail(data_get($result, 'harness_payload.run.id'));
+        $this->assertSame('required', data_get($run->provider_strategy_json, 'quality_scan.mode'));
+        $this->assertSame(true, data_get($run->provider_strategy_json, 'requested_auto_test'));
+        $this->assertSame(true, data_get($run->provider_strategy_json, 'effective_auto_test'));
+    }
+
+    public function test_harness_execution_service_blocks_provider_run_when_tool_contract_is_read_only(): void
+    {
+        $result = app(EngineeringHarnessExecutionService::class)
+            ->execute(ProgrammingExecutionRequest::fromArray([
+                'profile' => 'forge',
+                'workspace' => $this->workspace,
+                'objective' => 'Tentativa de harness com contrato read-only',
+                'no_provider' => false,
+                'policy_contracts' => [
+                    'tools' => [
+                        'mode' => 'read_only',
+                        'workspace_write' => false,
+                    ],
+                ],
+            ]))
+            ->toArray();
+
+        $this->assertSame('blocked', data_get($result, 'status'));
+        $this->assertSame('engineering_harness', data_get($result, 'executor'));
+        $this->assertContains('tool_contract_blocks_workspace_write', data_get($result, 'blocking_failures'));
+        $this->assertSame('tool_contract_blocks_workspace_write', data_get($result, 'policy_contract_enforcement.blocked_reason'));
+        $this->assertSame('read_only', data_get($result, 'policy_contracts.tools.mode'));
+        $this->assertDatabaseMissing('atlas_tasks', [
+            'title' => 'Tentativa de harness com contrato read-only',
+        ]);
+    }
+
     public function test_atlas_cli_forge_routes_to_harness_without_task_id(): void
     {
         File::put($this->workspace.'/src/example.txt', "after\n");
@@ -224,7 +297,8 @@ class EngineeringHarnessRunnerTest extends TestCase
             '--test-command' => $this->passingPhpCommand(),
             '--json' => true,
         ]);
-        $payload = json_decode(Artisan::output(), true);
+        $output = Artisan::output();
+        $payload = json_decode(substr($output, (int) strpos($output, '{')), true);
 
         $this->assertSame(0, $exitCode);
         $this->assertSame('forge_harness', data_get($payload, 'phase'));
@@ -295,7 +369,7 @@ class EngineeringHarnessRunnerTest extends TestCase
 
     public function test_ai_gateway_projects_provider_dispatch_metadata_for_non_harness_programming_message(): void
     {
-        $gateway = app(\App\Services\Ai\AiGatewayService::class);
+        $gateway = app(AiGatewayService::class);
         $method = new \ReflectionMethod($gateway, 'programmingMetadata');
         $method->setAccessible(true);
 
@@ -318,6 +392,10 @@ class EngineeringHarnessRunnerTest extends TestCase
                             'executor_preference' => 'dev_repair_executor',
                             'max_iterations' => 3,
                             'quality_required' => true,
+                        ],
+                        'policy_contracts' => [
+                            'tools' => ['mode' => 'workspace_write'],
+                            'gates' => ['minimum_gate' => 'strict'],
                         ],
                     ],
                 ],
@@ -347,6 +425,629 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertFalse((bool) data_get($metadata, 'programming_profile_context.forge'));
         $this->assertSame('dev_repair_executor', data_get($metadata, 'programming_execution_policy.executor_preference'));
         $this->assertSame(3, data_get($metadata, 'programming_execution_policy.max_iterations'));
+        $this->assertSame('workspace_write', data_get($metadata, 'programming_policy_contracts.tools.mode'));
+        $this->assertSame('strict', data_get($metadata, 'programming_policy_contracts.gates.minimum_gate'));
+    }
+
+    public function test_ai_gateway_projects_context_memory_and_skill_policy_contract_receipt(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $method = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $method->setAccessible(true);
+
+        $options = $method->invoke($gateway, [
+            'payload' => [
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'context' => [
+                            'depth' => 'deep',
+                            'require_context_pack' => true,
+                            'include_memory' => true,
+                        ],
+                        'memory' => [
+                            'scope' => 'deep',
+                            'privacy_gate' => 'provider_safe',
+                            'recall' => ['thread', 'project', 'semantic'],
+                        ],
+                        'skills' => [
+                            'mode' => 'domain',
+                            'required_bundles' => ['programming'],
+                            'require_skill_trace' => true,
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: [
+                'context_pack_id' => 'pack-1',
+                'hash' => 'hash-1',
+            ],
+            activatedSkills: [
+                ['name' => 'programming', 'sha256' => 'skill-hash'],
+            ],
+            openBrainInjection: [
+                'status' => 'injected',
+            ],
+        ));
+
+        $receipt = data_get($options, 'payload.programming_policy_contract_receipt');
+
+        $this->assertSame('satisfied', data_get($receipt, 'context.status'));
+        $this->assertSame('pack-1', data_get($receipt, 'context.context_pack_id'));
+        $this->assertSame('satisfied', data_get($receipt, 'memory.status'));
+        $this->assertSame('injected', data_get($receipt, 'memory.open_brain_status'));
+        $this->assertSame('deep', data_get($receipt, 'memory.scope'));
+        $this->assertSame('satisfied', data_get($receipt, 'skills.status'));
+        $this->assertSame(['programming'], data_get($receipt, 'skills.activated'));
+        $this->assertSame([], data_get($receipt, 'skills.missing'));
+    }
+
+    public function test_prompt_builder_enables_open_brain_auto_when_programming_contract_requires_memory(): void
+    {
+        $builder = app(AiPromptBuilder::class);
+        $method = new \ReflectionMethod($builder, 'optionsWithPolicyRequiredOpenBrain');
+        $method->setAccessible(true);
+
+        $options = $method->invoke($builder, [
+            'payload' => [
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'context' => [
+                            'include_memory' => true,
+                        ],
+                        'memory' => [
+                            'scope' => 'deep',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('auto', data_get($options, 'open_brain.mode'));
+    }
+
+    public function test_ai_gateway_blocks_missing_required_context_pack(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $promptMethod = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $promptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingContextContractsAllowRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $promptMethod->invoke($gateway, [
+            'payload' => [
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'context' => [
+                            'require_context_pack' => true,
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: [],
+            activatedSkills: [],
+            openBrainInjection: [],
+        ));
+
+        $this->assertSame('missing', data_get($options, 'payload.programming_policy_contract_receipt.context.status'));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('atlas_context_contract_policy_violation');
+
+        $assertMethod->invoke($gateway, $options);
+    }
+
+    public function test_ai_gateway_blocks_missing_required_open_brain_memory(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $promptMethod = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $promptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingMemoryContractsAllowRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $promptMethod->invoke($gateway, [
+            'payload' => [
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'context' => [
+                            'include_memory' => true,
+                        ],
+                        'memory' => [
+                            'scope' => 'deep',
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: ['schema_version' => 1],
+            activatedSkills: [],
+            openBrainInjection: [],
+        ));
+
+        $this->assertSame('missing', data_get($options, 'payload.programming_policy_contract_receipt.memory.status'));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('atlas_memory_contract_policy_violation');
+
+        $assertMethod->invoke($gateway, $options);
+    }
+
+    public function test_ai_gateway_allows_degraded_open_brain_memory_when_required(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $promptMethod = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $promptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingMemoryContractsAllowRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $promptMethod->invoke($gateway, [
+            'payload' => [
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'context' => [
+                            'include_memory' => true,
+                        ],
+                        'memory' => [
+                            'scope' => 'project',
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: ['schema_version' => 1],
+            activatedSkills: [],
+            openBrainInjection: [
+                'status' => 'degraded',
+                'warnings' => ['no_provider_safe_memory_refs'],
+            ],
+        ));
+
+        $this->assertSame('degraded', data_get($options, 'payload.programming_policy_contract_receipt.memory.status'));
+
+        $assertMethod->invoke($gateway, $options);
+        $this->assertTrue(true);
+    }
+
+    public function test_ai_gateway_blocks_write_permission_when_tool_contract_is_read_only(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $promptMethod = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $promptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingToolContractsAllowRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $promptMethod->invoke($gateway, [
+            'payload' => [
+                'tool_permissions' => [
+                    'mode' => 'write',
+                    'confirmed' => true,
+                ],
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'tools' => [
+                            'mode' => 'read_only',
+                            'workspace_write' => false,
+                            'destructive_requires_approval' => true,
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: ['schema_version' => 1],
+            activatedSkills: [],
+            openBrainInjection: ['status' => 'injected'],
+        ));
+
+        $this->assertSame('workspace_write_blocked', data_get($options, 'payload.programming_policy_contract_receipt.tools.status'));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('atlas_tool_contract_policy_violation');
+
+        $assertMethod->invoke($gateway, $options);
+    }
+
+    public function test_ai_gateway_blocks_unconfirmed_danger_permission_when_tool_contract_requires_approval(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $promptMethod = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $promptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingToolContractsAllowRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $promptMethod->invoke($gateway, [
+            'payload' => [
+                'tool_permissions' => [
+                    'mode' => 'danger',
+                    'confirmed' => false,
+                ],
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'tools' => [
+                            'mode' => 'workspace_write',
+                            'workspace_write' => true,
+                            'destructive_requires_approval' => true,
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: ['schema_version' => 1],
+            activatedSkills: [],
+            openBrainInjection: ['status' => 'injected'],
+        ));
+
+        $this->assertSame('destructive_approval_missing', data_get($options, 'payload.programming_policy_contract_receipt.tools.status'));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('atlas_tool_contract_policy_violation');
+
+        $assertMethod->invoke($gateway, $options);
+    }
+
+    public function test_ai_gateway_allows_confirmed_write_permission_when_tool_contract_allows_workspace_write(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $promptMethod = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $promptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingToolContractsAllowRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $promptMethod->invoke($gateway, [
+            'payload' => [
+                'tool_permissions' => [
+                    'mode' => 'write',
+                    'confirmed' => true,
+                ],
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'tools' => [
+                            'mode' => 'workspace_write',
+                            'workspace_write' => true,
+                            'destructive_requires_approval' => true,
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: ['schema_version' => 1],
+            activatedSkills: [],
+            openBrainInjection: ['status' => 'injected'],
+        ));
+
+        $this->assertSame('satisfied', data_get($options, 'payload.programming_policy_contract_receipt.tools.status'));
+
+        $assertMethod->invoke($gateway, $options);
+        $this->assertTrue(true);
+    }
+
+    public function test_ai_gateway_does_not_block_tool_permission_when_no_tool_contract_exists(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $promptMethod = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $promptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingToolContractsAllowRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $promptMethod->invoke($gateway, [
+            'payload' => [
+                'tool_permissions' => [
+                    'mode' => 'write',
+                    'confirmed' => true,
+                ],
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'context' => [
+                            'require_context_pack' => false,
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: ['schema_version' => 1],
+            activatedSkills: [],
+            openBrainInjection: ['status' => 'injected'],
+        ));
+
+        $this->assertFalse((bool) data_get($options, 'payload.programming_policy_contract_receipt.tools.required'));
+        $this->assertSame('satisfied', data_get($options, 'payload.programming_policy_contract_receipt.tools.status'));
+        $this->assertSame('write', data_get($options, 'payload.programming_policy_contract_receipt.tools.requested_permission_mode'));
+
+        $assertMethod->invoke($gateway, $options);
+        $this->assertTrue(true);
+    }
+
+    public function test_prompt_builder_activates_skill_bundles_required_by_programming_contracts(): void
+    {
+        $builder = app(AiPromptBuilder::class);
+        $method = new \ReflectionMethod($builder, 'requestedBundleSkills');
+        $method->setAccessible(true);
+
+        $skills = $method->invoke($builder, [
+            'activated_skills' => ['comunicador-claro'],
+            'programming_message_plan' => [
+                'policy_contracts' => [
+                    'skills' => [
+                        'required_bundles' => ['dev-quality-gate', 'engineering-blueprint'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(['comunicador-claro', 'dev-quality-gate', 'engineering-blueprint'], $skills);
+    }
+
+    public function test_ai_gateway_blocks_missing_required_skill_trace(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $promptMethod = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $promptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingSkillContractsAllowRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $promptMethod->invoke($gateway, [
+            'payload' => [
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'skills' => [
+                            'mode' => 'domain',
+                            'required_bundles' => ['dev-quality-gate'],
+                            'require_skill_trace' => true,
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: [],
+            activatedSkills: [],
+            openBrainInjection: [],
+        ));
+
+        $this->assertSame('partial', data_get($options, 'payload.programming_policy_contract_receipt.skills.status'));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('atlas_skill_contract_policy_violation');
+
+        $assertMethod->invoke($gateway, $options);
+    }
+
+    public function test_ai_gateway_projects_model_graph_policy_contract_receipt(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $method = new \ReflectionMethod($gateway, 'optionsWithProgrammingModelGraphReceipt');
+        $method->setAccessible(true);
+
+        $options = $method->invoke($gateway, [
+            'payload' => [
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'model_graph' => [
+                            'graph' => 'scout_execute_review',
+                            'preset' => 'quality',
+                            'nodes' => [
+                                [
+                                    'id' => 'scout',
+                                    'role' => 'scout',
+                                    'provider' => 'gemini_cli',
+                                    'model' => 'gemini-3.1-pro-preview',
+                                    'fallback_order' => ['codex_cli'],
+                                ],
+                                [
+                                    'id' => 'executor',
+                                    'role' => 'executor',
+                                    'provider' => 'codex_cli',
+                                    'model' => 'gpt-5.5',
+                                    'fallback_order' => ['claude_cli'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ], 'codex_cli', 'gpt-5.5');
+
+        $receipt = data_get($options, 'payload.programming_policy_contract_receipt.model_graph');
+
+        $this->assertSame('satisfied', data_get($receipt, 'status'));
+        $this->assertSame('scout_execute_review', data_get($receipt, 'graph'));
+        $this->assertSame('quality', data_get($receipt, 'preset'));
+        $this->assertSame('executor', data_get($receipt, 'matched_node_id'));
+        $this->assertSame('executor', data_get($receipt, 'matched_node_role'));
+        $this->assertSame(['gemini_cli', 'codex_cli'], data_get($receipt, 'allowed_providers'));
+        $this->assertSame(['codex_cli', 'claude_cli'], data_get($receipt, 'fallback_providers'));
+    }
+
+    public function test_ai_gateway_blocks_model_graph_out_of_contract_runtime(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $receiptMethod = new \ReflectionMethod($gateway, 'optionsWithProgrammingModelGraphReceipt');
+        $receiptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingModelGraphAllowsRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $receiptMethod->invoke($gateway, [
+            'payload' => [
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'model_graph' => [
+                            'graph' => 'single',
+                            'nodes' => [
+                                [
+                                    'id' => 'executor',
+                                    'role' => 'executor',
+                                    'provider' => 'codex_cli',
+                                    'model' => 'gpt-5.5',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ], 'gemini_cli', 'gemini-3.1-pro-preview');
+
+        $this->assertSame('out_of_contract', data_get($options, 'payload.programming_policy_contract_receipt.model_graph.status'));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('atlas_model_graph_policy_violation');
+
+        $assertMethod->invoke($gateway, $options);
+    }
+
+    public function test_ai_gateway_blocks_strict_model_graph_model_drift(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $receiptMethod = new \ReflectionMethod($gateway, 'optionsWithProgrammingModelGraphReceipt');
+        $receiptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingModelGraphAllowsRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $receiptMethod->invoke($gateway, [
+            'payload' => [
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'model_graph' => [
+                            'graph' => 'single',
+                            'preset' => 'fixed',
+                            'strict_model_match' => true,
+                            'nodes' => [
+                                [
+                                    'id' => 'executor',
+                                    'role' => 'executor',
+                                    'provider' => 'codex_cli',
+                                    'model' => 'gpt-5.5',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ], 'codex_cli', 'gpt-5.3-codex-spark');
+
+        $this->assertSame('provider_matched_model_drift', data_get($options, 'payload.programming_policy_contract_receipt.model_graph.status'));
+        $this->assertTrue((bool) data_get($options, 'payload.programming_policy_contract_receipt.model_graph.strict_model_match'));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('modelo gpt-5.3-codex-spark diverge do model_graph fixo');
+
+        $assertMethod->invoke($gateway, $options);
+    }
+
+    public function test_ai_gateway_allows_council_when_model_graph_allows_runtime_providers(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $receiptMethod = new \ReflectionMethod($gateway, 'optionsWithProgrammingModelGraphReceipt');
+        $receiptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingModelGraphAllowsRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $receiptMethod->invoke($gateway, [
+            'payload' => [
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'model_graph' => [
+                            'graph' => 'council_review',
+                            'nodes' => [
+                                [
+                                    'id' => 'executor',
+                                    'role' => 'executor',
+                                    'provider' => 'codex_cli',
+                                    'model' => 'gpt-5.5',
+                                ],
+                                [
+                                    'id' => 'reviewer',
+                                    'role' => 'reviewer',
+                                    'provider' => 'claude_cli',
+                                    'model' => 'claude-opus-4-1',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ], 'claude_codex', 'claude_codex', ['claude_cli', 'codex_cli']);
+
+        $receipt = data_get($options, 'payload.programming_policy_contract_receipt.model_graph');
+
+        $this->assertSame('satisfied', data_get($receipt, 'status'));
+        $this->assertSame('council_runtime', data_get($receipt, 'matched_node_id'));
+        $this->assertSame('council', data_get($receipt, 'matched_node_role'));
+        $this->assertSame(['claude_cli', 'codex_cli'], data_get($receipt, 'runtime_providers'));
+
+        $assertMethod->invoke($gateway, $options);
+        $this->assertTrue(true);
+    }
+
+    public function test_ai_gateway_blocks_council_when_model_graph_excludes_runtime_provider(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $receiptMethod = new \ReflectionMethod($gateway, 'optionsWithProgrammingModelGraphReceipt');
+        $receiptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingModelGraphAllowsRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $receiptMethod->invoke($gateway, [
+            'payload' => [
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'model_graph' => [
+                            'graph' => 'codex_only',
+                            'nodes' => [
+                                [
+                                    'id' => 'executor',
+                                    'role' => 'executor',
+                                    'provider' => 'codex_cli',
+                                    'model' => 'gpt-5.5',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ], 'claude_codex', 'claude_codex', ['claude_cli', 'codex_cli']);
+
+        $this->assertSame('out_of_contract', data_get($options, 'payload.programming_policy_contract_receipt.model_graph.status'));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('atlas_model_graph_policy_violation');
+
+        $assertMethod->invoke($gateway, $options);
     }
 
     public function test_engineering_run_can_be_replayed_safely_from_existing_run(): void
@@ -934,6 +1635,7 @@ class EngineeringHarnessRunnerTest extends TestCase
         $runResponse = $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/run", [
             'workspace' => $this->workspace,
             'claude_only' => true,
+            'require_pass_without_human' => false,
             'no_provider' => true,
             'auto_test' => true,
             'test_command' => $this->passingPhpCommand(),
@@ -954,6 +1656,9 @@ class EngineeringHarnessRunnerTest extends TestCase
         $benchmarkRun = AtlasEngineeringBenchmarkRun::query()->findOrFail($benchmarkRunId);
         $this->assertTrue((bool) data_get($benchmarkRun->runner_options_json, 'claude_only'));
         $this->assertTrue((bool) data_get($benchmarkRun->runner_options_json, 'require_pass_without_human'));
+        $this->assertSame('claude_cli', data_get($benchmarkRun->runner_options_json, 'provider'));
+        $this->assertSame('opus', data_get($benchmarkRun->runner_options_json, 'model'));
+        $this->assertSame('fixed', data_get($benchmarkRun->runner_options_json, 'model_policy'));
     }
 
     public function test_engineering_benchmark_records_claude_code_baseline_plan_when_opted_in(): void
@@ -1023,6 +1728,109 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame('claude_code_cli', data_get($payload, 'results.0.observed.claude_code_baseline.provider'));
         $this->assertSame(1, data_get($payload, 'benchmark_run.summary.claude_code_baseline.planned_count'));
         $this->assertSame(0, data_get($payload, 'benchmark_run.summary.paired_scorecard.comparable_count'));
+    }
+
+    public function test_engineering_benchmark_uses_case_test_command_when_runner_override_is_absent(): void
+    {
+        $task = $this->task();
+        File::put($this->workspace.'/src/example.txt', "after\n");
+
+        $suite = AtlasEngineeringBenchmarkSuite::query()->create([
+            'slug' => 'case-test-command-default',
+            'name' => 'Case test command default',
+            'status' => 'active',
+            'default_runner_options_json' => [
+                'no_provider' => true,
+                'auto_test' => true,
+            ],
+            'metadata' => [],
+        ]);
+        app(EngineeringBenchmarkService::class)->registerCase($suite, [
+            'task_id' => $task->id,
+            'case_code' => 'case_test_command_default',
+            'title' => 'Case test command default',
+            'workspace' => $this->workspace,
+            'expected_decision' => 'resolved',
+            'min_score' => 85,
+            'task_contract' => [
+                'schema_version' => 1,
+                'test_commands' => [$this->passingPhpCommand()],
+            ],
+        ]);
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark', [
+            '--suite' => $suite->slug,
+            '--workspace' => $this->workspace,
+            '--no-provider' => true,
+            '--auto-test' => true,
+            '--claude-code-baseline' => 'plan',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('passed', data_get($payload, 'benchmark_run.status'));
+        $this->assertSame('planned', data_get($payload, 'results.0.observed.claude_code_baseline.status'));
+        $this->assertTrue((bool) data_get($payload, 'results.0.observed.claude_code_baseline.replay_packet.deterministic_gate.command_present'));
+        $this->assertSame(
+            hash('sha256', $this->passingPhpCommand()),
+            data_get($payload, 'results.0.observed.claude_code_baseline.replay_packet.deterministic_gate.command_hash'),
+        );
+    }
+
+    public function test_fair_claude_baseline_only_facade_does_not_require_atlas_fair_scorecard(): void
+    {
+        $task = $this->task();
+        File::put($this->workspace.'/src/example.txt', "after\n");
+        $baselineWorkspace = $this->createWorkspace();
+
+        try {
+            $suite = AtlasEngineeringBenchmarkSuite::query()->create([
+                'slug' => 'fair-baseline-only-facade',
+                'name' => 'Fair baseline only facade',
+                'status' => 'active',
+                'default_runner_options_json' => [
+                    'no_provider' => true,
+                    'auto_test' => true,
+                ],
+                'metadata' => [],
+            ]);
+            app(EngineeringBenchmarkService::class)->registerCase($suite, [
+                'task_id' => $task->id,
+                'case_code' => 'fair_baseline_only_facade',
+                'title' => 'Fair baseline only facade',
+                'workspace' => $this->workspace,
+                'expected_decision' => 'resolved',
+                'min_score' => 85,
+                'task_contract' => [
+                    'schema_version' => 1,
+                    'test_commands' => [$this->passingPhpCommand()],
+                ],
+            ]);
+
+            $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+                'action' => 'run-claude-code',
+                '--suite' => $suite->slug,
+                '--workspace' => $this->workspace,
+                '--claude-code-baseline-workspace' => $baselineWorkspace,
+                '--claude-code-baseline-binary' => '/bin/echo',
+                '--gate-profile' => 'off',
+                '--json' => true,
+            ]);
+            $benchmarkRun = AtlasEngineeringBenchmarkRun::query()
+                ->where('suite_id', $suite->id)
+                ->latest('created_at')
+                ->firstOrFail();
+            $payload = app(EngineeringBenchmarkService::class)->runPayload($benchmarkRun);
+
+            $this->assertSame(0, $exitCode);
+            $this->assertSame('passed', data_get($payload, 'benchmark_run.status'));
+            $this->assertNull(data_get($payload, 'results.0.observed.fair_scorecard'));
+            $this->assertSame('completed', data_get($payload, 'results.0.observed.claude_code_baseline.status'));
+            $this->assertTrue((bool) data_get($payload, 'results.0.observed.claude_code_baseline.pass_without_human'));
+        } finally {
+            $this->deleteDirectoryQuietly($baselineWorkspace);
+        }
     }
 
     public function test_engineering_benchmark_can_compare_executed_claude_code_baseline_with_deterministic_gate(): void
@@ -1140,6 +1948,21 @@ class EngineeringHarnessRunnerTest extends TestCase
                 data_get($commandPayload, 'replay_manifest.manifest_hash'),
             );
             $this->assertArrayNotHasKey('path', (array) data_get($commandPayload, 'artifact', []));
+
+            $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+                'action' => 'replay',
+                '--run-id' => $benchmarkRun->id,
+                '--json' => true,
+            ]);
+            $facadeReplayOutput = Artisan::output();
+            $facadeReplayPayload = json_decode(substr($facadeReplayOutput, (int) strpos($facadeReplayOutput, '{')), true);
+
+            $this->assertSame(0, $exitCode);
+            $this->assertSame('available', data_get($facadeReplayPayload, 'status'));
+            $this->assertSame(
+                data_get($manifestResponse->json(), 'replay_manifest.manifest_hash'),
+                data_get($facadeReplayPayload, 'replay_manifest.manifest_hash'),
+            );
 
             $reportResponse = $this->getJson(
                 "/engineering/benchmarks/suites/{$suiteSlug}/fair-claude-report",
@@ -1301,6 +2124,7 @@ class EngineeringHarnessRunnerTest extends TestCase
             'total_cases' => 1,
             'passed_cases' => 1,
             'failed_cases' => 0,
+            'cost_microusd' => 2500000,
             'runner_options_json' => ['claude_only' => true],
             'summary_json' => [
                 'paired_scorecard' => [
@@ -1338,8 +2162,19 @@ class EngineeringHarnessRunnerTest extends TestCase
                     'comparison_status' => 'comparable',
                     'comparable' => true,
                     'winner' => 'atlas',
-                    'atlas' => ['verified' => true],
-                    'claude_code_baseline' => ['verified' => true],
+                    'atlas' => [
+                        'verified' => true,
+                        'pass_without_human' => true,
+                        'duration_ms' => 1200,
+                        'repair_attempt_count' => 1,
+                        'repair_used' => true,
+                        'converted_to_green' => true,
+                    ],
+                    'claude_code_baseline' => [
+                        'verified' => true,
+                        'pass_without_human' => true,
+                        'duration_ms' => 1800,
+                    ],
                 ],
                 'claude_code_baseline' => [
                     'enabled' => true,
@@ -1365,6 +2200,11 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertJsonPath('paired_scorecard.atlas_win_count', 1)
             ->assertJsonPath('paired_scorecard.pass_without_human_rate', 100)
             ->assertJsonPath('paired_scorecard.baseline_pass_without_human_rate', 100)
+            ->assertJsonPath('paired_scorecard.repair_conversion_rate', 100)
+            ->assertJsonPath('paired_scorecard.time_to_green.atlas_avg_ms', 1200)
+            ->assertJsonPath('paired_scorecard.time_to_green.claude_code_baseline_avg_ms', 1800)
+            ->assertJsonPath('paired_scorecard.cost_per_green_case.microusd', 2500000)
+            ->assertJsonPath('paired_scorecard.cost_per_green_case.usd', 2.5)
             ->assertJsonPath('paired_scorecard.provider_violation_count', 0)
             ->assertJsonPath('paired_scorecard.fallback_violation_count', 0);
     }
@@ -1477,6 +2317,166 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame('fair_claude_benchmark_report', data_get($payload, 'kind'));
         $this->assertSame('fair-command-report', data_get($payload, 'suite.slug'));
         $this->assertSame('not_ready', data_get($payload, 'readiness.status'));
+        $this->assertSame(0, data_get($payload, 'readiness.release_corpus_case_count'));
+        $this->assertContains('fair_release_corpus_below_minimum', data_get($payload, 'readiness.blocking_reasons', []));
+    }
+
+    public function test_fair_claude_prepare_seeds_versioned_corpus_cases(): void
+    {
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'prepare',
+            '--suite' => 'fair-corpus-seed',
+            '--json' => true,
+        ]);
+        $suite = AtlasEngineeringBenchmarkSuite::query()
+            ->where('slug', 'fair-corpus-seed')
+            ->with('cases')
+            ->firstOrFail();
+        $payload = [
+            'suite' => app(EngineeringBenchmarkService::class)->suitePayload($suite)['suite'] ?? null,
+            'corpus_manifest' => data_get($suite->metadata, 'corpus_manifest'),
+            'promoted_count' => $suite->cases->count(),
+            'promoted_cases' => $suite->cases
+                ->map(fn (AtlasEngineeringBenchmarkCase $case): array => app(EngineeringBenchmarkService::class)->casePayload($case))
+                ->values()
+                ->all(),
+        ];
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('fair-corpus-seed', data_get($payload, 'suite.slug'));
+        $this->assertSame(8, data_get($payload, 'promoted_count'));
+        $this->assertSame(8, data_get($payload, 'corpus_manifest.total_cases'));
+        $this->assertSame(6, data_get($payload, 'corpus_manifest.official_subsets.release'));
+
+        $cases = collect((array) data_get($payload, 'promoted_cases', []))->keyBy('case_code');
+        $this->assertTrue($cases->has('fair_cli_provider_lock_drift'));
+        $this->assertTrue($cases->has('fair_repair_capsule_gate_failure'));
+        $this->assertTrue($cases->has('fair_benchmark_replay_packet_integrity'));
+        $this->assertTrue($cases->has('fair_dirty_workspace_scope_block'));
+        $this->assertTrue($cases->has('fair_context_pack_budget_pressure'));
+        $this->assertTrue($cases->has('fair_prompt_contract_acceptance_matrix'));
+        $this->assertTrue($cases->has('fair_final_packet_no_self_judge'));
+        $this->assertTrue($cases->has('fair_paired_baseline_workspace_isolation'));
+        $this->assertSame('hard', data_get($cases->get('fair_repair_capsule_gate_failure'), 'task_contract.difficulty'));
+        $this->assertSame('context_pack', data_get($cases->get('fair_context_pack_budget_pressure'), 'domain_slug'));
+        $this->assertSame('candidate', data_get($cases->get('fair_paired_baseline_workspace_isolation'), 'curation_status'));
+        $this->assertSame('curated', data_get($cases->get('fair_benchmark_replay_packet_integrity'), 'curation_status'));
+        $this->assertTrue((bool) data_get($cases->get('fair_cli_provider_lock_drift'), 'metadata.fair_claude_official'));
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'readiness',
+            '--suite' => 'fair-corpus-seed',
+            '--json' => true,
+        ]);
+        $report = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame(6, data_get($report, 'readiness.release_corpus_case_count'));
+        $this->assertSame(8, data_get($report, 'readiness.active_corpus_case_count'));
+        $this->assertNotContains('fair_release_corpus_below_minimum', data_get($report, 'readiness.blocking_reasons', []));
+    }
+
+    public function test_fair_claude_runbook_reports_real_battery_commands_and_start_blockers(): void
+    {
+        Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'prepare',
+            '--suite' => 'fair-runbook-ready',
+            '--json' => true,
+        ]);
+        $baselineWorkspace = $this->createWorkspace();
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'runbook',
+            '--suite' => 'fair-runbook-ready',
+            '--workspace' => $this->workspace,
+            '--claude-code-baseline-workspace' => $baselineWorkspace,
+            '--claude-code-baseline-binary' => '/bin/echo',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('fair_claude_battery_runbook', data_get($payload, 'kind'));
+        $this->assertSame('ready_to_start', data_get($payload, 'start_status'));
+        $this->assertTrue((bool) data_get($payload, 'ready_to_start_battery'));
+        $this->assertSame([], data_get($payload, 'start_blocking_reasons'));
+        $this->assertSame(6, data_get($payload, 'preflight.release_corpus_case_count'));
+        $this->assertTrue((bool) data_get($payload, 'preflight.baseline_workspace_separate'));
+        $this->assertTrue((bool) data_get($payload, 'preflight.claude_code_binary_found'));
+        $this->assertStringContainsString('run ', (string) data_get($payload, 'commands.run_full_paired_battery'));
+        $this->assertStringContainsString('--model=opus', (string) data_get($payload, 'commands.doctor'));
+        $this->assertStringContainsString('--model-policy=fixed', (string) data_get($payload, 'commands.doctor'));
+        $this->assertStringContainsString('--model=opus', (string) data_get($payload, 'commands.run_full_paired_battery'));
+        $this->assertSame('claude_cli', data_get($payload, 'protocol.atlas_provider_lock'));
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'runbook',
+            '--suite' => 'fair-runbook-ready',
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $blockedPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('blocked', data_get($blockedPayload, 'start_status'));
+        $this->assertContains('claude_code_baseline_workspace_missing_or_unreadable', data_get($blockedPayload, 'start_blocking_reasons', []));
+    }
+
+    public function test_fair_claude_command_accepts_opus_model_lock_and_rejects_model_drift(): void
+    {
+        Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'prepare',
+            '--suite' => 'fair-runbook-model-lock',
+            '--json' => true,
+        ]);
+        $baselineWorkspace = $this->createWorkspace();
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'runbook',
+            '--suite' => 'fair-runbook-model-lock',
+            '--workspace' => $this->workspace,
+            '--claude-code-baseline-workspace' => $baselineWorkspace,
+            '--claude-code-baseline-binary' => '/bin/echo',
+            '--model' => 'opus',
+            '--model-policy' => 'fixed',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('--model=opus', (string) data_get($payload, 'commands.run_full_paired_battery'));
+        $this->assertStringContainsString('--model-policy=fixed', (string) data_get($payload, 'commands.run_full_paired_battery'));
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'runbook',
+            '--suite' => 'fair-runbook-model-lock',
+            '--workspace' => $this->workspace,
+            '--claude-code-baseline-workspace' => $baselineWorkspace,
+            '--claude-code-baseline-binary' => '/bin/echo',
+            '--model' => '5.5',
+            '--json' => true,
+        ]);
+        $violation = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('fair_mode_violation', data_get($violation, 'error'));
+        $this->assertSame('5.5', data_get($violation, 'details.model'));
+    }
+
+    public function test_engineering_benchmark_rejects_unverified_pass_escape_hatch_in_fair_mode(): void
+    {
+        $exitCode = Artisan::call('atlas:engineering:benchmark', [
+            '--suite' => 'missing-suite-is-not-reached',
+            '--claude-only' => true,
+            '--allow-unverified-fair-pass' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('fair_mode_violation', data_get($payload, 'error'));
+        $this->assertTrue((bool) data_get($payload, 'details.allow_unverified_fair_pass'));
+        $this->assertTrue((bool) data_get($payload, 'details.claude_only'));
     }
 
     public function test_engineering_benchmark_seed_promotes_real_runs_to_default_suite(): void
