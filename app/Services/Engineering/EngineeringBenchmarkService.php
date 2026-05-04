@@ -765,8 +765,21 @@ class EngineeringBenchmarkService
         $allPaired = $this->pairedScorecardSummary($results, $this->runsCostMicrousd($runs));
         $baseline = $this->claudeCodeBaselineSummary($fairResults);
         $replay = $this->fairClaudeReplayReport($fairRuns);
+        $caseComparisons = $this->fairClaudeCaseComparisons($fairResults, $limit);
         $corpusManifest = $this->arrayValue(data_get($suite->metadata ?? [], 'corpus_manifest', []));
         $readiness = $this->fairClaudeReportReadiness($fairRuns, $paired, $baseline, $replay, $corpusManifest);
+        $nextActions = $this->fairClaudeReportNextActions($readiness, $paired, $baseline, $replay, $caseComparisons);
+        $executiveSummary = $this->fairClaudeExecutiveSummary($readiness, $paired, $baseline, $replay, $caseComparisons);
+        $evidencePacket = $this->fairClaudeEvidencePacket(
+            $suite,
+            $fairRuns,
+            $readiness,
+            $paired,
+            $baseline,
+            $replay,
+            $caseComparisons,
+            $nextActions,
+        );
 
         return [
             'schema_version' => 1,
@@ -788,13 +801,18 @@ class EngineeringBenchmarkService
                 'paired_result_count' => $results->count(),
                 'fair_result_count' => $fairResults->count(),
                 'non_fair_paired_result_count' => max(0, $results->count() - $fairResults->count()),
+                'case_comparison_count' => $caseComparisons->count(),
             ],
             'readiness' => $readiness,
+            'executive_summary' => $executiveSummary,
+            'next_actions' => $nextActions,
+            'evidence_packet' => $evidencePacket,
             'corpus_manifest' => $corpusManifest,
             'paired_scorecard' => $paired,
             'all_paired_scorecard' => $allPaired,
             'claude_code_baseline' => $baseline,
             'replay_manifest' => $replay,
+            'case_comparisons' => $caseComparisons->values()->all(),
             'runs' => $runs
                 ->map(fn (AtlasEngineeringBenchmarkRun $run): array => [
                     'id' => $run->id,
@@ -1420,6 +1438,32 @@ class EngineeringBenchmarkService
             return $options;
         }
 
+        $explicitProvider = $this->nonEmptyString($options['provider'] ?? null);
+        if ($explicitProvider !== null && $explicitProvider !== FairClaudePolicy::PROVIDER_LOCK) {
+            throw new InvalidArgumentException(
+                FairClaudePolicy::ERROR_CODE
+                .': Fair Claude benchmark requires provider '
+                .FairClaudePolicy::PROVIDER_LOCK
+                .', got '.$explicitProvider.'.'
+            );
+        }
+
+        $explicitModel = $this->nonEmptyString($options['model'] ?? null);
+        if ($explicitModel !== null && ! $this->fairClaudeModelLocked($explicitModel)) {
+            throw new InvalidArgumentException(
+                FairClaudePolicy::ERROR_CODE
+                .': Fair Claude benchmark requires Claude Opus model, got '.$explicitModel.'.'
+            );
+        }
+
+        $explicitModelPolicy = $this->nonEmptyString($options['model_policy'] ?? null);
+        if ($explicitModelPolicy !== null && strtolower($explicitModelPolicy) !== 'fixed') {
+            throw new InvalidArgumentException(
+                FairClaudePolicy::ERROR_CODE
+                .': Fair Claude benchmark requires model_policy=fixed, got '.$explicitModelPolicy.'.'
+            );
+        }
+
         $options['fair_mode'] = true;
         if ($claudeOnly) {
             $options['claude_only'] = true;
@@ -1428,12 +1472,8 @@ class EngineeringBenchmarkService
         $options['no_decide'] = true;
         $options['fallback_disabled'] = true;
         $options['require_pass_without_human'] = true;
-        if ($this->nonEmptyString($options['provider'] ?? null) === null) {
-            $options['provider'] = FairClaudePolicy::PROVIDER_LOCK;
-        }
-        if ($this->nonEmptyString($options['model'] ?? null) === null) {
-            $options['model'] = FairClaudePolicy::MODEL_LOCK;
-        }
+        $options['provider'] = FairClaudePolicy::PROVIDER_LOCK;
+        $options['model'] = $explicitModel ?? FairClaudePolicy::MODEL_LOCK;
         $options['model_policy'] = 'fixed';
 
         return $options;
@@ -1493,13 +1533,15 @@ class EngineeringBenchmarkService
         $required = (bool) ($runnerOptions['require_pass_without_human'] ?? true);
         $providerLocked = $provider === 'claude_cli';
         $modelLocked = $this->fairClaudeModelLocked($model);
-        $passWithoutHuman = (bool) ($fairResult['pass_without_human'] ?? false);
+        $reportedPassWithoutHuman = (bool) ($fairResult['pass_without_human'] ?? false);
         $humanInterventionCount = max(0, (int) ($fairResult['human_intervention_count'] ?? 0));
         $deterministicGatesPassed = (bool) ($fairResult['deterministic_gates_passed'] ?? false);
         $protocolValid = (string) ($fairResult['status'] ?? 'unverified') === 'valid';
         $attemptCount = (int) (data_get($payload, 'run.attempt_count') ?: count((array) data_get($payload, 'run.attempts', [])));
         $attemptCount = max(0, $attemptCount);
         $repairAttemptCount = max(0, $attemptCount - 1);
+        $scopeSafety = $this->fairScopeSafety($payload);
+        $passWithoutHuman = $reportedPassWithoutHuman && $scopeSafety['verified'];
         $blockingReasons = [];
 
         if (! $providerLocked) {
@@ -1517,6 +1559,9 @@ class EngineeringBenchmarkService
         if (! $passWithoutHuman) {
             $blockingReasons[] = 'pass_without_human_false';
         }
+        foreach ($scopeSafety['blocking_reasons'] as $reason) {
+            $blockingReasons[] = $reason;
+        }
 
         return [
             'required' => $required,
@@ -1530,16 +1575,88 @@ class EngineeringBenchmarkService
             'final_gate_passed' => $deterministicGatesPassed,
             'human_intervention_count' => $humanInterventionCount,
             'pass_without_human' => $passWithoutHuman,
+            'pass_without_human_reported' => $reportedPassWithoutHuman,
             'provider_violation_count' => $providerLocked ? 0 : 1,
             'fallback_violation_count' => 0,
             'attempt_count' => $attemptCount,
             'repair_attempt_count' => $repairAttemptCount,
             'repair_used' => $repairAttemptCount > 0,
             'converted_to_green' => $repairAttemptCount > 0 && $protocolValid && $deterministicGatesPassed && $passWithoutHuman,
+            'scope_safety' => $scopeSafety['summary'],
             'blocking_reasons' => array_values(array_unique(array_merge(
                 $blockingReasons,
                 array_map('strval', (array) ($fairResult['blocking_reasons'] ?? [])),
             ))),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array{verified:bool,summary:array<string,mixed>,blocking_reasons:array<int,string>}
+     */
+    private function fairScopeSafety(array $payload): array
+    {
+        $isolatedPatchApply = data_get($payload, 'run.scope_safety');
+        if (! is_array($isolatedPatchApply) || $isolatedPatchApply === []) {
+            return [
+                'verified' => false,
+                'summary' => [
+                    'status' => 'missing',
+                    'reason' => 'isolated_patch_apply_missing',
+                    'dirty_overlap' => [],
+                    'untracked_overlap' => [],
+                    'modified_overlap' => [],
+                    'untracked_files' => [],
+                    'profile_status' => null,
+                ],
+                'blocking_reasons' => ['scope_safety_unverified'],
+            ];
+        }
+
+        $status = (string) ($isolatedPatchApply['status'] ?? '');
+        $reason = $this->nonEmptyString($isolatedPatchApply['reason'] ?? null);
+        $profile = is_array($isolatedPatchApply['scope_safety'] ?? null) ? $isolatedPatchApply['scope_safety'] : [];
+        $profileSafe = (bool) ($profile['safe'] ?? true);
+        $dirtyOverlap = array_values((array) ($isolatedPatchApply['dirty_overlap'] ?? $profile['dirty_overlap'] ?? []));
+        $untrackedOverlap = array_values((array) ($isolatedPatchApply['untracked_overlap'] ?? $profile['untracked_overlap'] ?? []));
+        $modifiedOverlap = array_values((array) ($profile['modified_overlap'] ?? array_values(array_diff($dirtyOverlap, $untrackedOverlap))));
+        $untrackedFiles = array_values((array) ($profile['untracked_files'] ?? []));
+
+        $summary = [
+            'status' => $status,
+            'reason' => $reason,
+            'dirty_overlap' => $dirtyOverlap,
+            'untracked_overlap' => $untrackedOverlap,
+            'modified_overlap' => $modifiedOverlap,
+            'untracked_files' => $untrackedFiles,
+            'profile_status' => $profile['status'] ?? null,
+        ];
+
+        $verified = match ($status) {
+            'applied' => true,
+            'no_patch' => true,
+            'not_applicable' => $profileSafe,
+            default => false,
+        };
+
+        $blocking = [];
+        if ($dirtyOverlap !== []) {
+            $blocking[] = 'dirty_state_overlap';
+        }
+        if ($status === 'blocked' && $reason === 'possible_secret_in_diff') {
+            $blocking[] = 'possible_secret_in_diff';
+        }
+        if ($status === 'failed') {
+            $blocking[] = 'isolated_patch_apply_failed';
+        }
+        if (! $verified) {
+            $blocking[] = 'scope_safety_unverified';
+        }
+
+        return [
+            'verified' => $verified,
+            'summary' => $summary,
+            'blocking_reasons' => array_values(array_unique($blocking)),
         ];
     }
 
@@ -1929,7 +2046,9 @@ class EngineeringBenchmarkService
      */
     private function benchmarkRunSummary(AtlasEngineeringBenchmarkRun $run): array
     {
-        $summary = $this->withReplayManifestArtifactVerification($this->arrayValue($run->summary_json ?? []));
+        $summary = $this->safeReplayManifestSummaryForApi(
+            $this->withReplayManifestArtifactVerification($this->arrayValue($run->summary_json ?? [])),
+        );
 
         return [
             'id' => $run->id,
@@ -2279,6 +2398,133 @@ class EngineeringBenchmarkService
     }
 
     /**
+     * @param  Collection<int,AtlasEngineeringBenchmarkResult>  $results
+     * @return Collection<int,array<string,mixed>>
+     */
+    private function fairClaudeCaseComparisons(Collection $results, int $limit): Collection
+    {
+        return $results
+            ->map(function (AtlasEngineeringBenchmarkResult $result): ?array {
+                $scorecard = data_get($result->observed_json ?? [], 'paired_scorecard');
+                if (! is_array($scorecard)) {
+                    return null;
+                }
+
+                $atlas = $this->arrayValue(data_get($scorecard, 'atlas', []));
+                $baseline = $this->arrayValue(data_get($scorecard, 'claude_code_baseline', []));
+                $case = $this->arrayValue(data_get($scorecard, 'case', []));
+                $benchmarkCase = $result->benchmarkCase;
+                $winner = data_get($scorecard, 'winner');
+                $comparisonStatus = (string) data_get($scorecard, 'comparison_status', 'unknown');
+                $blockingReasons = collect((array) data_get($scorecard, 'blocking_reasons', []))
+                    ->filter(fn (mixed $reason): bool => is_string($reason) && $reason !== '')
+                    ->values()
+                    ->all();
+
+                return [
+                    'schema_version' => 1,
+                    'result_id' => $result->id,
+                    'benchmark_run_id' => $result->benchmark_run_id,
+                    'case_id' => $result->case_id,
+                    'case_code' => $benchmarkCase?->case_code ?? data_get($case, 'case_code'),
+                    'title' => $benchmarkCase?->title ?? data_get($case, 'title'),
+                    'domain_slug' => $benchmarkCase?->domain_slug ?? data_get($case, 'domain_slug'),
+                    'risk_profile' => $benchmarkCase?->risk_profile ?? data_get($case, 'risk_profile'),
+                    'corpus_tier' => $benchmarkCase?->corpus_tier ?? data_get($case, 'corpus_tier'),
+                    'status' => $result->status,
+                    'passed' => (bool) $result->passed,
+                    'decision' => $result->decision,
+                    'score' => $result->score,
+                    'comparison_status' => $comparisonStatus,
+                    'comparable' => (bool) data_get($scorecard, 'comparable', false),
+                    'winner' => is_string($winner) && $winner !== '' ? $winner : null,
+                    'winner_reason' => $this->fairClaudeCaseWinnerReason($scorecard, $result),
+                    'blocking_reasons' => $blockingReasons,
+                    'atlas' => [
+                        'verified' => (bool) data_get($atlas, 'verified', data_get($atlas, 'protocol_valid', false)),
+                        'passed' => (bool) data_get($atlas, 'passed', $result->passed),
+                        'pass_without_human' => (bool) data_get($atlas, 'pass_without_human', data_get($atlas, 'verified', false)),
+                        'score' => $this->nullableInt(data_get($atlas, 'score', $result->score)),
+                        'duration_ms' => $this->nullableInt(data_get($atlas, 'duration_ms', $result->duration_ms)),
+                        'attempt_count' => $this->nullableInt(data_get($atlas, 'attempt_count')),
+                        'repair_attempt_count' => $this->nullableInt(data_get($atlas, 'repair_attempt_count')),
+                        'repair_used' => (bool) data_get($atlas, 'repair_used', ((int) data_get($atlas, 'repair_attempt_count', 0)) > 0),
+                        'converted_to_green' => (bool) data_get($atlas, 'converted_to_green', false),
+                        'provider_violation_count' => max(0, (int) data_get($atlas, 'provider_violation_count', 0)),
+                        'fallback_violation_count' => max(0, (int) data_get($atlas, 'fallback_violation_count', 0)),
+                        'human_intervention_count' => max(0, (int) data_get($atlas, 'human_intervention_count', 0)),
+                    ],
+                    'claude_code_baseline' => [
+                        'verified' => (bool) data_get($baseline, 'verified', false),
+                        'passed' => (bool) data_get($baseline, 'passed', data_get($baseline, 'verified', false)),
+                        'pass_without_human' => (bool) data_get($baseline, 'pass_without_human', data_get($baseline, 'verified', false)),
+                        'score' => $this->nullableInt(data_get($baseline, 'score')),
+                        'duration_ms' => $this->nullableInt(data_get($baseline, 'duration_ms')),
+                        'human_intervention_count' => max(0, (int) data_get($baseline, 'human_intervention_count', 0)),
+                    ],
+                    'deltas' => [
+                        'score' => $this->nullableInt(data_get($scorecard, 'deltas.score')),
+                        'duration_ms' => $this->nullableInt(data_get($scorecard, 'deltas.duration_ms')),
+                        'human_intervention_count' => $this->nullableInt(data_get($scorecard, 'deltas.human_intervention_count')),
+                    ],
+                    'failure_summary' => $result->failure_summary,
+                    'created_at' => $result->created_at?->toJSON(),
+                ];
+            })
+            ->filter()
+            ->sortBy([
+                fn (array $comparison): int => $this->fairClaudeCaseComparisonRank($comparison),
+                fn (array $comparison): string => (string) ($comparison['case_code'] ?? $comparison['case_id'] ?? ''),
+            ])
+            ->take(max(1, min(200, $limit * 5)))
+            ->values();
+    }
+
+    /**
+     * @param  array<string,mixed>  $scorecard
+     */
+    private function fairClaudeCaseWinnerReason(array $scorecard, AtlasEngineeringBenchmarkResult $result): string
+    {
+        $winner = (string) data_get($scorecard, 'winner', '');
+        $status = (string) data_get($scorecard, 'comparison_status', 'unknown');
+
+        if ($status !== 'comparable') {
+            $reasons = collect((array) data_get($scorecard, 'blocking_reasons', []))
+                ->filter(fn (mixed $reason): bool => is_string($reason) && $reason !== '')
+                ->values()
+                ->all();
+
+            return $reasons === []
+                ? 'not_comparable'
+                : implode(',', $reasons);
+        }
+
+        return match ($winner) {
+            'atlas' => 'atlas_verified_better_or_baseline_failed',
+            'claude_code_baseline' => 'baseline_verified_better_or_atlas_failed',
+            'tie' => 'both_verified_equivalent',
+            default => $result->failure_summary ?: 'winner_not_declared',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $comparison
+     */
+    private function fairClaudeCaseComparisonRank(array $comparison): int
+    {
+        if (! (bool) ($comparison['comparable'] ?? false)) {
+            return 0;
+        }
+
+        return match ((string) ($comparison['winner'] ?? '')) {
+            'claude_code_baseline' => 1,
+            'atlas' => 2,
+            'tie' => 3,
+            default => 4,
+        };
+    }
+
+    /**
      * @param  Collection<int,AtlasEngineeringBenchmarkRun>  $runs
      * @return array<string,mixed>
      */
@@ -2429,6 +2675,350 @@ class EngineeringBenchmarkService
     }
 
     /**
+     * @param  array<string,mixed>  $readiness
+     * @param  array<string,mixed>  $paired
+     * @param  array<string,mixed>  $baseline
+     * @param  array<string,mixed>  $replay
+     * @param  Collection<int,array<string,mixed>>  $caseComparisons
+     * @return array<int,array<string,mixed>>
+     */
+    private function fairClaudeReportNextActions(
+        array $readiness,
+        array $paired,
+        array $baseline,
+        array $replay,
+        Collection $caseComparisons,
+    ): array {
+        $actions = [];
+        $blocking = collect((array) ($readiness['blocking_reasons'] ?? []))
+            ->filter(fn (mixed $reason): bool => is_string($reason) && $reason !== '')
+            ->values();
+
+        $add = function (
+            string $id,
+            string $severity,
+            string $title,
+            string $detail,
+            ?string $command = null,
+            ?string $owner = null,
+        ) use (&$actions): void {
+            $actions[$id] = [
+                'id' => $id,
+                'severity' => $severity,
+                'title' => $title,
+                'detail' => $detail,
+                'command' => $command,
+                'owner' => $owner,
+            ];
+        };
+
+        if ($blocking->contains('fair_release_corpus_below_minimum')) {
+            $add(
+                'prepare_release_corpus',
+                'critical',
+                'Preparar corpus release',
+                'O relatório não pode sustentar claim antes de ter o mínimo de casos release ativos.',
+                'atlas rivals prepare --json',
+                'benchmark_operator',
+            );
+        }
+
+        if ($blocking->contains('no_fair_claude_runs')
+            || $blocking->contains('fair_atlas_arm_missing')
+            || $blocking->contains('no_comparable_cases')
+        ) {
+            $add(
+                'run_paired_battery',
+                'critical',
+                'Executar bateria pareada completa',
+                'Ainda não existe amostra Atlas vs Claude Code suficiente para comparar resultados.',
+                'atlas rivals run --json',
+                'benchmark_operator',
+            );
+        }
+
+        if ($blocking->contains('claude_code_baseline_not_executed') || ! (bool) ($baseline['enabled'] ?? false)) {
+            $add(
+                'run_claude_code_baseline',
+                'critical',
+                'Executar baseline Claude Code',
+                'A comparação justa exige o braço Claude Code CLI com o mesmo Opus e workspace isolado.',
+                'atlas rivals run-claude-code --json',
+                'benchmark_operator',
+            );
+        }
+
+        if ($blocking->contains('replay_manifest_not_fully_verified') || ! (bool) ($replay['enabled'] ?? false)) {
+            $add(
+                'verify_replay_manifest',
+                'critical',
+                'Verificar replay e integridade',
+                'O claim só é auditável quando os packets e artifacts do replay estão íntegros.',
+                'atlas rivals report --json',
+                'benchmark_operator',
+            );
+        }
+
+        if ((int) ($paired['provider_violation_count'] ?? 0) > 0 || (int) ($paired['fallback_violation_count'] ?? 0) > 0) {
+            $add(
+                'rerun_after_protocol_violation',
+                'critical',
+                'Descartar runs com violação de fair mode',
+                'Provider drift ou fallback invalida o protocolo; rode novamente mantendo Claude Opus travado.',
+                'atlas rivals run --json',
+                'benchmark_operator',
+            );
+        }
+
+        if ((float) ($paired['protocol_validity_rate'] ?? 0.0) < 100.0 && (bool) ($paired['enabled'] ?? false)) {
+            $add(
+                'inspect_protocol_invalid_cases',
+                'warning',
+                'Inspecionar casos com protocolo inválido',
+                'Protocol validity precisa ser 100% para claim; revise os casos bloqueados no comparativo.',
+                null,
+                'engineering_operator',
+            );
+        }
+
+        $baselineWins = (int) ($paired['claude_code_baseline_win_count'] ?? 0);
+        if ($baselineWins > 0) {
+            $add(
+                'review_baseline_wins',
+                'warning',
+                'Revisar vitórias do Claude Code',
+                "{$baselineWins} caso(s) favorecem o baseline; priorize esses casos no próximo ciclo de harness.",
+                null,
+                'engineering_operator',
+            );
+        }
+
+        $blockedCaseCount = $caseComparisons
+            ->filter(fn (array $comparison): bool => ! (bool) ($comparison['comparable'] ?? false))
+            ->count();
+        if ($blockedCaseCount > 0) {
+            $add(
+                'resolve_incomparable_cases',
+                'warning',
+                'Resolver casos inconclusivos',
+                "{$blockedCaseCount} caso(s) ainda não são comparáveis entre Atlas e Claude Code.",
+                null,
+                'engineering_operator',
+            );
+        }
+
+        if ((bool) ($readiness['ready_for_claim'] ?? false)) {
+            $add(
+                'publish_claim_packet',
+                'info',
+                'Publicar pacote de evidência',
+                'O relatório está pronto para claim; exporte scorecard, replay manifest e case comparisons para revisão externa.',
+                'atlas rivals report --json',
+                'benchmark_operator',
+            );
+        }
+
+        if ($actions === []) {
+            $add(
+                'collect_more_runs',
+                'info',
+                'Coletar mais amostras',
+                'Não há bloqueio crítico novo; aumente a amostra para estabilizar a comparação.',
+                'atlas rivals run --json',
+                'benchmark_operator',
+            );
+        }
+
+        $rank = ['critical' => 0, 'warning' => 1, 'info' => 2];
+
+        return collect($actions)
+            ->sortBy(fn (array $action): int => $rank[(string) ($action['severity'] ?? 'info')] ?? 3)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $readiness
+     * @param  array<string,mixed>  $paired
+     * @param  array<string,mixed>  $baseline
+     * @param  array<string,mixed>  $replay
+     * @param  Collection<int,array<string,mixed>>  $caseComparisons
+     * @return array<string,mixed>
+     */
+    private function fairClaudeExecutiveSummary(
+        array $readiness,
+        array $paired,
+        array $baseline,
+        array $replay,
+        Collection $caseComparisons,
+    ): array {
+        $atlasWins = (int) ($readiness['atlas_win_count'] ?? 0);
+        $baselineWins = (int) ($readiness['claude_code_baseline_win_count'] ?? 0);
+        $tieCount = (int) ($readiness['tie_count'] ?? 0);
+        $comparableCount = (int) ($readiness['comparable_count'] ?? 0);
+        $ready = (bool) ($readiness['ready_for_claim'] ?? false);
+        $claim = match (true) {
+            $ready => 'ready_to_claim_atlas_lead',
+            $comparableCount === 0 => 'insufficient_comparable_data',
+            $baselineWins > $atlasWins => 'baseline_leading',
+            $atlasWins > $baselineWins => 'atlas_leading_but_blocked',
+            $tieCount > 0 => 'tied_but_blocked',
+            default => 'not_ready',
+        };
+        $headline = match ($claim) {
+            'ready_to_claim_atlas_lead' => 'Atlas está pronto para claim no protocolo Fair Claude.',
+            'atlas_leading_but_blocked' => 'Atlas lidera, mas ainda há bloqueios de evidência.',
+            'baseline_leading' => 'Claude Code lidera a amostra atual.',
+            'tied_but_blocked' => 'A amostra está empatada e ainda bloqueada.',
+            'insufficient_comparable_data' => 'Ainda não há amostra comparável suficiente.',
+            default => 'Relatório Fair Claude ainda não está pronto para claim.',
+        };
+        $topRisks = collect((array) ($readiness['blocking_reasons'] ?? []))
+            ->take(5)
+            ->values()
+            ->all();
+        $baselineWinCases = $caseComparisons
+            ->filter(fn (array $comparison): bool => ($comparison['winner'] ?? null) === 'claude_code_baseline')
+            ->pluck('case_code')
+            ->filter()
+            ->values()
+            ->all();
+        $blockedCases = $caseComparisons
+            ->filter(fn (array $comparison): bool => ! (bool) ($comparison['comparable'] ?? false))
+            ->pluck('case_code')
+            ->filter()
+            ->values()
+            ->all();
+
+        return [
+            'claim_status' => $claim,
+            'headline' => $headline,
+            'ready_for_claim' => $ready,
+            'winner' => $atlasWins > $baselineWins
+                ? 'atlas'
+                : ($baselineWins > $atlasWins ? 'claude_code_baseline' : ($tieCount > 0 ? 'tie' : null)),
+            'confidence' => $ready ? 'high' : ($comparableCount > 0 ? 'limited' : 'none'),
+            'sample' => [
+                'comparable_cases' => $comparableCount,
+                'fair_mode_cases' => (int) ($readiness['fair_mode_count'] ?? 0),
+                'atlas_wins' => $atlasWins,
+                'claude_code_baseline_wins' => $baselineWins,
+                'ties' => $tieCount,
+            ],
+            'quality_bar' => [
+                'protocol_validity_rate' => $paired['protocol_validity_rate'] ?? null,
+                'pass_without_human_rate' => $paired['pass_without_human_rate'] ?? null,
+                'medium_hard_pass_without_human_rate' => $paired['pass_without_human_rate_medium_hard'] ?? null,
+                'final_gate_pass_rate' => $paired['final_gate_pass_rate'] ?? null,
+            ],
+            'auditability' => [
+                'baseline_executed' => (bool) ($baseline['enabled'] ?? false) && (int) ($baseline['executed_count'] ?? 0) > 0,
+                'replay_verified' => (bool) ($replay['enabled'] ?? false) && (int) ($replay['artifact_integrity_failed_count'] ?? 0) === 0,
+                'manifest_hash_count' => count((array) ($replay['manifest_hashes'] ?? [])),
+            ],
+            'top_risks' => $topRisks,
+            'baseline_win_cases' => $baselineWinCases,
+            'blocked_cases' => $blockedCases,
+        ];
+    }
+
+    /**
+     * @param  Collection<int,AtlasEngineeringBenchmarkRun>  $fairRuns
+     * @param  array<string,mixed>  $readiness
+     * @param  array<string,mixed>  $paired
+     * @param  array<string,mixed>  $baseline
+     * @param  array<string,mixed>  $replay
+     * @param  Collection<int,array<string,mixed>>  $caseComparisons
+     * @param  array<int,array<string,mixed>>  $nextActions
+     * @return array<string,mixed>
+     */
+    private function fairClaudeEvidencePacket(
+        AtlasEngineeringBenchmarkSuite $suite,
+        Collection $fairRuns,
+        array $readiness,
+        array $paired,
+        array $baseline,
+        array $replay,
+        Collection $caseComparisons,
+        array $nextActions,
+    ): array {
+        $packet = [
+            'schema_version' => 1,
+            'kind' => 'fair_claude_claim_evidence_packet',
+            'generated_at' => now()->toJSON(),
+            'suite' => [
+                'id' => $suite->id,
+                'slug' => $suite->slug,
+                'name' => $suite->name,
+            ],
+            'protocol' => [
+                'atlas_provider_lock' => FairClaudePolicy::PROVIDER_LOCK,
+                'atlas_model_lock' => FairClaudePolicy::MODEL_LOCK,
+                'baseline_provider_lock' => 'claude_code_cli',
+                'baseline_model_lock' => FairClaudePolicy::MODEL_LOCK,
+                'fallback_disabled' => true,
+                'atlas_decide_disabled' => true,
+            ],
+            'claim' => [
+                'ready_for_claim' => (bool) ($readiness['ready_for_claim'] ?? false),
+                'readiness_status' => $readiness['status'] ?? null,
+                'blocking_reasons' => $readiness['blocking_reasons'] ?? [],
+                'winner' => (int) ($readiness['atlas_win_count'] ?? 0) > (int) ($readiness['claude_code_baseline_win_count'] ?? 0)
+                    ? 'atlas'
+                    : ((int) ($readiness['claude_code_baseline_win_count'] ?? 0) > (int) ($readiness['atlas_win_count'] ?? 0) ? 'claude_code_baseline' : null),
+            ],
+            'scorecard' => Arr::only($paired, [
+                'case_count',
+                'fair_mode_count',
+                'comparable_count',
+                'atlas_win_count',
+                'claude_code_baseline_win_count',
+                'tie_count',
+                'protocol_validity_rate',
+                'pass_without_human_rate',
+                'pass_without_human_rate_medium_hard',
+                'repair_conversion_rate',
+                'final_gate_pass_rate',
+                'provider_violation_count',
+                'fallback_violation_count',
+            ]),
+            'audit' => [
+                'run_ids' => $fairRuns->pluck('id')->values()->all(),
+                'run_count' => $fairRuns->count(),
+                'case_comparison_count' => $caseComparisons->count(),
+                'replay_enabled' => (bool) ($replay['enabled'] ?? false),
+                'replay_manifest_hashes' => (array) ($replay['manifest_hashes'] ?? []),
+                'replay_packet_count' => (int) ($replay['packet_count'] ?? 0),
+                'artifact_integrity_passed_count' => (int) ($replay['artifact_integrity_passed_count'] ?? 0),
+                'artifact_integrity_failed_count' => (int) ($replay['artifact_integrity_failed_count'] ?? 0),
+                'baseline_enabled' => (bool) ($baseline['enabled'] ?? false),
+                'baseline_executed_count' => (int) ($baseline['executed_count'] ?? 0),
+            ],
+            'case_outcomes' => $caseComparisons
+                ->map(fn (array $comparison): array => Arr::only($comparison, [
+                    'case_code',
+                    'comparison_status',
+                    'comparable',
+                    'winner',
+                    'winner_reason',
+                    'blocking_reasons',
+                    'deltas',
+                ]))
+                ->values()
+                ->all(),
+            'next_action_ids' => collect($nextActions)
+                ->pluck('id')
+                ->filter()
+                ->values()
+                ->all(),
+        ];
+
+        return array_merge($packet, [
+            'evidence_hash' => hash('sha256', $this->canonicalJsonForHash(Arr::except($packet, ['generated_at']))),
+        ]);
+    }
+
+    /**
      * @param  Collection<int,AtlasEngineeringBenchmarkResult>  $results
      * @return array<string,mixed>
      */
@@ -2458,7 +3048,7 @@ class EngineeringBenchmarkService
                     'command_hash' => data_get($packet, 'invocation.command_hash'),
                     'deterministic_gate_command_hash' => data_get($packet, 'deterministic_gate.command_hash'),
                     'deterministic_gate_command_present' => (bool) data_get($packet, 'deterministic_gate.command_present'),
-                    'packet_hash' => hash('sha256', json_encode($packet, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+                    'packet_hash' => hash('sha256', $this->canonicalJsonForHash($this->hashableReplayPacket($packet))),
                 ];
             })
             ->filter()
@@ -2480,6 +3070,8 @@ class EngineeringBenchmarkService
             ->filter()
             ->values()
             ->all();
+        $sortedPacketHashes = $packetHashes;
+        sort($sortedPacketHashes);
 
         $manifest = [
             'enabled' => true,
@@ -2493,7 +3085,7 @@ class EngineeringBenchmarkService
                 ->filter(fn (array $packet): bool => (bool) ($packet['deterministic_gate_command_present'] ?? false))
                 ->count(),
             'packet_hashes' => $packetHashes,
-            'manifest_hash' => hash('sha256', json_encode($packetHashes, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+            'manifest_hash' => hash('sha256', $this->canonicalJsonForHash($sortedPacketHashes)),
             'packets' => $packets->all(),
         ];
 
@@ -2501,7 +3093,9 @@ class EngineeringBenchmarkService
 
         return array_merge($manifest, [
             'final_packet' => array_merge($finalPacket, [
-                'final_packet_hash' => hash('sha256', json_encode($finalPacket, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+                'final_packet_hash' => hash('sha256', $this->canonicalJsonForHash(
+                    Arr::except($finalPacket, ['generated_at']),
+                )),
             ]),
         ]);
     }
@@ -2528,39 +3122,107 @@ class EngineeringBenchmarkService
         $fairScorecards = $scorecards
             ->filter(fn (array $scorecard): bool => (bool) ($scorecard['fair_mode'] ?? false))
             ->values();
-        $protocolValid = $fairScorecards->isEmpty()
-            ? null
-            : $fairScorecards->every(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.protocol_valid', data_get($scorecard, 'atlas.verified')));
+        $fairMode = $fairScorecards->isNotEmpty();
+        $protocolValid = $fairMode
+            ? $fairScorecards->every(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.protocol_valid', data_get($scorecard, 'atlas.verified')))
+            : null;
         $humanInterventionCount = $scorecards
             ->sum(fn (array $scorecard): int => max(0, (int) data_get($scorecard, 'atlas.human_intervention_count', 0))
                 + max(0, (int) data_get($scorecard, 'claude_code_baseline.human_intervention_count', 0)));
         $pairedSummary = $this->pairedScorecardSummary($results, (int) ($quality['cost_microusd'] ?? 0));
+        $packetCount = (int) ($manifest['packet_count'] ?? 0);
+        $deterministicGatePacketCount = (int) ($manifest['deterministic_gate_packet_count'] ?? 0);
+        $providerViolationCount = (int) ($pairedSummary['provider_violation_count'] ?? 0);
+        $fallbackViolationCount = (int) ($pairedSummary['fallback_violation_count'] ?? 0);
+        $invalidCaseCount = (int) ($pairedSummary['invalid_case_count'] ?? 0);
+        $atlasVerifiedCount = $fairScorecards
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.pass_without_human', data_get($scorecard, 'atlas.verified')))
+            ->count();
+        $failedTestCount = (int) ($quality['failed_test_count'] ?? 0);
+        $failedControlCount = (int) ($quality['failed_control_count'] ?? 0);
+        $releaseGateStatus = $this->nonEmptyString($releaseGate['status'] ?? null);
+
+        $invalidReasons = [];
+        if ($protocolValid === false) {
+            $invalidReasons[] = 'fair_protocol_invalid';
+        }
+        if ($providerViolationCount > 0) {
+            $invalidReasons[] = 'provider_lock_violation';
+        }
+        if ($fallbackViolationCount > 0) {
+            $invalidReasons[] = 'fallback_violation';
+        }
+
+        $unverifiedReasons = [];
+        if ($packetCount > 0 && $deterministicGatePacketCount < $packetCount) {
+            $unverifiedReasons[] = 'deterministic_gate_packet_missing';
+        }
+        if ($fairMode && $atlasVerifiedCount < $fairScorecards->count()) {
+            $unverifiedReasons[] = 'pass_without_human_unverified';
+        }
+
+        $failedReasons = [];
+        if ($failedTestCount > 0) {
+            $failedReasons[] = 'failed_tests_present';
+        }
+        if ($failedControlCount > 0) {
+            $failedReasons[] = 'failed_controls_present';
+        }
+        if ($releaseGateStatus === 'failed') {
+            $failedReasons[] = 'release_gate_failed';
+        }
+
         $finalStatus = match (true) {
-            $protocolValid === false => 'invalid',
-            $status === 'passed' && (int) ($manifest['packet_count'] ?? 0) > 0
-                && (int) ($manifest['deterministic_gate_packet_count'] ?? 0) < (int) ($manifest['packet_count'] ?? 0) => 'unverified',
+            $invalidReasons !== [] => 'invalid',
+            $status === 'failed' || $failedReasons !== [] => 'failed',
+            $unverifiedReasons !== [] => 'unverified',
+            $status === 'passed' => 'passed',
             default => $status,
         };
+        $evaluatorVerified = $finalStatus === 'passed';
+        $decisionReasons = array_values(array_unique(array_merge(
+            $invalidReasons,
+            $failedReasons,
+            $unverifiedReasons,
+        )));
+
         $skips = [];
-        if ((int) ($manifest['packet_count'] ?? 0) > 0
-            && (int) ($manifest['deterministic_gate_packet_count'] ?? 0) < (int) ($manifest['packet_count'] ?? 0)
-        ) {
+        if ($packetCount > 0 && $deterministicGatePacketCount < $packetCount) {
             $skips[] = [
                 'reason' => 'deterministic_gate_packet_missing',
-                'packet_count' => (int) ($manifest['packet_count'] ?? 0),
-                'deterministic_gate_packet_count' => (int) ($manifest['deterministic_gate_packet_count'] ?? 0),
+                'packet_count' => $packetCount,
+                'deterministic_gate_packet_count' => $deterministicGatePacketCount,
             ];
         }
+
+        $selfAssessment = [
+            'authoritative' => false,
+            'note' => 'Self-reported flags from provider stdout never promote status to passed; Atlas-deterministic gates are authoritative.',
+            'protocol_valid' => $protocolValid,
+            'fair_scorecard_count' => $fairScorecards->count(),
+            'invalid_case_count' => $invalidCaseCount,
+            'pass_without_human_reported_count' => $fairScorecards
+                ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.pass_without_human_reported', data_get($scorecard, 'atlas.pass_without_human')))
+                ->count(),
+        ];
 
         return [
             'schema_version' => 1,
             'kind' => 'engineering_benchmark_final_packet',
+            'evaluator' => 'atlas_deterministic',
+            'evaluator_verified' => $evaluatorVerified,
+            'evaluation_inputs' => [
+                'paired_scorecard',
+                'fair_scorecard',
+                'release_gate',
+                'quality_metrics',
+            ],
             'status' => $finalStatus,
             'benchmark_status' => $status,
             'protocol_valid' => $protocolValid,
-            'fair_mode' => $fairScorecards->isNotEmpty(),
-            'provider_lock' => $fairScorecards->isNotEmpty() ? FairClaudePolicy::PROVIDER_LOCK : null,
-            'model_lock' => $fairScorecards->isNotEmpty() ? FairClaudePolicy::MODEL_LOCK : null,
+            'fair_mode' => $fairMode,
+            'provider_lock' => $fairMode ? FairClaudePolicy::PROVIDER_LOCK : null,
+            'model_lock' => $fairMode ? FairClaudePolicy::MODEL_LOCK : null,
             'attempts' => (int) ($quality['total_attempts'] ?? 0),
             'repair_conversion_rate' => $pairedSummary['repair_conversion_rate'] ?? null,
             'time_to_green' => $pairedSummary['time_to_green'] ?? null,
@@ -2569,16 +3231,21 @@ class EngineeringBenchmarkService
             'diff_hash' => null,
             'replay_manifest_hash' => $manifest['manifest_hash'] ?? null,
             'tests' => [
-                'failed_test_count' => (int) ($quality['failed_test_count'] ?? 0),
+                'failed_test_count' => $failedTestCount,
                 'failed_tests' => $quality['failed_tests'] ?? [],
             ],
             'gates' => [
                 'release_gate_status' => $releaseGate['status'] ?? null,
                 'release_gate_profile' => $releaseGate['profile'] ?? null,
-                'deterministic_gate_packet_count' => (int) ($manifest['deterministic_gate_packet_count'] ?? 0),
-                'failed_control_count' => (int) ($quality['failed_control_count'] ?? 0),
+                'deterministic_gate_packet_count' => $deterministicGatePacketCount,
+                'deterministic_gate_packet_total' => $packetCount,
+                'failed_control_count' => $failedControlCount,
                 'blocked_control_count' => (int) ($quality['blocked_control_count'] ?? 0),
                 'release_gate_failures' => $releaseGate['failures'] ?? [],
+                'fair_scorecard_count' => $fairScorecards->count(),
+                'fair_scorecard_atlas_verified_count' => $atlasVerifiedCount,
+                'provider_violation_count' => $providerViolationCount,
+                'fallback_violation_count' => $fallbackViolationCount,
             ],
             'skips' => $skips,
             'risks' => [
@@ -2586,6 +3253,8 @@ class EngineeringBenchmarkService
                 'risk_flags' => $quality['risk_flags'] ?? [],
                 'release_gate_warnings' => $releaseGate['warnings'] ?? [],
             ],
+            'decision_reasons' => $decisionReasons,
+            'self_assessment' => $selfAssessment,
             'replay_command' => 'atlas benchmark claude-fair replay '.$run->id.' --json',
             'rollback_command' => null,
             'trace_id' => data_get($quality, 'telemetry_trace_ids.0'),
@@ -2710,6 +3379,64 @@ class EngineeringBenchmarkService
     }
 
     /**
+     * @param  array<string,mixed>  $summary
+     * @return array<string,mixed>
+     */
+    private function safeReplayManifestSummaryForApi(array $summary): array
+    {
+        $manifest = $this->arrayValue(data_get($summary, 'replay_manifest'));
+        if ($manifest === []) {
+            return $summary;
+        }
+
+        $artifact = $this->arrayValue($manifest['artifact'] ?? []);
+        if ($artifact !== []) {
+            $manifest['artifact'] = $this->safeReplayManifestArtifact($artifact);
+        }
+
+        $summary['replay_manifest'] = $manifest;
+
+        return $summary;
+    }
+
+    private function canonicalJsonForHash(mixed $value): string
+    {
+        $encoded = json_encode(
+            $this->canonicalSortForHash($value),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE,
+        );
+
+        return is_string($encoded) ? $encoded : '';
+    }
+
+    private function canonicalSortForHash(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+        if (array_is_list($value)) {
+            return array_map(fn (mixed $item): mixed => $this->canonicalSortForHash($item), $value);
+        }
+        ksort($value);
+        foreach ($value as $key => $sub) {
+            $value[$key] = $this->canonicalSortForHash($sub);
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param  array<string,mixed>|mixed  $packet
+     * @return array<string,mixed>
+     */
+    private function hashableReplayPacket(mixed $packet): array
+    {
+        $packet = is_array($packet) ? $packet : [];
+
+        return Arr::except($packet, ['created_at']);
+    }
+
+    /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
      */
@@ -2757,6 +3484,11 @@ class EngineeringBenchmarkService
     private function arrayValue(mixed $value): array
     {
         return is_array($value) ? $value : [];
+    }
+
+    private function nullableInt(mixed $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
     }
 
     private function nonEmptyString(mixed $value): ?string

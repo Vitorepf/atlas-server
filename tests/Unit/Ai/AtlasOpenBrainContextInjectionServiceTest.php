@@ -220,6 +220,67 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $this->assertContains('open_brain_context_budget_exceeded', $result2['warnings']);
     }
 
+    public function test_truncation_summary_is_explicit_and_replayable(): void
+    {
+        $longSummary = str_repeat('contexto canonico de engenharia relevante para esta tarefa. ', 40);
+        $manyRefs = array_map(
+            fn (int $i): array => ['title' => "Doc Atlas {$i}", 'canonical_path' => "docs/doc-{$i}.md", 'summary' => $longSummary],
+            range(1, 20),
+        );
+
+        $knowledge = $this->createMock(EngineeringKnowledgeBaseService::class);
+        $knowledge->method('contextRefs')->willReturn($manyRefs);
+        $code = $this->createMock(EngineeringCodeIntelligenceService::class);
+        $code->method('contextRefs')->willReturn([]);
+        Schema::shouldReceive('hasTable')->andReturn(false);
+
+        $service = new AtlasOpenBrainContextInjectionService($knowledge, $code);
+
+        $budget = 2001;
+        $payload = ['payload' => ['open_brain' => ['budget_chars' => $budget], 'atlas_workflow_mode' => 'dev']];
+
+        $first = $service->inject('implementar feature X', $this->task('dev'), $this->pack(), $payload);
+        $second = $service->inject('implementar feature X', $this->task('dev'), $this->pack(), $payload);
+
+        $truncationFirst = data_get($first, 'summary.truncation');
+        $truncationSecond = data_get($second, 'summary.truncation');
+
+        $this->assertIsArray($truncationFirst);
+        $this->assertTrue($truncationFirst['truncated']);
+        $this->assertSame($budget, $truncationFirst['budget_chars']);
+        $this->assertGreaterThan($budget, $truncationFirst['original_chars']);
+        $this->assertGreaterThan(0, $truncationFirst['dropped_chars']);
+        $this->assertSame(
+            $truncationFirst['original_chars'] - max(0, $truncationFirst['used_chars'] - mb_strlen((string) $truncationFirst['marker'])),
+            $truncationFirst['dropped_chars'],
+        );
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', (string) $truncationFirst['pre_truncation_hash']);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', (string) $truncationFirst['post_truncation_hash']);
+        $this->assertNotSame($truncationFirst['pre_truncation_hash'], $truncationFirst['post_truncation_hash']);
+        $this->assertSame("\n[TRUNCATED_BY_ATLAS_OPEN_BRAIN_BUDGET]", $truncationFirst['marker']);
+        $this->assertStringContainsString('[TRUNCATED_BY_ATLAS_OPEN_BRAIN_BUDGET]', $first['prompt_section']);
+
+        $this->assertSame($truncationFirst, $truncationSecond, 'Truncation metadata must be deterministic for replay');
+    }
+
+    public function test_truncation_summary_is_inert_when_budget_not_exceeded(): void
+    {
+        $result = $this->service->inject(
+            'implementar feature X',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev']],
+        );
+
+        $truncation = data_get($result, 'summary.truncation');
+        $this->assertIsArray($truncation);
+        $this->assertFalse($truncation['truncated']);
+        $this->assertSame(0, $truncation['dropped_chars']);
+        $this->assertNull($truncation['marker']);
+        $this->assertSame($truncation['pre_truncation_hash'], $truncation['post_truncation_hash']);
+        $this->assertStringNotContainsString('[TRUNCATED_BY_ATLAS_OPEN_BRAIN_BUDGET]', (string) $result['prompt_section']);
+    }
+
     // --- failure modes ---
 
     public function test_knowledge_exception_is_swallowed_and_results_in_degraded(): void

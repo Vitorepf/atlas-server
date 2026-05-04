@@ -162,12 +162,38 @@ class AtlasOpenBrainContextInjectionService
             warnings: $warnings,
         );
 
-        $usedChars = Str::length($promptSection);
-        $summary['used_chars'] = $usedChars;
-        if ($usedChars > (int) $policy['budget_chars']) {
+        $marker = "\n[TRUNCATED_BY_ATLAS_OPEN_BRAIN_BUDGET]";
+        $markerLength = Str::length($marker);
+        $originalChars = Str::length($promptSection);
+        $preTruncationHash = hash('sha256', $promptSection);
+
+        $summary['used_chars'] = $originalChars;
+        $summary['truncation'] = [
+            'truncated' => false,
+            'budget_chars' => (int) $policy['budget_chars'],
+            'original_chars' => $originalChars,
+            'used_chars' => $originalChars,
+            'dropped_chars' => 0,
+            'marker' => null,
+            'pre_truncation_hash' => $preTruncationHash,
+            'post_truncation_hash' => $preTruncationHash,
+        ];
+
+        if ($originalChars > (int) $policy['budget_chars']) {
             $warnings[] = 'open_brain_context_budget_exceeded';
-            $promptSection = Str::limit($promptSection, (int) $policy['budget_chars'], "\n[TRUNCATED_BY_ATLAS_OPEN_BRAIN_BUDGET]");
-            $summary['used_chars'] = Str::length($promptSection);
+            $promptSection = Str::limit($promptSection, (int) $policy['budget_chars'], $marker);
+            $usedChars = Str::length($promptSection);
+            $summary['used_chars'] = $usedChars;
+            $summary['truncation'] = [
+                'truncated' => true,
+                'budget_chars' => (int) $policy['budget_chars'],
+                'original_chars' => $originalChars,
+                'used_chars' => $usedChars,
+                'dropped_chars' => max(0, $originalChars - max(0, $usedChars - $markerLength)),
+                'marker' => $marker,
+                'pre_truncation_hash' => $preTruncationHash,
+                'post_truncation_hash' => hash('sha256', $promptSection),
+            ];
         }
 
         $status = $warnings === [] ? 'injected' : 'degraded';

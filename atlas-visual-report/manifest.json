@@ -12,7 +12,7 @@
             "content_type": "application/json",
             "body_hash": "30cbec0bce16eaec65222795d3b5359efe8eee5d002148266768225b49e8a311",
             "bytes": 10033,
-            "duration_ms": 9,
+            "duration_ms": 7,
             "slug": "root",
             "artifact": "routes/root.html",
             "headers_artifact": "routes/root.headers.json",
@@ -20,8 +20,11 @@
                 "current_hash": "30cbec0bce16eaec65222795d3b5359efe8eee5d002148266768225b49e8a311",
                 "baseline_file_hash": "3b4db5d86a6237ec910a8c6073adbe1d9cca13927951b66258bf7b17942736cc",
                 "baseline_root_hash": "71b2ca02d72d9c0863f6626860fc42f52a0e09238e5c989178e0103b229b23c0",
-                "status": "first_baseline",
-                "strict": false
+                "status": "stable",
+                "strict": false,
+                "previous_hash": "30cbec0bce16eaec65222795d3b5359efe8eee5d002148266768225b49e8a311",
+                "baseline_promoted_at": "2026-05-04T02:30:25.969599Z",
+                "source_manifest_hash": null
             },
             "screenshot": {
                 "status": "skipped",
@@ -77,10 +80,10 @@
     },
     "artifact_dir": "atlas-visual-report",
     "started_command": "'/opt/homebrew/bin/php' artisan serve --host='127.0.0.1' --port='49409'",
-    "duration_ms": 433,
+    "duration_ms": 419,
     "process": {
         "exit_code": 0,
-        "stdout_excerpt": "\n   INFO  Server running on [http://127.0.0.1:49409].  \n\n  Press Ctrl+C to stop the server\n\n  2026-05-03 23:30:25 / ............................................ ~ 0.03ms\n  2026-05-03 23:30:25 / ............................................ ~ 0.01ms\n",
+        "stdout_excerpt": "\n   INFO  Server running on [http://127.0.0.1:49409].  \n\n  Press Ctrl+C to stop the server\n\n  2026-05-04 11:34:42 / ............................................ ~ 0.03ms\n  2026-05-04 11:34:42 / ............................................ ~ 0.01ms\n",
         "stderr_excerpt": ""
     }
 }

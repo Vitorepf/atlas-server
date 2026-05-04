@@ -30,6 +30,7 @@ use App\Services\Engineering\EngineeringReviewFindingService;
 use App\Services\Engineering\EngineeringRunScoringService;
 use App\Services\Engineering\EngineeringWorkspaceService;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -1931,6 +1932,43 @@ class EngineeringHarnessRunnerTest extends TestCase
                 data_get($manifestResponse->json(), 'replay_manifest.manifest_hash'),
             );
             $this->assertArrayNotHasKey('path', (array) data_get($manifestResponse->json(), 'artifact', []));
+            $this->assertArrayNotHasKey(
+                'path',
+                (array) data_get($runResponse->json(), 'benchmark_run.summary.replay_manifest.artifact', []),
+            );
+
+            $finalPacket = (array) data_get($manifestResponse->json(), 'final_packet', []);
+            $this->assertSame('atlas_deterministic', data_get($finalPacket, 'evaluator'));
+            $this->assertNotEmpty(data_get($finalPacket, 'final_packet_hash'));
+            $this->assertSame(
+                hash('sha256', $this->canonicalJsonForHash(Arr::except(
+                    Arr::except($finalPacket, ['final_packet_hash']),
+                    ['generated_at'],
+                ))),
+                data_get($finalPacket, 'final_packet_hash'),
+            );
+
+            $manifestHash = (string) data_get($manifestResponse->json(), 'replay_manifest.manifest_hash');
+            $packetHashes = (array) data_get($manifestResponse->json(), 'replay_manifest.packet_hashes', []);
+            $sortedPacketHashes = $packetHashes;
+            sort($sortedPacketHashes);
+            $this->assertSame(
+                hash('sha256', $this->canonicalJsonForHash($sortedPacketHashes)),
+                $manifestHash,
+            );
+
+            $secondManifestResponse = $this->getJson(
+                "/engineering/benchmarks/runs/{$benchmarkRun->id}/replay-manifest",
+                $this->headers,
+            )->assertOk();
+            $this->assertSame(
+                $manifestHash,
+                data_get($secondManifestResponse->json(), 'replay_manifest.manifest_hash'),
+            );
+            $this->assertSame(
+                data_get($finalPacket, 'final_packet_hash'),
+                data_get($secondManifestResponse->json(), 'final_packet.final_packet_hash'),
+            );
 
             $exitCode = Artisan::call('atlas:engineering:benchmark:replay-manifest', [
                 'run' => $benchmarkRun->id,
@@ -2069,7 +2107,14 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertNotEmpty(data_get($response->json(), 'results.0.observed.paired_workspaces.claude_code_baseline.worktree_path_hash'));
         $this->assertNotEmpty(data_get($response->json(), 'benchmark_run.summary.replay_manifest.manifest_hash'));
         $this->assertNotEmpty(data_get($response->json(), 'benchmark_run.summary.replay_manifest.packets.0.packet_hash'));
-        $this->assertFileExists((string) data_get($response->json(), 'benchmark_run.summary.replay_manifest.artifact.path'));
+        $this->assertArrayNotHasKey(
+            'path',
+            (array) data_get($response->json(), 'benchmark_run.summary.replay_manifest.artifact', []),
+        );
+        $benchmarkRun = AtlasEngineeringBenchmarkRun::query()
+            ->where('id', (string) data_get($response->json(), 'benchmark_run.id'))
+            ->firstOrFail();
+        $this->assertFileExists((string) data_get($benchmarkRun->summary_json, 'replay_manifest.artifact.path'));
         $this->assertArrayNotHasKey(
             'execution_workspace',
             (array) data_get($response->json(), 'results.0.observed.paired_workspaces.claude_code_baseline', []),
@@ -2206,7 +2251,36 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertJsonPath('paired_scorecard.cost_per_green_case.microusd', 2500000)
             ->assertJsonPath('paired_scorecard.cost_per_green_case.usd', 2.5)
             ->assertJsonPath('paired_scorecard.provider_violation_count', 0)
-            ->assertJsonPath('paired_scorecard.fallback_violation_count', 0);
+            ->assertJsonPath('paired_scorecard.fallback_violation_count', 0)
+            ->assertJsonPath('scope.case_comparison_count', 1)
+            ->assertJsonPath('case_comparisons.0.case_code', 'fair_report_limit')
+            ->assertJsonPath('case_comparisons.0.comparison_status', 'comparable')
+            ->assertJsonPath('case_comparisons.0.winner', 'atlas')
+            ->assertJsonPath('case_comparisons.0.winner_reason', 'atlas_verified_better_or_baseline_failed')
+            ->assertJsonPath('case_comparisons.0.atlas.pass_without_human', true)
+            ->assertJsonPath('case_comparisons.0.atlas.repair_attempt_count', 1)
+            ->assertJsonPath('case_comparisons.0.claude_code_baseline.verified', true)
+            ->assertJsonPath('case_comparisons.0.claude_code_baseline.duration_ms', 1800)
+            ->assertJsonPath('executive_summary.claim_status', 'atlas_leading_but_blocked')
+            ->assertJsonPath('executive_summary.winner', 'atlas')
+            ->assertJsonPath('executive_summary.sample.comparable_cases', 1)
+            ->assertJsonPath('evidence_packet.kind', 'fair_claude_claim_evidence_packet')
+            ->assertJsonPath('evidence_packet.protocol.atlas_provider_lock', 'claude_cli')
+            ->assertJsonPath('evidence_packet.protocol.atlas_model_lock', 'opus')
+            ->assertJsonPath('evidence_packet.claim.winner', 'atlas')
+            ->assertJsonPath('evidence_packet.audit.case_comparison_count', 1)
+            ->assertJsonPath('evidence_packet.case_outcomes.0.case_code', 'fair_report_limit')
+            ->assertJsonPath('evidence_packet.case_outcomes.0.winner', 'atlas')
+            ->assertJsonFragment([
+                'id' => 'verify_replay_manifest',
+                'severity' => 'critical',
+                'command' => 'atlas rivals report --json',
+            ]);
+
+        $payload = $this->getJson("/engineering/benchmarks/suites/{$suite->slug}/fair-claude-report?limit=1", $this->headers)
+            ->json();
+        $this->assertIsString(data_get($payload, 'evidence_packet.evidence_hash'));
+        $this->assertSame(64, strlen((string) data_get($payload, 'evidence_packet.evidence_hash')));
     }
 
     public function test_fair_claude_report_detects_legacy_runs_from_result_scorecard(): void
@@ -2319,6 +2393,42 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame('not_ready', data_get($payload, 'readiness.status'));
         $this->assertSame(0, data_get($payload, 'readiness.release_corpus_case_count'));
         $this->assertContains('fair_release_corpus_below_minimum', data_get($payload, 'readiness.blocking_reasons', []));
+    }
+
+    public function test_rivals_report_json_delegates_to_fair_claude_and_returns_report(): void
+    {
+        AtlasEngineeringBenchmarkSuite::query()->create([
+            'slug' => 'atlas-fair-claude-v1',
+            'name' => 'Atlas Fair Claude v1',
+            'status' => 'active',
+            'default_runner_options_json' => [],
+            'metadata' => [],
+        ]);
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+            'action' => 'report',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('fair_claude_benchmark_report', data_get($payload, 'kind'));
+        $this->assertSame('atlas-fair-claude-v1', data_get($payload, 'suite.slug'));
+        $this->assertSame('not_ready', data_get($payload, 'readiness.status'));
+    }
+
+    public function test_rivals_report_json_rejects_unknown_profile(): void
+    {
+        $exitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+            'action' => 'report',
+            '--profile' => 'atlas-full-vs-claude',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('unsupported_profile', data_get($payload, 'error'));
+        $this->assertContains('fair-claude', data_get($payload, 'supported_profiles', []));
     }
 
     public function test_fair_claude_prepare_seeds_versioned_corpus_cases(): void
@@ -2477,6 +2587,71 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame('fair_mode_violation', data_get($payload, 'error'));
         $this->assertTrue((bool) data_get($payload, 'details.allow_unverified_fair_pass'));
         $this->assertTrue((bool) data_get($payload, 'details.claude_only'));
+    }
+
+    public function test_engineering_benchmark_rejects_explicit_provider_drift_in_fair_mode(): void
+    {
+        AtlasEngineeringBenchmarkSuite::query()->create([
+            'slug' => 'fair-provider-lock-drift',
+            'name' => 'Fair provider lock drift',
+            'status' => 'active',
+            'default_runner_options_json' => [],
+            'metadata' => [],
+        ]);
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark', [
+            '--suite' => 'fair-provider-lock-drift',
+            '--claude-only' => true,
+            '--provider' => 'codex_cli',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('fair_mode_violation', data_get($payload, 'error'));
+        $this->assertStringContainsString('codex_cli', (string) data_get($payload, 'message'));
+        $this->assertTrue((bool) data_get($payload, 'details.claude_only'));
+    }
+
+    public function test_engineering_benchmark_rejects_explicit_model_drift_in_fair_mode(): void
+    {
+        AtlasEngineeringBenchmarkSuite::query()->create([
+            'slug' => 'fair-model-lock-drift',
+            'name' => 'Fair model lock drift',
+            'status' => 'active',
+            'default_runner_options_json' => [],
+            'metadata' => [],
+        ]);
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark', [
+            '--suite' => 'fair-model-lock-drift',
+            '--claude-only' => true,
+            '--model' => 'sonnet',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('fair_mode_violation', data_get($payload, 'error'));
+        $this->assertStringContainsString('Claude Opus', (string) data_get($payload, 'message'));
+    }
+
+    public function test_engineering_benchmark_preserves_explicit_provider_outside_fair_mode(): void
+    {
+        $service = app(EngineeringBenchmarkService::class);
+        $reflection = new \ReflectionMethod($service, 'withReleaseQualityScanDefaults');
+        $reflection->setAccessible(true);
+
+        $options = $reflection->invoke($service, [
+            'provider' => 'codex_cli',
+            'model' => 'codex-spark',
+            'model_policy' => 'auto',
+        ]);
+
+        $this->assertSame('codex_cli', $options['provider']);
+        $this->assertSame('codex-spark', $options['model']);
+        $this->assertSame('auto', $options['model_policy']);
+        $this->assertArrayNotHasKey('fair_mode', $options);
     }
 
     public function test_engineering_benchmark_seed_promotes_real_runs_to_default_suite(): void
@@ -3284,6 +3459,229 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertStringContainsString('"paid_tool_required": false', (string) data_get($artifactContent->json(), 'content'));
     }
 
+    public function test_engineering_benchmark_final_packet_rejects_self_assessment_as_passing_gate(): void
+    {
+        $packet = $this->invokeBenchmarkFinalPacket(
+            status: 'passed',
+            results: [
+                $this->benchmarkResultWithPairedScorecard($this->fairPairedScorecardSelfReportedPassed()),
+            ],
+            quality: $this->benchmarkQualityClean(),
+            releaseGate: $this->releaseGatePassed(),
+            manifest: $this->replayManifestEnabled(packetCount: 1, deterministicGatePacketCount: 0),
+        );
+
+        $this->assertSame('engineering_benchmark_final_packet', $packet['kind']);
+        $this->assertSame('atlas_deterministic', $packet['evaluator']);
+        $this->assertFalse($packet['evaluator_verified']);
+        $this->assertSame('unverified', $packet['status']);
+        $this->assertSame('passed', $packet['benchmark_status']);
+        $this->assertContains('deterministic_gate_packet_missing', $packet['decision_reasons']);
+        $this->assertFalse($packet['self_assessment']['authoritative']);
+        $this->assertSame(1, $packet['gates']['fair_scorecard_count']);
+        $this->assertSame(0, $packet['gates']['deterministic_gate_packet_count']);
+        $this->assertSame(1, $packet['gates']['deterministic_gate_packet_total']);
+        $this->assertStringStartsWith('atlas benchmark claude-fair replay ', (string) $packet['replay_command']);
+        $this->assertSame('claude_cli', $packet['provider_lock']);
+        $this->assertSame('opus', $packet['model_lock']);
+    }
+
+    public function test_engineering_benchmark_final_packet_marks_invalid_on_provider_lock_violation(): void
+    {
+        $scorecard = $this->fairPairedScorecardSelfReportedPassed();
+        $scorecard['atlas']['provider_violation_count'] = 1;
+        $scorecard['atlas']['protocol_valid'] = false;
+        $scorecard['atlas']['verified'] = false;
+        $scorecard['atlas']['pass_without_human'] = false;
+
+        $packet = $this->invokeBenchmarkFinalPacket(
+            status: 'failed',
+            results: [
+                $this->benchmarkResultWithPairedScorecard($scorecard),
+            ],
+            quality: $this->benchmarkQualityClean(),
+            releaseGate: $this->releaseGatePassed(),
+            manifest: $this->replayManifestEnabled(packetCount: 1, deterministicGatePacketCount: 1),
+        );
+
+        $this->assertSame('invalid', $packet['status']);
+        $this->assertFalse($packet['evaluator_verified']);
+        $this->assertContains('provider_lock_violation', $packet['decision_reasons']);
+        $this->assertContains('fair_protocol_invalid', $packet['decision_reasons']);
+        $this->assertSame(1, $packet['gates']['provider_violation_count']);
+        $this->assertFalse($packet['protocol_valid']);
+    }
+
+    public function test_engineering_benchmark_final_packet_marks_failed_when_tests_fail(): void
+    {
+        $packet = $this->invokeBenchmarkFinalPacket(
+            status: 'passed',
+            results: [
+                $this->benchmarkResultWithPairedScorecard($this->fairPairedScorecardSelfReportedPassed()),
+            ],
+            quality: $this->benchmarkQualityClean(failedTestCount: 2),
+            releaseGate: $this->releaseGatePassed(),
+            manifest: $this->replayManifestEnabled(packetCount: 1, deterministicGatePacketCount: 1),
+        );
+
+        $this->assertSame('failed', $packet['status']);
+        $this->assertFalse($packet['evaluator_verified']);
+        $this->assertContains('failed_tests_present', $packet['decision_reasons']);
+        $this->assertSame(2, $packet['tests']['failed_test_count']);
+    }
+
+    public function test_engineering_benchmark_final_packet_passes_when_atlas_deterministic_gates_all_pass(): void
+    {
+        $packet = $this->invokeBenchmarkFinalPacket(
+            status: 'passed',
+            results: [
+                $this->benchmarkResultWithPairedScorecard($this->fairPairedScorecardSelfReportedPassed()),
+            ],
+            quality: $this->benchmarkQualityClean(),
+            releaseGate: $this->releaseGatePassed(),
+            manifest: $this->replayManifestEnabled(packetCount: 1, deterministicGatePacketCount: 1),
+        );
+
+        $this->assertSame('passed', $packet['status']);
+        $this->assertTrue($packet['evaluator_verified']);
+        $this->assertSame([], $packet['decision_reasons']);
+        $this->assertSame(1, $packet['gates']['deterministic_gate_packet_count']);
+        $this->assertSame(1, $packet['gates']['deterministic_gate_packet_total']);
+        $this->assertSame(1, $packet['gates']['fair_scorecard_atlas_verified_count']);
+        $this->assertFalse($packet['self_assessment']['authoritative']);
+        $this->assertSame('claude_cli', $packet['provider_lock']);
+        $this->assertSame('opus', $packet['model_lock']);
+    }
+
+    /**
+     * @param  array<int,AtlasEngineeringBenchmarkResult>  $results
+     * @param  array<string,mixed>  $quality
+     * @param  array<string,mixed>  $releaseGate
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    private function invokeBenchmarkFinalPacket(
+        string $status,
+        array $results,
+        array $quality,
+        array $releaseGate,
+        array $manifest,
+    ): array {
+        $service = app(EngineeringBenchmarkService::class);
+        $reflection = new \ReflectionMethod(EngineeringBenchmarkService::class, 'benchmarkFinalPacket');
+        $reflection->setAccessible(true);
+
+        $run = new AtlasEngineeringBenchmarkRun;
+        $run->id = 'run-'.bin2hex(random_bytes(4));
+
+        return $reflection->invoke(
+            $service,
+            $run,
+            collect($results),
+            $status,
+            $quality,
+            $releaseGate,
+            $manifest,
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $scorecard
+     */
+    private function benchmarkResultWithPairedScorecard(array $scorecard): AtlasEngineeringBenchmarkResult
+    {
+        $result = new AtlasEngineeringBenchmarkResult;
+        $result->id = 'result-'.bin2hex(random_bytes(4));
+        $result->status = 'passed';
+        $result->passed = true;
+        $result->observed_json = ['paired_scorecard' => $scorecard];
+
+        return $result;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function fairPairedScorecardSelfReportedPassed(): array
+    {
+        return [
+            'schema_version' => 1,
+            'fair_mode' => true,
+            'comparison_status' => 'comparable',
+            'comparable' => true,
+            'winner' => 'tie',
+            'case' => [
+                'id' => 'case-1',
+                'case_code' => 'fair_test_case',
+                'risk_profile' => 'medium',
+            ],
+            'atlas' => [
+                'provider' => 'atlas',
+                'decision' => 'resolved',
+                'score' => 95,
+                'passed' => true,
+                'verified' => true,
+                'protocol_valid' => true,
+                'fair_scorecard_passed' => true,
+                'final_gate_passed' => true,
+                'pass_without_human' => true,
+                'pass_without_human_reported' => true,
+                'human_intervention_count' => 0,
+                'provider_violation_count' => 0,
+                'fallback_violation_count' => 0,
+                'attempt_count' => 1,
+                'repair_attempt_count' => 0,
+                'repair_used' => false,
+                'converted_to_green' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function benchmarkQualityClean(int $failedTestCount = 0, int $failedControlCount = 0): array
+    {
+        return [
+            'failed_test_count' => $failedTestCount,
+            'failed_tests' => [],
+            'failed_control_count' => $failedControlCount,
+            'blocked_control_count' => 0,
+            'risk_flag_count' => 0,
+            'risk_flags' => [],
+            'changed_files_count' => 1,
+            'total_attempts' => 1,
+            'cost_microusd' => 0,
+            'telemetry_trace_ids' => [],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function releaseGatePassed(): array
+    {
+        return [
+            'status' => 'passed',
+            'profile' => 'fair_claude',
+            'failures' => [],
+            'warnings' => [],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function replayManifestEnabled(int $packetCount, int $deterministicGatePacketCount): array
+    {
+        return [
+            'enabled' => true,
+            'packet_count' => $packetCount,
+            'deterministic_gate_packet_count' => $deterministicGatePacketCount,
+            'manifest_hash' => hash('sha256', 'manifest-'.$packetCount.'-'.$deterministicGatePacketCount),
+        ];
+    }
+
     /**
      * @param  array<string,mixed>|null  $contract
      */
@@ -3310,6 +3708,32 @@ class EngineeringHarnessRunnerTest extends TestCase
     private function passingPhpCommand(): string
     {
         return escapeshellarg(PHP_BINARY).' -r '.escapeshellarg('exit(0);');
+    }
+
+    private function canonicalJsonForHash(mixed $value): string
+    {
+        $encoded = json_encode(
+            $this->canonicalSortForHash($value),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE,
+        );
+
+        return is_string($encoded) ? $encoded : '';
+    }
+
+    private function canonicalSortForHash(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+        if (array_is_list($value)) {
+            return array_map(fn (mixed $item): mixed => $this->canonicalSortForHash($item), $value);
+        }
+        ksort($value);
+        foreach ($value as $key => $sub) {
+            $value[$key] = $this->canonicalSortForHash($sub);
+        }
+
+        return $value;
     }
 
     private function deleteDirectoryQuietly(string $directory): void

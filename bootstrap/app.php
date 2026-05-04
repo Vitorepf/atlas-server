@@ -73,6 +73,7 @@ use App\Console\Commands\AtlasOpenBrainContextCommand;
 use App\Console\Commands\AtlasOpenBrainMcpCommand;
 use App\Console\Commands\AtlasProposalCommand;
 use App\Console\Commands\AtlasProposalScanCommand;
+use App\Console\Commands\AtlasRivalsCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
 use App\Console\Commands\AtlasSchedulerTickCommand;
 use App\Console\Commands\AtlasSelfDiagnosticCommand;
@@ -162,6 +163,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringBenchmarkReplayManifestCommand::class,
         AtlasEngineeringBenchmarkReportCommand::class,
         AtlasEngineeringBenchmarkSeedCommand::class,
+        AtlasRivalsCommand::class,
         AtlasEngineeringApiContractCommand::class,
         AtlasEngineeringDockerCleanupCommand::class,
         AtlasEngineeringHarnessabilityCalibrateCommand::class,

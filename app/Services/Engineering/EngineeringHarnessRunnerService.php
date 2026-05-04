@@ -1700,6 +1700,7 @@ class EngineeringHarnessRunnerService
             'replay' => data_get($run->metadata, 'replay'),
             'fair_mode' => data_get($run->metadata, 'fair_mode'),
             'fair_mode_result' => data_get($run->metadata, 'fair_mode_result'),
+            'scope_safety' => data_get($run->metadata, 'isolated_patch_apply'),
             'workspace' => [
                 'mode' => data_get($run->metadata, 'workspace_plan.mode'),
                 'status' => data_get($run->metadata, 'workspace_plan.status'),

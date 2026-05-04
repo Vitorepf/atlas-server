@@ -3,9 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Models\AtlasEngineeringBenchmarkSuite;
+use App\Services\Ai\FairClaudePolicy;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 class AtlasEngineeringBenchmarkCommand extends Command
 {
@@ -94,7 +96,8 @@ class AtlasEngineeringBenchmarkCommand extends Command
             return self::FAILURE;
         }
 
-        $benchmarkRun = $benchmarks->runSuite($suite, [
+        try {
+            $benchmarkRun = $benchmarks->runSuite($suite, [
             'workspace' => $this->workspace(),
             'case_codes' => (array) $this->option('case'),
             'tags' => (array) $this->option('tag'),
@@ -149,7 +152,13 @@ class AtlasEngineeringBenchmarkCommand extends Command
             'keep_workspace' => (bool) $this->option('keep-workspace'),
             'apply_isolated_patch' => ! (bool) $this->option('no-apply-isolated-patch'),
             'release_gate_profile' => is_string($this->option('gate-profile')) ? $this->option('gate-profile') : 'release',
-        ]);
+            ]);
+        } catch (InvalidArgumentException $exception) {
+            if (str_starts_with($exception->getMessage(), FairClaudePolicy::ERROR_CODE.':')) {
+                return $this->fairModeViolation($exception->getMessage());
+            }
+            throw $exception;
+        }
         $payload = $benchmarks->runPayload($benchmarkRun);
 
         if ((bool) $this->option('json')) {

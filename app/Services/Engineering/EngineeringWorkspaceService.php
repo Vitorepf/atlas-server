@@ -262,22 +262,27 @@ class EngineeringWorkspaceService
      */
     public function applyPatchToOriginal(array $plan, ?AtlasEngineeringPatchArtifact $patch): array
     {
+        $originalWorkspace = (string) ($plan['original_workspace'] ?? '');
+        $changedFiles = array_values((array) ($patch?->changed_files_json ?? []));
+        $scopeSafety = $this->scopeSafetyProfile($originalWorkspace, $changedFiles);
+
         if (! (bool) ($plan['isolated'] ?? false)
             || ! in_array((string) ($plan['isolation_type'] ?? ''), ['git_worktree', 'docker_worktree'], true)
         ) {
             return [
                 'status' => 'not_applicable',
                 'reason' => 'workspace_not_isolated',
+                'scope_safety' => $scopeSafety,
                 'applied_at' => now()->toJSON(),
             ];
         }
 
-        $originalWorkspace = (string) ($plan['original_workspace'] ?? '');
         $diffPath = (string) ($patch?->diff_path ?? '');
         if ($originalWorkspace === '' || $diffPath === '' || ! File::exists($diffPath)) {
             return [
                 'status' => 'no_patch',
                 'reason' => 'missing_diff_artifact',
+                'scope_safety' => $scopeSafety,
                 'applied_at' => now()->toJSON(),
             ];
         }
@@ -287,16 +292,18 @@ class EngineeringWorkspaceService
             return [
                 'status' => 'blocked',
                 'reason' => 'possible_secret_in_diff',
+                'scope_safety' => $scopeSafety,
                 'applied_at' => now()->toJSON(),
             ];
         }
 
-        $dirtyOverlap = $this->dirtyOverlap($originalWorkspace, (array) ($patch?->changed_files_json ?? []));
-        if ($dirtyOverlap !== []) {
+        if (! $scopeSafety['safe']) {
             return [
                 'status' => 'blocked',
                 'reason' => 'dirty_state_overlap',
-                'dirty_overlap' => $dirtyOverlap,
+                'dirty_overlap' => $scopeSafety['dirty_overlap'],
+                'untracked_overlap' => $scopeSafety['untracked_overlap'],
+                'scope_safety' => $scopeSafety,
                 'applied_at' => now()->toJSON(),
             ];
         }
@@ -307,6 +314,7 @@ class EngineeringWorkspaceService
                 'status' => 'failed',
                 'reason' => 'git_apply_check_failed',
                 'stderr_excerpt' => Str::limit((string) $check['stderr'], 1200),
+                'scope_safety' => $scopeSafety,
                 'applied_at' => now()->toJSON(),
             ];
         }
@@ -316,9 +324,10 @@ class EngineeringWorkspaceService
         return [
             'status' => ((int) $apply['exit_code'] === 0) ? 'applied' : 'failed',
             'reason' => ((int) $apply['exit_code'] === 0) ? null : 'git_apply_failed',
-            'changed_files' => array_values((array) ($patch?->changed_files_json ?? [])),
+            'changed_files' => $changedFiles,
             'exit_code' => $apply['exit_code'],
             'stderr_excerpt' => $apply['stderr'] !== '' ? Str::limit((string) $apply['stderr'], 1200) : null,
+            'scope_safety' => $scopeSafety,
             'applied_at' => now()->toJSON(),
         ];
     }
@@ -453,35 +462,81 @@ class EngineeringWorkspaceService
 
     /**
      * @param  array<int,string>  $changedFiles
-     * @return array<int,string>
+     * @return array{
+     *     safe: bool,
+     *     status: string,
+     *     dirty_files: array<int,string>,
+     *     untracked_files: array<int,string>,
+     *     dirty_overlap: array<int,string>,
+     *     untracked_overlap: array<int,string>,
+     *     modified_overlap: array<int,string>,
+     * }
      */
-    private function dirtyOverlap(string $workspace, array $changedFiles): array
+    private function scopeSafetyProfile(string $workspace, array $changedFiles): array
     {
         $changed = collect($changedFiles)
             ->filter(fn (mixed $file): bool => is_string($file) && trim($file) !== '')
             ->map(fn (string $file): string => trim($file))
+            ->unique()
+            ->values();
+
+        $statusEntries = collect($workspace === '' ? [] : $this->dirtyFiles($workspace))
+            ->map(fn (string $line): array => $this->statusEntry($line))
+            ->filter(fn (array $entry): bool => $entry['file'] !== '');
+
+        $allDirtyFiles = $statusEntries->pluck('file')->unique()->values();
+        $untrackedFiles = $statusEntries
+            ->filter(fn (array $entry): bool => $this->isUntrackedCode((string) $entry['code']))
+            ->pluck('file')
+            ->unique()
             ->values();
 
         if ($changed->isEmpty()) {
-            return [];
+            return [
+                'safe' => true,
+                'status' => 'no_changed_files',
+                'dirty_files' => $allDirtyFiles->all(),
+                'untracked_files' => $untrackedFiles->all(),
+                'dirty_overlap' => [],
+                'untracked_overlap' => [],
+                'modified_overlap' => [],
+            ];
         }
 
-        return collect($this->dirtyFiles($workspace))
-            ->map(fn (string $line): string => $this->pathFromStatusLine($line))
-            ->filter()
-            ->intersect($changed)
-            ->values()
-            ->all();
+        $dirtyOverlap = $allDirtyFiles->intersect($changed)->values();
+        $untrackedOverlap = $untrackedFiles->intersect($changed)->values();
+        $modifiedOverlap = $dirtyOverlap->diff($untrackedOverlap)->values();
+
+        return [
+            'safe' => $dirtyOverlap->isEmpty(),
+            'status' => $dirtyOverlap->isEmpty() ? 'clean' : 'dirty_overlap',
+            'dirty_files' => $allDirtyFiles->all(),
+            'untracked_files' => $untrackedFiles->all(),
+            'dirty_overlap' => $dirtyOverlap->all(),
+            'untracked_overlap' => $untrackedOverlap->all(),
+            'modified_overlap' => $modifiedOverlap->all(),
+        ];
     }
 
-    private function pathFromStatusLine(string $line): string
+    private function isUntrackedCode(string $code): bool
+    {
+        return str_contains($code, '?');
+    }
+
+    /**
+     * @return array{code:string,file:string}
+     */
+    private function statusEntry(string $line): array
     {
         $line = rtrim($line);
-        if (preg_match('/^.{1,2}\s+(.+)$/', $line, $matches) === 1) {
-            return trim((string) $matches[1]);
+        if (preg_match('/^(.{1,2})\s+(.+)$/', $line, $matches) === 1) {
+            return [
+                'code' => trim((string) $matches[1]),
+                'file' => trim((string) $matches[2]),
+            ];
         }
 
-        return trim($line);
+        return ['code' => '', 'file' => trim($line)];
     }
 
     private function repoRoot(string $workspace): ?string

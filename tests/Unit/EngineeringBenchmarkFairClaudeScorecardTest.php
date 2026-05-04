@@ -34,6 +34,7 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
                     'blocking_reasons' => [],
                 ],
                 'attempt_count' => 2,
+                'scope_safety' => $this->scopeSafetyApplied(),
             ],
         ], [
             'claude_only' => true,
@@ -52,7 +53,158 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
         $this->assertSame(1, $scorecard['repair_attempt_count']);
         $this->assertTrue($scorecard['repair_used']);
         $this->assertTrue($scorecard['converted_to_green']);
+        $this->assertTrue($scorecard['pass_without_human']);
+        $this->assertTrue($scorecard['pass_without_human_reported']);
         $this->assertSame([], $scorecard['blocking_reasons']);
+        $this->assertSame('applied', data_get($scorecard, 'scope_safety.status'));
+    }
+
+    public function test_fair_scorecard_blocks_pass_without_human_on_dirty_state_overlap(): void
+    {
+        $scorecard = $this->fairScorecard([
+            'run' => [
+                'model_selection' => [
+                    'selected_provider' => 'claude_cli',
+                    'selected_model' => 'claude-opus-test',
+                ],
+                'fair_mode_result' => [
+                    'status' => 'valid',
+                    'deterministic_gates_passed' => true,
+                    'pass_without_human' => true,
+                    'blocking_reasons' => [],
+                ],
+                'attempt_count' => 1,
+                'scope_safety' => [
+                    'status' => 'blocked',
+                    'reason' => 'dirty_state_overlap',
+                    'dirty_overlap' => ['app/Foo.php'],
+                    'untracked_overlap' => [],
+                    'scope_safety' => [
+                        'safe' => false,
+                        'status' => 'dirty_overlap',
+                        'dirty_files' => ['app/Foo.php'],
+                        'untracked_files' => [],
+                        'dirty_overlap' => ['app/Foo.php'],
+                        'untracked_overlap' => [],
+                        'modified_overlap' => ['app/Foo.php'],
+                    ],
+                ],
+            ],
+        ], [
+            'claude_only' => true,
+            'require_pass_without_human' => true,
+        ]);
+        $evaluation = $this->evaluate($scorecard);
+
+        $this->assertIsArray($scorecard);
+        $this->assertFalse($scorecard['passed']);
+        $this->assertFalse($scorecard['pass_without_human']);
+        $this->assertTrue($scorecard['pass_without_human_reported']);
+        $this->assertContains('dirty_state_overlap', $scorecard['blocking_reasons']);
+        $this->assertContains('scope_safety_unverified', $scorecard['blocking_reasons']);
+        $this->assertContains('pass_without_human_false', $scorecard['blocking_reasons']);
+        $this->assertSame(['app/Foo.php'], data_get($scorecard, 'scope_safety.dirty_overlap'));
+        $this->assertFalse($evaluation['passed']);
+    }
+
+    public function test_fair_scorecard_blocks_pass_without_human_on_untracked_overlap_warning(): void
+    {
+        $scorecard = $this->fairScorecard([
+            'run' => [
+                'model_selection' => [
+                    'selected_provider' => 'claude_cli',
+                    'selected_model' => 'claude-opus-test',
+                ],
+                'fair_mode_result' => [
+                    'status' => 'valid',
+                    'deterministic_gates_passed' => true,
+                    'pass_without_human' => true,
+                    'blocking_reasons' => [],
+                ],
+                'attempt_count' => 1,
+                'scope_safety' => [
+                    'status' => 'blocked',
+                    'reason' => 'dirty_state_overlap',
+                    'dirty_overlap' => ['scripts/new-thing.sh'],
+                    'untracked_overlap' => ['scripts/new-thing.sh'],
+                    'scope_safety' => [
+                        'safe' => false,
+                        'status' => 'dirty_overlap',
+                        'dirty_files' => ['scripts/new-thing.sh'],
+                        'untracked_files' => ['scripts/new-thing.sh'],
+                        'dirty_overlap' => ['scripts/new-thing.sh'],
+                        'untracked_overlap' => ['scripts/new-thing.sh'],
+                        'modified_overlap' => [],
+                    ],
+                ],
+            ],
+        ], [
+            'claude_only' => true,
+            'require_pass_without_human' => true,
+        ]);
+
+        $this->assertFalse($scorecard['passed']);
+        $this->assertFalse($scorecard['pass_without_human']);
+        $this->assertContains('dirty_state_overlap', $scorecard['blocking_reasons']);
+        $this->assertSame(
+            ['scripts/new-thing.sh'],
+            data_get($scorecard, 'scope_safety.untracked_overlap'),
+        );
+        $this->assertSame(
+            ['scripts/new-thing.sh'],
+            data_get($scorecard, 'scope_safety.untracked_files'),
+        );
+    }
+
+    public function test_fair_scorecard_blocks_pass_without_human_when_scope_safety_missing(): void
+    {
+        $scorecard = $this->fairScorecard([
+            'run' => [
+                'model_selection' => [
+                    'selected_provider' => 'claude_cli',
+                    'selected_model' => 'claude-opus-test',
+                ],
+                'fair_mode_result' => [
+                    'status' => 'valid',
+                    'deterministic_gates_passed' => true,
+                    'pass_without_human' => true,
+                    'blocking_reasons' => [],
+                ],
+                'attempt_count' => 1,
+            ],
+        ], [
+            'claude_only' => true,
+            'require_pass_without_human' => true,
+        ]);
+
+        $this->assertFalse($scorecard['passed']);
+        $this->assertFalse($scorecard['pass_without_human']);
+        $this->assertTrue($scorecard['pass_without_human_reported']);
+        $this->assertContains('scope_safety_unverified', $scorecard['blocking_reasons']);
+        $this->assertSame('missing', data_get($scorecard, 'scope_safety.status'));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function scopeSafetyApplied(): array
+    {
+        return [
+            'status' => 'applied',
+            'reason' => null,
+            'changed_files' => ['app/Foo.php'],
+            'dirty_overlap' => [],
+            'untracked_overlap' => [],
+            'scope_safety' => [
+                'safe' => true,
+                'status' => 'clean',
+                'dirty_files' => [],
+                'untracked_files' => [],
+                'dirty_overlap' => [],
+                'untracked_overlap' => [],
+                'modified_overlap' => [],
+            ],
+        ];
     }
 
     public function test_fair_scorecard_blocks_unverified_even_when_decision_and_score_pass(): void

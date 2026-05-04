@@ -312,6 +312,17 @@ case "$cmd" in
     fi
     exec "$PHP_BIN" artisan atlas:cli:quality --run-tests --yes "$@" --workspace="$CALLER_PWD"
     ;;
+  rivals|rival)
+    shift || true
+    subcmd="${1:-readiness}"
+    case "$subcmd" in
+      prepare|run|run-atlas|run-claude-code|report|readiness|runbook|replay)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:benchmark:rivals "$subcmd" "$@"
+        ;;
+    esac
+    exec_artisan_with_workspace atlas:engineering:benchmark:rivals "$@"
+    ;;
   benchmark|bench)
     shift || true
     subcmd="${1:-run}"
@@ -331,6 +342,10 @@ case "$cmd" in
       claude-fair|fair-claude)
         shift || true
         exec_artisan_with_workspace atlas:engineering:benchmark:claude-fair "$@"
+        ;;
+      rivals|rival)
+        shift || true
+        exec_artisan_with_workspace atlas:engineering:benchmark:rivals "$@"
         ;;
       run)
         shift || true
