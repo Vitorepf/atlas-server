@@ -64,10 +64,10 @@ class AtlasRivalsCommand extends Command
             'tier' => 'release',
             'curation_status' => 'curated',
             'max_attempts' => 1,
-            'baseline_timeout' => 600,
-            'baseline_validation_timeout' => 180,
+            'baseline_timeout' => 1200,
+            'baseline_validation_timeout' => 300,
             'gate_profile' => 'strict',
-            'estimated_time' => '5-15 min',
+            'estimated_time' => '10-25 min',
         ],
         'medium' => [
             'label' => 'medium',
@@ -76,10 +76,10 @@ class AtlasRivalsCommand extends Command
             'tier' => 'release',
             'curation_status' => 'curated',
             'max_attempts' => 2,
-            'baseline_timeout' => 900,
-            'baseline_validation_timeout' => 300,
+            'baseline_timeout' => 1800,
+            'baseline_validation_timeout' => 600,
             'gate_profile' => 'strict',
-            'estimated_time' => '15-45 min',
+            'estimated_time' => '30-75 min',
         ],
         'full' => [
             'label' => 'full',
@@ -88,10 +88,10 @@ class AtlasRivalsCommand extends Command
             'tier' => 'release',
             'curation_status' => 'curated',
             'max_attempts' => 3,
-            'baseline_timeout' => 1800,
-            'baseline_validation_timeout' => 600,
+            'baseline_timeout' => 3600,
+            'baseline_validation_timeout' => 900,
             'gate_profile' => 'strict',
-            'estimated_time' => '45-120+ min',
+            'estimated_time' => '90-180+ min',
         ],
     ];
 
@@ -382,9 +382,102 @@ class AtlasRivalsCommand extends Command
             ? '<fg=green;options=bold>Atlas Rivals finished</>'
             : '<fg=red;options=bold>Atlas Rivals finished with failures</>');
         $this->renderScoreboard($report, 'Final scoreboard');
+        $this->renderCaseDiagnostics($report);
         $this->line('Next: atlas rivals report');
         $this->line('Export: atlas rivals report --output-dir=atlas-rivals-report');
         $this->line('Verify: atlas rivals verify --output-dir=atlas-rivals-report');
+    }
+
+    private function renderCaseDiagnostics(?array $report): void
+    {
+        $cases = (array) ($report['case_comparisons'] ?? []);
+        if ($cases === []) {
+            return;
+        }
+
+        $failing = collect($cases)
+            ->filter(function (mixed $case): bool {
+                if (! is_array($case)) {
+                    return false;
+                }
+                $atlasOk = (bool) data_get($case, 'atlas.passed', false) && (bool) data_get($case, 'atlas.verified', false);
+                $baselineOk = (bool) data_get($case, 'claude_code_baseline.passed', false) && (bool) data_get($case, 'claude_code_baseline.verified', false);
+
+                return ! $atlasOk || ! $baselineOk;
+            })
+            ->take(5);
+
+        if ($failing->isEmpty()) {
+            return;
+        }
+
+        $this->newLine();
+        $this->line('<fg=yellow;options=bold>Per-case diagnostics</>');
+        foreach ($failing as $case) {
+            $code = (string) (data_get($case, 'case_code') ?: data_get($case, 'case_id') ?: 'unknown');
+            $this->line('  <fg=cyan>'.$code.'</>');
+
+            $atlasScore = data_get($case, 'atlas.score');
+            $atlasDur = $this->formatDuration(data_get($case, 'atlas.duration_ms'));
+            $atlasState = (bool) data_get($case, 'atlas.passed', false) ? 'passed' : 'failed';
+            $this->line(sprintf('    Atlas: %s · score=%s · duration=%s', $atlasState, $atlasScore ?? '-', $atlasDur));
+
+            $baseExecuted = (bool) data_get($case, 'claude_code_baseline.executed', false);
+            if (! $baseExecuted) {
+                $this->line('    Claude Code: not executed');
+            } else {
+                $baseState = (bool) data_get($case, 'claude_code_baseline.passed', false) ? 'passed' : 'failed';
+                $baseScore = data_get($case, 'claude_code_baseline.score');
+                $baseDur = $this->formatDuration(data_get($case, 'claude_code_baseline.duration_ms'));
+                $errCode = (string) (data_get($case, 'claude_code_baseline.error_code') ?: '');
+                $errSuffix = $errCode !== '' ? ' · '.$errCode : '';
+                $this->line(sprintf('    Claude Code: %s · score=%s · duration=%s%s', $baseState, $baseScore ?? '-', $baseDur, $errSuffix));
+
+                $gateStatus = (string) (data_get($case, 'claude_code_baseline.gate_status') ?: '');
+                $gateReason = (string) (data_get($case, 'claude_code_baseline.gate_reason') ?: '');
+                $gateStderr = trim((string) (data_get($case, 'claude_code_baseline.gate_stderr_excerpt') ?: ''));
+                if ($gateStatus !== '' && $gateStatus !== 'passed') {
+                    $detail = $gateReason !== '' ? ' ('.$gateReason.')' : '';
+                    $this->line('    Gate: '.$gateStatus.$detail);
+                    if ($gateStderr !== '') {
+                        $firstLine = trim((string) (explode("\n", $gateStderr)[0] ?? ''));
+                        if ($firstLine !== '') {
+                            $this->line('    Gate stderr: '.$this->truncate($firstLine, 200));
+                        }
+                    }
+                }
+            }
+
+            $blockers = collect((array) data_get($case, 'blocking_reasons', []))
+                ->filter(fn (mixed $reason): bool => is_string($reason) && $reason !== '')
+                ->take(4)
+                ->values()
+                ->all();
+            if ($blockers !== []) {
+                $this->line('    Blockers: '.implode(', ', $blockers));
+            }
+        }
+    }
+
+    private function formatDuration(mixed $ms): string
+    {
+        if (! is_numeric($ms)) {
+            return '-';
+        }
+        $ms = (int) $ms;
+        if ($ms >= 60_000) {
+            return round($ms / 60_000, 1).'m';
+        }
+        if ($ms >= 1000) {
+            return round($ms / 1000, 1).'s';
+        }
+
+        return $ms.'ms';
+    }
+
+    private function truncate(string $value, int $max): string
+    {
+        return mb_strlen($value) > $max ? mb_substr($value, 0, $max - 1).'…' : $value;
     }
 
     /**

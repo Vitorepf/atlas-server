@@ -3423,6 +3423,42 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertDirectoryDoesNotExist((string) $plan['execution_workspace']);
     }
 
+    public function test_paired_worktree_bootstrap_symlinks_vendor_env_and_creates_writable_skeleton(): void
+    {
+        File::ensureDirectoryExists($this->workspace.'/vendor');
+        File::put($this->workspace.'/vendor/autoload.php', "<?php // marker\n");
+        File::ensureDirectoryExists($this->workspace.'/node_modules');
+        File::put($this->workspace.'/node_modules/.marker', "x\n");
+        File::put($this->workspace.'/.env', "APP_ENV=testing\n");
+
+        $plan = app(EngineeringWorkspaceService::class)->preparePairedWorktree($this->workspace, 'baseline-bootstrap');
+
+        try {
+            $this->assertSame('ready', $plan['status']);
+            $this->assertTrue((bool) $plan['isolated']);
+            $worktree = (string) $plan['execution_workspace'];
+            $this->assertDirectoryExists($worktree);
+
+            $this->assertTrue(is_link($worktree.'/vendor'), 'vendor symlink missing in baseline worktree');
+            $this->assertTrue(is_link($worktree.'/node_modules'), 'node_modules symlink missing');
+            $this->assertTrue(is_link($worktree.'/.env'), '.env symlink missing');
+            $this->assertFileExists($worktree.'/vendor/autoload.php');
+            $this->assertSame("APP_ENV=testing\n", file_get_contents($worktree.'/.env'));
+
+            foreach (['bootstrap/cache', 'storage/app', 'storage/framework/cache/data', 'storage/framework/sessions', 'storage/framework/views', 'storage/logs'] as $dir) {
+                $this->assertDirectoryExists($worktree.'/'.$dir, "writable dir missing: {$dir}");
+            }
+
+            $bootstrap = (array) ($plan['bootstrapped_artifacts'] ?? []);
+            $this->assertContains('vendor', (array) ($bootstrap['symlinks'] ?? []));
+            $this->assertContains('node_modules', (array) ($bootstrap['symlinks'] ?? []));
+            $this->assertContains('.env', (array) ($bootstrap['symlinks'] ?? []));
+            $this->assertContains('storage/logs', (array) ($bootstrap['directories'] ?? []));
+        } finally {
+            app(EngineeringWorkspaceService::class)->release($plan);
+        }
+    }
+
     public function test_docker_workspace_request_falls_back_to_isolated_worktree_without_docker_profile(): void
     {
         $task = $this->task();

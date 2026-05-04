@@ -1811,11 +1811,14 @@ class EngineeringBenchmarkService
         $humanInterventionCount = max(0, (int) ($fairResult['human_intervention_count'] ?? 0));
         $deterministicGatesPassed = (bool) ($fairResult['deterministic_gates_passed'] ?? false);
         $protocolValid = (string) ($fairResult['status'] ?? 'unverified') === 'valid';
+        $harnessStatus = (string) data_get($payload, 'run.status', 'unknown');
+        $harnessDecision = (string) data_get($payload, 'run.decision', 'unknown');
+        $harnessGatesPassed = $harnessStatus === 'passed' && $harnessDecision === 'resolved';
         $attemptCount = (int) (data_get($payload, 'run.attempt_count') ?: count((array) data_get($payload, 'run.attempts', [])));
         $attemptCount = max(0, $attemptCount);
         $repairAttemptCount = max(0, $attemptCount - 1);
         $scopeSafety = $this->fairScopeSafety($payload);
-        $passWithoutHuman = $reportedPassWithoutHuman && $scopeSafety['verified'];
+        $passWithoutHuman = $reportedPassWithoutHuman && $deterministicGatesPassed && $harnessGatesPassed && $scopeSafety['verified'];
         $blockingReasons = [];
 
         if (! $providerLocked) {
@@ -1830,6 +1833,9 @@ class EngineeringBenchmarkService
         if (! $deterministicGatesPassed) {
             $blockingReasons[] = 'deterministic_gates_not_passed';
         }
+        if (! $harnessGatesPassed) {
+            $blockingReasons[] = 'harness_gates_not_passed';
+        }
         if (! $passWithoutHuman) {
             $blockingReasons[] = 'pass_without_human_false';
         }
@@ -1839,14 +1845,17 @@ class EngineeringBenchmarkService
 
         return [
             'required' => $required,
-            'passed' => $providerLocked && $modelLocked && $protocolValid && $deterministicGatesPassed && $passWithoutHuman,
+            'passed' => $providerLocked && $modelLocked && $protocolValid && $deterministicGatesPassed && $harnessGatesPassed && $passWithoutHuman,
             'fair_mode' => true,
             'provider_lock' => $provider,
             'model_lock' => $model,
             'protocol_status' => $fairResult['status'] ?? 'unverified',
             'protocol_valid' => $protocolValid,
             'deterministic_gates_passed' => $deterministicGatesPassed,
-            'final_gate_passed' => $deterministicGatesPassed,
+            'harness_gates_passed' => $harnessGatesPassed,
+            'harness_status' => $harnessStatus,
+            'harness_decision' => $harnessDecision,
+            'final_gate_passed' => $deterministicGatesPassed && $harnessGatesPassed,
             'human_intervention_count' => $humanInterventionCount,
             'pass_without_human' => $passWithoutHuman,
             'pass_without_human_reported' => $reportedPassWithoutHuman,
@@ -2576,10 +2585,12 @@ class EngineeringBenchmarkService
         $comparable = $scorecards->where('comparable', true);
         $caseCount = $scorecards->count();
         $atlasPassWithoutHumanCount = $scorecards
-            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.pass_without_human', data_get($scorecard, 'atlas.verified')))
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.verified')
+                && (bool) data_get($scorecard, 'atlas.pass_without_human'))
             ->count();
         $baselinePassWithoutHumanCount = $scorecards
-            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'claude_code_baseline.pass_without_human', data_get($scorecard, 'claude_code_baseline.verified')))
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'claude_code_baseline.verified')
+                && (bool) data_get($scorecard, 'claude_code_baseline.pass_without_human'))
             ->count();
         $atlasHumanInterventions = $scorecards
             ->sum(fn (array $scorecard): int => max(0, (int) data_get($scorecard, 'atlas.human_intervention_count', 0)));
@@ -2592,12 +2603,14 @@ class EngineeringBenchmarkService
             ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.converted_to_green'))
             ->count();
         $atlasGreenDurations = $scorecards
-            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.pass_without_human', data_get($scorecard, 'atlas.verified'))
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.verified')
+                && (bool) data_get($scorecard, 'atlas.pass_without_human')
                 && is_numeric(data_get($scorecard, 'atlas.duration_ms')))
             ->map(fn (array $scorecard): int => (int) data_get($scorecard, 'atlas.duration_ms'))
             ->values();
         $baselineGreenDurations = $scorecards
-            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'claude_code_baseline.pass_without_human', data_get($scorecard, 'claude_code_baseline.verified'))
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'claude_code_baseline.verified')
+                && (bool) data_get($scorecard, 'claude_code_baseline.pass_without_human')
                 && is_numeric(data_get($scorecard, 'claude_code_baseline.duration_ms')))
             ->map(fn (array $scorecard): int => (int) data_get($scorecard, 'claude_code_baseline.duration_ms'))
             ->values();
@@ -2630,13 +2643,15 @@ class EngineeringBenchmarkService
             'pass_without_human_rate' => $this->rate($atlasPassWithoutHumanCount, $caseCount),
             'pass_without_human_rate_medium_hard' => $this->rate($scorecards
                 ->filter(fn (array $scorecard): bool => in_array(data_get($scorecard, 'case.risk_profile'), ['medium', 'high', 'critical'], true)
-                    && (bool) data_get($scorecard, 'atlas.pass_without_human', data_get($scorecard, 'atlas.verified')))
+                    && (bool) data_get($scorecard, 'atlas.verified')
+                    && (bool) data_get($scorecard, 'atlas.pass_without_human'))
                 ->count(), max(0, $scorecards
                 ->filter(fn (array $scorecard): bool => in_array(data_get($scorecard, 'case.risk_profile'), ['medium', 'high', 'critical'], true))
                 ->count())),
             'repair_conversion_rate' => $this->rate($repairConvertedCount, $repairUsed->count()),
             'final_gate_pass_rate' => $this->rate($scorecards
-                ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.final_gate_passed', data_get($scorecard, 'atlas.verified')))
+                ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.verified')
+                    && (bool) data_get($scorecard, 'atlas.final_gate_passed'))
                 ->count(), $caseCount),
             'intervention_reduction' => $atlasHumanInterventions > 0
                 ? round($baselineHumanInterventions / $atlasHumanInterventions, 2)
@@ -2737,6 +2752,12 @@ class EngineeringBenchmarkService
                         'score' => $this->nullableInt(data_get($baseline, 'score')),
                         'duration_ms' => $this->nullableInt(data_get($baseline, 'duration_ms')),
                         'human_intervention_count' => max(0, (int) data_get($baseline, 'human_intervention_count', 0)),
+                        'executed' => (bool) data_get($result->observed_json ?? [], 'claude_code_baseline.executed', false),
+                        'status' => $this->nonEmptyString(data_get($result->observed_json ?? [], 'claude_code_baseline.status')),
+                        'error_code' => $this->nonEmptyString(data_get($result->observed_json ?? [], 'claude_code_baseline.error_code')),
+                        'gate_status' => $this->nonEmptyString(data_get($result->observed_json ?? [], 'claude_code_baseline.deterministic_gate.status')),
+                        'gate_reason' => $this->nonEmptyString(data_get($result->observed_json ?? [], 'claude_code_baseline.deterministic_gate.reason')),
+                        'gate_stderr_excerpt' => $this->nonEmptyString(data_get($result->observed_json ?? [], 'claude_code_baseline.deterministic_gate.stderr_excerpt')),
                     ],
                     'deltas' => [
                         'score' => $this->nullableInt(data_get($scorecard, 'deltas.score')),
@@ -3716,7 +3737,8 @@ class EngineeringBenchmarkService
         $fallbackViolationCount = (int) ($pairedSummary['fallback_violation_count'] ?? 0);
         $invalidCaseCount = (int) ($pairedSummary['invalid_case_count'] ?? 0);
         $atlasVerifiedCount = $fairScorecards
-            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.pass_without_human', data_get($scorecard, 'atlas.verified')))
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.verified')
+                && (bool) data_get($scorecard, 'atlas.pass_without_human'))
             ->count();
         $failedTestCount = (int) ($quality['failed_test_count'] ?? 0);
         $failedControlCount = (int) ($quality['failed_control_count'] ?? 0);

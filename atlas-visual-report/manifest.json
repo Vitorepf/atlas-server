@@ -80,10 +80,10 @@
     },
     "artifact_dir": "atlas-visual-report",
     "started_command": "'/opt/homebrew/bin/php' artisan serve --host='127.0.0.1' --port='49409'",
-    "duration_ms": 438,
+    "duration_ms": 421,
     "process": {
         "exit_code": 0,
-        "stdout_excerpt": "\n   INFO  Server running on [http://127.0.0.1:49409].  \n\n  Press Ctrl+C to stop the server\n\n  2026-05-04 12:45:23 / ............................................ ~ 0.03ms\n  2026-05-04 12:45:23 / ............................................ ~ 0.01ms\n",
+        "stdout_excerpt": "\n   INFO  Server running on [http://127.0.0.1:49409].  \n\n  Press Ctrl+C to stop the server\n\n  2026-05-04 13:35:27 / ............................................ ~ 0.02ms\n  2026-05-04 13:35:27 / ............................................ ~ 0.01ms\n",
         "stderr_excerpt": ""
     }
 }
