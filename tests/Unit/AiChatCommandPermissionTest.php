@@ -236,9 +236,12 @@ class AiChatCommandPermissionTest extends TestCase
         $emptyPrompt = $method->invoke($command, null, []);
         $this->assertSame('atlas', $emptyPrompt);
         $this->assertStringNotContainsString('[img:', $emptyPrompt);
-        $this->assertSame('atlas [img:1] Enter=analisar', $method->invoke($command, null, [[
+        $withImage = $method->invoke($command, null, [[
             'path' => '/tmp/print.png',
-        ]]));
+        ]]);
+        $this->assertStringContainsString('imagem 1', $withImage);
+        $this->assertStringContainsString('Enter=analisar', $withImage);
+        $this->assertStringNotContainsString('[img:', $withImage);
     }
 
     public function test_open_image_reports_when_no_attachment_exists(): void

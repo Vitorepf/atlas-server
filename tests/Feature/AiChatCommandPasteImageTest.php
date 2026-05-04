@@ -99,7 +99,7 @@ class AiChatCommandPasteImageTest extends TestCase
 
         $this->assertCount(1, $pending);
         $this->assertSame($imageFile, $pending[0]['path']);
-        $this->assertStringContainsString('img:1', $label);
+        $this->assertStringContainsString('imagem 1', $label);
     }
 
     public function test_classify_bracketed_paste_text_payload_is_text(): void
@@ -197,6 +197,64 @@ class AiChatCommandPasteImageTest extends TestCase
 
         $this->assertCount(1, $pending);
         $this->assertSame($imageFile, $pending[0]['path']);
-        $this->assertStringContainsString('img:1', $label);
+        $this->assertStringContainsString('imagem 1', $label);
+    }
+
+    public function test_interactive_prompt_label_renders_osc8_hyperlinks_for_each_image(): void
+    {
+        $command = new AiChatCommand();
+        $command->setLaravel(app());
+        $method = new ReflectionMethod($command, 'interactivePromptLabel');
+        $method->setAccessible(true);
+
+        $pending = [
+            ['path' => '/tmp/atlas/clip-a.png'],
+            ['path' => '/tmp/atlas/clip-b.png'],
+        ];
+
+        $label = $method->invoke($command, '0123456789ab', $pending);
+
+        $this->assertStringContainsString('[', $label);
+        $this->assertStringContainsString(']', $label);
+        $this->assertStringContainsString('Enter=analisar', $label);
+        $this->assertStringContainsString("\033]8;;file:///tmp/atlas/clip-a.png\033\\imagem 1\033]8;;\033\\", $label);
+        $this->assertStringContainsString("\033]8;;file:///tmp/atlas/clip-b.png\033\\imagem 2\033]8;;\033\\", $label);
+        $this->assertStringNotContainsString('[img:', $label);
+    }
+
+    public function test_interactive_prompt_label_without_images_omits_brackets(): void
+    {
+        $command = new AiChatCommand();
+        $command->setLaravel(app());
+        $method = new ReflectionMethod($command, 'interactivePromptLabel');
+        $method->setAccessible(true);
+
+        $label = $method->invoke($command, '0123456789ab', []);
+
+        $this->assertStringNotContainsString('[', $label);
+        $this->assertStringNotContainsString('imagem', $label);
+    }
+
+    public function test_label_with_image_count_replaces_existing_image_segment(): void
+    {
+        $command = new AiChatCommand();
+        $command->setLaravel(app());
+        $method = new ReflectionMethod($command, 'labelWithImageCount');
+        $method->setAccessible(true);
+
+        $pending = [
+            ['path' => '/tmp/a.png'],
+            ['path' => '/tmp/b.png'],
+            ['path' => '/tmp/c.png'],
+        ];
+
+        $first = $method->invoke($command, 'atlas abcd1234 [imagem 1] Enter=analisar', $pending);
+        $this->assertStringContainsString('imagem 1', $first);
+        $this->assertStringContainsString('imagem 2', $first);
+        $this->assertStringContainsString('imagem 3', $first);
+        $this->assertStringNotContainsString('[imagem 1] Enter=analisar', $first);
+
+        $second = $method->invoke($command, 'atlas abcd1234', $pending);
+        $this->assertStringContainsString('imagem 3', $second);
     }
 }

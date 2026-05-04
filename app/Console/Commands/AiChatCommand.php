@@ -1387,7 +1387,7 @@ class AiChatCommand extends Command
                 'when' => 'screenshot, tela, bug visual ou design',
                 'commands' => [
                     ['automático', 'copie screenshot no macOS e peça "analise essa tela"'],
-                    ['Ctrl+V', 'cola imagem do clipboard no composer e mostra [img:N] antes de enviar'],
+                    ['Ctrl+V', 'cola imagem do clipboard no composer e mostra [imagem 1, imagem 2] antes de enviar'],
                     ['Enter vazio', 'fallback: verifica clipboard e envia a imagem se houver'],
                     ['/paste-image', 'anexa a imagem atual do clipboard do macOS'],
                     ['/image <path>', 'anexa arquivo png/jpg/webp/gif'],
@@ -1658,7 +1658,7 @@ class AiChatCommand extends Command
         $base = $threadId ? 'atlas '.$this->shortId($threadId) : 'atlas';
 
         if ($pendingImages !== []) {
-            return $base.' [img:'.count($pendingImages).'] Enter=analisar';
+            return $base.' ['.$this->imagemTokens($pendingImages).'] Enter=analisar';
         }
 
         return $base;
@@ -1801,17 +1801,48 @@ class AiChatCommand extends Command
 
         $this->line('Imagem colada e anexada ao composer.');
         $this->printPendingImages($pendingImages);
-        $label = $this->labelWithImageCount($label, count($pendingImages));
+        $label = $this->labelWithImageCount($label, $pendingImages);
         $this->renderRawPrompt($label, $buffer);
 
         return [$label, $pendingImages];
     }
 
-    private function labelWithImageCount(string $label, int $count): string
+    /**
+     * @param  array<int,array<string,mixed>>  $pendingImages
+     */
+    private function labelWithImageCount(string $label, array $pendingImages): string
     {
-        $label = preg_replace('/\s+\[img:\d+\]\s+Enter=analisar$/', '', $label) ?: $label;
+        $stripped = preg_replace('/\s+\[(?:img:\d+|imagem [^\]]*)\]\s+Enter=analisar$/', '', $label) ?: $label;
+        if ($pendingImages === []) {
+            return $stripped;
+        }
 
-        return $label.' [img:'.$count.'] Enter=analisar';
+        return $stripped.' ['.$this->imagemTokens($pendingImages).'] Enter=analisar';
+    }
+
+    private function wrapOsc8(string $text, string $url): string
+    {
+        return "\033]8;;".$url."\033\\".$text."\033]8;;\033\\";
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $pendingImages
+     */
+    private function imagemTokens(array $pendingImages): string
+    {
+        $tokens = [];
+        foreach (array_values($pendingImages) as $index => $attachment) {
+            $path = is_string($attachment['path'] ?? null) ? $attachment['path'] : '';
+            $label = 'imagem '.($index + 1);
+            if ($path === '') {
+                $tokens[] = $label;
+
+                continue;
+            }
+            $tokens[] = $this->wrapOsc8($label, 'file://'.$path);
+        }
+
+        return implode(', ', $tokens);
     }
 
     /**
@@ -1885,7 +1916,7 @@ class AiChatCommand extends Command
 
             $pendingImages = $this->mergeImageAttachments($pendingImages, $attachments, $images);
             $this->printPendingImages($pendingImages);
-            $label = $this->labelWithImageCount($label, count($pendingImages));
+            $label = $this->labelWithImageCount($label, $pendingImages);
             $this->renderRawPrompt($label, $buffer);
 
             return;
