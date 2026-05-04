@@ -113,4 +113,40 @@ class AiChatCommandPasteImageTest extends TestCase
 
         $this->assertSame('text', $result['kind']);
     }
+
+    public function test_classify_bracketed_paste_absolute_path_to_png_is_image_path(): void
+    {
+        $imageFile = $this->workspace.'/screenshot.png';
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=');
+        File::put($imageFile, (string) $png);
+
+        $command = new AiChatCommand();
+        $command->setLaravel(app());
+        $method = new ReflectionMethod($command, 'classifyBracketedPaste');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($command, $imageFile, $this->workspace);
+
+        $this->assertSame('image_path', $result['kind']);
+        $this->assertSame($imageFile, $result['path']);
+    }
+
+    public function test_classify_bracketed_paste_file_url_is_image_path(): void
+    {
+        $imageFile = $this->workspace.'/screenshot 2.png';
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=');
+        File::put($imageFile, (string) $png);
+
+        $command = new AiChatCommand();
+        $command->setLaravel(app());
+        $method = new ReflectionMethod($command, 'classifyBracketedPaste');
+        $method->setAccessible(true);
+
+        $url = 'file://'.rawurlencode($imageFile);
+        $url = str_replace('%2F', '/', $url);
+        $result = $method->invoke($command, $url, $this->workspace);
+
+        $this->assertSame('image_path', $result['kind']);
+        $this->assertSame($imageFile, $result['path']);
+    }
 }

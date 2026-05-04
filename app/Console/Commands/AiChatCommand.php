@@ -1817,6 +1817,9 @@ class AiChatCommand extends Command
     /**
      * @return array{kind:'clipboard_image'|'image_path'|'text', path?:string}
      */
+    /**
+     * @return array{kind:'clipboard_image'|'image_path'|'text', path?:string}
+     */
     private function classifyBracketedPaste(string $payload, string $workspace): array
     {
         $trimmed = trim($payload);
@@ -1825,7 +1828,30 @@ class AiChatCommand extends Command
             return ['kind' => 'clipboard_image'];
         }
 
-        return ['kind' => 'text'];
+        if (str_contains($trimmed, "\n")) {
+            return ['kind' => 'text'];
+        }
+
+        $candidate = $trimmed;
+        if (str_starts_with($candidate, 'file://')) {
+            $candidate = rawurldecode(substr($candidate, strlen('file://')));
+        }
+
+        if (! str_starts_with($candidate, '/')) {
+            return ['kind' => 'text'];
+        }
+
+        if (! is_file($candidate)) {
+            return ['kind' => 'text'];
+        }
+
+        $imageInfo = @getimagesize($candidate);
+        $mime = is_array($imageInfo) && is_string($imageInfo['mime'] ?? null) ? $imageInfo['mime'] : null;
+        if (! in_array($mime, ['image/png', 'image/jpeg', 'image/webp', 'image/gif'], true)) {
+            return ['kind' => 'text'];
+        }
+
+        return ['kind' => 'image_path', 'path' => $candidate];
     }
 
     /**
@@ -1846,8 +1872,26 @@ class AiChatCommand extends Command
             return;
         }
 
-        $buffer .= $classification['path'] ?? '';
-        $this->output->write($classification['path'] ?? '');
+        if ($classification['kind'] === 'image_path' && isset($classification['path'])) {
+            $this->output->write("\n");
+            $this->line('Imagem detectada no paste; anexando '.basename($classification['path']).'...');
+
+            try {
+                $attachments = $images->fromPaths([$classification['path']], $workspace);
+            } catch (\Throwable $exception) {
+                $this->warn('Nao consegui anexar imagem do paste: '.$exception->getMessage());
+                $this->renderRawPrompt($label, $buffer);
+
+                return;
+            }
+
+            $pendingImages = $this->mergeImageAttachments($pendingImages, $attachments, $images);
+            $this->printPendingImages($pendingImages);
+            $label = $this->labelWithImageCount($label, count($pendingImages));
+            $this->renderRawPrompt($label, $buffer);
+
+            return;
+        }
     }
 
     private function readAvailableTerminalSequence(): string
