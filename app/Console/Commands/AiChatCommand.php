@@ -1817,9 +1817,6 @@ class AiChatCommand extends Command
     /**
      * @return array{kind:'clipboard_image'|'image_path'|'text', path?:string}
      */
-    /**
-     * @return array{kind:'clipboard_image'|'image_path'|'text', path?:string}
-     */
     private function classifyBracketedPaste(string $payload, string $workspace): array
     {
         $trimmed = trim($payload);
