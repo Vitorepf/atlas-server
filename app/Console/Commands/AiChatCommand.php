@@ -1757,7 +1757,7 @@ class AiChatCommand extends Command
             $sequence = $char.$this->readAvailableTerminalSequence();
             if ($sequence === "\033[200~") {
                 $paste = $this->readBracketedPastePayload();
-                $classification = $this->classifyBracketedPaste($paste, $workspace);
+                $classification = $this->classifyBracketedPaste($paste);
                 if ($classification['kind'] === 'text') {
                     $buffer .= $paste;
                     $this->output->write($paste);
@@ -1817,7 +1817,7 @@ class AiChatCommand extends Command
     /**
      * @return array{kind:'clipboard_image'|'image_path'|'text', path?:string}
      */
-    private function classifyBracketedPaste(string $payload, string $workspace): array
+    private function classifyBracketedPaste(string $payload): array
     {
         $trimmed = trim($payload);
 
@@ -1831,7 +1831,8 @@ class AiChatCommand extends Command
 
         $candidate = $trimmed;
         if (str_starts_with($candidate, 'file://')) {
-            $candidate = rawurldecode(substr($candidate, strlen('file://')));
+            $path = parse_url($candidate, PHP_URL_PATH);
+            $candidate = is_string($path) ? rawurldecode($path) : '';
         }
 
         if (! str_starts_with($candidate, '/')) {

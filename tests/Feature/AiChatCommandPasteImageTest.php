@@ -37,7 +37,7 @@ class AiChatCommandPasteImageTest extends TestCase
         $method = new ReflectionMethod($command, 'classifyBracketedPaste');
         $method->setAccessible(true);
 
-        $result = $method->invoke($command, '', $this->workspace);
+        $result = $method->invoke($command, '');
 
         $this->assertSame('clipboard_image', $result['kind']);
     }
@@ -49,7 +49,7 @@ class AiChatCommandPasteImageTest extends TestCase
         $method = new ReflectionMethod($command, 'classifyBracketedPaste');
         $method->setAccessible(true);
 
-        $result = $method->invoke($command, "\t  \n", $this->workspace);
+        $result = $method->invoke($command, "\t  \n");
 
         $this->assertSame('clipboard_image', $result['kind']);
     }
@@ -109,7 +109,7 @@ class AiChatCommandPasteImageTest extends TestCase
         $method = new ReflectionMethod($command, 'classifyBracketedPaste');
         $method->setAccessible(true);
 
-        $result = $method->invoke($command, 'git status', $this->workspace);
+        $result = $method->invoke($command, 'git status');
 
         $this->assertSame('text', $result['kind']);
     }
@@ -125,7 +125,7 @@ class AiChatCommandPasteImageTest extends TestCase
         $method = new ReflectionMethod($command, 'classifyBracketedPaste');
         $method->setAccessible(true);
 
-        $result = $method->invoke($command, $imageFile, $this->workspace);
+        $result = $method->invoke($command, $imageFile);
 
         $this->assertSame('image_path', $result['kind']);
         $this->assertSame($imageFile, $result['path']);
@@ -144,9 +144,59 @@ class AiChatCommandPasteImageTest extends TestCase
 
         $url = 'file://'.rawurlencode($imageFile);
         $url = str_replace('%2F', '/', $url);
-        $result = $method->invoke($command, $url, $this->workspace);
+        $result = $method->invoke($command, $url);
 
         $this->assertSame('image_path', $result['kind']);
         $this->assertSame($imageFile, $result['path']);
+    }
+
+    public function test_apply_bracketed_paste_image_path_calls_from_paths_and_updates_pending(): void
+    {
+        $imageFile = $this->workspace.'/from-paste.png';
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=');
+        File::put($imageFile, (string) $png);
+
+        $images = Mockery::mock(AtlasImageAttachmentService::class);
+        $images->shouldReceive('fromPaths')
+            ->once()
+            ->with([$imageFile], $this->workspace)
+            ->andReturn([
+                [
+                    'path' => $imageFile,
+                    'source' => 'file',
+                    'original_path' => $imageFile,
+                    'mime_type' => 'image/png',
+                    'bytes' => filesize($imageFile),
+                    'sha256' => hash_file('sha256', $imageFile),
+                ],
+            ]);
+        $images->shouldReceive('dedupe')->andReturnUsing(fn ($a) => $a);
+
+        $command = new AiChatCommand();
+        $command->setLaravel(app());
+        $command->setOutput(new \Illuminate\Console\OutputStyle(new ArrayInput([]), new BufferedOutput()));
+        $reflectIn = new \ReflectionProperty($command, 'input');
+        $reflectIn->setAccessible(true);
+        $reflectIn->setValue($command, new ArrayInput([], $command->getDefinition()));
+
+        $applyPaste = new ReflectionMethod($command, 'applyBracketedPasteClassification');
+        $applyPaste->setAccessible(true);
+
+        $buffer = '';
+        $label = 'atlas';
+        $pending = [];
+
+        $applyPaste->invokeArgs($command, [
+            ['kind' => 'image_path', 'path' => $imageFile],
+            $images,
+            $this->workspace,
+            &$buffer,
+            &$label,
+            &$pending,
+        ]);
+
+        $this->assertCount(1, $pending);
+        $this->assertSame($imageFile, $pending[0]['path']);
+        $this->assertStringContainsString('img:1', $label);
     }
 }
