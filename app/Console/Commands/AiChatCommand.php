@@ -107,9 +107,6 @@ class AiChatCommand extends Command
     /** @var array<string,bool> */
     private array $intentSessionAcks = [];
 
-    /** @var array<string,bool> */
-    private array $seenClipboardImageHashes = [];
-
     public function handle(
         AiGatewayService $gateway,
         AiWorker $worker,
@@ -1686,14 +1683,8 @@ class AiChatCommand extends Command
             $bracketedPaste = true;
             $this->setRawTerminalMode();
             $this->renderRawPrompt($label, $buffer);
-            $lastClipboardProbe = 0.0;
 
             while (true) {
-                if (microtime(true) - $lastClipboardProbe >= 0.75) {
-                    $lastClipboardProbe = microtime(true);
-                    [$label, $pendingImages] = $this->autoAttachCurrentClipboardImage($images, $workspace, $pendingImages, $label, $buffer);
-                }
-
                 $char = fread(STDIN, 1);
                 if ($char === false || $char === '') {
                     continue;
@@ -1805,49 +1796,6 @@ class AiChatCommand extends Command
 
         $this->line('Imagem colada e anexada ao composer.');
         $this->printPendingImages($pendingImages);
-        $label = $this->labelWithImageCount($label, count($pendingImages));
-        $this->renderRawPrompt($label, $buffer);
-
-        return [$label, $pendingImages];
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $pendingImages
-     * @return array{0:string,1:array<int,array<string,mixed>>}
-     */
-    private function autoAttachCurrentClipboardImage(AtlasImageAttachmentService $images, string $workspace, array $pendingImages, string $label, string $buffer): array
-    {
-        if ($pendingImages !== []) {
-            return [$label, $pendingImages];
-        }
-
-        if (trim($buffer) === '') {
-            return [$label, $pendingImages];
-        }
-
-        $status = $images->clipboardStatus();
-        if (! (bool) ($status['current_image_detected'] ?? false)) {
-            return [$label, $pendingImages];
-        }
-
-        try {
-            $attachment = $images->fromClipboard($workspace);
-        } catch (\Throwable) {
-            return [$label, $pendingImages];
-        }
-
-        $hash = (string) ($attachment['sha256'] ?? '');
-        if ($hash !== '' && isset($this->seenClipboardImageHashes[$hash])) {
-            return [$label, $pendingImages];
-        }
-
-        if ($hash !== '') {
-            $this->seenClipboardImageHashes[$hash] = true;
-        }
-
-        $pendingImages = $this->mergeImageAttachments($pendingImages, [$attachment], $images);
-        $this->output->write("\n");
-        $this->line('Imagem anexada. '.$this->imageAttachmentCompactLine($pendingImages));
         $label = $this->labelWithImageCount($label, count($pendingImages));
         $this->renderRawPrompt($label, $buffer);
 

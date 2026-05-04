@@ -173,62 +173,6 @@ class AiChatCommandPermissionTest extends TestCase
         $this->assertStringContainsString('image/png', $output);
     }
 
-    public function test_composer_clipboard_poll_attaches_current_image_once(): void
-    {
-        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
-        File::ensureDirectoryExists($workspace);
-        $imagePath = $workspace.'/clipboard.png';
-        File::put($imagePath, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8Jv6wAAAABJRU5ErkJggg=='));
-        $hash = hash_file('sha256', $imagePath);
-
-        $images = \Mockery::mock(AtlasImageAttachmentService::class);
-        $images->shouldReceive('clipboardStatus')->twice()->andReturn([
-            'current_image_detected' => true,
-        ]);
-        $images->shouldReceive('fromClipboard')->twice()->with($workspace)->andReturn([
-            'path' => $imagePath,
-            'source' => 'clipboard',
-            'original_path' => $imagePath,
-            'mime_type' => 'image/png',
-            'bytes' => File::size($imagePath),
-            'sha256' => $hash,
-        ]);
-        $images->shouldReceive('dedupe')->once()->andReturnUsing(fn (array $attachments): array => $attachments);
-
-        $command = $this->commandWithIo();
-        $method = new ReflectionMethod(AiChatCommand::class, 'autoAttachCurrentClipboardImage');
-        $method->setAccessible(true);
-
-        [$label, $attachments] = $method->invoke($command, $images, $workspace, [], 'atlas', 'pergunta');
-        [$secondLabel, $secondAttachments] = $method->invoke($command, $images, $workspace, [], 'atlas', 'pergunta');
-        $output = $this->commandOutput($command);
-
-        $this->assertSame('atlas [img:1] Enter=analisar', $label);
-        $this->assertCount(1, $attachments);
-        $this->assertSame('atlas', $secondLabel);
-        $this->assertSame([], $secondAttachments);
-        $this->assertStringContainsString('Imagem anexada. [img:1] pronta para enviar', $output);
-    }
-
-    public function test_composer_clipboard_poll_ignores_idle_prompt_without_text(): void
-    {
-        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
-        File::ensureDirectoryExists($workspace);
-
-        $images = \Mockery::mock(AtlasImageAttachmentService::class);
-        $images->shouldNotReceive('clipboardStatus');
-        $images->shouldNotReceive('fromClipboard');
-
-        $command = $this->commandWithIo();
-        $method = new ReflectionMethod(AiChatCommand::class, 'autoAttachCurrentClipboardImage');
-        $method->setAccessible(true);
-
-        [$label, $attachments] = $method->invoke($command, $images, $workspace, [], 'atlas', '');
-
-        $this->assertSame('atlas', $label);
-        $this->assertSame([], $attachments);
-    }
-
     public function test_raw_key_dispatch_covers_text_backspace_submit_and_eof(): void
     {
         $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
