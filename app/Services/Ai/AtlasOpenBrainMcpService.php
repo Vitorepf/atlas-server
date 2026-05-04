@@ -325,6 +325,80 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_memory_get',
+                'title' => 'Atlas Memory Get',
+                'description' => 'Retorna corpo completo + metadata + relações de uma memory entry específica. Use após recall pra drill-down. Bloqueia entries não-provider-safe (privacy_class secret/sensitive sem external_ai_allowed=true).',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'memory_entry_id' => ['type' => 'string', 'description' => 'UUID da entry.'],
+                        'include_relations' => ['type' => 'boolean', 'description' => 'Incluir outgoing/incoming relations (default false).'],
+                    ],
+                    'required' => ['memory_entry_id'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_module_info',
+                'title' => 'Atlas Module Info',
+                'description' => 'Retorna info detalhada de um módulo do code intelligence index: símbolos, paths, doc links. Use para drill-down após code_find_relevant.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'slug' => ['type' => 'string', 'description' => 'Slug ou ID do módulo.'],
+                        'include_symbols' => ['type' => 'boolean', 'description' => 'Incluir lista de símbolos do módulo (default true).'],
+                        'symbols_limit' => ['type' => 'integer', 'description' => 'Max símbolos retornados (default 50).'],
+                    ],
+                    'required' => ['slug'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_route_info',
+                'title' => 'Atlas Route Info',
+                'description' => 'Busca rotas HTTP do projeto (filtrando símbolos type=route por path/name). Retorna lista de rotas que casam com o filtro.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'path' => ['type' => 'string', 'description' => 'Path ou parte do path da rota a buscar (ex: "memory", "/api/atlas").'],
+                        'limit' => ['type' => 'integer', 'description' => 'Max rotas retornadas (default 20).'],
+                    ],
+                    'required' => ['path'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_test_for',
+                'title' => 'Atlas Test For',
+                'description' => 'Busca testes (símbolos type=test_method) cujo nome contém o target. Heurística — matching por substring de nome, não análise de coverage real.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'target' => ['type' => 'string', 'description' => 'Nome do símbolo, classe, ou conceito a procurar nos testes.'],
+                        'limit' => ['type' => 'integer', 'description' => 'Max testes retornados (default 20).'],
+                    ],
+                    'required' => ['target'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_context_for',
+                'title' => 'Atlas Context For',
+                'description' => 'Meta-tool que monta context pack ad-hoc a partir de descrição de tarefa. Internamente roda atlas_memory_recall + atlas_code_find_relevant + atlas_docs_lookup com a mesma query e retorna resultados unificados. Mais rápido que 3 chamadas separadas.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'task_description' => ['type' => 'string', 'description' => 'Descrição livre da tarefa/contexto (ex: "implementar cobrança recorrente").'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace local (opcional).'],
+                        'memory_limit' => ['type' => 'integer', 'description' => 'Max memory entries (default 5).'],
+                        'code_limit' => ['type' => 'integer', 'description' => 'Max code symbols (default 10).'],
+                        'docs_limit' => ['type' => 'integer', 'description' => 'Max docs (default 5).'],
+                    ],
+                    'required' => ['task_description'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -384,6 +458,11 @@ class AtlasOpenBrainMcpService
                 'atlas_memory_archive' => $this->toolResponse($id, $this->memoryArchive($arguments)),
                 'atlas_memory_link' => $this->toolResponse($id, $this->memoryLink($arguments)),
                 'atlas_memory_supersede' => $this->toolResponse($id, $this->memorySupersede($arguments)),
+                'atlas_memory_get' => $this->toolResponse($id, $this->memoryGet($arguments)),
+                'atlas_module_info' => $this->toolResponse($id, $this->moduleInfo($arguments)),
+                'atlas_route_info' => $this->toolResponse($id, $this->routeInfo($arguments)),
+                'atlas_test_for' => $this->toolResponse($id, $this->testFor($arguments)),
+                'atlas_context_for' => $this->toolResponse($id, $this->contextFor($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -1044,6 +1123,200 @@ class AtlasOpenBrainMcpService
             'new_entry_id' => (string) $new->id,
             'old_status' => 'archived',
             'archived_at' => $old->archived_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function memoryGet(array $arguments): array
+    {
+        $entryId = $this->string($arguments['memory_entry_id'] ?? null);
+        if ($entryId === null) {
+            return ['ok' => false, 'tool' => 'atlas_memory_get', 'error' => 'memory_entry_id_required'];
+        }
+
+        $entry = AtlasMemoryEntry::find($entryId);
+        if ($entry === null) {
+            return ['ok' => false, 'tool' => 'atlas_memory_get', 'error' => 'memory_entry_not_found'];
+        }
+
+        if (! $this->privacy->providerAllowed($entry)) {
+            return ['ok' => false, 'tool' => 'atlas_memory_get', 'error' => 'not_provider_safe'];
+        }
+
+        $payload = [
+            'id' => (string) $entry->id,
+            'memory_type' => $entry->memory_type,
+            'scope_type' => $entry->scope_type,
+            'scope_id' => $entry->scope_id,
+            'title' => $this->privacy->providerTitle($entry),
+            'body' => $this->privacy->providerBody($entry),
+            'summary' => $this->privacy->providerSummary($entry),
+            'tags' => $entry->tags ?? [],
+            'metadata' => $entry->metadata ?? [],
+            'status' => $entry->status,
+            'privacy_class' => $entry->privacy_class,
+            'recorded_at' => $entry->recorded_at?->toJSON(),
+            'archived_at' => $entry->archived_at?->toJSON(),
+            'superseded_by_id' => $entry->superseded_by_id,
+        ];
+
+        if ((bool) ($arguments['include_relations'] ?? false)) {
+            $payload['outgoing_relations'] = $entry->outgoingRelations()->get()->map(fn ($r) => [
+                'id' => (string) $r->id,
+                'target_id' => (string) $r->target_memory_entry_id,
+                'relation_type' => $r->relation_type,
+                'status' => $r->status,
+            ])->toArray();
+            $payload['incoming_relations'] = $entry->incomingRelations()->get()->map(fn ($r) => [
+                'id' => (string) $r->id,
+                'source_id' => (string) $r->source_memory_entry_id,
+                'relation_type' => $r->relation_type,
+                'status' => $r->status,
+            ])->toArray();
+        }
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_memory_get',
+            'entry' => $payload,
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function moduleInfo(array $arguments): array
+    {
+        $slug = $this->string($arguments['slug'] ?? null);
+        if ($slug === null) {
+            return ['ok' => false, 'tool' => 'atlas_module_info', 'error' => 'slug_required'];
+        }
+
+        $data = $this->code->module($slug);
+        if ($data === null) {
+            return ['ok' => false, 'tool' => 'atlas_module_info', 'error' => 'module_not_found'];
+        }
+
+        // code->module() already returns ['module' => ..., 'symbols' => ..., 'doc_links' => ...]
+        // Respect include_symbols and symbols_limit parameters
+        $includeSymbols = (bool) ($arguments['include_symbols'] ?? true);
+        $symbolsLimit = min(200, max(1, (int) ($arguments['symbols_limit'] ?? 50)));
+
+        $payload = [
+            'ok' => true,
+            'tool' => 'atlas_module_info',
+            'module' => $data['module'],
+        ];
+
+        if ($includeSymbols) {
+            $payload['symbols'] = array_slice($data['symbols'] ?? [], 0, $symbolsLimit);
+            $payload['doc_links'] = $data['doc_links'] ?? [];
+        }
+
+        $payload['generated_at'] = now()->toJSON();
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function routeInfo(array $arguments): array
+    {
+        $path = $this->string($arguments['path'] ?? null);
+        if ($path === null) {
+            return ['ok' => false, 'tool' => 'atlas_route_info', 'error' => 'path_required'];
+        }
+
+        $limit = min(100, max(1, (int) ($arguments['limit'] ?? 20)));
+        $result = $this->code->symbols(['q' => $path, 'symbol_type' => 'route'], $limit);
+        $routes = $result['symbols'] ?? [];
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_route_info',
+            'path' => $path,
+            'routes' => $routes,
+            'count' => count($routes),
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function testFor(array $arguments): array
+    {
+        $target = $this->string($arguments['target'] ?? null);
+        if ($target === null) {
+            return ['ok' => false, 'tool' => 'atlas_test_for', 'error' => 'target_required'];
+        }
+
+        $limit = min(100, max(1, (int) ($arguments['limit'] ?? 20)));
+        $result = $this->code->symbols(['q' => $target, 'symbol_type' => 'test_method'], $limit);
+        $tests = $result['symbols'] ?? [];
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_test_for',
+            'target' => $target,
+            'tests' => $tests,
+            'count' => count($tests),
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function contextFor(array $arguments): array
+    {
+        $task = $this->string($arguments['task_description'] ?? null);
+        if ($task === null) {
+            return ['ok' => false, 'tool' => 'atlas_context_for', 'error' => 'task_description_required'];
+        }
+
+        $workspace = $this->workspace($arguments['workspace'] ?? null);
+        $context = $workspace !== null ? ['workspace' => $workspace] : [];
+
+        $memoryLimit = min(20, max(1, (int) ($arguments['memory_limit'] ?? 5)));
+        $codeLimit = min(50, max(1, (int) ($arguments['code_limit'] ?? 10)));
+        $docsLimit = min(20, max(1, (int) ($arguments['docs_limit'] ?? 5)));
+
+        $memory = $this->recall->recall($task, $context, [], ['limit' => $memoryLimit]);
+        $code = $this->code->symbols(['q' => $task], $codeLimit);
+        $docs = $this->knowledge->catalog(['q' => $task, 'status' => 'active'], $docsLimit);
+
+        $memoryEntries = $memory['recall'] ?? [];
+        $codeSymbols = $code['symbols'] ?? [];
+        $docsItems = $docs['items'] ?? [];
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_context_for',
+            'task_description' => $task,
+            'workspace' => $workspace,
+            'memory' => [
+                'entries' => $memoryEntries,
+                'count' => count($memoryEntries),
+            ],
+            'code' => [
+                'symbols' => $codeSymbols,
+                'count' => count($codeSymbols),
+            ],
+            'docs' => [
+                'items' => $docsItems,
+                'count' => count($docsItems),
+            ],
+            'generated_at' => now()->toJSON(),
         ];
     }
 

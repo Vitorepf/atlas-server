@@ -196,8 +196,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After this phase: 10 tools + 3 task lifecycle tools (start/progress/complete) + 2 memory lifecycle (archive/link) + 1 (supersede) = 16
-        $this->assertCount(16, $structured['tools']);
+        // After phase 7: 16 + 5 new (memory_get, module_info, route_info, test_for, context_for) = 21
+        $this->assertCount(21, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
     }
@@ -572,5 +572,194 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
         $this->assertFalse($response['result']['structuredContent']['ok']);
         $this->assertSame('cannot_supersede_self', $response['result']['structuredContent']['error']);
+    }
+
+    public function test_memory_get_returns_full_entry_when_provider_safe(): void
+    {
+        $entry = \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'decision', 'scope_type' => 'global',
+            'title' => 'Drill-down test', 'body' => 'Full body content here',
+            'summary' => 'Short summary',
+            'status' => 'active', 'privacy_class' => 'normal',
+            'external_ai_allowed' => true, 'redaction_status' => 'clean',
+            'tags' => ['testing', 'drill-down'],
+            'metadata' => ['evidence' => ['file.md']],
+            'recorded_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 22, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_get',
+                'arguments' => ['memory_entry_id' => (string) $entry->id],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertSame((string) $entry->id, (string) $structured['entry']['id']);
+        $this->assertSame('Drill-down test', $structured['entry']['title']);
+        $this->assertSame('Full body content here', $structured['entry']['body']);
+    }
+
+    public function test_memory_get_blocks_non_provider_safe(): void
+    {
+        $entry = \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'decision', 'scope_type' => 'global',
+            'title' => 'Sensitive', 'body' => 'Secret',
+            'status' => 'active', 'privacy_class' => 'secret',
+            'external_ai_allowed' => false, 'redaction_status' => 'clean',
+            'recorded_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 23, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_get',
+                'arguments' => ['memory_entry_id' => (string) $entry->id],
+            ],
+        ]);
+
+        $this->assertFalse($response['result']['structuredContent']['ok']);
+        $this->assertSame('not_provider_safe', $response['result']['structuredContent']['error']);
+    }
+
+    public function test_module_info_returns_module_with_symbols(): void
+    {
+        $module = AtlasEngineeringCodeModule::create([
+            'slug' => 'memory-service',
+            'name' => 'Memory Service',
+            'layer' => 'service',
+            'primary_language' => 'php',
+            'root_path' => 'app/Services/Memory',
+            'source_hash' => sha1('memory-service'),
+        ]);
+        AtlasEngineeringCodeSymbol::create([
+            'module_id' => $module->id,
+            'symbol_name' => 'recall',
+            'symbol_type' => 'method',
+            'language' => 'php',
+            'file_path' => 'app/Services/Memory/AtlasHybridMemoryRetrievalService.php',
+            'source_hash' => sha1('recall'),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 24, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_module_info',
+                'arguments' => ['slug' => 'memory-service'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertNotNull($structured['module']);
+    }
+
+    public function test_module_info_returns_not_found_for_unknown_slug(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 25, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_module_info', 'arguments' => ['slug' => 'nonexistent-module']],
+        ]);
+
+        $this->assertFalse($response['result']['structuredContent']['ok']);
+        $this->assertSame('module_not_found', $response['result']['structuredContent']['error']);
+    }
+
+    public function test_route_info_returns_routes_matching_pattern(): void
+    {
+        $module = AtlasEngineeringCodeModule::create([
+            'slug' => 'routes',
+            'name' => 'Routes',
+            'layer' => 'http',
+            'primary_language' => 'php',
+            'root_path' => 'routes',
+            'source_hash' => sha1('routes'),
+        ]);
+        AtlasEngineeringCodeSymbol::create([
+            'module_id' => $module->id,
+            'symbol_name' => 'GET /api/atlas/memory',
+            'symbol_type' => 'route',
+            'language' => 'php',
+            'file_path' => 'routes/api.php',
+            'source_hash' => sha1('GET /api/atlas/memory'),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 26, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_route_info',
+                'arguments' => ['path' => 'memory'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertIsArray($structured['routes']);
+    }
+
+    public function test_test_for_returns_test_symbols_matching_target(): void
+    {
+        $module = AtlasEngineeringCodeModule::create([
+            'slug' => 'tests-feature-billing',
+            'name' => 'Tests',
+            'layer' => 'test',
+            'primary_language' => 'php',
+            'root_path' => 'tests/Feature',
+            'source_hash' => sha1('tests-feature-billing'),
+        ]);
+        AtlasEngineeringCodeSymbol::create([
+            'module_id' => $module->id,
+            'symbol_name' => 'test_billing_creates_invoice',
+            'symbol_type' => 'test_method',
+            'language' => 'php',
+            'file_path' => 'tests/Feature/BillingTest.php',
+            'source_hash' => sha1('test_billing_creates_invoice'),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 27, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_test_for',
+                'arguments' => ['target' => 'billing'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertNotEmpty($structured['tests']);
+    }
+
+    public function test_context_for_composes_recall_code_and_docs(): void
+    {
+        \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'decision', 'scope_type' => 'global',
+            'title' => 'billing canonical', 'body' => 'Use Stripe',
+            'status' => 'active', 'privacy_class' => 'normal',
+            'external_ai_allowed' => true, 'redaction_status' => 'clean',
+            'recorded_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 28, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_context_for',
+                'arguments' => ['task_description' => 'implementar cobrança recorrente com billing'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertArrayHasKey('memory', $structured);
+        $this->assertArrayHasKey('code', $structured);
+        $this->assertArrayHasKey('docs', $structured);
     }
 }
