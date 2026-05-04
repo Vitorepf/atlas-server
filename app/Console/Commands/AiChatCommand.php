@@ -1812,7 +1812,7 @@ class AiChatCommand extends Command
      */
     private function labelWithImageCount(string $label, array $pendingImages): string
     {
-        $stripped = preg_replace('/\s+\[(?:img:\d+|imagem [^\]]*)\]\s+Enter=analisar$/', '', $label) ?: $label;
+        $stripped = preg_replace('/ \[.*\] Enter=analisar$/s', '', $label) ?: $label;
         if ($pendingImages === []) {
             return $stripped;
         }

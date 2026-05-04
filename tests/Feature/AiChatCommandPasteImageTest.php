@@ -257,4 +257,30 @@ class AiChatCommandPasteImageTest extends TestCase
         $second = $method->invoke($command, 'atlas abcd1234', $pending);
         $this->assertStringContainsString('imagem 3', $second);
     }
+
+    public function test_label_with_image_count_strips_previously_rendered_osc8_segment(): void
+    {
+        $command = new AiChatCommand();
+        $command->setLaravel(app());
+        $interactive = new ReflectionMethod($command, 'interactivePromptLabel');
+        $interactive->setAccessible(true);
+        $rebuild = new ReflectionMethod($command, 'labelWithImageCount');
+        $rebuild->setAccessible(true);
+
+        $first = [['path' => '/tmp/atlas/clip-a.png']];
+        $rendered = $interactive->invoke($command, '0123456789ab', $first);
+
+        $this->assertStringContainsString("\033]8;;file:///tmp/atlas/clip-a.png", $rendered);
+
+        $second = [
+            ['path' => '/tmp/atlas/clip-a.png'],
+            ['path' => '/tmp/atlas/clip-b.png'],
+        ];
+        $relabeled = $rebuild->invoke($command, $rendered, $second);
+
+        $this->assertSame(1, substr_count($relabeled, 'Enter=analisar'));
+        $this->assertSame(2, substr_count($relabeled, 'imagem '));
+        $this->assertStringNotContainsString('imagem 1] Enter=analisar [', $relabeled);
+        $this->assertStringContainsString('imagem 2', $relabeled);
+    }
 }
