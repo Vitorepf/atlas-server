@@ -9,6 +9,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use Tests\Concerns\CreatesAtlasEngineeringCodeTables;
 use Tests\Concerns\CreatesAtlasEngineeringKnowledgeTables;
+use Tests\Concerns\CreatesAtlasMemoryEntryRelationsTable;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;
 use Tests\Concerns\CreatesAtlasTaskTables;
 use Tests\TestCase;
@@ -16,6 +17,7 @@ use Tests\TestCase;
 class AtlasOpenBrainMcpServiceTest extends TestCase
 {
     use CreatesAtlasMemoryEntryTable;
+    use CreatesAtlasMemoryEntryRelationsTable;
     use CreatesAtlasEngineeringCodeTables;
     use CreatesAtlasEngineeringKnowledgeTables;
     use CreatesAtlasTaskTables;
@@ -24,6 +26,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
     {
         parent::setUp();
         $this->createAtlasMemoryEntryTable();
+        $this->createAtlasMemoryEntryRelationsTable();
         $this->createAtlasEngineeringCodeTables();
         $this->createAtlasEngineeringKnowledgeTables();
         $this->createAtlasTaskTables();
@@ -34,6 +37,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->dropAtlasTaskTables();
         $this->dropAtlasEngineeringKnowledgeTables();
         $this->dropAtlasEngineeringCodeTables();
+        $this->dropAtlasMemoryEntryRelationsTable();
         $this->dropAtlasMemoryEntryTable();
         parent::tearDown();
     }
@@ -192,8 +196,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After this phase: 10 tools + 3 task lifecycle tools (start/progress/complete) = 13
-        $this->assertCount(13, $structured['tools']);
+        // After this phase: 10 tools + 3 task lifecycle tools (start/progress/complete) + 2 memory lifecycle (archive/link) = 15
+        $this->assertCount(15, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
     }
@@ -396,5 +400,112 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $task->refresh();
         $this->assertSame('done', $task->status);
         $this->assertNotNull($task->completed_at);
+    }
+
+    public function test_memory_archive_sets_status_archived(): void
+    {
+        $entry = \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'decision',
+            'scope_type' => 'global',
+            'title' => 'Old decision',
+            'body' => 'Outdated',
+            'status' => 'active',
+            'privacy_class' => 'normal',
+            'external_ai_allowed' => true,
+            'redaction_status' => 'clean',
+            'recorded_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 16, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_archive',
+                'arguments' => [
+                    'memory_entry_id' => (string) $entry->id,
+                    'reason' => 'Substituída por nova decisão sobre Postgres 16',
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+
+        $entry->refresh();
+        $this->assertSame('archived', $entry->status);
+        $this->assertNotNull($entry->archived_at);
+    }
+
+    public function test_memory_archive_rejects_missing_id(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 17, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_memory_archive', 'arguments' => []],
+        ]);
+
+        $this->assertFalse($response['result']['structuredContent']['ok']);
+        $this->assertSame('memory_entry_id_required', $response['result']['structuredContent']['error']);
+    }
+
+    public function test_memory_link_creates_relation(): void
+    {
+        $entry1 = \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'decision', 'scope_type' => 'global',
+            'title' => 'Decision A', 'body' => 'A',
+            'status' => 'active', 'privacy_class' => 'normal',
+            'external_ai_allowed' => true, 'redaction_status' => 'clean',
+            'recorded_at' => now(),
+        ]);
+        $entry2 = \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'decision', 'scope_type' => 'global',
+            'title' => 'Decision B', 'body' => 'B',
+            'status' => 'active', 'privacy_class' => 'normal',
+            'external_ai_allowed' => true, 'redaction_status' => 'clean',
+            'recorded_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 18, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_link',
+                'arguments' => [
+                    'source_id' => (string) $entry1->id,
+                    'target_id' => (string) $entry2->id,
+                    'relation_type' => 'duplicate',
+                    'reason' => 'Mesma decisão registrada em scopes diferentes',
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertArrayHasKey('relation_id', $structured);
+
+        $relation = \App\Models\AtlasMemoryEntryRelation::find($structured['relation_id']);
+        $this->assertNotNull($relation);
+        $this->assertSame((string) $entry1->id, (string) $relation->source_memory_entry_id);
+        $this->assertSame((string) $entry2->id, (string) $relation->target_memory_entry_id);
+        $this->assertSame('duplicate', $relation->relation_type);
+    }
+
+    public function test_memory_link_rejects_unknown_relation_type(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 19, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_link',
+                'arguments' => [
+                    'source_id' => 'fake-uuid',
+                    'target_id' => 'other-uuid',
+                    'relation_type' => 'invented_type',
+                ],
+            ],
+        ]);
+
+        $this->assertFalse($response['result']['structuredContent']['ok']);
+        $this->assertSame('invalid_relation_type', $response['result']['structuredContent']['error']);
     }
 }

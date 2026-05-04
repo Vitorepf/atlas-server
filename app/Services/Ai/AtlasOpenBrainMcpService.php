@@ -279,6 +279,37 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_memory_archive',
+                'title' => 'Atlas Memory Archive',
+                'description' => 'Marca uma memory entry como archived (status=archived, archived_at=now). Não deleta — preserva histórico. Use quando uma decisão fica obsoleta.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'memory_entry_id' => ['type' => 'string', 'description' => 'UUID da entry a arquivar.'],
+                        'reason' => ['type' => 'string', 'description' => 'Motivo do archive (vai pra metadata).'],
+                    ],
+                    'required' => ['memory_entry_id'],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_memory_link',
+                'title' => 'Atlas Memory Link',
+                'description' => 'Cria uma relação entre 2 memory entries (duplicate, conflict). Use para sinalizar duplicação ou conflito entre decisões. Tipos suportados hoje: duplicate, conflict (limitação atual — expandir requer migration).',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'source_id' => ['type' => 'string', 'description' => 'UUID da entry origem da relação.'],
+                        'target_id' => ['type' => 'string', 'description' => 'UUID da entry alvo.'],
+                        'relation_type' => ['type' => 'string', 'description' => 'Tipo: duplicate ou conflict.'],
+                        'reason' => ['type' => 'string', 'description' => 'Motivo da relação.'],
+                        'confidence' => ['type' => 'number', 'description' => 'Confiança 0-1 (default 0.8).'],
+                    ],
+                    'required' => ['source_id', 'target_id', 'relation_type'],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -335,6 +366,8 @@ class AtlasOpenBrainMcpService
                 'atlas_task_start' => $this->toolResponse($id, $this->taskStart($arguments)),
                 'atlas_task_progress' => $this->toolResponse($id, $this->taskProgress($arguments)),
                 'atlas_task_complete' => $this->toolResponse($id, $this->taskComplete($arguments)),
+                'atlas_memory_archive' => $this->toolResponse($id, $this->memoryArchive($arguments)),
+                'atlas_memory_link' => $this->toolResponse($id, $this->memoryLink($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -862,6 +895,87 @@ class AtlasOpenBrainMcpService
             'status' => 'done',
             'event_id' => (string) $event->id,
             'completed_at' => $task->completed_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function memoryArchive(array $arguments): array
+    {
+        $entryId = $this->string($arguments['memory_entry_id'] ?? null);
+        if ($entryId === null) {
+            return ['ok' => false, 'tool' => 'atlas_memory_archive', 'error' => 'memory_entry_id_required'];
+        }
+
+        $entry = AtlasMemoryEntry::find($entryId);
+        if ($entry === null) {
+            return ['ok' => false, 'tool' => 'atlas_memory_archive', 'error' => 'memory_entry_not_found'];
+        }
+
+        $reason = $this->string($arguments['reason'] ?? null);
+        $metadata = $entry->metadata ?? [];
+        if ($reason !== null) {
+            $metadata['archive_reason'] = $reason;
+            $metadata['archived_by'] = 'mcp_tool';
+        }
+
+        $entry->update([
+            'status' => 'archived',
+            'archived_at' => now(),
+            'metadata' => $metadata,
+        ]);
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_memory_archive',
+            'memory_entry_id' => (string) $entry->id,
+            'status' => 'archived',
+            'archived_at' => $entry->archived_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function memoryLink(array $arguments): array
+    {
+        $sourceId = $this->string($arguments['source_id'] ?? null);
+        $targetId = $this->string($arguments['target_id'] ?? null);
+        $type = $this->string($arguments['relation_type'] ?? null);
+
+        if ($sourceId === null || $targetId === null || $type === null) {
+            return ['ok' => false, 'tool' => 'atlas_memory_link', 'error' => 'source_target_type_required'];
+        }
+
+        if (! in_array($type, \App\Models\AtlasMemoryEntryRelation::TYPES, true)) {
+            return ['ok' => false, 'tool' => 'atlas_memory_link', 'error' => 'invalid_relation_type'];
+        }
+
+        if ($sourceId === $targetId) {
+            return ['ok' => false, 'tool' => 'atlas_memory_link', 'error' => 'cannot_link_to_self'];
+        }
+
+        $relation = \App\Models\AtlasMemoryEntryRelation::create([
+            'source_memory_entry_id' => $sourceId,
+            'target_memory_entry_id' => $targetId,
+            'relation_type' => $type,
+            'status' => 'open',
+            'confidence' => isset($arguments['confidence']) ? (float) $arguments['confidence'] : 0.8,
+            'reason' => $this->string($arguments['reason'] ?? null),
+            'metadata' => ['source' => 'mcp_tool'],
+        ]);
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_memory_link',
+            'relation_id' => (string) $relation->id,
+            'source_id' => $sourceId,
+            'target_id' => $targetId,
+            'relation_type' => $type,
+            'status' => 'open',
         ];
     }
 
