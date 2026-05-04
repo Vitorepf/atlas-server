@@ -310,6 +310,21 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_memory_supersede',
+                'title' => 'Atlas Memory Supersede',
+                'description' => 'Marca uma memory entry como substituída por outra mais nova. Define superseded_by_id, arquiva a entry velha (status=archived), preserva histórico. Use quando uma decisão é re-tomada — evita poluição do registry com entries duplicadas em vez de chained.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'old_entry_id' => ['type' => 'string', 'description' => 'UUID da entry antiga (será arquivada).'],
+                        'new_entry_id' => ['type' => 'string', 'description' => 'UUID da entry nova (substitui a antiga).'],
+                        'reason' => ['type' => 'string', 'description' => 'Motivo da substituição.'],
+                    ],
+                    'required' => ['old_entry_id', 'new_entry_id'],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -368,6 +383,7 @@ class AtlasOpenBrainMcpService
                 'atlas_task_complete' => $this->toolResponse($id, $this->taskComplete($arguments)),
                 'atlas_memory_archive' => $this->toolResponse($id, $this->memoryArchive($arguments)),
                 'atlas_memory_link' => $this->toolResponse($id, $this->memoryLink($arguments)),
+                'atlas_memory_supersede' => $this->toolResponse($id, $this->memorySupersede($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -976,6 +992,58 @@ class AtlasOpenBrainMcpService
             'target_id' => $targetId,
             'relation_type' => $type,
             'status' => 'open',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function memorySupersede(array $arguments): array
+    {
+        $oldId = $this->string($arguments['old_entry_id'] ?? null);
+        $newId = $this->string($arguments['new_entry_id'] ?? null);
+
+        if ($oldId === null || $newId === null) {
+            return ['ok' => false, 'tool' => 'atlas_memory_supersede', 'error' => 'old_and_new_entry_id_required'];
+        }
+
+        if ($oldId === $newId) {
+            return ['ok' => false, 'tool' => 'atlas_memory_supersede', 'error' => 'cannot_supersede_self'];
+        }
+
+        $old = AtlasMemoryEntry::find($oldId);
+        $new = AtlasMemoryEntry::find($newId);
+
+        if ($old === null) {
+            return ['ok' => false, 'tool' => 'atlas_memory_supersede', 'error' => 'old_entry_not_found'];
+        }
+        if ($new === null) {
+            return ['ok' => false, 'tool' => 'atlas_memory_supersede', 'error' => 'new_entry_not_found'];
+        }
+
+        $reason = $this->string($arguments['reason'] ?? null);
+        $metadata = $old->metadata ?? [];
+        if ($reason !== null) {
+            $metadata['supersede_reason'] = $reason;
+        }
+        $metadata['superseded_by'] = (string) $new->id;
+        $metadata['superseded_at'] = now()->toJSON();
+
+        $old->update([
+            'superseded_by_id' => $new->id,
+            'status' => 'archived',
+            'archived_at' => now(),
+            'metadata' => $metadata,
+        ]);
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_memory_supersede',
+            'old_entry_id' => (string) $old->id,
+            'new_entry_id' => (string) $new->id,
+            'old_status' => 'archived',
+            'archived_at' => $old->archived_at?->toJSON(),
         ];
     }
 

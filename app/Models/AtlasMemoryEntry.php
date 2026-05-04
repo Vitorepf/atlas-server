@@ -86,6 +86,7 @@ class AtlasMemoryEntry extends Model
         'recorded_at',
         'last_used_at',
         'archived_at',
+        'superseded_by_id',
         'governance_checked_at',
         'privacy_reviewed_at',
     ];
@@ -107,6 +108,7 @@ class AtlasMemoryEntry extends Model
             'recorded_at' => 'immutable_datetime',
             'last_used_at' => 'immutable_datetime',
             'archived_at' => 'immutable_datetime',
+            'superseded_by_id' => 'string',
             'governance_checked_at' => 'immutable_datetime',
             'privacy_reviewed_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
@@ -170,6 +172,21 @@ class AtlasMemoryEntry extends Model
     {
         return $this->hasMany(AtlasMemoryEntryRelation::class, 'target_memory_entry_id')
             ->latest('updated_at');
+    }
+
+    public function supersededBy(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'superseded_by_id');
+    }
+
+    public function supersedes(): HasMany
+    {
+        return $this->hasMany(self::class, 'superseded_by_id');
+    }
+
+    public function scopeNotSuperseded(Builder $query): Builder
+    {
+        return $query->whereNull('superseded_by_id');
     }
 
     public function verbatimMemory(): HasOne

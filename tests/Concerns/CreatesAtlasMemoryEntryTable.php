@@ -43,6 +43,7 @@ trait CreatesAtlasMemoryEntryTable
             $table->timestamp('recorded_at')->useCurrent()->index();
             $table->timestamp('last_used_at')->nullable();
             $table->timestamp('archived_at')->nullable()->index();
+            $table->uuid('superseded_by_id')->nullable();
             $table->timestamp('governance_checked_at')->nullable();
             $table->timestamp('privacy_reviewed_at')->nullable()->index();
             $table->timestamps();

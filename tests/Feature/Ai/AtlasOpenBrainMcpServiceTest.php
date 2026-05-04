@@ -196,8 +196,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After this phase: 10 tools + 3 task lifecycle tools (start/progress/complete) + 2 memory lifecycle (archive/link) = 15
-        $this->assertCount(15, $structured['tools']);
+        // After this phase: 10 tools + 3 task lifecycle tools (start/progress/complete) + 2 memory lifecycle (archive/link) + 1 (supersede) = 16
+        $this->assertCount(16, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
     }
@@ -507,5 +507,70 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
         $this->assertFalse($response['result']['structuredContent']['ok']);
         $this->assertSame('invalid_relation_type', $response['result']['structuredContent']['error']);
+    }
+
+    public function test_memory_supersede_links_old_to_new_and_archives(): void
+    {
+        $oldEntry = \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'decision', 'scope_type' => 'global',
+            'title' => 'Use SQLite', 'body' => 'SQLite é o DB',
+            'status' => 'active', 'privacy_class' => 'normal',
+            'external_ai_allowed' => true, 'redaction_status' => 'clean',
+            'recorded_at' => now(),
+        ]);
+        $newEntry = \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'decision', 'scope_type' => 'global',
+            'title' => 'Use Postgres', 'body' => 'Postgres é o DB padrão',
+            'status' => 'active', 'privacy_class' => 'normal',
+            'external_ai_allowed' => true, 'redaction_status' => 'clean',
+            'recorded_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 20, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_supersede',
+                'arguments' => [
+                    'old_entry_id' => (string) $oldEntry->id,
+                    'new_entry_id' => (string) $newEntry->id,
+                    'reason' => 'Decisão arquitetural mudou para Postgres',
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+
+        $oldEntry->refresh();
+        $this->assertSame((string) $newEntry->id, (string) $oldEntry->superseded_by_id);
+        $this->assertSame('archived', $oldEntry->status);
+        $this->assertNotNull($oldEntry->archived_at);
+    }
+
+    public function test_memory_supersede_rejects_self_reference(): void
+    {
+        $entry = \App\Models\AtlasMemoryEntry::create([
+            'memory_type' => 'decision', 'scope_type' => 'global',
+            'title' => 'Test', 'body' => 'Test',
+            'status' => 'active', 'privacy_class' => 'normal',
+            'external_ai_allowed' => true, 'redaction_status' => 'clean',
+            'recorded_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 21, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_supersede',
+                'arguments' => [
+                    'old_entry_id' => (string) $entry->id,
+                    'new_entry_id' => (string) $entry->id,
+                ],
+            ],
+        ]);
+
+        $this->assertFalse($response['result']['structuredContent']['ok']);
+        $this->assertSame('cannot_supersede_self', $response['result']['structuredContent']['error']);
     }
 }
