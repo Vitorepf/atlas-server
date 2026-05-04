@@ -73,4 +73,16 @@ class AtlasImageAttachmentServiceTest extends TestCase
 
         File::delete($attachment['path']);
     }
+
+    public function test_clipboard_status_reports_capture_capability_contract(): void
+    {
+        $status = app(AtlasImageAttachmentService::class)->clipboardStatus();
+
+        $this->assertSame('clipboard_visual_input', $status['name']);
+        $this->assertContains($status['status'], ['passed', 'needs_review']);
+        $this->assertArrayHasKey('capture_ready', $status);
+        $this->assertArrayHasKey('current_image_detected', $status);
+        $this->assertArrayHasKey('pngpaste', $status);
+        $this->assertArrayHasKey('osascript', $status);
+    }
 }

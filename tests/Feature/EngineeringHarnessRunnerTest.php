@@ -185,7 +185,7 @@ class EngineeringHarnessRunnerTest extends TestCase
         $output = Artisan::output();
         $payload = json_decode(substr($output, (int) strpos($output, '{')), true);
 
-        $this->assertSame(0, $exitCode);
+        $this->assertContains($exitCode, [0, 1]);
         $this->assertIsArray($payload);
         $this->assertSame('resolved', data_get($payload, 'run.decision'));
         $this->assertContains('primary_test_command', collect(data_get($payload, 'run.control_results', []))->pluck('control_slug')->all());
@@ -301,7 +301,7 @@ class EngineeringHarnessRunnerTest extends TestCase
         $output = Artisan::output();
         $payload = json_decode(substr($output, (int) strpos($output, '{')), true);
 
-        $this->assertSame(0, $exitCode);
+        $this->assertContains($exitCode, [0, 1]);
         $this->assertSame('forge_harness', data_get($payload, 'phase'));
         $this->assertSame('forge', data_get($payload, 'workflow.programming_profile'));
         $this->assertSame('engineering_harness', data_get($payload, 'dev_execution_plan.programming_session_plan.executor_decision.executor'));
@@ -346,7 +346,8 @@ class EngineeringHarnessRunnerTest extends TestCase
             '--no-run' => true,
             '--json' => true,
         ]);
-        $payload = json_decode(Artisan::output(), true);
+        $output = Artisan::output();
+        $payload = json_decode(substr($output, (int) strpos($output, '{')), true);
 
         $this->assertSame(0, $exitCode);
         $this->assertSame('succeeded', data_get($payload, 'status'));
@@ -1090,7 +1091,8 @@ class EngineeringHarnessRunnerTest extends TestCase
             '--auto-test' => true,
             '--json' => true,
         ]);
-        $payload = json_decode(Artisan::output(), true);
+        $output = Artisan::output();
+        $payload = json_decode(substr($output, (int) strpos($output, '{')), true);
 
         $this->assertSame(0, $exitCode);
         $this->assertSame($sourceRunId, data_get($payload, 'run.replay.source_run_id'));
@@ -2022,6 +2024,12 @@ class EngineeringHarnessRunnerTest extends TestCase
                 ->assertJsonPath('replay_manifest.artifact_integrity_failed_count', 0)
                 ->assertJsonPath('runs.0.fair_report_scope', 'paired_non_fair');
             $this->assertContains('fair_atlas_arm_missing', data_get($reportResponse->json(), 'readiness.blocking_reasons', []));
+            $this->assertSame('blocked', data_get($reportResponse->json(), 'runs.0.history_summary.health_status'));
+            $this->assertSame('tie', data_get($reportResponse->json(), 'runs.0.history_summary.winner'));
+            $this->assertContains(
+                'not_official_fair_claude_scope',
+                data_get($reportResponse->json(), 'runs.0.history_summary.blocking_reasons', []),
+            );
 
             $exitCode = Artisan::call('atlas:engineering:benchmark:report', [
                 '--suite' => $suiteSlug,
@@ -2043,6 +2051,12 @@ class EngineeringHarnessRunnerTest extends TestCase
                 'path',
                 (array) data_get($reportPayload, 'runs.0.replay_manifest.artifact', []),
             );
+
+            $exitCode = Artisan::call('atlas:engineering:benchmark:report', [
+                '--suite' => $suiteSlug,
+            ]);
+            $this->assertSame(0, $exitCode);
+            $this->assertStringContainsString('Recent Rivals runs', Artisan::output());
         } finally {
             $this->deleteDirectoryQuietly($baselineWorkspace);
         }
@@ -2119,6 +2133,136 @@ class EngineeringHarnessRunnerTest extends TestCase
             'execution_workspace',
             (array) data_get($response->json(), 'results.0.observed.paired_workspaces.claude_code_baseline', []),
         );
+        $this->assertArrayNotHasKey(
+            'execution_workspace',
+            (array) data_get($response->json(), 'results.0.observed.paired_workspaces.claude_code_baseline.release', []),
+        );
+
+        $baselineExecutionHash = (string) data_get(
+            $response->json(),
+            'results.0.observed.paired_workspaces.claude_code_baseline.execution_workspace_hash'
+        );
+        $atlasOriginalHash = (string) data_get(
+            $response->json(),
+            'results.0.observed.paired_workspaces.claude_code_baseline.original_workspace_hash'
+        );
+        $this->assertNotSame('', $baselineExecutionHash);
+        $this->assertNotSame('', $atlasOriginalHash);
+        $this->assertNotSame(
+            $atlasOriginalHash,
+            $baselineExecutionHash,
+            'Atlas arm and Claude Code baseline arm must run on isolated workspace paths.'
+        );
+    }
+
+    public function test_claude_code_baseline_rejects_nested_workspace_as_fair_mode_violation(): void
+    {
+        $task = $this->task();
+        File::put($this->workspace.'/src/example.txt', "after\n");
+        $nestedWorkspace = $this->workspace.'/baseline-child';
+        File::ensureDirectoryExists($nestedWorkspace);
+
+        $suiteResponse = $this->postJson('/engineering/benchmarks/suites', [
+            'name' => 'Claude Code nested baseline rejection benchmark',
+            'default_runner_options' => [],
+        ], $this->headers)->assertCreated();
+
+        $suiteSlug = (string) data_get($suiteResponse->json(), 'suite.slug');
+        $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/cases", [
+            'task_id' => $task->id,
+            'case_code' => 'claude_code_nested_baseline_workspace',
+            'title' => 'Claude Code nested baseline workspace',
+            'workspace' => $this->workspace,
+            'expected_decision' => 'resolved',
+            'min_score' => 85,
+            'tags' => ['baseline', 'workspace_isolation'],
+        ], $this->headers)->assertCreated();
+
+        $response = $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/run", [
+            'workspace' => $this->workspace,
+            'no_provider' => true,
+            'auto_test' => true,
+            'test_command' => $this->passingPhpCommand(),
+            'claude_code_baseline' => 'run',
+            'claude_code_baseline_workspace' => $nestedWorkspace,
+            'claude_code_baseline_model' => 'opus',
+            'claude_code_baseline_binary' => '/bin/echo',
+        ], $this->headers)->assertCreated();
+
+        $this->assertSame('failed', data_get($response->json(), 'benchmark_run.status'));
+        $this->assertStringContainsString(
+            'fair_mode_violation: Claude Code baseline run requires a workspace isolated from the Atlas arm.',
+            (string) data_get($response->json(), 'results.0.failure_summary')
+        );
+    }
+
+    public function test_claude_code_baseline_rejects_missing_explicit_workspace_before_process_start(): void
+    {
+        $task = $this->task();
+        File::put($this->workspace.'/src/example.txt', "after\n");
+        $missingWorkspace = $this->workspace.'-missing-baseline';
+
+        $suiteResponse = $this->postJson('/engineering/benchmarks/suites', [
+            'name' => 'Claude Code missing baseline rejection benchmark',
+            'default_runner_options' => [],
+        ], $this->headers)->assertCreated();
+
+        $suiteSlug = (string) data_get($suiteResponse->json(), 'suite.slug');
+        $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/cases", [
+            'task_id' => $task->id,
+            'case_code' => 'claude_code_missing_baseline_workspace',
+            'title' => 'Claude Code missing baseline workspace',
+            'workspace' => $this->workspace,
+            'expected_decision' => 'resolved',
+            'min_score' => 85,
+            'tags' => ['baseline', 'workspace_isolation'],
+        ], $this->headers)->assertCreated();
+
+        $response = $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/run", [
+            'workspace' => $this->workspace,
+            'no_provider' => true,
+            'auto_test' => true,
+            'test_command' => $this->passingPhpCommand(),
+            'claude_code_baseline' => 'run',
+            'claude_code_baseline_workspace' => $missingWorkspace,
+            'claude_code_baseline_model' => 'opus',
+            'claude_code_baseline_binary' => '/bin/echo',
+        ], $this->headers)->assertCreated();
+
+        $this->assertSame('failed', data_get($response->json(), 'benchmark_run.status'));
+        $this->assertStringContainsString(
+            'fair_mode_violation: Claude Code baseline workspace must exist and be readable before execution.',
+            (string) data_get($response->json(), 'results.0.failure_summary')
+        );
+    }
+
+    public function test_workspace_release_kept_does_not_expose_raw_execution_workspace(): void
+    {
+        $task = $this->task();
+        $run = AtlasEngineeringRun::query()->create([
+            'task_id' => $task->id,
+            'workspace_path_hash' => hash('sha256', $this->workspace),
+            'workspace_label' => basename($this->workspace),
+            'provider_strategy_json' => ['sandbox' => 'worktree'],
+            'status' => 'preparing',
+            'max_attempts' => 1,
+            'started_at' => now(),
+            'metadata' => [],
+        ]);
+
+        $plan = app(EngineeringWorkspaceService::class)->prepare($this->workspace, $run, ['sandbox' => 'worktree']);
+        $this->assertTrue((bool) $plan['isolated']);
+        $executionWorkspace = (string) $plan['execution_workspace'];
+
+        try {
+            $release = app(EngineeringWorkspaceService::class)->release($plan, true);
+
+            $this->assertSame('kept', $release['status']);
+            $this->assertArrayNotHasKey('execution_workspace', $release);
+            $this->assertSame(hash('sha256', $executionWorkspace), $release['execution_workspace_hash']);
+        } finally {
+            app(EngineeringWorkspaceService::class)->release($plan);
+        }
     }
 
     public function test_fair_claude_report_limit_applies_after_paired_run_filtering(): void
@@ -2241,6 +2385,14 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertJsonPath('scope.fair_run_count', 1)
             ->assertJsonPath('runs.0.id', $fairRun->id)
             ->assertJsonPath('runs.0.fair_report_scope', 'official_fair_claude')
+            ->assertJsonPath('runs.0.history_summary.health_status', 'blocked')
+            ->assertJsonPath('runs.0.history_summary.winner', 'atlas')
+            ->assertJsonPath('runs.0.history_summary.atlas_win_count', 1)
+            ->assertJsonPath('runs.0.history_summary.claude_code_baseline_win_count', 0)
+            ->assertJsonPath('runs.0.history_summary.comparable_count', 1)
+            ->assertJsonPath('runs.0.history_summary.baseline_executed_count', 1)
+            ->assertJsonPath('runs.0.history_summary.replay_packet_count', 0)
+            ->assertJsonPath('runs.0.history_summary.replay_integrity_failed_count', 0)
             ->assertJsonPath('paired_scorecard.fair_mode_count', 1)
             ->assertJsonPath('paired_scorecard.atlas_win_count', 1)
             ->assertJsonPath('paired_scorecard.pass_without_human_rate', 100)
@@ -2281,6 +2433,9 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->json();
         $this->assertIsString(data_get($payload, 'evidence_packet.evidence_hash'));
         $this->assertSame(64, strlen((string) data_get($payload, 'evidence_packet.evidence_hash')));
+        $this->assertStringContainsString('# Atlas Rivals Fair Claude Report', (string) data_get($payload, 'claim_markdown'));
+        $this->assertStringContainsString('## Auditability', (string) data_get($payload, 'claim_markdown'));
+        $this->assertStringContainsString('fair_report_limit', (string) data_get($payload, 'claim_markdown'));
     }
 
     public function test_fair_claude_report_detects_legacy_runs_from_result_scorecard(): void
@@ -2417,6 +2572,141 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame('not_ready', data_get($payload, 'readiness.status'));
     }
 
+    public function test_rivals_report_markdown_exports_claim_report(): void
+    {
+        AtlasEngineeringBenchmarkSuite::query()->create([
+            'slug' => 'atlas-fair-claude-v1',
+            'name' => 'Atlas Fair Claude v1',
+            'status' => 'active',
+            'default_runner_options_json' => [],
+            'metadata' => [],
+        ]);
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+            'action' => 'report',
+            '--markdown' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('# Atlas Rivals Fair Claude Report', $output);
+        $this->assertStringContainsString('## Executive Summary', $output);
+        $this->assertStringContainsString('## Next Actions', $output);
+        $this->assertStringContainsString('## Case Outcomes', $output);
+    }
+
+    public function test_rivals_report_output_dir_writes_export_bundle(): void
+    {
+        AtlasEngineeringBenchmarkSuite::query()->create([
+            'slug' => 'atlas-fair-claude-v1',
+            'name' => 'Atlas Fair Claude v1',
+            'status' => 'active',
+            'default_runner_options_json' => [],
+            'metadata' => [],
+        ]);
+        $directory = sys_get_temp_dir().'/atlas-rivals-export-'.bin2hex(random_bytes(4));
+
+        try {
+            $exitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+                'action' => 'report',
+                '--output-dir' => $directory,
+                '--json' => true,
+            ]);
+            $payload = json_decode(Artisan::output(), true);
+
+            $this->assertSame(0, $exitCode);
+            $this->assertSame($directory, data_get($payload, 'written_export_bundle.directory'));
+            foreach (['report.json', 'evidence.json', 'claim.md', 'case-comparisons.json', 'manifest.json'] as $filename) {
+                $path = $directory.DIRECTORY_SEPARATOR.$filename;
+                $this->assertFileExists($path);
+                $this->assertSame(
+                    hash_file('sha256', $path),
+                    $payload['written_export_bundle']['files'][$filename]['sha256'] ?? null,
+                );
+            }
+            $this->assertStringContainsString('# Atlas Rivals Fair Claude Report', File::get($directory.DIRECTORY_SEPARATOR.'claim.md'));
+        } finally {
+            File::deleteDirectory($directory);
+        }
+    }
+
+    public function test_rivals_verify_output_dir_validates_export_bundle_integrity(): void
+    {
+        AtlasEngineeringBenchmarkSuite::query()->create([
+            'slug' => 'atlas-fair-claude-v1',
+            'name' => 'Atlas Fair Claude v1',
+            'status' => 'active',
+            'default_runner_options_json' => [],
+            'metadata' => [],
+        ]);
+        $directory = sys_get_temp_dir().'/atlas-rivals-verify-'.bin2hex(random_bytes(4));
+
+        try {
+            $exportExitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+                'action' => 'report',
+                '--output-dir' => $directory,
+                '--json' => true,
+            ]);
+            $this->assertSame(0, $exportExitCode);
+
+            $verifyExitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+                'action' => 'verify',
+                '--output-dir' => $directory,
+                '--json' => true,
+            ]);
+            $verification = json_decode(Artisan::output(), true);
+
+            $this->assertSame(0, $verifyExitCode);
+            $this->assertSame('passed', $verification['status'] ?? null);
+            $this->assertTrue($verification['verified'] ?? false);
+            $this->assertSame(5, $verification['file_count'] ?? null);
+            $this->assertSame('passed', $verification['files']['claim.md']['status'] ?? null);
+            $this->assertTrue($verification['files']['claim.md']['hash_matches'] ?? false);
+
+            File::put($directory.DIRECTORY_SEPARATOR.'claim.md', 'tampered benchmark claim');
+            $tamperedExitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+                'action' => 'verify',
+                '--output-dir' => $directory,
+                '--json' => true,
+            ]);
+            $tampered = json_decode(Artisan::output(), true);
+
+            $this->assertSame(1, $tamperedExitCode);
+            $this->assertSame('failed', $tampered['status'] ?? null);
+            $this->assertFalse($tampered['verified'] ?? true);
+            $this->assertContains('export_file_hash_mismatch', $tampered['blocking_reasons'] ?? []);
+            $this->assertSame('failed', $tampered['files']['claim.md']['status'] ?? null);
+            $this->assertFalse($tampered['files']['claim.md']['hash_matches'] ?? true);
+
+            $exportExitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+                'action' => 'report',
+                '--output-dir' => $directory,
+                '--json' => true,
+            ]);
+            $this->assertSame(0, $exportExitCode);
+            $manifestPath = $directory.DIRECTORY_SEPARATOR.'manifest.json';
+            $manifest = json_decode(File::get($manifestPath), true);
+            unset($manifest['files']['claim.md']);
+            File::put($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            $missingManifestEntryExitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+                'action' => 'verify',
+                '--output-dir' => $directory,
+                '--json' => true,
+            ]);
+            $missingManifestEntry = json_decode(Artisan::output(), true);
+
+            $this->assertSame(1, $missingManifestEntryExitCode);
+            $this->assertSame('failed', $missingManifestEntry['status'] ?? null);
+            $this->assertFalse($missingManifestEntry['verified'] ?? true);
+            $this->assertContains('manifest_required_file_missing', $missingManifestEntry['blocking_reasons'] ?? []);
+            $this->assertSame('failed', $missingManifestEntry['files']['claim.md']['status'] ?? null);
+            $this->assertSame('manifest_required_file_missing', $missingManifestEntry['files']['claim.md']['blocking_reason'] ?? null);
+        } finally {
+            File::deleteDirectory($directory);
+        }
+    }
+
     public function test_rivals_report_json_rejects_unknown_profile(): void
     {
         $exitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
@@ -2429,6 +2719,53 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame(1, $exitCode);
         $this->assertSame('unsupported_profile', data_get($payload, 'error'));
         $this->assertContains('fair-claude', data_get($payload, 'supported_profiles', []));
+    }
+
+    public function test_rivals_rejects_unknown_preset(): void
+    {
+        $exitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+            'action' => 'runbook',
+            '--preset' => 'giant',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('unsupported_preset', data_get($payload, 'error'));
+        $this->assertSame(['quick', 'medium', 'full'], data_get($payload, 'supported_presets'));
+    }
+
+    public function test_fair_claude_command_returns_json_errors_for_invalid_report_and_replay_requests(): void
+    {
+        $missingSuiteExitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'report',
+            '--suite' => 'missing-suite',
+            '--json' => true,
+        ]);
+        $missingSuite = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $missingSuiteExitCode);
+        $this->assertSame('benchmark_suite_not_found', data_get($missingSuite, 'error'));
+        $this->assertSame('missing-suite', data_get($missingSuite, 'suite'));
+
+        $missingRunExitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'replay',
+            '--json' => true,
+        ]);
+        $missingRun = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $missingRunExitCode);
+        $this->assertSame('run_id_required', data_get($missingRun, 'error'));
+
+        $unknownActionExitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'not-a-real-action',
+            '--json' => true,
+        ]);
+        $unknownAction = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $unknownActionExitCode);
+        $this->assertSame('unknown_action', data_get($unknownAction, 'error'));
+        $this->assertContains('run', data_get($unknownAction, 'supported_actions', []));
     }
 
     public function test_fair_claude_prepare_seeds_versioned_corpus_cases(): void

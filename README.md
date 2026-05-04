@@ -125,7 +125,7 @@ Depois disso, `atlas ask` e `atlas dev` herdam o modo operador por padrao dentro
 
 Para desenvolvimento diario, rode `atlas dev` sem tarefa para abrir o Dev Cockpit. Ele mostra workspace, provider, permissao, thread, git e skills. Em repos com skills locais, use `atlas skills trust` uma vez para confiar no repo e parar avisos repetidos. Skills locais complementam o Atlas, mas nao substituem skills internas com o mesmo nome.
 
-Para screenshots e analise visual no `atlas dev`, copie a imagem no macOS e peça naturalmente: `analise essa tela`, `corrija esse screenshot`, `o que esta errado nesse print?`. O Atlas detecta a referência visual, anexa a imagem atual do clipboard automaticamente e usa Codex CLI como motor visual. `/paste-image` continua existindo como fallback manual. Para arquivo direto:
+Para screenshots e analise visual no `atlas dev`, copie a imagem no macOS e pressione `Ctrl+V` dentro do composer. O Atlas le o clipboard visual, anexa a imagem, mostra `[img:N]` antes do envio e usa Codex CLI como motor visual. `Cmd+V` depende do terminal e pode nao enviar nada quando o clipboard e imagem; use `Ctrl+V` para o fluxo nativo. Também funciona pedir naturalmente `analise essa tela`, `corrija esse screenshot`, `o que esta errado nesse print?`, ou apertar Enter vazio como fallback para verificar o clipboard. Se anexar, o Atlas confirma com origem, tipo, tamanho, dimensoes e hash curto. `/paste-image` continua existindo como fallback manual. Para arquivo direto:
 
 ```bash
 atlas ask --image ~/Desktop/tela.png "analise essa tela"

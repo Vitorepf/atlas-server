@@ -168,6 +168,49 @@ class AtlasImageAttachmentService
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    public function clipboardStatus(): array
+    {
+        $pngpaste = (new ExecutableFinder)->find('pngpaste');
+        $osascript = '/usr/bin/osascript';
+        $sips = '/usr/bin/sips';
+        $macos = PHP_OS_FAMILY === 'Darwin';
+        $osascriptReady = is_executable($osascript);
+        $sipsReady = is_executable($sips);
+        $captureReady = $macos && ($pngpaste !== null || ($osascriptReady && $sipsReady));
+        $clipboardInfo = $macos && $osascriptReady ? $this->clipboardInfo() : null;
+        $currentImage = is_string($clipboardInfo) && $this->clipboardInfoContainsImage($clipboardInfo);
+
+        return [
+            'name' => 'clipboard_visual_input',
+            'status' => $captureReady ? 'passed' : 'needs_review',
+            'detail' => match (true) {
+                ! $macos => 'Clipboard visual automatico so esta disponivel no macOS.',
+                ! $captureReady => 'Instale pngpaste ou garanta /usr/bin/osascript + /usr/bin/sips disponiveis.',
+                $currentImage => 'Runtime de clipboard pronto; imagem detectada no clipboard atual.',
+                default => 'Runtime de clipboard pronto; clipboard atual nao parece conter imagem.',
+            },
+            'macos' => $macos,
+            'pngpaste' => [
+                'available' => $pngpaste !== null,
+                'path' => $pngpaste,
+            ],
+            'osascript' => [
+                'available' => $osascriptReady,
+                'path' => $osascript,
+            ],
+            'sips' => [
+                'available' => $sipsReady,
+                'path' => $sips,
+            ],
+            'capture_ready' => $captureReady,
+            'current_image_detected' => $currentImage,
+            'clipboard_info' => $clipboardInfo,
+        ];
+    }
+
+    /**
      * @param  array<int,array<string,mixed>>  $attachments
      * @return array<int,array<string,mixed>>
      */
@@ -188,7 +231,7 @@ class AtlasImageAttachmentService
 
     private function captureClipboardWithPngpaste(string $target): bool
     {
-        $binary = (new ExecutableFinder())->find('pngpaste');
+        $binary = (new ExecutableFinder)->find('pngpaste');
         if (! $binary) {
             return false;
         }
@@ -198,6 +241,32 @@ class AtlasImageAttachmentService
         $process->run();
 
         return $process->isSuccessful() && File::isFile($target) && File::size($target) > 0;
+    }
+
+    private function clipboardInfo(): ?string
+    {
+        $process = new Process(['/usr/bin/osascript', '-e', 'clipboard info'], base_path());
+        $process->setTimeout(5);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            return null;
+        }
+
+        $output = trim($process->getOutput());
+
+        return $output !== '' ? $output : null;
+    }
+
+    private function clipboardInfoContainsImage(string $clipboardInfo): bool
+    {
+        foreach (['PNGf', 'TIFF', 'JPEG', 'GIFf'] as $class) {
+            if (str_contains($clipboardInfo, $class)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function captureClipboardWithOsascript(string $target): void

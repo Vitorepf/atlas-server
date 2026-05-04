@@ -238,7 +238,7 @@ class EngineeringWorkspaceService
         if ($keep) {
             return [
                 'status' => 'kept',
-                'execution_workspace' => $workspace,
+                'execution_workspace_hash' => hash('sha256', $workspace),
                 'released_at' => now()->toJSON(),
             ];
         }
@@ -248,10 +248,13 @@ class EngineeringWorkspaceService
             File::deleteDirectory($workspace);
         }
 
+        $stderr = (string) ($process['stderr'] ?? '');
+
         return [
             'status' => File::isDirectory($workspace) ? 'failed' : 'released',
             'exit_code' => $process['exit_code'],
-            'stderr_excerpt' => $process['stderr'] !== '' ? Str::limit((string) $process['stderr'], 1200) : null,
+            'execution_workspace_hash' => hash('sha256', $workspace),
+            'stderr_excerpt' => $stderr !== '' ? Str::limit(AtlasSecurity::redactString($stderr), 1200) : null,
             'released_at' => now()->toJSON(),
         ];
     }

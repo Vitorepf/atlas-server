@@ -12,6 +12,8 @@ class AtlasEngineeringBenchmarkReportCommand extends Command
     protected $signature = 'atlas:engineering:benchmark:report
         {--suite=atlas-core-smoke : Suite slug or id}
         {--limit=20 : Maximum recent Fair Claude runs to include}
+        {--output-dir= : Write report.json, evidence.json, claim.md and manifest.json to this directory}
+        {--markdown : Print audit-ready Markdown report}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Summarize persisted Fair Claude paired benchmark scorecards.';
@@ -40,6 +42,10 @@ class AtlasEngineeringBenchmarkReportCommand extends Command
         $payload = $benchmarks->fairClaudeReportPayload($suite, [
             'limit' => max(1, min(200, (int) $this->option('limit'))),
         ]);
+        $outputDir = is_string($this->option('output-dir')) ? trim((string) $this->option('output-dir')) : '';
+        if ($outputDir !== '') {
+            $payload['written_export_bundle'] = $benchmarks->writeFairClaudeExportBundle($payload, $outputDir);
+        }
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -47,7 +53,17 @@ class AtlasEngineeringBenchmarkReportCommand extends Command
             return self::SUCCESS;
         }
 
+        if ((bool) $this->option('markdown')) {
+            $this->line((string) ($payload['claim_markdown'] ?? ''));
+
+            return self::SUCCESS;
+        }
+
         $this->render($payload);
+        if (isset($payload['written_export_bundle'])) {
+            $this->components->twoColumnDetail('Export bundle', (string) data_get($payload, 'written_export_bundle.directory'));
+            $this->components->twoColumnDetail('Bundle hash', (string) data_get($payload, 'written_export_bundle.bundle_hash', '-'));
+        }
 
         return self::SUCCESS;
     }
@@ -97,6 +113,30 @@ class AtlasEngineeringBenchmarkReportCommand extends Command
         foreach ($blocking as $reason) {
             if (is_scalar($reason) && trim((string) $reason) !== '') {
                 $this->warn('Blocking: '.trim((string) $reason));
+            }
+        }
+
+        $runs = array_slice((array) ($payload['runs'] ?? []), 0, 5);
+        if ($runs !== []) {
+            $this->newLine();
+            $this->line('<fg=bright-blue;options=bold>Recent Rivals runs</>');
+            foreach ($runs as $run) {
+                if (! is_array($run)) {
+                    continue;
+                }
+
+                $history = (array) ($run['history_summary'] ?? []);
+                $this->line(sprintf(
+                    '- %s · %s · winner=%s · comparable=%s · Atlas=%s Claude=%s · protocol=%s%% · h0=%s%%',
+                    (string) ($run['id'] ?? '-'),
+                    (string) ($history['health_status'] ?? $run['status'] ?? 'unknown'),
+                    (string) ($history['winner'] ?? 'inconclusive'),
+                    (string) ($history['comparable_count'] ?? 0),
+                    (string) ($history['atlas_win_count'] ?? 0),
+                    (string) ($history['claude_code_baseline_win_count'] ?? 0),
+                    (string) ($history['protocol_validity_rate'] ?? '-'),
+                    (string) ($history['pass_without_human_rate_medium_hard'] ?? $history['pass_without_human_rate'] ?? '-'),
+                ));
             }
         }
     }

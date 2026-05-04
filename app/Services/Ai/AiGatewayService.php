@@ -77,10 +77,17 @@ class AiGatewayService
                 $options['model'] = $expectedModel;
             }
         }
-        $decision = $this->decide->operationalDecision($options, $provider);
-        $decisionPayload = $decision->toArray();
-        $candidateProvider = $decision->candidateProvider();
-        $fallbackReason = $decision->fallbackReason();
+        $fairMode = $this->fairClaude->isFairPayload($payload);
+        if ($fairMode) {
+            $decisionPayload = $this->fairModeDecisionPayload($payload, $provider);
+            $candidateProvider = FairClaudePolicy::PROVIDER_LOCK;
+            $fallbackReason = null;
+        } else {
+            $decision = $this->decide->operationalDecision($options, $provider);
+            $decisionPayload = $decision->toArray();
+            $candidateProvider = $decision->candidateProvider();
+            $fallbackReason = $decision->fallbackReason();
+        }
         $payload['selected_provider'] = $provider;
         $payload['atlas_decide'] = array_merge(
             is_array($payload['atlas_decide'] ?? null) ? $payload['atlas_decide'] : [],
@@ -102,7 +109,6 @@ class AiGatewayService
         $session = $this->sessions->ensureActive($threadResolution->thread, $provider, $input, $options);
         $resumeCompaction = $this->maybeCompactSessionResume($threadResolution->thread, $session);
         $autoCompaction = $resumeCompaction ?: $this->compactions->maybeAutoCompact($threadResolution->thread, $session);
-        $fairMode = $this->fairClaude->isFairPayload($payload);
         $providerHandoff = $fairMode
             ? null
             : $this->handoffs->createIfSwitching($threadResolution->thread, $session, $provider, $autoCompaction, [
@@ -135,7 +141,7 @@ class AiGatewayService
         return DB::transaction(function () use ($input, $options, $prompt, $provider, $model, $modelResolution, $scoutGate, $now, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff): AiTrace {
             $lockedThread = $this->lockThreadForTrace($threadResolution);
             $lockedSession = $this->lockSessionForTrace($session);
-            $decisionReceipt = $this->decide->receiptForTrace($this->optionsWithPromptContracts($options, $prompt), $provider, $model);
+            $decisionReceipt = $this->decisionReceiptForTrace($this->optionsWithPromptContracts($options, $prompt), $provider, $model);
             $executorAvailableAt = $scoutGate['enabled']
                 ? $this->atlasScoutDependencyDeadline($options)
                 : ($options['available_at'] ?? $now);
@@ -607,11 +613,12 @@ class AiGatewayService
         $decisionOptions = $this->optionsWithPromptContracts($options, $prompt);
         $payload = is_array($decisionOptions['payload'] ?? null) ? $decisionOptions['payload'] : [];
         $manualProvider = $this->decide->manualOverrideProvider($decisionOptions);
-        $receipt = $this->decide->receiptForTrace($decisionOptions, $provider, $model);
-        $plan = $this->decide->decisionPlan($decisionOptions, $provider, $model);
+        $fairMode = $this->isFairModeOptions($decisionOptions);
+        $receipt = $this->decisionReceiptForTrace($decisionOptions, $provider, $model);
+        $plan = $this->decisionPlanForTrace($decisionOptions, $provider, $model);
         $taskProfile = is_array($plan['task_profile'] ?? null) ? $plan['task_profile'] : [];
         $signals = [
-            ...$this->decide->signals($decisionOptions),
+            ...($fairMode ? $this->fairModeSignals($decisionOptions, $provider, $model) : $this->decide->signals($decisionOptions)),
             'decision_mode' => $this->decide->decisionMode($decisionOptions),
             'operator_requested_provider' => data_get($payload, 'operator_requested_provider') ?: 'auto',
             'requested_provider' => $manualProvider,
@@ -650,7 +657,7 @@ class AiGatewayService
             'metrics_snapshot' => $this->decisionMetricsSnapshot($options, $modelResolution),
             'task_profile' => $taskProfile,
             'execution_graph' => $plan['execution_graph'],
-            'reason' => (string) ($receipt['reason'] ?? $this->decide->decisionReason($options, $provider)),
+            'reason' => (string) ($receipt['reason'] ?? ($fairMode ? 'Fair Claude mode locks claude_cli and disables Atlas Decide.' : $this->decide->decisionReason($options, $provider))),
         ]);
     }
 
@@ -665,6 +672,7 @@ class AiGatewayService
         $strategy = data_get($payload, 'provider_strategy');
         $signals = is_array($strategy) ? $strategy : [];
         $manualProvider = $this->decide->manualOverrideProvider($options);
+        $fairMode = $this->isFairModeOptions($options);
 
         return AiRouterDecision::query()->updateOrCreate([
             'trace_id' => $trace->id,
@@ -679,10 +687,12 @@ class AiGatewayService
                 'requested_provider' => $manualProvider,
                 'operator_requested_provider' => data_get($payload, 'operator_requested_provider') ?: 'auto',
                 'execution_policy' => data_get($payload, 'execution_policy'),
-                'atlas_decide' => $this->decide->signals($options),
+                'atlas_decide' => $fairMode
+                    ? $this->fairModeSignals($options, $provider, null)
+                    : $this->decide->signals($options),
                 'strategy' => $signals,
             ],
-            'reason' => (string) (data_get($strategy, 'reason') ?: $this->decide->decisionReason($options, $provider)),
+            'reason' => (string) (data_get($strategy, 'reason') ?: ($fairMode ? 'Fair Claude mode locks claude_cli and disables Atlas Decide.' : $this->decide->decisionReason($options, $provider))),
             'was_overridden' => $manualProvider !== null,
         ]);
     }
@@ -792,9 +802,11 @@ class AiGatewayService
      */
     private function atlasScoutGate(array $options, string $selectedProvider, ?string $selectedModel): array
     {
-        $plan = $this->decide->decisionPlan($options, $selectedProvider, $selectedModel);
         $timeoutSeconds = max(60, (int) config('atlas.ai.atlas_decide.scout_timeout_seconds', 600));
         $fairMode = $this->isFairModeOptions($options);
+        $plan = $fairMode
+            ? $this->fairModeDecisionPlan($options, $selectedProvider, $selectedModel)
+            : $this->decide->decisionPlan($options, $selectedProvider, $selectedModel);
         $scoutProvider = $fairMode ? FairClaudePolicy::PROVIDER_LOCK : 'gemini_cli';
         $scoutModel = $fairMode ? $selectedModel : $this->models->resolve('gemini_cli');
         $base = [
@@ -1510,8 +1522,20 @@ PROMPT;
 
     private function providerAllowedForInvocation(string $provider, array $options, bool $explicitProvider = false): string
     {
+        $hasImageAttachments = $this->hasImageAttachments($options);
+
+        if ($hasImageAttachments && $explicitProvider && ! $this->providerSupportsImageAttachments($provider)) {
+            throw new RuntimeException("Provider {$provider} nao suporta anexos de imagem neste runtime. Use codex_cli ou gemini_cli, ou remova o override manual.");
+        }
+
+        if ($hasImageAttachments && ! $explicitProvider && ! $this->providerSupportsImageAttachments($provider)) {
+            return $this->imageAttachmentFallbackProvider($options);
+        }
+
         if (! $explicitProvider && $provider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
-            return $this->geminiFallbackProvider();
+            return $hasImageAttachments
+                ? $this->imageAttachmentFallbackProvider($options)
+                : $this->geminiFallbackProvider();
         }
 
         if (! $this->isAutomaticInvocation($options)) {
@@ -1532,7 +1556,11 @@ PROMPT;
             return $provider;
         }
 
-        return $this->automaticFallbackProvider($options);
+        $fallback = $this->automaticFallbackProvider($options);
+
+        return $hasImageAttachments && ! $this->providerSupportsImageAttachments($fallback)
+            ? $this->imageAttachmentFallbackProvider($options)
+            : $fallback;
     }
 
     /**
@@ -1576,6 +1604,108 @@ PROMPT;
                 ],
             ),
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function fairModeDecisionPayload(array $payload, string $provider): array
+    {
+        return [
+            'decision_id' => null,
+            'policy_profile_id' => null,
+            'policy_version' => 'fair-claude-v1',
+            'decision_policy_version' => 'fair-claude-v1',
+            'candidate_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'selected_provider' => $provider,
+            'fallback_provider' => null,
+            'fallback_reason' => null,
+            'planned_graph' => $this->fairModeDecisionPlan(['payload' => $payload], $provider, null),
+            'runtime_graph' => [
+                'activation_status' => 'fair_mode_single_provider',
+                'atlas_decide_disabled' => true,
+                'fallback_disabled' => true,
+                'provider_lock' => FairClaudePolicy::PROVIDER_LOCK,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function decisionReceiptForTrace(array $options, string $provider, ?string $model): array
+    {
+        if (! $this->isFairModeOptions($options)) {
+            return $this->decide->receiptForTrace($options, $provider, $model);
+        }
+
+        return [
+            'decision_mode' => 'fair_mode_disabled',
+            'operator_requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'selected_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'selected_model' => $model,
+            'fallback_provider' => null,
+            'fallback_reason' => null,
+            'atlas_decide_disabled_by_fair_mode' => true,
+            'reason' => 'Fair Claude mode locks claude_cli and disables Atlas Decide.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function decisionPlanForTrace(array $options, string $provider, ?string $model): array
+    {
+        return $this->isFairModeOptions($options)
+            ? $this->fairModeDecisionPlan($options, $provider, $model)
+            : $this->decide->decisionPlan($options, $provider, $model);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function fairModeDecisionPlan(array $options, string $provider, ?string $model): array
+    {
+        return [
+            'decision_mode' => 'fair_mode_disabled',
+            'task_profile' => [
+                'task_type' => data_get($options, 'payload.task_type'),
+                'risk_level' => data_get($options, 'payload.risk_level'),
+            ],
+            'context_strategy' => 'fair_claude_locked_context',
+            'execution_strategy' => 'single_provider_locked',
+            'execution_graph' => [
+                'activation_status' => 'fair_mode_single_provider',
+                'selected_provider' => $provider,
+                'selected_model' => $model,
+                'atlas_decide_disabled' => true,
+                'council_disabled' => true,
+                'fallback_disabled' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function fairModeSignals(array $options, string $provider, ?string $model): array
+    {
+        return [
+            'fair_mode' => true,
+            'provider_lock' => FairClaudePolicy::PROVIDER_LOCK,
+            'model_lock' => FairClaudePolicy::MODEL_LOCK,
+            'selected_provider' => $provider,
+            'selected_model' => $model,
+            'atlas_decide_disabled_by_fair_mode' => true,
+            'fallback_disabled' => true,
+            'single_provider' => true,
+        ];
     }
 
     /**
@@ -1634,6 +1764,48 @@ PROMPT;
     private function geminiFallbackProvider(): string
     {
         return 'claude_cli';
+    }
+
+    private function hasImageAttachments(array $options): bool
+    {
+        $images = data_get($options, 'payload.attachments.images', []);
+        if (is_array($images) && count($images) > 0) {
+            return true;
+        }
+
+        $count = data_get($options, 'payload.visual_input.image_count', 0);
+
+        return is_numeric($count) && (int) $count > 0;
+    }
+
+    private function providerSupportsImageAttachments(string $provider): bool
+    {
+        return in_array($provider, ['codex_cli', 'gemini_cli'], true);
+    }
+
+    private function imageAttachmentFallbackProvider(array $options): string
+    {
+        foreach (['codex_cli', 'gemini_cli'] as $provider) {
+            if ($provider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
+                continue;
+            }
+
+            if ((bool) ($this->runtimeSettings->providerConfig($provider)['allow_auto'] ?? true)) {
+                return $provider;
+            }
+        }
+
+        foreach (['codex_cli', 'gemini_cli'] as $provider) {
+            if ($provider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
+                continue;
+            }
+
+            if ((bool) ($this->runtimeSettings->providerConfig($provider)['allow_manual'] ?? true)) {
+                return $provider;
+            }
+        }
+
+        throw new RuntimeException('Nenhum provider com suporte a imagem esta habilitado nas Configuracoes do Atlas.');
     }
 
     private function isAutomaticInvocation(array $options): bool

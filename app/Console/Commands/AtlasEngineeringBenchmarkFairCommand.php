@@ -14,7 +14,7 @@ use Symfony\Component\Process\ExecutableFinder;
 class AtlasEngineeringBenchmarkFairCommand extends Command
 {
     protected $signature = 'atlas:engineering:benchmark:claude-fair
-        {action=run : prepare, run, run-atlas, run-claude-code, report, readiness, runbook or replay}
+        {action=run : prepare, run, run-atlas, run-claude-code, report, readiness, runbook, replay or verify}
         {run? : Benchmark run id for replay}
         {--suite=atlas-core-smoke : Suite slug or id}
         {--workspace= : Workspace path for benchmark execution}
@@ -40,6 +40,8 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         {--keep-workspace : Keep isolated execution workspace after the run for debugging}
         {--no-auto-test : Disable auto-test for run and run-atlas}
         {--run-id= : Benchmark run id for replay; alias for the positional run argument}
+        {--output-dir= : Write or verify report.json, evidence.json, claim.md and manifest.json for report/readiness/verify}
+        {--markdown : Print audit-ready Markdown for report/readiness}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Run the official opt-in Fair Claude benchmark workflow against Claude Code CLI.';
@@ -58,6 +60,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             'run-atlas' => $this->callForwarded('atlas:engineering:benchmark', $this->runArgs('off')),
             'run-claude-code' => $this->callForwarded('atlas:engineering:benchmark', $this->runArgs('run', noProvider: true)),
             'report', 'readiness' => $this->report($benchmarks),
+            'verify', 'verify-export' => $this->verifyExport($benchmarks),
             'runbook', 'doctor' => $this->runbook($benchmarks),
             'replay' => $this->replay($benchmarks),
             default => $this->unknownAction($action),
@@ -133,6 +136,12 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         }
         $suite = $suiteQuery->first();
         if (! $suite) {
+            if ((bool) $this->option('json')) {
+                return $this->jsonError('benchmark_suite_not_found', "Benchmark suite nao encontrada: {$suiteRef}", [
+                    'suite' => $suiteRef,
+                ]);
+            }
+
             $this->error("Benchmark suite nao encontrada: {$suiteRef}");
 
             return self::FAILURE;
@@ -141,6 +150,10 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         $payload = $benchmarks->fairClaudeReportPayload($suite, [
             'limit' => $this->intOption('limit') ?: 20,
         ]);
+        $outputDir = $this->stringOption('output-dir');
+        if ($outputDir !== null) {
+            $payload['written_export_bundle'] = $benchmarks->writeFairClaudeExportBundle($payload, $outputDir);
+        }
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -148,7 +161,63 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             return self::SUCCESS;
         }
 
+        if ((bool) $this->option('markdown')) {
+            $this->line((string) ($payload['claim_markdown'] ?? ''));
+
+            return self::SUCCESS;
+        }
+
         return $this->callForwarded('atlas:engineering:benchmark:report', $this->reportArgs());
+    }
+
+    private function verifyExport(EngineeringBenchmarkService $benchmarks): int
+    {
+        $outputDir = $this->stringOption('output-dir');
+        if ($outputDir === null) {
+            $payload = [
+                'schema_version' => 1,
+                'kind' => 'fair_claude_export_bundle_verification',
+                'status' => 'failed',
+                'verified' => false,
+                'blocking_reasons' => ['output_dir_required'],
+                'message' => '--output-dir e obrigatorio para verify.',
+            ];
+
+            if ((bool) $this->option('json')) {
+                $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            } else {
+                $this->error($payload['message']);
+            }
+
+            return self::FAILURE;
+        }
+
+        $payload = $benchmarks->verifyFairClaudeExportBundle($outputDir);
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return ($payload['verified'] ?? false) === true ? self::SUCCESS : self::FAILURE;
+        }
+
+        $this->newLine();
+        $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Fair Claude Export Verification</>', (string) ($payload['status'] ?? 'unknown'));
+        $this->components->twoColumnDetail('Directory', (string) ($payload['directory'] ?? $outputDir));
+        $this->components->twoColumnDetail('Files checked', (string) ($payload['file_count'] ?? 0));
+        $this->components->twoColumnDetail('Passed', (string) ($payload['passed_count'] ?? 0));
+        $this->components->twoColumnDetail('Failed', (string) ($payload['failed_count'] ?? 0));
+        $this->components->twoColumnDetail('Missing', (string) ($payload['missing_count'] ?? 0));
+
+        foreach ((array) ($payload['blocking_reasons'] ?? []) as $reason) {
+            $this->warn('Blocking: '.(string) $reason);
+        }
+        foreach ((array) ($payload['files'] ?? []) as $filename => $file) {
+            if (($file['status'] ?? null) !== 'passed') {
+                $this->warn((string) $filename.': '.(string) ($file['status'] ?? 'failed'));
+            }
+        }
+
+        return ($payload['verified'] ?? false) === true ? self::SUCCESS : self::FAILURE;
     }
 
     private function runbook(EngineeringBenchmarkService $benchmarks): int
@@ -394,6 +463,8 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         return array_filter([
             '--suite' => $this->suite(),
             '--limit' => $this->intOption('limit') ?: 20,
+            '--output-dir' => $this->stringOption('output-dir'),
+            '--markdown' => (bool) $this->option('markdown'),
             '--json' => (bool) $this->option('json'),
         ], fn (mixed $value): bool => $value !== null && $value !== '' && $value !== false);
     }
@@ -405,6 +476,10 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             $run = $this->stringOption('run-id');
         }
         if (! is_string($run) || trim($run) === '') {
+            if ((bool) $this->option('json')) {
+                return $this->jsonError('run_id_required', 'replay exige o id do benchmark run.');
+            }
+
             $this->error('replay exige o id do benchmark run.');
 
             return self::FAILURE;
@@ -412,6 +487,12 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
 
         $benchmarkRun = AtlasEngineeringBenchmarkRun::query()->find(trim($run));
         if (! $benchmarkRun) {
+            if ((bool) $this->option('json')) {
+                return $this->jsonError('benchmark_run_not_found', 'Benchmark run nao encontrado: '.trim($run), [
+                    'run_id' => trim($run),
+                ]);
+            }
+
             $this->error('Benchmark run nao encontrado: '.trim($run));
 
             return self::FAILURE;
@@ -431,8 +512,32 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
 
     private function unknownAction(string $action): int
     {
+        if ((bool) $this->option('json')) {
+            return $this->jsonError('unknown_action', "Acao Fair Claude desconhecida: {$action}", [
+                'action' => $action,
+                'supported_actions' => ['prepare', 'run', 'run-atlas', 'run-claude-code', 'report', 'readiness', 'runbook', 'doctor', 'replay', 'verify'],
+            ]);
+        }
+
         $this->error("Acao Fair Claude desconhecida: {$action}");
-        $this->line('Use: prepare, run, run-atlas, run-claude-code, report, readiness, runbook, doctor ou replay.');
+        $this->line('Use: prepare, run, run-atlas, run-claude-code, report, readiness, runbook, doctor, replay ou verify.');
+
+        return self::FAILURE;
+    }
+
+    /**
+     * @param  array<string,mixed>  $extra
+     */
+    private function jsonError(string $error, string $message, array $extra = []): int
+    {
+        $payload = [
+            'schema_version' => 1,
+            'error' => $error,
+            'message' => $message,
+            ...$extra,
+        ];
+
+        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return self::FAILURE;
     }

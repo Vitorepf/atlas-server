@@ -210,11 +210,38 @@ class EngineeringClaudeCodeBaselineRunnerService
         }
 
         $baselineWorkspace = $this->resolveWorkspace($workspace);
-        if ($mode === 'run' && $atlasWorkspace !== null && $baselineWorkspace === $atlasWorkspace) {
+        if ($mode === 'run' && $baselineWorkspace === null) {
+            throw new InvalidArgumentException('fair_mode_violation: Claude Code baseline workspace must exist and be readable before execution.');
+        }
+        if ($mode === 'run'
+            && $atlasWorkspace !== null
+            && $baselineWorkspace !== null
+            && $this->sameOrNestedWorkspace($atlasWorkspace, $baselineWorkspace)
+            && ! $this->isAutoPreparedGitWorktree($runnerOptions)
+        ) {
             throw new InvalidArgumentException('fair_mode_violation: Claude Code baseline run requires a workspace isolated from the Atlas arm.');
         }
 
         return $baselineWorkspace ?: trim($workspace);
+    }
+
+    /**
+     * @param  array<string,mixed>  $runnerOptions
+     */
+    private function isAutoPreparedGitWorktree(array $runnerOptions): bool
+    {
+        return (bool) ($runnerOptions['claude_code_baseline_workspace_auto_prepared'] ?? false)
+            && (string) ($runnerOptions['claude_code_baseline_workspace_isolation_type'] ?? '') === 'git_worktree';
+    }
+
+    private function sameOrNestedWorkspace(string $atlasWorkspace, string $baselineWorkspace): bool
+    {
+        $atlas = rtrim($atlasWorkspace, DIRECTORY_SEPARATOR);
+        $baseline = rtrim($baselineWorkspace, DIRECTORY_SEPARATOR);
+
+        return $atlas === $baseline
+            || str_starts_with($baseline.DIRECTORY_SEPARATOR, $atlas.DIRECTORY_SEPARATOR)
+            || str_starts_with($atlas.DIRECTORY_SEPARATOR, $baseline.DIRECTORY_SEPARATOR);
     }
 
     /**
@@ -369,6 +396,6 @@ class EngineeringClaudeCodeBaselineRunnerService
 
         $resolved = realpath($workspace);
 
-        return $resolved && is_dir($resolved) ? $resolved : trim($workspace);
+        return $resolved && is_dir($resolved) ? $resolved : null;
     }
 }

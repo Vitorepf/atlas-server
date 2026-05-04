@@ -34,6 +34,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Symfony\Component\Console\Exception\RuntimeException as ConsoleRuntimeException;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Terminal;
 use Symfony\Component\Process\Process;
@@ -106,6 +107,9 @@ class AiChatCommand extends Command
     /** @var array<string,bool> */
     private array $intentSessionAcks = [];
 
+    /** @var array<string,bool> */
+    private array $seenClipboardImageHashes = [];
+
     public function handle(
         AiGatewayService $gateway,
         AiWorker $worker,
@@ -163,6 +167,7 @@ class AiChatCommand extends Command
         $input = $this->argument('input');
         $activatedSkills = $this->skillOptions();
         $pendingImages = [];
+        $lastImages = [];
 
         try {
             $pendingImages = $this->initialImageAttachments($imageAttachments, $workspace);
@@ -181,10 +186,14 @@ class AiChatCommand extends Command
         $skillTrust = $this->prepareSkillBundles($skillDiscovery, $skillBundles, $workspace);
 
         if (is_string($input) && trim($input) !== '') {
+            [$input, $pendingImages] = $this->attachInlineImagePaths($imageAttachments, $workspace, trim($input), $pendingImages);
             $pendingImages = $this->maybeAutoAttachClipboardImage($imageAttachments, $workspace, trim($input), $pendingImages);
+            if ($pendingImages !== [] && ! $this->providerSupportsCliImages($provider)) {
+                return $this->imageProviderBlocked((string) $provider);
+            }
             $effectivePermission = $this->resolveEffectivePermission($intent, trim($input), $permissionMode);
             $trace = $this->send($gateway, $worker, trim($input), $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null || (bool) $this->option('new-thread'), $activatedSkills, $pendingImages, $modelSelection, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
-            $this->maybeRunDevQualityGate($quality, $workspace, $mode);
+            $this->maybeRunDevQualityGate($quality, $workspace, $mode, $pendingImages);
 
             return $trace->status === 'succeeded' || (bool) $this->option('no-run')
                 ? self::SUCCESS
@@ -203,16 +212,14 @@ class AiChatCommand extends Command
             }
 
             try {
-                $line = $this->ask($threadId ? "atlas {$this->shortId($threadId)}" : 'atlas');
-            } catch (\Symfony\Component\Console\Exception\RuntimeException) {
+                [$line, $pendingImages] = $this->readInteractiveLine($this->interactivePromptLabel($threadId, $pendingImages), $imageAttachments, $workspace, $pendingImages);
+            } catch (ConsoleRuntimeException) {
                 $history->save();
 
                 return self::SUCCESS;
             }
             if ($line === null) {
-                $history->save();
-
-                return self::SUCCESS;
+                $line = '';
             }
             if (! is_string($line)) {
                 continue;
@@ -220,7 +227,10 @@ class AiChatCommand extends Command
 
             $line = trim($line);
             if ($line === '') {
-                continue;
+                [$line, $pendingImages] = $this->inputFromBlankClipboardPaste($imageAttachments, $workspace, $pendingImages);
+                if ($line === null) {
+                    continue;
+                }
             }
 
             if (in_array($line, ['/exit', '/quit', '/sair'], true)) {
@@ -300,6 +310,7 @@ class AiChatCommand extends Command
 
             if ($line === '/new') {
                 $threadId = null;
+                $pendingImages = [];
                 $this->line('Nova thread será criada na próxima mensagem.');
 
                 continue;
@@ -307,6 +318,7 @@ class AiChatCommand extends Command
 
             if (str_starts_with($line, '/thread ')) {
                 $threadId = trim(Str::after($line, '/thread '));
+                $pendingImages = [];
                 $this->line("Thread ativa: {$threadId}");
 
                 continue;
@@ -327,7 +339,14 @@ class AiChatCommand extends Command
             }
 
             if (str_starts_with($line, '/provider ')) {
-                $provider = $this->providerKey(trim(Str::after($line, '/provider ')));
+                $nextProvider = $this->providerKey(trim(Str::after($line, '/provider ')));
+                if ($this->imageProviderSwitchBlocked($nextProvider, $pendingImages, $queuedMessages)) {
+                    $this->error($this->imageProviderBlockedMessage((string) $nextProvider));
+                    $this->line($this->dim('Mantenha provider visual, use /provider codex|gemini, ou limpe com /clear-images.'));
+
+                    continue;
+                }
+                $provider = $nextProvider;
                 if ($modelSelection !== null && ! $this->modelSelectionMatchesProvider($modelSelection, $provider)) {
                     $this->warn('Modelo fixado nao combina com esse provider; override de modelo limpo.');
                     $modelSelection = null;
@@ -340,7 +359,6 @@ class AiChatCommand extends Command
             if ($line === '/paste-image' || $line === '/clipboard-image') {
                 try {
                     $pendingImages = $this->mergeImageAttachments($pendingImages, [$imageAttachments->fromClipboard($workspace)], $imageAttachments);
-                    $provider = $provider ?: $this->defaultProviderKey();
                     $this->line('Imagem do clipboard anexada para a proxima mensagem.');
                     $this->printPendingImages($pendingImages);
                 } catch (\Throwable $exception) {
@@ -354,7 +372,6 @@ class AiChatCommand extends Command
                 try {
                     $paths = $this->imageCommandPaths(trim(Str::after($line, '/image ')));
                     $pendingImages = $this->mergeImageAttachments($pendingImages, $imageAttachments->fromPaths($paths, $workspace), $imageAttachments);
-                    $provider = $provider ?: $this->defaultProviderKey();
                     $this->printPendingImages($pendingImages);
                 } catch (\Throwable $exception) {
                     $this->error($exception->getMessage());
@@ -364,7 +381,13 @@ class AiChatCommand extends Command
             }
 
             if ($line === '/images') {
-                $this->printPendingImages($pendingImages);
+                $this->printPendingImages($pendingImages !== [] ? $pendingImages : $lastImages, detailed: true);
+
+                continue;
+            }
+
+            if ($line === '/open-image' || str_starts_with($line, '/open-image ')) {
+                $this->openImageAttachment($pendingImages !== [] ? $pendingImages : $lastImages, trim(Str::after($line, '/open-image')));
 
                 continue;
             }
@@ -545,9 +568,12 @@ class AiChatCommand extends Command
                 $line = $skillSlash['input'];
             }
 
+            [$line, $pendingImages] = $this->attachInlineImagePaths($imageAttachments, $workspace, $line, $pendingImages);
             $pendingImages = $this->maybeAutoAttachClipboardImage($imageAttachments, $workspace, $line, $pendingImages);
-            if ($pendingImages !== [] && ! $provider) {
-                $provider = $this->defaultProviderKey();
+            if ($pendingImages !== [] && ! $this->providerSupportsCliImages($provider)) {
+                $this->error($this->imageProviderBlockedMessage((string) $provider));
+
+                continue;
             }
 
             $activeTrace = $this->activeTrace($threadId, $workspace);
@@ -569,6 +595,19 @@ class AiChatCommand extends Command
                 }
 
                 if ($busyMode === 'steer') {
+                    if ($pendingImages !== []) {
+                        $queuedMessages[] = [
+                            'input' => $line,
+                            'skills' => $messageSkills,
+                            'images' => $pendingImages,
+                            'model' => $modelSelection,
+                        ];
+                        $pendingImages = [];
+                        $this->line('(queued - imagem requer envio visual na proxima chamada)');
+
+                        continue;
+                    }
+
                     $this->setPendingSteer($states, $activeTrace, $line);
                     $this->line('(steering - will reach agent before the next provider call)');
 
@@ -580,10 +619,14 @@ class AiChatCommand extends Command
             }
 
             $effectivePermission = $this->resolveEffectivePermission($intent, $line, $permissionMode);
-            $trace = $this->send($gateway, $worker, $line, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $messageSkills, $pendingImages, $modelSelection, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
+            $sentImages = $pendingImages;
+            $trace = $this->send($gateway, $worker, $line, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $messageSkills, $sentImages, $modelSelection, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
+            if ($pendingImages !== []) {
+                $lastImages = $pendingImages;
+            }
             $pendingImages = [];
             $threadId = $trace->thread_id ?: $threadId;
-            $this->maybeRunDevQualityGate($quality, $workspace, $mode);
+            $this->maybeRunDevQualityGate($quality, $workspace, $mode, $sentImages);
         }
     }
 
@@ -672,6 +715,14 @@ class AiChatCommand extends Command
         if ($imageAttachments !== []) {
             $payload['attachments'] = [
                 'images' => $imageAttachments,
+            ];
+            $payload['visual_input'] = [
+                'image_count' => count($imageAttachments),
+                'sources' => collect($imageAttachments)
+                    ->map(fn (array $attachment): string => (string) ($attachment['source'] ?? 'file'))
+                    ->unique()
+                    ->values()
+                    ->all(),
             ];
         }
 
@@ -846,8 +897,8 @@ class AiChatCommand extends Command
         $effectivePermission = $intent
             ? $this->resolveEffectivePermission($intent, $batch, $permissionMode)
             : $permissionMode;
-        $trace = $this->send($gateway, $worker, $batch, $workspace, $provider ?: ($batchImages !== [] ? $this->defaultProviderKey() : null), $mode, $effectivePermission, $stream, $threadId, $threadId === null, $batchSkills, $batchImages, $batchModelSelection, $fairModeMetadata, $fairFlags);
-        $this->maybeRunDevQualityGate($quality, $workspace, $mode);
+        $trace = $this->send($gateway, $worker, $batch, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $batchSkills, $batchImages, $batchModelSelection, $fairModeMetadata, $fairFlags);
+        $this->maybeRunDevQualityGate($quality, $workspace, $mode, $batchImages);
 
         return $trace;
     }
@@ -1049,7 +1100,41 @@ class AiChatCommand extends Command
 
         $this->flushMarkdownStream();
 
+        if ($trace->response_text && $this->streamedAssistantContent === '') {
+            $this->line('');
+            $this->line($this->renderMarkdown($trace->response_text));
+
+            if ($this->output->isVerbose()) {
+                $this->printTraceDiagnostic($trace, $quality);
+            }
+
+            return;
+        }
+
+        if ($trace->job?->error_message) {
+            $this->line('');
+            $summary = $this->summarizeErrorContent((string) $trace->job->error_message);
+            $this->line('<fg=red;options=bold>✗ '.$summary.'</>');
+            if ($this->output->isVerbose()) {
+                $this->line('<fg=gray>'.OutputFormatter::escape((string) $trace->job->error_message).'</>');
+            }
+
+            return;
+        }
+
         $this->line('');
+        if (in_array($trace->status, ['queued', 'processing'], true)) {
+            $this->line('<fg=yellow>Atlas ainda esta processando.</> <fg=gray>thread '.$this->shortId((string) $trace->thread_id).' · trace '.$this->shortId((string) $trace->id).'</>');
+            $this->line('<fg=gray>Use /status para detalhes ou aguarde a proxima rodada.</>');
+
+            return;
+        }
+
+        $this->printTraceDiagnostic($trace, $quality);
+    }
+
+    private function printTraceDiagnostic(AiTrace $trace, mixed $quality = null): void
+    {
         $statusStyle = match ($trace->status) {
             'succeeded' => 'fg=green;options=bold',
             'failed' => 'fg=red;options=bold',
@@ -1082,18 +1167,6 @@ class AiChatCommand extends Command
             $flags = collect($quality->flags)->pluck('code')->implode(', ') ?: 'none';
             $qualityStyle = $quality->status === 'passed' ? 'fg=green' : ($quality->status === 'failed' ? 'fg=red' : 'fg=yellow');
             $this->line('<'.$qualityStyle.'>quality '.$quality->score.'/100 '.$quality->status.'</> <fg=gray>flags '.$flags.'</>');
-        }
-
-        if ($trace->response_text && $this->streamedAssistantContent === '') {
-            $this->line('');
-            $this->line($this->renderMarkdown($trace->response_text));
-        } elseif ($trace->job?->error_message) {
-            $this->line('');
-            $summary = $this->summarizeErrorContent((string) $trace->job->error_message);
-            $this->line('<fg=red;options=bold>✗ '.$summary.'</>');
-            if ($this->output->isVerbose()) {
-                $this->line('<fg=gray>'.OutputFormatter::escape((string) $trace->job->error_message).'</>');
-            }
         }
     }
 
@@ -1317,9 +1390,12 @@ class AiChatCommand extends Command
                 'when' => 'screenshot, tela, bug visual ou design',
                 'commands' => [
                     ['automático', 'copie screenshot no macOS e peça "analise essa tela"'],
+                    ['Ctrl+V', 'cola imagem do clipboard no composer e mostra [img:N] antes de enviar'],
+                    ['Enter vazio', 'fallback: verifica clipboard e envia a imagem se houver'],
                     ['/paste-image', 'anexa a imagem atual do clipboard do macOS'],
                     ['/image <path>', 'anexa arquivo png/jpg/webp/gif'],
                     ['/images', 'lista imagens anexadas para a proxima mensagem'],
+                    ['/open-image [N]', 'abre a imagem N no Preview/Finder do macOS'],
                     ['/clear-images', 'limpa anexos pendentes'],
                 ],
             ],
@@ -1516,11 +1592,361 @@ class AiChatCommand extends Command
             return $pending;
         }
 
+        $pending = $images->dedupe([$attachment]);
+
         if (! (bool) $this->option('json')) {
             $this->line('Imagem do clipboard detectada e anexada automaticamente.');
+            $this->printPendingImages($pending);
         }
 
-        return $images->dedupe([$attachment]);
+        return $pending;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $pending
+     * @return array{0:?string,1:array<int,array<string,mixed>>}
+     */
+    private function inputFromBlankClipboardPaste(AtlasImageAttachmentService $images, string $workspace, array $pending): array
+    {
+        if ((bool) $this->option('no-auto-image')) {
+            if (! (bool) $this->option('json')) {
+                $this->warn('Entrada vazia; auto imagem esta desligado por --no-auto-image.');
+            }
+
+            return [null, $pending];
+        }
+
+        if ($pending !== []) {
+            if (! (bool) $this->option('json')) {
+                $this->line('Imagem ja anexada; enviando para analise visual.');
+            }
+
+            return ['Analise a imagem anexada.', $pending];
+        }
+
+        if (! (bool) $this->option('json')) {
+            $this->line('Verificando clipboard visual, aguarde...');
+        }
+
+        try {
+            $attachment = $images->fromClipboard($workspace);
+        } catch (\Throwable $exception) {
+            if (! (bool) $this->option('json')) {
+                $this->warn('Nenhuma imagem detectada no clipboard apos Enter vazio. Copie o screenshot novamente e aperte Enter.');
+                $this->line($this->dim('detalhe: '.$exception->getMessage()));
+            }
+
+            return [null, $pending];
+        }
+
+        if (! (bool) $this->option('json')) {
+            $this->line('Imagem detectada; preparando anexo visual...');
+        }
+
+        $pending = $images->dedupe([$attachment]);
+
+        if (! (bool) $this->option('json')) {
+            $this->line('Imagem colada do clipboard e anexada automaticamente.');
+            $this->printPendingImages($pending);
+        }
+
+        return ['Analise a imagem anexada.', $pending];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $pendingImages
+     */
+    private function interactivePromptLabel(?string $threadId, array $pendingImages): string
+    {
+        $base = $threadId ? 'atlas '.$this->shortId($threadId) : 'atlas';
+
+        if ($pendingImages !== []) {
+            return $base.' [img:'.count($pendingImages).'] Enter=analisar';
+        }
+
+        return $base;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $pendingImages
+     * @return array{0:?string,1:array<int,array<string,mixed>>}
+     */
+    private function readInteractiveLine(string $label, AtlasImageAttachmentService $images, string $workspace, array $pendingImages): array
+    {
+        if (! $this->canReadRawTerminal()) {
+            return [$this->ask($label), $pendingImages];
+        }
+
+        $buffer = '';
+        $stty = trim((string) shell_exec('stty -g 2>/dev/null'));
+        $bracketedPaste = false;
+
+        try {
+            $this->output->write("\033[?2004h");
+            $bracketedPaste = true;
+            $this->setRawTerminalMode();
+            $this->renderRawPrompt($label, $buffer);
+            $lastClipboardProbe = 0.0;
+
+            while (true) {
+                if (microtime(true) - $lastClipboardProbe >= 0.75) {
+                    $lastClipboardProbe = microtime(true);
+                    [$label, $pendingImages] = $this->autoAttachCurrentClipboardImage($images, $workspace, $pendingImages, $label, $buffer);
+                }
+
+                $char = fread(STDIN, 1);
+                if ($char === false || $char === '') {
+                    continue;
+                }
+
+                $action = $this->dispatchRawKey($char, $buffer, $label, $pendingImages, $images, $workspace);
+                if ($action === 'submit') {
+                    return [$buffer, $pendingImages];
+                }
+            }
+        } finally {
+            if ($stty !== '') {
+                shell_exec('stty '.$stty.' 2>/dev/null');
+            }
+            if ($bracketedPaste) {
+                $this->output->write("\033[?2004l");
+            }
+        }
+    }
+
+    private function canReadRawTerminal(): bool
+    {
+        return defined('STDIN') && function_exists('stream_isatty') && stream_isatty(STDIN) && ! (bool) $this->option('json');
+    }
+
+    private function setRawTerminalMode(): void
+    {
+        shell_exec('stty -icanon -echo min 0 time 1 2>/dev/null');
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $pendingImages
+     */
+    private function dispatchRawKey(string $char, string &$buffer, string &$label, array &$pendingImages, AtlasImageAttachmentService $images, string $workspace): string
+    {
+        if ($char === "\n" || $char === "\r") {
+            $this->output->write("\n");
+
+            return 'submit';
+        }
+
+        if ($char === "\x04") {
+            if ($buffer === '') {
+                throw new ConsoleRuntimeException('EOF');
+            }
+
+            return 'continue';
+        }
+
+        if ($char === "\x03") {
+            throw new ConsoleRuntimeException('Interrupted');
+        }
+
+        if ($char === "\x16") {
+            [$label, $pendingImages] = $this->pasteClipboardImageIntoComposer($images, $workspace, $pendingImages, $label, $buffer);
+
+            return 'continue';
+        }
+
+        if ($char === "\x7f" || $char === "\x08") {
+            if ($buffer !== '') {
+                $buffer = substr($buffer, 0, -1);
+                $this->output->write("\x08 \x08");
+            }
+
+            return 'continue';
+        }
+
+        if ($char === "\033") {
+            $sequence = $char.$this->readAvailableTerminalSequence();
+            if ($sequence === "\033[200~") {
+                $paste = $this->readBracketedPastePayload();
+                $buffer .= $paste;
+                $this->output->write($paste);
+            }
+
+            return 'continue';
+        }
+
+        $buffer .= $char;
+        $this->output->write($char);
+
+        return 'continue';
+    }
+
+    private function renderRawPrompt(string $label, string $buffer): void
+    {
+        $this->line($label.':');
+        $this->output->write('> '.$buffer);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $pendingImages
+     * @return array{0:string,1:array<int,array<string,mixed>>}
+     */
+    private function pasteClipboardImageIntoComposer(AtlasImageAttachmentService $images, string $workspace, array $pendingImages, string $label, string $buffer): array
+    {
+        $this->output->write("\n");
+        $this->line('Ctrl+V detectado; lendo imagem do clipboard...');
+
+        try {
+            $pendingImages = $this->mergeImageAttachments($pendingImages, [$images->fromClipboard($workspace)], $images);
+        } catch (\Throwable $exception) {
+            $this->warn('Clipboard sem imagem utilizavel: '.$exception->getMessage());
+            $this->renderRawPrompt($label, $buffer);
+
+            return [$label, $pendingImages];
+        }
+
+        $this->line('Imagem colada e anexada ao composer.');
+        $this->printPendingImages($pendingImages);
+        $label = $this->labelWithImageCount($label, count($pendingImages));
+        $this->renderRawPrompt($label, $buffer);
+
+        return [$label, $pendingImages];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $pendingImages
+     * @return array{0:string,1:array<int,array<string,mixed>>}
+     */
+    private function autoAttachCurrentClipboardImage(AtlasImageAttachmentService $images, string $workspace, array $pendingImages, string $label, string $buffer): array
+    {
+        if ($pendingImages !== []) {
+            return [$label, $pendingImages];
+        }
+
+        if (trim($buffer) === '') {
+            return [$label, $pendingImages];
+        }
+
+        $status = $images->clipboardStatus();
+        if (! (bool) ($status['current_image_detected'] ?? false)) {
+            return [$label, $pendingImages];
+        }
+
+        try {
+            $attachment = $images->fromClipboard($workspace);
+        } catch (\Throwable) {
+            return [$label, $pendingImages];
+        }
+
+        $hash = (string) ($attachment['sha256'] ?? '');
+        if ($hash !== '' && isset($this->seenClipboardImageHashes[$hash])) {
+            return [$label, $pendingImages];
+        }
+
+        if ($hash !== '') {
+            $this->seenClipboardImageHashes[$hash] = true;
+        }
+
+        $pendingImages = $this->mergeImageAttachments($pendingImages, [$attachment], $images);
+        $this->output->write("\n");
+        $this->line('Imagem anexada. '.$this->imageAttachmentCompactLine($pendingImages));
+        $label = $this->labelWithImageCount($label, count($pendingImages));
+        $this->renderRawPrompt($label, $buffer);
+
+        return [$label, $pendingImages];
+    }
+
+    private function labelWithImageCount(string $label, int $count): string
+    {
+        $label = preg_replace('/\s+\[img:\d+\]\s+Enter=analisar$/', '', $label) ?: $label;
+
+        return $label.' [img:'.$count.'] Enter=analisar';
+    }
+
+    private function readAvailableTerminalSequence(): string
+    {
+        $sequence = '';
+
+        while (strlen($sequence) < 16) {
+            $read = [STDIN];
+            $write = null;
+            $except = null;
+            if (stream_select($read, $write, $except, 0, 10000) !== 1) {
+                break;
+            }
+
+            $char = fread(STDIN, 1);
+            if ($char === false || $char === '') {
+                break;
+            }
+            $sequence .= $char;
+
+            if (preg_match('/[~A-Za-z]$/', $sequence) === 1) {
+                break;
+            }
+        }
+
+        return $sequence;
+    }
+
+    private function readBracketedPastePayload(): string
+    {
+        $payload = '';
+        $end = "\033[201~";
+
+        while (! str_ends_with($payload, $end)) {
+            $char = fread(STDIN, 1);
+            if ($char === false || $char === '') {
+                continue;
+            }
+            $payload .= $char;
+        }
+
+        return substr($payload, 0, -strlen($end));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $pending
+     * @return array{0:string,1:array<int,array<string,mixed>>}
+     */
+    private function attachInlineImagePaths(AtlasImageAttachmentService $images, string $workspace, string $input, array $pending): array
+    {
+        if ($input === '' || str_starts_with(ltrim($input), '/')) {
+            return [$input, $pending];
+        }
+
+        $paths = $this->inlineImagePaths($input, $workspace);
+        if ($paths === []) {
+            return [$input, $pending];
+        }
+
+        $attachments = $images->fromPaths($paths, $workspace);
+        $pending = $this->mergeImageAttachments($pending, $attachments, $images);
+        $cleanedInput = $this->stripInlineImagePaths($input, $paths);
+        if (trim($cleanedInput) === '') {
+            $cleanedInput = 'Analise a imagem anexada.';
+        }
+
+        if (! (bool) $this->option('json')) {
+            $this->line(count($attachments) === 1
+                ? 'Imagem detectada no terminal e anexada automaticamente.'
+                : 'Imagens detectadas no terminal e anexadas automaticamente.');
+            $this->printPendingImages($pending);
+        }
+
+        return [$cleanedInput, $pending];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function inlineImagePaths(string $input, string $workspace): array
+    {
+        return collect($this->shellLikeArguments($input))
+            ->map(fn (string $argument): string => $this->normalizeInlineImagePathCandidate($argument))
+            ->filter(fn (string $path): bool => $path !== '' && $this->looksLikeImagePath($path))
+            ->filter(fn (string $path): bool => File::isFile($this->expandInlinePath($path, $workspace)))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function shouldAutoAttachClipboardImage(string $input): bool
@@ -1565,7 +1991,125 @@ class AiChatCommand extends Command
             return [$input];
         }
 
-        return $this->simpleArguments($input);
+        return $this->shellLikeArguments($input);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function shellLikeArguments(string $input): array
+    {
+        if ($input === '') {
+            return [];
+        }
+
+        $arguments = [];
+        $buffer = '';
+        $quote = null;
+        $escaping = false;
+        $length = strlen($input);
+
+        for ($index = 0; $index < $length; $index++) {
+            $char = $input[$index];
+
+            if ($escaping) {
+                $buffer .= $char;
+                $escaping = false;
+
+                continue;
+            }
+
+            if ($char === '\\') {
+                $escaping = true;
+
+                continue;
+            }
+
+            if ($quote !== null) {
+                if ($char === $quote) {
+                    $quote = null;
+                } else {
+                    $buffer .= $char;
+                }
+
+                continue;
+            }
+
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+
+                continue;
+            }
+
+            if (ctype_space($char)) {
+                if ($buffer !== '') {
+                    $arguments[] = $buffer;
+                    $buffer = '';
+                }
+
+                continue;
+            }
+
+            $buffer .= $char;
+        }
+
+        if ($escaping) {
+            $buffer .= '\\';
+        }
+
+        if ($buffer !== '') {
+            $arguments[] = $buffer;
+        }
+
+        return $arguments;
+    }
+
+    private function normalizeInlineImagePathCandidate(string $argument): string
+    {
+        $argument = trim($argument);
+        $argument = trim($argument, " \t\n\r\0\x0B,;()[]{}<>");
+
+        if (str_starts_with($argument, 'file://')) {
+            $decoded = rawurldecode((string) parse_url($argument, PHP_URL_PATH));
+
+            return $decoded !== '' ? $decoded : $argument;
+        }
+
+        return $argument;
+    }
+
+    private function looksLikeImagePath(string $path): bool
+    {
+        return preg_match('/\.(png|jpe?g|webp|gif)$/i', parse_url($path, PHP_URL_PATH) ?: $path) === 1;
+    }
+
+    private function expandInlinePath(string $path, string $workspace): string
+    {
+        if (str_starts_with($path, '~/')) {
+            return $this->expandUserPath($path);
+        }
+
+        if (str_starts_with($path, '/')) {
+            return $path;
+        }
+
+        return rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$path;
+    }
+
+    /**
+     * @param  array<int,string>  $paths
+     */
+    private function stripInlineImagePaths(string $input, array $paths): string
+    {
+        foreach ($paths as $path) {
+            $quoted = preg_quote($path, '/');
+            $escapedSpaces = preg_quote(str_replace(' ', '\\ ', $path), '/');
+            $fileUri = preg_quote('file://'.$path, '/');
+
+            $input = preg_replace('/(?:"'.$quoted.'"|\''.$quoted.'\'|'.$escapedSpaces.'|'.$fileUri.'|'.$quoted.')/u', ' ', $input) ?? $input;
+        }
+
+        return Str::of($input)->squish()->value();
     }
 
     private function expandUserPath(string $path): string
@@ -1624,7 +2168,7 @@ class AiChatCommand extends Command
     /**
      * @param  array<int,array<string,mixed>>  $attachments
      */
-    private function printPendingImages(array $attachments): void
+    private function printPendingImages(array $attachments, bool $detailed = false): void
     {
         if ($attachments === []) {
             $this->line('Nenhuma imagem anexada para a proxima mensagem.');
@@ -1632,15 +2176,178 @@ class AiChatCommand extends Command
             return;
         }
 
-        $this->line('Imagens anexadas para a proxima mensagem:');
-        foreach ($attachments as $index => $attachment) {
-            $this->line(sprintf(
-                '  %d. %s (%s)',
-                $index + 1,
-                (string) ($attachment['original_path'] ?? $attachment['path'] ?? '-'),
-                (string) ($attachment['mime_type'] ?? 'image'),
-            ));
+        if (! $detailed) {
+            $this->line($this->imageAttachmentCompactLine($attachments));
+
+            return;
         }
+
+        $this->line('Imagens anexadas: '.count($attachments));
+        foreach ($attachments as $index => $attachment) {
+            $path = (string) ($attachment['path'] ?? '');
+            $originalPath = (string) ($attachment['original_path'] ?? $path ?: '-');
+            $this->line(sprintf('  %d. imagem anexada e pronta para envio visual', $index + 1));
+            $this->line('     origem: '.(string) ($attachment['source'] ?? 'file'));
+            $this->line('     detalhe: '.$this->imageAttachmentDetail($attachment));
+            $this->line('     arquivo: '.$this->terminalFileLink($originalPath));
+            $this->line('     abrir: '.$this->terminalFileLink($path !== '' ? $path : $originalPath));
+            $this->printInlineImagePreview($path);
+        }
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $attachments
+     */
+    private function imageAttachmentCompactLine(array $attachments): string
+    {
+        $count = count($attachments);
+        $first = $attachments[0] ?? [];
+        $detail = $first !== [] ? $this->imageAttachmentDetail((array) $first) : 'sem metadados';
+        $suffix = $count === 1 ? '' : ' · use /images para detalhes';
+
+        return '[img:'.$count.'] pronta para enviar · '.$detail.$suffix;
+    }
+
+    private function terminalFileLink(string $path): string
+    {
+        $path = trim($path);
+        if ($path === '' || $path === '-') {
+            return '-';
+        }
+
+        $uri = 'file://'.str_replace('%2F', '/', rawurlencode($path));
+        if (! $this->output->isDecorated()) {
+            return $uri;
+        }
+
+        return "\033]8;;{$uri}\033\\{$path}\033]8;;\033\\";
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $attachments
+     */
+    private function openImageAttachment(array $attachments, string $argument): void
+    {
+        if ($attachments === []) {
+            $this->warn('Nenhuma imagem anexada ou enviada recentemente.');
+
+            return;
+        }
+
+        $index = max(1, (int) ($argument !== '' ? $argument : 1)) - 1;
+        $attachment = $attachments[$index] ?? null;
+        if (! is_array($attachment)) {
+            $this->warn('Imagem nao encontrada. Use /images para ver a lista.');
+
+            return;
+        }
+
+        $path = (string) ($attachment['path'] ?? $attachment['original_path'] ?? '');
+        if ($path === '' || ! File::isFile($path)) {
+            $this->warn('Arquivo da imagem nao encontrado.');
+
+            return;
+        }
+
+        $process = new Process(['open', $path]);
+        $process->run();
+
+        if ($process->isSuccessful()) {
+            $this->line('Abrindo imagem '.($index + 1).': '.$path);
+
+            return;
+        }
+
+        $this->error('Falha ao abrir imagem: '.trim($process->getErrorOutput() ?: $process->getOutput()));
+    }
+
+    /**
+     * @param  array<string,mixed>  $attachment
+     */
+    private function imageAttachmentDetail(array $attachment): string
+    {
+        $parts = array_values(array_filter([
+            (string) ($attachment['mime_type'] ?? 'image'),
+            $this->humanBytes((int) ($attachment['bytes'] ?? 0)),
+            $this->imageDimensions((string) ($attachment['path'] ?? '')),
+            $this->shortSha((string) ($attachment['sha256'] ?? '')),
+        ], fn (?string $part): bool => is_string($part) && $part !== ''));
+
+        return implode(' · ', $parts);
+    }
+
+    private function imageDimensions(string $path): ?string
+    {
+        if ($path === '' || ! File::isFile($path)) {
+            return null;
+        }
+
+        $size = @getimagesize($path);
+        if (! is_array($size) || ! is_int($size[0] ?? null) || ! is_int($size[1] ?? null)) {
+            return null;
+        }
+
+        return $size[0].'x'.$size[1];
+    }
+
+    private function humanBytes(int $bytes): ?string
+    {
+        if ($bytes <= 0) {
+            return null;
+        }
+
+        if ($bytes < 1024) {
+            return $bytes.' B';
+        }
+
+        if ($bytes < 1048576) {
+            return round($bytes / 1024, 1).' KB';
+        }
+
+        return round($bytes / 1048576, 2).' MB';
+    }
+
+    private function shortSha(string $sha256): ?string
+    {
+        $sha256 = trim($sha256);
+
+        return $sha256 !== '' ? 'sha256 '.substr($sha256, 0, 12) : null;
+    }
+
+    private function printInlineImagePreview(string $path): void
+    {
+        if (! $this->supportsInlineImagePreview()) {
+            $this->line($this->dim('     preview: terminal sem preview inline; anexo confirmado por metadados.'));
+
+            return;
+        }
+
+        if ($path === '' || ! File::isFile($path) || File::size($path) > 5 * 1024 * 1024) {
+            $this->line($this->dim('     preview: arquivo indisponivel ou grande demais para render inline.'));
+
+            return;
+        }
+
+        $contents = File::get($path);
+        if ($contents === '') {
+            $this->line($this->dim('     preview: arquivo vazio.'));
+
+            return;
+        }
+
+        $payload = base64_encode($contents);
+        $this->output->write("\033]1337;File=inline=1;width=40;height=auto;preserveAspectRatio=1:{$payload}\a\n");
+    }
+
+    private function supportsInlineImagePreview(): bool
+    {
+        if (! $this->output->isDecorated()) {
+            return false;
+        }
+
+        $termProgram = (string) ($_SERVER['TERM_PROGRAM'] ?? getenv('TERM_PROGRAM') ?: '');
+
+        return in_array($termProgram, ['iTerm.app', 'WezTerm'], true);
     }
 
     /**
@@ -1737,9 +2444,16 @@ class AiChatCommand extends Command
         }
     }
 
-    private function maybeRunDevQualityGate(AtlasCliQualityService $quality, string $workspace, string $mode): void
+    /**
+     * @param  array<int,array<string,mixed>>  $imageAttachments
+     */
+    private function maybeRunDevQualityGate(AtlasCliQualityService $quality, string $workspace, string $mode, array $imageAttachments = []): void
     {
         if ($mode !== 'dev' || (bool) $this->option('no-quality-gate') || (bool) $this->option('json') || (bool) $this->option('no-run')) {
+            return;
+        }
+
+        if ($imageAttachments !== [] && ! $this->output->isVerbose()) {
             return;
         }
 
@@ -2674,6 +3388,63 @@ class AiChatCommand extends Command
         $this->error($message);
 
         return self::FAILURE;
+    }
+
+    private function providerSupportsCliImages(?string $provider): bool
+    {
+        return $provider === null || in_array($provider, ['codex_cli', 'gemini_cli'], true);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $pendingImages
+     * @param  array<int,array<string,mixed>>  $queuedMessages
+     */
+    private function imageProviderSwitchBlocked(?string $provider, array $pendingImages, array $queuedMessages): bool
+    {
+        if ($this->providerSupportsCliImages($provider)) {
+            return false;
+        }
+
+        return $pendingImages !== [] || $this->queuedMessagesHaveImages($queuedMessages);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $queuedMessages
+     */
+    private function queuedMessagesHaveImages(array $queuedMessages): bool
+    {
+        foreach ($queuedMessages as $message) {
+            if ((array) ($message['images'] ?? []) !== []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function imageProviderBlocked(string $provider): int
+    {
+        $message = $this->imageProviderBlockedMessage($provider);
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode(AtlasSecurity::redactArray([
+                'ok' => false,
+                'phase' => 'preflight',
+                'error' => 'atlas_image_provider_unsupported',
+                'provider' => $provider,
+                'message' => $message,
+            ]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $this->error($message);
+
+        return self::FAILURE;
+    }
+
+    private function imageProviderBlockedMessage(string $provider): string
+    {
+        return "Provider {$provider} nao suporta imagens neste runtime. Use /provider codex ou /provider gemini, ou remova o override manual.";
     }
 
     private function shouldDispatchProgrammingExecutor(?array $programmingMessagePlan): bool

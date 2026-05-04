@@ -25,28 +25,32 @@ class AtlasCliDevWorkflowService
         ?string $provider = null,
         bool $critical = false,
         string $programmingProfile = 'dev',
+        bool $fairMode = false,
     ): array {
         $programmingProfile = $programmingProfile === 'forge' ? 'forge' : 'dev';
         $workspace = realpath($workspace) ?: $workspace;
         $strategy = $this->providers->recommend('dev', $critical);
+        $selectedProvider = $fairMode ? FairClaudePolicy::PROVIDER_LOCK : $provider;
         $decisionOptions = $this->decide->normalizeOptions(array_filter([
-            'provider' => $provider,
+            'provider' => $selectedProvider,
             'input_text' => $task,
             'source_type' => 'manual',
             'payload' => [
                 'app_surface' => 'atlas_cli',
                 'atlas_workflow_mode' => 'dev',
-                'decision_mode' => $provider ? 'manual_override' : 'atlas_decide',
-                'operator_requested_provider' => $provider ?: 'auto',
-                'requested_provider' => $provider,
+                'decision_mode' => $fairMode ? 'fair_mode_disabled' : ($selectedProvider ? 'manual_override' : 'atlas_decide'),
+                'operator_requested_provider' => $selectedProvider ?: 'auto',
+                'requested_provider' => $selectedProvider,
                 'programming_profile' => $programmingProfile,
                 'dev_execution_plan' => [
                     'programming_profile' => $programmingProfile,
                 ],
             ],
         ], fn (mixed $value): bool => $value !== null));
-        $decision = $this->decide->operationalDecision($decisionOptions);
-        $selectedProvider = $provider ?: $decision->selectedProvider();
+        $decisionPayload = $fairMode
+            ? $this->fairModeOperationalDecision($decisionOptions, $selectedProvider ?: FairClaudePolicy::PROVIDER_LOCK)
+            : $this->decide->operationalDecision($decisionOptions)->toArray();
+        $selectedProvider = $selectedProvider ?: (string) data_get($decisionPayload, 'selected_provider', FairClaudePolicy::PROVIDER_LOCK);
         $quality = $this->quality->evaluate($workspace);
 
         return [
@@ -55,11 +59,46 @@ class AtlasCliDevWorkflowService
             'selected_provider' => $selectedProvider,
             'programming_profile' => $programmingProfile,
             'provider_strategy' => $strategy,
-            'operational_decision' => $decision->toArray(),
-            'policy_profile_id' => $decision->policyProfileId(),
+            'operational_decision' => $decisionPayload,
+            'policy_profile_id' => $fairMode ? null : data_get($decisionPayload, 'policy_profile_id'),
             'preflight_quality' => $this->quality->compact($quality),
             'can_execute_provider' => (bool) ($strategy['has_online_provider'] ?? false) || $provider !== null,
             'requires_override' => ! (bool) ($strategy['has_online_provider'] ?? false) && $provider === null,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $decisionOptions
+     * @return array<string,mixed>
+     */
+    private function fairModeOperationalDecision(array $decisionOptions, string $provider): array
+    {
+        return [
+            'decision_id' => null,
+            'policy_profile_id' => null,
+            'policy_version' => 'fair-claude-v1',
+            'decision_policy_version' => 'fair-claude-v1',
+            'decision_mode' => 'fair_mode_disabled',
+            'selected_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'candidate_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'fallback_provider' => null,
+            'fallback_reason' => null,
+            'operator_requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'atlas_decide_disabled_by_fair_mode' => true,
+            'planned_graph' => [
+                'activation_status' => 'fair_mode_single_provider',
+                'selected_provider' => $provider,
+                'fallback_disabled' => true,
+                'council_disabled' => true,
+            ],
+            'runtime_graph' => [
+                'activation_status' => 'fair_mode_single_provider',
+                'selected_provider' => $provider,
+                'fallback_disabled' => true,
+                'council_disabled' => true,
+            ],
+            'input_hash' => hash('sha256', (string) ($decisionOptions['input_text'] ?? '')),
         ];
     }
 
@@ -387,8 +426,15 @@ class AtlasCliDevWorkflowService
         return implode("\n", $lines);
     }
 
-    public function fairClaudePromptContract(string $prompt): string
+    /**
+     * @param  array<string,mixed>|null  $contract
+     */
+    public function fairClaudePromptContract(string $prompt, ?array $contract = null): string
     {
+        $metadata = $this->fairClaudePromptContractMetadata($contract);
+        $encoded = json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $jsonBlock = is_string($encoded) && $encoded !== '' ? $encoded : '{}';
+
         return implode("\n", [
             '# Atlas Fair Claude Mode',
             '',
@@ -398,6 +444,8 @@ class AtlasCliDevWorkflowService
             '## Execution Contract',
             '- Provider is locked to claude_cli.',
             '- Model is locked to the configured Claude Opus premium model.',
+            '- Forbidden providers: codex_cli, gemini_cli.',
+            '- Forbidden capabilities: provider fallback, council, atlas_decide, external reviewer.',
             '- Keep the diff scoped and minimal.',
             '- Preserve unrelated user changes.',
             '- Do not claim success without deterministic validation evidence.',
@@ -409,10 +457,83 @@ class AtlasCliDevWorkflowService
             '- List tests or checks run, or say they were not run.',
             '- List residual risks succinctly.',
             '',
+            '## Machine-Readable Contract',
+            '```json',
+            $jsonBlock,
+            '```',
+            '',
             '# Task',
             '',
             trim($prompt),
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $contract
+     * @return array<string,mixed>
+     */
+    public function fairClaudePromptContractMetadata(?array $contract = null): array
+    {
+        $contract = is_array($contract) ? $contract : [];
+        $acceptanceCriteria = $this->contractStringList($contract['acceptance_criteria'] ?? []);
+        $definitionOfDone = $this->contractStringList($contract['definition_of_done'] ?? []);
+        $testCoverage = $this->contractStringList($contract['test_coverage'] ?? []);
+        $likelyFiles = $this->contractStringList($contract['likely_files'] ?? []);
+        $allowedFiles = $this->contractStringList($contract['allowed_files'] ?? []);
+        $allowedPaths = $this->contractStringList($contract['allowed_paths'] ?? []);
+        $refs = is_array($contract['refs'] ?? null) ? array_filter($contract['refs']) : [];
+
+        return [
+            'schema_version' => 1,
+            'kind' => 'fair_claude_prompt_contract',
+            'mode_name' => FairClaudePolicy::MODE_NAME,
+            'provider_lock' => FairClaudePolicy::PROVIDER_LOCK,
+            'model_lock' => FairClaudePolicy::MODEL_LOCK,
+            'model_alias' => FairClaudePolicy::MODEL_LOCK,
+            'model_tier' => 'premium',
+            'forbidden_providers' => ['codex_cli', 'gemini_cli'],
+            'forbidden_capabilities' => ['fallback', 'council', 'atlas_decide', 'external_reviewer'],
+            'acceptance_criteria' => $acceptanceCriteria,
+            'definition_of_done' => $definitionOfDone,
+            'file_scope' => [
+                'likely_files' => $likelyFiles,
+                'allowed_files' => $allowedFiles,
+                'allowed_paths' => $allowedPaths,
+                'strict' => (bool) ($contract['strict_file_scope'] ?? false),
+            ],
+            'deterministic_gates' => [
+                'required' => true,
+                'pass_without_human_requires_gate_pass' => true,
+                'sources' => ['definition_of_done', 'test_coverage'],
+                'validation_steps' => $testCoverage,
+            ],
+            'task_refs' => $refs,
+        ];
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return array<int,string>
+     */
+    private function contractStringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $items = [];
+        foreach ($value as $entry) {
+            if (! is_scalar($entry)) {
+                continue;
+            }
+            $text = trim((string) $entry);
+            if ($text === '') {
+                continue;
+            }
+            $items[] = $text;
+        }
+
+        return array_values(array_unique($items));
     }
 
     /**
@@ -421,6 +542,8 @@ class AtlasCliDevWorkflowService
      */
     public function fairClaudeRepairCapsule(string $task, array $completion, int $iteration, int $maxIterations, array $devPlan): string
     {
+        $failureSignal = $this->extractRepairFailureSignal($completion);
+
         $gateSummary = [
             'status' => $completion['status'] ?? data_get($completion, 'completion_packet.status'),
             'changed_files' => $completion['changed_files'] ?? data_get($completion, 'completion_packet.files_changed', []),
@@ -436,6 +559,8 @@ class AtlasCliDevWorkflowService
             'Fair benchmark rule: unverified, needs_review, missing gates, or self-assessment never count as passed.',
             'Original task:',
             trim($task),
+            'Failure signal (command, exit code, primary error):',
+            json_encode($failureSignal, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
             'Previous deterministic gate result:',
             json_encode($gateSummary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
             'Execution plan checkpoint:',
@@ -448,6 +573,87 @@ class AtlasCliDevWorkflowService
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
             'Repair objective: apply the smallest safe correction that makes deterministic gates pass. Preserve unrelated user changes and explain any gate that still cannot be verified.',
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $completion
+     * @return array{command: ?string, exit_code: ?int, primary_error: ?string, source: string}
+     */
+    private function extractRepairFailureSignal(array $completion): array
+    {
+        $tests = (array) data_get($completion, 'completion_packet.tests', []);
+        foreach ($tests as $test) {
+            if (! is_array($test)) {
+                continue;
+            }
+            if (($test['ok'] ?? null) === true) {
+                continue;
+            }
+            $command = $test['command'] ?? null;
+            $exit = $test['exit_code'] ?? null;
+            $error = $test['error'] ?? null;
+            if ($command !== null || $exit !== null || $error !== null) {
+                return [
+                    'command' => is_string($command) && $command !== '' ? $command : null,
+                    'exit_code' => is_int($exit) ? $exit : (is_numeric($exit) ? (int) $exit : null),
+                    'primary_error' => $this->trimErrorExcerpt($error),
+                    'source' => 'completion_packet.tests',
+                ];
+            }
+        }
+
+        $gates = (array) data_get(
+            $completion,
+            'quality_gates',
+            data_get($completion, 'completion_packet.quality_gates', [])
+        );
+        foreach ($gates as $gate) {
+            if (! is_array($gate)) {
+                continue;
+            }
+            $status = (string) ($gate['status'] ?? '');
+            if ($status !== 'failed' && $status !== 'needs_review') {
+                continue;
+            }
+            $detail = $gate['detail'] ?? null;
+            $name = $gate['name'] ?? 'quality_gate';
+
+            return [
+                'command' => is_string($name) && $name !== '' ? "atlas:cli:quality:{$name}" : null,
+                'exit_code' => null,
+                'primary_error' => $this->trimErrorExcerpt($detail),
+                'source' => 'quality_gates',
+            ];
+        }
+
+        $risks = (array) data_get($completion, 'completion_packet.risks', []);
+        $firstRisk = null;
+        foreach ($risks as $risk) {
+            if (is_string($risk) && trim($risk) !== '') {
+                $firstRisk = trim($risk);
+                break;
+            }
+        }
+
+        return [
+            'command' => null,
+            'exit_code' => null,
+            'primary_error' => $firstRisk,
+            'source' => 'completion_packet.risks',
+        ];
+    }
+
+    private function trimErrorExcerpt(mixed $value, int $limit = 1500): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $text = trim($value);
+        if ($text === '') {
+            return null;
+        }
+
+        return mb_strlen($text) > $limit ? mb_substr($text, 0, $limit).'…' : $text;
     }
 
     /**

@@ -490,6 +490,7 @@ class EngineeringBenchmarkService
         $expectation = $this->expectationFor($case);
         $pairedBaselineWorktreePlan = null;
         $pairedWorkspaces = null;
+        $claudeCodeBaseline = null;
 
         try {
             $task = $this->taskForCase($case);
@@ -503,7 +504,6 @@ class EngineeringBenchmarkService
             $pairedBaselineWorktreePlan = $paired['baseline_plan'];
             $pairedWorkspaces = $paired['artifact'];
 
-            $payload = $this->runner->run($task, $runnerOptions);
             $claudeCodeBaseline = $this->claudeCodeBaseline->capture($case, $task, $runnerOptions);
             if ($pairedBaselineWorktreePlan !== null) {
                 $pairedWorkspaces['claude_code_baseline']['release'] = $this->releasePairedBaselineWorkspace(
@@ -513,11 +513,13 @@ class EngineeringBenchmarkService
                 $pairedBaselineWorktreePlan = null;
             }
 
+            $atlasStartedAt = microtime(true);
+            $payload = $this->runner->run($task, $runnerOptions);
             $engineeringRunId = $this->nonEmptyString(data_get($payload, 'run.id'));
             $decision = $this->nonEmptyString(data_get($payload, 'run.decision'));
             $score = data_get($payload, 'run.score');
             $score = is_numeric($score) ? (int) $score : null;
-            $durationMs = $this->durationMs($startedAt);
+            $durationMs = $this->durationMs($atlasStartedAt);
             $fairScorecard = $this->fairScorecard($payload, $runnerOptions);
             $evaluation = $this->evaluate($case, $decision, $score, $fairScorecard);
             $pairedScorecard = $this->pairedScorecard($case, $evaluation, $fairScorecard, $claudeCodeBaseline, $decision, $score);
@@ -585,6 +587,7 @@ class EngineeringBenchmarkService
                 'expectation_json' => $expectation,
                 'observed_json' => [
                     'exception' => get_class($exception),
+                    'claude_code_baseline' => $claudeCodeBaseline,
                     'paired_workspaces' => $pairedWorkspaces,
                 ],
                 'failure_summary' => Str::limit($exception->getMessage(), 2000),
@@ -780,8 +783,14 @@ class EngineeringBenchmarkService
             $caseComparisons,
             $nextActions,
         );
+        $claimMarkdown = $this->fairClaudeClaimMarkdown(
+            $executiveSummary,
+            $evidencePacket,
+            $nextActions,
+            $caseComparisons,
+        );
 
-        return [
+        $payload = [
             'schema_version' => 1,
             'kind' => 'fair_claude_benchmark_report',
             'generated_at' => now()->toJSON(),
@@ -807,6 +816,7 @@ class EngineeringBenchmarkService
             'executive_summary' => $executiveSummary,
             'next_actions' => $nextActions,
             'evidence_packet' => $evidencePacket,
+            'claim_markdown' => $claimMarkdown,
             'corpus_manifest' => $corpusManifest,
             'paired_scorecard' => $paired,
             'all_paired_scorecard' => $allPaired,
@@ -814,30 +824,294 @@ class EngineeringBenchmarkService
             'replay_manifest' => $replay,
             'case_comparisons' => $caseComparisons->values()->all(),
             'runs' => $runs
-                ->map(fn (AtlasEngineeringBenchmarkRun $run): array => [
-                    'id' => $run->id,
-                    'status' => $run->status,
-                    'benchmark_key' => $run->benchmark_key,
-                    'provider' => $run->provider,
-                    'model' => $run->model,
-                    'total_cases' => $run->total_cases,
-                    'passed_cases' => $run->passed_cases,
-                    'failed_cases' => $run->failed_cases,
-                    'fair_report_scope' => $fairRunIds->contains((int) $run->id)
-                        ? 'official_fair_claude'
-                        : 'paired_non_fair',
-                    'paired_scorecard' => data_get($run->summary_json ?? [], 'paired_scorecard'),
-                    'claude_code_baseline' => data_get($run->summary_json ?? [], 'claude_code_baseline'),
-                    'replay_manifest' => $this->safeReplayManifestSummaryForReport($this->arrayValue(data_get(
-                        $this->withReplayManifestArtifactVerification($this->arrayValue($run->summary_json ?? [])),
-                        'replay_manifest',
-                        [],
-                    ))),
-                    'finished_at' => $run->finished_at?->toJSON(),
-                    'created_at' => $run->created_at?->toJSON(),
-                ])
+                ->map(fn (AtlasEngineeringBenchmarkRun $run): array => $this->fairClaudeRunHistoryPayload(
+                    $run,
+                    $fairRunIds->contains((int) $run->id),
+                ))
                 ->all(),
         ];
+
+        $payload['export_bundle'] = $this->fairClaudeExportBundle($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    public function writeFairClaudeExportBundle(array $payload, string $directory): array
+    {
+        $directory = rtrim($directory, DIRECTORY_SEPARATOR);
+        if ($directory === '') {
+            throw new InvalidArgumentException('Export directory cannot be empty.');
+        }
+
+        File::ensureDirectoryExists($directory);
+
+        $contents = [
+            'report.json' => $this->prettyJson(Arr::except($payload, ['claim_markdown', 'export_bundle', 'written_export_bundle'])),
+            'evidence.json' => $this->prettyJson($payload['evidence_packet'] ?? []),
+            'claim.md' => (string) ($payload['claim_markdown'] ?? ''),
+            'case-comparisons.json' => $this->prettyJson($payload['case_comparisons'] ?? []),
+        ];
+        $files = [];
+        foreach ($contents as $filename => $content) {
+            $path = $directory.DIRECTORY_SEPARATOR.$filename;
+            File::put($path, $content);
+            $files[$filename] = [
+                'path' => $path,
+                'bytes' => strlen($content),
+                'sha256' => hash('sha256', $content),
+            ];
+        }
+
+        $manifest = [
+            'schema_version' => 1,
+            'kind' => 'fair_claude_written_export_bundle',
+            'written_at' => now()->toJSON(),
+            'directory' => $directory,
+            'evidence_hash' => data_get($payload, 'evidence_packet.evidence_hash'),
+            'bundle_hash' => data_get($payload, 'export_bundle.bundle_hash'),
+            'files' => $files,
+        ];
+        $manifestJson = $this->prettyJson($manifest);
+        $manifestPath = $directory.DIRECTORY_SEPARATOR.'manifest.json';
+        File::put($manifestPath, $manifestJson);
+        $manifest['files']['manifest.json'] = [
+            'path' => $manifestPath,
+            'bytes' => strlen($manifestJson),
+            'sha256' => hash('sha256', $manifestJson),
+        ];
+
+        return $manifest;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function verifyFairClaudeExportBundle(string $directory): array
+    {
+        $directory = rtrim($directory, DIRECTORY_SEPARATOR);
+        $checkedAt = now()->toJSON();
+
+        $basePayload = [
+            'schema_version' => 1,
+            'kind' => 'fair_claude_export_bundle_verification',
+            'checked_at' => $checkedAt,
+            'directory' => $directory,
+            'status' => 'failed',
+            'verified' => false,
+            'file_count' => 0,
+            'passed_count' => 0,
+            'failed_count' => 0,
+            'missing_count' => 0,
+            'blocking_reasons' => [],
+            'files' => [],
+        ];
+
+        if ($directory === '') {
+            return array_merge($basePayload, [
+                'blocking_reasons' => ['export_directory_empty'],
+            ]);
+        }
+
+        $manifestPath = $directory.DIRECTORY_SEPARATOR.'manifest.json';
+        if (! File::exists($manifestPath)) {
+            return array_merge($basePayload, [
+                'blocking_reasons' => ['manifest_missing'],
+                'manifest_path' => $manifestPath,
+            ]);
+        }
+
+        $manifestJson = File::get($manifestPath);
+        $manifest = json_decode($manifestJson, true);
+        if (! is_array($manifest)) {
+            return array_merge($basePayload, [
+                'blocking_reasons' => ['manifest_invalid_json'],
+                'manifest_path' => $manifestPath,
+                'manifest_sha256' => hash('sha256', $manifestJson),
+            ]);
+        }
+
+        $manifestFiles = $manifest['files'] ?? [];
+        if (! is_array($manifestFiles) || $manifestFiles === []) {
+            return array_merge($basePayload, [
+                'blocking_reasons' => ['manifest_files_missing'],
+                'manifest_path' => $manifestPath,
+                'manifest_sha256' => hash('sha256', $manifestJson),
+                'manifest' => Arr::only($manifest, ['schema_version', 'kind', 'written_at', 'evidence_hash', 'bundle_hash']),
+            ]);
+        }
+
+        $files = [];
+        $passedCount = 0;
+        $failedCount = 0;
+        $missingCount = 0;
+        $requiredFiles = [
+            'report.json',
+            'evidence.json',
+            'claim.md',
+            'case-comparisons.json',
+            'manifest.json',
+        ];
+
+        foreach ($manifestFiles as $filename => $fileMetadata) {
+            if (! is_string($filename) || trim($filename) === '') {
+                $failedCount++;
+                $files[(string) $filename] = [
+                    'status' => 'failed',
+                    'exists' => false,
+                    'hash_matches' => false,
+                    'blocking_reason' => 'invalid_manifest_filename',
+                ];
+
+                continue;
+            }
+
+            $path = $directory.DIRECTORY_SEPARATOR.$filename;
+            $expectedHash = is_array($fileMetadata) && is_string($fileMetadata['sha256'] ?? null)
+                ? (string) $fileMetadata['sha256']
+                : null;
+            $expectedBytes = is_array($fileMetadata) && is_numeric($fileMetadata['bytes'] ?? null)
+                ? (int) $fileMetadata['bytes']
+                : null;
+            $exists = File::exists($path);
+            $actualHash = $exists ? hash_file('sha256', $path) : null;
+            $actualBytes = $exists ? File::size($path) : null;
+            $hashMatches = $exists && $expectedHash !== null && hash_equals($expectedHash, (string) $actualHash);
+            $bytesMatch = $exists && ($expectedBytes === null || $expectedBytes === $actualBytes);
+            $status = $hashMatches && $bytesMatch ? 'passed' : ($exists ? 'failed' : 'missing');
+
+            if ($status === 'passed') {
+                $passedCount++;
+            } elseif ($status === 'missing') {
+                $missingCount++;
+            } else {
+                $failedCount++;
+            }
+
+            $files[$filename] = [
+                'status' => $status,
+                'path' => $path,
+                'exists' => $exists,
+                'expected_sha256' => $expectedHash,
+                'actual_sha256' => $actualHash,
+                'hash_matches' => $hashMatches,
+                'expected_bytes' => $expectedBytes,
+                'actual_bytes' => $actualBytes,
+                'bytes_match' => $bytesMatch,
+            ];
+        }
+
+        foreach ($requiredFiles as $requiredFile) {
+            if (array_key_exists($requiredFile, $files)) {
+                continue;
+            }
+            if ($requiredFile === 'manifest.json' && File::exists($manifestPath)) {
+                $files['manifest.json'] = [
+                    'status' => 'passed',
+                    'path' => $manifestPath,
+                    'exists' => true,
+                    'expected_sha256' => hash('sha256', $manifestJson),
+                    'actual_sha256' => hash('sha256', $manifestJson),
+                    'hash_matches' => true,
+                    'expected_bytes' => strlen($manifestJson),
+                    'actual_bytes' => strlen($manifestJson),
+                    'bytes_match' => true,
+                    'required' => true,
+                ];
+                $passedCount++;
+
+                continue;
+            }
+
+            $failedCount++;
+            $files[$requiredFile] = [
+                'status' => 'failed',
+                'path' => $directory.DIRECTORY_SEPARATOR.$requiredFile,
+                'exists' => File::exists($directory.DIRECTORY_SEPARATOR.$requiredFile),
+                'hash_matches' => false,
+                'bytes_match' => false,
+                'required' => true,
+                'blocking_reason' => 'manifest_required_file_missing',
+            ];
+        }
+
+        if (! array_key_exists('manifest.json', $files)) {
+            $files['manifest.json'] = [
+                'status' => 'passed',
+                'path' => $manifestPath,
+                'exists' => true,
+                'expected_sha256' => hash('sha256', $manifestJson),
+                'actual_sha256' => hash('sha256', $manifestJson),
+                'hash_matches' => true,
+                'expected_bytes' => strlen($manifestJson),
+                'actual_bytes' => strlen($manifestJson),
+                'bytes_match' => true,
+            ];
+            $passedCount++;
+        }
+
+        $blockingReasons = [];
+        if (collect($files)->contains(fn (array $file): bool => ($file['blocking_reason'] ?? null) === 'manifest_required_file_missing')) {
+            $blockingReasons[] = 'manifest_required_file_missing';
+        }
+        if ($missingCount > 0) {
+            $blockingReasons[] = 'export_file_missing';
+        }
+        if ($failedCount > 0) {
+            $blockingReasons[] = 'export_file_hash_mismatch';
+        }
+
+        $evidencePath = $directory.DIRECTORY_SEPARATOR.'evidence.json';
+        $evidenceHashMatches = null;
+        if (File::exists($evidencePath)) {
+            $evidence = json_decode(File::get($evidencePath), true);
+            if (is_array($evidence)) {
+                $expectedEvidenceHash = is_string($manifest['evidence_hash'] ?? null)
+                    ? (string) $manifest['evidence_hash']
+                    : null;
+                $actualEvidenceHash = is_string($evidence['evidence_hash'] ?? null)
+                    ? (string) $evidence['evidence_hash']
+                    : null;
+                $computedEvidenceHash = hash('sha256', $this->canonicalJsonForHash(Arr::except($evidence, ['generated_at', 'evidence_hash'])));
+                $evidenceHashMatches = $expectedEvidenceHash !== null
+                    && $actualEvidenceHash !== null
+                    && hash_equals($expectedEvidenceHash, $actualEvidenceHash)
+                    && hash_equals($actualEvidenceHash, $computedEvidenceHash);
+                if (! $evidenceHashMatches) {
+                    $failedCount++;
+                    $blockingReasons[] = 'evidence_hash_mismatch';
+                    $files['evidence.json']['status'] = 'failed';
+                    $files['evidence.json']['evidence_hash_matches'] = false;
+                    $files['evidence.json']['expected_evidence_hash'] = $expectedEvidenceHash;
+                    $files['evidence.json']['actual_evidence_hash'] = $actualEvidenceHash;
+                    $files['evidence.json']['computed_evidence_hash'] = $computedEvidenceHash;
+                } else {
+                    $files['evidence.json']['evidence_hash_matches'] = true;
+                    $files['evidence.json']['computed_evidence_hash'] = $computedEvidenceHash;
+                }
+            }
+        }
+
+        $verified = $passedCount > 0 && $failedCount === 0 && $missingCount === 0;
+
+        return array_merge($basePayload, [
+            'status' => $verified ? 'passed' : 'failed',
+            'verified' => $verified,
+            'manifest_path' => $manifestPath,
+            'manifest_sha256' => hash('sha256', $manifestJson),
+            'manifest' => Arr::only($manifest, ['schema_version', 'kind', 'written_at', 'evidence_hash', 'bundle_hash']),
+            'required_files' => $requiredFiles,
+            'evidence_hash_matches' => $evidenceHashMatches,
+            'file_count' => count($files),
+            'passed_count' => $passedCount,
+            'failed_count' => $failedCount,
+            'missing_count' => $missingCount,
+            'blocking_reasons' => array_values(array_unique($blockingReasons)),
+            'files' => $files,
+        ]);
     }
 
     /**
@@ -1855,6 +2129,8 @@ class EngineeringBenchmarkService
         }
 
         $runnerOptions['claude_code_baseline_workspace'] = (string) $plan['execution_workspace'];
+        $runnerOptions['claude_code_baseline_workspace_auto_prepared'] = true;
+        $runnerOptions['claude_code_baseline_workspace_isolation_type'] = 'git_worktree';
 
         return [
             'runner_options' => $runnerOptions,
@@ -2675,6 +2951,115 @@ class EngineeringBenchmarkService
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    private function fairClaudeRunHistoryPayload(AtlasEngineeringBenchmarkRun $run, bool $officialFairScope): array
+    {
+        $summary = $this->arrayValue($run->summary_json ?? []);
+        $runResults = $run->results instanceof Collection
+            ? $run->results
+            : collect($run->results ?? []);
+        $fairResults = $runResults
+            ->filter(fn (AtlasEngineeringBenchmarkResult $result): bool => (bool) data_get($result->observed_json ?? [], 'paired_scorecard.fair_mode'))
+            ->values();
+        $paired = $this->pairedScorecardSummary($fairResults, $this->runsCostMicrousd(collect([$run])));
+        if (! (bool) ($paired['enabled'] ?? false)) {
+            $paired = $this->arrayValue(data_get($summary, 'paired_scorecard', []));
+        }
+        $baseline = $this->claudeCodeBaselineSummary($fairResults);
+        if (! (bool) ($baseline['enabled'] ?? false)) {
+            $baseline = $this->arrayValue(data_get($summary, 'claude_code_baseline', []));
+        }
+        $replay = $this->safeReplayManifestSummaryForReport($this->arrayValue(data_get(
+            $this->withReplayManifestArtifactVerification($summary),
+            'replay_manifest',
+            [],
+        )));
+
+        $atlasWins = (int) ($paired['atlas_win_count'] ?? data_get($paired, 'winners.atlas', 0));
+        $baselineWins = (int) ($paired['claude_code_baseline_win_count'] ?? data_get($paired, 'winners.claude_code_baseline', 0));
+        $tieCount = (int) ($paired['tie_count'] ?? data_get($paired, 'winners.tie', 0));
+        $comparableCount = (int) ($paired['comparable_count'] ?? 0);
+        $blocking = [];
+
+        if (! $officialFairScope) {
+            $blocking[] = 'not_official_fair_claude_scope';
+        }
+        if (! (bool) ($paired['enabled'] ?? false)) {
+            $blocking[] = 'paired_scorecard_missing';
+        }
+        if ((int) ($paired['fair_mode_count'] ?? 0) === 0) {
+            $blocking[] = 'fair_atlas_arm_missing';
+        }
+        if ($comparableCount === 0) {
+            $blocking[] = 'no_comparable_cases';
+        }
+        if (! (bool) ($baseline['enabled'] ?? false) || (int) ($baseline['executed_count'] ?? $baseline['case_count'] ?? 0) === 0) {
+            $blocking[] = 'claude_code_baseline_not_executed';
+        }
+        if (! (bool) ($replay['enabled'] ?? false) || (int) ($replay['artifact_integrity_failed_count'] ?? 0) > 0) {
+            $blocking[] = 'replay_manifest_not_fully_verified';
+        }
+        if ((int) ($paired['provider_violation_count'] ?? 0) > 0) {
+            $blocking[] = 'provider_lock_violation';
+        }
+        if ((int) ($paired['fallback_violation_count'] ?? 0) > 0) {
+            $blocking[] = 'fallback_violation';
+        }
+
+        $winner = match (true) {
+            $atlasWins > $baselineWins => 'atlas',
+            $baselineWins > $atlasWins => 'claude_code_baseline',
+            $tieCount > 0 => 'tie',
+            default => null,
+        };
+        $healthStatus = match (true) {
+            $blocking !== [] => 'blocked',
+            $winner === 'atlas' => 'atlas_leading',
+            $winner === 'claude_code_baseline' => 'baseline_leading',
+            $winner === 'tie' => 'tied',
+            default => 'inconclusive',
+        };
+
+        return [
+            'id' => $run->id,
+            'status' => $run->status,
+            'benchmark_key' => $run->benchmark_key,
+            'provider' => $run->provider,
+            'model' => $run->model,
+            'total_cases' => $run->total_cases,
+            'passed_cases' => $run->passed_cases,
+            'failed_cases' => $run->failed_cases,
+            'duration_ms' => $run->duration_ms,
+            'cost_microusd' => $run->cost_microusd,
+            'fair_report_scope' => $officialFairScope ? 'official_fair_claude' : 'paired_non_fair',
+            'history_summary' => [
+                'schema_version' => 1,
+                'health_status' => $healthStatus,
+                'winner' => $winner,
+                'blocking_reasons' => $blocking,
+                'atlas_win_count' => $atlasWins,
+                'claude_code_baseline_win_count' => $baselineWins,
+                'tie_count' => $tieCount,
+                'comparable_count' => $comparableCount,
+                'protocol_validity_rate' => $this->nullableFloat($paired['protocol_validity_rate'] ?? null),
+                'pass_without_human_rate' => $this->nullableFloat($paired['pass_without_human_rate'] ?? null),
+                'pass_without_human_rate_medium_hard' => $this->nullableFloat($paired['pass_without_human_rate_medium_hard'] ?? null),
+                'final_gate_pass_rate' => $this->nullableFloat($paired['final_gate_pass_rate'] ?? null),
+                'repair_conversion_rate' => $this->nullableFloat($paired['repair_conversion_rate'] ?? null),
+                'baseline_executed_count' => (int) ($baseline['executed_count'] ?? $baseline['case_count'] ?? 0),
+                'replay_packet_count' => (int) ($replay['packet_count'] ?? 0),
+                'replay_integrity_failed_count' => (int) ($replay['artifact_integrity_failed_count'] ?? 0),
+            ],
+            'paired_scorecard' => $paired,
+            'claude_code_baseline' => $baseline,
+            'replay_manifest' => $replay,
+            'finished_at' => $run->finished_at?->toJSON(),
+            'created_at' => $run->created_at?->toJSON(),
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $readiness
      * @param  array<string,mixed>  $paired
      * @param  array<string,mixed>  $baseline
@@ -3016,6 +3401,201 @@ class EngineeringBenchmarkService
         return array_merge($packet, [
             'evidence_hash' => hash('sha256', $this->canonicalJsonForHash(Arr::except($packet, ['generated_at']))),
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $executiveSummary
+     * @param  array<string,mixed>  $evidencePacket
+     * @param  array<int,array<string,mixed>>  $nextActions
+     * @param  Collection<int,array<string,mixed>>  $caseComparisons
+     */
+    private function fairClaudeClaimMarkdown(
+        array $executiveSummary,
+        array $evidencePacket,
+        array $nextActions,
+        Collection $caseComparisons,
+    ): string {
+        $scorecard = $this->arrayValue($evidencePacket['scorecard'] ?? []);
+        $audit = $this->arrayValue($evidencePacket['audit'] ?? []);
+        $protocol = $this->arrayValue($evidencePacket['protocol'] ?? []);
+        $claim = $this->arrayValue($evidencePacket['claim'] ?? []);
+        $sample = $this->arrayValue($executiveSummary['sample'] ?? []);
+        $quality = $this->arrayValue($executiveSummary['quality_bar'] ?? []);
+        $auditability = $this->arrayValue($executiveSummary['auditability'] ?? []);
+        $hash = (string) ($evidencePacket['evidence_hash'] ?? '');
+        $lines = [
+            '# Atlas Rivals Fair Claude Report',
+            '',
+            '## Executive Summary',
+            '',
+            '- Claim status: `'.$this->markdownInline((string) ($executiveSummary['claim_status'] ?? 'unknown')).'`',
+            '- Headline: '.$this->markdownText((string) ($executiveSummary['headline'] ?? '')),
+            '- Winner: `'.$this->markdownInline((string) ($executiveSummary['winner'] ?? 'none')).'`',
+            '- Confidence: `'.$this->markdownInline((string) ($executiveSummary['confidence'] ?? 'none')).'`',
+            '- Evidence hash: `'.$this->markdownInline($hash).'`',
+            '',
+            '## Sample',
+            '',
+            '| Metric | Value |',
+            '| --- | ---: |',
+            '| Comparable cases | '.$this->markdownNumber($sample['comparable_cases'] ?? null).' |',
+            '| Fair mode cases | '.$this->markdownNumber($sample['fair_mode_cases'] ?? null).' |',
+            '| Atlas wins | '.$this->markdownNumber($sample['atlas_wins'] ?? null).' |',
+            '| Claude Code wins | '.$this->markdownNumber($sample['claude_code_baseline_wins'] ?? null).' |',
+            '| Ties | '.$this->markdownNumber($sample['ties'] ?? null).' |',
+            '',
+            '## Quality Bar',
+            '',
+            '| Metric | Value |',
+            '| --- | ---: |',
+            '| Protocol validity | '.$this->markdownPercent($quality['protocol_validity_rate'] ?? null).' |',
+            '| Pass without human | '.$this->markdownPercent($quality['pass_without_human_rate'] ?? null).' |',
+            '| Medium/hard pass without human | '.$this->markdownPercent($quality['medium_hard_pass_without_human_rate'] ?? null).' |',
+            '| Final gate pass | '.$this->markdownPercent($quality['final_gate_pass_rate'] ?? null).' |',
+            '| Repair conversion | '.$this->markdownPercent($scorecard['repair_conversion_rate'] ?? null).' |',
+            '',
+            '## Protocol Lock',
+            '',
+            '| Lock | Value |',
+            '| --- | --- |',
+            '| Atlas provider | `'.$this->markdownInline((string) ($protocol['atlas_provider_lock'] ?? '-')).'` |',
+            '| Atlas model | `'.$this->markdownInline((string) ($protocol['atlas_model_lock'] ?? '-')).'` |',
+            '| Baseline provider | `'.$this->markdownInline((string) ($protocol['baseline_provider_lock'] ?? '-')).'` |',
+            '| Baseline model | `'.$this->markdownInline((string) ($protocol['baseline_model_lock'] ?? '-')).'` |',
+            '| Fallback disabled | `'.($protocol['fallback_disabled'] ?? false ? 'true' : 'false').'` |',
+            '| Atlas Decide disabled | `'.($protocol['atlas_decide_disabled'] ?? false ? 'true' : 'false').'` |',
+            '',
+            '## Auditability',
+            '',
+            '| Evidence | Value |',
+            '| --- | ---: |',
+            '| Ready for claim | `'.($claim['ready_for_claim'] ?? false ? 'true' : 'false').'` |',
+            '| Baseline executed | `'.($auditability['baseline_executed'] ?? false ? 'true' : 'false').'` |',
+            '| Replay verified | `'.($auditability['replay_verified'] ?? false ? 'true' : 'false').'` |',
+            '| Replay packets | '.$this->markdownNumber($audit['replay_packet_count'] ?? null).' |',
+            '| Artifact integrity failures | '.$this->markdownNumber($audit['artifact_integrity_failed_count'] ?? null).' |',
+            '| Manifest hashes | '.$this->markdownNumber($auditability['manifest_hash_count'] ?? null).' |',
+            '',
+            '## Next Actions',
+            '',
+        ];
+
+        if ($nextActions === []) {
+            $lines[] = '- No next actions generated.';
+        } else {
+            foreach ($nextActions as $action) {
+                $line = '- `'.$this->markdownInline((string) ($action['severity'] ?? 'info')).'` '.$this->markdownText((string) ($action['title'] ?? 'Action'));
+                if (($action['command'] ?? null) !== null) {
+                    $line .= ' - `'.$this->markdownInline((string) $action['command']).'`';
+                }
+                $lines[] = $line;
+            }
+        }
+
+        $lines = array_merge($lines, [
+            '',
+            '## Case Outcomes',
+            '',
+            '| Case | Status | Winner | Reason | Delta Score | Delta Time |',
+            '| --- | --- | --- | --- | ---: | ---: |',
+        ]);
+
+        $caseRows = $caseComparisons->take(30);
+        if ($caseRows->isEmpty()) {
+            $lines[] = '| - | - | - | No case comparisons available. | - | - |';
+        } else {
+            foreach ($caseRows as $comparison) {
+                $deltas = $this->arrayValue($comparison['deltas'] ?? []);
+                $lines[] = '| '.$this->markdownCell((string) ($comparison['case_code'] ?? $comparison['case_id'] ?? '-'))
+                    .' | '.$this->markdownCell((string) ($comparison['comparison_status'] ?? '-'))
+                    .' | '.$this->markdownCell((string) ($comparison['winner'] ?? '-'))
+                    .' | '.$this->markdownCell((string) ($comparison['winner_reason'] ?? '-'))
+                    .' | '.$this->markdownNumber($deltas['score'] ?? null)
+                    .' | '.$this->markdownNumber($deltas['duration_ms'] ?? null).' |';
+            }
+        }
+
+        return implode("\n", $lines)."\n";
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function fairClaudeExportBundle(array $payload): array
+    {
+        $reportJson = $this->prettyJson(Arr::except($payload, ['claim_markdown', 'export_bundle']));
+        $evidenceJson = $this->prettyJson($payload['evidence_packet'] ?? []);
+        $caseComparisonsJson = $this->prettyJson($payload['case_comparisons'] ?? []);
+        $claimMarkdown = (string) ($payload['claim_markdown'] ?? '');
+        $files = [
+            'report.json' => [
+                'kind' => 'fair_claude_report_json',
+                'content_type' => 'application/json',
+                'bytes' => strlen($reportJson),
+                'sha256' => hash('sha256', $reportJson),
+            ],
+            'evidence.json' => [
+                'kind' => 'fair_claude_evidence_packet_json',
+                'content_type' => 'application/json',
+                'bytes' => strlen($evidenceJson),
+                'sha256' => hash('sha256', $evidenceJson),
+            ],
+            'claim.md' => [
+                'kind' => 'fair_claude_claim_markdown',
+                'content_type' => 'text/markdown',
+                'bytes' => strlen($claimMarkdown),
+                'sha256' => hash('sha256', $claimMarkdown),
+            ],
+            'case-comparisons.json' => [
+                'kind' => 'fair_claude_case_comparisons_json',
+                'content_type' => 'application/json',
+                'bytes' => strlen($caseComparisonsJson),
+                'sha256' => hash('sha256', $caseComparisonsJson),
+            ],
+        ];
+
+        return [
+            'schema_version' => 1,
+            'kind' => 'fair_claude_export_bundle',
+            'recommended_directory' => 'atlas-rivals-'.((string) data_get($payload, 'suite.slug', 'suite')).'-'.now()->format('Ymd-His'),
+            'verification_command' => 'atlas rivals verify --output-dir=<export-directory> --json',
+            'evidence_hash' => data_get($payload, 'evidence_packet.evidence_hash'),
+            'files' => $files,
+            'bundle_hash' => hash('sha256', $this->canonicalJsonForHash($files)),
+        ];
+    }
+
+    private function prettyJson(mixed $value): string
+    {
+        $json = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+
+        return (is_string($json) ? $json : 'null')."\n";
+    }
+
+    private function markdownText(string $value): string
+    {
+        return str_replace(["\r", "\n"], ' ', trim($value));
+    }
+
+    private function markdownInline(string $value): string
+    {
+        return str_replace('`', "'", $this->markdownText($value));
+    }
+
+    private function markdownCell(string $value): string
+    {
+        return str_replace('|', '\\|', $this->markdownText($value));
+    }
+
+    private function markdownNumber(mixed $value): string
+    {
+        return is_numeric($value) ? (string) $value : '-';
+    }
+
+    private function markdownPercent(mixed $value): string
+    {
+        return is_numeric($value) ? ((string) $value).'%' : '-';
     }
 
     /**
@@ -3489,6 +4069,11 @@ class EngineeringBenchmarkService
     private function nullableInt(mixed $value): ?int
     {
         return is_numeric($value) ? (int) $value : null;
+    }
+
+    private function nullableFloat(mixed $value): ?float
+    {
+        return is_numeric($value) ? (float) $value : null;
     }
 
     private function nonEmptyString(mixed $value): ?string

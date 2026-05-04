@@ -155,6 +155,7 @@ class AtlasCliDevCommand extends Command
             $provider,
             (bool) $this->option('critical') || $programmingProfile === 'forge',
             $programmingProfile,
+            $fairMode,
         );
         if ($modelSelection !== null) {
             $preflight['selected_model'] = $this->compactModelSelection($modelSelection);
@@ -255,7 +256,8 @@ class AtlasCliDevCommand extends Command
         }
         $providerPrompt = $workflow->promptWithEngineeringContract($task, $engineeringContract, $engineeringBlueprint);
         if ($fairMode) {
-            $providerPrompt = $workflow->fairClaudePromptContract($providerPrompt);
+            $devPlan['fair_mode_prompt_contract'] = $workflow->fairClaudePromptContractMetadata($engineeringContract);
+            $providerPrompt = $workflow->fairClaudePromptContract($providerPrompt, $engineeringContract);
         }
 
         if ($planOnly) {

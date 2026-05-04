@@ -18,6 +18,7 @@ class AtlasCliDoctorService
         private readonly SkillDiscoveryService $skills,
         private readonly AtlasSchedulerInstallService $schedulerInstall,
         private readonly AtlasProviderProjectionService $projection,
+        private readonly AtlasImageAttachmentService $images,
     ) {}
 
     /**
@@ -39,6 +40,7 @@ class AtlasCliDoctorService
             skills: $this->skills->health($workspace),
             scheduler: $this->schedulerGate(),
             projection: $this->projectionGate($workspace),
+            clipboard: $this->images->clipboardStatus(),
         );
     }
 
@@ -51,7 +53,7 @@ class AtlasCliDoctorService
      * @param  array<string, mixed>  $projection
      * @return array<string, mixed>
      */
-    private function payload(string $workspace, array $setup, array $providerStrategy, array $quality, array $skills, array $scheduler, array $projection): array
+    private function payload(string $workspace, array $setup, array $providerStrategy, array $quality, array $skills, array $scheduler, array $projection, array $clipboard): array
     {
         $permission = $this->permissionGate($workspace);
         $gates = [
@@ -82,6 +84,7 @@ class AtlasCliDoctorService
             ],
             $scheduler,
             $projection,
+            $clipboard,
             [
                 'name' => 'workspace_quality',
                 'status' => $this->workspaceQualityStatus($quality),
@@ -101,6 +104,7 @@ class AtlasCliDoctorService
             'skills' => $skills,
             'scheduler' => $scheduler,
             'provider_projection' => $projection,
+            'clipboard_visual_input' => $clipboard,
             'quality' => $quality,
             'readiness' => $readiness,
         ];
@@ -293,6 +297,7 @@ class AtlasCliDoctorService
                 'skills_health' => 'Rode atlas skills doctor e corrija bundles com erro ou quarentena.',
                 'scheduler_cron' => 'Rode php artisan migrate e depois atlas bootstrap --install-scheduler-cron --strict.',
                 'provider_projection' => 'Rode atlas memory projection status --target=all e use write/adopt somente apos revisar o resultado.',
+                'clipboard_visual_input' => 'Rode atlas doctor --json e confira clipboard_visual_input; para screenshots, copie a imagem e aperte Enter vazio no atlas dev.',
                 'workspace_quality' => 'Rode atlas bootstrap --doctor-run-tests --strict antes de declarar final.',
                 default => 'Revise o gate '.$gate['name'].' e rode atlas bootstrap --strict.',
             };

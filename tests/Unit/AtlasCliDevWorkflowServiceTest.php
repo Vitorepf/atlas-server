@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
+use App\Services\Ai\FairClaudePolicy;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -52,6 +53,23 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         $this->assertSame('codex_cli', $payload['selected_provider']);
         $this->assertArrayHasKey('preflight_quality', $payload);
         $this->assertFalse($payload['requires_override']);
+    }
+
+    public function test_fair_preflight_locks_claude_and_does_not_emit_atlas_decide_decision(): void
+    {
+        $payload = app(AtlasCliDevWorkflowService::class)->preflight(
+            workspace: $this->workspace,
+            task: 'implementar fair mode',
+            provider: FairClaudePolicy::PROVIDER_LOCK,
+            fairMode: true,
+        );
+
+        $this->assertSame('claude_cli', $payload['selected_provider']);
+        $this->assertNull($payload['policy_profile_id']);
+        $this->assertSame('fair_mode_disabled', data_get($payload, 'operational_decision.decision_mode'));
+        $this->assertTrue((bool) data_get($payload, 'operational_decision.atlas_decide_disabled_by_fair_mode'));
+        $this->assertNull(data_get($payload, 'operational_decision.decision_id'));
+        $this->assertNull(data_get($payload, 'operational_decision.fallback_provider'));
     }
 
     public function test_chat_command_wraps_ai_chat_in_dev_mode(): void
@@ -193,8 +211,57 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         $this->assertStringContainsString('# Atlas Fair Claude Mode', $prompt);
         $this->assertStringContainsString('Provider is locked to claude_cli.', $prompt);
         $this->assertStringContainsString('Model is locked to the configured Claude Opus premium model.', $prompt);
+        $this->assertStringContainsString('Forbidden providers: codex_cli, gemini_cli.', $prompt);
         $this->assertStringContainsString('Do not suggest switching provider', $prompt);
         $this->assertStringContainsString('implementar feature', $prompt);
+        $this->assertStringContainsString('## Machine-Readable Contract', $prompt);
+        $this->assertStringContainsString('"kind": "fair_claude_prompt_contract"', $prompt);
+        $this->assertStringContainsString('"forbidden_providers"', $prompt);
+    }
+
+    public function test_fair_claude_prompt_contract_emits_machine_readable_block_with_engineering_contract(): void
+    {
+        $contract = [
+            'acceptance_criteria' => [
+                'Prompt contract has explicit acceptance criteria.',
+                'Plan-only output exposes fair metadata without invoking another provider.',
+            ],
+            'definition_of_done' => [
+                'Diff limitado ao escopo do contrato.',
+            ],
+            'likely_files' => ['app/Services/Ai/Cli/AtlasCliDevWorkflowService.php'],
+            'allowed_paths' => ['app/Services/Ai/Cli'],
+            'strict_file_scope' => true,
+            'test_coverage' => ['php artisan test --filter=AtlasCliDevWorkflowServiceTest'],
+            'refs' => ['task_id' => '019df390-f3c8-73ed-92db-46b42daacb1f'],
+        ];
+
+        $prompt = app(AtlasCliDevWorkflowService::class)->fairClaudePromptContract('implementar matriz', $contract);
+
+        $this->assertStringContainsString('## Machine-Readable Contract', $prompt);
+        $this->assertStringContainsString('Prompt contract has explicit acceptance criteria.', $prompt);
+        $this->assertStringContainsString('app/Services/Ai/Cli/AtlasCliDevWorkflowService.php', $prompt);
+        $this->assertStringContainsString('php artisan test --filter=AtlasCliDevWorkflowServiceTest', $prompt);
+        $this->assertStringContainsString('"strict": true', $prompt);
+    }
+
+    public function test_fair_claude_prompt_contract_metadata_lists_locks_and_forbidden_capabilities(): void
+    {
+        $metadata = app(AtlasCliDevWorkflowService::class)->fairClaudePromptContractMetadata([
+            'acceptance_criteria' => ['Critério X.'],
+            'likely_files' => ['app/Foo.php'],
+        ]);
+
+        $this->assertSame('fair_claude_prompt_contract', $metadata['kind']);
+        $this->assertSame('claude_cli', $metadata['provider_lock']);
+        $this->assertSame('opus', $metadata['model_lock']);
+        $this->assertSame('premium', $metadata['model_tier']);
+        $this->assertSame(['codex_cli', 'gemini_cli'], $metadata['forbidden_providers']);
+        $this->assertSame(['fallback', 'council', 'atlas_decide', 'external_reviewer'], $metadata['forbidden_capabilities']);
+        $this->assertSame(['Critério X.'], $metadata['acceptance_criteria']);
+        $this->assertSame(['app/Foo.php'], $metadata['file_scope']['likely_files']);
+        $this->assertTrue($metadata['deterministic_gates']['required']);
+        $this->assertTrue($metadata['deterministic_gates']['pass_without_human_requires_gate_pass']);
     }
 
     public function test_quality_gate_policy_requires_passed_status_in_complete_mode(): void
@@ -266,7 +333,12 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
                 'status' => 'failed',
                 'changed_files' => ['app/Foo.php'],
                 'completion_packet' => [
-                    'tests' => [['command' => 'php artisan test', 'ok' => false]],
+                    'tests' => [[
+                        'command' => 'php artisan test tests/Feature/FooTest.php',
+                        'ok' => false,
+                        'exit_code' => 2,
+                        'error' => 'AssertionError: Expected 1 got 0',
+                    ]],
                     'risks' => ['Teste falhou.'],
                 ],
             ],
@@ -286,6 +358,42 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         $this->assertStringContainsString('unverified, needs_review, missing gates, or self-assessment never count as passed', $capsule);
         $this->assertStringContainsString('implementar feature', $capsule);
         $this->assertStringContainsString('app/Foo.php', $capsule);
+        $this->assertStringContainsString('Failure signal (command, exit code, primary error):', $capsule);
+        $this->assertStringContainsString('php artisan test tests/Feature/FooTest.php', $capsule);
+        $this->assertStringContainsString('"exit_code": 2', $capsule);
+        $this->assertStringContainsString('AssertionError: Expected 1 got 0', $capsule);
+    }
+
+    public function test_fair_claude_repair_capsule_falls_back_to_quality_gates_when_test_signal_missing(): void
+    {
+        $capsule = app(AtlasCliDevWorkflowService::class)->fairClaudeRepairCapsule(
+            task: 'corrigir lint',
+            completion: [
+                'status' => 'failed',
+                'changed_files' => ['app/Bar.php'],
+                'quality_gates' => [
+                    ['name' => 'git_status', 'status' => 'passed', 'detail' => 'Git status executado.'],
+                    ['name' => 'workspace_changes', 'status' => 'failed', 'detail' => 'Workspace divergente do plano declarado.'],
+                ],
+                'completion_packet' => [
+                    'tests' => [],
+                    'risks' => ['Workspace divergente.'],
+                ],
+            ],
+            iteration: 3,
+            maxIterations: 3,
+            devPlan: [
+                'plan_id' => 'plan_2',
+                'selected_provider' => 'claude_cli',
+                'selected_model' => ['model' => 'claude-opus-test'],
+                'fair_mode' => ['fair_mode' => true],
+            ],
+        );
+
+        $this->assertStringContainsString('Failure signal (command, exit code, primary error):', $capsule);
+        $this->assertStringContainsString('atlas:cli:quality:workspace_changes', $capsule);
+        $this->assertStringContainsString('Workspace divergente do plano declarado.', $capsule);
+        $this->assertStringContainsString('"source": "quality_gates"', $capsule);
     }
 
     public function test_fair_claude_final_packet_requires_valid_protocol_for_passed_status(): void

@@ -71,6 +71,10 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'No cockpit, detecta imagem copiada no clipboard quando o pedido menciona tela/screenshot/print.',
                 ],
                 [
+                    'command' => 'atlas dev + Ctrl+V',
+                    'description' => 'Fluxo produto para Print Screen: Ctrl+V cola imagem no composer, mostra [img:N] e anexa antes de enviar.',
+                ],
+                [
                     'command' => 'atlas dev',
                     'description' => 'Abre o Atlas Dev Cockpit interativo; cada mensagem usa Atlas Decide, policy efetiva e perfil de programacao.',
                 ],

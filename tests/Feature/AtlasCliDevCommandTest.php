@@ -207,6 +207,17 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertContains('--model=claude-opus-test', $payload['chat_command']);
         $this->assertStringContainsString('Atlas Fair Claude Mode', implode("\n", $payload['chat_command']));
         $this->assertStringContainsString('Provider is locked to claude_cli.', implode("\n", $payload['chat_command']));
+        $this->assertStringContainsString('Forbidden providers: codex_cli, gemini_cli.', implode("\n", $payload['chat_command']));
+        $this->assertStringContainsString('## Machine-Readable Contract', implode("\n", $payload['chat_command']));
+        $this->assertSame('fair_claude_prompt_contract', data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.kind'));
+        $this->assertSame('claude_cli', data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.provider_lock'));
+        $this->assertSame('opus', data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.model_lock'));
+        $this->assertSame(['codex_cli', 'gemini_cli'], data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.forbidden_providers'));
+        $this->assertSame(
+            ['fallback', 'council', 'atlas_decide', 'external_reviewer'],
+            data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.forbidden_capabilities'),
+        );
+        $this->assertTrue((bool) data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.deterministic_gates.required'));
     }
 
     public function test_plan_only_explicit_fair_flags_accept_claude_opus(): void
@@ -454,6 +465,79 @@ class AtlasCliDevCommandTest extends TestCase
 
         $this->assertSame(0, $exitCode);
         $this->assertSame($this->workspace, data_get($payload, 'workflow.workspace'));
+    }
+
+    public function test_plan_only_fair_mode_propagates_engineering_contract_to_machine_readable_block(): void
+    {
+        config([
+            'atlas.ai.providers.claude_cli.premium_model' => 'claude-opus-test',
+            'atlas.ai.providers.claude_cli.premium_model_label' => 'Claude Opus Test',
+            'atlas.ai.providers.claude_cli.allow_auto' => false,
+            'atlas.ai.providers.claude_cli.allow_manual' => true,
+        ]);
+
+        $this->createMinimalTaskTable();
+
+        $task = AtlasTask::query()->create([
+            'title' => 'Fair Claude prompt contract acceptance matrix',
+            'description' => 'Expor acceptance criteria, file scope e gates determinísticos como contrato machine-readable.',
+            'status' => 'open',
+            'priority' => 'normal',
+            'domain' => 'atlas',
+            'estimated_minutes' => 45,
+            'metadata' => [
+                'engineering_contract' => [
+                    'goal' => 'Fair Claude prompt contract acceptance matrix.',
+                    'acceptance_criteria' => [
+                        'Prompt contract has explicit acceptance criteria and forbidden fallback/providers.',
+                        'Contract fields are persisted in replay artifacts.',
+                        'Plan-only output exposes the fair metadata without invoking another provider.',
+                    ],
+                    'likely_files' => ['app/Services/Ai/Cli/AtlasCliDevWorkflowService.php'],
+                    'allowed_paths' => ['app/Services/Ai/Cli'],
+                    'strict_file_scope' => true,
+                    'test_coverage' => ['php artisan test --filter=AtlasCliDevWorkflowServiceTest'],
+                ],
+            ],
+        ]);
+
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            '--task-id' => $task->id,
+            '--workspace' => $this->workspace,
+            '--claude-only' => true,
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('fair_claude_prompt_contract', data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.kind'));
+        $this->assertContains(
+            'Prompt contract has explicit acceptance criteria and forbidden fallback/providers.',
+            (array) data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.acceptance_criteria'),
+        );
+        $this->assertContains(
+            'Plan-only output exposes the fair metadata without invoking another provider.',
+            (array) data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.acceptance_criteria'),
+        );
+        $this->assertSame(
+            ['app/Services/Ai/Cli/AtlasCliDevWorkflowService.php'],
+            data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.file_scope.likely_files'),
+        );
+        $this->assertSame(
+            ['app/Services/Ai/Cli'],
+            data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.file_scope.allowed_paths'),
+        );
+        $this->assertTrue(data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.file_scope.strict'));
+        $this->assertSame(
+            ['php artisan test --filter=AtlasCliDevWorkflowServiceTest'],
+            data_get($payload, 'dev_execution_plan.fair_mode_prompt_contract.deterministic_gates.validation_steps'),
+        );
+        $this->assertStringContainsString(
+            'Prompt contract has explicit acceptance criteria and forbidden fallback/providers.',
+            implode("\n", $payload['chat_command']),
+        );
+        $this->assertContains('atlas:ai:chat', $payload['chat_command']);
     }
 
     public function test_plan_only_can_load_engineering_contract_from_task_id(): void

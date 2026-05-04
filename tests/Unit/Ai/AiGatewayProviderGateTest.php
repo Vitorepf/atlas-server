@@ -180,6 +180,50 @@ class AiGatewayProviderGateTest extends TestCase
         $this->assertSame('claude_cli', $provider);
     }
 
+    public function test_visual_dev_task_falls_back_to_codex_instead_of_claude(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'claude_cli',
+            'atlas.ai.providers.codex_cli.allow_auto' => false,
+            'atlas.ai.providers.codex_cli.allow_manual' => true,
+            'atlas.ai.providers.gemini_cli.allow_auto' => true,
+        ]);
+
+        $provider = $this->providerFromOptions([
+            'payload' => [
+                'decision_mode' => 'atlas_decide',
+                'operator_requested_provider' => 'auto',
+                'atlas_workflow_mode' => 'dev',
+                'visual_input' => ['image_count' => 1],
+                'attachments' => [
+                    'images' => [
+                        ['path' => '/tmp/screen.png', 'mime_type' => 'image/png'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('codex_cli', $provider);
+    }
+
+    public function test_manual_claude_provider_rejects_image_attachments(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('nao suporta anexos de imagem');
+
+        $this->providerFromOptions([
+            'provider' => 'claude_cli',
+            'payload' => [
+                'requested_provider' => 'claude_cli',
+                'attachments' => [
+                    'images' => [
+                        ['path' => '/tmp/screen.png', 'mime_type' => 'image/png'],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
     public function test_fair_mode_provider_gate_rejects_non_claude_provider(): void
     {
         $this->expectException(\RuntimeException::class);

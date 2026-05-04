@@ -3,7 +3,9 @@
 namespace Tests\Unit;
 
 use App\Console\Commands\AiChatCommand;
+use App\Services\Ai\Cli\AtlasImageAttachmentService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\File;
 use ReflectionMethod;
 use ReflectionProperty;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -67,6 +69,283 @@ class AiChatCommandPermissionTest extends TestCase
         $this->assertTrue($method->invoke($command, 'o que esta errado nesse screenshot?'));
         $this->assertFalse($method->invoke($command, 'crie a tela inicial do app'));
         $this->assertFalse($method->invoke($command, 'responda sem imagem'));
+    }
+
+    public function test_pasted_terminal_image_path_is_attached_and_removed_from_prompt(): void
+    {
+        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
+        File::ensureDirectoryExists($workspace);
+        $imagePath = $workspace.'/bug tela.png';
+        File::put($imagePath, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8Jv6wAAAABJRU5ErkJggg=='));
+
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'attachInlineImagePaths');
+        $method->setAccessible(true);
+
+        [$input, $attachments] = $method->invoke(
+            $command,
+            app(AtlasImageAttachmentService::class),
+            $workspace,
+            'corrija este bug visual "'.$imagePath.'"',
+            [],
+        );
+
+        $this->assertSame('corrija este bug visual', $input);
+        $this->assertCount(1, $attachments);
+        $this->assertSame($imagePath, $attachments[0]['path']);
+        $this->assertSame('image/png', $attachments[0]['mime_type']);
+    }
+
+    public function test_image_command_accepts_quoted_paths_with_spaces(): void
+    {
+        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
+        File::ensureDirectoryExists($workspace);
+        $imagePath = $workspace.'/print tela.png';
+        File::put($imagePath, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8Jv6wAAAABJRU5ErkJggg=='));
+
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'imageCommandPaths');
+        $method->setAccessible(true);
+
+        $this->assertSame([$imagePath], $method->invoke($command, '"'.$imagePath.'"'));
+    }
+
+    public function test_blank_input_uses_clipboard_image_as_pasted_image(): void
+    {
+        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
+        File::ensureDirectoryExists($workspace);
+        $imagePath = $workspace.'/clipboard.png';
+        File::put($imagePath, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8Jv6wAAAABJRU5ErkJggg=='));
+
+        $images = \Mockery::mock(AtlasImageAttachmentService::class);
+        $images->shouldReceive('fromClipboard')->once()->with($workspace)->andReturn([
+            'path' => $imagePath,
+            'source' => 'clipboard',
+            'original_path' => $imagePath,
+            'mime_type' => 'image/png',
+            'bytes' => File::size($imagePath),
+            'sha256' => hash_file('sha256', $imagePath),
+        ]);
+        $images->shouldReceive('dedupe')->once()->andReturnUsing(fn (array $attachments): array => $attachments);
+
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'inputFromBlankClipboardPaste');
+        $method->setAccessible(true);
+
+        [$input, $attachments] = $method->invoke($command, $images, $workspace, []);
+
+        $this->assertSame('Analise a imagem anexada.', $input);
+        $this->assertCount(1, $attachments);
+        $this->assertSame('clipboard', $attachments[0]['source']);
+        $output = $this->commandOutput($command);
+        $this->assertStringContainsString('Verificando clipboard visual, aguarde...', $output);
+        $this->assertStringContainsString('Imagem detectada; preparando anexo visual...', $output);
+    }
+
+    public function test_visual_text_auto_attach_prints_count_and_openable_file_link(): void
+    {
+        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
+        File::ensureDirectoryExists($workspace);
+        $imagePath = $workspace.'/clipboard.png';
+        File::put($imagePath, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8Jv6wAAAABJRU5ErkJggg=='));
+
+        $images = \Mockery::mock(AtlasImageAttachmentService::class);
+        $images->shouldReceive('fromClipboard')->once()->with($workspace)->andReturn([
+            'path' => $imagePath,
+            'source' => 'clipboard',
+            'original_path' => $imagePath,
+            'mime_type' => 'image/png',
+            'bytes' => File::size($imagePath),
+            'sha256' => hash_file('sha256', $imagePath),
+        ]);
+        $images->shouldReceive('dedupe')->once()->andReturnUsing(fn (array $attachments): array => $attachments);
+
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'maybeAutoAttachClipboardImage');
+        $method->setAccessible(true);
+
+        $attachments = $method->invoke($command, $images, $workspace, 'consegue ler essa imagem?', []);
+        $output = $this->commandOutput($command);
+
+        $this->assertCount(1, $attachments);
+        $this->assertStringContainsString('Imagem do clipboard detectada e anexada automaticamente.', $output);
+        $this->assertStringContainsString('[img:1] pronta para enviar', $output);
+        $this->assertStringContainsString('image/png', $output);
+    }
+
+    public function test_composer_clipboard_poll_attaches_current_image_once(): void
+    {
+        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
+        File::ensureDirectoryExists($workspace);
+        $imagePath = $workspace.'/clipboard.png';
+        File::put($imagePath, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8Jv6wAAAABJRU5ErkJggg=='));
+        $hash = hash_file('sha256', $imagePath);
+
+        $images = \Mockery::mock(AtlasImageAttachmentService::class);
+        $images->shouldReceive('clipboardStatus')->twice()->andReturn([
+            'current_image_detected' => true,
+        ]);
+        $images->shouldReceive('fromClipboard')->twice()->with($workspace)->andReturn([
+            'path' => $imagePath,
+            'source' => 'clipboard',
+            'original_path' => $imagePath,
+            'mime_type' => 'image/png',
+            'bytes' => File::size($imagePath),
+            'sha256' => $hash,
+        ]);
+        $images->shouldReceive('dedupe')->once()->andReturnUsing(fn (array $attachments): array => $attachments);
+
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'autoAttachCurrentClipboardImage');
+        $method->setAccessible(true);
+
+        [$label, $attachments] = $method->invoke($command, $images, $workspace, [], 'atlas', 'pergunta');
+        [$secondLabel, $secondAttachments] = $method->invoke($command, $images, $workspace, [], 'atlas', 'pergunta');
+        $output = $this->commandOutput($command);
+
+        $this->assertSame('atlas [img:1] Enter=analisar', $label);
+        $this->assertCount(1, $attachments);
+        $this->assertSame('atlas', $secondLabel);
+        $this->assertSame([], $secondAttachments);
+        $this->assertStringContainsString('Imagem anexada. [img:1] pronta para enviar', $output);
+    }
+
+    public function test_composer_clipboard_poll_ignores_idle_prompt_without_text(): void
+    {
+        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
+        File::ensureDirectoryExists($workspace);
+
+        $images = \Mockery::mock(AtlasImageAttachmentService::class);
+        $images->shouldNotReceive('clipboardStatus');
+        $images->shouldNotReceive('fromClipboard');
+
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'autoAttachCurrentClipboardImage');
+        $method->setAccessible(true);
+
+        [$label, $attachments] = $method->invoke($command, $images, $workspace, [], 'atlas', '');
+
+        $this->assertSame('atlas', $label);
+        $this->assertSame([], $attachments);
+    }
+
+    public function test_raw_key_dispatch_covers_text_backspace_submit_and_eof(): void
+    {
+        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
+        File::ensureDirectoryExists($workspace);
+
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'dispatchRawKey');
+        $method->setAccessible(true);
+        $images = \Mockery::mock(AtlasImageAttachmentService::class);
+        $buffer = '';
+        $label = 'atlas';
+        $pending = [];
+
+        $this->assertSame('continue', $method->invokeArgs($command, ['a', &$buffer, &$label, &$pending, $images, $workspace]));
+        $this->assertSame('a', $buffer);
+        $this->assertSame('continue', $method->invokeArgs($command, ["\x7f", &$buffer, &$label, &$pending, $images, $workspace]));
+        $this->assertSame('', $buffer);
+        $this->assertSame('submit', $method->invokeArgs($command, ["\n", &$buffer, &$label, &$pending, $images, $workspace]));
+
+        $this->expectException(\Symfony\Component\Console\Exception\RuntimeException::class);
+        $method->invokeArgs($command, ["\x04", &$buffer, &$label, &$pending, $images, $workspace]);
+    }
+
+    public function test_pending_images_output_shows_product_grade_attachment_proof(): void
+    {
+        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
+        File::ensureDirectoryExists($workspace);
+        $imagePath = $workspace.'/clipboard.png';
+        File::put($imagePath, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8Jv6wAAAABJRU5ErkJggg=='));
+
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'printPendingImages');
+        $method->setAccessible(true);
+
+        $method->invoke($command, [[
+            'path' => $imagePath,
+            'source' => 'clipboard',
+            'original_path' => $imagePath,
+            'mime_type' => 'image/png',
+            'bytes' => File::size($imagePath),
+            'sha256' => hash_file('sha256', $imagePath),
+        ]], true);
+        $output = $this->commandOutput($command);
+
+        $this->assertStringContainsString('Imagens anexadas: 1', $output);
+        $this->assertStringContainsString('imagem anexada e pronta para envio visual', $output);
+        $this->assertStringContainsString('origem: clipboard', $output);
+        $this->assertStringContainsString('image/png', $output);
+        $this->assertStringContainsString('1x1', $output);
+        $this->assertStringContainsString('sha256 ', $output);
+        $this->assertStringContainsString('abrir: file://', $output);
+        $this->assertStringContainsString('preview:', $output);
+    }
+
+    public function test_interactive_prompt_makes_image_paste_affordance_visible(): void
+    {
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'interactivePromptLabel');
+        $method->setAccessible(true);
+
+        $emptyPrompt = $method->invoke($command, null, []);
+        $this->assertSame('atlas', $emptyPrompt);
+        $this->assertStringNotContainsString('[img:', $emptyPrompt);
+        $this->assertSame('atlas [img:1] Enter=analisar', $method->invoke($command, null, [[
+            'path' => '/tmp/print.png',
+        ]]));
+    }
+
+    public function test_open_image_reports_when_no_attachment_exists(): void
+    {
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'openImageAttachment');
+        $method->setAccessible(true);
+
+        $method->invoke($command, [], '');
+
+        $this->assertStringContainsString('Nenhuma imagem anexada ou enviada recentemente.', $this->commandOutput($command));
+    }
+
+    public function test_visual_provider_switch_is_blocked_while_images_are_pending_or_queued(): void
+    {
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'imageProviderSwitchBlocked');
+        $method->setAccessible(true);
+
+        $this->assertFalse($method->invoke($command, 'codex_cli', [['path' => '/tmp/print.png']], []));
+        $this->assertTrue($method->invoke($command, 'claude_cli', [['path' => '/tmp/print.png']], []));
+        $this->assertTrue($method->invoke($command, 'claude_cli', [], [[
+            'input' => 'analise',
+            'images' => [['path' => '/tmp/print.png']],
+        ]]));
+        $this->assertFalse($method->invoke($command, 'claude_cli', [], [[
+            'input' => 'texto',
+            'images' => [],
+        ]]));
+    }
+
+    public function test_blank_input_reports_when_clipboard_has_no_image(): void
+    {
+        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
+        File::ensureDirectoryExists($workspace);
+
+        $images = \Mockery::mock(AtlasImageAttachmentService::class);
+        $images->shouldReceive('fromClipboard')->once()->with($workspace)->andThrow(new \RuntimeException('Clipboard nao contem imagem.'));
+
+        $command = $this->commandWithIo();
+        $method = new ReflectionMethod(AiChatCommand::class, 'inputFromBlankClipboardPaste');
+        $method->setAccessible(true);
+
+        [$input, $attachments] = $method->invoke($command, $images, $workspace, []);
+        $output = $this->commandOutput($command);
+
+        $this->assertNull($input);
+        $this->assertSame([], $attachments);
+        $this->assertStringContainsString('Verificando clipboard visual, aguarde...', $output);
+        $this->assertStringContainsString('Nenhuma imagem detectada no clipboard apos Enter vazio', $output);
+        $this->assertStringContainsString('Clipboard nao contem imagem.', $output);
     }
 
     public function test_dev_plan_generates_programming_message_plan_for_each_chat_message(): void
@@ -213,21 +492,40 @@ class AiChatCommandPermissionTest extends TestCase
      */
     private function toolPermissions(array $options, string $workspace, string $workflowMode, string $permissionMode): array
     {
-        $command = app(AiChatCommand::class);
-        $input = new ArrayInput($options + [
+        $command = $this->commandWithIo($options + [
             '--allow-unsandboxed' => false,
             '--allow-write' => false,
             '--dangerously-allow-all' => false,
         ]);
-        $input->bind($command->getDefinition());
-
-        $this->setCommandProperty($command, 'input', $input);
-        $this->setCommandProperty($command, 'output', new BufferedOutput);
 
         $method = new ReflectionMethod(AiChatCommand::class, 'toolPermissions');
         $method->setAccessible(true);
 
         return $method->invoke($command, $workspace, $workflowMode, null, $permissionMode);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     */
+    private function commandWithIo(array $options = []): AiChatCommand
+    {
+        $command = app(AiChatCommand::class);
+        $input = new ArrayInput($options);
+        $input->bind($command->getDefinition());
+
+        $this->setCommandProperty($command, 'input', $input);
+        $this->setCommandProperty($command, 'output', new BufferedOutput);
+
+        return $command;
+    }
+
+    private function commandOutput(AiChatCommand $command): string
+    {
+        $reflection = new ReflectionProperty(Command::class, 'output');
+        $reflection->setAccessible(true);
+        $output = $reflection->getValue($command);
+
+        return $output instanceof BufferedOutput ? $output->fetch() : '';
     }
 
     private function setCommandProperty(AiChatCommand $command, string $property, mixed $value): void

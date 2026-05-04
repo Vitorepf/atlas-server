@@ -11,6 +11,7 @@ use App\Services\Ai\AiProviderChoiceResolver;
 use App\Services\Ai\FairClaudePolicy;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Tests\Concerns\CreatesAiJobChoiceTables;
 use Tests\TestCase;
 
@@ -176,6 +177,28 @@ class AiChatProviderChoiceTest extends TestCase
         $this->assertFalse(data_get($payload, 'ok'));
         $this->assertSame('fair_mode_violation', data_get($payload, 'error'));
         $this->assertSame('codex_cli', data_get($payload, 'details.provider'));
+    }
+
+    public function test_chat_rejects_manual_claude_when_image_is_attached(): void
+    {
+        $workspace = storage_path('framework/testing/image-provider-'.bin2hex(random_bytes(4)));
+        File::ensureDirectoryExists($workspace);
+        $imagePath = $workspace.'/screen.png';
+        File::put($imagePath, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8Jv6wAAAABJRU5ErkJggg=='));
+
+        $exitCode = Artisan::call('atlas:ai:chat', [
+            'input' => 'analise esta imagem',
+            '--provider' => 'claude_cli',
+            '--image' => [$imagePath],
+            '--no-run' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertFalse(data_get($payload, 'ok'));
+        $this->assertSame('atlas_image_provider_unsupported', data_get($payload, 'error'));
+        $this->assertSame('claude_cli', data_get($payload, 'provider'));
     }
 
     public function test_chat_claude_only_projects_claude_only_session_policy_override(): void

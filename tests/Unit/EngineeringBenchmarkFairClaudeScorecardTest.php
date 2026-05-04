@@ -457,7 +457,9 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
 
     public function test_claude_code_baseline_run_uses_deterministic_gate_for_pass_without_human(): void
     {
+        $atlasWorkspace = sys_get_temp_dir().'/atlas-baseline-atlas-'.bin2hex(random_bytes(4));
         $workspace = sys_get_temp_dir().'/atlas-baseline-run-'.bin2hex(random_bytes(4));
+        mkdir($atlasWorkspace);
         mkdir($workspace);
 
         try {
@@ -465,7 +467,7 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
                 $this->benchmarkCase(),
                 $this->taskModel(),
                 [
-                    'workspace' => sys_get_temp_dir(),
+                    'workspace' => $atlasWorkspace,
                     'claude_code_baseline_workspace' => $workspace,
                     'claude_code_baseline' => 'run',
                     'claude_code_baseline_model' => 'opus',
@@ -491,6 +493,7 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
             $this->assertArrayNotHasKey('workspace', $baseline['replay_packet']);
         } finally {
             @rmdir($workspace);
+            @rmdir($atlasWorkspace);
         }
     }
 
@@ -520,9 +523,45 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
         }
     }
 
+    public function test_claude_code_baseline_run_allows_auto_prepared_git_worktree_under_workspace(): void
+    {
+        $atlasWorkspace = sys_get_temp_dir().'/atlas-baseline-parent-'.bin2hex(random_bytes(4));
+        $workspace = $atlasWorkspace.'/storage/app/engineering-worktrees/claude-code-baseline-case';
+        mkdir($workspace, recursive: true);
+
+        try {
+            $baseline = app(EngineeringClaudeCodeBaselineRunnerService::class)->capture(
+                $this->benchmarkCase(),
+                $this->taskModel(),
+                [
+                    'workspace' => $atlasWorkspace,
+                    'claude_code_baseline_workspace' => $workspace,
+                    'claude_code_baseline_workspace_auto_prepared' => true,
+                    'claude_code_baseline_workspace_isolation_type' => 'git_worktree',
+                    'claude_code_baseline' => 'run',
+                    'claude_code_baseline_model' => 'opus',
+                    'claude_code_baseline_binary' => '/bin/echo',
+                    'test_command' => PHP_BINARY.' -r "exit(0);"',
+                ],
+            );
+
+            $this->assertSame('completed', $baseline['status']);
+            $this->assertSame('resolved', $baseline['decision']);
+            $this->assertTrue($baseline['pass_without_human']);
+        } finally {
+            @rmdir($workspace);
+            @rmdir(dirname($workspace));
+            @rmdir(dirname(dirname($workspace)));
+            @rmdir(dirname(dirname(dirname($workspace))));
+            @rmdir($atlasWorkspace);
+        }
+    }
+
     public function test_claude_code_baseline_run_without_test_command_is_unverified(): void
     {
+        $atlasWorkspace = sys_get_temp_dir().'/atlas-baseline-atlas-'.bin2hex(random_bytes(4));
         $workspace = sys_get_temp_dir().'/atlas-baseline-unverified-'.bin2hex(random_bytes(4));
+        mkdir($atlasWorkspace);
         mkdir($workspace);
 
         try {
@@ -530,7 +569,7 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
                 $this->benchmarkCase(),
                 $this->taskModel(),
                 [
-                    'workspace' => sys_get_temp_dir(),
+                    'workspace' => $atlasWorkspace,
                     'claude_code_baseline_workspace' => $workspace,
                     'claude_code_baseline' => 'run',
                     'claude_code_baseline_model' => 'opus',
@@ -547,6 +586,7 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
             $this->assertContains('baseline_deterministic_gate_not_passed', $baseline['blocking_reasons']);
         } finally {
             @rmdir($workspace);
+            @rmdir($atlasWorkspace);
         }
     }
 
