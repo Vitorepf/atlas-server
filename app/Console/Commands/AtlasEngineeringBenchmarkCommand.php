@@ -21,6 +21,17 @@ class AtlasEngineeringBenchmarkCommand extends Command
         {--provider= : Force provider passed through to atlas:cli:dev}
         {--model= : Benchmark model label used for baseline comparisons}
         {--model-policy=fixed : fixed, auto, balanced, best-quality, fastest or cheapest model selection}
+        {--claude-only : Fair Claude benchmark mode: force claude_cli + Claude Opus and require pass_without_human}
+        {--single-provider : Fair Claude benchmark mode: forbid provider switching}
+        {--no-decide : Fair Claude benchmark mode: disable Atlas Decide}
+        {--fallback-disabled : Fair Claude benchmark mode: fail instead of falling back to another provider/model}
+        {--allow-unverified-fair-pass : Do not require pass_without_human in the fair scorecard}
+        {--claude-code-baseline=off : off, plan or run Claude Code CLI baseline arm}
+        {--claude-code-baseline-model=opus : Claude Code baseline model; opus resolves to the configured Claude premium model}
+        {--claude-code-baseline-binary= : Claude Code CLI binary override}
+        {--claude-code-baseline-workspace= : Separate workspace for claude-code-baseline=run}
+        {--claude-code-baseline-timeout=900 : Seconds to wait for Claude Code baseline run}
+        {--claude-code-baseline-validation-timeout=300 : Seconds to wait for Claude Code baseline deterministic validation}
         {--permission=auto : auto, read, write or danger}
         {--sandbox=workspace : workspace, worktree or docker}
         {--docker-service= : Docker Compose service used for sandbox=docker}
@@ -88,6 +99,17 @@ class AtlasEngineeringBenchmarkCommand extends Command
             'provider' => is_string($this->option('provider')) ? $this->option('provider') : null,
             'model' => is_string($this->option('model')) ? $this->option('model') : null,
             'model_policy' => is_string($this->option('model-policy')) ? $this->option('model-policy') : 'fixed',
+            'claude_only' => (bool) $this->option('claude-only'),
+            'single_provider' => (bool) $this->option('single-provider'),
+            'no_decide' => (bool) $this->option('no-decide'),
+            'fallback_disabled' => (bool) $this->option('fallback-disabled'),
+            'require_pass_without_human' => ! (bool) $this->option('allow-unverified-fair-pass'),
+            'claude_code_baseline' => is_string($this->option('claude-code-baseline')) ? $this->option('claude-code-baseline') : 'off',
+            'claude_code_baseline_model' => is_string($this->option('claude-code-baseline-model')) ? $this->option('claude-code-baseline-model') : 'opus',
+            'claude_code_baseline_binary' => is_string($this->option('claude-code-baseline-binary')) ? $this->option('claude-code-baseline-binary') : null,
+            'claude_code_baseline_workspace' => is_string($this->option('claude-code-baseline-workspace')) ? $this->option('claude-code-baseline-workspace') : null,
+            'claude_code_baseline_timeout' => (int) $this->option('claude-code-baseline-timeout'),
+            'claude_code_baseline_validation_timeout' => (int) $this->option('claude-code-baseline-validation-timeout'),
             'permission' => (string) $this->option('permission'),
             'sandbox' => (string) $this->option('sandbox'),
             'docker_service' => is_string($this->option('docker-service')) ? $this->option('docker-service') : null,

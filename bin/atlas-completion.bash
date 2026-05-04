@@ -17,11 +17,11 @@ _atlas_complete() {
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   cmd="${COMP_WORDS[1]}"
 
-  local top_level="ask chat dev fix plan review compare debug research \
+  local top_level="ask chat dev forge fix plan review compare debug research \
     threads sessions status dashboard tui state steer compact handoff switch \
     interrupt stop cancel continue resume start focus work worker daemon \
     checkpoint checkpoints quality finish test benchmark bench engineering harness tools runtime tool search trace \
-    permissions memory memory:list memory:add memory:audit memory:promote memory:govern memory:governance memory:review-queue memory:queue memory:relations memory:privacy memory:verbatim memory:projection memory:recall memory:maintain memory:maintenance memory:seed-core memory:seed open-brain open-brain:mcp brain brain:mcp mcp mobile inbox insight insight-watch watch-insights \
+    permissions memory memory:list memory:add memory:audit memory:promote memory:govern memory:governance memory:review-queue memory:queue memory:relations memory:privacy memory:verbatim memory:projection memory:recall memory:quality memory:scorecard memory:health memory:maintain memory:maintenance memory:seed-core memory:seed open-brain open-brain:mcp brain brain:mcp mcp mobile inbox insight insight-watch watch-insights \
     proposal proposal-scan proposals-scan scan-proposals self-diagnostic diagnostic \
     initiatives initiative schedule cron skills profile health providers \
     setup init bootstrap configure version update rollback install \
@@ -51,7 +51,7 @@ _atlas_complete() {
       return 0
       ;;
     memory)
-      COMPREPLY=( $(compgen -W "review review-queue queue list show accept reject promote propose govern governance relation relations privacy verbatim projection project recall maintain maintenance seed seed-core release block redact resolve dismiss scan apply preview diff write inspect status adopt memory verbatim relations --area= --trace-id= --memory-type= --scope-type= --scope-id= --source-id= --target-id= --source-status= --target-status= --privacy= --privacy-class= --allow-external-ai --block-external-ai --redacted-text= --redacted-body= --re-redact --include-verbatim --include-unreviewed --target= --max-lines= --memory-limit= --limit= --budget= --item-chars= --workspace= --include-drift-audit --apply-projection --no-sync --no-index-code --no-prune --force --yes --dry-run --json" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "review review-queue queue list show accept reject promote propose govern governance relation relations privacy verbatim projection project recall quality scorecard health history snapshot maintain maintenance seed seed-core release block redact resolve dismiss scan apply preview diff write inspect status adopt memory verbatim relations --area= --trace-id= --memory-type= --scope-type= --scope-id= --source-id= --target-id= --source-status= --target-status= --privacy= --privacy-class= --allow-external-ai --block-external-ai --redacted-text= --redacted-body= --re-redact --include-verbatim --include-unreviewed --target= --max-lines= --memory-limit= --limit= --budget= --item-chars= --workspace= --include-drift-audit --apply-projection --no-sync --no-index-code --no-prune --no-promote-learnings --auto-promote-candidates --promotion-limit= --promotion-min-confidence= --no-quality-snapshot --enforce-quality --record --days= --force --yes --dry-run --json" -- "${cur}") )
       return 0
       ;;
     open-brain|brain)
@@ -59,7 +59,7 @@ _atlas_complete() {
       return 0
       ;;
     benchmark|bench)
-      COMPREPLY=( $(compgen -W "seed init calibrate calibration cal cleanup docker-cleanup --suite= --workspace= --limit= --case= --tag= --tier= --domain= --risk= --curation-status= --provider= --model= --model-policy= --sandbox= --docker-service= --docker-image= --docker-workdir= --docker-cache= --docker-network= --docker-healthcheck-service= --docker-healthcheck-timeout= --docker-artifact-path= --docker-artifact-max-files= --docker-artifact-max-bytes= --provider-runtime= --provider-docker-compose-file= --provider-docker-service= --provider-docker-app-dir= --provider-docker-workspace-dir= --gate-profile= --from-run= --from-recent-runs= --min-source-score= --expected-decision= --min-score= --cache-retention-days= --artifact-retention-days= --apply --refresh-manifest --no-provider --auto-test --visual-e2e= --harness-policy= --test-command= --json" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "seed init calibrate calibration cal report claude-fair fair-claude prepare run run-atlas run-claude-code replay replay-manifest manifest cleanup docker-cleanup --suite= --workspace= --limit= --case= --tag= --tier= --domain= --risk= --curation-status= --provider= --model= --model-policy= --claude-only --single-provider --no-decide --fallback-disabled --allow-unverified-fair-pass --claude-code-baseline= --claude-code-baseline-model= --claude-code-baseline-binary= --claude-code-baseline-workspace= --claude-code-baseline-timeout= --claude-code-baseline-validation-timeout= --sandbox= --docker-service= --docker-image= --docker-workdir= --docker-cache= --docker-network= --docker-healthcheck-service= --docker-healthcheck-timeout= --docker-artifact-path= --docker-artifact-max-files= --docker-artifact-max-bytes= --provider-runtime= --provider-docker-compose-file= --provider-docker-service= --provider-docker-app-dir= --provider-docker-workspace-dir= --gate-profile= --from-run= --from-recent-runs= --min-source-score= --expected-decision= --min-score= --cache-retention-days= --artifact-retention-days= --apply --refresh-manifest --no-provider --auto-test --no-auto-test --visual-e2e= --harness-policy= --test-command= --json" -- "${cur}") )
       return 0
       ;;
     state)
@@ -75,7 +75,7 @@ _atlas_complete() {
       return 0
       ;;
     tools)
-      COMPREPLY=( $(compgen -W "doctor list authority matrix status commands run run-recipe recipe evidence evidence-show evidence-export gate release-gate approve revoke waive-finding revoke-finding-waiver policies --workspace= --command= --recipe= --tool-env= --output-limit= --dry-run --approved --required --max-execution-tier= --sandbox-mode= --privacy-level= --task-type= --requires-provider-safe --scope= --reason= --ttl-hours= --network-allowed --finding-id= --surface= --status= --policy-decision= --context-type= --context-id= --run-id= --required-only --required-tool= --fail-status= --require-evidence --release-profile= --limit= --json" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "doctor list authority matrix authority-policies authority-policy gate-policies set-authority-policy configure-authority-policy revoke-authority-policy status commands run run-recipe recipe evidence evidence-show evidence-export gate release-gate approve revoke waive-finding revoke-finding-waiver policies --workspace= --command= --recipe= --recipe-category= --recipe-surface= --recipe-blocking-capable= --tool-env= --output-limit= --dry-run --approved --required --max-execution-tier= --sandbox-mode= --privacy-level= --task-type= --requires-provider-safe --block-severity= --warn-severity= --block-reason= --warn-reason= --scope= --reason= --ttl-hours= --network-allowed --finding-id= --surface= --status= --policy-decision= --context-type= --context-id= --run-id= --required-only --required-tool= --fail-status= --require-evidence --max-age-minutes= --stale-blocks --latest-per-tool --release-profile= --limit= --json" -- "${cur}") )
       return 0
       ;;
     completion)
@@ -131,6 +131,14 @@ _atlas_complete() {
       ;;
     --release-profile)
       COMPREPLY=( $(compgen -W "security_sbom_release" -- "${cur}") )
+      return 0
+      ;;
+    --recipe-category)
+      COMPREPLY=( $(compgen -W "diagnostic scan refactor release" -- "${cur}") )
+      return 0
+      ;;
+    --recipe-blocking-capable)
+      COMPREPLY=( $(compgen -W "true false" -- "${cur}") )
       return 0
       ;;
     --provider-runtime)
@@ -193,6 +201,10 @@ _atlas_complete() {
       COMPREPLY=( $(compgen -W "release smoke strict advisory off" -- "${cur}") )
       return 0
       ;;
+    --claude-code-baseline)
+      COMPREPLY=( $(compgen -W "off plan run" -- "${cur}") )
+      return 0
+      ;;
     --profile)
       COMPREPLY=( $(compgen -W "auto fast standard release deep" -- "${cur}") )
       return 0
@@ -219,6 +231,8 @@ _atlas_complete() {
     local opts="--workspace --provider --mode --permission --skill --json --stream --no-stream --new-thread --thread \
       --allow-write --dangerously-allow-all --allow-unsandboxed --operator \
       --compact --no-intent --no-progress --no-notify --plan-only --complete \
+      --claude-only --single-provider --no-decide --fallback-disabled --allow-unverified-fair-pass \
+      --claude-code-baseline --claude-code-baseline-model --claude-code-baseline-workspace --claude-code-baseline-timeout --claude-code-baseline-validation-timeout \
       --max-iterations --resume --auto-test --critical --timeout \
       --suite --case --tag --limit --tier --domain --risk --curation-status --provider --model --gate-profile --profile --attempt --test-command --visual-e2e --quality-scan --quality-profile --quality-changed-only --harness-policy --screenshot-driver --runtime-dir --package --skip-browser-install --force --changed-only --no-provider --dry-run --sandbox --max-attempts --no-apply-isolated-patch --refresh-manifest --spec --strict --run-context-type --run-context-id \
       --provider-projection --provider-projection-target --provider-projection-max-lines --provider-projection-memory-limit --provider-projection-force --provider-projection-yes"

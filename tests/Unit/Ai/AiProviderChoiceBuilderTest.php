@@ -121,6 +121,19 @@ class AiProviderChoiceBuilderTest extends TestCase
         $this->assertSame('retry_same', $options[count($options) - 1]['action']);
     }
 
+    public function test_fair_mode_rate_limit_does_not_offer_provider_switch_or_model_downgrade(): void
+    {
+        config()->set('atlas.ai.providers.claude_cli.fallback_model', 'claude-haiku');
+        $builder = new AiProviderChoiceBuilder();
+
+        $options = $builder->build('rate_limited', 'claude_cli', 'claude-opus-4-7', null, fairMode: true);
+
+        $ids = array_column($options, 'id');
+        $this->assertSame(['cancel', 'retry_same'], $ids);
+        $this->assertNotContains('switch_provider', $ids);
+        $this->assertNotContains('downgrade_model', $ids);
+    }
+
     public function test_auth_expired_does_not_include_retry_same_or_downgrade(): void
     {
         $builder = new AiProviderChoiceBuilder();

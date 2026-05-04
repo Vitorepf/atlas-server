@@ -9,7 +9,8 @@ Use este checklist antes de criar tag ou declarar uma versao final do Atlas CLI.
 - `.env` local configurado por `atlas bootstrap`, nao por ajustes soltos.
 - `ATLAS_AI_TOOL_ALLOWED_ROOTS` inclui a raiz real de trabalho, normalmente `/Users/vitorepf`.
 - Se a versao vai substituir uso direto de terminal pesado, validar `atlas bootstrap --operator-mode --operator-root=/Users/vitorepf --strict` e confirmar `ATLAS_AI_TOOL_PERMISSION_MODE=danger`.
-- Claude CLI e Codex CLI resolvidos quando o objetivo for release de uso pesado.
+- Claude CLI, Codex CLI e Gemini CLI resolvidos quando o objetivo for release de uso pesado ou Atlas Decide multi-provider.
+- Health de providers com `--refresh-providers` precisa validar o contrato de runtime local: `--help`/`exec --help` deve expor as flags que o Atlas usa para modelo, sandbox/permissao, saida estruturada, imagens e diretorios.
 - Crontab do Laravel Scheduler instalado por `atlas bootstrap --install-scheduler-cron --strict` quando a versao inclui P5.
 
 ## Gates Obrigatorios
@@ -52,14 +53,37 @@ Fair Claude Benchmark:
 - Atlas Decide, Codex, Gemini, council e fallback ficam proibidos;
 - o resultado precisa registrar comandos, modelo, repo, commit inicial, testes,
   intervencoes humanas e score por caso.
+- casos contados precisam ter `protocol_status=valid`;
+- provider/model/fallback/context violations precisam ser publicados como
+  invalidos, nao escondidos;
+- declaracao 5x exige `intervention_reduction >= 5.0x` em tarefas
+  medias/dificeis validas.
 
 Documento canonico:
 
 - `docs/atlas-cli-fair-claude-benchmark.md`
 - `docs/atlas-cli-5x-claude-code-plan.md`
+- `docs/atlas-cli-5x-codex-implementation-prompt.md`
+- `docs/atlas-cli-5x-codex-safety-context-prompt.md`
 
 Sem essa evidencia, o release pode declarar melhoria do Atlas CLI, mas nao deve
 declarar vitoria justa contra Claude Code CLI.
+
+## Atlas Supercharged Gate
+
+Para releases cujo objetivo e produtividade real multi-provider, validar o
+scorecard operacional do Atlas normal:
+
+- Default AI e modelos do app propagam para CLI, app, jobs, workers e Atlas
+  Decide;
+- Gemini Scout aparece como fase separada quando usado;
+- Codex/Claude executor aparece com provider/modelo/args auditados;
+- fallback por quota/capacidade e registrado e medido;
+- Gate Matrix distingue `passed`, `failed`, `unverified` e `invalid`;
+- repair taxonomy registra causa, stop rule e conversao;
+- custo por caso verde, tempo ate verde e override humano aparecem no relatorio.
+
+Esse gate nao substitui o Fair Claude Gate. Ele mede o produto real.
 
 ## Tag
 

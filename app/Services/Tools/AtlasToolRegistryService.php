@@ -200,9 +200,13 @@ class AtlasToolRegistryService
 
         return [[
             'name' => 'version',
+            'category' => 'diagnostic',
             'description' => 'Detecta a versao da ferramenta sem analisar o workspace.',
             'command' => [$binary, '--version'],
             'dry_run_default' => true,
+            'recommended_surface' => 'manual_diagnostic',
+            'creates_evidence' => true,
+            'blocking_capable' => false,
             'network_allowed' => false,
             'max_execution_tier' => $definition->execution_tier ?? data_get($definition->metadata, 'execution_tier', 'T1'),
             'sandbox_mode' => 'workspace',
@@ -226,9 +230,13 @@ class AtlasToolRegistryService
 
         return [
             'name' => (string) ($command['name'] ?? 'default'),
+            'category' => (string) ($command['category'] ?? 'diagnostic'),
             'description' => (string) ($command['description'] ?? 'Comando recomendado pelo Atlas Tool Registry.'),
             'command' => $argv,
             'dry_run_default' => (bool) ($command['dry_run_default'] ?? true),
+            'recommended_surface' => (string) ($command['recommended_surface'] ?? 'manual_diagnostic'),
+            'creates_evidence' => (bool) ($command['creates_evidence'] ?? true),
+            'blocking_capable' => (bool) ($command['blocking_capable'] ?? false),
             'network_allowed' => (bool) ($command['network_allowed'] ?? false),
             'max_execution_tier' => $command['max_execution_tier'] ?? null,
             'sandbox_mode' => $command['sandbox_mode'] ?? 'workspace',

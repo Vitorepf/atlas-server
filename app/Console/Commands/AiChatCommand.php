@@ -12,6 +12,7 @@ use App\Services\Ai\AiProviderChoiceResolver;
 use App\Services\Ai\AiSessionStateService;
 use App\Services\Ai\AiWorker;
 use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Cli\AtlasCliPanel;
 use App\Services\Ai\Cli\AtlasCliQualityService;
 use App\Services\Ai\Cli\AtlasCliSessionService;
@@ -21,6 +22,8 @@ use App\Services\Ai\Cli\AtlasReplHistory;
 use App\Services\Ai\Cli\AtlasTerminalTheme;
 use App\Services\Ai\Cli\IntentPermissionResolver;
 use App\Services\Ai\Cli\IntentResolution;
+use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
+use App\Services\Ai\Programming\ProgrammingExecutionRequest;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Support\AtlasPhpBinary;
@@ -42,13 +45,17 @@ class AiChatCommand extends Command
         {input? : One-shot input. Omit it to open the interactive Atlas CLI loop}
         {--provider= : claude, codex, gemini, conselho, claude_cli, codex_cli, gemini_cli or claude_codex}
         {--model= : Model alias/id for this run, for example sonnet, opus, spark, codex-premium, claude-opus-4-7 or gpt-5.5}
+        {--claude-only : Fair Claude benchmark mode: force claude_cli + Claude Opus and disable fallback/decide/council}
+        {--single-provider : Fair Claude benchmark mode: forbid provider switching}
+        {--no-decide : Fair Claude benchmark mode: disable Atlas Decide for this run}
+        {--fallback-disabled : Fair Claude benchmark mode: fail instead of falling back to another provider/model}
         {--agent= : Force a specific Atlas agent/skill slug}
         {--thread= : Continue a specific Atlas thread}
         {--new-thread : Start a fresh Atlas thread (default unless --thread or --resume-latest is used)}
         {--resume-latest : Continue the latest Atlas CLI thread for this workspace}
         {--workspace= : Workspace path. Defaults to the current directory}
         {--mode=direct : direct, plan, review, dev, debug or research}
-        {--dev : Shortcut for --mode=dev --provider=codex}
+        {--dev : Shortcut for --mode=dev with Atlas Decide provider selection}
         {--conselho : Shortcut for --provider=conselho}
         {--stream : Stream provider output while the inline worker runs}
         {--cockpit : Render an operator cockpit header for long terminal work}
@@ -109,19 +116,33 @@ class AiChatCommand extends Command
         IntentPermissionResolver $intent,
         AtlasReplHistory $history,
         AtlasAiRuntimeSettings $settings,
+        FairClaudePolicy $fairClaude,
     ): int {
         $workspace = $this->workspace();
+        $devPlan = $this->devExecutionPlanOption();
+        $fairFlags = $fairClaude->normalizeFlags($this->fairClaudeFlags($devPlan));
+        $fairMode = (bool) ($fairFlags['fair_mode'] ?? false);
         $explicitProvider = $this->providerKey($this->option('conselho') ? 'conselho' : ($this->option('provider') ?: null));
         $provider = $explicitProvider;
-        $modelSelection = $this->modelSelection($this->option('model') ?: null, $provider);
+        if ($fairMode && $provider === null) {
+            $provider = FairClaudePolicy::PROVIDER_LOCK;
+        }
+        $modelOption = $this->option('model') ?: null;
+        if ($fairMode && (! is_string($modelOption) || trim($modelOption) === '')) {
+            $modelOption = FairClaudePolicy::MODEL_LOCK;
+        }
+        $modelSelection = $this->modelSelection(is_string($modelOption) ? $modelOption : null, $provider);
         if ($modelSelection !== null && ! $provider && is_string($modelSelection['provider'] ?? null)) {
             $provider = $modelSelection['provider'];
         }
+        if ($fairMode) {
+            $fairValidation = $fairClaude->validate($provider, $modelSelection);
+            if (! (bool) ($fairValidation['ok'] ?? false)) {
+                return $this->fairModeViolation($fairValidation);
+            }
+        }
         $manualProviderRequested = $explicitProvider !== null || $modelSelection !== null;
         $mode = $this->workflowMode($this->option('dev') ? 'dev' : (string) $this->option('mode'));
-        if ($this->option('dev') && ! $provider) {
-            $provider = $this->defaultProviderKey();
-        }
         if ($modelSelection !== null && ! $this->modelSelectionMatchesProvider($modelSelection, $provider)) {
             $this->error('Modelo '.$this->modelSelectionLabel($modelSelection).' nao combina com provider '.($provider ? $this->providerDisplayName($provider) : 'padrao').'. Use --provider correto ou remova --model.');
 
@@ -160,7 +181,7 @@ class AiChatCommand extends Command
         if (is_string($input) && trim($input) !== '') {
             $pendingImages = $this->maybeAutoAttachClipboardImage($imageAttachments, $workspace, trim($input), $pendingImages);
             $effectivePermission = $this->resolveEffectivePermission($intent, trim($input), $permissionMode);
-            $trace = $this->send($gateway, $worker, trim($input), $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null || (bool) $this->option('new-thread'), $activatedSkills, $pendingImages, $modelSelection);
+            $trace = $this->send($gateway, $worker, trim($input), $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null || (bool) $this->option('new-thread'), $activatedSkills, $pendingImages, $modelSelection, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
             $this->maybeRunDevQualityGate($quality, $workspace, $mode);
 
             return $trace->status === 'succeeded' || (bool) $this->option('no-run')
@@ -174,7 +195,7 @@ class AiChatCommand extends Command
         }
 
         while (true) {
-            $drainedTrace = $this->drainQueuedMessages($queuedMessages, $gateway, $worker, $quality, $workspace, $provider, $mode, $permissionMode, $stream, $threadId, $activatedSkills, $intent, $modelSelection);
+            $drainedTrace = $this->drainQueuedMessages($queuedMessages, $gateway, $worker, $quality, $workspace, $provider, $mode, $permissionMode, $stream, $threadId, $activatedSkills, $intent, $modelSelection, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
             if ($drainedTrace) {
                 $threadId = $drainedTrace->thread_id ?: $threadId;
             }
@@ -557,7 +578,7 @@ class AiChatCommand extends Command
             }
 
             $effectivePermission = $this->resolveEffectivePermission($intent, $line, $permissionMode);
-            $trace = $this->send($gateway, $worker, $line, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $messageSkills, $pendingImages, $modelSelection);
+            $trace = $this->send($gateway, $worker, $line, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $messageSkills, $pendingImages, $modelSelection, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
             $pendingImages = [];
             $threadId = $trace->thread_id ?: $threadId;
             $this->maybeRunDevQualityGate($quality, $workspace, $mode);
@@ -578,6 +599,8 @@ class AiChatCommand extends Command
         array $activatedSkills = [],
         array $imageAttachments = [],
         ?array $modelSelection = null,
+        ?array $fairModeMetadata = null,
+        array $fairFlags = [],
     ): AiTrace {
         $this->streamedAssistantContent = '';
         $this->markdownStreamBuffer = '';
@@ -591,6 +614,9 @@ class AiChatCommand extends Command
         $inputForPrompt = $imageAttachments === [] ? $input : $this->inputWithImageSummary($input, $imageAttachments);
         $agentSlug = $this->agentSlug($mode);
         $modelOverride = $this->modelOverrideFromSelection($modelSelection);
+        if ($fairModeMetadata !== null) {
+            $inputForPrompt = $this->fairClaudePromptContract($inputForPrompt);
+        }
         if ($provider === 'gemini_cli' && $mode === 'dev') {
             throw new \RuntimeException('Gemini CLI é restrito a análise read-only; use Claude/Codex para modo dev.');
         }
@@ -625,6 +651,7 @@ class AiChatCommand extends Command
             'operator_requested_provider' => $provider ?: 'auto',
             'requested_provider' => $provider,
             'requested_model' => $modelOverride,
+            'requested_model_alias' => $modelSelection['alias'] ?? null,
             'requested_model_label' => $modelSelection['label'] ?? null,
             'requested_model_tier' => $modelSelection['tier'] ?? null,
             'requested_model_source' => $modelSelection['source'] ?? null,
@@ -645,10 +672,53 @@ class AiChatCommand extends Command
         if ($devPlan !== null) {
             $payload['dev_execution_plan'] = $devPlan;
         }
+        $programmingMessagePlan = $this->programmingMessagePlan($workspace, $mode, $input, $provider, $modelOverride, $devPlan);
+        if ($programmingMessagePlan !== null) {
+            $payload['programming_profile'] = (string) ($programmingMessagePlan['programming_profile'] ?? $this->programmingProfileFromDevPlan($devPlan));
+            $payload['programming_session_plan'] = $devPlan;
+            $payload['programming_message_plan'] = $programmingMessagePlan;
+            $payload['programming_dispatch'] = $this->programmingDispatchContract($programmingMessagePlan);
+            $payload['programming_repair'] = app(AtlasProgrammingOrchestrator::class)->repairExecutionContract($programmingMessagePlan);
+            $payload['programming_profile_context'] = data_get($programmingMessagePlan, 'policy_profile.profile_context');
+            $payload['programming_execution_policy'] = data_get($programmingMessagePlan, 'policy_profile.execution_policy');
+        }
+
+        if ($fairModeMetadata !== null) {
+            $payload['fair_mode'] = $fairModeMetadata;
+            $payload['decision_mode'] = 'manual_override';
+            $payload['operator_requested_provider'] = FairClaudePolicy::PROVIDER_LOCK;
+            $payload['requested_provider'] = FairClaudePolicy::PROVIDER_LOCK;
+            $payload['fair_mode_flags'] = $fairFlags;
+        }
 
         if ($provider === 'claude_codex') {
             $payload['execution_policy'] = 'dual_review';
             $payload['council_providers'] = ['claude_cli', 'codex_cli'];
+        }
+
+        if ($this->shouldDispatchProgrammingExecutor($programmingMessagePlan)) {
+            $trace = $this->dispatchProgrammingExecutor(
+                input: $input,
+                workspace: $workspace,
+                provider: $provider,
+                model: $modelOverride,
+                mode: $mode,
+                permissionMode: $permissionMode,
+                threadId: $threadId,
+                agentSlug: $agentSlug,
+                payload: $payload,
+                programmingMessagePlan: (array) $programmingMessagePlan,
+                startedAt: $interactionStartedAt,
+            );
+            $telemetry->interactionCompleted($correlationId, $trace, $this->elapsedMs($interactionStartedAt), [
+                'mode' => $mode,
+                'permission_mode' => $permissionMode,
+                'stream' => false,
+                'executor' => 'engineering_harness',
+            ]);
+            $this->printTrace($trace);
+
+            return $trace;
         }
 
         try {
@@ -736,6 +806,8 @@ class AiChatCommand extends Command
         array $activatedSkills = [],
         ?IntentPermissionResolver $intent = null,
         ?array $modelSelection = null,
+        ?array $fairModeMetadata = null,
+        array $fairFlags = [],
     ): ?AiTrace {
         if ($queuedMessages === [] || $this->activeTrace($threadId, $workspace)) {
             return null;
@@ -768,7 +840,7 @@ class AiChatCommand extends Command
         $effectivePermission = $intent
             ? $this->resolveEffectivePermission($intent, $batch, $permissionMode)
             : $permissionMode;
-        $trace = $this->send($gateway, $worker, $batch, $workspace, $provider ?: ($batchImages !== [] ? $this->defaultProviderKey() : null), $mode, $effectivePermission, $stream, $threadId, $threadId === null, $batchSkills, $batchImages, $batchModelSelection);
+        $trace = $this->send($gateway, $worker, $batch, $workspace, $provider ?: ($batchImages !== [] ? $this->defaultProviderKey() : null), $mode, $effectivePermission, $stream, $threadId, $threadId === null, $batchSkills, $batchImages, $batchModelSelection, $fairModeMetadata, $fairFlags);
         $this->maybeRunDevQualityGate($quality, $workspace, $mode);
 
         return $trace;
@@ -952,6 +1024,12 @@ class AiChatCommand extends Command
                 'agent' => $trace->agent_slug,
                 'skills_activated' => (array) data_get($trace->metadata, 'skills_activated', []),
                 'open_brain_injection' => data_get($trace->metadata, 'open_brain_injection'),
+                'programming_profile' => data_get($trace->metadata, 'programming_profile'),
+                'programming_dispatch' => data_get($trace->metadata, 'programming_dispatch'),
+                'programming_message_plan' => data_get($trace->metadata, 'programming_message_plan'),
+                'programming_repair' => data_get($trace->metadata, 'programming_repair'),
+                'programming_completion' => data_get($trace->metadata, 'programming_completion'),
+                'programming_result' => data_get($trace->metadata, 'programming_result'),
                 'response_text' => $trace->response_text,
                 'quality' => $quality ? [
                     'score' => $quality->score,
@@ -2592,6 +2670,211 @@ class AiChatCommand extends Command
         return self::FAILURE;
     }
 
+    private function shouldDispatchProgrammingExecutor(?array $programmingMessagePlan): bool
+    {
+        return data_get($programmingMessagePlan, 'executor_decision.executor') === 'engineering_harness';
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $programmingMessagePlan
+     * @return array<string,mixed>|null
+     */
+    private function programmingDispatchContract(?array $programmingMessagePlan): ?array
+    {
+        return app(AtlasProgrammingOrchestrator::class)->dispatchContract($programmingMessagePlan);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $programmingMessagePlan
+     */
+    private function dispatchProgrammingExecutor(
+        string $input,
+        string $workspace,
+        ?string $provider,
+        ?string $model,
+        string $mode,
+        string $permissionMode,
+        ?string $threadId,
+        ?string $agentSlug,
+        array $payload,
+        array $programmingMessagePlan,
+        float $startedAt,
+    ): AiTrace {
+        $result = app(AtlasProgrammingOrchestrator::class)
+            ->executeWithHarness(ProgrammingExecutionRequest::fromArray($this->programmingExecutionRequestData(
+                input: $input,
+                workspace: $workspace,
+                provider: $provider,
+                model: $model,
+                permissionMode: $permissionMode,
+                payload: $payload,
+                programmingMessagePlan: $programmingMessagePlan,
+            )))
+            ->toArray();
+
+        $status = in_array($result['status'] ?? null, ['passed', 'partial'], true) ? 'succeeded' : 'failed';
+        $response = $this->programmingExecutorResponseText($result);
+        $dispatch = array_merge(
+            (array) ($payload['programming_dispatch'] ?? []),
+            [
+                'status' => $status === 'succeeded' ? 'executed' : 'blocked',
+                'trace_provider' => 'engineering_harness',
+                'completed_at' => now()->toJSON(),
+            ],
+        );
+        $metadata = AtlasSecurity::redactArray([
+            'model_label' => $model,
+            'programming_profile' => data_get($programmingMessagePlan, 'programming_profile'),
+            'programming_session_plan' => $payload['programming_session_plan'] ?? null,
+            'programming_dispatch' => $dispatch,
+            'programming_message_plan' => $programmingMessagePlan,
+            'programming_repair' => $payload['programming_repair'] ?? null,
+            'programming_completion' => app(AtlasProgrammingOrchestrator::class)->harnessCompletionContract($result, $dispatch, $model),
+            'programming_result' => $result,
+            'dispatch' => [
+                'executor' => 'engineering_harness',
+                'source' => 'AtlasProgrammingOrchestrator',
+                'mode' => $mode,
+            ],
+        ]);
+
+        $attributes = [
+            'trace_key' => 'trace_'.Str::orderedUuid()->toString(),
+            'thread_id' => $threadId,
+            'status' => $status,
+            'operator_input' => $input,
+            'agent_slug' => $agentSlug,
+            'provider' => 'engineering_harness',
+            'model' => $model,
+            'response_hash' => hash('sha256', $response),
+            'response_text' => $response,
+            'latency_ms' => $this->elapsedMs($startedAt),
+            'completed_at' => now(),
+            'metadata' => $metadata,
+        ];
+
+        if (Schema::hasTable('ai_traces')) {
+            return AiTrace::query()->create($attributes);
+        }
+
+        return tap(new AiTrace, function (AiTrace $trace) use ($attributes): void {
+            $trace->forceFill(['id' => (string) Str::orderedUuid()] + $attributes);
+        });
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $programmingMessagePlan
+     * @return array<string,mixed>
+     */
+    private function programmingExecutionRequestData(
+        string $input,
+        string $workspace,
+        ?string $provider,
+        ?string $model,
+        string $permissionMode,
+        array $payload,
+        array $programmingMessagePlan,
+    ): array {
+        $profile = data_get($programmingMessagePlan, 'programming_profile') === 'forge' ? 'forge' : 'dev';
+        $overrides = (array) data_get($payload, 'dev_execution_plan.operator_options.harness_overrides', []);
+        $executionProfile = (array) data_get($programmingMessagePlan, 'execution_profile', []);
+
+        return [
+            'profile' => $profile,
+            'workspace' => $workspace,
+            'task' => $input,
+            'objective' => $input,
+            'provider' => $provider,
+            'model' => $model,
+            'permission' => $permissionMode,
+            'complete' => (bool) ($executionProfile['complete'] ?? ($profile === 'forge')),
+            'auto_test' => (bool) ($executionProfile['auto_test'] ?? ($profile === 'forge')),
+            'critical' => $profile === 'forge',
+            'max_attempts' => (int) ($executionProfile['max_iterations'] ?? ($profile === 'forge' ? 5 : 1)),
+            'no_provider' => (bool) $this->option('no-run'),
+            'test_command' => is_string($overrides['test_command'] ?? null) ? $overrides['test_command'] : null,
+            'sandbox' => is_string($overrides['sandbox'] ?? null) ? $overrides['sandbox'] : null,
+            'provider_runtime' => is_string($overrides['provider_runtime'] ?? null) ? $overrides['provider_runtime'] : null,
+            'visual_e2e' => is_string($overrides['visual_e2e'] ?? null) ? $overrides['visual_e2e'] : null,
+            'quality_scan' => is_string($overrides['quality_scan'] ?? null) ? $overrides['quality_scan'] : null,
+            'harness_policy' => is_string($overrides['harness_policy'] ?? null) ? $overrides['harness_policy'] : null,
+            'apply_isolated_patch' => (bool) ($overrides['apply_isolated_patch'] ?? true),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     */
+    private function programmingExecutorResponseText(array $result): string
+    {
+        $score = data_get($result, 'harness_payload.run.score');
+        $evidence = implode(', ', array_map('strval', (array) ($result['evidence_refs'] ?? []))) ?: '-';
+        $blocking = implode('; ', array_map('strval', (array) ($result['blocking_failures'] ?? []))) ?: '-';
+
+        return implode("\n", [
+            '# Atlas Programming Executor',
+            '',
+            '- Status: '.(string) ($result['status'] ?? 'unknown'),
+            '- Executor: '.(string) ($result['executor'] ?? 'engineering_harness'),
+            '- Task: '.(string) ($result['task_id'] ?? '-'),
+            '- Engineering run: '.(string) data_get($result, 'harness_payload.run.id', '-'),
+            '- Decision: '.(string) data_get($result, 'harness_payload.run.decision', 'unknown'),
+            '- Score: '.($score === null ? '-' : (string) $score),
+            '- Evidence: '.$evidence,
+            '- Blocking failures: '.$blocking,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $devPlan
+     * @return array<string,bool>
+     */
+    private function fairClaudeFlags(?array $devPlan = null): array
+    {
+        $devPlanFair = (bool) data_get($devPlan, 'fair_mode.fair_mode')
+            || (bool) data_get($devPlan, 'operator_options.fair_mode');
+
+        return [
+            'claude_only' => (bool) $this->option('claude-only') || (bool) data_get($devPlan, 'operator_options.claude_only'),
+            'single_provider' => (bool) $this->option('single-provider') || $devPlanFair || (bool) data_get($devPlan, 'operator_options.single_provider'),
+            'no_decide' => (bool) $this->option('no-decide') || $devPlanFair || (bool) data_get($devPlan, 'operator_options.no_decide'),
+            'fallback_disabled' => (bool) $this->option('fallback-disabled') || $devPlanFair || (bool) data_get($devPlan, 'operator_options.fallback_disabled'),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $violation
+     */
+    private function fairModeViolation(array $violation): int
+    {
+        $payload = AtlasSecurity::redactArray([
+            'ok' => false,
+            'phase' => 'preflight',
+            'error' => FairClaudePolicy::ERROR_CODE,
+            'message' => (string) ($violation['message'] ?? 'Fair Claude mode violation.'),
+            'fair_mode' => $violation['fair_mode'] ?? [],
+            'details' => $violation['details'] ?? [],
+        ]);
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $this->error((string) $payload['message']);
+
+        return self::FAILURE;
+    }
+
+    private function fairClaudePromptContract(string $prompt): string
+    {
+        return app(\App\Services\Ai\Cli\AtlasCliDevWorkflowService::class)
+            ->fairClaudePromptContract($prompt);
+    }
+
     private function modelPanelValue(?string $provider, ?array $modelSelection, bool $decorated): string
     {
         if ($modelSelection !== null) {
@@ -2721,6 +3004,58 @@ class AiChatCommand extends Command
     }
 
     /**
+     * @return array<string,mixed>|null
+     */
+    private function programmingMessagePlan(
+        string $workspace,
+        string $mode,
+        string $input,
+        ?string $provider,
+        ?string $model,
+        ?array $devPlan,
+    ): ?array {
+        if ($mode !== 'dev' || $devPlan === null) {
+            return null;
+        }
+
+        $profile = $this->programmingProfileFromDevPlan($devPlan);
+        $executionProfile = (array) data_get($devPlan, 'execution_profile', []);
+
+        try {
+            return app(AtlasProgrammingOrchestrator::class)->sessionPlan($workspace, $profile, [
+                'task' => $input,
+                'provider' => $provider,
+                'model' => $model,
+                'interactive' => true,
+                'complete' => (bool) ($executionProfile['complete'] ?? ($profile === 'forge')),
+                'auto_test' => (bool) ($executionProfile['auto_test'] ?? ($profile === 'forge')),
+                'max_iterations' => (int) ($executionProfile['max_iterations'] ?? ($profile === 'forge' ? 5 : 3)),
+                'parent_plan_id' => is_string($devPlan['plan_id'] ?? null) ? $devPlan['plan_id'] : null,
+            ]);
+        } catch (\Throwable $exception) {
+            return [
+                'schema_version' => 1,
+                'status' => 'plan_failed',
+                'orchestrator' => 'AtlasProgrammingOrchestrator',
+                'programming_profile' => $profile,
+                'workspace' => $workspace,
+                'error' => class_basename($exception),
+                'message' => AtlasSecurity::redactString($exception->getMessage()),
+                'created_at' => now()->toJSON(),
+            ];
+        }
+    }
+
+    private function programmingProfileFromDevPlan(?array $devPlan): string
+    {
+        $profile = data_get($devPlan, 'programming_profile')
+            ?: data_get($devPlan, 'programming_session_plan.programming_profile')
+            ?: data_get($devPlan, 'dev_execution_plan.programming_profile');
+
+        return $profile === 'forge' ? 'forge' : 'dev';
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function openBrainPayload(string $mode, ?array $devPlan = null): array
@@ -2775,7 +3110,12 @@ class AiChatCommand extends Command
      */
     private function traceRelations(): array
     {
-        $relations = ['thread', 'session', 'job', 'jobs'];
+        $relations = ['thread', 'session'];
+
+        if (Schema::hasTable('ai_jobs')) {
+            $relations[] = 'job';
+            $relations[] = 'jobs';
+        }
 
         if (Schema::hasTable('ai_quality_evaluations')) {
             $relations[] = 'qualityEvaluation';

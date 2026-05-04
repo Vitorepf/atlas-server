@@ -27,8 +27,11 @@ class AtlasToolReleaseGateService
             'require_evidence' => true,
             'fail_statuses' => $options['fail_statuses'] ?? ['failed', 'timeout', 'requires_approval', 'denied'],
             'waiver_aware_failed_runs' => true,
+            'max_age_minutes' => $options['max_age_minutes'] ?? 1440,
+            'stale_blocks' => array_key_exists('stale_blocks', $options) ? (bool) $options['stale_blocks'] : true,
+            'latest_per_tool' => true,
         ]);
-        $runs = $this->evidence->recent($filters);
+        $runs = $this->latestRunsPerTool($this->evidence->recent($filters));
         $releaseFailures = $this->releaseRequirementFailures($runs);
         $blockingFailures = [
             ...((array) ($gatePayload['blocking_failures'] ?? [])),
@@ -143,5 +146,17 @@ class AtlasToolReleaseGateService
                 return $artifactTypes->contains('sbom_summary')
                     || is_numeric(data_get($run->normalized_result_json, 'metrics.package_count'));
             });
+    }
+
+    /**
+     * @param  Collection<int,AtlasToolRun>  $runs
+     * @return Collection<int,AtlasToolRun>
+     */
+    private function latestRunsPerTool(Collection $runs): Collection
+    {
+        return $runs
+            ->sortByDesc(fn (AtlasToolRun $run): string => ($run->finished_at ?? $run->created_at)?->toJSON() ?? '')
+            ->unique('tool_slug')
+            ->values();
     }
 }

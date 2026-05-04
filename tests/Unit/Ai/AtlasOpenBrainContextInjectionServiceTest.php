@@ -3,6 +3,7 @@
 namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
+use App\Services\Ai\AtlasMemoryQualityService;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
@@ -421,6 +422,163 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
 
         $this->assertStringContainsString('## Code Intelligence Refs', $result['prompt_section'] ?? '');
         $this->assertStringContainsString('Atlas AI Services', $result['prompt_section'] ?? '');
+    }
+
+    public function test_prompt_section_includes_memory_quality_gate_when_available(): void
+    {
+        $memoryQuality = $this->createMock(AtlasMemoryQualityService::class);
+        $memoryQuality->method('scorecard')->willReturn([
+            'ok' => true,
+            'status' => 'ready',
+            'score' => 97,
+            'counts' => [
+                'active' => 5,
+                'provider_safe_active' => 5,
+            ],
+            'issues' => [],
+            'latest_snapshot' => [
+                'status' => 'ready',
+                'score' => 97,
+                'snapshot_at' => '2026-05-03T19:00:00Z',
+            ],
+            'trend' => [
+                'status' => 'stable',
+                'current_score' => 97,
+                'latest_snapshot_score' => 97,
+                'snapshot_count' => 1,
+                'current_delta_from_latest' => 0,
+                'latest_delta_from_previous' => null,
+                'window_delta' => null,
+            ],
+        ]);
+
+        $service = new AtlasOpenBrainContextInjectionService($this->knowledge, $this->code, $memoryQuality);
+        $result = $service->inject(
+            'dev task',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        );
+
+        $this->assertSame('ready', data_get($result, 'summary.memory_quality.status'));
+        $this->assertSame(97, data_get($result, 'summary.memory_quality.score'));
+        $this->assertSame('stable', data_get($result, 'summary.memory_quality.trend.status'));
+        $this->assertStringContainsString('## Memory Quality Gate', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('status: ready; score=97', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('trend: status=stable', $result['prompt_section'] ?? '');
+    }
+
+    public function test_memory_quality_critical_warns_and_fails_closed_when_required(): void
+    {
+        $memoryQuality = $this->createMock(AtlasMemoryQualityService::class);
+        $memoryQuality->method('scorecard')->willReturn([
+            'ok' => false,
+            'status' => 'critical',
+            'score' => 31,
+            'counts' => [
+                'active' => 2,
+                'provider_safe_active' => 0,
+            ],
+            'issues' => [
+                ['code' => 'no_provider_safe_memory', 'severity' => 'critical'],
+            ],
+            'latest_snapshot' => null,
+        ]);
+
+        $service = new AtlasOpenBrainContextInjectionService($this->knowledge, $this->code, $memoryQuality);
+        $result = $service->inject(
+            'dev task',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => [
+                'atlas_workflow_mode' => 'dev',
+                'open_brain' => ['mode' => 'required'],
+            ]],
+        );
+
+        $this->assertSame('failed_closed', $result['status']);
+        $this->assertContains('memory_quality_critical', $result['warnings']);
+        $this->assertContains('memory_quality_no_provider_safe_memory', $result['warnings']);
+        $this->assertSame('critical', data_get($result, 'summary.memory_quality.status'));
+    }
+
+    public function test_memory_quality_regression_trend_warns_without_failed_closed_in_auto_mode(): void
+    {
+        $memoryQuality = $this->createMock(AtlasMemoryQualityService::class);
+        $memoryQuality->method('scorecard')->willReturn([
+            'ok' => true,
+            'status' => 'ready',
+            'score' => 86,
+            'counts' => [
+                'active' => 5,
+                'provider_safe_active' => 5,
+            ],
+            'issues' => [],
+            'latest_snapshot' => null,
+            'trend' => [
+                'status' => 'regressed',
+                'current_score' => 86,
+                'latest_snapshot_score' => 99,
+                'snapshot_count' => 2,
+                'current_delta_from_latest' => -13,
+                'drivers' => [
+                    [
+                        'kind' => 'component_drop',
+                        'key' => 'provider_safety',
+                        'severity' => 'warning',
+                        'delta' => -20,
+                        'current' => 80,
+                        'previous' => 100,
+                    ],
+                ],
+            ],
+        ]);
+
+        $service = new AtlasOpenBrainContextInjectionService($this->knowledge, $this->code, $memoryQuality);
+        $result = $service->inject(
+            'dev task',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev']],
+        );
+
+        $this->assertSame('degraded', $result['status']);
+        $this->assertContains('memory_quality_trend_regressed', $result['warnings']);
+        $this->assertSame('regressed', data_get($result, 'summary.memory_quality.trend.status'));
+        $this->assertSame('provider_safety', data_get($result, 'summary.memory_quality.trend.drivers.0.key'));
+        $this->assertStringContainsString('trend: status=regressed', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('trend_drivers: provider_safety:-20', $result['prompt_section'] ?? '');
+    }
+
+    public function test_memory_quality_generated_at_does_not_make_context_hash_drift(): void
+    {
+        $memoryQuality = $this->createMock(AtlasMemoryQualityService::class);
+        $memoryQuality->method('scorecard')->willReturnOnConsecutiveCalls(
+            [
+                'ok' => true,
+                'status' => 'ready',
+                'score' => 97,
+                'counts' => ['active' => 5, 'provider_safe_active' => 5],
+                'issues' => [],
+                'latest_snapshot' => null,
+                'generated_at' => '2026-05-03T19:00:00Z',
+            ],
+            [
+                'ok' => true,
+                'status' => 'ready',
+                'score' => 97,
+                'counts' => ['active' => 5, 'provider_safe_active' => 5],
+                'issues' => [],
+                'latest_snapshot' => null,
+                'generated_at' => '2026-05-03T19:00:05Z',
+            ],
+        );
+
+        $service = new AtlasOpenBrainContextInjectionService($this->knowledge, $this->code, $memoryQuality);
+        $first = $service->inject('dev task', $this->task('dev'), $this->pack(), ['payload' => ['atlas_workflow_mode' => 'dev']]);
+        $second = $service->inject('dev task', $this->task('dev'), $this->pack(), ['payload' => ['atlas_workflow_mode' => 'dev']]);
+
+        $this->assertSame($first['context_pack_hash'], $second['context_pack_hash']);
     }
 
     // --- helpers ---

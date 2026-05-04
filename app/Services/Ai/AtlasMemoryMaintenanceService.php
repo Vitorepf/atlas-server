@@ -10,6 +10,8 @@ class AtlasMemoryMaintenanceService
     public function __construct(
         private readonly EngineeringKnowledgeBaseService $knowledge,
         private readonly EngineeringCodeIntelligenceService $code,
+        private readonly AtlasMemoryLearningPromotionService $learningPromotion,
+        private readonly AtlasMemoryQualityService $quality,
         private readonly AtlasProviderProjectionService $projection,
         private readonly AtlasProviderProjectionAuditService $audits,
         private readonly AtlasOpenBrainMcpService $mcp,
@@ -26,8 +28,14 @@ class AtlasMemoryMaintenanceService
         $sync = (bool) ($options['sync'] ?? true);
         $indexCode = (bool) ($options['index_code'] ?? true);
         $prune = (bool) ($options['prune'] ?? true);
+        $promoteLearnings = (bool) ($options['promote_learnings'] ?? true);
+        $autoPromoteCandidates = (bool) ($options['auto_promote_candidates'] ?? false);
+        $promotionLimit = max(1, min(200, (int) ($options['promotion_limit'] ?? 50)));
+        $promotionMinConfidence = max(0.0, min(1.0, (float) ($options['promotion_min_confidence'] ?? 0.86)));
+        $recordQualitySnapshot = (bool) ($options['record_quality_snapshot'] ?? true);
         $applyProjection = (bool) ($options['apply_projection'] ?? false);
         $confirm = (bool) ($options['confirm'] ?? false);
+        $enforceQuality = (bool) ($options['enforce_quality'] ?? false);
         $includeDriftAudit = (bool) ($options['include_drift_audit'] ?? false);
         $initiator = $this->initiator($options['initiator'] ?? 'system');
         $context = ['workspace' => $workspace];
@@ -41,6 +49,8 @@ class AtlasMemoryMaintenanceService
             'writes' => [
                 'knowledge_sync' => ! $dryRun && $sync,
                 'code_index' => ! $dryRun && $indexCode,
+                'learning_promotion' => ! $dryRun && $promoteLearnings,
+                'memory_quality_snapshot' => ! $dryRun && $recordQualitySnapshot,
                 'provider_projection_apply' => $applyProjection && ! $dryRun,
             ],
             'stages' => [],
@@ -68,6 +78,28 @@ class AtlasMemoryMaintenanceService
             $payload['stages']['code_index'] = ['ok' => true, 'status' => 'skipped'];
         }
 
+        if ($promoteLearnings) {
+            $payload['stages']['learning_promotion'] = $this->learningPromotion->run([
+                'workspace' => $workspace,
+                'dry_run' => $dryRun,
+                'auto_promote_candidates' => $autoPromoteCandidates,
+                'limit' => $promotionLimit,
+                'min_confidence' => $promotionMinConfidence,
+            ]);
+            $payload['ok'] = $payload['ok'] && (bool) data_get($payload, 'stages.learning_promotion.ok', true);
+        } else {
+            $payload['stages']['learning_promotion'] = ['ok' => true, 'status' => 'skipped'];
+        }
+
+        $payload['stages']['memory_quality'] = $this->quality->scorecard($context);
+        $payload['stages']['memory_quality_snapshot'] = $this->recordQualitySnapshot(
+            $payload['stages']['memory_quality'],
+            $context,
+            $dryRun,
+            $recordQualitySnapshot,
+            $initiator,
+        );
+
         $payload['stages']['provider_projection_status'] = $this->projection->status('all', $context, $context);
 
         if ($applyProjection) {
@@ -83,7 +115,7 @@ class AtlasMemoryMaintenanceService
         }
 
         $payload['stages']['mcp_health'] = $this->mcpHealth($workspace, $includeDriftAudit);
-        $payload['status'] = $this->finalStatus($payload, $dryRun);
+        $payload['status'] = $this->finalStatus($payload, $dryRun, $enforceQuality);
         $payload['ok'] = $payload['ok'] && in_array($payload['status'], ['ready', 'dry_run_ready'], true);
 
         return $payload;
@@ -159,12 +191,56 @@ class AtlasMemoryMaintenanceService
     }
 
     /**
+     * @param  array<string,mixed>  $scorecard
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    private function recordQualitySnapshot(
+        array $scorecard,
+        array $context,
+        bool $dryRun,
+        bool $enabled,
+        string $initiator,
+    ): array {
+        if (! $enabled) {
+            return ['ok' => true, 'status' => 'skipped'];
+        }
+
+        if ($dryRun) {
+            return ['ok' => true, 'status' => 'skipped_dry_run'];
+        }
+
+        $snapshot = $this->quality->recordSnapshot($scorecard, $context + [
+            'source_type' => 'memory_maintenance',
+            'metadata' => [
+                'initiator' => $initiator,
+                'maintenance_command' => 'atlas:memory:maintain',
+            ],
+        ]);
+
+        if (! $snapshot) {
+            return ['ok' => true, 'status' => 'skipped_missing_table'];
+        }
+
+        return [
+            'ok' => true,
+            'status' => 'recorded',
+            'snapshot' => $this->quality->snapshotPayload($snapshot),
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      */
-    private function finalStatus(array $payload, bool $dryRun): string
+    private function finalStatus(array $payload, bool $dryRun, bool $enforceQuality): string
     {
         if (! (bool) ($payload['ok'] ?? false)) {
             return 'failed';
+        }
+
+        $qualityStatus = (string) data_get($payload, 'stages.memory_quality.status', 'unknown');
+        if ($enforceQuality && in_array($qualityStatus, ['critical', 'needs_review'], true)) {
+            return 'needs_memory_quality_review';
         }
 
         $healthStatus = (string) data_get($payload, 'stages.mcp_health.overall_status', 'unknown');

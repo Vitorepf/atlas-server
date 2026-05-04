@@ -107,6 +107,7 @@ return [
             'required_for_complete' => (bool) env('ATLAS_OPEN_BRAIN_INJECTION_REQUIRED_FOR_COMPLETE', true),
             'knowledge_ref_limit' => (int) env('ATLAS_OPEN_BRAIN_INJECTION_KNOWLEDGE_REF_LIMIT', 6),
             'code_ref_limit' => (int) env('ATLAS_OPEN_BRAIN_INJECTION_CODE_REF_LIMIT', 8),
+            'include_memory_quality' => (bool) env('ATLAS_OPEN_BRAIN_INJECTION_INCLUDE_MEMORY_QUALITY', true),
         ],
         'mcp' => [
             'http_enabled' => (bool) env('ATLAS_OPEN_BRAIN_MCP_HTTP_ENABLED', true),

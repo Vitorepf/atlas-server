@@ -16,12 +16,18 @@ capabilities:
   - memory_core_preservation
   - engineering_knowledge_navigation
   - open_brain_context_injection
+  - obsidian_atlas_vault
   - engineering_blueprint
   - project_blueprint_pipeline
+  - programming_power_tools_catalog
+  - fair_claude_benchmark
+  - atlas_supercharged_routing
 decisions:
   - Toda IA nova deve ler este arquivo antes de alterar Memory Core, Knowledge Base ou Code Intelligence.
   - Toda IA nova deve ler Open Brain Context Injection antes de alterar fluxos de programacao por CLI ou app.
   - Toda IA nova deve ler Engineering Blueprint antes de alterar planejamento, task contracts, QA, review ou Postgres gate.
+  - Toda IA nova deve ler Programming Power Tools Catalog antes de adicionar ou promover ferramentas de programacao.
+  - Toda IA nova deve ler os docs 5x antes de alterar Atlas Decide, fair mode, provider routing ou benchmark contra Claude Code.
   - O documento mestre preservado no atlas-server e a fonte versionada de direcao.
   - A raiz do workspace pode ter copias auxiliares, mas o conteudo que precisa sobreviver deve estar dentro do repo.
 maintenance:
@@ -33,6 +39,7 @@ related_paths:
   - docs/engineering-knowledge-base/memory-core-runbook.md
   - docs/engineering-knowledge-base/memory-core-contracts.md
   - docs/engineering-knowledge-base/open-brain-context-injection.md
+  - docs/engineering-knowledge-base/obsidian-atlas-vault.md
   - docs/engineering-knowledge-base/memory-core-security-privacy.md
   - docs/engineering-knowledge-base/memory-core-failure-modes.md
   - docs/engineering-knowledge-base/memory-core-maturity-dod.md
@@ -42,6 +49,12 @@ related_paths:
   - docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md
   - docs/engineering-knowledge-base/engineering-blueprint-runbook.md
   - docs/engineering-knowledge-base/engineering-blueprint-maturity-dod.md
+  - docs/engineering-knowledge-base/super-tool-runtime-core.md
+  - docs/engineering-knowledge-base/programming-power-tools-catalog.md
+  - docs/atlas-cli-5x-claude-code-plan.md
+  - docs/atlas-cli-fair-claude-benchmark.md
+  - docs/atlas-cli-final-product.md
+  - docs/atlas-cli-release-checklist.md
   - atlas-app/app/open-brain.tsx
 ---
 
@@ -73,33 +86,57 @@ Atlas.
 6. `memory-core-security-privacy.md`
    Politica de privacy, redaction e provider-safety.
 
-7. `memory-core-failure-modes.md`
+7. `obsidian-atlas-vault.md`
+   Contrato para Obsidian/AtlasVault como camada humana bidirecional, sem virar
+   fonte primaria da memoria operacional.
+
+8. `memory-core-failure-modes.md`
    Diagnostico e recuperacao por camada.
 
-8. `memory-core-maturity-dod.md`
+9. `memory-core-maturity-dod.md`
    Maturity model e Definition of Done.
 
-9. `code-intelligence.md`
+10. `code-intelligence.md`
    Como o Atlas entende o codigo real via modulos, simbolos, rotas, comandos,
    migrations, testes e doc links.
 
-10. `engineering-blueprint.md`
+11. `engineering-blueprint.md`
    Produto final do Engineering Blueprint System: intencao de produto,
    blueprint, task contracts, Harness, QA, review, Postgres gate e memory delta.
 
-11. `engineering-blueprint-contracts.md`
+12. `engineering-blueprint-contracts.md`
     Schemas e invariantes de project blueprint, task blueprint, task contract,
     inventory, scenarios, evidencias e review findings.
 
-12. `engineering-blueprint-quality-gates.md`
+13. `engineering-blueprint-quality-gates.md`
     Gates de aceite, QA manual, visual smoke, deep review, Postgres review,
     telemetry e Definition of Done de qualidade.
 
-13. `engineering-blueprint-runbook.md`
+14. `engineering-blueprint-runbook.md`
     Como operar e implementar blueprint pelo app, CLI e API.
 
-14. `engineering-blueprint-maturity-dod.md`
+15. `engineering-blueprint-maturity-dod.md`
     Estado real dos 7 itens, fases faltantes e criterio final de conclusao.
+
+16. `super-tool-runtime-core.md`
+    Registry, policy, executor, normalizer, Evidence Store, approvals, waivers,
+    recipes e gates genericos para ferramentas locais.
+
+17. `programming-power-tools-catalog.md`
+    Bancada operacional de ferramentas para programacao pesada: tiers T0-T3,
+    autoridade anti-duplicacao, agentes externos, lacunas e backlog.
+
+18. `../atlas-cli-5x-claude-code-plan.md`
+    Plano ultra robusto para Fair Claude, Atlas Supercharged, Gemini Scout,
+    Context Compiler, repair taxonomy, scorecard 5x e gates de eficiencia.
+
+19. `../atlas-cli-fair-claude-benchmark.md`
+    Protocolo pareado para comparar Atlas Fair Claude contra Claude Code usando
+    o mesmo Claude Opus sem contaminar com Codex, Gemini, fallback ou Decide.
+
+20. `../atlas-cli-final-product.md` e `../atlas-cli-release-checklist.md`
+    Superficie operacional do CLI, release gates, Fair Claude Gate e Atlas
+    Supercharged Gate.
 
 ## Regras Para IAs
 
@@ -113,8 +150,15 @@ Atlas.
   multiusuario sem fase propria e DoD explicito. Embeddings externos exigem
   opt-in e privacy policy.
 - Nao tratar `CLAUDE.md`, `AGENTS.md`, Obsidian ou chat como fonte primaria.
+- Nao alterar Obsidian, AtlasVault, semantic vault, import/export de markdown ou
+  sync bidirecional sem seguir `obsidian-atlas-vault.md`.
 - Nao alterar planejamento, task contracts, QA, review ou Postgres gate sem ler
   a familia `engineering-blueprint*.md`.
+- Nao adicionar ferramenta, recipe, normalizer ou gate novo sem checar
+  `super-tool-runtime-core.md` e `programming-power-tools-catalog.md`.
+- Nao declarar "5x melhor que Claude Code" sem seguir
+  `../atlas-cli-5x-claude-code-plan.md` e
+  `../atlas-cli-fair-claude-benchmark.md`.
 - Atualizar docs e rodar `atlas memory maintain` quando alterar arquitetura,
   regras, codigo core ou context packs.
 - Para operar recall/context pack sem terminal, use `Home > Atlas Open Brain`

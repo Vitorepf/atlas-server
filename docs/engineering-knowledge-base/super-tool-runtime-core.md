@@ -80,12 +80,13 @@ O bloco inicial entrega:
 - normalizacao estruturada compartilhada para outputs JSON de Gitleaks, Semgrep, ESLint, PHPStan, Psalm, ShellCheck, Trivy, OSV-Scanner e Grype;
 - `AtlasToolEvidenceStore` para persistir runs, artifacts, hashes e findings normalizados;
 - `AtlasToolEvidenceQueryService` para consultar evidencias recentes com filtros por workspace, tool, surface, status, policy decision, required e contexto, alem de carregar/exportar uma run por ID;
-- `AtlasToolGateService` para avaliar evidencias normalizadas e produzir gate `passed`, `warning` ou `blocked`;
-- `AtlasToolReleaseGateService` para aplicar um release gate Security/SBOM sobre evidencias persistidas, exigindo secret scan, static security scan, dependency vulnerability scan e SBOM normalizado;
+- `AtlasToolGateService` para avaliar evidencias normalizadas e produzir gate `passed`, `warning` ou `blocked`, incluindo freshness opcional por idade maxima de evidencia;
+- `AtlasToolAuthorityPolicyService` para publicar o contrato auditavel de severidade por grupo de autoridade usado pelo gate;
+- `AtlasToolReleaseGateService` para aplicar um release gate Security/SBOM sobre evidencias persistidas, exigindo secret scan, static security scan, dependency vulnerability scan, SBOM normalizado e freshness de release;
 - `AtlasToolFindingWaiverService` para conceder/revogar waivers auditaveis de findings bloqueantes, com motivo, operador, origem, TTL opcional e historico;
-- CLI `atlas tools doctor|list|authority|status|commands|run|run-recipe|evidence|evidence-show|evidence-export|gate|release-gate|approve|revoke|waive-finding|revoke-finding-waiver|policies`;
+- CLI `atlas tools doctor|list|authority|authority-policies|set-authority-policy|revoke-authority-policy|status|commands|run|run-recipe|evidence|evidence-show|evidence-export|gate|release-gate|approve|revoke|waive-finding|revoke-finding-waiver|policies`;
 - CLI operacional do Engineering Harness tambem expoe `atlas engineering security-scan` e `atlas engineering sbom`, ambos reutilizando o Quality Scan e o Evidence Store genericos com filtro de tools;
-- API `GET /tools`, `GET /tools/doctor`, `GET /tools/authority`, `GET /tools/evidence`, `GET /tools/evidence/{run}`, `GET /tools/evidence/{run}/export`, `GET /tools/gate`, `GET /tools/release-gate`, `GET /tools/policies`, `GET /tools/{tool}`, `GET /tools/{tool}/commands`, `POST /tools/{tool}/commands/{recipe}/run`, `POST /tools/{tool}/run`, `POST /tools/{tool}/approval`, `DELETE /tools/{tool}/approval`, `POST /tools/findings/{finding}/waiver` e `DELETE /tools/findings/{finding}/waiver`;
+- API `GET /tools`, `GET /tools/doctor`, `GET /tools/authority`, `GET /tools/authority/policies`, `PUT /tools/authority/policies/{authorityGroup}`, `DELETE /tools/authority/policies/{authorityGroup}`, `GET /tools/evidence`, `GET /tools/evidence/{run}`, `GET /tools/evidence/{run}/export`, `GET /tools/gate`, `GET /tools/release-gate`, `GET /tools/policies`, `GET /tools/{tool}`, `GET /tools/{tool}/commands`, `POST /tools/{tool}/commands/{recipe}/run`, `POST /tools/{tool}/run`, `POST /tools/{tool}/approval`, `DELETE /tools/{tool}/approval`, `POST /tools/findings/{finding}/waiver` e `DELETE /tools/findings/{finding}/waiver`;
 - API operacional do Engineering Harness tambem expoe `POST /engineering/security-scan` e `POST /engineering/sbom`, protegidos por `atlas.token`, com o mesmo contrato filtrado dos comandos CLI;
 - `AtlasToolApprovalService` para aprovacoes auditaveis por workspace/global, TTL, motivo, operador, permissao de rede e revogacao sem apagar historico;
 - aprovacoes auditaveis tambem persistem guardrails de policy (`max_execution_tier`, `sandbox_mode`, `privacy_level`, `task_type`, `requires_provider_safe`), evitando que approval vire permissao irrestrita;
@@ -101,14 +102,29 @@ O bloco inicial entrega:
 - politica de produto T0-T3 implementada no registry: `atlas_tool_definitions` agora guarda `execution_tier`, `expected_cost`, `default_trigger`, `authority_role` e `authority_group`; `AtlasToolPolicyEngine` inclui esses campos na decisao auditavel e respeita `max_execution_tier` em CLI/API para impedir que ferramentas T2/T3 rodem em fluxos T0/T1.
 - roadmap de Programming Power Tools semeado no Tool Registry como ferramentas opcionais: Serena, Tree-sitter, ast-grep, ctags, CodeQL, Infer, Checkov, Terrascan, kube-linter, kube-score, Dockle, ScanCode, ORT, licensee, Rector, PHPMD, PHPCPD, Composer Require Checker, Composer Unused, Knip, ts-prune, Schemathesis, Pact, Prism, WireMock, Bruno, Infection, Stryker, fast-check, axe-core, Pa11y, Lighthouse CI, dependency-cruiser, Madge, Deptrac, Aider, Continue e OpenHands. Ferramentas ausentes continuam `missing`/`skipped` e nao viram dependencia obrigatoria.
 - `AtlasToolAuthorityMatrixService` expoe a matriz operacional por CLI/API com resumo por tier, grupos de autoridade, papeis `primary|primary_or_complementary|complementary|fallback|executor`, ferramentas high-risk/release-heavy e recomendacoes de governanca.
-- Tool Registry agora publica `safe_commands` por ferramenta e `atlas tools commands <tool>`/`GET /tools/{tool}/commands`, expondo command recipes auditaveis com argv, dry-run default, tier, sandbox, privacidade, task type, rede e provider-safe.
+- `AtlasToolAuthorityPolicyService`, `atlas tools authority-policies --json` e `GET /tools/authority/policies` expoem as regras de gate por authority group: severidades bloqueantes, severidades de warning, origem (`default`, `workspace`, `global`) e razoes auditaveis usadas em `blocking_failures`/`warnings`.
+- Overrides operacionais de authority gate usam `atlas_tool_policies` com `tool_slug=authority:<group>` e `thresholds_json.schema=atlas.tool_authority_policy_override.v1`; podem ser aplicados por `atlas tools set-authority-policy <group>` ou `PUT /tools/authority/policies/{authorityGroup}` e revogados por CLI/API sem apagar historico.
+- Tool Registry agora publica `safe_commands` por ferramenta e `atlas tools commands <tool>`/`GET /tools/{tool}/commands`, expondo command recipes auditaveis com argv, dry-run default, categoria, surface recomendada, se cria evidencia, se pode bloquear, tier, sandbox, privacidade, task type, rede e provider-safe.
+- O primeiro pacote de recipes P0 reais foi promovido no registry: `gitleaks detect-redacted`, `semgrep scan-json`, `osv_scanner recursive-json`, `syft sbom-json`, `trivy fs-json`, `phpstan analyse-json`, `typescript no-emit`, `eslint lint-json`, `laravel_pint format-test`, `biome ci-json`, `hadolint dockerfile-json` e `checkov directory-sarif`.
 - recipes podem ser executadas diretamente por `atlas tools run-recipe <tool> --recipe=<name>` e `POST /tools/{tool}/commands/{recipe}/run`, herdando argv e guardrails do registry e registrando `metadata_json.recipe` na evidencia.
 - painel Engineering do app consome `GET /tools/authority` junto com doctor/evidence/gate, mostrando distribuicao T0-T3, recomendacoes, lacunas de primaria, coautoridade e grupos relevantes diretamente no card Super Tool Runtime.
+- painel Engineering do app tambem consome `GET /tools/authority/policies`, mostrando contratos bloqueantes/warning e melhorando a explicabilidade de cada gate issue com authority group, policy e severidade.
+- painel Engineering agora tambem opera overrides workspace de authority policy: `Medium bloqueia` endurece um grupo para bloquear critical/high/medium e avisar low; `Revogar` remove o override workspace e volta para a policy default/global efetiva.
 - client do app expoe `runAtlasTool(tool, input)` com o contrato completo de execucao (`command`, `dry_run`, `approved`, `network_allowed`, `max_execution_tier`, `sandbox_mode`, `privacy_level`, `task_type`, `requires_provider_safe`, `env`, `output_limit`) e as linhas de evidencia exibem tier/sandbox/privacy/task/provider-safe a partir de `policy_decision_json`.
 - client do app tambem expoe `listAtlasToolPolicies`, `approveAtlasTool` e `revokeAtlasToolApproval` com guardrails de approval (`max_execution_tier`, `sandbox_mode`, `privacy_level`, `task_type`, `requires_provider_safe`) e helper para renderizar policy auditavel.
 - painel Engineering do app exibe `Approval policies` no card Super Tool Runtime, consumindo `GET /tools/policies` com o workspace ativo e mostrando status, escopo, TTL e guardrails persistidos para auditoria operacional.
 - painel Engineering tambem opera actions seguras por ferramenta: `Dry-run` registra evidencia auditavel sem executar comando real, `Aprovar 2h` cria approval de workspace com TTL curto, sem rede e guardrails conservadores, e `Revogar` encerra a approval sem apagar historico.
 - action `Dry-run` do app executa a command recipe declarada pelo registry via endpoint de recipe, em vez de montar ou enviar argv ad hoc na UI.
+- evidencias geradas por recipe registram `metadata_json.recipe_category`, `recipe_recommended_surface`, `recipe_creates_evidence` e `recipe_blocking_capable`, permitindo gates e UI diferenciarem diagnostico, scan, refactor e release.
+- execucoes por recipe gravam a `surface` operacional recomendada pela propria recipe (`manual_diagnostic`, `engineering_quality_scan` ou `release_gate`) e preservam a origem de chamada em `metadata_json.execution_origin` (`cli_recipe`, `api_recipe` ou outra origem auditavel). Assim uma recipe de release executada diretamente por CLI/API entra no gate correto sem surface manual.
+- `AtlasToolResultNormalizer` agora tambem parseia diagnosticos textuais do TypeScript (`TSxxxx`), JSON do Laravel Pint, JSON do Biome, JSON do Hadolint e SARIF generico para CodeQL/Checkov, convertendo arquivo, linha, rule id, mensagem, severidade e bloqueio para findings normalizados.
+- `AtlasToolGateService` respeita `metadata_json.recipe_blocking_capable=false`: falha de status em recipe diagnostica vira warning (`non_blocking_recipe_failed`) em vez de bloqueio, enquanto policy denial, `requires_approval` e findings bloqueantes continuam bloqueando normalmente.
+- Evidence Store e gates aceitam filtros por recipe: `recipe`, `recipe_category`, `recipe_recommended_surface` e `recipe_blocking_capable`, disponiveis em CLI/API para separar diagnosticos de scans bloqueantes sem heuristica. Filtros internos tambem aceitam listas de `surface`, permitindo o `release-gate` consumir `engineering_quality_scan` e `release_gate` por padrao.
+- `AtlasToolGateService` aplica thresholds por `authority_group`: secret scan bloqueia qualquer segredo confirmado; SAST, dependency vulnerability, vulnerability scan, IaC, container lint, type/static analysis, formatter, API contract, visual, accessibility e architecture bloqueiam critical/high e promovem medium para warning; SBOM bloqueia critical e deixa severidades menores como warning no gate generico.
+- Quando existe override workspace/global valido, o gate usa a policy efetiva do `AtlasToolAuthorityPolicyService`; defaults continuam no codigo como baseline seguro e todo override preserva fonte, motivo e schema auditavel.
+- `AtlasToolGateService` aceita `max_age_minutes` e `stale_blocks`; evidencia stale vira warning no gate generico quando `stale_blocks=false` e bloqueio quando `stale_blocks=true`. O payload publica `freshness`, `summary.stale_evidence_count` e `runs[].evidence_age_minutes`.
+- `AtlasToolGateService` aceita `latest_per_tool`; quando ativo, o gate avalia apenas a evidencia mais nova por `tool_slug`, publica `selection.latest_per_tool` e preserva `summary.input_run_count` para auditoria.
+- `AtlasToolReleaseGateService` aplica freshness por padrao e sempre usa `latest_per_tool`: release evidence com mais de 1440 minutos bloqueia, mas evidencias antigas da mesma ferramenta nao bloqueiam se uma evidencia mais nova e valida existir.
 - `atlas help` e `bin/atlas-completion.bash` incluem `atlas tools authority`, `--tool-env`, `--output-limit`, `--max-execution-tier`, `--sandbox-mode`, `--privacy-level`, `--task-type` e `--requires-provider-safe`, reduzindo dependência de memória/documentação externa para operar o runtime.
 - matriz de autoridade anti-duplicacao iniciada em `AtlasToolFindingCorrelationService`: o gate correlaciona findings bloqueantes entre ferramentas do mesmo `authority_group` por localizacao/titulo ou fingerprint, escolhe o achado autoritativo por `authority_role`/severidade e suprime duplicatas apenas na contagem de bloqueio. A evidencia original permanece intacta no Evidence Store.
 
@@ -280,6 +296,7 @@ atlas tools list --json
 atlas tools authority --json
 atlas tools commands ripgrep --workspace=<repo> --json
 atlas tools run-recipe ripgrep --recipe=version --workspace=<repo> --json
+atlas tools evidence ripgrep --recipe=version --recipe-category=diagnostic --recipe-blocking-capable=false --workspace=<repo> --json
 atlas tools doctor --workspace=<repo> --json
 atlas tools run codeql --workspace=<repo> --command=codeql --command=--version --approved --network-allowed --max-execution-tier=T1 --json
 atlas tools run ripgrep --workspace=<repo> --command=rg --command=--version --tool-env=ATLAS_TOOL_MODE=fixture --output-limit=12000 --json
@@ -497,6 +514,8 @@ auditavel sobre o conjunto filtrado.
 ```bash
 atlas tools gate --workspace=<repo> --required-tool=semgrep --require-evidence --json
 atlas tools gate semgrep --workspace=<repo> --surface=engineering_quality_scan --json
+atlas tools gate --workspace=<repo> --max-age-minutes=240 --stale-blocks --json
+atlas tools gate --workspace=<repo> --latest-per-tool --json
 ```
 
 O gate bloqueia por padrao quando uma run filtrada tem status `failed`,
@@ -504,6 +523,18 @@ O gate bloqueia por padrao quando uma run filtrada tem status `failed`,
 `requires_approval`/`denied`, quando existe finding com `blocks_resolved=true`
 sem waiver valido ou quando o resultado normalizado declara
 `blocking_failures`. A API equivalente e `GET /tools/gate`.
+
+Freshness e opcional no gate generico. Use `max_age_minutes` para exigir
+evidencia recente e `stale_blocks=true` quando stale deve bloquear em vez de
+avisar. O gate retorna `freshness.max_age_minutes`,
+`freshness.stale_blocks`, `summary.stale_evidence_count` e
+`runs[].evidence_age_minutes`.
+
+Use `latest_per_tool=true`/`--latest-per-tool` quando a decisao deve considerar
+somente a ultima evidencia por ferramenta. Isso evita que uma falha antiga
+continue bloqueando depois que a mesma ferramenta produziu uma evidencia mais
+nova. O gate retorna `selection.latest_per_tool`, `summary.input_run_count` e
+`summary.run_count` para deixar claro quantas runs foram descartadas da decisao.
 
 O gate deve deduplicar failures normalizados que ja foram persistidos como
 `atlas_tool_findings`, para evitar contagem dupla do mesmo achado. Isso tambem
@@ -531,7 +562,7 @@ tenham sido registradas por `quality-scan`, `security-scan`, `sbom` ou uma
 automacao equivalente.
 
 ```bash
-atlas tools release-gate --workspace=<repo> --surface=engineering_quality_scan --json
+atlas tools release-gate --workspace=<repo> --json
 ```
 
 A API equivalente e:
@@ -539,6 +570,20 @@ A API equivalente e:
 ```http
 GET /tools/release-gate
 ```
+
+Quando `surface` nao e informado, o release gate avalia evidencias recentes de
+`engineering_quality_scan` e `release_gate`. Use `--surface=<surface>` ou
+`surface=<surface>` na API apenas para restringir a auditoria a uma surface
+especifica.
+
+Por padrao, o release gate bloqueia evidencias stale acima de 24h
+(`max_age_minutes=1440`, `stale_blocks=true`). Operadores podem passar
+`--max-age-minutes=<n>`/`max_age_minutes=<n>` para ajustar o budget de
+freshness por release.
+
+O release gate sempre avalia a ultima evidencia por ferramenta. Historico antigo
+continua preservado no Evidence Store, mas nao bloqueia release quando uma run
+mais nova da mesma ferramenta satisfaz o contrato.
 
 O perfil atual `security_sbom_release` exige quatro requisitos:
 

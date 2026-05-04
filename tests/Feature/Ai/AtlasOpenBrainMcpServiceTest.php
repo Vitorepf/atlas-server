@@ -10,6 +10,7 @@ use App\Services\Ai\AtlasOpenBrainMcpService;
 use Tests\Concerns\CreatesAtlasEngineeringCodeTables;
 use Tests\Concerns\CreatesAtlasEngineeringKnowledgeTables;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;
+use Tests\Concerns\CreatesAtlasTaskTables;
 use Tests\TestCase;
 
 class AtlasOpenBrainMcpServiceTest extends TestCase
@@ -17,6 +18,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
     use CreatesAtlasMemoryEntryTable;
     use CreatesAtlasEngineeringCodeTables;
     use CreatesAtlasEngineeringKnowledgeTables;
+    use CreatesAtlasTaskTables;
 
     protected function setUp(): void
     {
@@ -24,10 +26,12 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->createAtlasMemoryEntryTable();
         $this->createAtlasEngineeringCodeTables();
         $this->createAtlasEngineeringKnowledgeTables();
+        $this->createAtlasTaskTables();
     }
 
     protected function tearDown(): void
     {
+        $this->dropAtlasTaskTables();
         $this->dropAtlasEngineeringKnowledgeTables();
         $this->dropAtlasEngineeringCodeTables();
         $this->dropAtlasMemoryEntryTable();
@@ -188,8 +192,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After this phase: 6 tools (3 original + 3 from Phase 1) + 1 new (capabilities) + 1 new (workspace_info) + 1 new (recent_changes) + 1 new (decision_query) = 10
-        $this->assertCount(10, $structured['tools']);
+        // After this phase: 10 tools + 3 task lifecycle tools (start/progress/complete) = 13
+        $this->assertCount(13, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
     }

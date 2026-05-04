@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AtlasEngineeringBenchmarkRun;
+use App\Models\AtlasEngineeringBenchmarkResult;
 use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Models\AtlasEngineeringControlResult;
 use App\Models\AtlasEngineeringControlRevision;
@@ -14,8 +15,11 @@ use App\Models\AtlasEngineeringRunOperatorAction;
 use App\Models\AtlasEngineeringTestRun;
 use App\Models\AtlasTask;
 use App\Models\AtlasToolRun;
+use App\Services\Ai\Programming\ProgrammingExecutionRequest;
 use App\Services\Engineering\EngineeringControlRegistryService;
+use App\Services\Engineering\EngineeringBenchmarkService;
 use App\Services\Engineering\EngineeringDockerHarnessService;
+use App\Services\Engineering\EngineeringHarnessExecutionService;
 use App\Services\Engineering\EngineeringHarnessRunnerService;
 use App\Services\Engineering\EngineeringPatchArtifactService;
 use App\Services\Engineering\EngineeringReviewFindingService;
@@ -50,6 +54,7 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->deleteDirectoryQuietly($this->workspace);
         $this->deleteDirectoryQuietly(storage_path('app/engineering-worktrees'));
         $this->deleteDirectoryQuietly(storage_path('app/engineering-runs'));
+        $this->deleteDirectoryQuietly(storage_path('app/engineering-benchmark-runs'));
         $this->deleteDirectoryQuietly(storage_path('app/engineering-quality-scans'));
         $this->dropTables();
 
@@ -75,6 +80,9 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertNotEmpty(data_get($payload, 'context_pack.hash'));
         $this->assertNotEmpty(data_get($payload, 'run.patch_artifacts.0.diff_path'));
         $this->assertTrue(File::exists((string) data_get($payload, 'run.patch_artifacts.0.diff_path')));
+        $this->assertTrue((bool) data_get($payload, 'run.patch_artifacts.0.integrity.checked'));
+        $this->assertTrue((bool) data_get($payload, 'run.patch_artifacts.0.integrity.exists'));
+        $this->assertTrue((bool) data_get($payload, 'run.patch_artifacts.0.integrity.hash_matches'));
         $this->assertDatabaseHas('atlas_engineering_runs', [
             'task_id' => $task->id,
             'decision' => 'resolved',
@@ -175,6 +183,170 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertIsArray($payload);
         $this->assertSame('resolved', data_get($payload, 'run.decision'));
         $this->assertContains('primary_test_command', collect(data_get($payload, 'run.control_results', []))->pluck('control_slug')->all());
+    }
+
+    public function test_harness_execution_service_creates_task_for_programming_request_without_task_id(): void
+    {
+        File::put($this->workspace.'/src/example.txt', "after\n");
+
+        $result = app(EngineeringHarnessExecutionService::class)
+            ->execute(ProgrammingExecutionRequest::fromArray([
+                'profile' => 'forge',
+                'workspace' => $this->workspace,
+                'objective' => 'Executar harness sem task-id explicito',
+                'no_provider' => true,
+                'auto_test' => true,
+                'test_command' => $this->passingPhpCommand(),
+                'max_attempts' => 1,
+            ]))
+            ->toArray();
+
+        $this->assertSame('passed', data_get($result, 'status'));
+        $this->assertSame('engineering_harness', data_get($result, 'executor'));
+        $this->assertTrue((bool) data_get($result, 'created_task'));
+        $this->assertNotEmpty(data_get($result, 'task_id'));
+        $this->assertSame('resolved', data_get($result, 'harness_payload.run.decision'));
+        $this->assertDatabaseHas('atlas_tasks', [
+            'id' => data_get($result, 'task_id'),
+            'title' => 'Executar harness sem task-id explicito',
+        ]);
+    }
+
+    public function test_atlas_cli_forge_routes_to_harness_without_task_id(): void
+    {
+        File::put($this->workspace.'/src/example.txt', "after\n");
+
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['Executar', 'forge', 'via', 'harness'],
+            '--workspace' => $this->workspace,
+            '--forge' => true,
+            '--no-run' => true,
+            '--test-command' => $this->passingPhpCommand(),
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('forge_harness', data_get($payload, 'phase'));
+        $this->assertSame('forge', data_get($payload, 'workflow.programming_profile'));
+        $this->assertSame('engineering_harness', data_get($payload, 'dev_execution_plan.programming_session_plan.executor_decision.executor'));
+        $this->assertSame('passed', data_get($payload, 'programming_result.status'));
+        $this->assertSame('engineering_harness', data_get($payload, 'programming_result.executor'));
+        $this->assertTrue((bool) data_get($payload, 'programming_result.created_task'));
+        $this->assertSame('resolved', data_get($payload, 'programming_result.harness_payload.run.decision'));
+        $this->assertNotEmpty(data_get($payload, 'programming_result.evidence_refs'));
+        $this->assertDatabaseHas('atlas_tasks', [
+            'id' => data_get($payload, 'programming_result.task_id'),
+            'title' => 'Executar forge via harness',
+        ]);
+    }
+
+    public function test_ai_chat_dev_plan_dispatches_forge_message_to_harness(): void
+    {
+        File::put($this->workspace.'/src/example.txt', "after\n");
+
+        $devPlan = [
+            'schema_version' => 1,
+            'plan_id' => 'interactive-forge-plan',
+            'programming_profile' => 'forge',
+            'execution_profile' => [
+                'complete' => true,
+                'auto_test' => true,
+                'max_iterations' => 5,
+            ],
+            'operator_options' => [
+                'harness_overrides' => [
+                    'test_command' => $this->passingPhpCommand(),
+                    'sandbox' => 'workspace',
+                    'quality_scan' => 'off',
+                ],
+            ],
+        ];
+
+        $exitCode = Artisan::call('atlas:ai:chat', [
+            'input' => 'Executar forge interativo via harness',
+            '--workspace' => $this->workspace,
+            '--dev' => true,
+            '--dev-plan' => json_encode($devPlan, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            '--no-run' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('succeeded', data_get($payload, 'status'));
+        $this->assertSame('engineering_harness', data_get($payload, 'provider'));
+        $this->assertSame('forge', data_get($payload, 'programming_profile'));
+        $this->assertSame('programming_orchestrator_harness', data_get($payload, 'programming_dispatch.dispatch_path'));
+        $this->assertSame('engineering_harness', data_get($payload, 'programming_dispatch.executor'));
+        $this->assertSame('executed', data_get($payload, 'programming_dispatch.status'));
+        $this->assertSame('passed', data_get($payload, 'programming_completion.status'));
+        $this->assertSame('engineering_harness', data_get($payload, 'programming_completion.executor'));
+        $this->assertSame('programming_orchestrator_harness', data_get($payload, 'programming_completion.dispatch_path'));
+        $this->assertSame('interactive-forge-plan', data_get($payload, 'programming_message_plan.parent_plan_id'));
+        $this->assertSame('engineering_harness', data_get($payload, 'programming_message_plan.executor_decision.executor'));
+        $this->assertSame('passed', data_get($payload, 'programming_result.status'));
+        $this->assertSame('resolved', data_get($payload, 'programming_result.harness_payload.run.decision'));
+        $this->assertDatabaseHas('atlas_tasks', [
+            'id' => data_get($payload, 'programming_result.task_id'),
+            'title' => 'Executar forge interativo via harness',
+        ]);
+    }
+
+    public function test_ai_gateway_projects_provider_dispatch_metadata_for_non_harness_programming_message(): void
+    {
+        $gateway = app(\App\Services\Ai\AiGatewayService::class);
+        $method = new \ReflectionMethod($gateway, 'programmingMetadata');
+        $method->setAccessible(true);
+
+        $metadata = $method->invoke($gateway, [
+            'payload' => [
+                'programming_profile' => 'dev',
+                'programming_message_plan' => [
+                    'plan_id' => 'provider-plan',
+                    'parent_plan_id' => 'interactive-dev-plan',
+                    'programming_profile' => 'dev',
+                    'executor_decision' => [
+                        'executor' => 'dev_repair_executor',
+                    ],
+                    'policy_profile' => [
+                        'profile_context' => [
+                            'programming' => true,
+                            'forge' => false,
+                        ],
+                        'execution_policy' => [
+                            'executor_preference' => 'dev_repair_executor',
+                            'max_iterations' => 3,
+                            'quality_required' => true,
+                        ],
+                    ],
+                ],
+                'programming_dispatch' => [
+                    'schema_version' => 1,
+                    'status' => 'selected',
+                    'source' => 'AtlasProgrammingOrchestrator',
+                    'dispatch_path' => 'ai_gateway_provider',
+                    'executor' => 'dev_repair_executor',
+                    'plan_id' => 'provider-plan',
+                ],
+                'programming_repair' => [
+                    'schema_version' => 1,
+                    'status' => 'active',
+                    'executor' => 'dev_repair_executor',
+                    'enabled' => true,
+                ],
+            ],
+        ]);
+
+        $this->assertSame('dev', data_get($metadata, 'programming_profile'));
+        $this->assertSame('ai_gateway_provider', data_get($metadata, 'programming_dispatch.dispatch_path'));
+        $this->assertSame('dev_repair_executor', data_get($metadata, 'programming_dispatch.executor'));
+        $this->assertTrue(data_get($metadata, 'programming_repair.enabled'));
+        $this->assertSame('interactive-dev-plan', data_get($metadata, 'programming_message_plan.parent_plan_id'));
+        $this->assertTrue((bool) data_get($metadata, 'programming_profile_context.programming'));
+        $this->assertFalse((bool) data_get($metadata, 'programming_profile_context.forge'));
+        $this->assertSame('dev_repair_executor', data_get($metadata, 'programming_execution_policy.executor_preference'));
+        $this->assertSame(3, data_get($metadata, 'programming_execution_policy.max_iterations'));
     }
 
     public function test_engineering_run_can_be_replayed_safely_from_existing_run(): void
@@ -466,6 +638,9 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertJsonPath('run.decision', 'resolved')
             ->assertJsonPath('run.attempts.0.status', 'completed')
             ->assertJsonPath('run.patch_artifacts.0.changed_files.0', 'src/example.txt')
+            ->assertJsonPath('run.patch_artifacts.0.integrity.checked', true)
+            ->assertJsonPath('run.patch_artifacts.0.integrity.exists', true)
+            ->assertJsonPath('run.patch_artifacts.0.integrity.hash_matches', true)
             ->assertJsonPath('run.control_results.0.id', fn ($id) => is_string($id) && $id !== '')
             ->assertJsonPath('run.control_results.0.control_version', fn ($version) => is_int($version) && $version >= 1)
             ->assertJsonPath('run.control_results.0.control_definition_hash', fn ($hash) => is_string($hash) && strlen($hash) === 64)
@@ -729,6 +904,579 @@ class EngineeringHarnessRunnerTest extends TestCase
             'source_id' => data_get($runResponse->json(), 'benchmark_run.id'),
             'dedupe_key' => 'engineering-release-gate:'.data_get($runResponse->json(), 'benchmark_run.id'),
         ]);
+    }
+
+    public function test_fair_claude_benchmark_api_fails_unverified_pass_without_human(): void
+    {
+        $task = $this->task();
+        File::put($this->workspace.'/src/example.txt', "after\n");
+
+        $suiteResponse = $this->postJson('/engineering/benchmarks/suites', [
+            'name' => 'Fair Claude unverified benchmark',
+            'default_runner_options' => [
+                'no_provider' => true,
+                'auto_test' => true,
+                'test_command' => $this->passingPhpCommand(),
+            ],
+        ], $this->headers)->assertCreated();
+
+        $suiteSlug = (string) data_get($suiteResponse->json(), 'suite.slug');
+        $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/cases", [
+            'task_id' => $task->id,
+            'case_code' => 'fair_unverified',
+            'title' => 'Fair unverified',
+            'workspace' => $this->workspace,
+            'expected_decision' => 'resolved',
+            'min_score' => 85,
+            'tags' => ['fair_claude'],
+        ], $this->headers)->assertCreated();
+
+        $runResponse = $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/run", [
+            'workspace' => $this->workspace,
+            'claude_only' => true,
+            'no_provider' => true,
+            'auto_test' => true,
+            'test_command' => $this->passingPhpCommand(),
+        ], $this->headers)
+            ->assertCreated()
+            ->assertJsonPath('benchmark_run.status', 'failed')
+            ->assertJsonPath('benchmark_run.failed_cases', 1)
+            ->assertJsonPath('results.0.passed', false)
+            ->assertJsonPath('results.0.observed.fair_scorecard.required', true)
+            ->assertJsonPath('results.0.observed.fair_scorecard.passed', false);
+
+        $this->assertStringContainsString(
+            'fair_scorecard_failed',
+            (string) data_get($runResponse->json(), 'results.0.failure_summary'),
+        );
+
+        $benchmarkRunId = (string) data_get($runResponse->json(), 'benchmark_run.id');
+        $benchmarkRun = AtlasEngineeringBenchmarkRun::query()->findOrFail($benchmarkRunId);
+        $this->assertTrue((bool) data_get($benchmarkRun->runner_options_json, 'claude_only'));
+        $this->assertTrue((bool) data_get($benchmarkRun->runner_options_json, 'require_pass_without_human'));
+    }
+
+    public function test_engineering_benchmark_records_claude_code_baseline_plan_when_opted_in(): void
+    {
+        $task = $this->task();
+        File::put($this->workspace.'/src/example.txt', "after\n");
+
+        $suiteResponse = $this->postJson('/engineering/benchmarks/suites', [
+            'name' => 'Claude Code baseline benchmark',
+            'default_runner_options' => [
+                'no_provider' => true,
+                'auto_test' => true,
+                'test_command' => $this->passingPhpCommand(),
+            ],
+        ], $this->headers)->assertCreated();
+
+        $suiteSlug = (string) data_get($suiteResponse->json(), 'suite.slug');
+        $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/cases", [
+            'task_id' => $task->id,
+            'case_code' => 'claude_code_baseline_plan',
+            'title' => 'Claude Code baseline plan',
+            'workspace' => $this->workspace,
+            'expected_decision' => 'resolved',
+            'min_score' => 85,
+            'tags' => ['baseline'],
+        ], $this->headers)->assertCreated();
+
+        $runResponse = $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/run", [
+            'workspace' => $this->workspace,
+            'no_provider' => true,
+            'auto_test' => true,
+            'test_command' => $this->passingPhpCommand(),
+            'claude_code_baseline' => 'plan',
+            'claude_code_baseline_model' => 'opus',
+        ], $this->headers)
+            ->assertCreated()
+            ->assertJsonPath('benchmark_run.status', 'passed')
+            ->assertJsonPath('benchmark_run.summary.claude_code_baseline.enabled', true)
+            ->assertJsonPath('benchmark_run.summary.claude_code_baseline.planned_count', 1)
+            ->assertJsonPath('benchmark_run.summary.paired_scorecard.enabled', true)
+            ->assertJsonPath('benchmark_run.summary.paired_scorecard.comparable_count', 0)
+            ->assertJsonPath('benchmark_run.summary.paired_scorecard.comparison_statuses.baseline_planned', 1)
+            ->assertJsonPath('results.0.observed.claude_code_baseline.status', 'planned')
+            ->assertJsonPath('results.0.observed.claude_code_baseline.executed', false)
+            ->assertJsonPath('results.0.observed.claude_code_baseline.provider', 'claude_code_cli')
+            ->assertJsonPath('results.0.observed.paired_scorecard.comparison_status', 'baseline_planned')
+            ->assertJsonPath('results.0.observed.paired_scorecard.comparable', false);
+
+        $this->assertStringContainsString(
+            'opus',
+            strtolower((string) data_get($runResponse->json(), 'results.0.observed.claude_code_baseline.model')),
+        );
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark', [
+            '--suite' => $suiteSlug,
+            '--workspace' => $this->workspace,
+            '--no-provider' => true,
+            '--auto-test' => true,
+            '--test-command' => $this->passingPhpCommand(),
+            '--claude-code-baseline' => 'plan',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('planned', data_get($payload, 'results.0.observed.claude_code_baseline.status'));
+        $this->assertSame('claude_code_cli', data_get($payload, 'results.0.observed.claude_code_baseline.provider'));
+        $this->assertSame(1, data_get($payload, 'benchmark_run.summary.claude_code_baseline.planned_count'));
+        $this->assertSame(0, data_get($payload, 'benchmark_run.summary.paired_scorecard.comparable_count'));
+    }
+
+    public function test_engineering_benchmark_can_compare_executed_claude_code_baseline_with_deterministic_gate(): void
+    {
+        $task = $this->task();
+        File::put($this->workspace.'/src/example.txt', "after\n");
+        $baselineWorkspace = $this->createWorkspace();
+
+        try {
+            $suiteResponse = $this->postJson('/engineering/benchmarks/suites', [
+                'name' => 'Claude Code comparable baseline benchmark',
+                'default_runner_options' => [
+                    'no_provider' => true,
+                    'auto_test' => true,
+                    'test_command' => $this->passingPhpCommand(),
+                ],
+            ], $this->headers)->assertCreated();
+
+            $suiteSlug = (string) data_get($suiteResponse->json(), 'suite.slug');
+            $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/cases", [
+                'task_id' => $task->id,
+                'case_code' => 'claude_code_baseline_run',
+                'title' => 'Claude Code baseline run',
+                'workspace' => $this->workspace,
+                'expected_decision' => 'resolved',
+                'min_score' => 85,
+                'tags' => ['baseline'],
+            ], $this->headers)->assertCreated();
+
+            $runResponse = $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/run", [
+                'workspace' => $this->workspace,
+                'no_provider' => true,
+                'auto_test' => true,
+                'test_command' => $this->passingPhpCommand(),
+                'claude_code_baseline' => 'run',
+                'claude_code_baseline_workspace' => $baselineWorkspace,
+                'claude_code_baseline_model' => 'opus',
+                'claude_code_baseline_binary' => '/bin/echo',
+            ], $this->headers)
+                ->assertCreated()
+                ->assertJsonPath('benchmark_run.status', 'passed')
+                ->assertJsonPath('benchmark_run.summary.claude_code_baseline.executed_count', 1)
+                ->assertJsonPath('benchmark_run.summary.paired_scorecard.comparable_count', 1)
+                ->assertJsonPath('benchmark_run.summary.paired_scorecard.tie_count', 1)
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.enabled', true)
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.packet_count', 1)
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.final_packet.kind', 'engineering_benchmark_final_packet')
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.final_packet.status', 'passed')
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.final_packet.benchmark_status', 'passed')
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.providers.0', 'claude_code_cli')
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.model_locks.0', 'opus')
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.deterministic_gate_packet_count', 1)
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.artifact.status', 'persisted')
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.artifact.integrity.checked', true)
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.artifact.integrity.exists', true)
+                ->assertJsonPath('benchmark_run.summary.replay_manifest.artifact.integrity.hash_matches', true)
+                ->assertJsonPath('results.0.observed.claude_code_baseline.deterministic_gates_passed', true)
+                ->assertJsonPath('results.0.observed.claude_code_baseline.pass_without_human', true)
+                ->assertJsonPath('results.0.observed.paired_scorecard.comparison_status', 'comparable')
+                ->assertJsonPath('results.0.observed.paired_scorecard.winner', 'tie');
+
+            $benchmarkRun = AtlasEngineeringBenchmarkRun::query()
+                ->where('suite_id', data_get($suiteResponse->json(), 'suite.id'))
+                ->latest('created_at')
+                ->firstOrFail();
+            $artifactPath = (string) data_get($benchmarkRun->summary_json, 'replay_manifest.artifact.path');
+            $this->assertFileExists($artifactPath);
+            $this->assertSame(
+                hash('sha256', File::get($artifactPath)),
+                data_get($benchmarkRun->summary_json, 'replay_manifest.artifact.sha256'),
+            );
+            $this->assertSame(
+                'atlas benchmark claude-fair replay '.$benchmarkRun->id.' --json',
+                data_get($runResponse->json(), 'benchmark_run.summary.replay_manifest.final_packet.replay_command'),
+            );
+
+            $manifestResponse = $this->getJson(
+                "/engineering/benchmarks/runs/{$benchmarkRun->id}/replay-manifest",
+                $this->headers,
+            )
+                ->assertOk()
+                ->assertJsonPath('status', 'available')
+                ->assertJsonPath('artifact.status', 'persisted')
+                ->assertJsonPath('artifact.integrity.hash_matches', true)
+                ->assertJsonPath('summary.enabled', true)
+                ->assertJsonPath('summary.packet_count', 1)
+                ->assertJsonPath('final_packet.kind', 'engineering_benchmark_final_packet')
+                ->assertJsonPath('final_packet.status', 'passed')
+                ->assertJsonPath('final_packet.replay_command', 'atlas benchmark claude-fair replay '.$benchmarkRun->id.' --json')
+                ->assertJsonPath('replay_manifest.kind', 'engineering_benchmark_replay_manifest')
+                ->assertJsonPath('replay_manifest.packet_count', 1)
+                ->assertJsonPath('replay_manifest.final_packet.status', 'passed')
+                ->assertJsonPath('replay_manifest.providers.0', 'claude_code_cli')
+                ->assertJsonPath('replay_manifest.model_locks.0', 'opus');
+
+            $this->assertSame(
+                data_get($runResponse->json(), 'benchmark_run.summary.replay_manifest.manifest_hash'),
+                data_get($manifestResponse->json(), 'replay_manifest.manifest_hash'),
+            );
+            $this->assertArrayNotHasKey('path', (array) data_get($manifestResponse->json(), 'artifact', []));
+
+            $exitCode = Artisan::call('atlas:engineering:benchmark:replay-manifest', [
+                'run' => $benchmarkRun->id,
+                '--json' => true,
+            ]);
+            $commandPayload = json_decode(Artisan::output(), true);
+
+            $this->assertSame(0, $exitCode);
+            $this->assertSame('available', data_get($commandPayload, 'status'));
+            $this->assertSame('passed', data_get($commandPayload, 'final_packet.status'));
+            $this->assertSame('atlas benchmark claude-fair replay '.$benchmarkRun->id.' --json', data_get($commandPayload, 'final_packet.replay_command'));
+            $this->assertSame('claude_code_cli', data_get($commandPayload, 'replay_manifest.providers.0'));
+            $this->assertSame(
+                data_get($manifestResponse->json(), 'replay_manifest.manifest_hash'),
+                data_get($commandPayload, 'replay_manifest.manifest_hash'),
+            );
+            $this->assertArrayNotHasKey('path', (array) data_get($commandPayload, 'artifact', []));
+
+            $reportResponse = $this->getJson(
+                "/engineering/benchmarks/suites/{$suiteSlug}/fair-claude-report",
+                $this->headers,
+            )
+                ->assertOk()
+                ->assertJsonPath('kind', 'fair_claude_benchmark_report')
+                ->assertJsonPath('readiness.status', 'not_ready')
+                ->assertJsonPath('readiness.comparable_count', 0)
+                ->assertJsonPath('readiness.fair_mode_count', 0)
+                ->assertJsonPath('scope.paired_result_count', 1)
+                ->assertJsonPath('scope.fair_result_count', 0)
+                ->assertJsonPath('scope.non_fair_paired_result_count', 1)
+                ->assertJsonPath('paired_scorecard.enabled', false)
+                ->assertJsonPath('all_paired_scorecard.comparable_count', 1)
+                ->assertJsonPath('all_paired_scorecard.fair_mode_count', 0)
+                ->assertJsonPath('all_paired_scorecard.tie_count', 1)
+                ->assertJsonPath('claude_code_baseline.enabled', false)
+                ->assertJsonPath('replay_manifest.artifact_integrity_failed_count', 0)
+                ->assertJsonPath('runs.0.fair_report_scope', 'paired_non_fair');
+            $this->assertContains('fair_atlas_arm_missing', data_get($reportResponse->json(), 'readiness.blocking_reasons', []));
+
+            $exitCode = Artisan::call('atlas:engineering:benchmark:report', [
+                '--suite' => $suiteSlug,
+                '--json' => true,
+            ]);
+            $reportPayload = json_decode(Artisan::output(), true);
+
+            $this->assertSame(0, $exitCode);
+            $this->assertSame('fair_claude_benchmark_report', data_get($reportPayload, 'kind'));
+            $this->assertSame(
+                data_get($reportResponse->json(), 'readiness.status'),
+                data_get($reportPayload, 'readiness.status'),
+            );
+            $this->assertSame(0, data_get($reportPayload, 'scope.fair_result_count'));
+            $this->assertSame(1, data_get($reportPayload, 'all_paired_scorecard.comparable_count'));
+            $this->assertSame(0, data_get($reportPayload, 'all_paired_scorecard.fair_mode_count'));
+            $this->assertFalse((bool) data_get($reportPayload, 'claude_code_baseline.enabled'));
+            $this->assertArrayNotHasKey(
+                'path',
+                (array) data_get($reportPayload, 'runs.0.replay_manifest.artifact', []),
+            );
+        } finally {
+            $this->deleteDirectoryQuietly($baselineWorkspace);
+        }
+    }
+
+    public function test_engineering_benchmark_auto_prepares_isolated_claude_code_baseline_worktree(): void
+    {
+        $task = $this->task();
+        File::put($this->workspace.'/src/example.txt', "after\n");
+
+        $suiteResponse = $this->postJson('/engineering/benchmarks/suites', [
+            'name' => 'Claude Code auto baseline worktree benchmark',
+            'default_runner_options' => [
+                'no_provider' => true,
+                'auto_test' => true,
+                'test_command' => $this->passingPhpCommand(),
+            ],
+        ], $this->headers)->assertCreated();
+
+        $suiteSlug = (string) data_get($suiteResponse->json(), 'suite.slug');
+        $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/cases", [
+            'task_id' => $task->id,
+            'case_code' => 'claude_code_auto_baseline_worktree',
+            'title' => 'Claude Code auto baseline worktree',
+            'workspace' => $this->workspace,
+            'expected_decision' => 'resolved',
+            'min_score' => 85,
+            'tags' => ['baseline', 'worktree'],
+        ], $this->headers)->assertCreated();
+
+        $response = $this->postJson("/engineering/benchmarks/suites/{$suiteSlug}/run", [
+            'workspace' => $this->workspace,
+            'no_provider' => true,
+            'auto_test' => true,
+            'test_command' => $this->passingPhpCommand(),
+            'claude_code_baseline' => 'run',
+            'claude_code_baseline_model' => 'opus',
+            'claude_code_baseline_binary' => '/bin/echo',
+        ], $this->headers)
+            ->assertCreated()
+            ->assertJsonPath('benchmark_run.status', 'passed')
+            ->assertJsonPath('benchmark_run.summary.claude_code_baseline.executed_count', 1)
+            ->assertJsonPath('benchmark_run.summary.paired_scorecard.comparable_count', 1)
+            ->assertJsonPath('benchmark_run.summary.replay_manifest.enabled', true)
+            ->assertJsonPath('benchmark_run.summary.replay_manifest.kind', 'engineering_benchmark_replay_manifest')
+            ->assertJsonPath('benchmark_run.summary.replay_manifest.packet_count', 1)
+            ->assertJsonPath('benchmark_run.summary.replay_manifest.modes.run', 1)
+            ->assertJsonPath('benchmark_run.summary.replay_manifest.artifact.status', 'persisted')
+            ->assertJsonPath('benchmark_run.summary.replay_manifest.artifact.integrity.checked', true)
+            ->assertJsonPath('benchmark_run.summary.replay_manifest.artifact.integrity.hash_matches', true)
+            ->assertJsonPath('results.0.observed.claude_code_baseline.deterministic_gates_passed', true)
+            ->assertJsonPath('results.0.observed.claude_code_baseline.pass_without_human', true)
+            ->assertJsonPath('results.0.observed.paired_scorecard.comparison_status', 'comparable')
+            ->assertJsonPath('results.0.observed.paired_workspaces.mode', 'paired_git_worktree')
+            ->assertJsonPath('results.0.observed.paired_workspaces.auto_prepared', true)
+            ->assertJsonPath('results.0.observed.paired_workspaces.claude_code_baseline.status', 'ready')
+            ->assertJsonPath('results.0.observed.paired_workspaces.claude_code_baseline.isolated', true)
+            ->assertJsonPath('results.0.observed.paired_workspaces.claude_code_baseline.isolation_type', 'git_worktree')
+            ->assertJsonPath('results.0.observed.paired_workspaces.claude_code_baseline.release.status', 'released');
+
+        $this->assertNotEmpty(data_get($response->json(), 'results.0.observed.paired_workspaces.claude_code_baseline.execution_workspace_hash'));
+        $this->assertNotEmpty(data_get($response->json(), 'results.0.observed.paired_workspaces.claude_code_baseline.worktree_path_hash'));
+        $this->assertNotEmpty(data_get($response->json(), 'benchmark_run.summary.replay_manifest.manifest_hash'));
+        $this->assertNotEmpty(data_get($response->json(), 'benchmark_run.summary.replay_manifest.packets.0.packet_hash'));
+        $this->assertFileExists((string) data_get($response->json(), 'benchmark_run.summary.replay_manifest.artifact.path'));
+        $this->assertArrayNotHasKey(
+            'execution_workspace',
+            (array) data_get($response->json(), 'results.0.observed.paired_workspaces.claude_code_baseline', []),
+        );
+    }
+
+    public function test_fair_claude_report_limit_applies_after_paired_run_filtering(): void
+    {
+        $suite = AtlasEngineeringBenchmarkSuite::query()->create([
+            'slug' => 'fair-report-limit-filter',
+            'name' => 'Fair report limit filter',
+            'status' => 'active',
+            'default_runner_options_json' => [],
+            'metadata' => [],
+        ]);
+        $case = app(EngineeringBenchmarkService::class)->registerCase($suite, [
+            'case_code' => 'fair_report_limit',
+            'title' => 'Fair report limit',
+            'workspace' => $this->workspace,
+            'expected_decision' => 'resolved',
+            'min_score' => 85,
+        ]);
+
+        foreach (range(1, 120) as $minutes) {
+            AtlasEngineeringBenchmarkRun::query()->create([
+                'suite_id' => $suite->id,
+                'benchmark_key' => 'normal:'.$minutes,
+                'provider' => 'codex_cli',
+                'model' => 'codex-test',
+                'mode' => 'single_shot',
+                'status' => 'passed',
+                'total_cases' => 1,
+                'passed_cases' => 1,
+                'failed_cases' => 0,
+                'runner_options_json' => [],
+                'summary_json' => [],
+                'started_at' => now()->subMinutes($minutes),
+                'finished_at' => now()->subMinutes($minutes),
+                'created_at' => now()->subMinutes($minutes),
+                'updated_at' => now()->subMinutes($minutes),
+                'metadata' => [],
+            ]);
+        }
+
+        $fairRun = AtlasEngineeringBenchmarkRun::query()->create([
+            'suite_id' => $suite->id,
+            'benchmark_key' => 'fair:opus',
+            'provider' => 'claude_cli',
+            'model' => 'claude-opus-test',
+            'mode' => 'single_shot',
+            'status' => 'passed',
+            'total_cases' => 1,
+            'passed_cases' => 1,
+            'failed_cases' => 0,
+            'runner_options_json' => ['claude_only' => true],
+            'summary_json' => [
+                'paired_scorecard' => [
+                    'enabled' => true,
+                    'case_count' => 1,
+                    'fair_mode_count' => 1,
+                    'comparable_count' => 1,
+                    'inconclusive_count' => 0,
+                    'winners' => ['atlas' => 1],
+                    'atlas_win_count' => 1,
+                    'claude_code_baseline_win_count' => 0,
+                    'tie_count' => 0,
+                ],
+            ],
+            'started_at' => now()->subMinutes(121),
+            'finished_at' => now()->subMinutes(121),
+            'created_at' => now()->subMinutes(121),
+            'updated_at' => now()->subMinutes(121),
+            'metadata' => [],
+        ]);
+        AtlasEngineeringBenchmarkResult::query()->create([
+            'benchmark_run_id' => $fairRun->id,
+            'suite_id' => $suite->id,
+            'case_id' => $case->id,
+            'status' => 'passed',
+            'decision' => 'resolved',
+            'score' => 95,
+            'passed' => true,
+            'duration_ms' => 1000,
+            'expectation_json' => [],
+            'observed_json' => [
+                'paired_scorecard' => [
+                    'schema_version' => 1,
+                    'fair_mode' => true,
+                    'comparison_status' => 'comparable',
+                    'comparable' => true,
+                    'winner' => 'atlas',
+                    'atlas' => ['verified' => true],
+                    'claude_code_baseline' => ['verified' => true],
+                ],
+                'claude_code_baseline' => [
+                    'enabled' => true,
+                    'status' => 'completed',
+                    'executed' => true,
+                    'provider' => 'claude_code_cli',
+                    'model' => 'opus',
+                ],
+            ],
+            'metadata' => [],
+        ]);
+
+        $this->getJson("/engineering/benchmarks/suites/{$suite->slug}/fair-claude-report?limit=1", $this->headers)
+            ->assertOk()
+            ->assertJsonPath('limit', 1)
+            ->assertJsonPath('scan_limit', 250)
+            ->assertJsonPath('scanned_run_count', 121)
+            ->assertJsonPath('scope.paired_run_count', 1)
+            ->assertJsonPath('scope.fair_run_count', 1)
+            ->assertJsonPath('runs.0.id', $fairRun->id)
+            ->assertJsonPath('runs.0.fair_report_scope', 'official_fair_claude')
+            ->assertJsonPath('paired_scorecard.fair_mode_count', 1)
+            ->assertJsonPath('paired_scorecard.atlas_win_count', 1)
+            ->assertJsonPath('paired_scorecard.pass_without_human_rate', 100)
+            ->assertJsonPath('paired_scorecard.baseline_pass_without_human_rate', 100)
+            ->assertJsonPath('paired_scorecard.provider_violation_count', 0)
+            ->assertJsonPath('paired_scorecard.fallback_violation_count', 0);
+    }
+
+    public function test_fair_claude_report_detects_legacy_runs_from_result_scorecard(): void
+    {
+        $suite = AtlasEngineeringBenchmarkSuite::query()->create([
+            'slug' => 'fair-report-legacy-result-scope',
+            'name' => 'Fair report legacy result scope',
+            'status' => 'active',
+            'default_runner_options_json' => [],
+            'metadata' => [],
+        ]);
+        $case = app(EngineeringBenchmarkService::class)->registerCase($suite, [
+            'case_code' => 'fair_report_legacy',
+            'title' => 'Fair report legacy',
+            'workspace' => $this->workspace,
+            'expected_decision' => 'resolved',
+            'min_score' => 85,
+        ]);
+
+        $run = AtlasEngineeringBenchmarkRun::query()->create([
+            'suite_id' => $suite->id,
+            'benchmark_key' => 'fair:legacy',
+            'provider' => 'claude_cli',
+            'model' => 'claude-opus-test',
+            'mode' => 'single_shot',
+            'status' => 'passed',
+            'total_cases' => 1,
+            'passed_cases' => 1,
+            'failed_cases' => 0,
+            'runner_options_json' => ['claude_only' => true],
+            'summary_json' => [
+                'paired_scorecard' => [
+                    'enabled' => true,
+                    'case_count' => 1,
+                    'comparable_count' => 1,
+                    'inconclusive_count' => 0,
+                ],
+            ],
+            'started_at' => now()->subMinutes(5),
+            'finished_at' => now()->subMinutes(5),
+            'created_at' => now()->subMinutes(5),
+            'updated_at' => now()->subMinutes(5),
+            'metadata' => [],
+        ]);
+
+        AtlasEngineeringBenchmarkResult::query()->create([
+            'benchmark_run_id' => $run->id,
+            'suite_id' => $suite->id,
+            'case_id' => $case->id,
+            'status' => 'passed',
+            'decision' => 'resolved',
+            'score' => 95,
+            'passed' => true,
+            'duration_ms' => 1000,
+            'expectation_json' => [],
+            'observed_json' => [
+                'paired_scorecard' => [
+                    'schema_version' => 1,
+                    'fair_mode' => true,
+                    'comparison_status' => 'comparable',
+                    'comparable' => true,
+                    'winner' => 'atlas',
+                    'atlas' => ['verified' => true],
+                    'claude_code_baseline' => ['verified' => true],
+                ],
+                'claude_code_baseline' => [
+                    'enabled' => true,
+                    'status' => 'completed',
+                    'executed' => true,
+                    'provider' => 'claude_code_cli',
+                    'model' => 'opus',
+                ],
+            ],
+            'metadata' => [],
+        ]);
+
+        $this->getJson("/engineering/benchmarks/suites/{$suite->slug}/fair-claude-report?limit=1", $this->headers)
+            ->assertOk()
+            ->assertJsonPath('scope.paired_run_count', 1)
+            ->assertJsonPath('scope.fair_run_count', 1)
+            ->assertJsonPath('scope.fair_result_count', 1)
+            ->assertJsonPath('runs.0.id', $run->id)
+            ->assertJsonPath('runs.0.fair_report_scope', 'official_fair_claude')
+            ->assertJsonPath('paired_scorecard.fair_mode_count', 1)
+            ->assertJsonPath('paired_scorecard.atlas_win_count', 1)
+            ->assertJsonPath('paired_scorecard.protocol_validity_rate', 100)
+            ->assertJsonPath('paired_scorecard.autonomous_success_lift', 0);
+    }
+
+    public function test_fair_claude_benchmark_command_facade_reports_json(): void
+    {
+        AtlasEngineeringBenchmarkSuite::query()->create([
+            'slug' => 'fair-command-report',
+            'name' => 'Fair command report',
+            'status' => 'active',
+            'default_runner_options_json' => [],
+            'metadata' => [],
+        ]);
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'report',
+            '--suite' => 'fair-command-report',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('fair_claude_benchmark_report', data_get($payload, 'kind'));
+        $this->assertSame('fair-command-report', data_get($payload, 'suite.slug'));
+        $this->assertSame('not_ready', data_get($payload, 'readiness.status'));
     }
 
     public function test_engineering_benchmark_seed_promotes_real_runs_to_default_suite(): void
@@ -1607,6 +2355,62 @@ class EngineeringHarnessRunnerTest extends TestCase
             $table->softDeletes();
         });
 
+        Schema::create('ai_traces', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('trace_key')->nullable()->unique();
+            $table->uuid('thread_id')->nullable();
+            $table->uuid('session_id')->nullable();
+            $table->string('source_type')->nullable();
+            $table->uuid('source_id')->nullable();
+            $table->string('status')->default('queued');
+            $table->text('operator_input')->nullable();
+            $table->string('intent')->nullable();
+            $table->string('agent_slug')->nullable();
+            $table->string('provider')->nullable();
+            $table->string('model')->nullable();
+            $table->json('skill_versions')->nullable();
+            $table->json('context_refs')->nullable();
+            $table->string('prompt_hash')->nullable();
+            $table->string('response_hash')->nullable();
+            $table->text('response_text')->nullable();
+            $table->integer('latency_ms')->nullable();
+            $table->integer('feedback_score')->nullable();
+            $table->string('feedback_action')->nullable();
+            $table->text('feedback_comment')->nullable();
+            $table->timestamp('completed_at')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('ai_jobs', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('trace_id')->nullable();
+            $table->string('kind')->default('interaction');
+            $table->string('status')->default('queued');
+            $table->smallInteger('priority')->default(50);
+            $table->string('agent_slug')->nullable();
+            $table->string('provider')->nullable();
+            $table->string('model')->nullable();
+            $table->text('input_text')->nullable();
+            $table->text('prompt')->nullable();
+            $table->json('context_refs')->nullable();
+            $table->json('payload')->nullable();
+            $table->text('result_text')->nullable();
+            $table->json('result_json')->nullable();
+            $table->string('error_code')->nullable();
+            $table->text('error_message')->nullable();
+            $table->timestamp('available_at')->nullable();
+            $table->timestamp('reserved_at')->nullable();
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('finished_at')->nullable();
+            $table->integer('attempts')->default(0);
+            $table->integer('max_attempts')->default(2);
+            $table->integer('timeout_seconds')->default(300);
+            $table->string('worker_id')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+        });
+
         Schema::create('ai_inbox_items', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('user_id')->default('vitor');
@@ -2164,6 +2968,8 @@ class EngineeringHarnessRunnerTest extends TestCase
             'atlas_engineering_evidence',
             'atlas_mobile_devices',
             'ai_inbox_items',
+            'ai_jobs',
+            'ai_traces',
             'atlas_tasks',
         ] as $table) {
             Schema::dropIfExists($table);

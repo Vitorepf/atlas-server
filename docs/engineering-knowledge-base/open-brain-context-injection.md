@@ -210,6 +210,18 @@ Formato conceitual:
     "memory_refs": 4,
     "knowledge_refs": 3,
     "code_refs": 8,
+    "memory_quality": {
+      "status": "ready",
+      "score": 97,
+      "active": 5,
+      "provider_safe_active": 5,
+      "trend": {
+        "status": "stable",
+        "current_delta_from_latest": 0,
+        "latest_delta_from_previous": 0,
+        "snapshot_count": 3
+      }
+    },
     "tool_refs": 2,
     "budget_chars": 20000,
     "used_chars": 3180
@@ -270,9 +282,10 @@ O prompt final deve manter esta ordem:
 1. system/developer instructions internas do Atlas;
 2. task request normalizada;
 3. **Atlas Open Brain Context**;
-4. engineering contract/blueprint/dev plan;
-5. operator request final;
-6. output contract.
+4. **Memory Quality Gate** dentro do bloco Open Brain;
+5. engineering contract/blueprint/dev plan;
+6. operator request final;
+7. output contract.
 
 O Open Brain nao deve ser colado duas vezes. Como `AiPromptBuilder` ja usa
 `AiContextPackBuilder`, a implementacao deve escolher uma destas estrategias:
@@ -300,7 +313,8 @@ Fluxo implementado:
 3. Repassar flags/policy para `atlas:ai:chat`.
 4. Se `status=failed_closed`, abortar antes de chamar provider.
 5. `AiPromptBuilder` chama `AtlasOpenBrainContextInjectionService`.
-6. Inserir a secao Open Brain no prompt final uma unica vez.
+6. Inserir a secao Open Brain no prompt final uma unica vez, com quality gate
+   compacto quando `include_memory_quality=true`.
 7. Salvar `context_pack_hash`, `audit_id` e `status` em metadata de trace/job.
 8. Em `--plan-only`, montar uma previa compacta de Open Brain sem executar
    provider e sem persistir `prompt_section` ou `context_refs` brutos.
@@ -319,7 +333,11 @@ Saida JSON alvo:
     "summary": {
       "memory_refs": 4,
       "knowledge_refs": 6,
-      "code_refs": 8
+      "code_refs": 8,
+      "memory_quality": {
+        "status": "ready",
+        "score": 97
+      }
     },
     "warnings": [],
     "policy": {
@@ -482,6 +500,7 @@ Campos minimos no trace:
 | tabelas de memoria ausentes | `failed_open` | ambiente parcial nao deve travar conversa simples |
 | no provider-safe memory | `degraded` | pode haver docs/code refs uteis |
 | code intelligence stale | `degraded` | avisar e sugerir `atlas memory maintain` |
+| memory quality critical/empty/not migrated | `degraded` ou `failed_closed` quando required | provider nao deve confiar cegamente no recall |
 | context pack acima do budget | `degraded` com truncamento | prompt pequeno e deterministico |
 | privacy bloqueia memoria | `injected` sem a memoria bloqueada | privacy vence recall |
 | exception no Open Brain | `failed_open` ou `failed_closed` | depende de policy |
@@ -500,6 +519,7 @@ de escrever codigo.
 | `ATLAS_OPEN_BRAIN_INJECTION_REQUIRED_FOR_COMPLETE` | `true` | `atlas dev --complete` falha fechado quando necessario |
 | `ATLAS_OPEN_BRAIN_INJECTION_KNOWLEDGE_REF_LIMIT` | `6` | Limite de refs canonicos de Engineering Knowledge |
 | `ATLAS_OPEN_BRAIN_INJECTION_CODE_REF_LIMIT` | `8` | Limite de refs de Code Intelligence |
+| `ATLAS_OPEN_BRAIN_INJECTION_INCLUDE_MEMORY_QUALITY` | `true` | Inclui scorecard/snapshot compacto da qualidade da memoria no Open Brain |
 | `ATLAS_PHP_BIN` | vazio; candidato preferido `/opt/homebrew/bin/php` | Binario PHP usado por comandos internos Artisan do Atlas |
 | `ATLAS_PHP_BIN_CANDIDATES` | `/opt/homebrew/bin/php`, Homebrew PHP variants | Fallbacks para ambientes locais sem override explicito |
 
@@ -641,6 +661,84 @@ DoD:
 - `npm run typecheck` quando app mudar;
 - `git diff --check`;
 - `./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json`.
+
+### Fase G - Memory Quality-Aware Injection
+
+Entregar:
+
+- `AtlasOpenBrainContextInjectionService` consulta `AtlasMemoryQualityService`
+  quando a injecao automatica e montada;
+- `InjectionResult.summary.memory_quality` inclui status, score, contagem ativa,
+  contagem provider-safe, latest snapshot, tendencia e issues compactas;
+- `context_pack_hash` usa o resumo compacto de qualidade e ignora timestamps
+  volateis como `generated_at`;
+- prompt section inclui `## Memory Quality Gate`;
+- `required` falha fechado quando a memoria esta `critical`, `empty` ou
+  `not_migrated`;
+- warnings explicitos para `memory_quality_critical`,
+  `memory_quality_no_provider_safe_memory`, `memory_quality_score_low` e
+  similares;
+- config `ATLAS_OPEN_BRAIN_INJECTION_INCLUDE_MEMORY_QUALITY`.
+
+Status: implementada em 2026-05-03.
+
+DoD:
+
+- provider ve o quality gate antes de confiar no recall;
+- direct/off continua sem inflar prompt;
+- metadata compacta salva qualidade sem `prompt_section`;
+- testes unitarios cobrem gate pronto e gate critico required.
+
+### Fase H - Memory Quality Trend Guard
+
+Entregar:
+
+- `AtlasMemoryQualityService` deriva `trend` a partir de snapshots persistidos;
+- `atlas memory quality` mostra `Trend` na saida humana e JSON;
+- `atlas memory quality history` expoe `summary.trend_status`;
+- `InjectionResult.summary.memory_quality.trend` inclui apenas campos
+  compactos e deterministico o bastante para hash de contexto;
+- prompt section inclui linha `trend` dentro de `## Memory Quality Gate`;
+- warnings `memory_quality_trend_regressed` e
+  `memory_quality_trend_watch_regressed` degradam a injecao em modo `auto`;
+- tendencia sozinha nao entra na lista de fail-closed de `required`.
+
+Status: implementada em 2026-05-03.
+
+DoD:
+
+- regressao aparece antes do provider confiar no recall;
+- melhora/estabilidade ficam visiveis no scorecard e historico;
+- recomendacoes apontam para `atlas memory quality history` quando ha queda;
+- testes focados cobrem historico `improved`, scorecard `regressed` e warning
+  de Open Brain sem fail-closed indevido.
+
+### Fase I - Regression Diagnostics And App Trend View
+
+Entregar:
+
+- `trend.drivers` explica causas provaveis de regressao comparando scorecard
+  atual com ultimo snapshot;
+- drivers cobrem queda de componente, aumento de contadores problematicos,
+  aumento de issues e queda direta de score;
+- `Memory Quality Gate` inclui `trend_drivers` compacto no prompt quando
+  houver regressao;
+- `atlas memory quality` mostra drivers na saida humana;
+- app `Atlas Open Brain` mostra score, provider-safe, tendencia, drivers e
+  historico recente de snapshots;
+- helpers TypeScript cobrem linhas de qualidade/historico/drivers;
+- app usa endpoints existentes `/ai/memory/quality` e
+  `/ai/memory/quality/history`.
+
+Status: implementada em 2026-05-03.
+
+DoD:
+
+- operador consegue ver no app se a memoria esta pronta antes de usar recall;
+- provider recebe causa compacta da regressao junto com o quality gate;
+- CLI e app concordam com o mesmo scorecard;
+- regressao continua sem fail-closed automatico quando qualidade atual ainda
+  nao e `critical`, `empty` ou `not_migrated`.
 
 ## Criterio Final De Pronto
 

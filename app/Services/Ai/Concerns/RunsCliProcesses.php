@@ -237,6 +237,53 @@ trait RunsCliProcesses
         $job->forceFill(['metadata' => $metadata])->save();
     }
 
+    /**
+     * @param  array<int,mixed>  $command
+     * @return array<string,mixed>
+     */
+    protected function cliInvocationFingerprint(array $command, string $input, int $timeoutSeconds, ?string $cwd, ?AiJob $job = null, array $extra = []): array
+    {
+        $redactedCommand = $this->redactCommand($this->resolveCommandBinary($command));
+        $binary = is_string($redactedCommand[0] ?? null) ? (string) $redactedCommand[0] : null;
+        $payload = is_array($job?->payload) ? $job->payload : [];
+
+        return array_filter([
+            'schema_version' => 1,
+            'provider' => $job?->provider,
+            'model' => $job?->model,
+            'binary_path' => $binary,
+            'binary_version' => $binary ? $this->cliBinaryVersion($binary) : null,
+            'args' => array_slice($redactedCommand, 1),
+            'command_hash' => hash('sha256', json_encode($redactedCommand, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+            'cwd' => $cwd ?: (string) config('atlas.ai.workdir'),
+            'timeout_seconds' => $timeoutSeconds,
+            'prompt_hash' => hash('sha256', $input),
+            'prompt_chars' => strlen($input),
+            'context_pack_hash' => data_get($payload, 'context_pack.context_pack_hash')
+                ?: data_get($payload, 'open_brain_injection.context_pack_hash')
+                ?: data_get($payload, 'open_brain.context_pack_hash'),
+            'dev_plan_id' => data_get($payload, 'dev_execution_plan.plan_id'),
+            'fair_mode' => (bool) data_get($payload, 'fair_mode.fair_mode')
+                || (bool) data_get($payload, 'dev_execution_plan.fair_mode.fair_mode'),
+            'recorded_at' => now()->toJSON(),
+            ...$extra,
+        ], fn (mixed $value): bool => $value !== null && $value !== []);
+    }
+
+    private function cliBinaryVersion(string $binary): ?string
+    {
+        try {
+            $process = new Process([$binary, '--version'], null, $this->cliProcessEnv());
+            $process->setTimeout(3);
+            $process->run();
+            $output = trim(AtlasSecurity::redactString($process->getOutput() ?: $process->getErrorOutput()));
+
+            return $output !== '' ? Str::limit($output, 200, '') : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     private function jobWasCancelled(?AiJob $job): bool
     {
         if (! $job || ! $job->exists) {
@@ -294,6 +341,94 @@ trait RunsCliProcesses
                 'binary' => $resolved,
                 'stdout' => Str::limit($stdout, 500, '...'),
             ],
+        );
+    }
+
+    /**
+     * Validates cheap local CLI capability without invoking a model.
+     *
+     * @param  array<int,string>  $helpArgs
+     * @param  array<int,string>  $requiredTokens
+     */
+    protected function checkCliRuntimeContract(
+        AiProviderHealthCheck $check,
+        string $binary,
+        array $helpArgs,
+        array $requiredTokens,
+        string $contractName,
+    ): AiProviderHealthCheck {
+        if ($check->status !== 'online') {
+            return $check;
+        }
+
+        $resolved = $this->resolveCliBinary($binary);
+        if ($resolved === null) {
+            return $check;
+        }
+
+        $command = array_values(array_merge([$resolved], $helpArgs));
+        $process = new Process($command, (string) config('atlas.ai.workdir'), $this->cliProcessEnv());
+        $process->setTimeout(15);
+        $process->run();
+
+        $stdout = AtlasSecurity::redactString($process->getOutput());
+        $stderr = AtlasSecurity::redactString($process->getErrorOutput());
+        $help = $stdout."\n".$stderr;
+        $metadata = array_merge($check->metadata, [
+            'runtime_contract' => [
+                'name' => $contractName,
+                'help_command' => $this->redactCommand($command),
+                'required_tokens' => array_values($requiredTokens),
+                'checked_at' => now()->toJSON(),
+            ],
+        ]);
+
+        if (! $process->isSuccessful()) {
+            return new AiProviderHealthCheck(
+                provider: $check->provider,
+                status: 'degraded',
+                message: "Binary [{$binary}] exists, but runtime contract [{$contractName}] help check failed.",
+                metadata: array_merge($metadata, [
+                    'runtime_contract' => array_merge($metadata['runtime_contract'], [
+                        'status' => 'help_failed',
+                        'exit_code' => $process->getExitCode(),
+                        'stdout' => Str::limit($stdout, 500, '...'),
+                        'stderr' => Str::limit($stderr, 500, '...'),
+                    ]),
+                ]),
+            );
+        }
+
+        $missing = array_values(array_filter(
+            $requiredTokens,
+            fn (string $token): bool => ! str_contains($help, $token),
+        ));
+
+        if ($missing !== []) {
+            return new AiProviderHealthCheck(
+                provider: $check->provider,
+                status: 'degraded',
+                message: 'Runtime contract ['.$contractName.'] missing required CLI flags/tokens: '.implode(', ', $missing).'.',
+                metadata: array_merge($metadata, [
+                    'runtime_contract' => array_merge($metadata['runtime_contract'], [
+                        'status' => 'missing_required_tokens',
+                        'missing_tokens' => $missing,
+                        'help_excerpt' => Str::limit($help, 1000, '...'),
+                    ]),
+                ]),
+            );
+        }
+
+        return new AiProviderHealthCheck(
+            provider: $check->provider,
+            status: $check->status,
+            message: $check->message,
+            metadata: array_merge($metadata, [
+                'runtime_contract' => array_merge($metadata['runtime_contract'], [
+                    'status' => 'passed',
+                    'missing_tokens' => [],
+                ]),
+            ]),
         );
     }
 
@@ -583,6 +718,113 @@ trait RunsCliProcesses
         }
 
         return $normalized;
+    }
+
+    /**
+     * Removes configured CLI arguments whose values must be owned by Atlas at runtime.
+     *
+     * @param  array<int,mixed>  $args
+     * @param  array<int,string>  $valueArgs
+     * @param  array<int,string>  $standaloneArgs
+     * @param  array<int,string>  $multiValueArgs
+     * @return array<int,string>
+     */
+    protected function sanitizeCliArgs(
+        array $args,
+        array $valueArgs = [],
+        array $standaloneArgs = [],
+        array $multiValueArgs = [],
+    ): array {
+        $sanitized = [];
+        $args = array_values($args);
+        $count = count($args);
+
+        for ($i = 0; $i < $count; $i++) {
+            $arg = $this->scalarArg($args[$i] ?? null);
+            if ($arg === null) {
+                continue;
+            }
+
+            if ($this->matchesCliArgName($arg, $valueArgs)) {
+                if (! $this->hasInlineCliValue($arg, $valueArgs)) {
+                    $i++;
+                }
+
+                continue;
+            }
+
+            if ($this->matchesCliArgName($arg, $multiValueArgs)) {
+                if (! $this->hasInlineCliValue($arg, $multiValueArgs)) {
+                    while (($i + 1) < $count) {
+                        $next = $this->scalarArg($args[$i + 1] ?? null);
+                        if ($next === null || $this->looksLikeCliOption($next)) {
+                            break;
+                        }
+
+                        $i++;
+                    }
+                }
+
+                continue;
+            }
+
+            if ($this->matchesCliArgName($arg, $standaloneArgs)) {
+                $next = $this->scalarArg($args[$i + 1] ?? null);
+                if ($next !== null && in_array(strtolower($next), ['true', 'false', '1', '0'], true)) {
+                    $i++;
+                }
+
+                continue;
+            }
+
+            $sanitized[] = $arg;
+        }
+
+        return $sanitized;
+    }
+
+    private function scalarArg(mixed $value): ?string
+    {
+        if (! is_string($value) && ! is_numeric($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * @param  array<int,string>  $names
+     */
+    private function matchesCliArgName(string $arg, array $names): bool
+    {
+        foreach ($names as $name) {
+            if ($arg === $name || str_starts_with($arg, $name.'=')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int,string>  $names
+     */
+    private function hasInlineCliValue(string $arg, array $names): bool
+    {
+        foreach ($names as $name) {
+            if (str_starts_with($arg, $name.'=')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function looksLikeCliOption(string $arg): bool
+    {
+        return str_starts_with($arg, '-');
     }
 
     private function emitStreamEvent(?callable $onEvent, string $type, string $name, string $content = '', array $metadata = [], ?string $channel = null): void

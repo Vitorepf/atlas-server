@@ -83,6 +83,9 @@ class AtlasToolRuntimeCoreTest extends TestCase
         $this->assertSame('primary', data_get($gitleaks, 'authority_role'));
         $this->assertSame(['gitleaks', '--version'], data_get($gitleaks, 'safe_commands.0.command'));
         $this->assertTrue((bool) data_get($gitleaks, 'safe_commands.0.dry_run_default'));
+        $this->assertSame('diagnostic', data_get($gitleaks, 'safe_commands.0.category'));
+        $this->assertSame('manual_diagnostic', data_get($gitleaks, 'safe_commands.0.recommended_surface'));
+        $this->assertFalse((bool) data_get($gitleaks, 'safe_commands.0.blocking_capable'));
         $this->assertDatabaseHas('atlas_tool_definitions', ['slug' => 'gitleaks']);
         $this->assertDatabaseHas('atlas_tool_definitions', ['slug' => 'atlas_visual_smoke']);
         $this->assertDatabaseHas('atlas_tool_definitions', ['slug' => 'atlas_code_intelligence']);
@@ -104,6 +107,10 @@ class AtlasToolRuntimeCoreTest extends TestCase
         $this->assertSame('ripgrep', data_get($payload, 'tool.slug'));
         $this->assertSame('version', data_get($payload, 'commands.0.name'));
         $this->assertSame(['rg', '--version'], data_get($payload, 'commands.0.command'));
+        $this->assertSame('diagnostic', data_get($payload, 'commands.0.category'));
+        $this->assertSame('manual_diagnostic', data_get($payload, 'commands.0.recommended_surface'));
+        $this->assertTrue((bool) data_get($payload, 'commands.0.creates_evidence'));
+        $this->assertFalse((bool) data_get($payload, 'commands.0.blocking_capable'));
         $this->assertSame('diagnostic', data_get($payload, 'commands.0.task_type'));
         $this->assertFalse((bool) data_get($payload, 'commands.0.network_allowed'));
 
@@ -112,6 +119,55 @@ class AtlasToolRuntimeCoreTest extends TestCase
             ->assertJsonPath('tool.slug', 'ripgrep')
             ->assertJsonPath('commands.0.command.0', 'rg')
             ->assertJsonPath('commands.0.dry_run_default', true);
+    }
+
+    public function test_p0_programming_power_tools_expose_real_scan_recipes(): void
+    {
+        $this->installFakeBinary('gitleaks', 'echo "gitleaks 99.0.0"');
+        $this->installFakeBinary('semgrep', 'echo "semgrep 99.0.0"');
+        $this->installFakeBinary('osv-scanner', 'echo "osv-scanner 99.0.0"');
+        $this->installFakeBinary('syft', 'echo "syft 99.0.0"');
+        $this->installFakeBinary('trivy', 'echo "trivy 99.0.0"');
+        $this->installFakeBinary('hadolint', 'echo "Haskell Dockerfile Linter 99.0.0"');
+        $this->installFakeBinary('checkov', 'echo "99.0.0"');
+        $this->installWorkspaceBinary('vendor/bin/phpstan', 'echo "PHPStan 99.0.0"');
+        $this->installWorkspaceBinary('vendor/bin/pint', 'echo "Pint 99.0.0"');
+        $this->installWorkspaceBinary('node_modules/.bin/tsc', 'echo "Version 99.0.0"');
+        $this->installWorkspaceBinary('node_modules/.bin/biome', 'echo "Version 99.0.0"');
+        $this->installWorkspaceBinary('node_modules/.bin/eslint', 'echo "v99.0.0"');
+
+        $expectations = [
+            'gitleaks' => ['detect-redacted', 'secret_scan', 'engineering_quality_scan', true],
+            'semgrep' => ['scan-json', 'static_security_scan', 'engineering_quality_scan', true],
+            'osv_scanner' => ['recursive-json', 'dependency_vulnerability_scan', 'engineering_quality_scan', true],
+            'syft' => ['sbom-json', 'sbom', 'release_gate', true],
+            'trivy' => ['fs-json', 'vulnerability_scan', 'release_gate', true],
+            'phpstan' => ['analyse-json', 'static_analysis', 'engineering_quality_scan', true],
+            'laravel_pint' => ['format-test', 'format_check', 'engineering_quality_scan', true],
+            'typescript' => ['no-emit', 'typecheck', 'engineering_quality_scan', true],
+            'biome' => ['ci-json', 'lint', 'engineering_quality_scan', true],
+            'eslint' => ['lint-json', 'lint', 'engineering_quality_scan', true],
+            'hadolint' => ['dockerfile-json', 'container_lint', 'engineering_quality_scan', true],
+            'checkov' => ['directory-sarif', 'iac_security', 'engineering_quality_scan', true],
+        ];
+
+        foreach ($expectations as $tool => [$recipe, $category, $surface, $blocking]) {
+            Artisan::call('atlas:tools', [
+                'action' => 'commands',
+                'tool' => $tool,
+                '--workspace' => $this->workspace,
+                '--json' => true,
+            ]);
+            $payload = json_decode(Artisan::output(), true);
+            $scanRecipe = collect($payload['commands'] ?? [])->firstWhere('name', $recipe);
+
+            $this->assertIsArray($scanRecipe, "Missing recipe [{$recipe}] for [{$tool}].");
+            $this->assertSame($category, data_get($scanRecipe, 'category'));
+            $this->assertSame($surface, data_get($scanRecipe, 'recommended_surface'));
+            $this->assertFalse((bool) data_get($scanRecipe, 'dry_run_default'));
+            $this->assertSame($blocking, (bool) data_get($scanRecipe, 'blocking_capable'));
+            $this->assertNotEmpty(data_get($scanRecipe, 'command'));
+        }
     }
 
     public function test_tool_recipe_can_be_executed_by_cli_and_api(): void
@@ -129,7 +185,11 @@ class AtlasToolRuntimeCoreTest extends TestCase
 
         $this->assertSame('skipped', data_get($payload, 'run.status'));
         $this->assertSame('version', data_get($payload, 'run.metadata_json.recipe'));
-        $this->assertSame('cli_recipe', data_get($payload, 'run.surface'));
+        $this->assertSame('diagnostic', data_get($payload, 'run.metadata_json.recipe_category'));
+        $this->assertSame('manual_diagnostic', data_get($payload, 'run.metadata_json.recipe_recommended_surface'));
+        $this->assertFalse((bool) data_get($payload, 'run.metadata_json.recipe_blocking_capable'));
+        $this->assertSame('manual_diagnostic', data_get($payload, 'run.surface'));
+        $this->assertSame('cli_recipe', data_get($payload, 'run.metadata_json.execution_origin'));
 
         $this->postJson('/tools/ripgrep/commands/version/run', [
             'workspace' => $this->workspace,
@@ -138,7 +198,221 @@ class AtlasToolRuntimeCoreTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.status', 'skipped')
             ->assertJsonPath('data.metadata_json.recipe', 'version')
-            ->assertJsonPath('data.surface', 'api_recipe');
+            ->assertJsonPath('data.surface', 'manual_diagnostic')
+            ->assertJsonPath('data.metadata_json.execution_origin', 'api_recipe');
+    }
+
+    public function test_scan_recipe_executes_and_normalizes_semgrep_findings(): void
+    {
+        $this->installFakeBinary('semgrep', <<<'BASH'
+cat <<'JSON'
+{
+  "results": [
+    {
+      "check_id": "php.security.recipe",
+      "path": "app/Recipe.php",
+      "start": {"line": 9},
+      "end": {"line": 9},
+      "extra": {
+        "severity": "ERROR",
+        "message": "Recipe blocking finding",
+        "fingerprint": "recipe-fp"
+      }
+    }
+  ]
+}
+JSON
+exit 1
+BASH);
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run-recipe',
+            'tool' => 'semgrep',
+            '--recipe' => 'scan-json',
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('failed', data_get($payload, 'run.status'));
+        $this->assertSame('engineering_quality_scan', data_get($payload, 'run.surface'));
+        $this->assertSame('scan-json', data_get($payload, 'run.metadata_json.recipe'));
+        $this->assertSame('static_security_scan', data_get($payload, 'run.metadata_json.recipe_category'));
+        $this->assertSame('engineering_quality_scan', data_get($payload, 'run.metadata_json.recipe_recommended_surface'));
+        $this->assertSame('cli_recipe', data_get($payload, 'run.metadata_json.execution_origin'));
+        $this->assertTrue((bool) data_get($payload, 'run.metadata_json.recipe_blocking_capable'));
+        $this->assertSame('php.security.recipe', data_get($payload, 'run.normalized_result_json.findings.0.rule_id'));
+        $this->assertSame('high', data_get($payload, 'run.normalized_result_json.findings.0.severity'));
+        $this->assertTrue((bool) data_get($payload, 'run.normalized_result_json.findings.0.blocks_resolved'));
+    }
+
+    public function test_typescript_recipe_parses_no_emit_text_diagnostics(): void
+    {
+        $this->installWorkspaceBinary('node_modules/.bin/tsc', <<<'BASH'
+echo 'src/app.ts(12,7): error TS2322: Type string is not assignable to type number.' >&2
+exit 2
+BASH);
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run-recipe',
+            'tool' => 'typescript',
+            '--recipe' => 'no-emit',
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('failed', data_get($payload, 'run.status'));
+        $this->assertSame('no-emit', data_get($payload, 'run.metadata_json.recipe'));
+        $this->assertSame('typecheck', data_get($payload, 'run.metadata_json.recipe_category'));
+        $this->assertSame('TS2322', data_get($payload, 'run.normalized_result_json.findings.0.rule_id'));
+        $this->assertSame('src/app.ts', data_get($payload, 'run.normalized_result_json.findings.0.file_path'));
+        $this->assertSame(12, data_get($payload, 'run.normalized_result_json.findings.0.line'));
+        $this->assertTrue((bool) data_get($payload, 'run.normalized_result_json.findings.0.blocks_resolved'));
+    }
+
+    public function test_pint_biome_hadolint_and_sarif_outputs_are_normalized(): void
+    {
+        $this->installWorkspaceBinary('vendor/bin/pint', <<<'BASH'
+cat <<'JSON'
+{
+  "files": [
+    {"name": "app/NeedsFormat.php", "appliedFixers": ["braces"]}
+  ]
+}
+JSON
+exit 1
+BASH);
+        $this->installWorkspaceBinary('node_modules/.bin/biome', <<<'BASH'
+cat <<'JSON'
+{
+  "diagnostics": [
+    {
+      "category": "lint/suspicious/noConsole",
+      "severity": "error",
+      "description": "Avoid console.",
+      "location": {
+        "path": {"file": "src/App.tsx"},
+        "span": {"start": {"line": 4, "column": 3}, "end": {"line": 4, "column": 10}}
+      }
+    }
+  ]
+}
+JSON
+exit 1
+BASH);
+        $this->installFakeBinary('hadolint', <<<'BASH'
+cat <<'JSON'
+[
+  {"code": "DL3008", "level": "error", "message": "Pin versions in apt-get install.", "line": 3, "column": 1, "file": "Dockerfile"}
+]
+JSON
+exit 1
+BASH);
+        $this->installFakeBinary('checkov', <<<'BASH'
+cat <<'JSON'
+{
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Checkov",
+          "rules": [
+            {
+              "id": "CKV_DOCKER_2",
+              "shortDescription": {"text": "Ensure HEALTHCHECK instructions have been added"},
+              "properties": {"problem.severity": "error"}
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CKV_DOCKER_2",
+          "level": "error",
+          "message": {"text": "Dockerfile is missing HEALTHCHECK."},
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {"uri": "Dockerfile"},
+                "region": {"startLine": 1}
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+JSON
+exit 1
+BASH);
+
+        $cases = [
+            ['laravel_pint', 'format-test', [], 'pint.format', 'app/NeedsFormat.php'],
+            ['biome', 'ci-json', [], 'lint/suspicious/noConsole', 'src/App.tsx'],
+            ['hadolint', 'dockerfile-json', [], 'DL3008', 'Dockerfile'],
+            ['checkov', 'directory-sarif', ['--approved' => true], 'CKV_DOCKER_2', 'Dockerfile'],
+        ];
+
+        foreach ($cases as [$tool, $recipe, $extraOptions, $ruleId, $filePath]) {
+            Artisan::call('atlas:tools', [
+                'action' => 'run-recipe',
+                'tool' => $tool,
+                '--recipe' => $recipe,
+                '--workspace' => $this->workspace,
+                '--json' => true,
+                ...$extraOptions,
+            ]);
+            $payload = json_decode(Artisan::output(), true);
+
+            $this->assertSame('failed', data_get($payload, 'run.status'), "Expected [{$tool}] to fail for fixture output.");
+            $this->assertSame($recipe, data_get($payload, 'run.metadata_json.recipe'));
+            $this->assertSame($ruleId, data_get($payload, 'run.normalized_result_json.findings.0.rule_id'));
+            $this->assertSame($filePath, data_get($payload, 'run.normalized_result_json.findings.0.file_path'));
+            $this->assertTrue((bool) data_get($payload, 'run.normalized_result_json.findings.0.blocks_resolved'));
+        }
+    }
+
+    public function test_evidence_and_gate_can_be_filtered_by_recipe_metadata(): void
+    {
+        $this->installFakeBinary('rg', 'echo "ripgrep 99.0.0"');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'run-recipe',
+            'tool' => 'ripgrep',
+            '--recipe' => 'version',
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+
+        Artisan::call('atlas:tools', [
+            'action' => 'evidence',
+            'tool' => 'ripgrep',
+            '--workspace' => $this->workspace,
+            '--recipe' => 'version',
+            '--recipe-category' => 'diagnostic',
+            '--recipe-blocking-capable' => 'false',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertCount(1, $payload['runs'] ?? []);
+        $this->assertSame('version', data_get($payload, 'runs.0.metadata_json.recipe'));
+
+        $this->getJson('/tools/evidence?workspace='.urlencode($this->workspace).'&tool_slug=ripgrep&recipe=version&recipe_category=diagnostic&recipe_blocking_capable=false', $this->headers)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.metadata_json.recipe', 'version');
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=ripgrep&recipe=version&recipe_category=diagnostic&recipe_blocking_capable=false', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('summary.run_count', 1)
+            ->assertJsonPath('status', 'warning')
+            ->assertJsonPath('runs.0.recipe', 'version')
+            ->assertJsonPath('runs.0.recipe_category', 'diagnostic')
+            ->assertJsonPath('runs.0.execution_origin', 'cli_recipe');
     }
 
     public function test_registry_seeds_programming_power_tools_with_execution_policy_metadata(): void
@@ -205,6 +479,97 @@ class AtlasToolRuntimeCoreTest extends TestCase
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('authority_groups.0.authority_group', 'accessibility')
             ->assertJsonPath('tiers.T0.tools.0.execution_tier', 'T0');
+
+        $this->getJson('/tools/authority/policies', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'ok')
+            ->assertJsonPath('schema', 'atlas.tool_authority_policies.v1')
+            ->assertJsonPath('policies.0.authority_group', 'secret_scan');
+    }
+
+    public function test_cli_and_api_expose_authority_gate_policies(): void
+    {
+        $exit = Artisan::call('atlas:tools', [
+            'action' => 'authority-policies',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+        $semanticSast = collect($payload['policies'] ?? [])->firstWhere('authority_group', 'semantic_sast');
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.tool_authority_policies.v1', data_get($payload, 'schema'));
+        $this->assertSame('semantic_sast_critical_high_blocks_medium_warns', data_get($semanticSast, 'policy'));
+        $this->assertContains('high', data_get($semanticSast, 'block_severities', []));
+        $this->assertContains('medium', data_get($semanticSast, 'warn_severities', []));
+
+        $this->getJson('/tools/authority/policies', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('schema', 'atlas.tool_authority_policies.v1')
+            ->assertJsonPath('summary.policy_count', count($payload['policies'] ?? []))
+            ->assertJsonPath('policies.1.authority_group', 'semantic_sast')
+            ->assertJsonPath('policies.1.block_reason', 'authority_sast_high_finding');
+    }
+
+    public function test_authority_gate_policy_can_be_overridden_and_revoked_per_workspace(): void
+    {
+        Artisan::call('atlas:tools', [
+            'action' => 'set-authority-policy',
+            'tool' => 'semantic_sast',
+            '--workspace' => $this->workspace,
+            '--block-severity' => ['critical', 'high', 'medium'],
+            '--warn-severity' => ['low'],
+            '--block-reason' => 'workspace_sast_medium_blocks',
+            '--warn-reason' => 'workspace_sast_low_warns',
+            '--json' => true,
+        ]);
+        $cliPayload = json_decode(Artisan::output(), true);
+        $semanticSast = collect(data_get($cliPayload, 'catalog.policies', []))->firstWhere('authority_group', 'semantic_sast');
+
+        $this->assertSame('configured', data_get($cliPayload, 'status'));
+        $this->assertSame('workspace', data_get($semanticSast, 'source'));
+        $this->assertContains('medium', data_get($semanticSast, 'block_severities', []));
+
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'passed',
+            'findings' => [[
+                'rule_id' => 'semgrep.medium.override',
+                'title' => 'Medium SAST finding now blocks',
+                'severity' => 'medium',
+                'file' => 'app/Medium.php',
+                'line' => 10,
+                'blocks_resolved' => false,
+            ]],
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=semgrep', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('blocking_failures.0.reason', 'workspace_sast_medium_blocks')
+            ->assertJsonPath('blocking_failures.0.authority_policy', 'semantic_sast_critical_high_blocks_medium_warns_override');
+
+        $this->deleteJson('/tools/authority/policies/semantic_sast?workspace='.urlencode($this->workspace), [], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'revoked')
+            ->assertJsonPath('catalog.policies.1.source', 'default');
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=semgrep', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'warning')
+            ->assertJsonPath('warnings.0.reason', 'authority_sast_medium_finding');
+
+        $this->putJson('/tools/authority/policies/semantic_sast', [
+            'workspace' => $this->workspace,
+            'block_severities' => ['critical', 'high'],
+            'warn_severities' => ['medium', 'low'],
+            'block_reason' => 'api_sast_high_blocks',
+            'warn_reason' => 'api_sast_warns',
+        ], $this->headers)
+            ->assertCreated()
+            ->assertJsonPath('status', 'configured')
+            ->assertJsonPath('catalog.policies.1.warn_reason', 'api_sast_warns');
     }
 
     public function test_policy_requires_approval_for_high_risk_tool_and_records_auditable_run(): void
@@ -903,6 +1268,164 @@ BASH);
             ->assertJsonPath('summary.blocking_failure_count', 0);
     }
 
+    public function test_gate_reports_stale_evidence_as_warning_or_blocking_failure(): void
+    {
+        $run = app(AtlasToolEvidenceStore::class)->recordExternalToolResult('ripgrep', $this->workspace, [
+            'status' => 'passed',
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+        $run?->forceFill([
+            'created_at' => now()->subHours(3),
+            'finished_at' => now()->subHours(3),
+        ])->save();
+
+        $warningPayload = $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=ripgrep&max_age_minutes=60', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'warning')
+            ->assertJsonPath('allowed', true)
+            ->assertJsonPath('summary.stale_evidence_count', 1)
+            ->assertJsonPath('warnings.0.reason', 'stale_evidence')
+            ->assertJsonPath('freshness.max_age_minutes', 60)
+            ->json();
+        $this->assertGreaterThanOrEqual(179, data_get($warningPayload, 'runs.0.evidence_age_minutes'));
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=ripgrep&max_age_minutes=60&stale_blocks=1', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('allowed', false)
+            ->assertJsonPath('blocking_failures.0.reason', 'stale_evidence_blocks');
+
+        Artisan::call('atlas:tools', [
+            'action' => 'gate',
+            'tool' => 'ripgrep',
+            '--workspace' => $this->workspace,
+            '--max-age-minutes' => 60,
+            '--stale-blocks' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame('blocked', $payload['status'] ?? null);
+        $this->assertSame('stale_evidence_blocks', data_get($payload, 'blocking_failures.0.reason'));
+    }
+
+    public function test_gate_can_evaluate_only_latest_evidence_per_tool(): void
+    {
+        $oldRun = app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'failed',
+            'exit_code' => 1,
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+        $oldRun?->forceFill([
+            'created_at' => now()->subHours(2),
+            'finished_at' => now()->subHours(2),
+        ])->save();
+
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'passed',
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=semgrep', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('summary.input_run_count', 2)
+            ->assertJsonPath('summary.run_count', 2)
+            ->assertJsonPath('blocking_failures.0.reason', 'tool_status_failed');
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=semgrep&latest_per_tool=1', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'passed')
+            ->assertJsonPath('summary.input_run_count', 2)
+            ->assertJsonPath('summary.run_count', 1)
+            ->assertJsonPath('selection.latest_per_tool', true);
+    }
+
+    public function test_gate_applies_authority_group_thresholds_to_findings(): void
+    {
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'passed',
+            'findings' => [[
+                'rule_id' => 'semgrep.medium',
+                'title' => 'Medium SAST finding',
+                'severity' => 'medium',
+                'file' => 'app/Medium.php',
+                'line' => 10,
+                'blocks_resolved' => false,
+            ]],
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=semgrep', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'warning')
+            ->assertJsonPath('allowed', true)
+            ->assertJsonPath('summary.blocking_failure_count', 0)
+            ->assertJsonPath('warnings.0.reason', 'authority_sast_medium_finding')
+            ->assertJsonPath('warnings.0.authority_group', 'semantic_sast')
+            ->assertJsonPath('warnings.0.authority_policy', 'semantic_sast_critical_high_blocks_medium_warns');
+
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('checkov', $this->workspace, [
+            'status' => 'passed',
+            'findings' => [[
+                'rule_id' => 'CKV_ATLAS_1',
+                'title' => 'High IaC finding',
+                'severity' => 'high',
+                'file' => 'infra/main.tf',
+                'line' => 3,
+                'blocks_resolved' => false,
+            ]],
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=checkov', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('allowed', false)
+            ->assertJsonPath('blocking_failures.0.reason', 'authority_iac_security')
+            ->assertJsonPath('blocking_failures.0.authority_group', 'iac_security')
+            ->assertJsonPath('blocking_failures.0.authority_policy', 'iac_security_critical_high_blocks_medium_warns');
+    }
+
+    public function test_gate_warns_instead_of_blocking_for_failed_non_blocking_recipe(): void
+    {
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('ripgrep', $this->workspace, [
+            'status' => 'failed',
+            'command' => ['rg', '--version'],
+            'exit_code' => 1,
+            'duration_ms' => 10,
+        ], [
+            'surface' => 'cli_recipe',
+            'source' => 'test',
+            'metadata' => [
+                'recipe' => 'version',
+                'recipe_category' => 'diagnostic',
+                'recipe_recommended_surface' => 'manual_diagnostic',
+                'recipe_creates_evidence' => true,
+                'recipe_blocking_capable' => false,
+            ],
+        ]);
+
+        $this->getJson('/tools/gate?workspace='.urlencode($this->workspace).'&tool_slug=ripgrep', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'warning')
+            ->assertJsonPath('allowed', true)
+            ->assertJsonPath('summary.run_count', 1)
+            ->assertJsonPath('summary.blocking_failure_count', 0)
+            ->assertJsonPath('summary.warning_count', 1)
+            ->assertJsonPath('warnings.0.reason', 'non_blocking_recipe_failed');
+    }
+
     public function test_gate_correlates_duplicate_blocking_findings_across_authority_group(): void
     {
         app(AtlasToolEvidenceStore::class)->recordExternalToolResult('codeql', $this->workspace, [
@@ -1131,6 +1654,70 @@ BASH);
         $this->assertTrue((bool) ($payload['allowed'] ?? false));
     }
 
+    public function test_release_gate_consumes_direct_recipe_runs_from_recommended_surfaces(): void
+    {
+        $this->installFakeBinary('gitleaks', <<<'BASH'
+echo '[]'
+exit 0
+BASH);
+        $this->installFakeBinary('semgrep', <<<'BASH'
+echo '{"results":[]}'
+exit 0
+BASH);
+        $this->installFakeBinary('osv-scanner', <<<'BASH'
+echo '{"results":[]}'
+exit 0
+BASH);
+        $this->installFakeBinary('trivy', <<<'BASH'
+echo '{"Results":[]}'
+exit 0
+BASH);
+        $this->installFakeBinary('syft', <<<'BASH'
+cat <<'JSON'
+{
+  "source": {"type": "directory", "name": "."},
+  "artifacts": [
+    {"name": "vendor/package", "version": "1.0.0", "type": "php-composer-package"}
+  ]
+}
+JSON
+exit 0
+BASH);
+
+        foreach ([
+            ['gitleaks', 'detect-redacted', ['--approved' => true]],
+            ['semgrep', 'scan-json', []],
+            ['osv_scanner', 'recursive-json', ['--approved' => true]],
+            ['trivy', 'fs-json', ['--approved' => true]],
+            ['syft', 'sbom-json', []],
+        ] as [$tool, $recipe, $extraOptions]) {
+            Artisan::call('atlas:tools', [
+                'action' => 'run-recipe',
+                'tool' => $tool,
+                '--recipe' => $recipe,
+                '--workspace' => $this->workspace,
+                '--json' => true,
+                ...$extraOptions,
+            ]);
+            $payload = json_decode(Artisan::output(), true);
+
+            $this->assertSame('passed', data_get($payload, 'run.status'), "Expected [{$tool}:{$recipe}] to pass.");
+            $this->assertSame($recipe, data_get($payload, 'run.metadata_json.recipe'));
+            $this->assertSame('cli_recipe', data_get($payload, 'run.metadata_json.execution_origin'));
+        }
+
+        $this->assertSame('engineering_quality_scan', AtlasToolRun::query()->where('tool_slug', 'gitleaks')->value('surface'));
+        $this->assertSame('release_gate', AtlasToolRun::query()->where('tool_slug', 'syft')->value('surface'));
+        $this->assertSame('release_gate', AtlasToolRun::query()->where('tool_slug', 'trivy')->value('surface'));
+
+        $this->getJson('/tools/release-gate?workspace='.urlencode($this->workspace), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'passed')
+            ->assertJsonPath('allowed', true)
+            ->assertJsonPath('summary.release_requirement_failure_count', 0)
+            ->assertJsonPath('release_requirements.3.satisfied', true);
+    }
+
     public function test_release_gate_blocks_when_required_sbom_evidence_is_missing(): void
     {
         app(AtlasToolEvidenceStore::class)->recordExternalToolResult('gitleaks', $this->workspace, [
@@ -1157,6 +1744,84 @@ BASH);
             ->assertJsonPath('status', 'blocked')
             ->assertJsonPath('summary.release_requirement_failure_count', 1)
             ->assertJsonPath('blocking_failures.0.requirement', 'sbom_attached');
+    }
+
+    public function test_release_gate_blocks_stale_security_evidence_by_default(): void
+    {
+        foreach (['gitleaks', 'semgrep', 'trivy'] as $tool) {
+            app(AtlasToolEvidenceStore::class)->recordExternalToolResult($tool, $this->workspace, [
+                'status' => 'passed',
+            ], [
+                'surface' => 'engineering_quality_scan',
+                'source' => 'test',
+            ]);
+        }
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('syft', $this->workspace, [
+            'status' => 'passed',
+            'stdout' => json_encode([
+                'source' => ['type' => 'directory', 'name' => '.'],
+                'artifacts' => [
+                    ['name' => 'vendor/package', 'version' => '1.0.0', 'type' => 'php-composer-package'],
+                ],
+            ]),
+        ], [
+            'surface' => 'release_gate',
+            'source' => 'test',
+        ]);
+        AtlasToolRun::query()->update([
+            'created_at' => now()->subDays(2),
+            'finished_at' => now()->subDays(2),
+        ]);
+
+        $this->getJson('/tools/release-gate?workspace='.urlencode($this->workspace), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('summary.stale_evidence_count', 4)
+            ->assertJsonPath('blocking_failures.0.reason', 'stale_evidence_blocks')
+            ->assertJsonPath('freshness.max_age_minutes', 1440);
+    }
+
+    public function test_release_gate_uses_latest_evidence_per_tool(): void
+    {
+        $oldSemgrepRun = app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'failed',
+            'exit_code' => 1,
+        ], [
+            'surface' => 'engineering_quality_scan',
+            'source' => 'test',
+        ]);
+        $oldSemgrepRun?->forceFill([
+            'created_at' => now()->subHours(3),
+            'finished_at' => now()->subHours(3),
+        ])->save();
+
+        foreach (['gitleaks', 'semgrep', 'trivy'] as $tool) {
+            app(AtlasToolEvidenceStore::class)->recordExternalToolResult($tool, $this->workspace, [
+                'status' => 'passed',
+            ], [
+                'surface' => 'engineering_quality_scan',
+                'source' => 'test',
+            ]);
+        }
+        app(AtlasToolEvidenceStore::class)->recordExternalToolResult('syft', $this->workspace, [
+            'status' => 'passed',
+            'stdout' => json_encode([
+                'source' => ['type' => 'directory', 'name' => '.'],
+                'artifacts' => [
+                    ['name' => 'vendor/package', 'version' => '1.0.0', 'type' => 'php-composer-package'],
+                ],
+            ]),
+        ], [
+            'surface' => 'release_gate',
+            'source' => 'test',
+        ]);
+
+        $this->getJson('/tools/release-gate?workspace='.urlencode($this->workspace), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'passed')
+            ->assertJsonPath('summary.input_run_count', 5)
+            ->assertJsonPath('summary.run_count', 4)
+            ->assertJsonPath('selection.latest_per_tool', true);
     }
 
     public function test_quality_scan_records_generic_tool_evidence_without_breaking_existing_payload(): void
@@ -1235,6 +1900,14 @@ BASH);
     {
         File::put($this->binDir.'/'.$name, "#!/usr/bin/env bash\n{$scriptBody}\n");
         chmod($this->binDir.'/'.$name, 0755);
+    }
+
+    private function installWorkspaceBinary(string $name, string $scriptBody): void
+    {
+        $path = $this->workspace.'/'.$name;
+        File::ensureDirectoryExists(dirname($path));
+        File::put($path, "#!/usr/bin/env bash\n{$scriptBody}\n");
+        chmod($path, 0755);
     }
 
     private function createTables(): void

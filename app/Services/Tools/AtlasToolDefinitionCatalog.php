@@ -13,26 +13,59 @@ class AtlasToolDefinitionCatalog
             $this->definition('git', 'Git', 'version_control', 'sensor', ['repo_state', 'diff', 'history'], ['git'], ['host', 'workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T0', 'cost' => 'instant', 'trigger' => 'interactive', 'authority_group' => 'repo_state']),
             $this->definition('ripgrep', 'ripgrep', 'code_intelligence', 'sensor', ['text_search', 'context_discovery'], ['rg'], ['host'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T0', 'cost' => 'instant', 'trigger' => 'interactive', 'authority_group' => 'text_search']),
             $this->definition('composer', 'Composer', 'php_quality', 'validator', ['dependency_validate', 'php_scripts'], ['composer'], ['host', 'workspace'], ['reads_workspace', 'may_use_network'], 'medium', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'php_dependency_hygiene']),
-            $this->definition('laravel_pint', 'Laravel Pint', 'php_quality', 'validator', ['php_format_check'], ['vendor/bin/pint'], ['workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'formatter']),
-            $this->definition('phpstan', 'PHPStan', 'php_quality', 'validator', ['php_static_analysis'], ['vendor/bin/phpstan'], ['workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'php_static_analysis']),
+            $this->definition('laravel_pint', 'Laravel Pint', 'php_quality', 'validator', ['php_format_check'], ['vendor/bin/pint'], ['workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'formatter', 'safe_commands' => [
+                $this->versionRecipe('T1'),
+                $this->scanRecipe('format-test', ['{binary}', '--test', '--format=json'], 'format_check', 'engineering_quality_scan', true, ['task_type' => 'format_check']),
+            ]]),
+            $this->definition('phpstan', 'PHPStan', 'php_quality', 'validator', ['php_static_analysis'], ['vendor/bin/phpstan'], ['workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'php_static_analysis', 'safe_commands' => [
+                $this->versionRecipe('T1'),
+                $this->scanRecipe('analyse-json', ['{binary}', 'analyse', '--error-format=json', '--no-progress'], 'static_analysis', 'engineering_quality_scan', true, ['task_type' => 'static_analysis']),
+            ]]),
             $this->definition('psalm', 'Psalm', 'php_quality', 'validator', ['php_static_analysis', 'php_taint_analysis'], ['vendor/bin/psalm'], ['workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'php_static_analysis', 'authority_role' => 'primary_or_complementary']),
-            $this->definition('typescript', 'TypeScript Compiler', 'frontend_quality', 'validator', ['typescript_typecheck'], ['node_modules/.bin/tsc'], ['workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'ts_js_type_lint']),
-            $this->definition('biome', 'Biome', 'frontend_quality', 'validator', ['js_ts_lint', 'format_check'], ['node_modules/.bin/biome'], ['workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'ts_js_type_lint', 'authority_role' => 'primary_or_complementary']),
-            $this->definition('eslint', 'ESLint', 'frontend_quality', 'validator', ['js_ts_lint'], ['node_modules/.bin/eslint'], ['workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'ts_js_type_lint', 'authority_role' => 'primary_or_complementary']),
+            $this->definition('typescript', 'TypeScript Compiler', 'frontend_quality', 'validator', ['typescript_typecheck'], ['node_modules/.bin/tsc'], ['workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'ts_js_type_lint', 'safe_commands' => [
+                $this->versionRecipe('T1'),
+                $this->scanRecipe('no-emit', ['{binary}', '--noEmit', '--pretty', 'false'], 'typecheck', 'engineering_quality_scan', true, ['task_type' => 'typecheck']),
+            ]]),
+            $this->definition('biome', 'Biome', 'frontend_quality', 'validator', ['js_ts_lint', 'format_check'], ['node_modules/.bin/biome'], ['workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'ts_js_type_lint', 'authority_role' => 'primary_or_complementary', 'safe_commands' => [
+                $this->versionRecipe('T1'),
+                $this->scanRecipe('ci-json', ['{binary}', 'ci', '--reporter=json', '.'], 'lint', 'engineering_quality_scan', true, ['task_type' => 'lint']),
+            ]]),
+            $this->definition('eslint', 'ESLint', 'frontend_quality', 'validator', ['js_ts_lint'], ['node_modules/.bin/eslint'], ['workspace'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'ts_js_type_lint', 'authority_role' => 'primary_or_complementary', 'safe_commands' => [
+                $this->versionRecipe('T1'),
+                $this->scanRecipe('lint-json', ['{binary}', '.', '--format', 'json'], 'lint', 'engineering_quality_scan', true, ['task_type' => 'lint']),
+            ]]),
             $this->definition('shellcheck', 'ShellCheck', 'shell_quality', 'validator', ['shell_lint'], ['shellcheck'], ['host'], ['reads_workspace'], 'low'),
-            $this->definition('hadolint', 'Hadolint', 'container_quality', 'validator', ['dockerfile_lint'], ['hadolint'], ['host'], ['reads_workspace'], 'low'),
-            $this->definition('gitleaks', 'Gitleaks', 'security', 'scanner', ['secret_scan'], ['gitleaks'], ['host'], ['reads_workspace', 'secret_sensitive_output'], 'high', 'blocks_resolved', ['tier' => 'T1', 'authority_group' => 'secret_scan']),
-            $this->definition('semgrep', 'Semgrep', 'security', 'scanner', ['static_security_scan', 'bug_pattern_scan'], ['semgrep'], ['host'], ['reads_workspace'], 'medium', 'advisory', ['tier' => 'T2', 'cost' => 'review_medium', 'trigger' => 'pr_review_or_release', 'authority_group' => 'semantic_sast', 'authority_role' => 'complementary']),
+            $this->definition('hadolint', 'Hadolint', 'container_quality', 'validator', ['dockerfile_lint'], ['hadolint'], ['host'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T1', 'cost' => 'local_fast', 'authority_group' => 'container_quality', 'safe_commands' => [
+                $this->versionRecipe('T1'),
+                $this->scanRecipe('dockerfile-json', ['{binary}', '--format', 'json', 'Dockerfile'], 'container_lint', 'engineering_quality_scan', true, ['task_type' => 'container_lint']),
+            ]]),
+            $this->definition('gitleaks', 'Gitleaks', 'security', 'scanner', ['secret_scan'], ['gitleaks'], ['host'], ['reads_workspace', 'secret_sensitive_output'], 'high', 'blocks_resolved', ['tier' => 'T1', 'authority_group' => 'secret_scan', 'safe_commands' => [
+                $this->versionRecipe('T1'),
+                $this->scanRecipe('detect-redacted', ['{binary}', 'detect', '--source', '.', '--report-format', 'json', '--no-banner', '--redact'], 'secret_scan', 'engineering_quality_scan', true, ['privacy_level' => 'sensitive', 'requires_provider_safe' => false]),
+            ]]),
+            $this->definition('semgrep', 'Semgrep', 'security', 'scanner', ['static_security_scan', 'bug_pattern_scan'], ['semgrep'], ['host'], ['reads_workspace'], 'medium', 'advisory', ['tier' => 'T2', 'cost' => 'review_medium', 'trigger' => 'pr_review_or_release', 'authority_group' => 'semantic_sast', 'authority_role' => 'complementary', 'safe_commands' => [
+                $this->versionRecipe('T2'),
+                $this->scanRecipe('scan-json', ['{binary}', 'scan', '--json', '--config', 'auto', '.'], 'static_security_scan', 'engineering_quality_scan', true, ['max_execution_tier' => 'T2', 'task_type' => 'security_review']),
+            ]]),
             $this->definition('atlas_code_intelligence', 'Atlas Code Intelligence', 'code_intelligence', 'internal_analyzer', ['module_index', 'symbol_index', 'drift_audit', 'doc_link_audit'], ['internal'], ['atlas_internal'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T0', 'cost' => 'instant', 'trigger' => 'interactive_or_context_pack', 'authority_group' => 'semantic_code_intelligence']),
             $this->definition('atlas_visual_smoke', 'Atlas Visual Smoke', 'browser_automation', 'internal_sensor', ['local_web_probe', 'dom_snapshot', 'screenshot', 'trace', 'baseline_compare'], ['internal'], ['atlas_internal'], ['network', 'starts_browser', 'may_start_server'], 'medium', 'advisory', ['tier' => 'T2', 'cost' => 'review_medium', 'authority_group' => 'visual_regression']),
             $this->definition('atlas_api_contract', 'Atlas API Contract', 'api_contract', 'internal_validator', ['openapi_detect', 'route_contract_diff', 'response_contract_check'], ['internal'], ['atlas_internal'], ['reads_workspace'], 'medium', 'blocks_resolved', ['tier' => 'T1', 'authority_group' => 'api_contract']),
             $this->definition('playwright', 'Playwright', 'browser_automation', 'recorder', ['browser_open', 'screenshot', 'trace', 'visual_smoke'], ['node_modules/.bin/playwright', 'playwright'], ['workspace', 'atlas_managed', 'host'], ['network', 'starts_browser', 'may_start_server'], 'medium', 'advisory', ['tier' => 'T2', 'cost' => 'review_medium', 'authority_group' => 'visual_regression', 'authority_role' => 'complementary']),
             $this->definition('cypress', 'Cypress', 'browser_automation', 'recorder', ['browser_e2e', 'screenshot'], ['node_modules/.bin/cypress'], ['workspace'], ['network', 'starts_browser', 'may_start_server'], 'medium', 'advisory', ['tier' => 'T2', 'cost' => 'review_medium', 'authority_group' => 'visual_regression', 'authority_role' => 'complementary']),
             $this->definition('docker', 'Docker', 'environment', 'actuator', ['container_runtime', 'compose_stack', 'artifact_export'], ['docker'], ['host'], ['can_start_services', 'network', 'writes_workspace_mounted_state'], 'high', 'requires_human', ['tier' => 'T2', 'cost' => 'review_medium', 'authority_group' => 'environment']),
-            $this->definition('trivy', 'Trivy', 'security', 'scanner', ['filesystem_vulnerability_scan', 'container_scan', 'iac_scan', 'secret_scan'], ['trivy'], ['host'], ['reads_workspace', 'may_use_network'], 'high', 'blocks_release', ['tier' => 'T3', 'cost' => 'release_heavy', 'trigger' => 'release_or_nightly', 'authority_group' => 'vulnerability_scan']),
-            $this->definition('syft', 'Syft', 'supply_chain', 'scanner', ['sbom_generation'], ['syft'], ['host'], ['reads_workspace'], 'medium', 'advisory', ['tier' => 'T3', 'cost' => 'release_heavy', 'trigger' => 'release_or_nightly', 'authority_group' => 'sbom']),
+            $this->definition('trivy', 'Trivy', 'security', 'scanner', ['filesystem_vulnerability_scan', 'container_scan', 'iac_scan', 'secret_scan'], ['trivy'], ['host'], ['reads_workspace', 'may_use_network'], 'high', 'blocks_release', ['tier' => 'T3', 'cost' => 'release_heavy', 'trigger' => 'release_or_nightly', 'authority_group' => 'vulnerability_scan', 'safe_commands' => [
+                $this->versionRecipe('T3'),
+                $this->scanRecipe('fs-json', ['{binary}', 'fs', '--format', 'json', '--quiet', '.'], 'vulnerability_scan', 'release_gate', true, ['network_allowed' => true, 'max_execution_tier' => 'T3', 'task_type' => 'release_security']),
+            ]]),
+            $this->definition('syft', 'Syft', 'supply_chain', 'scanner', ['sbom_generation'], ['syft'], ['host'], ['reads_workspace'], 'medium', 'advisory', ['tier' => 'T3', 'cost' => 'release_heavy', 'trigger' => 'release_or_nightly', 'authority_group' => 'sbom', 'safe_commands' => [
+                $this->versionRecipe('T3'),
+                $this->scanRecipe('sbom-json', ['{binary}', '.', '-o', 'json'], 'sbom', 'release_gate', true, ['max_execution_tier' => 'T3', 'task_type' => 'release_sbom']),
+            ]]),
             $this->definition('grype', 'Grype', 'supply_chain', 'scanner', ['sbom_vulnerability_scan'], ['grype'], ['host'], ['reads_workspace', 'may_use_network'], 'high', 'blocks_release', ['tier' => 'T3', 'cost' => 'release_heavy', 'trigger' => 'release_or_nightly', 'authority_group' => 'vulnerability_scan', 'authority_role' => 'complementary']),
-            $this->definition('osv_scanner', 'OSV-Scanner', 'security', 'scanner', ['lockfile_vulnerability_scan'], ['osv-scanner'], ['host'], ['reads_workspace', 'may_use_network'], 'high', 'blocks_release', ['tier' => 'T2', 'cost' => 'review_medium', 'trigger' => 'pr_review_or_release', 'authority_group' => 'dependency_vulnerability']),
+            $this->definition('osv_scanner', 'OSV-Scanner', 'security', 'scanner', ['lockfile_vulnerability_scan'], ['osv-scanner'], ['host'], ['reads_workspace', 'may_use_network'], 'high', 'blocks_release', ['tier' => 'T2', 'cost' => 'review_medium', 'trigger' => 'pr_review_or_release', 'authority_group' => 'dependency_vulnerability', 'safe_commands' => [
+                $this->versionRecipe('T2'),
+                $this->scanRecipe('recursive-json', ['{binary}', '--format', 'json', '--recursive', '.'], 'dependency_vulnerability_scan', 'engineering_quality_scan', true, ['network_allowed' => true, 'max_execution_tier' => 'T2', 'task_type' => 'security_review']),
+            ]]),
             ...$this->programmingPowerTools(),
         ];
     }
@@ -49,7 +82,10 @@ class AtlasToolDefinitionCatalog
             $this->definition('universal_ctags', 'Universal Ctags', 'symbol_index', 'analyzer', ['symbol_index'], ['ctags'], ['host'], ['reads_workspace'], 'low', 'advisory', ['tier' => 'T0', 'cost' => 'local_fast', 'authority_group' => 'semantic_code_intelligence', 'authority_role' => 'fallback']),
             $this->definition('codeql', 'CodeQL CLI', 'semantic_sast', 'scanner', ['semantic_sast', 'sarif_output'], ['codeql'], ['host'], ['reads_workspace', 'may_use_network'], 'high', 'blocks_release', ['tier' => 'T2', 'cost' => 'review_medium', 'trigger' => 'pr_review_or_release', 'authority_group' => 'semantic_sast']),
             $this->definition('infer', 'Infer', 'bug_finder', 'scanner', ['static_bug_finding'], ['infer'], ['host'], ['reads_workspace'], 'medium', 'advisory', ['tier' => 'T2', 'cost' => 'review_medium', 'authority_group' => 'static_bug_finding']),
-            $this->definition('checkov', 'Checkov', 'iac_security', 'scanner', ['iac_security'], ['checkov'], ['host'], ['reads_workspace'], 'high', 'blocks_release', ['tier' => 'T2', 'cost' => 'review_medium', 'authority_group' => 'iac_security']),
+            $this->definition('checkov', 'Checkov', 'iac_security', 'scanner', ['iac_security'], ['checkov'], ['host'], ['reads_workspace'], 'high', 'blocks_release', ['tier' => 'T2', 'cost' => 'review_medium', 'authority_group' => 'iac_security', 'safe_commands' => [
+                $this->versionRecipe('T2'),
+                $this->scanRecipe('directory-sarif', ['{binary}', '--directory', '.', '--quiet', '--compact', '--output', 'sarif'], 'iac_security', 'engineering_quality_scan', true, ['max_execution_tier' => 'T2', 'task_type' => 'security_review']),
+            ]]),
             $this->definition('terrascan', 'Terrascan', 'iac_security', 'scanner', ['iac_security'], ['terrascan'], ['host'], ['reads_workspace'], 'medium', 'advisory', ['tier' => 'T2', 'cost' => 'review_medium', 'authority_group' => 'iac_security', 'authority_role' => 'complementary']),
             $this->definition('kube_linter', 'kube-linter', 'kubernetes_policy', 'scanner', ['kubernetes_lint'], ['kube-linter'], ['host'], ['reads_workspace'], 'medium', 'advisory', ['tier' => 'T2', 'cost' => 'review_medium', 'authority_group' => 'kubernetes_policy']),
             $this->definition('kube_score', 'kube-score', 'kubernetes_policy', 'scanner', ['kubernetes_score'], ['kube-score'], ['host'], ['reads_workspace'], 'medium', 'advisory', ['tier' => 'T2', 'cost' => 'review_medium', 'authority_group' => 'kubernetes_policy', 'authority_role' => 'complementary']),
@@ -121,9 +157,13 @@ class AtlasToolDefinitionCatalog
         $authorityGroup = (string) ($options['authority_group'] ?? $category);
         $safeCommands = $options['safe_commands'] ?? (in_array('atlas_internal', $layers, true) ? [] : [[
             'name' => 'version',
+            'category' => 'diagnostic',
             'description' => 'Detecta a versao da ferramenta sem analisar o workspace.',
             'command' => ['{binary}', '--version'],
             'dry_run_default' => true,
+            'recommended_surface' => 'manual_diagnostic',
+            'creates_evidence' => true,
+            'blocking_capable' => false,
             'network_allowed' => false,
             'max_execution_tier' => $executionTier,
             'sandbox_mode' => 'workspace',
@@ -164,6 +204,60 @@ class AtlasToolDefinitionCatalog
                 'authority_group' => $authorityGroup,
                 'safe_commands' => $safeCommands,
             ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function versionRecipe(string $tier): array
+    {
+        return [
+            'name' => 'version',
+            'category' => 'diagnostic',
+            'description' => 'Detecta a versao da ferramenta sem analisar o workspace.',
+            'command' => ['{binary}', '--version'],
+            'dry_run_default' => true,
+            'recommended_surface' => 'manual_diagnostic',
+            'creates_evidence' => true,
+            'blocking_capable' => false,
+            'network_allowed' => false,
+            'max_execution_tier' => $tier,
+            'sandbox_mode' => 'workspace',
+            'privacy_level' => 'standard',
+            'task_type' => 'diagnostic',
+            'requires_provider_safe' => false,
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $command
+     * @param  array<string,mixed>  $overrides
+     * @return array<string,mixed>
+     */
+    private function scanRecipe(
+        string $name,
+        array $command,
+        string $category,
+        string $recommendedSurface,
+        bool $blockingCapable,
+        array $overrides = [],
+    ): array {
+        return [
+            'name' => $name,
+            'category' => $category,
+            'description' => 'Executa '.$name.' pelo Super Tool Runtime com argv seguro e evidencia normalizada.',
+            'command' => $command,
+            'dry_run_default' => false,
+            'recommended_surface' => $recommendedSurface,
+            'creates_evidence' => true,
+            'blocking_capable' => $blockingCapable,
+            'network_allowed' => (bool) ($overrides['network_allowed'] ?? false),
+            'max_execution_tier' => (string) ($overrides['max_execution_tier'] ?? 'T1'),
+            'sandbox_mode' => (string) ($overrides['sandbox_mode'] ?? 'workspace'),
+            'privacy_level' => (string) ($overrides['privacy_level'] ?? 'standard'),
+            'task_type' => (string) ($overrides['task_type'] ?? $category),
+            'requires_provider_safe' => (bool) ($overrides['requires_provider_safe'] ?? true),
         ];
     }
 }

@@ -8,6 +8,12 @@ O objetivo desta fase nao e vencer usando Atlas Decide, Codex, Gemini, conselho
 ou roteamento multi-modelo. O objetivo e isolar a qualidade do Atlas como
 harness de engenharia em volta do Claude.
 
+Importante: esta restricao vale apenas para o modo de benchmark justo. O Atlas
+normal deve continuar inteligente e multi-provider, respeitando Default AI do
+app, Atlas Decide, Codex, Gemini, budgets, provider strategy e overrides
+manuais. Fair Claude e opt-in por flags/comandos especificos; nao deve virar
+default global nem reduzir capacidades existentes.
+
 ## Tese
 
 Comparacao justa:
@@ -52,6 +58,19 @@ O Atlas precisa provar que reduz falhas operacionais:
 Esta fase nao deve prometer vitoria em tarefas triviais. Em edicoes pontuais de
 um arquivo, o overhead do Atlas pode empatar ou perder em tempo. A vitoria
 esperada aparece em tarefas onde validacao, repair e rastreabilidade importam.
+
+## Separacao De Trilhas
+
+Fair Claude e uma prova controlada. Ele nao e o modo mais poderoso do Atlas.
+
+| Trilha | Uso | Regra |
+|---|---|---|
+| Fair Claude | provar vantagem do harness usando o mesmo Claude | sem Codex, sem Gemini, sem Atlas Decide, sem fallback |
+| Atlas Supercharged | uso real diario | Atlas Decide pode usar Gemini Scout, Codex, Claude, fallback e historico medido |
+
+Um relatorio que misture essas trilhas e invalido. O Atlas pode ser
+supercharged no dia a dia e estritamente Claude-only no benchmark, mas os
+artifacts precisam declarar qual trilha foi usada em cada run.
 
 ## Posicionamento Contra Claude Code
 
@@ -158,7 +177,7 @@ produto realmente vence.
 O produto final desta fase e um modo explicito do Atlas:
 
 ```bash
-atlas dev "..." --provider=claude_cli --model=opus --single-provider --no-decide --complete --auto-test
+atlas dev "..." --provider=claude_cli --model=opus --single-provider --no-decide --fallback-disabled --complete --auto-test
 ```
 
 Aliases aceitaveis, desde que sejam equivalentes:
@@ -181,6 +200,124 @@ Contrato obrigatorio desse modo:
 - `allow_manual=false` deve bloquear no preflight;
 - `allow_auto=false` nao deve bloquear uso manual;
 - todos os artefatos devem registrar que a execucao foi `single_provider`.
+
+Contrato de nao-regressao:
+
+- `atlas dev "..."` continua usando a inteligencia normal do Atlas;
+- Default AI do app nao muda para ganhar benchmark;
+- Codex/Gemini/Atlas Decide continuam disponiveis fora de fair mode quando
+  configurados e permitidos;
+- `--provider` e `--model` continuam funcionando fora de fair mode;
+- qualquer componente geral novo, como gate matrix, patch artifact e repair
+  capsule, deve beneficiar o Atlas normal quando aplicavel.
+
+## Integridade Do Protocolo
+
+Cada caso precisa receber um status de protocolo independente do resultado
+tecnico:
+
+```text
+valid
+invalid_provider
+invalid_model
+invalid_fallback
+invalid_context
+invalid_human_intervention
+invalid_missing_artifact
+invalid_dirty_baseline
+invalid_timeout_policy
+```
+
+Casos invalidos:
+
+- nao contam como vitoria;
+- nao contam como derrota;
+- aparecem no relatorio;
+- precisam explicar a causa;
+- precisam preservar artifacts para auditoria.
+
+Campos obrigatorios por braco:
+
+```json
+{
+  "protocol_status": "valid",
+  "provider": "claude_cli",
+  "model_requested": "opus",
+  "model_resolved": "claude-opus-...",
+  "fallback_used": false,
+  "atlas_decide_used": false,
+  "other_provider_used": false,
+  "human_intervention_count": 0,
+  "initial_commit": "...",
+  "prompt_hash": "...",
+  "context_hash": "...",
+  "diff_hash": "...",
+  "gate_status": "passed"
+}
+```
+
+## Paridade De Contexto
+
+O Atlas pode vencer por preparar contexto melhor. Isso e parte do produto. Mas
+o benchmark precisa registrar exatamente o que cada braco recebeu.
+
+Registrar para Atlas:
+
+- task contract;
+- context pack hash;
+- memory refs usadas;
+- code refs usadas;
+- prompt efetivo redigido;
+- arquivos incluidos ou resumidos;
+- validation plan.
+
+Registrar para Claude Code:
+
+- prompt fornecido;
+- `CLAUDE.md` disponivel;
+- arquivos de instrucao existentes;
+- cwd;
+- modelo e versao observavel;
+- contexto adicional fornecido manualmente;
+- limitacoes que impediram contexto equivalente.
+
+Regra:
+
+```text
+Se Atlas recebeu contexto extra por capacidade propria auditavel, isso e
+vantagem de produto. Se recebeu contexto invisivel nao registrado, o caso e
+invalid_context.
+```
+
+## Criterio Para Declarar 5x
+
+Nao declarar 5x com amostra pequena ou media misturada. Requisitos minimos:
+
+- pelo menos 40 casos validos medios/dificeis;
+- `protocol_validity_rate = 100%` nos casos contados;
+- `provider_violation_count = 0`;
+- `fallback_violation_count = 0`;
+- `atlas_decide_usage_count = 0`;
+- `intervention_reduction >= 5.0x`;
+- `autonomous_success_lift >= 30pp`;
+- `final_gate_pass_rate_atlas >= 90%`;
+- perdas e invalidos publicados no relatorio.
+
+Declaracao correta:
+
+```text
+Atlas Fair Claude reduziu intervencoes humanas em 5x em tarefas
+medias/dificeis contra Claude Code CLI usando o mesmo Claude Opus.
+```
+
+Declaracao incorreta:
+
+```text
+Atlas e 5x mais inteligente que Claude.
+```
+
+O Atlas vence por governanca, contexto, gates e repair, nao por mudar a
+inteligencia do modelo nesta fase.
 
 ## Nivel De Maturidade
 
@@ -350,7 +487,7 @@ Antes da edicao, o Atlas deve transformar pedido solto em contrato:
 
 DoD:
 
-- `atlas dev --plan-only --single-provider --model=opus` mostra esse contrato;
+- `atlas dev --claude-only --model=opus --plan-only --json` mostra esse contrato;
 - o contrato e salvo em `dev_execution_plan`;
 - o prompt enviado ao Claude inclui contrato compacto;
 - o resumo final avalia contra acceptance criteria.

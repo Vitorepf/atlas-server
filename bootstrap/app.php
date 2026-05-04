@@ -46,6 +46,9 @@ use App\Console\Commands\AtlasCliVersionCommand;
 use App\Console\Commands\AtlasEngineeringApiContractCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCalibrateCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCommand;
+use App\Console\Commands\AtlasEngineeringBenchmarkFairCommand;
+use App\Console\Commands\AtlasEngineeringBenchmarkReplayManifestCommand;
+use App\Console\Commands\AtlasEngineeringBenchmarkReportCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkSeedCommand;
 use App\Console\Commands\AtlasEngineeringDockerCleanupCommand;
 use App\Console\Commands\AtlasEngineeringHarnessabilityCalibrateCommand;
@@ -62,6 +65,7 @@ use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
 use App\Console\Commands\AtlasMemoryMaintenanceCommand;
+use App\Console\Commands\AtlasMemoryQualityCommand;
 use App\Console\Commands\AtlasMemoryRecallCommand;
 use App\Console\Commands\AtlasMemoryReviewQueueCommand;
 use App\Console\Commands\AtlasMemorySeedCoreCommand;
@@ -73,6 +77,7 @@ use App\Console\Commands\AtlasRuntimeCommand;
 use App\Console\Commands\AtlasSchedulerTickCommand;
 use App\Console\Commands\AtlasSelfDiagnosticCommand;
 use App\Console\Commands\AtlasToolsCommand;
+use App\Console\Commands\AtlasVaultCommand;
 use App\Console\Commands\HealthRepairCommand;
 use App\Console\Commands\RizeInspectCommand;
 use App\Console\Commands\RizeSyncCommand;
@@ -136,6 +141,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProposalCommand::class,
         AtlasProposalScanCommand::class,
         AtlasMemoryMaintenanceCommand::class,
+        AtlasMemoryQualityCommand::class,
         AtlasMemoryRecallCommand::class,
         AtlasMemoryReviewQueueCommand::class,
         AtlasMemorySeedCoreCommand::class,
@@ -152,6 +158,9 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCliVersionCommand::class,
         AtlasEngineeringBenchmarkCalibrateCommand::class,
         AtlasEngineeringBenchmarkCommand::class,
+        AtlasEngineeringBenchmarkFairCommand::class,
+        AtlasEngineeringBenchmarkReplayManifestCommand::class,
+        AtlasEngineeringBenchmarkReportCommand::class,
         AtlasEngineeringBenchmarkSeedCommand::class,
         AtlasEngineeringApiContractCommand::class,
         AtlasEngineeringDockerCleanupCommand::class,
@@ -168,6 +177,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasSchedulerTickCommand::class,
         AtlasSelfDiagnosticCommand::class,
         AtlasToolsCommand::class,
+        AtlasVaultCommand::class,
         AtlasRuntimeCommand::class,
         HealthRepairCommand::class,
         RizeInspectCommand::class,

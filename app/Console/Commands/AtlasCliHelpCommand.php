@@ -14,7 +14,7 @@ class AtlasCliHelpCommand extends Command
     {
         $payload = [
             'product' => 'Atlas CLI',
-            'default_flow' => 'atlas ask "sua pergunta" ou atlas dev "sua tarefa"',
+            'default_flow' => 'atlas dev para programacao diaria; atlas forge para tarefas medias/dificeis/extremas',
             'commands' => $this->commands(),
         ];
 
@@ -71,12 +71,16 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'No cockpit, detecta imagem copiada no clipboard quando o pedido menciona tela/screenshot/print.',
                 ],
                 [
-                    'command' => 'atlas dev "..." --model=opus|spark|<model-id>',
-                    'description' => 'Workflow de desenvolvimento com preflight, plano, provider/model strategy e quality gate.',
+                    'command' => 'atlas dev',
+                    'description' => 'Abre o Atlas Dev Cockpit interativo; cada mensagem usa Atlas Decide, policy efetiva e perfil de programacao.',
                 ],
                 [
-                    'command' => 'atlas dev',
-                    'description' => 'Abre o Atlas Dev Cockpit com workspace, provider, permissao, thread, git e skills.',
+                    'command' => 'atlas forge',
+                    'description' => 'Modo maximo interativo para tarefas medias/dificeis: Open Brain obrigatorio, auto-test, repair loop e evidencias.',
+                ],
+                [
+                    'command' => 'atlas dev "..." --model=opus|spark|<model-id>',
+                    'description' => 'Entrada one-shot ainda suportada; o uso normal recomendado e abrir atlas dev sem prompt.',
                 ],
                 [
                     'command' => 'atlas debug "..."',
@@ -267,6 +271,14 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'Mostra matriz T0-T3, grupos de autoridade, primarias/complementares/fallbacks/executores e recomendacoes anti-buffet.',
                 ],
                 [
+                    'command' => 'atlas tools authority-policies --json',
+                    'description' => 'Mostra o contrato auditavel de severidade por grupo de autoridade: o que bloqueia, o que avisa e o motivo usado pelos gates.',
+                ],
+                [
+                    'command' => 'atlas tools set-authority-policy semantic_sast --block-severity=critical --block-severity=high --warn-severity=medium --workspace=<repo>',
+                    'description' => 'Configura override auditavel por workspace/global para thresholds de gate por authority group, sem alterar o default seguro do codigo.',
+                ],
+                [
                     'command' => 'atlas tools commands <tool> --workspace=<repo> --json',
                     'description' => 'Lista command recipes seguros do registry para a ferramenta, incluindo argv, dry-run default, tier, sandbox, privacidade e task type.',
                 ],
@@ -295,12 +307,16 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'Consulta evidencias filtradas por workspace, tool, status, surface, policy decision e contexto.',
                 ],
                 [
+                    'command' => 'atlas tools evidence [tool] --recipe=version --recipe-category=diagnostic --recipe-blocking-capable=false --json',
+                    'description' => 'Consulta evidencias de recipes especificas, separando diagnostico nao bloqueante de scans/gates reais.',
+                ],
+                [
                     'command' => 'atlas tools gate [tool] --workspace=<repo> --required-tool=<slug> --require-evidence',
                     'description' => 'Avalia evidencias normalizadas e retorna gate passed/warning/blocked com falhas bloqueantes auditaveis.',
                 ],
                 [
-                    'command' => 'atlas tools release-gate --workspace=<repo> --surface=engineering_quality_scan',
-                    'description' => 'Avalia release gate Security/SBOM com secret scan, static security, dependency vuln scan, SBOM e waivers validos.',
+                    'command' => 'atlas tools release-gate --workspace=<repo>',
+                    'description' => 'Avalia release gate Security/SBOM usando evidencias de engineering_quality_scan e release_gate, com waivers validos.',
                 ],
                 [
                     'command' => 'atlas checkpoint',
@@ -325,6 +341,10 @@ class AtlasCliHelpCommand extends Command
                 [
                     'command' => 'atlas benchmark --suite=<slug> --workspace=<repo> --tier=release --sandbox=docker --docker-service=app --docker-cache=auto --visual-e2e=auto --quality-scan=auto --harness-policy=auto --provider-runtime=docker --gate-profile=release',
                     'description' => 'Executa uma suite Atlas-Bench com sandbox/testes Docker, cache controlado, artifacts, visual/E2E automatico, quality/security scan local, provider runtime isolado opcional e release gates automatizados.',
+                ],
+                [
+                    'command' => 'atlas benchmark --suite=<fair-suite> --workspace=<repo> --claude-only --model=opus --complete --auto-test --gate-profile=release --json',
+                    'description' => 'Executa benchmark Fair Claude opt-in: Atlas harness + claude_cli + Claude Opus, sem fallback/decide/council, exigindo gates deterministicos e pass_without_human.',
                 ],
                 [
                     'command' => 'atlas benchmark cleanup --cache-retention-days=14 --artifact-retention-days=30',

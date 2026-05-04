@@ -11,6 +11,7 @@ class AtlasToolGateService
         private readonly AtlasToolEvidenceQueryService $evidence,
         private readonly AtlasToolFindingWaiverService $waivers,
         private readonly AtlasToolFindingCorrelationService $correlations,
+        private readonly AtlasToolAuthorityPolicyService $authorityPolicies,
     ) {}
 
     /**
@@ -20,7 +21,9 @@ class AtlasToolGateService
      */
     public function evaluate(array $filters = [], array $options = []): array
     {
-        $runs = $this->evidence->recent($filters);
+        $allRuns = $this->evidence->recent($filters);
+        $latestPerTool = (bool) ($options['latest_per_tool'] ?? false);
+        $runs = $latestPerTool ? $this->latestRunsPerTool($allRuns) : $allRuns;
         $failStatuses = $this->stringList($options['fail_statuses'] ?? []);
         if ($failStatuses === []) {
             $failStatuses = ['failed', 'timeout', 'requires_approval', 'denied'];
@@ -28,6 +31,8 @@ class AtlasToolGateService
         $requiredTools = $this->stringList($options['required_tools'] ?? []);
         $requireEvidence = (bool) ($options['require_evidence'] ?? false);
         $waiverAwareFailedRuns = (bool) ($options['waiver_aware_failed_runs'] ?? false);
+        $maxAgeMinutes = $this->positiveInteger($options['max_age_minutes'] ?? null);
+        $staleBlocks = (bool) ($options['stale_blocks'] ?? false);
         $correlationResult = $this->correlations->correlate($runs);
         $suppressedFindingIds = (array) ($correlationResult['suppressed_finding_ids'] ?? []);
         $blockingFailures = [];
@@ -51,9 +56,31 @@ class AtlasToolGateService
         }
 
         foreach ($runs as $run) {
+            $staleIssue = $this->staleEvidenceIssue($run, $maxAgeMinutes, $staleBlocks);
+            if ($staleIssue !== null) {
+                if ($staleBlocks) {
+                    $blockingFailures[] = $staleIssue;
+                } else {
+                    $warnings[] = $staleIssue;
+                }
+            }
+
+            if ($this->hasNonBlockingRecipeFailure($run, $failStatuses)) {
+                $warnings[] = [
+                    'tool_run_id' => $run->id,
+                    'tool_slug' => $run->tool_slug,
+                    'reason' => 'non_blocking_recipe_failed',
+                    'message' => "Tool [{$run->tool_slug}] recipe [".data_get($run->metadata_json, 'recipe').'] ended with status ['.$run->status.'] but is not blocking-capable.',
+                ];
+            }
+
             $blockingFailures = [
                 ...$blockingFailures,
                 ...$this->blockingFailuresForRun($run, $failStatuses, $waiverAwareFailedRuns, $suppressedFindingIds),
+            ];
+            $warnings = [
+                ...$warnings,
+                ...$this->authorityWarningsForRun($run, $suppressedFindingIds),
             ];
 
             if ($run->status === 'skipped') {
@@ -75,13 +102,22 @@ class AtlasToolGateService
             'required_tools' => $requiredTools,
             'fail_statuses' => $failStatuses,
             'summary' => [
+                'input_run_count' => $allRuns->count(),
                 'run_count' => $runs->count(),
                 'tool_count' => $runs->pluck('tool_slug')->unique()->count(),
                 'failed_run_count' => $runs->whereIn('status', $failStatuses)->count(),
                 'blocking_failure_count' => count($blockingFailures),
                 'warning_count' => count($warnings),
+                'stale_evidence_count' => $maxAgeMinutes ? $runs->filter(fn (AtlasToolRun $run): bool => $this->evidenceAgeMinutes($run) > $maxAgeMinutes)->count() : 0,
                 'correlated_finding_group_count' => count((array) ($correlationResult['correlations'] ?? [])),
                 'suppressed_duplicate_finding_count' => count($suppressedFindingIds),
+            ],
+            'freshness' => [
+                'max_age_minutes' => $maxAgeMinutes,
+                'stale_blocks' => $staleBlocks,
+            ],
+            'selection' => [
+                'latest_per_tool' => $latestPerTool,
             ],
             'blocking_failures' => $blockingFailures,
             'warnings' => $warnings,
@@ -98,12 +134,18 @@ class AtlasToolGateService
     {
         $failures = [];
         $storedBlockingFindings = $run->findings->filter(fn ($finding): bool => (bool) $finding->blocks_resolved)->values();
+        $openFindings = $run->findings
+            ->reject(fn ($finding): bool => $this->waivers->isWaived($finding))
+            ->values();
         $blockingFindings = $storedBlockingFindings
             ->reject(fn ($finding): bool => $this->waivers->isWaived($finding))
             ->values();
 
         if (in_array($run->status, $failStatuses, true)) {
-            if (! $this->failedStatusIsCoveredByWaivers($run, $storedBlockingFindings, $blockingFindings, $waiverAwareFailedRuns)) {
+            if (
+                ! $this->hasNonBlockingRecipeFailure($run, $failStatuses)
+                && ! $this->failedStatusIsCoveredByWaivers($run, $storedBlockingFindings, $blockingFindings, $waiverAwareFailedRuns)
+            ) {
                 $failures[] = [
                     'tool_run_id' => $run->id,
                     'tool_slug' => $run->tool_slug,
@@ -122,8 +164,13 @@ class AtlasToolGateService
             ];
         }
 
-        foreach ($blockingFindings as $finding) {
+        foreach ($openFindings as $finding) {
             if (in_array((string) $finding->id, $suppressedFindingIds, true)) {
+                continue;
+            }
+
+            $policy = $this->authorityPolicies->evaluateFinding($run, $finding);
+            if (! (bool) $finding->blocks_resolved && $policy['decision'] !== 'block') {
                 continue;
             }
 
@@ -131,7 +178,10 @@ class AtlasToolGateService
                 'tool_run_id' => $run->id,
                 'tool_slug' => $run->tool_slug,
                 'finding_id' => $finding->id,
-                'reason' => 'blocking_finding',
+                'authority_group' => $policy['authority_group'],
+                'authority_policy' => $policy['policy'],
+                'severity' => $policy['severity'],
+                'reason' => $policy['reason'] ?? 'blocking_finding',
                 'message' => $finding->title,
             ];
         }
@@ -150,6 +200,56 @@ class AtlasToolGateService
         }
 
         return $failures;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function authorityWarningsForRun(AtlasToolRun $run, array $suppressedFindingIds = []): array
+    {
+        return $run->findings
+            ->reject(fn ($finding): bool => $this->waivers->isWaived($finding))
+            ->reject(fn ($finding): bool => in_array((string) $finding->id, $suppressedFindingIds, true))
+            ->map(function ($finding) use ($run): ?array {
+                $policy = $this->authorityPolicies->evaluateFinding($run, $finding);
+                if ($policy['decision'] !== 'warn') {
+                    return null;
+                }
+
+                return [
+                    'tool_run_id' => $run->id,
+                    'tool_slug' => $run->tool_slug,
+                    'finding_id' => $finding->id,
+                    'authority_group' => $policy['authority_group'],
+                    'authority_policy' => $policy['policy'],
+                    'severity' => $policy['severity'],
+                    'reason' => $policy['reason'],
+                    'message' => $finding->title,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Diagnostic recipes and other explicitly non-blocking recipes should not
+     * fail gates just because the command failed. Policy denials and blocking
+     * findings are handled separately and still block.
+     *
+     * @param  array<int,string>  $failStatuses
+     */
+    private function hasNonBlockingRecipeFailure(AtlasToolRun $run, array $failStatuses): bool
+    {
+        if (! in_array($run->status, $failStatuses, true)) {
+            return false;
+        }
+
+        if (! is_string(data_get($run->metadata_json, 'recipe')) || data_get($run->metadata_json, 'recipe') === '') {
+            return false;
+        }
+
+        return data_get($run->metadata_json, 'recipe_blocking_capable') === false;
     }
 
     private function failedStatusIsCoveredByWaivers(AtlasToolRun $run, Collection $storedBlockingFindings, Collection $blockingFindings, bool $enabled): bool
@@ -209,8 +309,15 @@ class AtlasToolGateService
             'policy_decision' => $run->policy_decision,
             'run_context_type' => $run->run_context_type,
             'run_context_id' => $run->run_context_id,
+            'recipe' => data_get($run->metadata_json, 'recipe'),
+            'recipe_category' => data_get($run->metadata_json, 'recipe_category'),
+            'recipe_recommended_surface' => data_get($run->metadata_json, 'recipe_recommended_surface'),
+            'recipe_creates_evidence' => data_get($run->metadata_json, 'recipe_creates_evidence'),
+            'recipe_blocking_capable' => data_get($run->metadata_json, 'recipe_blocking_capable'),
+            'execution_origin' => data_get($run->metadata_json, 'execution_origin'),
             'duration_ms' => $run->duration_ms,
             'finished_at' => $run->finished_at,
+            'evidence_age_minutes' => $this->evidenceAgeMinutes($run),
             'finding_count' => $run->findings->count(),
             'blocking_finding_count' => $run->findings
                 ->where('blocks_resolved', true)
@@ -237,6 +344,63 @@ class AtlasToolGateService
             ->unique()
             ->values()
             ->all();
+    }
+
+    private function positiveInteger(mixed $value): ?int
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        $value = (int) $value;
+
+        return $value > 0 ? $value : null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function staleEvidenceIssue(AtlasToolRun $run, ?int $maxAgeMinutes, bool $blocks): ?array
+    {
+        if (! $maxAgeMinutes) {
+            return null;
+        }
+
+        $ageMinutes = $this->evidenceAgeMinutes($run);
+        if ($ageMinutes <= $maxAgeMinutes) {
+            return null;
+        }
+
+        return [
+            'tool_run_id' => $run->id,
+            'tool_slug' => $run->tool_slug,
+            'reason' => $blocks ? 'stale_evidence_blocks' : 'stale_evidence',
+            'message' => "Tool [{$run->tool_slug}] evidence is stale: {$ageMinutes} minutes old, max {$maxAgeMinutes}.",
+            'evidence_age_minutes' => $ageMinutes,
+            'max_age_minutes' => $maxAgeMinutes,
+        ];
+    }
+
+    private function evidenceAgeMinutes(AtlasToolRun $run): int
+    {
+        $timestamp = $run->finished_at ?? $run->created_at;
+        if (! $timestamp) {
+            return 0;
+        }
+
+        return max(0, (int) floor($timestamp->diffInMinutes(now())));
+    }
+
+    /**
+     * @param  Collection<int,AtlasToolRun>  $runs
+     * @return Collection<int,AtlasToolRun>
+     */
+    private function latestRunsPerTool(Collection $runs): Collection
+    {
+        return $runs
+            ->sortByDesc(fn (AtlasToolRun $run): string => ($run->finished_at ?? $run->created_at)?->toJSON() ?? '')
+            ->unique('tool_slug')
+            ->values();
     }
 
     /**

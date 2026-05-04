@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Cli;
 
 use App\Models\AiTrace;
+use App\Services\Ai\AtlasDecideService;
 use App\Support\AtlasPhpBinary;
 use Illuminate\Support\Str;
 
@@ -11,23 +12,50 @@ class AtlasCliDevWorkflowService
     public function __construct(
         private readonly AtlasCliProviderStrategyService $providers,
         private readonly AtlasCliQualityService $quality,
+        private readonly AtlasDecideService $decide,
     ) {}
 
     /**
      * @return array<string,mixed>
      */
-    public function preflight(string $workspace, string $task, ?string $provider = null, bool $critical = false): array
-    {
+    public function preflight(
+        string $workspace,
+        string $task,
+        ?string $provider = null,
+        bool $critical = false,
+        string $programmingProfile = 'dev',
+    ): array {
+        $programmingProfile = $programmingProfile === 'forge' ? 'forge' : 'dev';
         $workspace = realpath($workspace) ?: $workspace;
         $strategy = $this->providers->recommend('dev', $critical);
-        $selectedProvider = $provider ?: (string) $strategy['recommended_provider'];
+        $decisionOptions = $this->decide->normalizeOptions(array_filter([
+            'provider' => $provider,
+            'input_text' => $task,
+            'source_type' => 'manual',
+            'payload' => [
+                'app_surface' => 'atlas_cli',
+                'atlas_workflow_mode' => 'dev',
+                'decision_mode' => $provider ? 'manual_override' : 'atlas_decide',
+                'operator_requested_provider' => $provider ?: 'auto',
+                'requested_provider' => $provider,
+                'programming_profile' => $programmingProfile,
+                'dev_execution_plan' => [
+                    'programming_profile' => $programmingProfile,
+                ],
+            ],
+        ], fn (mixed $value): bool => $value !== null));
+        $decision = $this->decide->operationalDecision($decisionOptions);
+        $selectedProvider = $provider ?: $decision->selectedProvider();
         $quality = $this->quality->evaluate($workspace);
 
         return [
             'workspace' => $workspace,
             'task' => $task,
             'selected_provider' => $selectedProvider,
+            'programming_profile' => $programmingProfile,
             'provider_strategy' => $strategy,
+            'operational_decision' => $decision->toArray(),
+            'policy_profile_id' => $decision->policyProfileId(),
             'preflight_quality' => $this->quality->compact($quality),
             'can_execute_provider' => (bool) ($strategy['has_online_provider'] ?? false) || $provider !== null,
             'requires_override' => ! (bool) ($strategy['has_online_provider'] ?? false) && $provider === null,
@@ -103,14 +131,81 @@ class AtlasCliDevWorkflowService
      * @param  array<int,string>  $skills
      * @return array<string,mixed>
      */
-    public function qualityGatePolicy(bool $complete, int $maxIterations, array $skills): array
+    public function qualityGatePolicy(bool $complete, int $maxIterations, array $skills, bool $fairMode = false): array
     {
-        return [
+        $policy = [
             'complete_mode' => $complete,
             'max_iterations' => max(1, min(10, $maxIterations)),
-            'required_final_status' => $complete ? 'passed' : 'not_failed',
+            'required_final_status' => ($complete || $fairMode) ? 'passed' : 'not_failed',
             'auto_skills' => array_values(array_intersect($skills, ['dev-quality-gate'])),
             'procedure' => 'plan_validate_execute',
+        ];
+
+        if ($fairMode) {
+            $policy['fair_mode'] = true;
+            $policy['deterministic_gate_required'] = true;
+            $policy['unverified_counts_as_passed'] = false;
+            $policy['pass_without_human_requires'] = [
+                'provider_lock',
+                'model_lock',
+                'deterministic_gates_passed',
+                'human_intervention_count_zero',
+            ];
+        }
+
+        return $policy;
+    }
+
+    /**
+     * @param  array<string,mixed>  $completion
+     * @return array<string,mixed>
+     */
+    public function fairClaudeProtocolStatus(array $completion, bool $providerOk, int $humanInterventionCount = 0): array
+    {
+        $qualityStatus = (string) ($completion['status'] ?? data_get($completion, 'completion_packet.status', 'unknown'));
+        $gates = collect((array) data_get($completion, 'quality_gates', data_get($completion, 'completion_packet.quality_gates', [])))
+            ->filter(fn (mixed $gate): bool => is_array($gate))
+            ->values();
+
+        $gateStatuses = $gates
+            ->map(fn (array $gate): string => (string) ($gate['status'] ?? 'unknown'))
+            ->values();
+
+        $deterministicGatesPassed = $gates->isNotEmpty()
+            && $gateStatuses->every(fn (string $status): bool => $status === 'passed');
+
+        $protocolStatus = 'unverified';
+        if (! $providerOk || $qualityStatus === 'failed' || $gateStatuses->contains('failed')) {
+            $protocolStatus = 'failed';
+        } elseif ($qualityStatus === 'passed' && $deterministicGatesPassed) {
+            $protocolStatus = 'valid';
+        }
+
+        $blockingReasons = [];
+        if (! $providerOk) {
+            $blockingReasons[] = 'provider_run_failed';
+        }
+        if ($qualityStatus !== 'passed') {
+            $blockingReasons[] = 'quality_status_'.$qualityStatus;
+        }
+        if (! $deterministicGatesPassed) {
+            $blockingReasons[] = $gates->isEmpty()
+                ? 'deterministic_gates_missing'
+                : 'deterministic_gates_not_passed';
+        }
+        if ($humanInterventionCount !== 0) {
+            $blockingReasons[] = 'human_intervention_present';
+        }
+
+        return [
+            'status' => $protocolStatus,
+            'quality_status' => $qualityStatus,
+            'deterministic_gates_passed' => $deterministicGatesPassed,
+            'human_intervention_count' => $humanInterventionCount,
+            'pass_without_human' => $protocolStatus === 'valid' && $humanInterventionCount === 0,
+            'unverified_counts_as_passed' => false,
+            'blocking_reasons' => array_values(array_unique($blockingReasons)),
+            'evaluated_at' => now()->toJSON(),
         ];
     }
 
@@ -205,6 +300,69 @@ class AtlasCliDevWorkflowService
         $lines[] = trim($task);
 
         return implode("\n", $lines);
+    }
+
+    public function fairClaudePromptContract(string $prompt): string
+    {
+        return implode("\n", [
+            '# Atlas Fair Claude Mode',
+            '',
+            'This run is part of a fair benchmark: Atlas harness + Claude CLI + Claude Opus versus Claude Code CLI + the same Claude Opus.',
+            'Use only the provided task/context. Do not suggest switching provider, model, council, external reviewer, Codex, Gemini, or fallback.',
+            '',
+            '## Execution Contract',
+            '- Provider is locked to claude_cli.',
+            '- Model is locked to the configured Claude Opus premium model.',
+            '- Keep the diff scoped and minimal.',
+            '- Preserve unrelated user changes.',
+            '- Do not claim success without deterministic validation evidence.',
+            '- If validation fails, explain the failure precisely so Atlas can build a repair prompt for the same Claude Opus.',
+            '',
+            '## Expected Response Contract',
+            '- Summarize what changed.',
+            '- List files changed.',
+            '- List tests or checks run, or say they were not run.',
+            '- List residual risks succinctly.',
+            '',
+            '# Task',
+            '',
+            trim($prompt),
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $completion
+     * @param  array<string,mixed>  $devPlan
+     */
+    public function fairClaudeRepairCapsule(string $task, array $completion, int $iteration, int $maxIterations, array $devPlan): string
+    {
+        $gateSummary = [
+            'status' => $completion['status'] ?? data_get($completion, 'completion_packet.status'),
+            'changed_files' => $completion['changed_files'] ?? data_get($completion, 'completion_packet.files_changed', []),
+            'tests' => data_get($completion, 'completion_packet.tests', []),
+            'quality_gates' => data_get($completion, 'quality_gates', data_get($completion, 'completion_packet.quality_gates', [])),
+            'risks' => data_get($completion, 'completion_packet.risks', []),
+        ];
+
+        return implode("\n\n", [
+            '# Atlas Fair Claude Repair Capsule',
+            "Repair iteration {$iteration}/{$maxIterations}. Use the same Claude CLI provider and the same configured Claude Opus model.",
+            'Provider/model remain locked: claude_cli + Claude Opus. Do not switch provider, model, council, Codex, Gemini, external reviewer, or fallback.',
+            'Fair benchmark rule: unverified, needs_review, missing gates, or self-assessment never count as passed.',
+            'Original task:',
+            trim($task),
+            'Previous deterministic gate result:',
+            json_encode($gateSummary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
+            'Execution plan checkpoint:',
+            json_encode([
+                'plan_id' => $devPlan['plan_id'] ?? null,
+                'selected_provider' => $devPlan['selected_provider'] ?? null,
+                'selected_model' => $devPlan['selected_model'] ?? null,
+                'fair_mode' => $devPlan['fair_mode'] ?? null,
+                'iterations' => $devPlan['iterations'] ?? null,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
+            'Repair objective: apply the smallest safe correction that makes deterministic gates pass. Preserve unrelated user changes and explain any gate that still cannot be verified.',
+        ]);
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Services\Engineering;
 
+use App\Services\Ai\FairClaudePolicy;
 use App\Models\AiTraceMetricSummary;
 use App\Models\AtlasEngineeringBenchmarkCase;
 use App\Models\AtlasEngineeringBenchmarkResult;
@@ -11,6 +12,7 @@ use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasTask;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -60,6 +62,23 @@ class EngineeringBenchmarkService
         'apply_isolated_patch',
         'release_gate_profile',
         'release_gate_policy',
+        'fair_mode',
+        'claude_only',
+        'single_provider',
+        'no_decide',
+        'fallback_disabled',
+        'require_pass_without_human',
+        'claude_code_baseline',
+        'claude_code_baseline_mode',
+        'claude_code_baseline_model',
+        'claude_code_baseline_binary',
+        'claude_code_baseline_timeout',
+        'claude_code_baseline_workspace',
+        'claude_code_baseline_validation_timeout',
+        'baseline_runner',
+        'baseline_model',
+        'baseline_timeout_seconds',
+        'baseline_validation_timeout_seconds',
     ];
 
     private const DEFAULT_SUITE_SLUG = 'atlas-core-smoke';
@@ -85,6 +104,8 @@ class EngineeringBenchmarkService
 
     public function __construct(
         private readonly EngineeringHarnessRunnerService $runner,
+        private readonly EngineeringClaudeCodeBaselineRunnerService $claudeCodeBaseline,
+        private readonly EngineeringWorkspaceService $workspaces,
         private readonly EngineeringReleaseGateAlertService $releaseGateAlerts,
     ) {}
 
@@ -460,6 +481,8 @@ class EngineeringBenchmarkService
     ): AtlasEngineeringBenchmarkResult {
         $startedAt = microtime(true);
         $expectation = $this->expectationFor($case);
+        $pairedBaselineWorktreePlan = null;
+        $pairedWorkspaces = null;
 
         try {
             $task = $this->taskForCase($case);
@@ -468,12 +491,28 @@ class EngineeringBenchmarkService
                 throw new InvalidArgumentException('Benchmark case precisa de workspace no run, na suite ou no case.');
             }
 
+            $paired = $this->preparePairedBaselineWorkspace($case, $runnerOptions);
+            $runnerOptions = $paired['runner_options'];
+            $pairedBaselineWorktreePlan = $paired['baseline_plan'];
+            $pairedWorkspaces = $paired['artifact'];
+
             $payload = $this->runner->run($task, $runnerOptions);
+            $claudeCodeBaseline = $this->claudeCodeBaseline->capture($case, $task, $runnerOptions);
+            if ($pairedBaselineWorktreePlan !== null) {
+                $pairedWorkspaces['claude_code_baseline']['release'] = $this->releasePairedBaselineWorkspace(
+                    $pairedBaselineWorktreePlan,
+                    $runnerOptions,
+                );
+                $pairedBaselineWorktreePlan = null;
+            }
+
             $engineeringRunId = $this->nonEmptyString(data_get($payload, 'run.id'));
             $decision = $this->nonEmptyString(data_get($payload, 'run.decision'));
             $score = data_get($payload, 'run.score');
             $score = is_numeric($score) ? (int) $score : null;
-            $evaluation = $this->evaluate($case, $decision, $score);
+            $fairScorecard = $this->fairScorecard($payload, $runnerOptions);
+            $evaluation = $this->evaluate($case, $decision, $score, $fairScorecard);
+            $pairedScorecard = $this->pairedScorecard($case, $evaluation, $fairScorecard, $claudeCodeBaseline, $decision, $score);
 
             return AtlasEngineeringBenchmarkResult::query()->create([
                 'benchmark_run_id' => $benchmarkRun->id,
@@ -494,13 +533,33 @@ class EngineeringBenchmarkService
                     'status' => data_get($payload, 'run.status'),
                     'test_run_count' => data_get($payload, 'test_run_count'),
                     'blocking_reasons' => data_get($payload, 'score.blocking_reasons', []),
+                    'fair_scorecard' => $fairScorecard,
+                    'claude_code_baseline' => $claudeCodeBaseline,
+                    'paired_scorecard' => $pairedScorecard,
+                    'paired_workspaces' => $pairedWorkspaces,
                 ],
                 'failure_summary' => $evaluation['failure_summary'],
                 'metadata' => [
                     'runner_options' => $this->redactWorkspace($runnerOptions, true),
+                    'claude_code_baseline' => $claudeCodeBaseline ? [
+                        'enabled' => true,
+                        'mode' => $claudeCodeBaseline['mode'] ?? null,
+                        'status' => $claudeCodeBaseline['status'] ?? null,
+                        'provider' => $claudeCodeBaseline['provider'] ?? null,
+                        'model' => $claudeCodeBaseline['model'] ?? null,
+                        'prompt_hash' => $claudeCodeBaseline['prompt_hash'] ?? null,
+                    ] : null,
+                    'paired_workspaces' => $pairedWorkspaces,
                 ],
             ]);
         } catch (Throwable $exception) {
+            if ($pairedBaselineWorktreePlan !== null) {
+                $pairedWorkspaces['claude_code_baseline']['release'] = $this->releasePairedBaselineWorkspace(
+                    $pairedBaselineWorktreePlan,
+                    is_array($runnerOptions ?? null) ? $runnerOptions : [],
+                );
+            }
+
             return AtlasEngineeringBenchmarkResult::query()->create([
                 'benchmark_run_id' => $benchmarkRun->id,
                 'suite_id' => $benchmarkRun->suite_id,
@@ -515,9 +574,12 @@ class EngineeringBenchmarkService
                 'expectation_json' => $expectation,
                 'observed_json' => [
                     'exception' => get_class($exception),
+                    'paired_workspaces' => $pairedWorkspaces,
                 ],
                 'failure_summary' => Str::limit($exception->getMessage(), 2000),
-                'metadata' => [],
+                'metadata' => [
+                    'paired_workspaces' => $pairedWorkspaces,
+                ],
             ]);
         }
     }
@@ -636,6 +698,114 @@ class EngineeringBenchmarkService
                 ->values()
                 ->all(),
             'series' => $series,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    public function fairClaudeReportPayload(AtlasEngineeringBenchmarkSuite $suite, array $options = []): array
+    {
+        $limit = max(1, min(200, (int) ($options['limit'] ?? 20)));
+        $scanLimit = max($limit, min(1000, max(250, $limit * 25)));
+        $batchSize = min(100, $scanLimit);
+        $scannedRunCount = 0;
+        $runs = collect();
+
+        while ($runs->count() < $limit && $scannedRunCount < $scanLimit) {
+            $batch = AtlasEngineeringBenchmarkRun::query()
+                ->where('suite_id', $suite->id)
+                ->whereNotIn('status', ['running'])
+                ->with(['results.benchmarkCase'])
+                ->orderByDesc('finished_at')
+                ->orderByDesc('created_at')
+                ->offset($scannedRunCount)
+                ->limit(min($batchSize, $scanLimit - $scannedRunCount))
+                ->get();
+
+            if ($batch->isEmpty()) {
+                break;
+            }
+
+            $scannedRunCount += $batch->count();
+            $runs = $runs
+                ->concat($batch->filter(fn (AtlasEngineeringBenchmarkRun $run): bool => (bool) data_get($run->summary_json ?? [], 'paired_scorecard.enabled')))
+                ->take($limit)
+                ->values();
+        }
+
+        $results = $runs
+            ->flatMap(fn (AtlasEngineeringBenchmarkRun $run): Collection => $run->results)
+            ->values();
+        $fairResults = $results
+            ->filter(fn (AtlasEngineeringBenchmarkResult $result): bool => (bool) data_get($result->observed_json ?? [], 'paired_scorecard.fair_mode'))
+            ->values();
+        $fairRunIds = $fairResults
+            ->pluck('benchmark_run_id')
+            ->filter()
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
+        $fairRuns = $runs
+            ->filter(fn (AtlasEngineeringBenchmarkRun $run): bool => $fairRunIds->contains((int) $run->id))
+            ->values();
+        $paired = $this->pairedScorecardSummary($fairResults);
+        $allPaired = $this->pairedScorecardSummary($results);
+        $baseline = $this->claudeCodeBaselineSummary($fairResults);
+        $replay = $this->fairClaudeReplayReport($fairRuns);
+        $readiness = $this->fairClaudeReportReadiness($fairRuns, $paired, $baseline, $replay);
+
+        return [
+            'schema_version' => 1,
+            'kind' => 'fair_claude_benchmark_report',
+            'generated_at' => now()->toJSON(),
+            'suite' => [
+                'id' => $suite->id,
+                'slug' => $suite->slug,
+                'name' => $suite->name,
+            ],
+            'limit' => $limit,
+            'scan_limit' => $scanLimit,
+            'scanned_run_count' => $scannedRunCount,
+            'run_count' => $runs->count(),
+            'result_count' => $results->count(),
+            'scope' => [
+                'paired_run_count' => $runs->count(),
+                'fair_run_count' => $fairRuns->count(),
+                'paired_result_count' => $results->count(),
+                'fair_result_count' => $fairResults->count(),
+                'non_fair_paired_result_count' => max(0, $results->count() - $fairResults->count()),
+            ],
+            'readiness' => $readiness,
+            'paired_scorecard' => $paired,
+            'all_paired_scorecard' => $allPaired,
+            'claude_code_baseline' => $baseline,
+            'replay_manifest' => $replay,
+            'runs' => $runs
+                ->map(fn (AtlasEngineeringBenchmarkRun $run): array => [
+                    'id' => $run->id,
+                    'status' => $run->status,
+                    'benchmark_key' => $run->benchmark_key,
+                    'provider' => $run->provider,
+                    'model' => $run->model,
+                    'total_cases' => $run->total_cases,
+                    'passed_cases' => $run->passed_cases,
+                    'failed_cases' => $run->failed_cases,
+                    'fair_report_scope' => $fairRunIds->contains((int) $run->id)
+                        ? 'official_fair_claude'
+                        : 'paired_non_fair',
+                    'paired_scorecard' => data_get($run->summary_json ?? [], 'paired_scorecard'),
+                    'claude_code_baseline' => data_get($run->summary_json ?? [], 'claude_code_baseline'),
+                    'replay_manifest' => $this->safeReplayManifestSummaryForReport($this->arrayValue(data_get(
+                        $this->withReplayManifestArtifactVerification($this->arrayValue($run->summary_json ?? [])),
+                        'replay_manifest',
+                        [],
+                    ))),
+                    'finished_at' => $run->finished_at?->toJSON(),
+                    'created_at' => $run->created_at?->toJSON(),
+                ])
+                ->all(),
         ];
     }
 
@@ -1165,6 +1335,7 @@ class EngineeringBenchmarkService
      */
     private function withReleaseQualityScanDefaults(array $options): array
     {
+        $options = $this->withFairClaudeDefaults($options);
         $profile = $this->nonEmptyString($options['release_gate_profile'] ?? null) ?: self::DEFAULT_RELEASE_GATE_PROFILE;
         if (! in_array($profile, ['release', 'strict'], true)) {
             return $options;
@@ -1186,9 +1357,35 @@ class EngineeringBenchmarkService
     }
 
     /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function withFairClaudeDefaults(array $options): array
+    {
+        $claudeOnly = (bool) ($options['claude_only'] ?? false);
+        $fairMode = (bool) ($options['fair_mode'] ?? false) || $claudeOnly;
+        if (! $fairMode) {
+            return $options;
+        }
+
+        $options['fair_mode'] = true;
+        if ($claudeOnly) {
+            $options['claude_only'] = true;
+        }
+        $options['single_provider'] = true;
+        $options['no_decide'] = true;
+        $options['fallback_disabled'] = true;
+        if (! array_key_exists('require_pass_without_human', $options)) {
+            $options['require_pass_without_human'] = true;
+        }
+
+        return $options;
+    }
+
+    /**
      * @return array{passed:bool,failure_summary:?string}
      */
-    private function evaluate(AtlasEngineeringBenchmarkCase $case, ?string $decision, ?int $score): array
+    private function evaluate(AtlasEngineeringBenchmarkCase $case, ?string $decision, ?int $score, ?array $fairScorecard = null): array
     {
         $expectedDecision = $case->expected_decision ?: 'resolved';
         $minScore = (int) ($case->min_score ?? 85);
@@ -1202,9 +1399,332 @@ class EngineeringBenchmarkService
             $failures[] = "score minimo={$minScore}, observado=".($score === null ? 'null' : (string) $score);
         }
 
+        if (is_array($fairScorecard) && (bool) ($fairScorecard['required'] ?? false) && ! (bool) ($fairScorecard['passed'] ?? false)) {
+            $reasons = implode(', ', array_map('strval', (array) ($fairScorecard['blocking_reasons'] ?? [])));
+            $failures[] = 'fair_scorecard_failed'.($reasons !== '' ? ': '.$reasons : '');
+        }
+
         return [
             'passed' => $failures === [],
             'failure_summary' => $failures === [] ? null : implode('; ', $failures),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $runnerOptions
+     * @return array<string,mixed>|null
+     */
+    private function fairScorecard(array $payload, array $runnerOptions): ?array
+    {
+        $fairMode = (bool) ($runnerOptions['fair_mode'] ?? false)
+            || (bool) ($runnerOptions['claude_only'] ?? false)
+            || (bool) data_get($payload, 'run.fair_mode.fair_mode')
+            || (bool) data_get($payload, 'run.fair_mode_result');
+
+        if (! $fairMode) {
+            return null;
+        }
+
+        $fairResult = is_array(data_get($payload, 'run.fair_mode_result'))
+            ? data_get($payload, 'run.fair_mode_result')
+            : [];
+        $provider = data_get($payload, 'run.model_selection.selected_provider')
+            ?: data_get($payload, 'run.attempts.0.provider');
+        $model = data_get($payload, 'run.model_selection.selected_model')
+            ?: data_get($payload, 'run.attempts.0.model');
+        $required = (bool) ($runnerOptions['require_pass_without_human'] ?? true);
+        $providerLocked = $provider === 'claude_cli';
+        $modelLocked = is_string($model) && str_contains(strtolower($model), 'opus');
+        $passWithoutHuman = (bool) ($fairResult['pass_without_human'] ?? false);
+        $humanInterventionCount = max(0, (int) ($fairResult['human_intervention_count'] ?? 0));
+        $deterministicGatesPassed = (bool) ($fairResult['deterministic_gates_passed'] ?? false);
+        $protocolValid = (string) ($fairResult['status'] ?? 'unverified') === 'valid';
+        $blockingReasons = [];
+
+        if (! $providerLocked) {
+            $blockingReasons[] = 'provider_not_locked_to_claude_cli';
+        }
+        if (! $modelLocked) {
+            $blockingReasons[] = 'model_not_locked_to_opus';
+        }
+        if (! $protocolValid) {
+            $blockingReasons[] = 'fair_protocol_not_valid';
+        }
+        if (! $deterministicGatesPassed) {
+            $blockingReasons[] = 'deterministic_gates_not_passed';
+        }
+        if (! $passWithoutHuman) {
+            $blockingReasons[] = 'pass_without_human_false';
+        }
+
+        return [
+            'required' => $required,
+            'passed' => $providerLocked && $modelLocked && $protocolValid && $deterministicGatesPassed && $passWithoutHuman,
+            'fair_mode' => true,
+            'provider_lock' => $provider,
+            'model_lock' => $model,
+            'protocol_status' => $fairResult['status'] ?? 'unverified',
+            'protocol_valid' => $protocolValid,
+            'deterministic_gates_passed' => $deterministicGatesPassed,
+            'final_gate_passed' => $deterministicGatesPassed,
+            'human_intervention_count' => $humanInterventionCount,
+            'pass_without_human' => $passWithoutHuman,
+            'provider_violation_count' => $providerLocked ? 0 : 1,
+            'fallback_violation_count' => 0,
+            'blocking_reasons' => array_values(array_unique(array_merge(
+                $blockingReasons,
+                array_map('strval', (array) ($fairResult['blocking_reasons'] ?? [])),
+            ))),
+        ];
+    }
+
+    /**
+     * @param  array{passed:bool,failure_summary:?string}  $atlasEvaluation
+     * @param  array<string,mixed>|null  $fairScorecard
+     * @param  array<string,mixed>|null  $claudeCodeBaseline
+     * @return array<string,mixed>|null
+     */
+    private function pairedScorecard(
+        AtlasEngineeringBenchmarkCase $case,
+        array $atlasEvaluation,
+        ?array $fairScorecard,
+        ?array $claudeCodeBaseline,
+        ?string $atlasDecision,
+        ?int $atlasScore,
+    ): ?array {
+        if (! is_array($claudeCodeBaseline) || ! (bool) ($claudeCodeBaseline['enabled'] ?? false)) {
+            return null;
+        }
+
+        $expectedDecision = $case->expected_decision ?: 'resolved';
+        $minScore = (int) ($case->min_score ?? 85);
+        $baselineStatus = (string) ($claudeCodeBaseline['status'] ?? 'unknown');
+        $baselineExecuted = (bool) ($claudeCodeBaseline['executed'] ?? false);
+        $baselineDecision = $this->nonEmptyString($claudeCodeBaseline['decision'] ?? null);
+        $baselineScore = is_numeric($claudeCodeBaseline['score'] ?? null) ? (int) $claudeCodeBaseline['score'] : null;
+        $baselineDeterministic = (bool) ($claudeCodeBaseline['deterministic_gates_passed'] ?? false);
+        $baselinePassWithoutHuman = (bool) ($claudeCodeBaseline['pass_without_human'] ?? false);
+        $baselineVerified = $baselineExecuted
+            && $baselineStatus === 'completed'
+            && $baselineDeterministic
+            && $baselinePassWithoutHuman;
+
+        $atlasPassed = (bool) ($atlasEvaluation['passed'] ?? false);
+        $atlasFairPassed = $fairScorecard === null || ! (bool) ($fairScorecard['required'] ?? false) || (bool) ($fairScorecard['passed'] ?? false);
+        $atlasVerified = $atlasPassed && $atlasFairPassed;
+        $baselinePassed = $baselineVerified
+            && $baselineDecision === $expectedDecision
+            && $baselineScore !== null
+            && $baselineScore >= $minScore;
+
+        $comparisonStatus = match (true) {
+            $baselineStatus === 'planned' => 'baseline_planned',
+            ! $baselineExecuted => 'baseline_not_executed',
+            $baselineStatus !== 'completed' => 'baseline_failed',
+            ! $baselineDeterministic => 'baseline_unverified',
+            ! $baselinePassWithoutHuman => 'baseline_human_intervention',
+            $baselineDecision !== $expectedDecision => 'comparable',
+            $baselineScore === null || $baselineScore < $minScore => 'comparable',
+            default => 'comparable',
+        };
+        $comparable = $comparisonStatus === 'comparable';
+        $winner = null;
+
+        if ($comparable) {
+            $winner = match (true) {
+                $atlasVerified && ! $baselinePassed => 'atlas',
+                ! $atlasVerified && $baselinePassed => 'claude_code_baseline',
+                $atlasVerified && $baselinePassed && $atlasScore !== null && $baselineScore !== null && $atlasScore > $baselineScore => 'atlas',
+                $atlasVerified && $baselinePassed && $atlasScore !== null && $baselineScore !== null && $atlasScore < $baselineScore => 'claude_code_baseline',
+                $atlasVerified === $baselinePassed => 'tie',
+                default => null,
+            };
+        }
+
+        return [
+            'schema_version' => 1,
+            'fair_mode' => $fairScorecard !== null,
+            'case' => [
+                'id' => $case->id,
+                'case_code' => $case->case_code,
+                'corpus_tier' => $case->corpus_tier,
+                'domain_slug' => $case->domain_slug,
+                'risk_profile' => $case->risk_profile,
+            ],
+            'comparison_status' => $comparisonStatus,
+            'comparable' => $comparable,
+            'winner' => $winner,
+            'atlas' => [
+                'provider' => 'atlas',
+                'decision' => $atlasDecision,
+                'score' => $atlasScore,
+                'passed' => $atlasPassed,
+                'verified' => $atlasVerified,
+                'fair_scorecard_passed' => $fairScorecard === null ? null : (bool) ($fairScorecard['passed'] ?? false),
+                'protocol_valid' => $fairScorecard === null ? null : (bool) ($fairScorecard['protocol_valid'] ?? false),
+                'final_gate_passed' => $fairScorecard === null ? null : (bool) ($fairScorecard['final_gate_passed'] ?? false),
+                'pass_without_human' => $fairScorecard === null ? null : (bool) ($fairScorecard['pass_without_human'] ?? $fairScorecard['passed'] ?? false),
+                'human_intervention_count' => $fairScorecard === null ? null : (int) ($fairScorecard['human_intervention_count'] ?? 0),
+                'provider_violation_count' => $fairScorecard === null ? 0 : (int) ($fairScorecard['provider_violation_count'] ?? 0),
+                'fallback_violation_count' => $fairScorecard === null ? 0 : (int) ($fairScorecard['fallback_violation_count'] ?? 0),
+            ],
+            'claude_code_baseline' => [
+                'provider' => $claudeCodeBaseline['provider'] ?? null,
+                'model' => $claudeCodeBaseline['model'] ?? null,
+                'status' => $baselineStatus,
+                'executed' => $baselineExecuted,
+                'decision' => $baselineDecision,
+                'score' => $baselineScore,
+                'deterministic_gates_passed' => $baselineDeterministic,
+                'pass_without_human' => $baselinePassWithoutHuman,
+                'verified' => $baselineVerified,
+                'passed' => $baselinePassed,
+            ],
+            'deltas' => [
+                'score' => $atlasScore !== null && $baselineScore !== null ? $atlasScore - $baselineScore : null,
+            ],
+            'blocking_reasons' => $this->pairedScorecardBlockingReasons(
+                $comparisonStatus,
+                $atlasVerified,
+                $baselineVerified,
+                $claudeCodeBaseline,
+            ),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $claudeCodeBaseline
+     * @return array<int,string>
+     */
+    private function pairedScorecardBlockingReasons(
+        string $comparisonStatus,
+        bool $atlasVerified,
+        bool $baselineVerified,
+        array $claudeCodeBaseline,
+    ): array {
+        $reasons = [];
+        if ($comparisonStatus !== 'comparable') {
+            $reasons[] = $comparisonStatus;
+        }
+        if (! $atlasVerified) {
+            $reasons[] = 'atlas_not_verified_pass';
+        }
+        if (! $baselineVerified) {
+            $reasons[] = 'baseline_not_verified_pass';
+        }
+
+        return array_values(array_unique(array_merge(
+            $reasons,
+            array_map('strval', (array) ($claudeCodeBaseline['blocking_reasons'] ?? [])),
+        )));
+    }
+
+    /**
+     * @param  array<string,mixed>  $runnerOptions
+     * @return array{runner_options:array<string,mixed>,baseline_plan:array<string,mixed>|null,artifact:array<string,mixed>|null}
+     */
+    private function preparePairedBaselineWorkspace(AtlasEngineeringBenchmarkCase $case, array $runnerOptions): array
+    {
+        if (! $this->baselineRunRequested($runnerOptions) || $this->hasExplicitBaselineWorkspace($runnerOptions)) {
+            return [
+                'runner_options' => $runnerOptions,
+                'baseline_plan' => null,
+                'artifact' => null,
+            ];
+        }
+
+        $workspace = $this->workspaceFrom($runnerOptions['workspace'] ?? null);
+        if ($workspace === null) {
+            throw new InvalidArgumentException('Claude Code baseline auto worktree requires workspace.');
+        }
+
+        $plan = $this->workspaces->preparePairedWorktree(
+            $workspace,
+            'claude-code-baseline-'.$case->case_code,
+        );
+
+        $artifact = [
+            'schema_version' => 1,
+            'mode' => 'paired_git_worktree',
+            'auto_prepared' => true,
+            'claude_code_baseline' => $this->compactWorkspacePlan($plan),
+        ];
+
+        if ((string) ($plan['status'] ?? '') !== 'ready' || ! (bool) ($plan['isolated'] ?? false)) {
+            throw new InvalidArgumentException('Claude Code baseline auto worktree failed: '.(string) ($plan['failure_reason'] ?? $plan['fallback_reason'] ?? 'unknown'));
+        }
+
+        $runnerOptions['claude_code_baseline_workspace'] = (string) $plan['execution_workspace'];
+
+        return [
+            'runner_options' => $runnerOptions,
+            'baseline_plan' => $plan,
+            'artifact' => $artifact,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $runnerOptions
+     */
+    private function baselineRunRequested(array $runnerOptions): bool
+    {
+        $raw = $runnerOptions['claude_code_baseline'] ?? $runnerOptions['baseline_runner'] ?? $runnerOptions['claude_code_baseline_mode'] ?? 'off';
+        if ($raw === true) {
+            return false;
+        }
+
+        return strtolower(trim((string) $raw)) === 'run';
+    }
+
+    /**
+     * @param  array<string,mixed>  $runnerOptions
+     */
+    private function hasExplicitBaselineWorkspace(array $runnerOptions): bool
+    {
+        return isset($runnerOptions['claude_code_baseline_workspace'])
+            && is_string($runnerOptions['claude_code_baseline_workspace'])
+            && trim($runnerOptions['claude_code_baseline_workspace']) !== '';
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $runnerOptions
+     * @return array<string,mixed>
+     */
+    private function releasePairedBaselineWorkspace(array $plan, array $runnerOptions): array
+    {
+        return $this->workspaces->release($plan, (bool) ($runnerOptions['keep_workspace'] ?? false));
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @return array<string,mixed>
+     */
+    private function compactWorkspacePlan(array $plan): array
+    {
+        $original = $this->nonEmptyString($plan['original_workspace'] ?? null);
+        $execution = $this->nonEmptyString($plan['execution_workspace'] ?? null);
+        $repoRoot = $this->nonEmptyString($plan['repo_root'] ?? null);
+        $dirtyFiles = (array) ($plan['dirty_files'] ?? []);
+
+        return [
+            'status' => $plan['status'] ?? null,
+            'mode' => $plan['mode'] ?? null,
+            'pair_label' => $plan['pair_label'] ?? null,
+            'original_workspace_hash' => $original ? hash('sha256', $original) : null,
+            'execution_workspace_hash' => $execution ? hash('sha256', $execution) : null,
+            'repo_root_hash' => $repoRoot ? hash('sha256', $repoRoot) : null,
+            'branch' => $plan['branch'] ?? null,
+            'head' => $plan['head'] ?? null,
+            'isolated' => (bool) ($plan['isolated'] ?? false),
+            'isolation_type' => $plan['isolation_type'] ?? null,
+            'worktree_path_hash' => $plan['worktree_path_hash'] ?? null,
+            'dirty_files_count' => count($dirtyFiles),
+            'dirty_files_hash' => hash('sha256', json_encode(array_values($dirtyFiles), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+            'dirty_files_included' => (bool) ($plan['dirty_files_included'] ?? false),
+            'failure_reason' => $plan['failure_reason'] ?? $plan['fallback_reason'] ?? null,
+            'created_at' => $plan['created_at'] ?? null,
         ];
     }
 
@@ -1251,6 +1771,15 @@ class EngineeringBenchmarkService
         $releaseGate = $this->releaseGateFor($run, $caseStatus, $passRate, $averageScore, $quality, $trend);
         $status = $this->statusAfterReleaseGate($caseStatus, $releaseGate);
         $rollout = $this->rolloutFor($run, $status, $releaseGate);
+        $claudeCodeBaselineSummary = $this->claudeCodeBaselineSummary($results);
+        $pairedScorecardSummary = $this->pairedScorecardSummary($results);
+        $replayManifest = $this->persistReplayManifestArtifact($run, $this->replayManifestSummary(
+            run: $run,
+            results: $results,
+            status: $status,
+            quality: $quality,
+            releaseGate: $releaseGate,
+        ));
 
         $run->forceFill([
             'status' => $status,
@@ -1297,6 +1826,9 @@ class EngineeringBenchmarkService
                     ->take(10)
                     ->all(),
                 'baseline' => $trend['baseline'],
+                'claude_code_baseline' => $claudeCodeBaselineSummary,
+                'paired_scorecard' => $pairedScorecardSummary,
+                'replay_manifest' => $replayManifest,
                 'quality_metrics' => $quality,
                 'release_gate' => $releaseGate,
                 'rollout' => $rollout,
@@ -1315,6 +1847,8 @@ class EngineeringBenchmarkService
      */
     private function benchmarkRunSummary(AtlasEngineeringBenchmarkRun $run): array
     {
+        $summary = $this->withReplayManifestArtifactVerification($this->arrayValue($run->summary_json ?? []));
+
         return [
             'id' => $run->id,
             'suite_id' => $run->suite_id,
@@ -1361,10 +1895,76 @@ class EngineeringBenchmarkService
             'outcome' => $run->outcome_json,
             'outcome_recorded_at' => $run->outcome_recorded_at?->toJSON(),
             'outcome_recorded_by' => $run->outcome_recorded_by,
-            'summary' => $run->summary_json,
+            'summary' => $summary,
             'started_at' => $run->started_at?->toJSON(),
             'finished_at' => $run->finished_at?->toJSON(),
             'created_at' => $run->created_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function replayManifestPayload(AtlasEngineeringBenchmarkRun $run): array
+    {
+        $summary = $this->withReplayManifestArtifactVerification($this->arrayValue($run->summary_json ?? []));
+        $manifest = $this->arrayValue(data_get($summary, 'replay_manifest', []));
+        $artifact = $this->arrayValue(data_get($manifest, 'artifact', []));
+        $safeArtifact = $this->safeReplayManifestArtifact($artifact);
+
+        if (! (bool) ($manifest['enabled'] ?? false)) {
+            return [
+                'status' => 'unavailable',
+                'reason' => 'replay_manifest_disabled',
+                'artifact' => $safeArtifact,
+                'summary' => Arr::except($manifest, ['artifact', 'packets']),
+                'final_packet' => data_get($manifest, 'final_packet'),
+                'replay_manifest' => null,
+            ];
+        }
+
+        $integrity = $this->arrayValue(data_get($artifact, 'integrity', []));
+        if (($artifact['status'] ?? null) !== 'persisted' || ! (bool) ($integrity['hash_matches'] ?? false)) {
+            return [
+                'status' => 'unavailable',
+                'reason' => (string) ($integrity['reason'] ?? 'artifact_integrity_failed'),
+                'artifact' => $safeArtifact,
+                'summary' => Arr::except($manifest, ['artifact', 'packets']),
+                'final_packet' => data_get($manifest, 'final_packet'),
+                'replay_manifest' => null,
+            ];
+        }
+
+        $path = $this->resolveReplayManifestArtifactPath($this->nonEmptyString($artifact['path'] ?? null));
+        if ($path === null || ! File::isFile($path)) {
+            return [
+                'status' => 'unavailable',
+                'reason' => 'artifact_not_readable',
+                'artifact' => $safeArtifact,
+                'summary' => Arr::except($manifest, ['artifact', 'packets']),
+                'final_packet' => data_get($manifest, 'final_packet'),
+                'replay_manifest' => null,
+            ];
+        }
+
+        $decoded = json_decode(File::get($path), true);
+        if (! is_array($decoded)) {
+            return [
+                'status' => 'unavailable',
+                'reason' => 'artifact_json_decode_failed',
+                'artifact' => $safeArtifact,
+                'summary' => Arr::except($manifest, ['artifact', 'packets']),
+                'final_packet' => data_get($manifest, 'final_packet'),
+                'replay_manifest' => null,
+            ];
+        }
+
+        return [
+            'status' => 'available',
+            'artifact' => $safeArtifact,
+            'summary' => Arr::except($manifest, ['artifact', 'packets']),
+            'final_packet' => data_get($decoded, 'final_packet', data_get($manifest, 'final_packet')),
+            'replay_manifest' => $decoded,
         ];
     }
 
@@ -1425,24 +2025,569 @@ class EngineeringBenchmarkService
     }
 
     /**
+     * @param  Collection<int,AtlasEngineeringBenchmarkResult>  $results
+     * @return array<string,mixed>
+     */
+    private function claudeCodeBaselineSummary(Collection $results): array
+    {
+        $baselines = $results
+            ->map(fn (AtlasEngineeringBenchmarkResult $result): mixed => data_get($result->observed_json ?? [], 'claude_code_baseline'))
+            ->filter(fn (mixed $baseline): bool => is_array($baseline) && (bool) ($baseline['enabled'] ?? false))
+            ->values();
+
+        if ($baselines->isEmpty()) {
+            return [
+                'enabled' => false,
+                'case_count' => 0,
+            ];
+        }
+
+        return [
+            'enabled' => true,
+            'case_count' => $baselines->count(),
+            'planned_count' => $baselines->where('status', 'planned')->count(),
+            'executed_count' => $baselines->where('executed', true)->count(),
+            'completed_count' => $baselines->where('status', 'completed')->count(),
+            'failed_count' => $baselines->where('status', 'failed')->count(),
+            'providers' => $baselines->pluck('provider')->filter()->unique()->values()->all(),
+            'models' => $baselines->pluck('model')->filter()->unique()->values()->all(),
+            'prompt_hashes' => $baselines->pluck('prompt_hash')->filter()->unique()->values()->all(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int,AtlasEngineeringBenchmarkResult>  $results
+     * @return array<string,mixed>
+     */
+    private function pairedScorecardSummary(Collection $results): array
+    {
+        $scorecards = $results
+            ->map(fn (AtlasEngineeringBenchmarkResult $result): mixed => data_get($result->observed_json ?? [], 'paired_scorecard'))
+            ->filter(fn (mixed $scorecard): bool => is_array($scorecard))
+            ->values();
+
+        if ($scorecards->isEmpty()) {
+            return [
+                'enabled' => false,
+                'case_count' => 0,
+                'protocol_validity_rate' => null,
+                'pass_without_human_rate' => null,
+                'pass_without_human_rate_medium_hard' => null,
+                'repair_conversion_rate' => null,
+                'final_gate_pass_rate' => null,
+                'intervention_reduction' => null,
+                'autonomous_success_lift' => null,
+                'time_to_green' => null,
+                'cost_per_green_case' => null,
+                'invalid_case_count' => 0,
+                'provider_violation_count' => 0,
+                'fallback_violation_count' => 0,
+            ];
+        }
+
+        $comparable = $scorecards->where('comparable', true);
+        $caseCount = $scorecards->count();
+        $atlasPassWithoutHumanCount = $scorecards
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.pass_without_human', data_get($scorecard, 'atlas.verified')))
+            ->count();
+        $baselinePassWithoutHumanCount = $scorecards
+            ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'claude_code_baseline.pass_without_human', data_get($scorecard, 'claude_code_baseline.verified')))
+            ->count();
+        $atlasHumanInterventions = $scorecards
+            ->sum(fn (array $scorecard): int => max(0, (int) data_get($scorecard, 'atlas.human_intervention_count', 0)));
+        $baselineHumanInterventions = $scorecards
+            ->sum(fn (array $scorecard): int => max(0, (int) data_get($scorecard, 'claude_code_baseline.human_intervention_count', 0)));
+        $winners = $scorecards
+            ->pluck('winner')
+            ->filter(fn (mixed $winner): bool => is_string($winner) && $winner !== '')
+            ->countBy()
+            ->all();
+
+        return [
+            'enabled' => true,
+            'case_count' => $scorecards->count(),
+            'fair_mode_count' => $scorecards
+                ->filter(fn (array $scorecard): bool => (bool) ($scorecard['fair_mode'] ?? false))
+                ->count(),
+            'comparable_count' => $comparable->count(),
+            'inconclusive_count' => max(0, $scorecards->count() - $comparable->count()),
+            'comparison_statuses' => $scorecards
+                ->pluck('comparison_status')
+                ->filter()
+                ->countBy()
+                ->all(),
+            'winners' => $winners,
+            'atlas_win_count' => (int) ($winners['atlas'] ?? 0),
+            'claude_code_baseline_win_count' => (int) ($winners['claude_code_baseline'] ?? 0),
+            'tie_count' => (int) ($winners['tie'] ?? 0),
+            'protocol_validity_rate' => $this->rate($scorecards
+                ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.protocol_valid', data_get($scorecard, 'atlas.verified')))
+                ->count(), $caseCount),
+            'pass_without_human_rate' => $this->rate($atlasPassWithoutHumanCount, $caseCount),
+            'pass_without_human_rate_medium_hard' => $this->rate($scorecards
+                ->filter(fn (array $scorecard): bool => in_array(data_get($scorecard, 'case.risk_profile'), ['medium', 'high', 'critical'], true)
+                    && (bool) data_get($scorecard, 'atlas.pass_without_human', data_get($scorecard, 'atlas.verified')))
+                ->count(), max(0, $scorecards
+                ->filter(fn (array $scorecard): bool => in_array(data_get($scorecard, 'case.risk_profile'), ['medium', 'high', 'critical'], true))
+                ->count())),
+            'repair_conversion_rate' => null,
+            'final_gate_pass_rate' => $this->rate($scorecards
+                ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.final_gate_passed', data_get($scorecard, 'atlas.verified')))
+                ->count(), $caseCount),
+            'intervention_reduction' => $atlasHumanInterventions > 0
+                ? round($baselineHumanInterventions / $atlasHumanInterventions, 2)
+                : ($baselineHumanInterventions > 0 ? null : 1.0),
+            'autonomous_success_lift' => round(
+                ($this->rate($atlasPassWithoutHumanCount, $caseCount) ?? 0.0)
+                - ($this->rate($baselinePassWithoutHumanCount, $caseCount) ?? 0.0),
+                2,
+            ),
+            'time_to_green' => null,
+            'cost_per_green_case' => null,
+            'invalid_case_count' => $scorecards
+                ->filter(fn (array $scorecard): bool => (bool) data_get($scorecard, 'fair_mode')
+                    && ! (bool) data_get($scorecard, 'atlas.protocol_valid', data_get($scorecard, 'atlas.verified')))
+                ->count(),
+            'provider_violation_count' => $scorecards
+                ->sum(fn (array $scorecard): int => max(0, (int) data_get($scorecard, 'atlas.provider_violation_count', 0))),
+            'fallback_violation_count' => $scorecards
+                ->sum(fn (array $scorecard): int => max(0, (int) data_get($scorecard, 'atlas.fallback_violation_count', 0))),
+            'atlas_pass_without_human_rate' => $this->rate($atlasPassWithoutHumanCount, $caseCount),
+            'baseline_pass_without_human_rate' => $this->rate($baselinePassWithoutHumanCount, $caseCount),
+        ];
+    }
+
+    /**
+     * @param  Collection<int,AtlasEngineeringBenchmarkRun>  $runs
+     * @return array<string,mixed>
+     */
+    private function fairClaudeReplayReport(Collection $runs): array
+    {
+        $manifests = $runs
+            ->map(fn (AtlasEngineeringBenchmarkRun $run): array => $this->arrayValue(data_get(
+                $this->withReplayManifestArtifactVerification($this->arrayValue($run->summary_json ?? [])),
+                'replay_manifest',
+                [],
+            )))
+            ->filter(fn (array $manifest): bool => (bool) ($manifest['enabled'] ?? false))
+            ->values();
+
+        if ($manifests->isEmpty()) {
+            return [
+                'enabled' => false,
+                'run_count' => 0,
+                'packet_count' => 0,
+                'artifact_integrity_passed_count' => 0,
+                'artifact_integrity_failed_count' => 0,
+            ];
+        }
+
+        $integrityPassed = $manifests
+            ->filter(fn (array $manifest): bool => (bool) data_get($manifest, 'artifact.integrity.hash_matches'))
+            ->count();
+
+        return [
+            'enabled' => true,
+            'run_count' => $manifests->count(),
+            'packet_count' => $manifests->sum(fn (array $manifest): int => (int) ($manifest['packet_count'] ?? 0)),
+            'providers' => $manifests
+                ->flatMap(fn (array $manifest): array => (array) ($manifest['providers'] ?? []))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'model_locks' => $manifests
+                ->flatMap(fn (array $manifest): array => (array) ($manifest['model_locks'] ?? []))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'artifact_integrity_passed_count' => $integrityPassed,
+            'artifact_integrity_failed_count' => max(0, $manifests->count() - $integrityPassed),
+            'manifest_hashes' => $manifests
+                ->pluck('manifest_hash')
+                ->filter()
+                ->values()
+                ->all(),
+        ];
+    }
+
+    private function rate(int|float $numerator, int|float $denominator): ?float
+    {
+        if ($denominator <= 0) {
+            return null;
+        }
+
+        return round(((float) $numerator / (float) $denominator) * 100, 2);
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    private function safeReplayManifestSummaryForReport(array $manifest): array
+    {
+        $artifact = $this->arrayValue($manifest['artifact'] ?? []);
+        $safe = Arr::except($manifest, ['packets', 'artifact']);
+        if ($artifact !== []) {
+            $safe['artifact'] = $this->safeReplayManifestArtifact($artifact);
+        }
+
+        return $safe;
+    }
+
+    /**
+     * @param  Collection<int,AtlasEngineeringBenchmarkRun>  $runs
+     * @param  array<string,mixed>  $paired
+     * @param  array<string,mixed>  $baseline
+     * @param  array<string,mixed>  $replay
+     * @return array<string,mixed>
+     */
+    private function fairClaudeReportReadiness(Collection $runs, array $paired, array $baseline, array $replay): array
+    {
+        $blocking = [];
+        if ($runs->isEmpty()) {
+            $blocking[] = 'no_fair_claude_runs';
+        }
+        if (! (bool) ($paired['enabled'] ?? false)) {
+            $blocking[] = 'paired_scorecard_missing';
+        }
+        if ((int) ($paired['fair_mode_count'] ?? 0) === 0) {
+            $blocking[] = 'fair_atlas_arm_missing';
+        }
+        if ((int) ($paired['comparable_count'] ?? 0) === 0) {
+            $blocking[] = 'no_comparable_cases';
+        }
+        if (! (bool) ($baseline['enabled'] ?? false) || (int) ($baseline['executed_count'] ?? 0) === 0) {
+            $blocking[] = 'claude_code_baseline_not_executed';
+        }
+        if (! (bool) ($replay['enabled'] ?? false) || (int) ($replay['artifact_integrity_failed_count'] ?? 0) > 0) {
+            $blocking[] = 'replay_manifest_not_fully_verified';
+        }
+
+        $atlasWins = (int) ($paired['atlas_win_count'] ?? 0);
+        $baselineWins = (int) ($paired['claude_code_baseline_win_count'] ?? 0);
+        $ties = (int) ($paired['tie_count'] ?? 0);
+        $status = match (true) {
+            $blocking !== [] => 'not_ready',
+            $atlasWins > $baselineWins => 'atlas_leading',
+            $baselineWins > $atlasWins => 'baseline_leading',
+            $ties > 0 => 'tied',
+            default => 'inconclusive',
+        };
+
+        return [
+            'status' => $status,
+            'ready_for_claim' => $blocking === [] && $atlasWins > $baselineWins,
+            'blocking_reasons' => $blocking,
+            'atlas_win_count' => $atlasWins,
+            'claude_code_baseline_win_count' => $baselineWins,
+            'tie_count' => $ties,
+            'comparable_count' => (int) ($paired['comparable_count'] ?? 0),
+            'fair_mode_count' => (int) ($paired['fair_mode_count'] ?? 0),
+        ];
+    }
+
+    /**
+     * @param  Collection<int,AtlasEngineeringBenchmarkResult>  $results
+     * @return array<string,mixed>
+     */
+    private function replayManifestSummary(
+        AtlasEngineeringBenchmarkRun $run,
+        Collection $results,
+        string $status,
+        array $quality,
+        array $releaseGate,
+    ): array {
+        $packets = $results
+            ->map(function (AtlasEngineeringBenchmarkResult $result): ?array {
+                $packet = data_get($result->observed_json ?? [], 'claude_code_baseline.replay_packet');
+                if (! is_array($packet)) {
+                    return null;
+                }
+
+                return [
+                    'case_id' => $result->case_id,
+                    'case_code' => data_get($packet, 'case_code'),
+                    'provider_lock' => data_get($packet, 'provider_lock'),
+                    'model_lock' => data_get($packet, 'model_lock'),
+                    'mode' => data_get($packet, 'mode'),
+                    'workspace_hash' => data_get($packet, 'workspace_hash'),
+                    'prompt_hash' => data_get($packet, 'input.prompt_hash'),
+                    'task_contract_hash' => data_get($packet, 'input.task_contract_hash'),
+                    'command_hash' => data_get($packet, 'invocation.command_hash'),
+                    'deterministic_gate_command_hash' => data_get($packet, 'deterministic_gate.command_hash'),
+                    'deterministic_gate_command_present' => (bool) data_get($packet, 'deterministic_gate.command_present'),
+                    'packet_hash' => hash('sha256', json_encode($packet, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+                ];
+            })
+            ->filter()
+            ->values();
+
+        if ($packets->isEmpty()) {
+            $manifest = [
+                'enabled' => false,
+                'packet_count' => 0,
+            ];
+
+            return array_merge($manifest, [
+                'final_packet' => $this->benchmarkFinalPacket($run, $results, $status, $quality, $releaseGate, $manifest),
+            ]);
+        }
+
+        $packetHashes = $packets
+            ->pluck('packet_hash')
+            ->filter()
+            ->values()
+            ->all();
+
+        $manifest = [
+            'enabled' => true,
+            'schema_version' => 1,
+            'kind' => 'engineering_benchmark_replay_manifest',
+            'packet_count' => $packets->count(),
+            'providers' => $packets->pluck('provider_lock')->filter()->unique()->values()->all(),
+            'model_locks' => $packets->pluck('model_lock')->filter()->unique()->values()->all(),
+            'modes' => $packets->pluck('mode')->filter()->countBy()->all(),
+            'deterministic_gate_packet_count' => $packets
+                ->filter(fn (array $packet): bool => (bool) ($packet['deterministic_gate_command_present'] ?? false))
+                ->count(),
+            'packet_hashes' => $packetHashes,
+            'manifest_hash' => hash('sha256', json_encode($packetHashes, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+            'packets' => $packets->all(),
+        ];
+
+        $finalPacket = $this->benchmarkFinalPacket($run, $results, $status, $quality, $releaseGate, $manifest);
+
+        return array_merge($manifest, [
+            'final_packet' => array_merge($finalPacket, [
+                'final_packet_hash' => hash('sha256', json_encode($finalPacket, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+            ]),
+        ]);
+    }
+
+    /**
+     * @param  Collection<int,AtlasEngineeringBenchmarkResult>  $results
+     * @param  array<string,mixed>  $quality
+     * @param  array<string,mixed>  $releaseGate
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    private function benchmarkFinalPacket(
+        AtlasEngineeringBenchmarkRun $run,
+        Collection $results,
+        string $status,
+        array $quality,
+        array $releaseGate,
+        array $manifest,
+    ): array {
+        $scorecards = $results
+            ->map(fn (AtlasEngineeringBenchmarkResult $result): mixed => data_get($result->observed_json ?? [], 'paired_scorecard'))
+            ->filter(fn (mixed $scorecard): bool => is_array($scorecard))
+            ->values();
+        $fairScorecards = $scorecards
+            ->filter(fn (array $scorecard): bool => (bool) ($scorecard['fair_mode'] ?? false))
+            ->values();
+        $protocolValid = $fairScorecards->isEmpty()
+            ? null
+            : $fairScorecards->every(fn (array $scorecard): bool => (bool) data_get($scorecard, 'atlas.protocol_valid', data_get($scorecard, 'atlas.verified')));
+        $humanInterventionCount = $scorecards
+            ->sum(fn (array $scorecard): int => max(0, (int) data_get($scorecard, 'atlas.human_intervention_count', 0))
+                + max(0, (int) data_get($scorecard, 'claude_code_baseline.human_intervention_count', 0)));
+        $finalStatus = match (true) {
+            $protocolValid === false => 'invalid',
+            $status === 'passed' && (int) ($manifest['packet_count'] ?? 0) > 0
+                && (int) ($manifest['deterministic_gate_packet_count'] ?? 0) < (int) ($manifest['packet_count'] ?? 0) => 'unverified',
+            default => $status,
+        };
+        $skips = [];
+        if ((int) ($manifest['packet_count'] ?? 0) > 0
+            && (int) ($manifest['deterministic_gate_packet_count'] ?? 0) < (int) ($manifest['packet_count'] ?? 0)
+        ) {
+            $skips[] = [
+                'reason' => 'deterministic_gate_packet_missing',
+                'packet_count' => (int) ($manifest['packet_count'] ?? 0),
+                'deterministic_gate_packet_count' => (int) ($manifest['deterministic_gate_packet_count'] ?? 0),
+            ];
+        }
+
+        return [
+            'schema_version' => 1,
+            'kind' => 'engineering_benchmark_final_packet',
+            'status' => $finalStatus,
+            'benchmark_status' => $status,
+            'protocol_valid' => $protocolValid,
+            'fair_mode' => $fairScorecards->isNotEmpty(),
+            'provider_lock' => $fairScorecards->isNotEmpty() ? FairClaudePolicy::PROVIDER_LOCK : null,
+            'model_lock' => $fairScorecards->isNotEmpty() ? FairClaudePolicy::MODEL_LOCK : null,
+            'attempts' => (int) ($quality['total_attempts'] ?? 0),
+            'repair_conversion_rate' => null,
+            'human_intervention_count' => $humanInterventionCount,
+            'files_changed_count' => (int) ($quality['changed_files_count'] ?? 0),
+            'diff_hash' => null,
+            'replay_manifest_hash' => $manifest['manifest_hash'] ?? null,
+            'tests' => [
+                'failed_test_count' => (int) ($quality['failed_test_count'] ?? 0),
+                'failed_tests' => $quality['failed_tests'] ?? [],
+            ],
+            'gates' => [
+                'release_gate_status' => $releaseGate['status'] ?? null,
+                'release_gate_profile' => $releaseGate['profile'] ?? null,
+                'deterministic_gate_packet_count' => (int) ($manifest['deterministic_gate_packet_count'] ?? 0),
+                'failed_control_count' => (int) ($quality['failed_control_count'] ?? 0),
+                'blocked_control_count' => (int) ($quality['blocked_control_count'] ?? 0),
+                'release_gate_failures' => $releaseGate['failures'] ?? [],
+            ],
+            'skips' => $skips,
+            'risks' => [
+                'risk_flag_count' => (int) ($quality['risk_flag_count'] ?? 0),
+                'risk_flags' => $quality['risk_flags'] ?? [],
+                'release_gate_warnings' => $releaseGate['warnings'] ?? [],
+            ],
+            'replay_command' => 'atlas benchmark claude-fair replay '.$run->id.' --json',
+            'rollback_command' => null,
+            'trace_id' => data_get($quality, 'telemetry_trace_ids.0'),
+            'trace_ids' => $quality['telemetry_trace_ids'] ?? [],
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    private function persistReplayManifestArtifact(AtlasEngineeringBenchmarkRun $run, array $manifest): array
+    {
+        if (! (bool) ($manifest['enabled'] ?? false)) {
+            return $manifest;
+        }
+
+        $directory = storage_path('app/engineering-benchmark-runs/'.$run->id);
+        $path = $directory.'/replay-manifest.json';
+        $payload = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        if (! is_string($payload) || $payload === '') {
+            return array_merge($manifest, [
+                'artifact' => [
+                    'status' => 'failed',
+                    'reason' => 'manifest_json_encode_failed',
+                ],
+            ]);
+        }
+
+        File::ensureDirectoryExists($directory);
+        File::put($path, $payload."\n");
+
+        return array_merge($manifest, [
+            'artifact' => [
+                'status' => File::isFile($path) ? 'persisted' : 'failed',
+                'path' => $path,
+                'path_hash' => hash('sha256', $path),
+                'bytes' => File::isFile($path) ? File::size($path) : null,
+                'sha256' => File::isFile($path) ? hash('sha256', File::get($path)) : null,
+                'written_at' => now()->toJSON(),
+            ],
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $summary
+     * @return array<string,mixed>
+     */
+    private function withReplayManifestArtifactVerification(array $summary): array
+    {
+        $artifact = data_get($summary, 'replay_manifest.artifact');
+        if (! is_array($artifact)) {
+            return $summary;
+        }
+
+        $path = $this->nonEmptyString($artifact['path'] ?? null);
+        $expectedSha = $this->nonEmptyString($artifact['sha256'] ?? null);
+        if ($path === null) {
+            data_set($summary, 'replay_manifest.artifact.integrity', [
+                'checked' => true,
+                'exists' => false,
+                'hash_matches' => false,
+                'reason' => 'artifact_path_missing',
+                'checked_at' => now()->toJSON(),
+            ]);
+
+            return $summary;
+        }
+
+        $resolvedPath = $this->resolveReplayManifestArtifactPath($path);
+
+        if ($resolvedPath === null) {
+            data_set($summary, 'replay_manifest.artifact.integrity', [
+                'checked' => true,
+                'exists' => realpath($path) !== false,
+                'hash_matches' => false,
+                'reason' => 'artifact_path_outside_allowed_root',
+                'checked_at' => now()->toJSON(),
+            ]);
+
+            return $summary;
+        }
+
+        $actualSha = File::isFile($resolvedPath) ? hash('sha256', File::get($resolvedPath)) : null;
+        data_set($summary, 'replay_manifest.artifact.integrity', [
+            'checked' => true,
+            'exists' => $actualSha !== null,
+            'hash_matches' => $expectedSha !== null && hash_equals($expectedSha, (string) $actualSha),
+            'expected_sha256' => $expectedSha,
+            'actual_sha256' => $actualSha,
+            'checked_at' => now()->toJSON(),
+        ]);
+
+        return $summary;
+    }
+
+    private function resolveReplayManifestArtifactPath(?string $path): ?string
+    {
+        if ($path === null) {
+            return null;
+        }
+
+        $allowedRoot = realpath(storage_path('app/engineering-benchmark-runs'));
+        $resolvedPath = realpath($path);
+        if ($allowedRoot === false || $resolvedPath === false) {
+            return null;
+        }
+
+        $allowedPrefix = rtrim($allowedRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+
+        return str_starts_with($resolvedPath, $allowedPrefix) ? $resolvedPath : null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $artifact
+     * @return array<string,mixed>
+     */
+    private function safeReplayManifestArtifact(array $artifact): array
+    {
+        return Arr::except($artifact, ['path']);
+    }
+
+    /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
      */
     private function redactWorkspace(array $options, bool $redact = true): array
     {
-        if (! isset($options['workspace']) || ! is_string($options['workspace']) || trim($options['workspace']) === '') {
-            return $options;
+        foreach (['workspace', 'claude_code_baseline_workspace'] as $key) {
+            if (! isset($options[$key]) || ! is_string($options[$key]) || trim($options[$key]) === '') {
+                continue;
+            }
+
+            $workspace = $this->workspaceFrom($options[$key]) ?: trim($options[$key]);
+            if ($redact) {
+                $options[$key.'_hash'] = hash('sha256', $workspace);
+                unset($options[$key]);
+
+                continue;
+            }
+
+            $options[$key] = $workspace;
         }
-
-        $workspace = $this->workspaceFrom($options['workspace']) ?: trim($options['workspace']);
-        if ($redact) {
-            $options['workspace_hash'] = hash('sha256', $workspace);
-            unset($options['workspace']);
-
-            return $options;
-        }
-
-        $options['workspace'] = $workspace;
 
         return $options;
     }

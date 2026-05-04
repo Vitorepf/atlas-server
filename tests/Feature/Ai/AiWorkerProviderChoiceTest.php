@@ -12,6 +12,7 @@ use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\AiWorker;
+use App\Services\Ai\FairClaudePolicy;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -165,6 +166,134 @@ class AiWorkerProviderChoiceTest extends TestCase
         $job->refresh();
         $this->assertSame('failed', $job->status);
         $this->assertNotSame('awaiting_user_choice', $job->status);
+    }
+
+    public function test_fair_mode_provider_drift_fails_with_explicit_violation(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'olá',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'olá',
+            'prompt' => 'olá',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'payload' => [
+                'fair_mode' => app(FairClaudePolicy::class)->metadata(),
+            ],
+        ]);
+
+        app(AiWorker::class)->runNext();
+
+        $job->refresh();
+        $this->assertSame('failed', $job->status);
+        $this->assertSame('fair_mode_violation', $job->error_code);
+    }
+
+    public function test_fair_mode_rate_limit_choice_does_not_offer_switch_or_downgrade(): void
+    {
+        config()->set('atlas.ai.providers.claude_cli.fallback_model', 'claude-haiku');
+
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'olá',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'claude_cli',
+            'model' => 'claude-opus-4-7',
+            'input_text' => 'olá',
+            'prompt' => 'olá',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 3,
+            'payload' => [
+                'fair_mode' => app(FairClaudePolicy::class)->metadata(),
+                'requested_model' => 'claude-opus-4-7',
+                'requested_model_alias' => 'opus',
+                'requested_model_tier' => 'premium',
+            ],
+        ]);
+
+        $this->mockProviderManagerWith(new AiProviderResult(
+            ok: false,
+            output: '',
+            command: ['claude'],
+            exitCode: 1,
+            durationMs: 100,
+            stdout: '',
+            stderr: 'rate limit',
+            errorCode: 'rate_limited',
+            errorMessage: 'rate limit',
+        ));
+
+        app(AiWorker::class)->runNext();
+
+        $job->refresh();
+        $optionIds = collect((array) data_get($job->metadata, 'choice_options'))->pluck('id')->all();
+        $this->assertSame('awaiting_user_choice', $job->status);
+        $this->assertSame(['cancel', 'retry_same'], $optionIds);
+    }
+
+    public function test_worker_persists_claude_invocation_fingerprint_to_job_and_trace(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'olá',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'claude_cli',
+            'model' => 'claude-opus-4-7',
+            'input_text' => 'olá',
+            'prompt' => 'olá',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+        ]);
+
+        $fingerprint = [
+            'schema_version' => 1,
+            'provider' => 'claude_cli',
+            'model' => 'claude-opus-4-7',
+            'prompt_hash' => hash('sha256', 'olá'),
+        ];
+
+        $this->mockProviderManagerWith(new AiProviderResult(
+            ok: true,
+            output: 'ok',
+            command: ['claude'],
+            exitCode: 0,
+            durationMs: 100,
+            stdout: '{"result":"ok"}',
+            stderr: '',
+            metadata: ['claude_invocation_fingerprint' => $fingerprint],
+        ));
+
+        app(AiWorker::class)->runNext();
+
+        $this->assertSame($fingerprint, data_get($job->refresh()->metadata, 'claude_invocation_fingerprint'));
+        $this->assertSame($fingerprint, data_get($trace->refresh()->metadata, 'claude_invocation_fingerprint'));
     }
 
     private function mockProviderManagerWith(AiProviderResult $result): void

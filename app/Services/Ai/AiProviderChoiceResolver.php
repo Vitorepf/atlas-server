@@ -10,6 +10,7 @@ class AiProviderChoiceResolver
 {
     public function __construct(
         private readonly AuditLogService $audit,
+        private readonly FairClaudePolicy $fairClaude,
     ) {}
 
     /**
@@ -29,6 +30,12 @@ class AiProviderChoiceResolver
         }
 
         $action = (string) ($option['action'] ?? '');
+        if ($this->fairClaude->isFairPayload(is_array($job->payload) ? $job->payload : [])
+            || $this->fairClaude->isFairPayload(is_array($job->metadata) ? $job->metadata : [])) {
+            if (in_array($action, ['switch_provider', 'downgrade_model'], true)) {
+                throw AiProviderChoiceException::optionNotFound($optionId);
+            }
+        }
         $baseMetadata = array_merge($job->metadata ?? [], [
             'provider_choice_resolved_at' => now()->toIso8601String(),
             'provider_choice_resolved_option' => $optionId,

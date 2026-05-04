@@ -59,6 +59,11 @@ class AtlasToolExecutor
                 'metadata' => [
                     'dry_run' => (bool) ($options['dry_run'] ?? false),
                     'recipe' => $options['recipe'] ?? null,
+                    'recipe_category' => $options['recipe_category'] ?? null,
+                    'recipe_recommended_surface' => $options['recipe_recommended_surface'] ?? null,
+                    'recipe_creates_evidence' => $options['recipe_creates_evidence'] ?? null,
+                    'recipe_blocking_capable' => $options['recipe_blocking_capable'] ?? null,
+                    'execution_origin' => $options['execution_origin'] ?? null,
                     'env_keys' => array_keys($safeEnv),
                     'output_limit' => $outputLimit,
                 ],
@@ -83,6 +88,11 @@ class AtlasToolExecutor
                 'metadata' => [
                     'dry_run' => true,
                     'recipe' => $options['recipe'] ?? null,
+                    'recipe_category' => $options['recipe_category'] ?? null,
+                    'recipe_recommended_surface' => $options['recipe_recommended_surface'] ?? null,
+                    'recipe_creates_evidence' => $options['recipe_creates_evidence'] ?? null,
+                    'recipe_blocking_capable' => $options['recipe_blocking_capable'] ?? null,
+                    'execution_origin' => $options['execution_origin'] ?? null,
                     'env_keys' => array_keys($safeEnv),
                     'output_limit' => $outputLimit,
                 ],
@@ -134,6 +144,11 @@ class AtlasToolExecutor
                 'env_keys' => array_keys($safeEnv),
                 'output_limit' => $outputLimit,
                 'recipe' => $options['recipe'] ?? null,
+                'recipe_category' => $options['recipe_category'] ?? null,
+                'recipe_recommended_surface' => $options['recipe_recommended_surface'] ?? null,
+                'recipe_creates_evidence' => $options['recipe_creates_evidence'] ?? null,
+                'recipe_blocking_capable' => $options['recipe_blocking_capable'] ?? null,
+                'execution_origin' => $options['execution_origin'] ?? null,
                 'stdout_truncated' => $stdoutTruncated,
                 'stderr_truncated' => $stderrTruncated,
             ],
@@ -161,6 +176,9 @@ class AtlasToolExecutor
             throw new \InvalidArgumentException("Tool recipe [{$recipeName}] is not registered for [{$toolSlug}].");
         }
 
+        $recommendedSurface = $this->surface($recipe['recommended_surface'] ?? null, 'manual_diagnostic');
+        $surface = $this->surface($options['surface'] ?? null, $recommendedSurface);
+
         return $this->execute($toolSlug, $workspace, (array) ($recipe['command'] ?? []), [
             'dry_run' => array_key_exists('dry_run', $options) ? (bool) $options['dry_run'] : (bool) ($recipe['dry_run_default'] ?? true),
             'approved' => (bool) ($options['approved'] ?? false),
@@ -173,8 +191,13 @@ class AtlasToolExecutor
             'requires_provider_safe' => (bool) ($recipe['requires_provider_safe'] ?? false),
             'env' => $options['env'] ?? [],
             'output_limit' => $options['output_limit'] ?? null,
-            'surface' => $options['surface'] ?? 'cli',
+            'surface' => $surface,
             'recipe' => $recipeName,
+            'recipe_category' => $recipe['category'] ?? 'diagnostic',
+            'recipe_recommended_surface' => $recommendedSurface,
+            'recipe_creates_evidence' => (bool) ($recipe['creates_evidence'] ?? true),
+            'recipe_blocking_capable' => (bool) ($recipe['blocking_capable'] ?? false),
+            'execution_origin' => $this->surface($options['execution_origin'] ?? null, 'recipe'),
         ]);
     }
 
@@ -259,6 +282,17 @@ class AtlasToolExecutor
         }
 
         return max(1000, min(200000, (int) $value));
+    }
+
+    private function surface(mixed $value, string $fallback): string
+    {
+        if (! is_string($value)) {
+            return $fallback;
+        }
+
+        $value = trim($value);
+
+        return preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,79}$/', $value) === 1 ? $value : $fallback;
     }
 
     /**

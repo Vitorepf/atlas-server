@@ -1,0 +1,430 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Models\AtlasEngineeringBenchmarkCase;
+use App\Models\AtlasTask;
+use App\Services\Engineering\EngineeringClaudeCodeBaselineRunnerService;
+use App\Services\Engineering\EngineeringBenchmarkService;
+use App\Services\Engineering\EngineeringHarnessRunnerService;
+use ReflectionMethod;
+use Tests\TestCase;
+
+class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
+{
+    public function test_fair_scorecard_requires_pass_without_human_and_verified_gates(): void
+    {
+        $scorecard = $this->fairScorecard([
+            'run' => [
+                'model_selection' => [
+                    'selected_provider' => 'claude_cli',
+                    'selected_model' => 'claude-opus-test',
+                ],
+                'fair_mode_result' => [
+                    'status' => 'valid',
+                    'deterministic_gates_passed' => true,
+                    'pass_without_human' => true,
+                    'blocking_reasons' => [],
+                ],
+            ],
+        ], [
+            'claude_only' => true,
+            'require_pass_without_human' => true,
+        ]);
+
+        $this->assertIsArray($scorecard);
+        $this->assertTrue($scorecard['required']);
+        $this->assertTrue($scorecard['passed']);
+        $this->assertTrue($scorecard['protocol_valid']);
+        $this->assertTrue($scorecard['final_gate_passed']);
+        $this->assertSame(0, $scorecard['human_intervention_count']);
+        $this->assertSame(0, $scorecard['provider_violation_count']);
+        $this->assertSame(0, $scorecard['fallback_violation_count']);
+        $this->assertSame([], $scorecard['blocking_reasons']);
+    }
+
+    public function test_fair_scorecard_blocks_unverified_even_when_decision_and_score_pass(): void
+    {
+        $scorecard = $this->fairScorecard([
+            'run' => [
+                'model_selection' => [
+                    'selected_provider' => 'claude_cli',
+                    'selected_model' => 'claude-opus-test',
+                ],
+                'fair_mode_result' => [
+                    'status' => 'unverified',
+                    'deterministic_gates_passed' => false,
+                    'pass_without_human' => false,
+                    'blocking_reasons' => ['quality_status_needs_review'],
+                ],
+            ],
+        ], [
+            'claude_only' => true,
+            'require_pass_without_human' => true,
+        ]);
+        $evaluation = $this->evaluate($scorecard);
+
+        $this->assertFalse($scorecard['passed']);
+        $this->assertContains('fair_protocol_not_valid', $scorecard['blocking_reasons']);
+        $this->assertContains('deterministic_gates_not_passed', $scorecard['blocking_reasons']);
+        $this->assertFalse($evaluation['passed']);
+        $this->assertStringContainsString('fair_scorecard_failed', (string) $evaluation['failure_summary']);
+    }
+
+    public function test_non_fair_benchmark_keeps_existing_decision_and_score_evaluation(): void
+    {
+        $scorecard = $this->fairScorecard([
+            'run' => [
+                'model_selection' => [
+                    'selected_provider' => 'codex_cli',
+                    'selected_model' => 'gpt-5.5',
+                ],
+            ],
+        ], []);
+        $evaluation = $this->evaluate($scorecard);
+
+        $this->assertNull($scorecard);
+        $this->assertTrue($evaluation['passed']);
+    }
+
+    public function test_harness_runner_claude_only_implies_all_fair_flags(): void
+    {
+        $service = app(EngineeringHarnessRunnerService::class);
+        $method = new ReflectionMethod(EngineeringHarnessRunnerService::class, 'fairModeOptions');
+        $method->setAccessible(true);
+
+        $flags = $method->invoke($service, ['claude_only' => true]);
+
+        $this->assertTrue($flags['fair_mode']);
+        $this->assertTrue($flags['single_provider']);
+        $this->assertTrue($flags['no_decide']);
+        $this->assertTrue($flags['fallback_disabled']);
+        $this->assertTrue($flags['require_pass_without_human']);
+    }
+
+    public function test_harness_runner_explicit_fair_mode_implies_all_fair_flags(): void
+    {
+        $service = app(EngineeringHarnessRunnerService::class);
+        $method = new ReflectionMethod(EngineeringHarnessRunnerService::class, 'fairModeOptions');
+        $method->setAccessible(true);
+
+        $flags = $method->invoke($service, ['fair_mode' => true]);
+
+        $this->assertTrue($flags['fair_mode']);
+        $this->assertTrue($flags['single_provider']);
+        $this->assertTrue($flags['no_decide']);
+        $this->assertTrue($flags['fallback_disabled']);
+        $this->assertTrue($flags['require_pass_without_human']);
+    }
+
+    public function test_harness_runner_fair_provider_request_locks_claude_opus(): void
+    {
+        $service = app(EngineeringHarnessRunnerService::class);
+        $method = new ReflectionMethod(EngineeringHarnessRunnerService::class, 'fairProviderRequest');
+        $method->setAccessible(true);
+
+        $request = $method->invoke($service, null, null, 'history', ['fair_mode' => true]);
+
+        $this->assertSame(['claude_cli', 'opus', 'fixed'], $request);
+    }
+
+    public function test_harness_runner_fair_provider_request_rejects_provider_drift(): void
+    {
+        $service = app(EngineeringHarnessRunnerService::class);
+        $method = new ReflectionMethod(EngineeringHarnessRunnerService::class, 'fairProviderRequest');
+        $method->setAccessible(true);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('fair_mode_violation');
+
+        $method->invoke($service, 'codex_cli', null, 'fixed', ['fair_mode' => true]);
+    }
+
+    public function test_claude_code_baseline_plan_resolves_opus_and_does_not_execute(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-baseline-plan-'.bin2hex(random_bytes(4));
+        mkdir($workspace);
+
+        try {
+            $baseline = app(EngineeringClaudeCodeBaselineRunnerService::class)->capture(
+                $this->benchmarkCase(),
+                $this->taskModel(),
+                [
+                    'workspace' => $workspace,
+                    'claude_code_baseline' => 'plan',
+                    'claude_code_baseline_model' => 'opus',
+                ],
+            );
+
+            $this->assertIsArray($baseline);
+            $this->assertSame('planned', $baseline['status']);
+            $this->assertFalse($baseline['executed']);
+            $this->assertSame('claude_code_cli', $baseline['provider']);
+            $this->assertStringContainsString('opus', strtolower((string) $baseline['model']));
+            $this->assertNotEmpty($baseline['prompt_hash']);
+            $this->assertNotEmpty($baseline['invocation_fingerprint']);
+        } finally {
+            @rmdir($workspace);
+        }
+    }
+
+    public function test_claude_code_baseline_rejects_non_opus_model(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('fair_mode_violation');
+
+        app(EngineeringClaudeCodeBaselineRunnerService::class)->capture(
+            $this->benchmarkCase(),
+            $this->taskModel(),
+            [
+                'workspace' => sys_get_temp_dir(),
+                'claude_code_baseline' => 'plan',
+                'claude_code_baseline_model' => 'claude-sonnet-4-5',
+            ],
+        );
+    }
+
+    public function test_claude_code_baseline_run_requires_separate_workspace(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('requires claude_code_baseline_workspace');
+
+        app(EngineeringClaudeCodeBaselineRunnerService::class)->capture(
+            $this->benchmarkCase(),
+            $this->taskModel(),
+            [
+                'workspace' => sys_get_temp_dir(),
+                'claude_code_baseline' => 'run',
+                'claude_code_baseline_model' => 'opus',
+            ],
+        );
+    }
+
+    public function test_claude_code_baseline_run_uses_deterministic_gate_for_pass_without_human(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-baseline-run-'.bin2hex(random_bytes(4));
+        mkdir($workspace);
+
+        try {
+            $baseline = app(EngineeringClaudeCodeBaselineRunnerService::class)->capture(
+                $this->benchmarkCase(),
+                $this->taskModel(),
+                [
+                    'workspace' => sys_get_temp_dir(),
+                    'claude_code_baseline_workspace' => $workspace,
+                    'claude_code_baseline' => 'run',
+                    'claude_code_baseline_model' => 'opus',
+                    'claude_code_baseline_binary' => '/bin/echo',
+                    'test_command' => PHP_BINARY.' -r "exit(0);"',
+                ],
+            );
+
+            $this->assertSame('completed', $baseline['status']);
+            $this->assertTrue($baseline['executed']);
+            $this->assertSame('resolved', $baseline['decision']);
+            $this->assertSame(100, $baseline['score']);
+            $this->assertTrue($baseline['deterministic_gates_passed']);
+            $this->assertTrue($baseline['pass_without_human']);
+            $this->assertSame(0, $baseline['human_intervention_count']);
+            $this->assertSame('passed', data_get($baseline, 'deterministic_gate.status'));
+            $this->assertSame('claude_code_baseline_replay', data_get($baseline, 'replay_packet.kind'));
+            $this->assertSame('claude_code_cli', data_get($baseline, 'replay_packet.provider_lock'));
+            $this->assertSame('opus', data_get($baseline, 'replay_packet.model_lock'));
+            $this->assertSame('stdin', data_get($baseline, 'replay_packet.input.transport'));
+            $this->assertTrue((bool) data_get($baseline, 'replay_packet.deterministic_gate.command_present'));
+            $this->assertTrue((bool) data_get($baseline, 'replay_packet.deterministic_gate.pass_without_human_requires_gate_pass'));
+            $this->assertArrayNotHasKey('workspace', $baseline['replay_packet']);
+        } finally {
+            @rmdir($workspace);
+        }
+    }
+
+    public function test_claude_code_baseline_run_rejects_same_workspace_as_atlas_arm(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-baseline-same-workspace-'.bin2hex(random_bytes(4));
+        mkdir($workspace);
+
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('fair_mode_violation');
+
+            app(EngineeringClaudeCodeBaselineRunnerService::class)->capture(
+                $this->benchmarkCase(),
+                $this->taskModel(),
+                [
+                    'workspace' => $workspace,
+                    'claude_code_baseline_workspace' => $workspace,
+                    'claude_code_baseline' => 'run',
+                    'claude_code_baseline_model' => 'opus',
+                    'claude_code_baseline_binary' => '/bin/echo',
+                    'test_command' => PHP_BINARY.' -r "exit(0);"',
+                ],
+            );
+        } finally {
+            @rmdir($workspace);
+        }
+    }
+
+    public function test_claude_code_baseline_run_without_test_command_is_unverified(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-baseline-unverified-'.bin2hex(random_bytes(4));
+        mkdir($workspace);
+
+        try {
+            $baseline = app(EngineeringClaudeCodeBaselineRunnerService::class)->capture(
+                $this->benchmarkCase(),
+                $this->taskModel(),
+                [
+                    'workspace' => sys_get_temp_dir(),
+                    'claude_code_baseline_workspace' => $workspace,
+                    'claude_code_baseline' => 'run',
+                    'claude_code_baseline_model' => 'opus',
+                    'claude_code_baseline_binary' => '/bin/echo',
+                ],
+            );
+
+            $this->assertSame('completed', $baseline['status']);
+            $this->assertSame('unresolved', $baseline['decision']);
+            $this->assertSame(0, $baseline['score']);
+            $this->assertFalse($baseline['deterministic_gates_passed']);
+            $this->assertFalse($baseline['pass_without_human']);
+            $this->assertSame('skipped', data_get($baseline, 'deterministic_gate.status'));
+            $this->assertContains('baseline_deterministic_gate_not_passed', $baseline['blocking_reasons']);
+        } finally {
+            @rmdir($workspace);
+        }
+    }
+
+    public function test_paired_scorecard_keeps_planned_baseline_inconclusive(): void
+    {
+        $scorecard = $this->pairedScorecard([
+            'passed' => true,
+            'failure_summary' => null,
+        ], [
+            'required' => true,
+            'passed' => true,
+        ], [
+            'enabled' => true,
+            'status' => 'planned',
+            'executed' => false,
+            'provider' => 'claude_code_cli',
+            'model' => 'claude-opus-test',
+        ]);
+
+        $this->assertSame('baseline_planned', $scorecard['comparison_status']);
+        $this->assertFalse($scorecard['comparable']);
+        $this->assertNull($scorecard['winner']);
+        $this->assertContains('baseline_not_verified_pass', $scorecard['blocking_reasons']);
+    }
+
+    public function test_paired_scorecard_declares_atlas_winner_only_against_verified_baseline(): void
+    {
+        $scorecard = $this->pairedScorecard([
+            'passed' => true,
+            'failure_summary' => null,
+        ], [
+            'required' => true,
+            'passed' => true,
+        ], [
+            'enabled' => true,
+            'status' => 'completed',
+            'executed' => true,
+            'provider' => 'claude_code_cli',
+            'model' => 'claude-opus-test',
+            'decision' => 'resolved',
+            'score' => 88,
+            'deterministic_gates_passed' => true,
+            'pass_without_human' => true,
+        ], atlasScore: 95);
+
+        $this->assertSame('comparable', $scorecard['comparison_status']);
+        $this->assertTrue($scorecard['comparable']);
+        $this->assertSame('atlas', $scorecard['winner']);
+        $this->assertSame(7, $scorecard['deltas']['score']);
+        $this->assertSame('baseline_case', $scorecard['case']['case_code']);
+        $this->assertTrue($scorecard['atlas']['pass_without_human']);
+        $this->assertSame(0, $scorecard['atlas']['provider_violation_count']);
+        $this->assertTrue($scorecard['claude_code_baseline']['verified']);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $runnerOptions
+     * @return array<string,mixed>|null
+     */
+    private function fairScorecard(array $payload, array $runnerOptions): ?array
+    {
+        $service = app(EngineeringBenchmarkService::class);
+        $method = new ReflectionMethod(EngineeringBenchmarkService::class, 'fairScorecard');
+        $method->setAccessible(true);
+
+        return $method->invoke($service, $payload, $runnerOptions);
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $fairScorecard
+     * @return array<string,mixed>
+     */
+    private function evaluate(?array $fairScorecard): array
+    {
+        $case = new AtlasEngineeringBenchmarkCase;
+        $case->expected_decision = 'resolved';
+        $case->min_score = 85;
+
+        $service = app(EngineeringBenchmarkService::class);
+        $method = new ReflectionMethod(EngineeringBenchmarkService::class, 'evaluate');
+        $method->setAccessible(true);
+
+        return $method->invoke($service, $case, 'resolved', 90, $fairScorecard);
+    }
+
+    /**
+     * @param  array<string,mixed>  $atlasEvaluation
+     * @param  array<string,mixed>|null  $fairScorecard
+     * @param  array<string,mixed>|null  $baseline
+     * @return array<string,mixed>
+     */
+    private function pairedScorecard(array $atlasEvaluation, ?array $fairScorecard, ?array $baseline, int $atlasScore = 90): array
+    {
+        $service = app(EngineeringBenchmarkService::class);
+        $method = new ReflectionMethod(EngineeringBenchmarkService::class, 'pairedScorecard');
+        $method->setAccessible(true);
+
+        return $method->invoke(
+            $service,
+            $this->benchmarkCase(),
+            $atlasEvaluation,
+            $fairScorecard,
+            $baseline,
+            'resolved',
+            $atlasScore,
+        );
+    }
+
+    private function benchmarkCase(): AtlasEngineeringBenchmarkCase
+    {
+        $case = new AtlasEngineeringBenchmarkCase;
+        $case->id = 'case-test';
+        $case->case_code = 'baseline_case';
+        $case->title = 'Baseline case';
+        $case->description = 'Implement a small benchmark task.';
+        $case->task_contract_json = [
+            'goal' => 'Implement a small benchmark task.',
+            'acceptance_criteria' => ['Validation can run deterministically.'],
+        ];
+
+        return $case;
+    }
+
+    private function taskModel(): AtlasTask
+    {
+        $task = new AtlasTask;
+        $task->id = 'task-test';
+        $task->title = 'Implement a small benchmark task';
+        $task->description = 'Task description';
+        $task->minimum_viable_action = 'Make the smallest correct change.';
+        $task->starter_step = 'Inspect the workspace.';
+
+        return $task;
+    }
+}

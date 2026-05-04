@@ -6,10 +6,13 @@ use App\Models\AiJob;
 use App\Models\AiJobAttempt;
 use App\Models\AiQualityAction;
 use App\Models\AiTrace;
+use App\Services\Ai\Cli\AtlasCliQualityService;
 use App\Services\Ai\Mobile\JobResultInboxEmitter;
+use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use App\Services\AuditLogService;
+use App\Services\MacAgent\MacAgentService;
 use App\Services\Semantic\CaptureSemanticClarifier;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -36,6 +39,10 @@ class AiWorker
         private readonly AiProviderChoiceBuilder $choices,
         private readonly AiRuntimeBudgetService $budgets,
         private readonly AtlasAiRuntimeSettings $runtimeSettings,
+        private readonly FairClaudePolicy $fairClaude,
+        private readonly AtlasProgrammingOrchestrator $programming,
+        private readonly AtlasCliQualityService $cliQuality,
+        private readonly MacAgentService $macAgent,
     ) {}
 
     public function runNext(?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
@@ -64,7 +71,17 @@ class AiWorker
         }
 
         $providerKey = $providerOverride ?: $job->provider ?: $this->runtimeSettings->defaultProvider();
+        if ($violation = $this->fairModeRuntimeViolation($job, $providerKey, $job->model)) {
+            $attempt = $this->createAttempt($job, $workerId, $providerKey);
+
+            return $this->completeAttempt($job, $attempt, $this->fairModeViolationResult($violation), $workerId);
+        }
         $job = $this->ensureJobModelIdentity($job, $providerKey);
+        if ($violation = $this->fairModeRuntimeViolation($job, $providerKey, $job->model)) {
+            $attempt = $this->createAttempt($job, $workerId, $providerKey);
+
+            return $this->completeAttempt($job, $attempt, $this->fairModeViolationResult($violation), $workerId);
+        }
         $job = $this->applyExpiredAtlasScoutDependency($job);
         $provider = $this->providers->get($providerKey);
         $permission = $this->permissions->authorizeJob($job, $providerKey);
@@ -102,26 +119,44 @@ class AiWorker
                     ],
                 ]);
                 $firstTokenRecorded = false;
-                $result = $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream, &$firstTokenRecorded): void {
-                    $recorded = $this->stream->recordProviderEvent($job, $attempt, $event);
-                    if (! $firstTokenRecorded && in_array(($event['type'] ?? null), ['token', 'response'], true)) {
-                        $firstTokenRecorded = true;
-                        $this->recordTelemetry('provider_first_token', $job, $attempt, [
-                            'event_phase' => 'provider',
-                            'duration_ms' => $this->diffMs($attempt->started_at, now()),
-                            'metadata' => [
-                                'stream_event_type' => $event['type'] ?? null,
-                                'stream_event_name' => $event['name'] ?? null,
-                                'sequence' => $recorded?->sequence,
-                            ],
-                        ]);
-                    }
-                    $event['sequence'] = $recorded?->sequence;
-                    $event['job_id'] = $job->id;
-                    $event['trace_id'] = $job->trace_id;
-                    $event['attempt_id'] = $attempt->id;
-                    $onStream?->__invoke($event);
-                });
+                $powerSession = $this->macAgent->startSession(
+                    kind: 'ai_job',
+                    reason: "Atlas AI job {$job->id}",
+                    expiresAt: now()->addSeconds(max(60, (int) $job->timeout_seconds) + 300),
+                    source: 'ai_worker',
+                    job: $job,
+                    metadata: [
+                        'worker_id' => $workerId,
+                        'provider' => $providerKey,
+                        'attempt_id' => $attempt->id,
+                    ],
+                );
+
+                try {
+                    $result = $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream, &$firstTokenRecorded): void {
+                        $recorded = $this->stream->recordProviderEvent($job, $attempt, $event);
+                        if (! $firstTokenRecorded && in_array(($event['type'] ?? null), ['token', 'response'], true)) {
+                            $firstTokenRecorded = true;
+                            $this->recordTelemetry('provider_first_token', $job, $attempt, [
+                                'event_phase' => 'provider',
+                                'duration_ms' => $this->diffMs($attempt->started_at, now()),
+                                'metadata' => [
+                                    'stream_event_type' => $event['type'] ?? null,
+                                    'stream_event_name' => $event['name'] ?? null,
+                                    'sequence' => $recorded?->sequence,
+                                ],
+                            ]);
+                        }
+                        $event['sequence'] = $recorded?->sequence;
+                        $event['job_id'] = $job->id;
+                        $event['trace_id'] = $job->trace_id;
+                        $event['attempt_id'] = $attempt->id;
+                        $onStream?->__invoke($event);
+                    });
+                    $result = $this->withPowerSessionMetadata($result, (string) $powerSession->id);
+                } finally {
+                    $this->macAgent->stopSession($powerSession, 'ai_job_finished');
+                }
             } catch (\Throwable $exception) {
                 $this->emitStreamEvent($job, $attempt, 'error', 'provider_exception', $exception->getMessage(), [
                     'error_code' => 'provider_exception',
@@ -305,6 +340,318 @@ class AiWorker
         ]);
     }
 
+    /**
+     * @return array<string,mixed>
+     */
+    private function programmingDispatchUpdate(
+        AiJob $job,
+        string $status,
+        ?string $traceProvider = null,
+        ?string $responseHash = null,
+        ?string $errorCode = null,
+    ): array
+    {
+        $dispatch = data_get($job->metadata, 'programming_dispatch');
+        if (! is_array($dispatch)) {
+            $dispatch = data_get($job->payload, 'programming_dispatch');
+        }
+        if (! is_array($dispatch)) {
+            $dispatch = data_get($job->trace?->metadata, 'programming_dispatch');
+        }
+        if (! is_array($dispatch)) {
+            return [];
+        }
+
+        $now = now()->toJSON();
+        $terminal = in_array($status, ['executed', 'blocked'], true);
+        $updatedDispatch = array_filter(array_merge($dispatch, [
+            'status' => $status,
+            'trace_provider' => $traceProvider ?: $job->provider,
+            'completed_at' => $terminal ? $now : null,
+            'updated_at' => $now,
+        ]), fn (mixed $value): bool => $value !== null);
+
+        return [
+            'programming_dispatch' => $updatedDispatch,
+            'programming_completion' => array_filter([
+                'schema_version' => 1,
+                'status' => match ($status) {
+                    'executed' => 'passed',
+                    'blocked' => 'blocked',
+                    'retrying' => 'retrying',
+                    default => $status,
+                },
+                'executor' => data_get($dispatch, 'executor'),
+                'dispatch_path' => data_get($dispatch, 'dispatch_path'),
+                'profile_context' => data_get($dispatch, 'profile_context'),
+                'execution_policy' => data_get($dispatch, 'execution_policy'),
+                'provider' => $traceProvider ?: $job->provider,
+                'model' => $job->model,
+                'response_hash' => $responseHash,
+                'error_code' => $errorCode,
+                'completed_at' => $terminal ? $now : null,
+                'updated_at' => $now,
+            ], fn (mixed $value): bool => $value !== null),
+        ];
+    }
+
+    private function shouldEvaluateNativeProgrammingRepair(AiJob $job): bool
+    {
+        if ($this->isCouncilJob($job) || $this->isAtlasScoutJob($job)) {
+            return false;
+        }
+
+        return (bool) data_get($job->payload, 'programming_repair.enabled')
+            && data_get($job->payload, 'programming_dispatch.dispatch_path') === 'ai_gateway_provider'
+            && data_get($job->payload, 'programming_dispatch.executor') === 'dev_repair_executor';
+    }
+
+    private function handleNativeProgrammingRepair(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, ?string $responseHash): ?AiJob
+    {
+        $workspace = $this->programmingRepairWorkspace($job);
+        if ($workspace === null) {
+            return null;
+        }
+
+        $repair = (array) data_get($job->payload, 'programming_repair', []);
+        $messagePlan = (array) data_get($job->payload, 'programming_message_plan', []);
+        $completeMode = (bool) ($repair['complete_mode'] ?? data_get($messagePlan, 'execution_profile.complete', false));
+        $runTests = $completeMode || (bool) data_get($messagePlan, 'execution_profile.auto_test', false);
+        $quality = $this->cliQuality->evaluate(
+            workspace: $workspace,
+            runTests: $runTests,
+            testCommand: $this->programmingRepairTestCommand($job),
+            approved: true,
+            traceId: $job->trace_id,
+        );
+        $qualityStatus = (string) ($quality['status'] ?? 'unknown');
+        $currentIteration = max(1, (int) ($repair['current_iteration'] ?? 1));
+        $maxIterations = max(1, min(10, (int) ($repair['max_iterations'] ?? data_get($messagePlan, 'execution_profile.max_iterations', 1))));
+        $qualityWorsened = (bool) ($repair['stop_when_quality_worsens'] ?? true)
+            && $this->programmingRepairQualityWorsened($qualityStatus, $repair['previous_quality_status'] ?? null);
+        $shouldRepair = in_array($qualityStatus, (array) ($repair['repair_when_status'] ?? ['failed', 'needs_review']), true)
+            && ! $qualityWorsened
+            && $currentIteration < $maxIterations;
+        $finalPassed = in_array($qualityStatus, (array) ($repair['stop_when_status'] ?? ['passed']), true);
+
+        if ($shouldRepair) {
+            $this->enqueueNativeProgrammingRepairJob($job, $quality, $currentIteration + 1, $maxIterations);
+            $metadata = $this->nativeProgrammingRepairMetadata($job, $repair, $quality, [
+                'status' => 'repairing',
+                'current_iteration' => $currentIteration,
+                'next_iteration' => $currentIteration + 1,
+            ], $attempt->provider, $responseHash);
+
+            $job->trace?->update([
+                'status' => 'queued',
+                'provider' => $attempt->provider,
+                'model' => $attempt->model,
+                'response_hash' => $responseHash,
+                'response_text' => $result->output,
+                'latency_ms' => $result->durationMs,
+                'completed_at' => null,
+                'metadata' => array_merge($job->trace->metadata ?? [], $metadata),
+            ]);
+
+            return $job->refresh()->load(['trace', 'attemptHistory']);
+        }
+
+        if (! $finalPassed) {
+            $metadata = $this->nativeProgrammingRepairMetadata($job, $repair, $quality, [
+                'status' => $qualityWorsened ? 'stopped' : 'exhausted',
+                'current_iteration' => $currentIteration,
+                'reason_if_stopped' => $qualityWorsened ? 'quality_gate_worsened' : 'max_iterations_or_quality_failed',
+            ], $attempt->provider, $responseHash, blocked: true);
+
+            $job->trace?->update([
+                'status' => 'failed',
+                'provider' => $attempt->provider,
+                'model' => $attempt->model,
+                'response_hash' => $responseHash,
+                'response_text' => $result->output,
+                'latency_ms' => $result->durationMs,
+                'completed_at' => now(),
+                'metadata' => array_merge($job->trace->metadata ?? [], $metadata),
+            ]);
+
+            return $job->refresh()->load(['trace', 'attemptHistory']);
+        }
+
+        $metadata = $this->nativeProgrammingRepairMetadata($job, $repair, $quality, [
+            'status' => 'passed',
+            'current_iteration' => $currentIteration,
+        ], $attempt->provider, $responseHash);
+
+        $job->forceFill([
+            'metadata' => array_merge($job->metadata ?? [], $metadata),
+        ])->save();
+        $job->trace?->forceFill([
+            'metadata' => array_merge($job->trace->metadata ?? [], $metadata),
+        ])->save();
+
+        return null;
+    }
+
+    private function programmingRepairWorkspace(AiJob $job): ?string
+    {
+        $workspace = data_get($job->payload, 'workspace_context.repo_root')
+            ?: data_get($job->payload, 'workspace_context.workspace')
+            ?: data_get($job->payload, 'programming_message_plan.workspace');
+
+        if (! is_string($workspace) || trim($workspace) === '') {
+            return null;
+        }
+
+        return realpath($workspace) ?: $workspace;
+    }
+
+    private function programmingRepairTestCommand(AiJob $job): ?string
+    {
+        $command = data_get($job->payload, 'dev_execution_plan.operator_options.harness_overrides.test_command');
+
+        return is_string($command) && trim($command) !== '' ? trim($command) : null;
+    }
+
+    private function programmingRepairQualityWorsened(string $currentStatus, mixed $previousStatus): bool
+    {
+        if (! is_string($previousStatus) || trim($previousStatus) === '') {
+            return false;
+        }
+
+        return $this->programmingRepairStatusRank($currentStatus) < $this->programmingRepairStatusRank($previousStatus);
+    }
+
+    private function programmingRepairStatusRank(string $status): int
+    {
+        return match ($status) {
+            'passed' => 4,
+            'needs_review' => 3,
+            'failed' => 2,
+            'blocked' => 1,
+            default => 0,
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $quality
+     */
+    private function enqueueNativeProgrammingRepairJob(AiJob $job, array $quality, int $iteration, int $maxIterations): AiJob
+    {
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $repair = (array) data_get($payload, 'programming_repair', []);
+        $payload['programming_repair'] = array_merge($repair, [
+            'status' => 'active',
+            'current_iteration' => $iteration,
+            'previous_quality_status' => $quality['status'] ?? null,
+            'previous_quality_hash' => hash('sha256', json_encode($quality, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}'),
+            'updated_at' => now()->toJSON(),
+        ]);
+        $payload['programming_repair_history'] = array_values(array_merge(
+            (array) ($payload['programming_repair_history'] ?? []),
+            [[
+                'iteration' => $iteration - 1,
+                'status' => $quality['status'] ?? null,
+                'diff_hash' => $quality['diff_hash'] ?? null,
+                'recorded_at' => now()->toJSON(),
+            ]],
+        ));
+
+        return AiJob::query()->create([
+            'trace_id' => $job->trace_id,
+            'client_id' => $job->client_id,
+            'kind' => $job->kind,
+            'status' => 'queued',
+            'priority' => max(1, (int) $job->priority - 1),
+            'agent_slug' => $job->agent_slug,
+            'provider' => $job->provider,
+            'model' => $job->model,
+            'input_text' => $job->input_text,
+            'prompt' => $this->programming->repairPrompt(
+                (string) ($job->trace?->operator_input ?: $job->input_text),
+                $quality,
+                $iteration,
+                $maxIterations,
+            ),
+            'context_refs' => $job->context_refs ?? [],
+            'payload' => $payload,
+            'available_at' => now(),
+            'attempts' => 0,
+            'max_attempts' => 1,
+            'timeout_seconds' => $job->timeout_seconds,
+            'metadata' => array_merge($job->metadata ?? [], [
+                'programming_repair_job' => true,
+                'programming_repair_iteration' => $iteration,
+                'programming_repair_parent_job_id' => $job->id,
+            ]),
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $repair
+     * @param  array<string,mixed>  $quality
+     * @param  array<string,mixed>  $repairUpdates
+     * @return array<string,mixed>
+     */
+    private function nativeProgrammingRepairMetadata(
+        AiJob $job,
+        array $repair,
+        array $quality,
+        array $repairUpdates,
+        ?string $provider,
+        ?string $responseHash,
+        bool $blocked = false,
+    ): array {
+        $dispatchStatus = $blocked ? 'blocked' : 'executed';
+        $metadata = $this->programmingDispatchUpdate($job, $dispatchStatus, $provider, $responseHash, $blocked ? 'quality_gate_failed' : null);
+        $completion = (array) ($metadata['programming_completion'] ?? []);
+        $completion['status'] = $blocked ? 'blocked' : (string) ($quality['status'] ?? $completion['status'] ?? 'unknown');
+        $completion['quality_status'] = $quality['status'] ?? null;
+        $completion['quality_gate'] = [
+            'status' => $quality['status'] ?? null,
+            'diff_hash' => $quality['diff_hash'] ?? null,
+            'dirty_count' => $quality['dirty_count'] ?? null,
+            'tests' => data_get($quality, 'completion_packet.tests', []),
+            'risks' => data_get($quality, 'completion_packet.risks', []),
+        ];
+        $completion['repair'] = array_filter([
+            'status' => $repairUpdates['status'] ?? $repair['status'] ?? null,
+            'current_iteration' => $repairUpdates['current_iteration'] ?? $repair['current_iteration'] ?? 1,
+            'next_iteration' => $repairUpdates['next_iteration'] ?? null,
+            'max_iterations' => $repair['max_iterations'] ?? null,
+            'reason_if_stopped' => $repairUpdates['reason_if_stopped'] ?? null,
+            'previous_quality_status' => $repair['previous_quality_status'] ?? null,
+            'last_quality_status' => $quality['status'] ?? null,
+            'history' => $this->programmingRepairHistory($job, $repairUpdates, $quality),
+        ], fn (mixed $value): bool => $value !== null && $value !== []);
+        $metadata['programming_completion'] = array_filter($completion, fn (mixed $value): bool => $value !== null && $value !== []);
+        $metadata['programming_repair'] = array_merge($repair, $repairUpdates, [
+            'last_quality_status' => $quality['status'] ?? null,
+            'last_quality_diff_hash' => $quality['diff_hash'] ?? null,
+            'updated_at' => now()->toJSON(),
+        ]);
+
+        return $metadata;
+    }
+
+    /**
+     * @param  array<string,mixed>  $repairUpdates
+     * @param  array<string,mixed>  $quality
+     * @return array<int,array<string,mixed>>
+     */
+    private function programmingRepairHistory(AiJob $job, array $repairUpdates, array $quality): array
+    {
+        $history = (array) data_get($job->payload, 'programming_repair_history', []);
+        $currentIteration = (int) ($repairUpdates['current_iteration'] ?? data_get($job->payload, 'programming_repair.current_iteration', 1));
+        $history[] = [
+            'iteration' => max(1, $currentIteration),
+            'status' => $quality['status'] ?? null,
+            'diff_hash' => $quality['diff_hash'] ?? null,
+            'recorded_at' => now()->toJSON(),
+        ];
+
+        return array_values(array_slice($history, -10));
+    }
+
     private function ensureJobModelIdentity(AiJob $job, string $providerKey): AiJob
     {
         $resolution = $this->models->resolveWithSource($providerKey, $job->model);
@@ -425,6 +772,7 @@ class AiWorker
             'finished_at' => now(),
             'metadata' => $result->metadata,
         ]);
+        $this->persistInvocationFingerprint($job, $result);
         $this->recordTelemetry($result->ok ? 'provider_call_succeeded' : 'provider_call_failed', $job, $attempt, [
             'event_phase' => 'provider',
             'duration_ms' => $result->durationMs,
@@ -442,6 +790,7 @@ class AiWorker
                 'error_code' => null,
                 'error_message' => null,
                 'finished_at' => now(),
+                'metadata' => array_merge($job->metadata ?? [], $this->programmingDispatchUpdate($job, 'executed', $attempt->provider, $responseHash)),
             ]);
 
             try {
@@ -511,6 +860,13 @@ class AiWorker
                 return $job->refresh()->load(['trace', 'attemptHistory']);
             }
 
+            if ($this->shouldEvaluateNativeProgrammingRepair($job)) {
+                $repairOutcome = $this->handleNativeProgrammingRepair($job, $attempt, $result, $responseHash);
+                if ($repairOutcome !== null) {
+                    return $repairOutcome;
+                }
+            }
+
             $job->trace?->update([
                 'status' => 'succeeded',
                 'provider' => $attempt->provider,
@@ -519,6 +875,7 @@ class AiWorker
                 'response_text' => $result->output,
                 'latency_ms' => $result->durationMs,
                 'completed_at' => now(),
+                'metadata' => array_merge($job->trace->metadata ?? [], $this->programmingDispatchUpdate($job, 'executed', $attempt->provider, $responseHash)),
             ]);
 
             $trace = $job->trace?->refresh();
@@ -601,6 +958,7 @@ class AiWorker
             'started_at' => $finalFailure ? $job->started_at : null,
             'worker_id' => $finalFailure ? $job->worker_id : null,
             'finished_at' => $finalFailure ? now() : null,
+            'metadata' => array_merge($job->metadata ?? [], $this->programmingDispatchUpdate($job, $finalFailure ? 'blocked' : 'retrying', $attempt->provider, null, $result->errorCode)),
         ]);
 
         if ($finalFailure && $this->isAtlasScoutJob($job)) {
@@ -684,7 +1042,7 @@ class AiWorker
             'metadata' => array_merge($job->trace->metadata ?? [], [
                 'last_error_code' => $result->errorCode,
                 'last_error_message' => $result->errorMessage,
-            ]),
+            ], $this->programmingDispatchUpdate($job, $finalFailure ? 'blocked' : 'retrying', $attempt->provider, null, $result->errorCode)),
         ]);
 
         if ($finalFailure && $job->trace) {
@@ -842,6 +1200,22 @@ class AiWorker
             errorCode: $result->errorCode,
             errorMessage: $result->errorMessage,
             metadata: array_merge($result->metadata, ['permission' => $permission->toArray()]),
+        );
+    }
+
+    private function withPowerSessionMetadata(AiProviderResult $result, string $powerSessionId): AiProviderResult
+    {
+        return new AiProviderResult(
+            ok: $result->ok,
+            output: $result->output,
+            command: $result->command,
+            exitCode: $result->exitCode,
+            durationMs: $result->durationMs,
+            stdout: $result->stdout,
+            stderr: $result->stderr,
+            errorCode: $result->errorCode,
+            errorMessage: $result->errorMessage,
+            metadata: array_merge($result->metadata, ['power_session_id' => $powerSessionId]),
         );
     }
 
@@ -1254,8 +1628,76 @@ TEXT);
         return data_get($job->metadata, 'provider_choice_state') !== 'resolved';
     }
 
+    private function persistInvocationFingerprint(AiJob $job, AiProviderResult $result): void
+    {
+        $fingerprint = data_get($result->metadata, 'claude_invocation_fingerprint');
+        if (! is_array($fingerprint)) {
+            return;
+        }
+
+        $metadata = array_merge(is_array($job->metadata) ? $job->metadata : [], [
+            'claude_invocation_fingerprint' => $fingerprint,
+        ]);
+        $job->forceFill(['metadata' => $metadata])->save();
+
+        $trace = $job->trace ?: $job->trace()->first();
+        if ($trace) {
+            $trace->forceFill([
+                'metadata' => array_merge($trace->metadata ?? [], [
+                    'claude_invocation_fingerprint' => $fingerprint,
+                ]),
+            ])->save();
+        }
+    }
+
+    private function fairModeRuntimeViolation(AiJob $job, string $providerKey, mixed $model): ?array
+    {
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $metadata = is_array($job->metadata) ? $job->metadata : [];
+        if (! $this->fairClaude->isFairPayload($payload) && ! $this->fairClaude->isFairPayload($metadata)) {
+            return null;
+        }
+
+        $mergedPayload = array_merge($payload, [
+            'fair_mode' => data_get($payload, 'fair_mode') ?: data_get($metadata, 'fair_mode'),
+            'dev_execution_plan' => data_get($payload, 'dev_execution_plan') ?: data_get($metadata, 'dev_execution_plan'),
+        ]);
+        $model = is_string($model) || is_numeric($model) ? trim((string) $model) : null;
+        $violation = $this->fairClaude->validateInvocation($providerKey, $model !== '' ? $model : null, $mergedPayload);
+
+        return (bool) ($violation['ok'] ?? false) ? null : $violation;
+    }
+
+    /**
+     * @param  array<string,mixed>  $violation
+     */
+    private function fairModeViolationResult(array $violation): AiProviderResult
+    {
+        $message = (string) ($violation['message'] ?? 'Fair Claude mode violation.');
+
+        return new AiProviderResult(
+            ok: false,
+            output: '',
+            command: [],
+            exitCode: null,
+            durationMs: 0,
+            stdout: '',
+            stderr: $message,
+            errorCode: FairClaudePolicy::ERROR_CODE,
+            errorMessage: $message,
+            metadata: [
+                'fair_mode_violation' => $violation,
+            ],
+        );
+    }
+
     private function shouldFallbackGeminiToClaude(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result): bool
     {
+        if ($this->fairClaude->isFairPayload(is_array($job->payload) ? $job->payload : [])
+            || $this->fairClaude->isFairPayload(is_array($job->metadata) ? $job->metadata : [])) {
+            return false;
+        }
+
         if ($this->isCouncilJob($job)) {
             return false;
         }
@@ -1429,6 +1871,8 @@ TEXT);
             currentProvider: (string) ($attempt->provider ?: $job->provider),
             currentModel: $job->model,
             resetAt: $resetAt,
+            fairMode: $this->fairClaude->isFairPayload(is_array($job->payload) ? $job->payload : [])
+                || $this->fairClaude->isFairPayload(is_array($job->metadata) ? $job->metadata : []),
         );
 
         $lastAttemptedId = data_get($job->metadata, 'provider_choice_last_attempted_option_id');

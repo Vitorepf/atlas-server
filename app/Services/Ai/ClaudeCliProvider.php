@@ -29,7 +29,7 @@ class ClaudeCliProvider implements AiProvider
     {
         $provider = $this->runtimeSettings->providerConfig('claude_cli');
         $binary = (string) ($provider['binary'] ?? 'claude');
-        $args = (array) ($provider['args'] ?? ['-p']);
+        $args = $this->sanitizeConfiguredArgs((array) ($provider['args'] ?? ['-p']));
         $this->streamJsonBuffer = '';
 
         if ($model = $this->invocationModel($job, $provider)) {
@@ -38,20 +38,60 @@ class ClaudeCliProvider implements AiProvider
         }
 
         $args = $this->withAtlasRuntimeArgs($args, $job);
+        $command = array_values(array_merge([$binary], $args));
+        $cwd = $this->workdirForJob($job);
+        $fingerprint = $this->cliInvocationFingerprint($command, $prompt, $job->timeout_seconds, $cwd, $job, [
+            'provider_key' => $this->key(),
+            'requested_model' => $this->invocationModel($job, $provider),
+            'output_format' => $this->argValue($args, '--output-format'),
+            'permission_mode' => $this->argValue($args, '--permission-mode'),
+            'add_dirs' => $this->argValuesAfter($args, '--add-dir'),
+            'session_policy' => in_array('--no-session-persistence', $args, true) ? 'no_session_persistence' : 'provider_default',
+        ]);
 
-        return $this->runProcessStreaming(
-            command: array_values(array_merge([$binary], $args)),
+        $result = $this->runProcessStreaming(
+            command: $command,
             input: $prompt,
             timeoutSeconds: $job->timeout_seconds,
-            cwd: $this->workdirForJob($job),
+            cwd: $cwd,
             onEvent: $onEvent,
             job: $job,
+        );
+
+        return new AiProviderResult(
+            ok: $result->ok,
+            output: $result->output,
+            command: $result->command,
+            exitCode: $result->exitCode,
+            durationMs: $result->durationMs,
+            stdout: $result->stdout,
+            stderr: $result->stderr,
+            errorCode: $result->errorCode,
+            errorMessage: $result->errorMessage,
+            metadata: array_merge($result->metadata, [
+                'claude_invocation_fingerprint' => $fingerprint,
+            ]),
         );
     }
 
     public function health(): AiProviderHealthCheck
     {
-        return $this->checkBinary($this->key(), (string) ($this->runtimeSettings->providerConfig('claude_cli')['binary'] ?? 'claude'));
+        $binary = (string) ($this->runtimeSettings->providerConfig('claude_cli')['binary'] ?? 'claude');
+
+        return $this->checkCliRuntimeContract(
+            check: $this->checkBinary($this->key(), $binary),
+            binary: $binary,
+            helpArgs: ['--help'],
+            requiredTokens: [
+                '--model',
+                '--permission-mode',
+                '--add-dir',
+                '--output-format',
+                'stream-json',
+                '--no-session-persistence',
+            ],
+            contractName: 'claude_cli_provider.v1',
+        );
     }
 
     protected function extractOutput(string $stdout): string
@@ -175,6 +215,41 @@ class ClaudeCliProvider implements AiProvider
         return $model;
     }
 
+    private function argValue(array $args, string $name): ?string
+    {
+        foreach (array_values($args) as $index => $arg) {
+            if ($arg === $name && isset($args[$index + 1]) && is_scalar($args[$index + 1])) {
+                return (string) $args[$index + 1];
+            }
+            if (is_string($arg) && str_starts_with($arg, $name.'=')) {
+                return substr($arg, strlen($name) + 1);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function argValuesAfter(array $args, string $name): array
+    {
+        $values = [];
+        $normalized = array_values($args);
+        foreach ($normalized as $index => $arg) {
+            if ($arg !== $name) {
+                continue;
+            }
+            for ($cursor = $index + 1; isset($normalized[$cursor]) && ! str_starts_with((string) $normalized[$cursor], '--'); $cursor++) {
+                if (is_scalar($normalized[$cursor])) {
+                    $values[] = (string) $normalized[$cursor];
+                }
+            }
+        }
+
+        return array_values(array_unique($values));
+    }
+
     private function extractTextFromClaudePayload(array $payload): string
     {
         foreach (['result', 'content', 'message', 'text'] as $key) {
@@ -222,6 +297,29 @@ class ClaudeCliProvider implements AiProvider
         }
 
         return $args;
+    }
+
+    /**
+     * @param  array<int,mixed>  $args
+     * @return array<int,string>
+     */
+    private function sanitizeConfiguredArgs(array $args): array
+    {
+        return $this->sanitizeCliArgs(
+            args: $args,
+            valueArgs: [
+                '--model',
+                '-m',
+                '--permission-mode',
+            ],
+            standaloneArgs: [
+                '--dangerously-skip-permissions',
+                '--allow-dangerously-skip-permissions',
+            ],
+            multiValueArgs: [
+                '--add-dir',
+            ],
+        );
     }
 
     /**

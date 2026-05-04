@@ -4,6 +4,7 @@ namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\FairClaudePolicy;
 use ReflectionClass;
 use Tests\TestCase;
 
@@ -177,6 +178,35 @@ class AiGatewayProviderGateTest extends TestCase
         ]);
 
         $this->assertSame('claude_cli', $provider);
+    }
+
+    public function test_fair_mode_provider_gate_rejects_non_claude_provider(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('fair_mode_violation');
+
+        $service = app(AiGatewayService::class);
+        $method = (new ReflectionClass($service))->getMethod('enforceFairModeProvider');
+        $method->setAccessible(true);
+        $method->invoke($service, [
+            'fair_mode' => app(FairClaudePolicy::class)->metadata(),
+        ], 'codex_cli');
+    }
+
+    public function test_fair_mode_model_gate_rejects_model_drift(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('fair_mode_violation');
+
+        $service = app(AiGatewayService::class);
+        $method = (new ReflectionClass($service))->getMethod('enforceFairModeModel');
+        $method->setAccessible(true);
+        $method->invoke($service, [
+            'fair_mode' => app(FairClaudePolicy::class)->metadata(),
+            'requested_model' => 'claude-opus-4-7',
+            'requested_model_alias' => 'opus',
+            'requested_model_tier' => 'premium',
+        ], 'claude_cli', 'claude-haiku');
     }
 
     /**

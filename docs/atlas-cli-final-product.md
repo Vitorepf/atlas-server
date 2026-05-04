@@ -56,6 +56,24 @@ Quando o bootstrap foi feito com `--operator-mode --operator-root=/Users/vitorep
 Sem tarefa, `atlas dev` abre o Dev Cockpit com workspace, provider, permissao, thread, git e skills. Se o repo tiver `.atlas/skills` ou `.agents/skills`, rode `atlas skills trust` uma vez no repo para carregar as skills locais sem prompt. Skills locais so adicionam contexto/procedimentos do projeto; nomes que conflitam com skills internas do Atlas sao ignorados e aparecem como warning.
 Para screenshot copiado no macOS, basta pedir naturalmente dentro do cockpit: `analise essa tela`, `corrija esse screenshot`, `o que esta errado nesse print?`. O Atlas detecta a referência visual, salva a imagem do clipboard, anexa ao pedido e usa Codex CLI como motor preferencial por ter suporte nativo a `--image`. `/paste-image` fica como fallback manual.
 
+Os providers CLI sao motores subordinados ao Atlas. Argumentos criticos de
+execucao ficam sob controle do runtime no momento do job: modelo efetivo,
+sandbox Codex, permissao Claude, modo YOLO Gemini, `--output-last-message` e
+anexos. Configuracoes antigas em `.env`/provider args que tentem injetar
+`--ask-for-approval`, `--approval-mode`, `--yolo`, `--sandbox`, `--model`,
+`--image` ou `--add-dir` sao ignoradas nesses pontos, evitando que o app quebre
+por flags obsoletos ou modelo divergente.
+
+`atlas bootstrap --refresh-providers`, `atlas doctor --refresh-providers` e
+`atlas providers --refresh` tambem validam o contrato local do CLI antes de
+execucao real. O health inspeciona `--help`/`exec --help` sem chamar modelo,
+confere se as flags exigidas pelo Atlas existem e marca o provider como
+`degraded` quando a versao instalada do CLI nao suporta o runtime esperado.
+
+Gemini opera somente como `gemini-3.1-pro-preview`. Se bater quota, capacidade,
+503/429, overload ou erro equivalente, o menu/fallback do Atlas deve oferecer
+Claude como rota de continuidade, sem downgrade de modelo Gemini.
+
 ## Sessao longa
 
 ```bash
@@ -144,15 +162,30 @@ Claude Code CLI + Claude Opus
 Essa fase nao usa Codex, Gemini, conselho, fallback ou Atlas Decide. Ela mede
 apenas se o Atlas e melhor produto em volta do mesmo Claude.
 
+Essa fase e diferente do Atlas normal. No uso diario, o Atlas deve continuar
+supercharged: Atlas Decide pode usar Gemini Scout para contexto longo,
+multimodal e triagem; Claude/Codex continuam executores conforme settings do
+app, historico e budget; fallback e permitido quando configurado e medido.
+
+Regra de produto:
+
+```text
+Fair Claude prova o harness.
+Atlas Supercharged maximiza produtividade real.
+Nao misturar os dois no mesmo scorecard.
+```
+
 Documento canonico:
 
 - `docs/atlas-cli-fair-claude-benchmark.md`
 - `docs/atlas-cli-5x-claude-code-plan.md`
+- `docs/atlas-cli-5x-codex-implementation-prompt.md`
+- `docs/atlas-cli-5x-codex-safety-context-prompt.md`
 
 Comando alvo:
 
 ```bash
-atlas dev "tarefa..." --provider=claude_cli --model=opus --single-provider --no-decide --complete --auto-test
+atlas dev "tarefa..." --provider=claude_cli --model=opus --single-provider --no-decide --fallback-disabled --complete --auto-test
 ```
 
 Aliases aceitaveis depois de implementados:
@@ -164,6 +197,37 @@ atlas claude dev "tarefa..." --model=opus --complete --auto-test
 
 So depois desse benchmark justo o Atlas Decide multi-modelo entra como etapa de
 superioridade por roteamento.
+
+## 5x Efficiency Gate
+
+O Atlas so pode declarar superioridade forte contra Claude Code quando houver
+evidencia pareada. A promessa aceitavel nao e "o Atlas e 5x mais inteligente";
+e "o Atlas reduziu intervencao humana em 5x em tarefas medias/dificeis usando o
+mesmo Claude".
+
+Requisitos minimos:
+
+- Fair Claude Mode opt-in e enforceado;
+- contexto efetivo salvo com hash;
+- provider/modelo/args auditados por tentativa;
+- Gate Matrix com `passed`, `failed`, `unverified` ou `invalid`;
+- repair taxonomy e repair capsule em uso;
+- worktree/checkpoint/rollback para tarefas de risco;
+- scorecard pareado Atlas vs Claude Code;
+- `protocol_validity_rate = 100%` nos casos contados;
+- `intervention_reduction >= 5.0x`;
+- perdas e casos invalidos publicados.
+
+No Atlas normal, a meta equivalente depende de outro scorecard:
+
+- custo por caso verde;
+- tempo ate verde;
+- repair conversion rate;
+- final gate pass rate;
+- quota/capacity incidents;
+- override humano;
+- Gemini Scout savings;
+- provider/model performance por tipo de tarefa.
 
 ## Release
 

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\ValueObjects\OperationalDecision;
 use Illuminate\Support\Str;
 
 class AtlasDecideService
@@ -11,6 +12,10 @@ class AtlasDecideService
     private const COUNCIL_PROVIDER = 'claude_codex';
 
     private const GEMINI_MODEL = 'gemini-3.1-pro-preview';
+
+    public function __construct(
+        private readonly AtlasAiPolicyService $policies,
+    ) {}
 
     /**
      * Normalizes legacy app/CLI payloads into the new Atlas Decide contract.
@@ -108,6 +113,83 @@ class AtlasDecideService
         }
 
         return in_array($defaultProvider, self::PROVIDERS, true) ? $defaultProvider : 'claude_cli';
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return OperationalDecision
+     */
+    public function operationalDecision(array $options, ?string $selectedProvider = null, ?string $selectedModel = null): OperationalDecision
+    {
+        $policy = $this->policies->effectiveProfile($options);
+        $manualProvider = $this->manualOverrideProvider($options);
+        $candidateProvider = $this->candidateProvider($options, (string) ($policy['default_provider'] ?? 'claude_cli'));
+        $automatic = $this->isAutomaticInvocation($options);
+        $programmingLike = $this->isProgrammingTask($options);
+        $fallbackReason = null;
+
+        if ($selectedProvider === null) {
+            $selectedProvider = $candidateProvider;
+
+            if ($manualProvider === 'claude_codex') {
+                $selectedProvider = 'claude_codex';
+            } elseif (in_array($manualProvider, self::PROVIDERS, true)) {
+                $selectedProvider = $manualProvider;
+            } elseif ($candidateProvider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
+                $selectedProvider = $this->policies->fallbackProvider($policy, $candidateProvider, programmingLike: true);
+                $fallbackReason = 'gemini_blocked_for_dev_like_task';
+            } elseif ($automatic && ! $this->policies->providerAllowsAuto($policy, $candidateProvider)) {
+                $selectedProvider = $this->policies->fallbackProvider($policy, $candidateProvider, programmingLike: $programmingLike);
+                $fallbackReason = 'candidate_auto_disabled';
+            }
+        } elseif ($selectedProvider !== $candidateProvider) {
+            $fallbackReason = $this->fallbackReasonFromSelection($options, $policy, $candidateProvider, $selectedProvider);
+        }
+
+        $plan = $this->decisionPlan($options, $selectedProvider, $selectedModel);
+        $runtimeGraph = $plan['execution_graph'];
+
+        return OperationalDecision::fromArray([
+            'schema_version' => 1,
+            'decision_id' => (string) Str::orderedUuid(),
+            'policy_profile_id' => $policy['profile_id'] ?? null,
+            'policy_version' => $policy['policy_version'] ?? 'atlas-ai-policy-v1',
+            'decision_policy_version' => 'atlas-decide-v2',
+            'surface' => $policy['surface'] ?? null,
+            'mode' => $policy['mode'] ?? null,
+            'task' => $policy['task'] ?? null,
+            'decision_mode' => $this->decisionMode($options),
+            'task_profile' => $plan['task_profile'],
+            'provider_selection' => [
+                'candidate_provider' => $candidateProvider,
+                'selected_provider' => $selectedProvider,
+                'selected_model' => $selectedModel,
+                'selected_model_source' => data_get($options, 'payload.requested_model_source') ?: 'policy_or_runtime',
+                'fallback_provider' => $fallbackReason ? $selectedProvider : null,
+                'fallback_reason' => $fallbackReason,
+                'selection_reason' => $this->decisionReasonWithFallback($options, $candidateProvider, $selectedProvider, $fallbackReason),
+                'was_overridden' => $manualProvider !== null,
+                'operator_requested_provider' => data_get($options, 'payload.operator_requested_provider') ?: 'auto',
+                'requested_provider' => $manualProvider,
+            ],
+            'context_strategy' => $plan['context_strategy'],
+            'execution_strategy' => $plan['execution_strategy'],
+            'planned_graph' => $plan['execution_graph'],
+            'runtime_graph' => $runtimeGraph,
+            'quality_gates' => (array) data_get($plan, 'execution_graph.quality_gates', []),
+            'budget_decision' => [
+                'allowed' => $selectedProvider === 'claude_codex' || $this->policies->budgetAllows($policy, $selectedProvider),
+                'reason' => $selectedProvider === 'claude_codex' || $this->policies->budgetAllows($policy, $selectedProvider)
+                    ? 'within_policy'
+                    : 'provider_budget_blocked',
+            ],
+            'constraints' => [],
+            'policy_profile' => $policy,
+            'receipt' => [
+                'traceable' => true,
+                'dry_run' => (bool) data_get($options, 'payload.dry_run', false),
+            ],
+        ]);
     }
 
     /**
@@ -264,26 +346,31 @@ class AtlasDecideService
      */
     public function receiptForTrace(array $options, string $selectedProvider, ?string $model = null): array
     {
-        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
-        $manualProvider = $this->manualOverrideProvider($options);
-        $plan = $this->decisionPlan($options, $selectedProvider, $model);
+        $decision = $this->operationalDecision($options, $selectedProvider, $model)->toArray();
+        $providerSelection = (array) ($decision['provider_selection'] ?? []);
 
         return [
-            'schema_version' => 1,
-            'decision_mode' => $this->decisionMode($options),
-            'candidate_provider' => data_get($payload, 'atlas_decide.candidate_provider'),
+            'schema_version' => 2,
+            'decision_id' => $decision['decision_id'] ?? null,
+            'decision_mode' => $decision['decision_mode'] ?? $this->decisionMode($options),
+            'policy_profile_id' => $decision['policy_profile_id'] ?? null,
+            'policy_version' => $decision['policy_version'] ?? null,
+            'decision_policy_version' => $decision['decision_policy_version'] ?? null,
+            'candidate_provider' => $providerSelection['candidate_provider'] ?? null,
             'selected_provider' => $selectedProvider,
             'selected_model' => $model,
-            'fallback_reason' => data_get($payload, 'atlas_decide.fallback_reason'),
-            'operator_requested_provider' => data_get($payload, 'operator_requested_provider') ?: 'auto',
-            'requested_provider' => $manualProvider,
-            'was_overridden' => $manualProvider !== null,
-            'reason' => $this->decisionReason($options, $selectedProvider),
+            'fallback_provider' => $providerSelection['fallback_provider'] ?? null,
+            'fallback_reason' => $providerSelection['fallback_reason'] ?? null,
+            'operator_requested_provider' => $providerSelection['operator_requested_provider'] ?? 'auto',
+            'requested_provider' => $providerSelection['requested_provider'] ?? null,
+            'was_overridden' => (bool) ($providerSelection['was_overridden'] ?? false),
+            'reason' => $providerSelection['selection_reason'] ?? $this->decisionReason($options, $selectedProvider),
             'signals' => $this->signals($options),
-            'task_profile' => $plan['task_profile'],
-            'context_strategy' => $plan['context_strategy'],
-            'execution_strategy' => $plan['execution_strategy'],
-            'execution_graph' => $plan['execution_graph'],
+            'task_profile' => $decision['task_profile'] ?? [],
+            'context_strategy' => $decision['context_strategy'] ?? null,
+            'execution_strategy' => $decision['execution_strategy'] ?? null,
+            'execution_graph' => $decision['runtime_graph'] ?? [],
+            'planned_graph' => $decision['planned_graph'] ?? [],
         ];
     }
 
@@ -489,6 +576,67 @@ class AtlasDecideService
         return $candidateProvider === 'gemini_cli' && $fallbackReason === 'candidate_auto_disabled'
             ? 'blocked_by_runtime_settings'
             : 'planned';
+    }
+
+    /**
+     * @param  array<string,mixed>  $policy
+     */
+    private function fallbackReasonFromSelection(array $options, array $policy, string $candidateProvider, string $selectedProvider): string
+    {
+        if ($candidateProvider === $selectedProvider) {
+            return 'none';
+        }
+
+        if ($candidateProvider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
+            return 'gemini_blocked_for_dev_like_task';
+        }
+
+        if ($this->isAutomaticInvocation($options) && ! $this->policies->providerAllowsAuto($policy, $candidateProvider)) {
+            return 'candidate_auto_disabled';
+        }
+
+        if (! $this->isAutomaticInvocation($options) && ! $this->policies->providerAllowsManual($policy, $candidateProvider)) {
+            return 'candidate_manual_disabled';
+        }
+
+        return 'provider_gate_fallback';
+    }
+
+    private function decisionReasonWithFallback(array $options, string $candidateProvider, string $selectedProvider, ?string $fallbackReason): string
+    {
+        if ($fallbackReason !== null && $candidateProvider !== $selectedProvider) {
+            return "Atlas Decide avaliou {$candidateProvider}, mas selecionou {$selectedProvider} por fallback ({$fallbackReason}).";
+        }
+
+        return $this->decisionReason($options, $selectedProvider);
+    }
+
+    private function isAutomaticInvocation(array $options): bool
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $sourceType = $options['source_type'] ?? null;
+
+        return data_get($payload, 'decision_mode') === 'atlas_decide'
+            || (bool) data_get($payload, 'automatic', false)
+            || in_array($sourceType, ['capture', 'scheduled', 'system'], true);
+    }
+
+    private function geminiBlockedForInvocation(array $options): bool
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $workflowMode = strtolower(trim((string) data_get($payload, 'atlas_workflow_mode', '')));
+        $taskType = strtolower(trim((string) data_get($payload, 'task_type', '')));
+        $agent = strtolower(trim((string) ($options['agent_slug'] ?? data_get($payload, 'requested_agent', ''))));
+
+        if (in_array($workflowMode, ['dev', 'debug', 'execute', 'quality_repair'], true)) {
+            return true;
+        }
+
+        if (in_array($taskType, ['dev', 'debug', 'code', 'coding', 'programming', 'quality_repair'], true)) {
+            return true;
+        }
+
+        return in_array($agent, ['desenvolvedor', 'developer', 'debugger'], true);
     }
 
     /**

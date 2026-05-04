@@ -23,10 +23,10 @@ class AiProviderChoiceBuilder
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function build(string $errorCode, string $currentProvider, ?string $currentModel, ?CarbonImmutable $resetAt): array
+    public function build(string $errorCode, string $currentProvider, ?string $currentModel, ?CarbonImmutable $resetAt, bool $fairMode = false): array
     {
         return match ($errorCode) {
-            'rate_limited' => $this->rateLimitedOptions($currentProvider, $resetAt),
+            'rate_limited' => $this->rateLimitedOptions($currentProvider, $resetAt, $fairMode),
             'auth_expired' => $this->authExpiredOptions($currentProvider),
             default => [$this->cancelOption()],
         };
@@ -35,12 +35,12 @@ class AiProviderChoiceBuilder
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function rateLimitedOptions(string $currentProvider, ?CarbonImmutable $resetAt): array
+    private function rateLimitedOptions(string $currentProvider, ?CarbonImmutable $resetAt, bool $fairMode): array
     {
         $options = [];
 
         $fallback = self::FALLBACK_MAP[$currentProvider] ?? null;
-        if ($fallback) {
+        if ($fallback && ! $fairMode) {
             $options[] = [
                 'id' => 'switch_provider',
                 'label' => 'Migrar para '.(self::PROVIDER_LABEL[$fallback] ?? $fallback),
@@ -54,7 +54,7 @@ class AiProviderChoiceBuilder
         $fallbackModel = $currentProvider === 'gemini_cli'
             ? null
             : config("atlas.ai.providers.{$currentProvider}.fallback_model");
-        if (is_string($fallbackModel) && $fallbackModel !== '') {
+        if (! $fairMode && is_string($fallbackModel) && $fallbackModel !== '') {
             $options[] = [
                 'id' => 'downgrade_model',
                 'label' => "Continuar no {$currentProvider} com {$fallbackModel} (modelo menor)",

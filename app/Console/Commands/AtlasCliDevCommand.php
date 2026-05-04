@@ -6,9 +6,12 @@ use App\Models\AtlasTask;
 use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliModelCatalogService;
 use App\Services\Ai\Cli\AtlasCliQualityService;
+use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
+use App\Services\Ai\Programming\ProgrammingExecutionRequest;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Ai\Cli\AtlasTerminalNotifier;
 use App\Services\Ai\Cli\AtlasTerminalTheme;
@@ -31,8 +34,19 @@ class AtlasCliDevCommand extends Command
         {--workspace= : Workspace path. Defaults to current directory}
         {--provider= : Force claude_cli, codex_cli or claude_codex}
         {--model= : Force model alias/id for the selected provider, for example sonnet, opus, spark, codex-premium, claude-opus-4-7 or gpt-5.5}
+        {--claude-only : Fair Claude benchmark mode: force claude_cli + Claude Opus and disable fallback/decide/council}
+        {--single-provider : Fair Claude benchmark mode: forbid provider switching}
+        {--no-decide : Fair Claude benchmark mode: disable Atlas Decide for this run}
+        {--fallback-disabled : Fair Claude benchmark mode: fail instead of falling back to another provider/model}
         {--critical : Prefer council/dual review when available}
         {--permission=auto : auto, read, write or danger}
+        {--sandbox= : Forge/Harness sandbox override: workspace, worktree or docker}
+        {--provider-runtime= : Forge/Harness provider runtime override: host, docker or auto}
+        {--test-command= : Forge/Harness validation command override}
+        {--visual-e2e= : Forge/Harness visual/E2E policy override: auto, off or required}
+        {--quality-scan= : Forge/Harness quality scan override: auto, off or required}
+        {--harness-policy= : Forge/Harness autonomy policy override: auto, off or strict}
+        {--no-apply-isolated-patch : Forge/Harness keeps isolated worktree patch unapplied}
         {--allow-write : Confirm scoped workspace writes for this run}
         {--operator : Full local operator mode for trusted Mac workspaces}
         {--allow-unsandboxed : Allow write/danger with providers Atlas cannot sandbox directly}
@@ -41,6 +55,7 @@ class AtlasCliDevCommand extends Command
         {--skill=* : Activate one or more agentskills bundle names}
         {--plan-only : Run preflight and print execution plan without calling provider}
         {--complete : Keep running repair iterations until gates pass or max iterations is reached}
+        {--forge : Use the maximum-power programming profile behind atlas forge}
         {--max-iterations=3 : Maximum repair iterations for --complete}
         {--resume= : Resume a previous dev execution plan id when present in traces}
         {--no-open-brain : Disable automatic Open Brain context injection for this dev run}
@@ -70,10 +85,13 @@ class AtlasCliDevCommand extends Command
         EngineeringBlueprintSnapshotService $blueprintSnapshots,
         EngineeringRunArtifactService $artifacts,
         AtlasAiRuntimeSettings $settings,
+        FairClaudePolicy $fairClaude,
+        AtlasProgrammingOrchestrator $programming,
     ): int {
         $workspace = $this->workspace();
         $json = (bool) $this->option('json');
         $task = trim(implode(' ', (array) $this->argument('task')));
+        $programmingProfile = (bool) $this->option('forge') ? 'forge' : 'dev';
         $taskId = $this->taskId();
         $atlasTask = null;
         $engineeringContract = null;
@@ -97,14 +115,29 @@ class AtlasCliDevCommand extends Command
         }
 
         if ($task === '') {
-            return $this->runInteractiveDev($workspace);
+            return $this->runInteractiveDev($workspace, $programming, $programmingProfile);
         }
 
+        $fairFlags = $fairClaude->normalizeFlags($this->fairClaudeFlags());
+        $fairMode = (bool) ($fairFlags['fair_mode'] ?? false);
         $explicitProvider = $this->provider();
         $provider = $explicitProvider;
-        $modelSelection = $models->select($this->modelOption(), $provider);
+        if ($fairMode && $provider === null) {
+            $provider = FairClaudePolicy::PROVIDER_LOCK;
+        }
+        $modelOption = $this->modelOption();
+        if ($fairMode && $modelOption === null) {
+            $modelOption = FairClaudePolicy::MODEL_LOCK;
+        }
+        $modelSelection = $models->select($modelOption, $provider);
         if ($modelSelection !== null && $provider === null && is_string($modelSelection['provider'] ?? null)) {
             $provider = $modelSelection['provider'];
+        }
+        if ($fairMode) {
+            $fairValidation = $fairClaude->validate($provider, $modelSelection);
+            if (! (bool) ($fairValidation['ok'] ?? false)) {
+                return $this->fairModeViolation($fairValidation, $json);
+            }
         }
         if ($modelSelection !== null && ! $models->matchesProvider($modelSelection, $provider)) {
             return $this->modelProviderMismatch($models->label($modelSelection), $provider, $json);
@@ -114,13 +147,22 @@ class AtlasCliDevCommand extends Command
         }
         $modelOverride = is_string($modelSelection['model'] ?? null) ? trim((string) $modelSelection['model']) : null;
         $modelOverride = $modelOverride !== '' ? $modelOverride : null;
-        $preflight = $workflow->preflight($workspace, $task, $provider, (bool) $this->option('critical'));
+        $preflight = $workflow->preflight(
+            $workspace,
+            $task,
+            $provider,
+            (bool) $this->option('critical') || $programmingProfile === 'forge',
+            $programmingProfile,
+        );
         if ($modelSelection !== null) {
             $preflight['selected_model'] = $this->compactModelSelection($modelSelection);
         }
+        if ($fairMode) {
+            $preflight['fair_mode'] = $fairClaude->metadata();
+        }
         $planOnly = (bool) $this->option('plan-only');
-        $complete = (bool) $this->option('complete');
-        $maxIterations = $this->maxIterations();
+        $complete = (bool) $this->option('complete') || $programmingProfile === 'forge';
+        $maxIterations = $this->maxIterations($programmingProfile);
         $skills = $workflow->qualityGateSkills($this->skillOptions(), $complete, $maxIterations);
         if ($engineeringContract !== null) {
             $skills = $workflow->engineeringContractSkills($skills);
@@ -132,9 +174,24 @@ class AtlasCliDevCommand extends Command
             maxIterations: $maxIterations,
             mode: $complete ? 'multi_step' : 'single_shot',
         );
-        $devPlan['quality_gate_policy'] = $workflow->qualityGatePolicy($complete, $maxIterations, $skills);
+        $sessionPlan = $programming->sessionPlan($workspace, $programmingProfile, [
+            'task' => $task,
+            'provider' => $provider,
+            'model' => $modelOverride,
+            'interactive' => false,
+            'complete' => $complete,
+            'auto_test' => (bool) $this->option('auto-test') || $programmingProfile === 'forge',
+            'max_iterations' => $maxIterations,
+        ]);
+        $devPlan['orchestrator'] = 'AtlasProgrammingOrchestrator';
+        $devPlan['programming_profile'] = $programmingProfile;
+        $devPlan['programming_session_plan'] = $sessionPlan;
+        $devPlan['quality_gate_policy'] = $workflow->qualityGatePolicy($complete, $maxIterations, $skills, fairMode: $fairMode);
         if ($modelSelection !== null) {
             $devPlan['selected_model'] = $this->compactModelSelection($modelSelection);
+        }
+        if ($fairMode) {
+            $devPlan['fair_mode'] = $fairClaude->metadata();
         }
         if ($atlasTask instanceof AtlasTask && $engineeringContract !== null) {
             $devPlan['atlas_task'] = $contracts->taskSummary($atlasTask);
@@ -158,20 +215,41 @@ class AtlasCliDevCommand extends Command
             'allow_write' => $this->allowWrite(),
             'allow_danger' => $this->allowDanger(),
             'allow_unsandboxed' => $this->allowUnsandboxed(),
-            'auto_test' => (bool) $this->option('auto-test'),
+            'auto_test' => (bool) $this->option('auto-test') || $programmingProfile === 'forge',
             'complete' => $complete,
             'max_iterations' => $maxIterations,
             'no_stream' => (bool) $this->option('no-stream'),
-            'open_brain' => $this->openBrainOperatorOptions($complete),
+            'open_brain' => $this->openBrainOperatorOptions($complete, $programmingProfile),
             'skills' => $skills,
             'image_count' => count((array) $this->option('image')) + ((bool) $this->option('clipboard-image') ? 1 : 0),
             'auto_image' => ! (bool) $this->option('no-auto-image'),
         ];
+        if ($programmingProfile === 'forge') {
+            $devPlan['operator_options']['harness_overrides'] = array_filter([
+                'sandbox' => $this->stringOption('sandbox'),
+                'provider_runtime' => $this->stringOption('provider-runtime'),
+                'test_command' => $this->stringOption('test-command'),
+                'visual_e2e' => $this->stringOption('visual-e2e'),
+                'quality_scan' => $this->stringOption('quality-scan'),
+                'harness_policy' => $this->stringOption('harness-policy'),
+                'apply_isolated_patch' => ! (bool) $this->option('no-apply-isolated-patch'),
+            ], fn (mixed $value): bool => $value !== null);
+        }
+        if ($fairMode) {
+            $devPlan['operator_options']['fair_mode'] = true;
+            $devPlan['operator_options']['claude_only'] = (bool) ($fairFlags['claude_only'] ?? false);
+            $devPlan['operator_options']['single_provider'] = true;
+            $devPlan['operator_options']['no_decide'] = true;
+            $devPlan['operator_options']['fallback_disabled'] = true;
+        }
         if (is_string($this->option('resume')) && $this->option('resume') !== '') {
             $devPlan['plan_id'] = (string) $this->option('resume');
             $devPlan['resumed_at'] = now()->toJSON();
         }
         $providerPrompt = $workflow->promptWithEngineeringContract($task, $engineeringContract, $engineeringBlueprint);
+        if ($fairMode) {
+            $providerPrompt = $workflow->fairClaudePromptContract($providerPrompt);
+        }
 
         if ($planOnly) {
             $chatCommand = $workflow->chatCommand(
@@ -183,7 +261,7 @@ class AtlasCliDevCommand extends Command
                 allowWrite: $this->allowWrite(),
                 allowDanger: $this->allowDanger(),
                 allowUnsandboxed: $this->allowUnsandboxed(),
-                autoTest: (bool) $this->option('auto-test'),
+                autoTest: (bool) $this->option('auto-test') || $programmingProfile === 'forge',
                 timeout: (int) $this->option('timeout'),
                 stream: ! (bool) $this->option('no-stream') && ! $json,
                 noRun: (bool) $this->option('no-run'),
@@ -193,7 +271,7 @@ class AtlasCliDevCommand extends Command
                 imagePaths: (array) $this->option('image'),
                 clipboardImage: (bool) $this->option('clipboard-image'),
                 noAutoImage: (bool) $this->option('no-auto-image'),
-                openBrain: $this->openBrainCommandOptions($complete),
+                openBrain: $this->openBrainCommandOptions($complete, $programmingProfile),
             );
 
             $this->printPayload([
@@ -222,6 +300,52 @@ class AtlasCliDevCommand extends Command
             if ($engineeringBlueprintSnapshot !== null) {
                 $devPlan['engineering_blueprint_snapshot'] = $engineeringBlueprintSnapshot;
             }
+        }
+
+        if ($programmingProfile === 'forge' && ! $fairMode) {
+            $result = $programming->executeWithHarness(ProgrammingExecutionRequest::fromArray([
+                'profile' => 'forge',
+                'workspace' => $workspace,
+                'task' => $task,
+                'objective' => $task,
+                'task_id' => $taskId,
+                'provider' => $provider,
+                'model' => $modelOverride,
+                'permission' => $this->permission(),
+                'complete' => true,
+                'auto_test' => true,
+                'critical' => true,
+                'max_attempts' => $maxIterations,
+                'no_provider' => (bool) $this->option('no-run'),
+                'test_command' => $this->stringOption('test-command'),
+                'sandbox' => $this->stringOption('sandbox'),
+                'provider_runtime' => $this->stringOption('provider-runtime'),
+                'visual_e2e' => $this->stringOption('visual-e2e'),
+                'quality_scan' => $this->stringOption('quality-scan'),
+                'harness_policy' => $this->stringOption('harness-policy'),
+                'apply_isolated_patch' => ! (bool) $this->option('no-apply-isolated-patch'),
+                'contract' => is_array($engineeringContract) ? $engineeringContract : [],
+            ]))->toArray();
+
+            if ($json) {
+                $this->line(json_encode([
+                    'ok' => in_array($result['status'] ?? null, ['passed', 'partial'], true),
+                    'phase' => 'forge_harness',
+                    'workflow' => $preflight,
+                    'dev_execution_plan' => $devPlan,
+                    'programming_result' => $result,
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            } else {
+                $this->newLine();
+                $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Forge</>', (string) ($result['status'] ?? 'unknown'));
+                $this->components->twoColumnDetail('Executor', (string) ($result['executor'] ?? 'engineering_harness'));
+                $this->components->twoColumnDetail('Task', (string) ($result['task_id'] ?? '-'));
+                $this->components->twoColumnDetail('Run', (string) data_get($result, 'harness_payload.run.id', '-'));
+            }
+
+            return in_array($result['status'] ?? null, ['passed', 'partial'], true)
+                ? self::SUCCESS
+                : self::FAILURE;
         }
 
         $progress = $this->shouldShowProgress();
@@ -266,7 +390,9 @@ class AtlasCliDevCommand extends Command
             $phase = $iteration === 1 ? 'edit' : 'repair';
             $prompt = $iteration === 1
                 ? $providerPrompt
-                : $this->repairPrompt($providerPrompt, (array) $completion, $iteration, $maxIterations);
+                : ($fairMode
+                    ? $workflow->fairClaudeRepairCapsule($providerPrompt, (array) $completion, $iteration, $maxIterations, $devPlan)
+                    : $programming->repairPrompt($providerPrompt, (array) $completion, $iteration, $maxIterations));
 
             $devPlan = $workflow->markStep($devPlan, $phase, 'running', [
                 'iteration' => $iteration,
@@ -283,7 +409,7 @@ class AtlasCliDevCommand extends Command
                 allowWrite: $this->allowWrite(),
                 allowDanger: $this->allowDanger(),
                 allowUnsandboxed: $this->allowUnsandboxed(),
-                autoTest: false,
+                autoTest: $programmingProfile === 'forge',
                 timeout: (int) $this->option('timeout'),
                 stream: ! (bool) $this->option('no-stream') && ! $json && ! $progress,
                 noRun: (bool) $this->option('no-run'),
@@ -293,7 +419,7 @@ class AtlasCliDevCommand extends Command
                 imagePaths: (array) $this->option('image'),
                 clipboardImage: (bool) $this->option('clipboard-image'),
                 noAutoImage: (bool) $this->option('no-auto-image'),
-                openBrain: $this->openBrainCommandOptions($complete),
+                openBrain: $this->openBrainCommandOptions($complete, $programmingProfile),
             );
 
             if ($progress) {
@@ -337,7 +463,7 @@ class AtlasCliDevCommand extends Command
                 'files' => $changedFiles,
             ]);
 
-            $shouldRunTests = (bool) $this->option('auto-test') || $complete;
+            $shouldRunTests = (bool) $this->option('auto-test') || $complete || $programmingProfile === 'forge';
 
             if ($progress) {
                 $reporter->start('test');
@@ -387,6 +513,16 @@ class AtlasCliDevCommand extends Command
 
         $finalStatus = (string) ($completion['status'] ?? 'failed');
 
+        $providerOk = collect($runs)->every(fn (array $run): bool => (int) $run['exit_code'] === 0);
+        $humanInterventionCount = 0;
+        $fairProtocol = $fairMode
+            ? $workflow->fairClaudeProtocolStatus((array) $completion, $providerOk, $humanInterventionCount)
+            : null;
+
+        if ($fairProtocol !== null) {
+            $devPlan['fair_mode_result'] = $fairProtocol;
+        }
+
         if ($progress) {
             $reporter->summarize('review', $finalStatus === 'failed' ? 'failed' : 'done', 0, $finalStatus);
         }
@@ -427,8 +563,10 @@ class AtlasCliDevCommand extends Command
             }
         }
 
-        $providerOk = collect($runs)->every(fn (array $run): bool => (int) $run['exit_code'] === 0);
-        $qualityOk = $complete ? $finalStatus === 'passed' : $finalStatus !== 'failed';
+        $qualityOk = ($complete || $fairMode) ? $finalStatus === 'passed' : $finalStatus !== 'failed';
+        if ($fairProtocol !== null) {
+            $qualityOk = $qualityOk && (string) ($fairProtocol['status'] ?? 'unverified') === 'valid';
+        }
         $ok = $providerOk && $qualityOk;
 
         if ($json) {
@@ -440,6 +578,7 @@ class AtlasCliDevCommand extends Command
                 'activated_skills' => $skills,
                 'provider_runs' => $runs,
                 'completion' => $completion,
+                'fair_mode_result' => $fairProtocol,
                 'engineering_artifact' => $engineeringArtifact,
             ]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         } elseif ($progress) {
@@ -732,9 +871,9 @@ class AtlasCliDevCommand extends Command
         return self::FAILURE;
     }
 
-    private function runInteractiveDev(string $workspace): int
+    private function runInteractiveDev(string $workspace, AtlasProgrammingOrchestrator $programming, string $programmingProfile): int
     {
-        $command = $this->interactiveChatCommand($workspace);
+        $command = $this->interactiveChatCommand($workspace, $programming, $programmingProfile);
 
         return (int) $this->runProviderCommand($command, $workspace, passthrough: true, tty: true)['exit_code'];
     }
@@ -742,8 +881,20 @@ class AtlasCliDevCommand extends Command
     /**
      * @return array<int,string>
      */
-    private function interactiveChatCommand(string $workspace): array
-    {
+    private function interactiveChatCommand(
+        string $workspace,
+        ?AtlasProgrammingOrchestrator $programming = null,
+        string $programmingProfile = 'dev',
+    ): array {
+        $programming ??= app(AtlasProgrammingOrchestrator::class);
+        $sessionPlan = $programming->sessionPlan($workspace, $programmingProfile, [
+            'interactive' => true,
+            'provider' => $this->provider(),
+            'model' => $this->modelOption(),
+            'complete' => $programmingProfile === 'forge',
+            'auto_test' => $programmingProfile === 'forge',
+            'max_iterations' => $programmingProfile === 'forge' ? 5 : 3,
+        ]);
         $command = [
             AtlasPhpBinary::path(),
             base_path('artisan'),
@@ -755,6 +906,7 @@ class AtlasCliDevCommand extends Command
             '--stream',
             '--cockpit',
             '--no-skill-prompt',
+            '--dev-plan='.json_encode($sessionPlan, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         ];
 
         if ($provider = $this->provider()) {
@@ -775,6 +927,11 @@ class AtlasCliDevCommand extends Command
 
         if ($this->allowUnsandboxed()) {
             $command[] = '--allow-unsandboxed';
+        }
+
+        if ($programmingProfile === 'forge') {
+            $command[] = '--auto-test';
+            $command[] = '--require-open-brain';
         }
 
         foreach ($this->skillOptions() as $skill) {
@@ -992,6 +1149,26 @@ class AtlasCliDevCommand extends Command
         return is_string($model) && trim($model) !== '' ? trim($model) : null;
     }
 
+    private function stringOption(string $name): ?string
+    {
+        $value = $this->option($name);
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    /**
+     * @return array<string,bool>
+     */
+    private function fairClaudeFlags(): array
+    {
+        return [
+            'claude_only' => (bool) $this->option('claude-only'),
+            'single_provider' => (bool) $this->option('single-provider'),
+            'no_decide' => (bool) $this->option('no-decide'),
+            'fallback_disabled' => (bool) $this->option('fallback-disabled'),
+        ];
+    }
+
     private function taskNotFound(string $taskId, bool $json): int
     {
         if ($json) {
@@ -1025,6 +1202,31 @@ class AtlasCliDevCommand extends Command
         }
 
         $this->error($message);
+
+        return self::FAILURE;
+    }
+
+    /**
+     * @param  array<string,mixed>  $violation
+     */
+    private function fairModeViolation(array $violation, bool $json): int
+    {
+        $payload = AtlasSecurity::redactArray([
+            'ok' => false,
+            'phase' => 'preflight',
+            'error' => FairClaudePolicy::ERROR_CODE,
+            'message' => (string) ($violation['message'] ?? 'Fair Claude mode violation.'),
+            'fair_mode' => $violation['fair_mode'] ?? [],
+            'details' => $violation['details'] ?? [],
+        ]);
+
+        if ($json) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $this->error((string) $payload['message']);
 
         return self::FAILURE;
     }
@@ -1129,21 +1331,22 @@ class AtlasCliDevCommand extends Command
     /**
      * @return array<string,mixed>
      */
-    private function openBrainOperatorOptions(bool $complete): array
+    private function openBrainOperatorOptions(bool $complete, string $programmingProfile = 'dev'): array
     {
-        return $this->openBrainCommandOptions($complete);
+        return $this->openBrainCommandOptions($complete, $programmingProfile);
     }
 
     /**
      * @return array<string,mixed>
      */
-    private function openBrainCommandOptions(bool $complete): array
+    private function openBrainCommandOptions(bool $complete, string $programmingProfile = 'dev'): array
     {
         $budget = $this->option('open-brain-budget');
         $budgetChars = is_scalar($budget) && trim((string) $budget) !== ''
             ? max(2000, (int) $budget)
             : null;
         $require = (bool) $this->option('require-open-brain')
+            || $programmingProfile === 'forge'
             || ($complete && (bool) config('atlas.open_brain.injection.required_for_complete', true));
 
         return array_filter([
@@ -1155,9 +1358,11 @@ class AtlasCliDevCommand extends Command
         ], fn (mixed $value): bool => $value !== null);
     }
 
-    private function maxIterations(): int
+    private function maxIterations(string $programmingProfile = 'dev'): int
     {
-        return max(1, min(10, (int) $this->option('max-iterations')));
+        $requested = max(1, min(10, (int) $this->option('max-iterations')));
+
+        return $programmingProfile === 'forge' ? max(5, $requested) : $requested;
     }
 
     /**
@@ -1172,25 +1377,6 @@ class AtlasCliDevCommand extends Command
             ->unique()
             ->values()
             ->all();
-    }
-
-    /**
-     * @param  array<string,mixed>  $completion
-     */
-    private function repairPrompt(string $task, array $completion, int $iteration, int $maxIterations): string
-    {
-        return implode("\n\n", [
-            "Corrija a tarefa anterior do Atlas CLI. Iteracao de reparo {$iteration}/{$maxIterations}.",
-            "Objetivo original: {$task}",
-            'Quality gate atual:',
-            json_encode([
-                'status' => $completion['status'] ?? null,
-                'changed_files' => $completion['changed_files'] ?? [],
-                'tests' => data_get($completion, 'completion_packet.tests', []),
-                'risks' => data_get($completion, 'completion_packet.risks', []),
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-            'Aplique a menor correcao que faca os gates passarem. Nao reescreva areas nao relacionadas.',
-        ]);
     }
 
     private function extractTraceId(string $stdout): ?string

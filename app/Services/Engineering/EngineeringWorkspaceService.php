@@ -101,6 +101,68 @@ class EngineeringWorkspaceService
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    public function preparePairedWorktree(string $workspace, string $label, ?string $head = null): array
+    {
+        $workspace = realpath($workspace) ?: $workspace;
+        $base = [
+            'mode' => 'worktree',
+            'requested_mode' => 'worktree',
+            'status' => 'ready',
+            'original_workspace' => $workspace,
+            'execution_workspace' => $workspace,
+            'repo_root' => $this->repoRoot($workspace),
+            'branch' => $this->run(['git', 'branch', '--show-current'], $workspace) ?: null,
+            'head' => $this->run(['git', 'rev-parse', 'HEAD'], $workspace) ?: null,
+            'dirty_files' => $this->dirtyFiles($workspace),
+            'isolated' => false,
+            'pair_label' => $this->worktreeLabel($label),
+            'created_at' => now()->toJSON(),
+        ];
+
+        if (! is_string($base['repo_root']) || $base['repo_root'] === '') {
+            return array_merge($base, [
+                'mode' => 'workspace',
+                'status' => 'failed',
+                'failure_reason' => 'workspace_is_not_a_git_repository',
+            ]);
+        }
+
+        $targetRoot = storage_path('app/engineering-worktrees');
+        File::ensureDirectoryExists($targetRoot);
+
+        $selectedHead = $this->nonEmptyString($head) ?: (is_string($base['head']) && $base['head'] !== '' ? $base['head'] : 'HEAD');
+        $worktreePath = $targetRoot.'/'.$base['pair_label'].'-'.substr(hash('sha256', implode('|', [
+            $workspace,
+            $selectedHead,
+            Str::uuid()->toString(),
+        ])), 0, 16);
+
+        $this->process(['git', 'worktree', 'prune'], (string) $base['repo_root'], 30);
+
+        $process = $this->process(['git', 'worktree', 'add', '--detach', $worktreePath, $selectedHead], (string) $base['repo_root'], 60);
+        if ((int) $process['exit_code'] !== 0 || ! is_dir($worktreePath)) {
+            return array_merge($base, [
+                'mode' => 'workspace',
+                'status' => 'failed',
+                'failure_reason' => 'git_worktree_add_failed',
+                'stderr_excerpt' => Str::limit((string) $process['stderr'], 1200),
+            ]);
+        }
+
+        return array_merge($base, [
+            'status' => 'ready',
+            'execution_workspace' => realpath($worktreePath) ?: $worktreePath,
+            'head' => $selectedHead,
+            'isolated' => true,
+            'isolation_type' => 'git_worktree',
+            'worktree_path_hash' => hash('sha256', $worktreePath),
+            'dirty_files_included' => false,
+        ]);
+    }
+
+    /**
      * @param  array<string,mixed>  $base
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
@@ -445,6 +507,13 @@ class EngineeringWorkspaceService
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function worktreeLabel(string $label): string
+    {
+        $label = Str::slug($label);
+
+        return $label !== '' ? $label : 'paired-worktree';
     }
 
     /**

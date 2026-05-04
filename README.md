@@ -193,6 +193,8 @@ Documentacao operacional unica:
 - `docs/atlas-cli-release-checklist.md`
 - `docs/atlas-cli-fair-claude-benchmark.md`
 - `docs/atlas-cli-5x-claude-code-plan.md`
+- `docs/atlas-cli-5x-codex-implementation-prompt.md`
+- `docs/atlas-cli-5x-codex-safety-context-prompt.md`
 
 O CI obrigatorio do Atlas CLI fica em `.github/workflows/atlas-cli.yml` e roda testes, `git diff --check`, `atlas final --strict` e o gate estrutural de release usando stubs versionados em `scripts/ci`.
 

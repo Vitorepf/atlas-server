@@ -69,6 +69,144 @@ class AiChatCommandPermissionTest extends TestCase
         $this->assertFalse($method->invoke($command, 'responda sem imagem'));
     }
 
+    public function test_dev_plan_generates_programming_message_plan_for_each_chat_message(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'claude_cli',
+            'atlas.ai.providers.codex_cli.allow_auto' => true,
+            'atlas.ai.providers.codex_cli.allow_manual' => true,
+        ]);
+
+        $command = app(AiChatCommand::class);
+        $method = new ReflectionMethod(AiChatCommand::class, 'programmingMessagePlan');
+        $method->setAccessible(true);
+
+        $messagePlan = $method->invoke($command, '/tmp/atlas-workspace', 'dev', 'implementar parser robusto', null, null, [
+            'schema_version' => 1,
+            'plan_id' => 'parent-plan-1',
+            'programming_profile' => 'forge',
+            'execution_profile' => [
+                'complete' => true,
+                'auto_test' => true,
+                'max_iterations' => 7,
+            ],
+        ]);
+
+        $this->assertIsArray($messagePlan);
+        $this->assertSame('AtlasProgrammingOrchestrator', data_get($messagePlan, 'orchestrator'));
+        $this->assertSame('forge', data_get($messagePlan, 'programming_profile'));
+        $this->assertSame('parent-plan-1', data_get($messagePlan, 'parent_plan_id'));
+        $this->assertTrue(data_get($messagePlan, 'execution_profile.complete'));
+        $this->assertTrue(data_get($messagePlan, 'execution_profile.auto_test'));
+        $this->assertSame(5, data_get($messagePlan, 'execution_profile.max_iterations'));
+        $this->assertSame('engineering_harness', data_get($messagePlan, 'executor_decision.executor'));
+        $this->assertSame('engineering_harness', data_get($messagePlan, 'executor_decision.policy_executor_preference'));
+        $this->assertSame('programming.forge', data_get($messagePlan, 'policy_profile.profile_id'));
+        $this->assertSame(5, data_get($messagePlan, 'policy_profile.execution_policy.max_iterations'));
+    }
+
+    public function test_programming_executor_request_data_inherits_harness_overrides(): void
+    {
+        $command = app(AiChatCommand::class);
+        $input = new ArrayInput([
+            '--no-run' => true,
+        ]);
+        $input->bind($command->getDefinition());
+        $this->setCommandProperty($command, 'input', $input);
+        $this->setCommandProperty($command, 'output', new BufferedOutput);
+
+        $method = new ReflectionMethod(AiChatCommand::class, 'programmingExecutionRequestData');
+        $method->setAccessible(true);
+
+        $request = $method->invoke($command, 'implementar fluxo', '/tmp/atlas-workspace', 'codex_cli', 'gpt-test', 'danger', [
+            'dev_execution_plan' => [
+                'operator_options' => [
+                    'harness_overrides' => [
+                        'test_command' => 'php -r "exit(0);"',
+                        'sandbox' => 'worktree',
+                        'provider_runtime' => 'host',
+                        'quality_scan' => 'required',
+                        'apply_isolated_patch' => false,
+                    ],
+                ],
+            ],
+        ], [
+            'programming_profile' => 'forge',
+            'execution_profile' => [
+                'complete' => true,
+                'auto_test' => true,
+                'max_iterations' => 6,
+            ],
+        ]);
+
+        $this->assertSame('forge', data_get($request, 'profile'));
+        $this->assertSame('codex_cli', data_get($request, 'provider'));
+        $this->assertSame('gpt-test', data_get($request, 'model'));
+        $this->assertSame('danger', data_get($request, 'permission'));
+        $this->assertTrue(data_get($request, 'no_provider'));
+        $this->assertSame(6, data_get($request, 'max_attempts'));
+        $this->assertSame('php -r "exit(0);"', data_get($request, 'test_command'));
+        $this->assertSame('worktree', data_get($request, 'sandbox'));
+        $this->assertSame('host', data_get($request, 'provider_runtime'));
+        $this->assertSame('required', data_get($request, 'quality_scan'));
+        $this->assertFalse(data_get($request, 'apply_isolated_patch'));
+    }
+
+    public function test_programming_dispatch_contract_records_selected_execution_path(): void
+    {
+        $command = app(AiChatCommand::class);
+        $method = new ReflectionMethod(AiChatCommand::class, 'programmingDispatchContract');
+        $method->setAccessible(true);
+
+        $harnessDispatch = $method->invoke($command, [
+            'plan_id' => 'plan-harness',
+            'programming_profile' => 'forge',
+            'executor_decision' => [
+                'executor' => 'engineering_harness',
+                'reason' => 'forge_profile_prefers_harness',
+            ],
+            'policy_profile' => [
+                'profile_id' => 'programming.forge',
+                'profile_context' => [
+                    'programming' => true,
+                    'forge' => true,
+                ],
+                'execution_policy' => [
+                    'executor_preference' => 'engineering_harness',
+                    'max_iterations' => 5,
+                ],
+            ],
+            'operational_decision' => [
+                'decision_id' => 'decision-1',
+            ],
+        ]);
+
+        $this->assertSame(1, data_get($harnessDispatch, 'schema_version'));
+        $this->assertSame('selected', data_get($harnessDispatch, 'status'));
+        $this->assertSame('AtlasProgrammingOrchestrator', data_get($harnessDispatch, 'source'));
+        $this->assertSame('programming_orchestrator_harness', data_get($harnessDispatch, 'dispatch_path'));
+        $this->assertSame('engineering_harness', data_get($harnessDispatch, 'executor'));
+        $this->assertSame('forge', data_get($harnessDispatch, 'programming_profile'));
+        $this->assertSame('programming.forge', data_get($harnessDispatch, 'policy_profile_id'));
+        $this->assertTrue((bool) data_get($harnessDispatch, 'profile_context.forge'));
+        $this->assertSame('engineering_harness', data_get($harnessDispatch, 'execution_policy.executor_preference'));
+        $this->assertSame('decision-1', data_get($harnessDispatch, 'operational_decision_id'));
+        $this->assertSame('plan-harness', data_get($harnessDispatch, 'plan_id'));
+
+        $providerDispatch = $method->invoke($command, [
+            'plan_id' => 'plan-provider',
+            'programming_profile' => 'dev',
+            'executor_decision' => [
+                'executor' => 'dev_repair_executor',
+                'reason' => 'complete_mode_requires_repair_loop',
+            ],
+        ]);
+
+        $this->assertSame('ai_gateway_provider', data_get($providerDispatch, 'dispatch_path'));
+        $this->assertSame('dev_repair_executor', data_get($providerDispatch, 'executor'));
+        $this->assertSame('complete_mode_requires_repair_loop', data_get($providerDispatch, 'reason'));
+    }
+
     /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>

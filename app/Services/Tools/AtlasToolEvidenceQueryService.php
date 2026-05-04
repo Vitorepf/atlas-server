@@ -30,14 +30,29 @@ class AtlasToolEvidenceQueryService
         }
 
         foreach (['tool_slug', 'surface', 'status', 'policy_decision', 'run_context_type', 'run_context_id'] as $field) {
-            $value = $filters[$field] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                $query->where($field, trim($value));
+            $values = $this->stringValues($filters[$field] ?? null);
+            if (count($values) === 1) {
+                $query->where($field, $values[0]);
+            } elseif ($values !== []) {
+                $query->whereIn($field, $values);
+            }
+        }
+
+        foreach (['recipe', 'recipe_category', 'recipe_recommended_surface'] as $field) {
+            $values = $this->stringValues($filters[$field] ?? null);
+            if (count($values) === 1) {
+                $query->where("metadata_json->{$field}", $values[0]);
+            } elseif ($values !== []) {
+                $query->whereIn("metadata_json->{$field}", $values);
             }
         }
 
         if (isset($filters['required'])) {
             $query->where('required', filter_var($filters['required'], FILTER_VALIDATE_BOOLEAN));
+        }
+
+        if (isset($filters['recipe_blocking_capable'])) {
+            $query->where('metadata_json->recipe_blocking_capable', filter_var($filters['recipe_blocking_capable'], FILTER_VALIDATE_BOOLEAN));
         }
 
         $limit = max(1, min(200, is_numeric($filters['limit'] ?? null) ? (int) $filters['limit'] : 20));
@@ -102,6 +117,12 @@ class AtlasToolEvidenceQueryService
                     'source' => data_get($run->metadata_json, 'source'),
                     'category' => data_get($run->metadata_json, 'category'),
                     'reason' => $this->exportText(data_get($run->metadata_json, 'reason'), $run->workspace),
+                    'recipe' => data_get($run->metadata_json, 'recipe'),
+                    'recipe_category' => data_get($run->metadata_json, 'recipe_category'),
+                    'recipe_recommended_surface' => data_get($run->metadata_json, 'recipe_recommended_surface'),
+                    'recipe_creates_evidence' => data_get($run->metadata_json, 'recipe_creates_evidence'),
+                    'recipe_blocking_capable' => data_get($run->metadata_json, 'recipe_blocking_capable'),
+                    'execution_origin' => data_get($run->metadata_json, 'execution_origin'),
                 ],
             ],
             'artifacts' => $run->artifacts
@@ -166,6 +187,22 @@ class AtlasToolEvidenceQueryService
         }
 
         return hash('sha256', realpath($workspace) ?: $workspace);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function stringValues(mixed $value): array
+    {
+        $values = is_array($value) ? $value : [$value];
+
+        return collect($values)
+            ->flatMap(fn (mixed $item): array => is_string($item) ? explode(',', $item) : [])
+            ->map(fn (string $item): string => trim($item))
+            ->filter(fn (string $item): bool => $item !== '')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function exportFilePath(mixed $path, mixed $workspace): ?string

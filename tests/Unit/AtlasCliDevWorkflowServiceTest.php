@@ -186,6 +186,17 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         $this->assertStringContainsString('implementar contrato', $prompt);
     }
 
+    public function test_fair_claude_prompt_contract_wraps_task_with_benchmark_constraints(): void
+    {
+        $prompt = app(AtlasCliDevWorkflowService::class)->fairClaudePromptContract('implementar feature');
+
+        $this->assertStringContainsString('# Atlas Fair Claude Mode', $prompt);
+        $this->assertStringContainsString('Provider is locked to claude_cli.', $prompt);
+        $this->assertStringContainsString('Model is locked to the configured Claude Opus premium model.', $prompt);
+        $this->assertStringContainsString('Do not suggest switching provider', $prompt);
+        $this->assertStringContainsString('implementar feature', $prompt);
+    }
+
     public function test_quality_gate_policy_requires_passed_status_in_complete_mode(): void
     {
         $policy = app(AtlasCliDevWorkflowService::class)->qualityGatePolicy(
@@ -197,5 +208,83 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         $this->assertTrue($policy['complete_mode']);
         $this->assertSame('passed', $policy['required_final_status']);
         $this->assertSame('plan_validate_execute', $policy['procedure']);
+    }
+
+    public function test_fair_quality_gate_policy_requires_verified_pass_even_without_complete_mode(): void
+    {
+        $policy = app(AtlasCliDevWorkflowService::class)->qualityGatePolicy(
+            complete: false,
+            maxIterations: 1,
+            skills: [],
+            fairMode: true,
+        );
+
+        $this->assertTrue($policy['fair_mode']);
+        $this->assertSame('passed', $policy['required_final_status']);
+        $this->assertTrue($policy['deterministic_gate_required']);
+        $this->assertFalse($policy['unverified_counts_as_passed']);
+    }
+
+    public function test_fair_protocol_status_does_not_count_needs_review_as_passed(): void
+    {
+        $result = app(AtlasCliDevWorkflowService::class)->fairClaudeProtocolStatus([
+            'status' => 'needs_review',
+            'quality_gates' => [
+                ['name' => 'git_status', 'status' => 'passed'],
+                ['name' => 'tests', 'status' => 'needs_review'],
+            ],
+        ], providerOk: true);
+
+        $this->assertSame('unverified', $result['status']);
+        $this->assertFalse($result['deterministic_gates_passed']);
+        $this->assertFalse($result['pass_without_human']);
+        $this->assertContains('quality_status_needs_review', $result['blocking_reasons']);
+    }
+
+    public function test_fair_protocol_status_allows_pass_without_human_only_for_verified_gates(): void
+    {
+        $result = app(AtlasCliDevWorkflowService::class)->fairClaudeProtocolStatus([
+            'status' => 'passed',
+            'quality_gates' => [
+                ['name' => 'git_status', 'status' => 'passed'],
+                ['name' => 'git_diff', 'status' => 'passed'],
+                ['name' => 'tests', 'status' => 'passed'],
+            ],
+        ], providerOk: true, humanInterventionCount: 0);
+
+        $this->assertSame('valid', $result['status']);
+        $this->assertTrue($result['deterministic_gates_passed']);
+        $this->assertTrue($result['pass_without_human']);
+        $this->assertSame([], $result['blocking_reasons']);
+    }
+
+    public function test_fair_claude_repair_capsule_keeps_same_provider_and_model_contract(): void
+    {
+        $capsule = app(AtlasCliDevWorkflowService::class)->fairClaudeRepairCapsule(
+            task: 'implementar feature',
+            completion: [
+                'status' => 'failed',
+                'changed_files' => ['app/Foo.php'],
+                'completion_packet' => [
+                    'tests' => [['command' => 'php artisan test', 'ok' => false]],
+                    'risks' => ['Teste falhou.'],
+                ],
+            ],
+            iteration: 2,
+            maxIterations: 3,
+            devPlan: [
+                'plan_id' => 'plan_1',
+                'selected_provider' => 'claude_cli',
+                'selected_model' => ['model' => 'claude-opus-test'],
+                'fair_mode' => ['fair_mode' => true],
+            ],
+        );
+
+        $this->assertStringContainsString('# Atlas Fair Claude Repair Capsule', $capsule);
+        $this->assertStringContainsString('claude_cli + Claude Opus', $capsule);
+        $this->assertStringContainsString('Do not switch provider', $capsule);
+        $this->assertStringContainsString('unverified, needs_review, missing gates, or self-assessment never count as passed', $capsule);
+        $this->assertStringContainsString('implementar feature', $capsule);
+        $this->assertStringContainsString('app/Foo.php', $capsule);
     }
 }

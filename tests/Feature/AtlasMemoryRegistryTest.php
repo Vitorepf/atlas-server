@@ -11,6 +11,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasMemoryEntryUsage;
 use App\Models\AtlasMemoryProviderProjectionAudit;
+use App\Models\AtlasMemoryQualitySnapshot;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Models\AtlasProject;
 use App\Models\AtlasTask;
@@ -22,6 +23,8 @@ use App\Services\Ai\AiConversationContextBuilder;
 use App\Services\Ai\AiPrompt;
 use App\Services\Ai\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\AtlasMemoryGovernanceService;
+use App\Services\Ai\AtlasMemoryLearningPromotionService;
+use App\Services\Ai\AtlasMemoryQualityService;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\AtlasMemorySourcePrivacyPolicy;
 use App\Services\Ai\AtlasMemoryUsageService;
@@ -542,6 +545,336 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame('issue', data_get($payload, 'memory.memory_type'));
         $this->assertSame($cliDelta->id, data_get($payload, 'memory.source_id'));
         $this->assertSame('promoted', $cliDelta->refresh()->status);
+    }
+
+    public function test_learning_promotion_promotes_accepted_deltas_and_gates_unreviewed_candidates(): void
+    {
+        $this->migrateMemoryTable();
+        $this->createMemoryDeltaTable();
+        $accepted = $this->memoryDelta('preference', 'accepted', 'Promover aprendizado aceito automaticamente no maintain.');
+        $candidate = AiMemoryDelta::query()->create([
+            'source_workspace' => base_path(),
+            'type' => 'decision',
+            'claim' => 'Promover candidato confiavel apenas quando a flag explicita estiver ligada.',
+            'evidence' => [['kind' => 'test', 'excerpt' => 'trusted candidate']],
+            'scope' => 'workspace:'.base_path(),
+            'confidence' => 0.93,
+            'valid_from' => now(),
+            'valid_until' => now()->addDays(14),
+            'use_when' => ['teste focado'],
+            'do_not_use_when' => [],
+            'requires_confirmation' => false,
+            'status' => 'pending',
+        ]);
+
+        $dryRunAcceptedOnly = app(AtlasMemoryLearningPromotionService::class)->run([
+            'workspace' => base_path(),
+            'dry_run' => true,
+        ]);
+
+        $this->assertSame('dry_run_ready', $dryRunAcceptedOnly['status']);
+        $this->assertSame(1, $dryRunAcceptedOnly['accepted_eligible_count']);
+        $this->assertSame(1, $dryRunAcceptedOnly['candidate_eligible_count']);
+        $this->assertSame([$accepted->id], collect($dryRunAcceptedOnly['would_promote'])->pluck('id')->all());
+
+        $dryRun = app(AtlasMemoryLearningPromotionService::class)->run([
+            'workspace' => base_path(),
+            'dry_run' => true,
+            'auto_promote_candidates' => true,
+        ]);
+
+        $this->assertSame('dry_run_ready', $dryRun['status']);
+        $this->assertSame(1, $dryRun['accepted_eligible_count']);
+        $this->assertSame(1, $dryRun['candidate_eligible_count']);
+        $this->assertEqualsCanonicalizing([$accepted->id, $candidate->id], collect($dryRun['would_promote'])->pluck('id')->all());
+        $this->assertSame(0, AtlasMemoryEntry::query()->count());
+
+        $acceptedOnly = app(AtlasMemoryLearningPromotionService::class)->run([
+            'workspace' => base_path(),
+        ]);
+
+        $this->assertSame('promoted', $acceptedOnly['status']);
+        $this->assertSame(1, $acceptedOnly['promoted_count']);
+        $this->assertSame('promoted', $accepted->refresh()->status);
+        $this->assertSame('pending', $candidate->refresh()->status);
+
+        $withCandidate = app(AtlasMemoryLearningPromotionService::class)->run([
+            'workspace' => base_path(),
+            'auto_promote_candidates' => true,
+        ]);
+
+        $this->assertSame('promoted', $withCandidate['status']);
+        $this->assertSame(1, $withCandidate['promoted_count']);
+        $this->assertSame('promoted', $candidate->refresh()->status);
+        $this->assertSame(2, AtlasMemoryEntry::query()->where('source_type', 'ai_memory_delta')->count());
+    }
+
+    public function test_memory_quality_scorecard_reports_feedback_relations_sources_api_and_cli(): void
+    {
+        $this->migrateMemoryTable();
+        $this->migrateMemoryUsageTable();
+        $this->migrateGovernanceTable();
+        $this->createMemoryDeltaTable();
+
+        $safe = AtlasMemoryEntry::query()->create([
+            'memory_type' => 'decision',
+            'scope_type' => 'global',
+            'title' => 'Quality safe memory',
+            'body' => 'Provider-safe memory quality should be measurable.',
+            'summary' => 'Provider-safe memory quality.',
+            'priority' => 90,
+            'importance' => 4,
+            'confidence' => 0.94,
+            'source_type' => 'manual',
+            'metadata' => [],
+        ]);
+        $duplicate = AtlasMemoryEntry::query()->create([
+            'memory_type' => 'decision',
+            'scope_type' => 'global',
+            'title' => 'Quality duplicate memory',
+            'body' => 'Provider-safe memory quality should be measurable.',
+            'summary' => 'Duplicate memory quality.',
+            'priority' => 50,
+            'importance' => 3,
+            'confidence' => 0.7,
+            'source_type' => 'manual',
+            'metadata' => [],
+        ]);
+        app(AtlasMemoryGovernanceService::class)->scan(['scope_type' => 'global'], dryRun: false);
+        $usage = $this->usage($safe);
+        app(AtlasMemoryUsageService::class)->recordFeedback($usage, [
+            'feedback_action' => 'wrong_context',
+            'feedback_score' => 1,
+            'feedback_source' => 'test',
+        ]);
+        $this->memoryDelta('decision', 'accepted', 'Accepted learning should appear in the quality scorecard.');
+
+        $scorecard = app(AtlasMemoryQualityService::class)->scorecard();
+
+        $this->assertGreaterThan(0, $scorecard['score']);
+        $this->assertSame(1, data_get($scorecard, 'counts.deltas.accepted'));
+        $this->assertGreaterThanOrEqual(1, data_get($scorecard, 'counts.relations.open_duplicates'));
+        $this->assertSame(1, data_get($scorecard, 'counts.feedback.wrong_context'));
+        $this->assertContains('accepted_learning_not_promoted', collect($scorecard['issues'])->pluck('code')->all());
+
+        $this->getJson('/ai/memory/quality', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('memory_quality.counts.deltas.accepted', 1)
+            ->assertJsonPath('memory_quality.counts.feedback.wrong_context', 1);
+
+        $exit = Artisan::call('atlas:memory:quality', [
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'memory_quality.counts.deltas.accepted'));
+        $this->assertSame('inactive', $duplicate->refresh()->status);
+    }
+
+    public function test_memory_quality_snapshots_persist_history_api_and_cli(): void
+    {
+        $this->migrateMemoryTable();
+        $this->migrateMemoryUsageTable();
+        $this->migrateGovernanceTable();
+        $this->migrateMemoryQualitySnapshotTable();
+
+        $quality = app(AtlasMemoryQualityService::class);
+        $emptySnapshot = $quality->recordSnapshot($quality->scorecard([
+            'workspace' => base_path(),
+        ]), [
+            'workspace' => base_path(),
+            'source_type' => 'test',
+        ]);
+        $emptySnapshot->forceFill(['snapshot_at' => now()->subDay()])->save();
+
+        AtlasMemoryEntry::query()->create([
+            'memory_type' => 'decision',
+            'scope_type' => 'global',
+            'title' => 'Quality trend memory',
+            'body' => 'Quality snapshots should show when memory health improves.',
+            'summary' => 'Quality snapshots should show improvement.',
+            'priority' => 90,
+            'importance' => 4,
+            'confidence' => 0.94,
+            'source_type' => 'manual',
+            'metadata' => [],
+        ]);
+        $readySnapshot = $quality->recordSnapshot($quality->scorecard([
+            'workspace' => base_path(),
+        ]), [
+            'workspace' => base_path(),
+            'source_type' => 'test',
+        ]);
+        $filteredScorecard = $quality->scorecard([
+            'workspace' => base_path(),
+            'status' => 'active',
+        ]);
+
+        $history = $quality->history(['workspace' => base_path()], 7);
+
+        $this->assertSame(2, data_get($history, 'summary.total'));
+        $this->assertSame($readySnapshot->score - $emptySnapshot->score, data_get($history, 'summary.score_delta'));
+        $this->assertGreaterThan(0, data_get($history, 'summary.score_delta'));
+        $this->assertSame('improved', data_get($history, 'summary.trend_status'));
+        $this->assertSame($readySnapshot->id, data_get($filteredScorecard, 'latest_snapshot.id'));
+        $this->assertSame('improved', data_get($filteredScorecard, 'trend.status'));
+
+        $this->getJson('/ai/memory/quality/history?days=7&workspace='.urlencode(base_path()), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('memory_quality_history.summary.total', 2)
+            ->assertJsonPath('memory_quality_history.summary.trend_status', 'improved');
+
+        $this->postJson('/ai/memory/quality/snapshots', [
+            'workspace' => base_path(),
+        ], $this->headers)
+            ->assertCreated()
+            ->assertJsonPath('memory_quality_snapshot.source_type', 'api');
+
+        $exit = Artisan::call('atlas:memory:quality', [
+            'action' => 'history',
+            '--workspace' => base_path(),
+            '--days' => '7',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(3, data_get($payload, 'memory_quality_history.summary.total'));
+    }
+
+    public function test_memory_quality_scorecard_flags_regressed_snapshot_trend(): void
+    {
+        $this->migrateMemoryTable();
+        $this->migrateMemoryQualitySnapshotTable();
+
+        $quality = app(AtlasMemoryQualityService::class);
+        $quality->recordSnapshot([
+            'status' => 'ready',
+            'score' => 95,
+            'components' => [],
+            'counts' => [],
+            'ratios' => [],
+            'issues' => [],
+            'recommendations' => [],
+        ], [
+            'workspace' => base_path(),
+            'source_type' => 'test',
+            'snapshot_at' => now()->subDay(),
+        ]);
+
+        $scorecard = $quality->scorecard(['workspace' => base_path()]);
+
+        $this->assertSame('regressed', data_get($scorecard, 'trend.status'));
+        $this->assertLessThanOrEqual(-15, data_get($scorecard, 'trend.current_delta_from_latest'));
+        $this->assertTrue(collect(data_get($scorecard, 'trend.drivers', []))->contains(
+            fn (array $driver): bool => ($driver['kind'] ?? null) === 'issue_increase'
+                && ($driver['key'] ?? null) === 'no_provider_safe_memory',
+        ));
+        $this->assertTrue(collect($scorecard['recommendations'])->contains(
+            fn (string $recommendation): bool => str_contains($recommendation, 'memory quality history'),
+        ));
+    }
+
+    public function test_memory_maintenance_records_quality_snapshot_when_table_exists(): void
+    {
+        $this->migrateMemoryTable();
+        $this->migrateVerbatimMemoryTable();
+        $this->migrateProjectionAuditTable();
+        $this->migrateOpenBrainAuditTable();
+        $this->migrateMemoryQualitySnapshotTable();
+
+        $exit = Artisan::call('atlas:memory:maintain', [
+            '--workspace' => base_path(),
+            '--no-sync' => true,
+            '--no-index-code' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $exit);
+        $this->assertSame('recorded', data_get($payload, 'stages.memory_quality_snapshot.status'));
+        $this->assertSame('memory_maintenance', AtlasMemoryQualitySnapshot::query()->firstOrFail()->source_type);
+    }
+
+    public function test_memory_quality_scorecard_scopes_feedback_and_relations_to_requested_workspace(): void
+    {
+        $this->migrateMemoryTable();
+        $this->migrateMemoryUsageTable();
+        $this->migrateGovernanceTable();
+
+        $workspace = realpath(base_path()) ?: base_path();
+        $workspaceHash = hash('sha256', $workspace);
+        $otherWorkspace = sys_get_temp_dir().'/atlas_other_memory_quality_workspace';
+        $otherWorkspaceHash = hash('sha256', $otherWorkspace);
+
+        $local = AtlasMemoryEntry::query()->create([
+            'memory_type' => 'decision',
+            'scope_type' => 'workspace',
+            'scope_id' => $workspaceHash,
+            'title' => 'Local workspace memory',
+            'body' => 'This memory belongs to the requested workspace.',
+            'summary' => 'Requested workspace memory.',
+            'priority' => 90,
+            'importance' => 4,
+            'confidence' => 0.94,
+            'source_type' => 'manual',
+            'metadata' => [],
+        ]);
+        $otherA = AtlasMemoryEntry::query()->create([
+            'memory_type' => 'decision',
+            'scope_type' => 'workspace',
+            'scope_id' => $otherWorkspaceHash,
+            'title' => 'Other workspace memory A',
+            'body' => 'This memory belongs to another workspace.',
+            'summary' => 'Other workspace memory.',
+            'priority' => 80,
+            'importance' => 4,
+            'confidence' => 0.9,
+            'source_type' => 'manual',
+            'metadata' => [],
+        ]);
+        $otherB = AtlasMemoryEntry::query()->create([
+            'memory_type' => 'decision',
+            'scope_type' => 'workspace',
+            'scope_id' => $otherWorkspaceHash,
+            'title' => 'Other workspace memory B',
+            'body' => 'This memory duplicates another unrelated workspace memory.',
+            'summary' => 'Other duplicate memory.',
+            'priority' => 70,
+            'importance' => 3,
+            'confidence' => 0.82,
+            'source_type' => 'manual',
+            'metadata' => [],
+        ]);
+
+        AtlasMemoryEntryRelation::query()->create([
+            'source_memory_entry_id' => $otherA->id,
+            'target_memory_entry_id' => $otherB->id,
+            'relation_type' => 'duplicate',
+            'status' => 'open',
+            'confidence' => 0.92,
+            'reason' => 'Unrelated workspace duplicate.',
+            'metadata' => [],
+        ]);
+        app(AtlasMemoryUsageService::class)->recordFeedback($this->usage($otherA), [
+            'feedback_action' => 'wrong_context',
+            'feedback_score' => 1,
+            'feedback_source' => 'test',
+        ]);
+
+        $workspaceScorecard = app(AtlasMemoryQualityService::class)->scorecard([
+            'workspace' => $workspace,
+        ]);
+        $globalScorecard = app(AtlasMemoryQualityService::class)->scorecard();
+
+        $this->assertSame($local->id, AtlasMemoryEntry::query()->where('scope_id', $workspaceHash)->value('id'));
+        $this->assertSame(1, data_get($workspaceScorecard, 'counts.active'));
+        $this->assertSame(0, data_get($workspaceScorecard, 'counts.relations.open'));
+        $this->assertSame(0, data_get($workspaceScorecard, 'counts.feedback.wrong_context'));
+        $this->assertSame(0, data_get($workspaceScorecard, 'counts.feedback.negative'));
+        $this->assertSame(1, data_get($globalScorecard, 'counts.relations.open_duplicates'));
+        $this->assertSame(1, data_get($globalScorecard, 'counts.feedback.wrong_context'));
     }
 
     public function test_usage_feedback_governance_degrades_inactivates_and_archives_memory(): void
@@ -2566,6 +2899,12 @@ class AtlasMemoryRegistryTest extends TestCase
         $migration->up();
     }
 
+    private function migrateMemoryQualitySnapshotTable(): void
+    {
+        $migration = require database_path('migrations/2026_05_03_190000_create_atlas_memory_quality_snapshots_table.php');
+        $migration->up();
+    }
+
     private function migrateOpenBrainAuditTable(): void
     {
         $migration = require database_path('migrations/2026_05_03_130000_create_atlas_open_brain_access_logs_table.php');
@@ -2887,6 +3226,7 @@ class AtlasMemoryRegistryTest extends TestCase
     {
         foreach ([
             'atlas_open_brain_access_logs',
+            'atlas_memory_quality_snapshots',
             'atlas_memory_provider_projection_audits',
             'atlas_verbatim_memories',
             'atlas_memory_entry_usages',

@@ -17,6 +17,7 @@ class AtlasOpenBrainContextInjectionService
     public function __construct(
         private readonly EngineeringKnowledgeBaseService $knowledge,
         private readonly EngineeringCodeIntelligenceService $code,
+        private readonly ?AtlasMemoryQualityService $memoryQuality = null,
     ) {}
 
     /**
@@ -116,6 +117,8 @@ class AtlasOpenBrainContextInjectionService
         $pack = $contextPack->toArray();
         $workspace = $this->workspace(data_get($pack, 'surface.workspace', data_get($payload, 'workspace')));
         $engineeringContext = $this->engineeringContext($workspace, $payload);
+        $memoryQuality = $this->memoryQuality($engineeringContext, $policy);
+        $memoryQualitySummary = $this->memoryQualitySummary($memoryQuality);
         $knowledgeRefs = $this->knowledgeRefs($engineeringContext);
         $codeRefs = $this->codeRefs($engineeringContext);
         $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs);
@@ -123,10 +126,14 @@ class AtlasOpenBrainContextInjectionService
             'context_pack' => $pack,
             'knowledge_refs' => $knowledgeRefs,
             'code_refs' => $codeRefs,
+            'memory_quality' => $memoryQualitySummary,
             'policy' => $policy,
         ];
         $contextPackHash = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $summary = $this->summary($contextRefs, $knowledgeRefs, $codeRefs, $policy);
+        if ($memoryQuality !== null) {
+            $summary['memory_quality'] = $memoryQualitySummary;
+        }
         $warnings = [];
 
         if ((int) $summary['memory_refs'] === 0) {
@@ -141,6 +148,7 @@ class AtlasOpenBrainContextInjectionService
         if ((int) $summary['context_refs'] === 0) {
             $warnings[] = 'open_brain_context_empty';
         }
+        $warnings = array_values(array_unique([...$warnings, ...$this->memoryQualityWarnings($memoryQuality)]));
 
         $promptSection = $this->promptSection(
             task: $task,
@@ -148,6 +156,7 @@ class AtlasOpenBrainContextInjectionService
             contextPackHash: $contextPackHash,
             summary: $summary,
             policy: $policy,
+            memoryQuality: $memoryQuality,
             knowledgeRefs: $knowledgeRefs,
             codeRefs: $codeRefs,
             warnings: $warnings,
@@ -172,6 +181,9 @@ class AtlasOpenBrainContextInjectionService
         $blockingWarnings = array_values(array_intersect($warnings, [
             'open_brain_audit_table_missing',
             'open_brain_context_empty',
+            'memory_quality_critical',
+            'memory_quality_not_migrated',
+            'memory_quality_empty',
         ]));
 
         if ($blockingWarnings !== [] && $policy['mode'] === 'required') {
@@ -316,6 +328,178 @@ class AtlasOpenBrainContextInjectionService
     }
 
     /**
+     * @param  array<string,mixed>  $context
+     * @param  array<string,mixed>  $policy
+     * @return array<string,mixed>|null
+     */
+    private function memoryQuality(array $context, array $policy): ?array
+    {
+        if (! (bool) config('atlas.open_brain.injection.include_memory_quality', true)) {
+            return null;
+        }
+
+        try {
+            $service = $this->memoryQuality ?? app(AtlasMemoryQualityService::class);
+
+            return $service->scorecard([
+                'workspace' => $context['workspace'] ?? null,
+                'project_id' => $context['project_id'] ?? null,
+                'task_id' => $context['task_id'] ?? null,
+                'engineering_run_id' => $context['engineering_run_id'] ?? null,
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return [
+                'ok' => false,
+                'status' => 'unavailable',
+                'score' => null,
+                'counts' => [],
+                'issues' => [[
+                    'code' => 'memory_quality_unavailable',
+                    'severity' => 'warning',
+                ]],
+                'recommendations' => ['Inspect logs and run atlas memory quality before relying on Open Brain.'],
+                'generated_at' => now()->toJSON(),
+            ];
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $memoryQuality
+     * @return array<string,mixed>
+     */
+    private function memoryQualitySummary(?array $memoryQuality): array
+    {
+        if ($memoryQuality === null) {
+            return [
+                'included' => false,
+            ];
+        }
+
+        $issues = collect((array) ($memoryQuality['issues'] ?? []))
+            ->filter(fn (mixed $issue): bool => is_array($issue))
+            ->map(fn (array $issue): array => array_filter([
+                'code' => is_scalar($issue['code'] ?? null) ? (string) $issue['code'] : null,
+                'severity' => is_scalar($issue['severity'] ?? null) ? (string) $issue['severity'] : null,
+                'count' => isset($issue['count']) && is_numeric($issue['count']) ? (int) $issue['count'] : null,
+                'score' => isset($issue['score']) && is_numeric($issue['score']) ? (int) $issue['score'] : null,
+            ], fn (mixed $value): bool => $value !== null && $value !== ''))
+            ->values()
+            ->all();
+
+        return [
+            'included' => true,
+            'ok' => (bool) ($memoryQuality['ok'] ?? false),
+            'status' => is_scalar($memoryQuality['status'] ?? null) ? (string) $memoryQuality['status'] : 'unknown',
+            'score' => isset($memoryQuality['score']) && is_numeric($memoryQuality['score']) ? (int) $memoryQuality['score'] : null,
+            'active' => isset($memoryQuality['counts']['active']) && is_numeric($memoryQuality['counts']['active']) ? (int) $memoryQuality['counts']['active'] : null,
+            'provider_safe_active' => isset($memoryQuality['counts']['provider_safe_active']) && is_numeric($memoryQuality['counts']['provider_safe_active'])
+                ? (int) $memoryQuality['counts']['provider_safe_active']
+                : null,
+            'latest_snapshot' => is_array($memoryQuality['latest_snapshot'] ?? null)
+                ? [
+                    'status' => $memoryQuality['latest_snapshot']['status'] ?? null,
+                    'score' => $memoryQuality['latest_snapshot']['score'] ?? null,
+                    'snapshot_at' => $memoryQuality['latest_snapshot']['snapshot_at'] ?? null,
+                ]
+                : null,
+            'trend' => $this->memoryQualityTrendSummary($memoryQuality),
+            'issues' => array_slice($issues, 0, 8),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $memoryQuality
+     * @return array<string,mixed>|null
+     */
+    private function memoryQualityTrendSummary(array $memoryQuality): ?array
+    {
+        if (! is_array($memoryQuality['trend'] ?? null)) {
+            return null;
+        }
+
+        $trend = $memoryQuality['trend'];
+        $drivers = collect((array) ($trend['drivers'] ?? []))
+            ->filter(fn (mixed $driver): bool => is_array($driver))
+            ->map(fn (array $driver): array => array_filter([
+                'kind' => is_scalar($driver['kind'] ?? null) ? (string) $driver['kind'] : null,
+                'key' => is_scalar($driver['key'] ?? null) ? (string) $driver['key'] : null,
+                'severity' => is_scalar($driver['severity'] ?? null) ? (string) $driver['severity'] : null,
+                'delta' => isset($driver['delta']) && is_numeric($driver['delta']) ? (int) $driver['delta'] : null,
+                'current' => isset($driver['current']) && is_numeric($driver['current']) ? (int) $driver['current'] : null,
+                'previous' => isset($driver['previous']) && is_numeric($driver['previous']) ? (int) $driver['previous'] : null,
+            ], fn (mixed $value): bool => $value !== null && $value !== ''))
+            ->values()
+            ->take(5)
+            ->all();
+
+        $summary = array_filter([
+            'status' => is_scalar($trend['status'] ?? null) ? (string) $trend['status'] : null,
+            'current_score' => isset($trend['current_score']) && is_numeric($trend['current_score']) ? (int) $trend['current_score'] : null,
+            'latest_snapshot_score' => isset($trend['latest_snapshot_score']) && is_numeric($trend['latest_snapshot_score']) ? (int) $trend['latest_snapshot_score'] : null,
+            'previous_snapshot_score' => isset($trend['previous_snapshot_score']) && is_numeric($trend['previous_snapshot_score']) ? (int) $trend['previous_snapshot_score'] : null,
+            'snapshot_count' => isset($trend['snapshot_count']) && is_numeric($trend['snapshot_count']) ? (int) $trend['snapshot_count'] : null,
+            'current_delta_from_latest' => isset($trend['current_delta_from_latest']) && is_numeric($trend['current_delta_from_latest']) ? (int) $trend['current_delta_from_latest'] : null,
+            'latest_delta_from_previous' => isset($trend['latest_delta_from_previous']) && is_numeric($trend['latest_delta_from_previous']) ? (int) $trend['latest_delta_from_previous'] : null,
+            'window_delta' => isset($trend['window_delta']) && is_numeric($trend['window_delta']) ? (int) $trend['window_delta'] : null,
+            'drivers' => $drivers,
+        ], fn (mixed $value): bool => $value !== null && $value !== '');
+
+        return $summary === [] ? null : $summary;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $memoryQuality
+     * @return array<int,string>
+     */
+    private function memoryQualityWarnings(?array $memoryQuality): array
+    {
+        if ($memoryQuality === null) {
+            return [];
+        }
+
+        $status = is_scalar($memoryQuality['status'] ?? null) ? (string) $memoryQuality['status'] : 'unknown';
+        $score = isset($memoryQuality['score']) && is_numeric($memoryQuality['score']) ? (int) $memoryQuality['score'] : null;
+        $warnings = [];
+
+        if ($status === 'not_migrated') {
+            $warnings[] = 'memory_quality_not_migrated';
+        } elseif ($status === 'empty') {
+            $warnings[] = 'memory_quality_empty';
+        } elseif ($status === 'critical') {
+            $warnings[] = 'memory_quality_critical';
+        } elseif (in_array($status, ['needs_review', 'watch', 'unavailable'], true)) {
+            $warnings[] = 'memory_quality_'.$status;
+        }
+
+        if ($score !== null && $score < 70) {
+            $warnings[] = 'memory_quality_score_low';
+        }
+
+        $trendStatus = data_get($memoryQuality, 'trend.status');
+        if ($trendStatus === 'regressed') {
+            $warnings[] = 'memory_quality_trend_regressed';
+        } elseif ($trendStatus === 'watch_regressed') {
+            $warnings[] = 'memory_quality_trend_watch_regressed';
+        }
+
+        $issueCodes = collect((array) ($memoryQuality['issues'] ?? []))
+            ->filter(fn (mixed $issue): bool => is_array($issue) && is_scalar($issue['code'] ?? null))
+            ->map(fn (array $issue): string => (string) $issue['code'])
+            ->values()
+            ->all();
+
+        foreach (['no_provider_safe_memory', 'accepted_learning_not_promoted', 'negative_memory_feedback'] as $issueCode) {
+            if (in_array($issueCode, $issueCodes, true)) {
+                $warnings[] = 'memory_quality_'.$issueCode;
+            }
+        }
+
+        return array_values(array_unique($warnings));
+    }
+
+    /**
      * @param  array<int,array<string,mixed>>  ...$refGroups
      * @return array<int,array<string,mixed>>
      */
@@ -366,6 +550,7 @@ class AtlasOpenBrainContextInjectionService
         string $contextPackHash,
         array $summary,
         array $policy,
+        ?array $memoryQuality,
         array $knowledgeRefs,
         array $codeRefs,
         array $warnings,
@@ -384,6 +569,37 @@ class AtlasOpenBrainContextInjectionService
 
         if ($warnings !== []) {
             $lines[] = '- warnings: '.implode(', ', $warnings);
+        }
+
+        if ($memoryQuality !== null) {
+            $qualitySummary = $this->memoryQualitySummary($memoryQuality);
+            $lines[] = '';
+            $lines[] = '## Memory Quality Gate';
+            $lines[] = '- status: '.($qualitySummary['status'] ?? 'unknown').'; score='.($qualitySummary['score'] ?? 'n/a').'; ok='.(($qualitySummary['ok'] ?? false) ? 'true' : 'false');
+            $lines[] = '- active: '.($qualitySummary['active'] ?? 'n/a').'; provider_safe_active='.($qualitySummary['provider_safe_active'] ?? 'n/a');
+            if (is_array($qualitySummary['latest_snapshot'] ?? null) && $qualitySummary['latest_snapshot'] !== []) {
+                $snapshot = $qualitySummary['latest_snapshot'];
+                $lines[] = '- latest_snapshot: status='.($snapshot['status'] ?? 'n/a').'; score='.($snapshot['score'] ?? 'n/a').'; at='.($snapshot['snapshot_at'] ?? 'n/a');
+            }
+            if (is_array($qualitySummary['trend'] ?? null) && $qualitySummary['trend'] !== []) {
+                $trend = $qualitySummary['trend'];
+                $lines[] = '- trend: status='.($trend['status'] ?? 'n/a')
+                    .'; current_delta_from_latest='.($trend['current_delta_from_latest'] ?? 'n/a')
+                    .'; latest_delta_from_previous='.($trend['latest_delta_from_previous'] ?? 'n/a')
+                    .'; snapshots='.($trend['snapshot_count'] ?? 'n/a');
+                $drivers = array_values((array) ($trend['drivers'] ?? []));
+                if ($drivers !== []) {
+                    $lines[] = '- trend_drivers: '.collect($drivers)
+                        ->map(fn (array $driver): string => (string) ($driver['key'] ?? 'unknown').':'.(string) ($driver['delta'] ?? 'n/a'))
+                        ->implode(', ');
+                }
+            }
+            $issues = array_values((array) ($qualitySummary['issues'] ?? []));
+            if ($issues !== []) {
+                $lines[] = '- issues: '.collect($issues)
+                    ->map(fn (array $issue): string => (string) ($issue['severity'] ?? 'info').':'.(string) ($issue['code'] ?? 'unknown'))
+                    ->implode(', ');
+            }
         }
 
         if ($knowledgeRefs !== []) {

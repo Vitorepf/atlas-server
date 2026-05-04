@@ -92,9 +92,9 @@ class VaultFileStore
         return $path;
     }
 
-    public function absolutePath(string $relativePath = ''): string
+    public function absolutePath(string $relativePath = '', bool $ensureRoot = true): string
     {
-        $root = $this->rootPath();
+        $root = $this->rootPath($ensureRoot);
         $relativePath = $this->normalizeRelativePath($relativePath);
         $path = $relativePath === '' ? $root : $root.DIRECTORY_SEPARATOR.$relativePath;
         $directory = File::isDirectory($path) ? $path : dirname($path);
@@ -102,28 +102,35 @@ class VaultFileStore
         $realRoot = realpath($root) ?: $root;
         $realDirectory = realpath($directory) ?: $directory;
 
-        if (! str_starts_with($realDirectory, $realRoot)) {
+        if (! $this->isWithinRoot($realDirectory, $realRoot)) {
             throw new RuntimeException('Unsafe vault path.');
         }
 
         return $path;
     }
 
-    public function rootPath(): string
+    public function rootPath(bool $ensure = true): string
     {
-        $path = (string) config('atlas.semantic_memory.vault_path');
+        $path = $this->configuredPath();
         if ($path === '') {
             throw new RuntimeException('ATLAS_VAULT_PATH is not configured.');
         }
 
-        File::ensureDirectoryExists($path);
+        if ($ensure) {
+            File::ensureDirectoryExists($path);
+        }
 
         $realPath = realpath($path);
-        if ($realPath === false) {
+        if ($realPath === false && $ensure) {
             throw new RuntimeException('Atlas vault path could not be resolved.');
         }
 
-        return rtrim($realPath, DIRECTORY_SEPARATOR);
+        return rtrim($realPath ?: $path, DIRECTORY_SEPARATOR);
+    }
+
+    public function configuredPath(): string
+    {
+        return rtrim((string) config('atlas.semantic_memory.vault_path'), DIRECTORY_SEPARATOR);
     }
 
     private function normalizeRelativePath(string $path): string
@@ -141,6 +148,14 @@ class VaultFileStore
         }
 
         return $path;
+    }
+
+    private function isWithinRoot(string $path, string $root): bool
+    {
+        $path = rtrim(str_replace('\\', '/', $path), '/');
+        $root = rtrim(str_replace('\\', '/', $root), '/');
+
+        return $path === $root || str_starts_with($path, $root.'/');
     }
 
     private function uniquePath(string $path): string

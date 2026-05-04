@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AtlasToolFinding;
 use App\Services\Tools\AtlasToolApprovalService;
 use App\Services\Tools\AtlasToolAuthorityMatrixService;
+use App\Services\Tools\AtlasToolAuthorityPolicyService;
 use App\Services\Tools\AtlasToolEvidenceQueryService;
 use App\Services\Tools\AtlasToolExecutor;
 use App\Services\Tools\AtlasToolFindingWaiverService;
@@ -31,6 +32,59 @@ class AtlasToolRuntimeController extends Controller
     public function authority(AtlasToolAuthorityMatrixService $authority): JsonResponse
     {
         return response()->json($authority->matrix());
+    }
+
+    public function authorityPolicies(Request $request, AtlasToolAuthorityPolicyService $policies): JsonResponse
+    {
+        return response()->json($policies->catalog($request->filled('workspace') ? $this->workspace($request) : null));
+    }
+
+    public function setAuthorityPolicy(string $authorityGroup, Request $request, AtlasToolAuthorityPolicyService $policies): JsonResponse
+    {
+        $validated = $request->validate([
+            'workspace' => ['nullable', 'string'],
+            'scope_type' => ['sometimes', 'string', 'in:workspace,global'],
+            'policy' => ['nullable', 'string', 'max:120', 'regex:/^[A-Za-z][A-Za-z0-9_:-]*$/'],
+            'block_severities' => ['sometimes', 'array', 'max:5'],
+            'block_severities.*' => ['string', 'in:critical,high,medium,low,info'],
+            'warn_severities' => ['sometimes', 'array', 'max:5'],
+            'warn_severities.*' => ['string', 'in:critical,high,medium,low,info'],
+            'block_reason' => ['nullable', 'string', 'max:120', 'regex:/^[A-Za-z][A-Za-z0-9_:-]*$/'],
+            'warn_reason' => ['nullable', 'string', 'max:120', 'regex:/^[A-Za-z][A-Za-z0-9_:-]*$/'],
+            'description' => ['nullable', 'string', 'max:300'],
+        ]);
+
+        $policy = $policies->setOverride($authorityGroup, $request->filled('workspace') ? $this->workspace($request) : null, [
+            ...$validated,
+            'configured_by' => 'atlas_api',
+            'source' => 'atlas_tools_api',
+        ]);
+
+        return response()->json([
+            'status' => 'configured',
+            'data' => $policy,
+            'catalog' => $policies->catalog($request->filled('workspace') ? $this->workspace($request) : null),
+        ], 201);
+    }
+
+    public function revokeAuthorityPolicy(string $authorityGroup, Request $request, AtlasToolAuthorityPolicyService $policies): JsonResponse
+    {
+        $validated = $request->validate([
+            'workspace' => ['nullable', 'string'],
+            'scope_type' => ['sometimes', 'string', 'in:workspace,global'],
+        ]);
+
+        $policy = $policies->revokeOverride(
+            $authorityGroup,
+            $request->filled('workspace') ? $this->workspace($request) : null,
+            (string) ($validated['scope_type'] ?? 'workspace'),
+        );
+
+        return response()->json([
+            'status' => $policy ? 'revoked' : 'missing',
+            'data' => $policy,
+            'catalog' => $policies->catalog($request->filled('workspace') ? $this->workspace($request) : null),
+        ]);
     }
 
     public function show(string $tool, Request $request, AtlasToolRegistryService $registry): JsonResponse
@@ -108,6 +162,7 @@ class AtlasToolRuntimeController extends Controller
             'dry_run' => ['sometimes', 'boolean'],
             'approved' => ['sometimes', 'boolean'],
             'required' => ['sometimes', 'boolean'],
+            'surface' => ['sometimes', 'string', 'max:80', 'regex:/^[A-Za-z][A-Za-z0-9_-]*$/'],
             'env' => ['sometimes', 'array', 'max:20'],
             'env.*' => ['string', 'max:2100'],
             'output_limit' => ['sometimes', 'integer', 'min:1000', 'max:200000'],
@@ -119,8 +174,11 @@ class AtlasToolRuntimeController extends Controller
                 'required' => (bool) ($validated['required'] ?? false),
                 'env' => $validated['env'] ?? [],
                 'output_limit' => $validated['output_limit'] ?? null,
-                'surface' => 'api_recipe',
+                'execution_origin' => 'api_recipe',
             ];
+            if (isset($validated['surface'])) {
+                $options['surface'] = $validated['surface'];
+            }
             if (array_key_exists('dry_run', $validated)) {
                 $options['dry_run'] = (bool) $validated['dry_run'];
             }
@@ -211,6 +269,10 @@ class AtlasToolRuntimeController extends Controller
             'policy_decision' => ['nullable', 'string'],
             'run_context_type' => ['nullable', 'string'],
             'run_context_id' => ['nullable', 'string'],
+            'recipe' => ['nullable', 'string'],
+            'recipe_category' => ['nullable', 'string'],
+            'recipe_recommended_surface' => ['nullable', 'string'],
+            'recipe_blocking_capable' => ['nullable', 'string', 'in:true,false,1,0'],
             'required' => ['sometimes', 'boolean'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:200'],
         ]);
@@ -262,10 +324,17 @@ class AtlasToolRuntimeController extends Controller
             'policy_decision' => ['nullable', 'string'],
             'run_context_type' => ['nullable', 'string'],
             'run_context_id' => ['nullable', 'string'],
+            'recipe' => ['nullable', 'string'],
+            'recipe_category' => ['nullable', 'string'],
+            'recipe_recommended_surface' => ['nullable', 'string'],
+            'recipe_blocking_capable' => ['nullable', 'string', 'in:true,false,1,0'],
             'required' => ['sometimes', 'boolean'],
             'required_tool' => ['nullable'],
             'fail_status' => ['nullable'],
             'require_evidence' => ['sometimes', 'boolean'],
+            'max_age_minutes' => ['sometimes', 'integer', 'min:1', 'max:43200'],
+            'stale_blocks' => ['sometimes', 'boolean'],
+            'latest_per_tool' => ['sometimes', 'boolean'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:200'],
         ]);
 
@@ -278,6 +347,9 @@ class AtlasToolRuntimeController extends Controller
             'required_tools' => $validated['required_tool'] ?? [],
             'fail_statuses' => $validated['fail_status'] ?? [],
             'require_evidence' => (bool) ($validated['require_evidence'] ?? false),
+            'max_age_minutes' => $validated['max_age_minutes'] ?? null,
+            'stale_blocks' => (bool) ($validated['stale_blocks'] ?? false),
+            'latest_per_tool' => (bool) ($validated['latest_per_tool'] ?? false),
         ]));
     }
 
@@ -290,20 +362,28 @@ class AtlasToolRuntimeController extends Controller
             'policy_decision' => ['nullable', 'string'],
             'run_context_type' => ['nullable', 'string'],
             'run_context_id' => ['nullable', 'string'],
+            'recipe' => ['nullable', 'string'],
+            'recipe_category' => ['nullable', 'string'],
+            'recipe_recommended_surface' => ['nullable', 'string'],
+            'recipe_blocking_capable' => ['nullable', 'string', 'in:true,false,1,0'],
             'required' => ['sometimes', 'boolean'],
             'fail_status' => ['nullable'],
             'release_profile' => ['nullable', 'string', 'in:security_sbom_release'],
+            'max_age_minutes' => ['sometimes', 'integer', 'min:1', 'max:43200'],
+            'stale_blocks' => ['sometimes', 'boolean'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:200'],
         ]);
 
         return response()->json($releaseGate->evaluate([
             ...$validated,
             'workspace' => $request->filled('workspace') ? $this->workspace($request) : null,
-            'surface' => $validated['surface'] ?? 'engineering_quality_scan',
+            'surface' => $validated['surface'] ?? ['engineering_quality_scan', 'release_gate'],
             'limit' => $validated['limit'] ?? 100,
         ], [
             'release_profile' => $validated['release_profile'] ?? 'security_sbom_release',
             'fail_statuses' => $validated['fail_status'] ?? [],
+            'max_age_minutes' => $validated['max_age_minutes'] ?? null,
+            'stale_blocks' => array_key_exists('stale_blocks', $validated) ? (bool) $validated['stale_blocks'] : true,
         ]));
     }
 

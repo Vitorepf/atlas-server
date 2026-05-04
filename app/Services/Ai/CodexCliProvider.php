@@ -92,7 +92,22 @@ class CodexCliProvider implements AiProvider
 
     public function health(): AiProviderHealthCheck
     {
-        return $this->checkBinary($this->key(), (string) ($this->runtimeSettings->providerConfig('codex_cli')['binary'] ?? 'codex'));
+        $binary = (string) ($this->runtimeSettings->providerConfig('codex_cli')['binary'] ?? 'codex');
+
+        return $this->checkCliRuntimeContract(
+            check: $this->checkBinary($this->key(), $binary),
+            binary: $binary,
+            helpArgs: ['exec', '--help'],
+            requiredTokens: [
+                '--model',
+                '--sandbox',
+                '--dangerously-bypass-approvals-and-sandbox',
+                '--add-dir',
+                '--image',
+                '--output-last-message',
+            ],
+            contractName: 'codex_cli_provider.v1',
+        );
     }
 
     private function invocationModel(AiJob $job, array $provider): ?string
@@ -145,48 +160,21 @@ class CodexCliProvider implements AiProvider
         $valueArgs = [
             '--ask-for-approval',
             '--approval-mode',
+            '--sandbox',
+            '-s',
+            '--model',
+            '-m',
+            '--output-last-message',
+            '-o',
+            '--image',
+            '-i',
         ];
         $standaloneArgs = [
             '--full-auto',
             '--dangerously-bypass-approvals-and-sandbox',
         ];
-        $sanitized = [];
-        $skipNext = false;
 
-        foreach (array_values($args) as $arg) {
-            if ($skipNext) {
-                $skipNext = false;
-                continue;
-            }
-
-            if (! is_string($arg) && ! is_numeric($arg)) {
-                continue;
-            }
-
-            $arg = trim((string) $arg);
-            if ($arg === '') {
-                continue;
-            }
-
-            if (in_array($arg, $valueArgs, true)) {
-                $skipNext = true;
-                continue;
-            }
-
-            if (in_array($arg, $standaloneArgs, true)) {
-                continue;
-            }
-
-            $blockedWithValue = collect($valueArgs)
-                ->contains(fn (string $name): bool => str_starts_with($arg, $name.'='));
-            if ($blockedWithValue) {
-                continue;
-            }
-
-            $sanitized[] = $arg;
-        }
-
-        return $sanitized;
+        return $this->sanitizeCliArgs($args, $valueArgs, $standaloneArgs);
     }
 
     /**

@@ -43,6 +43,7 @@ class AiGatewayService
         private readonly AtlasAiRuntimeSettings $runtimeSettings,
         private readonly AiRuntimeBudgetService $budgets,
         private readonly AtlasDecideService $decide,
+        private readonly FairClaudePolicy $fairClaude,
         private readonly AuditLogService $audit,
     ) {}
 
@@ -68,18 +69,26 @@ class AiGatewayService
         $provider = $this->providerFromOptions($options);
         $options['provider'] = $provider;
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
-        $candidateProvider = $this->decide->candidateProvider($options, $this->runtimeSettings->defaultProvider());
-        $fallbackReason = $candidateProvider !== $provider
-            ? $this->providerFallbackReason($candidateProvider, $provider, $options)
-            : null;
+        $payload = $this->enforceFairModeProvider($payload, $provider);
+        $options['payload'] = $payload;
+        $decision = $this->decide->operationalDecision($options, $provider);
+        $decisionPayload = $decision->toArray();
+        $candidateProvider = $decision->candidateProvider();
+        $fallbackReason = $decision->fallbackReason();
         $payload['selected_provider'] = $provider;
         $payload['atlas_decide'] = array_merge(
             is_array($payload['atlas_decide'] ?? null) ? $payload['atlas_decide'] : [],
             [
+                'decision_id' => $decisionPayload['decision_id'] ?? null,
+                'policy_profile_id' => $decisionPayload['policy_profile_id'] ?? null,
+                'policy_version' => $decisionPayload['policy_version'] ?? null,
+                'decision_policy_version' => $decisionPayload['decision_policy_version'] ?? null,
                 'candidate_provider' => $candidateProvider,
                 'selected_provider' => $provider,
                 'fallback_provider' => $fallbackReason ? $provider : null,
                 'fallback_reason' => $fallbackReason,
+                'planned_graph' => $decisionPayload['planned_graph'] ?? null,
+                'runtime_graph' => $decisionPayload['runtime_graph'] ?? null,
             ],
         );
         $options['payload'] = $payload;
@@ -98,6 +107,7 @@ class AiGatewayService
 
         $modelResolution = $this->models->resolveWithSource($provider, $prompt->model ?: ($options['model'] ?? null));
         $model = $modelResolution['model'];
+        $this->enforceFairModeModel((array) ($options['payload'] ?? []), $provider, $model);
         $this->budgets->assertAllows($provider, $model, $options);
         $scoutGate = $this->atlasScoutGate($this->optionsWithPromptContracts($options, $prompt), $provider, $model);
         $options = $this->optionsWithAtlasExecutionActivation($options, $scoutGate);
@@ -142,6 +152,7 @@ class AiGatewayService
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
+                    ...$this->programmingMetadata($options),
                     'decision_receipt' => $decisionReceipt,
                     'atlas_decide_execution' => $atlasExecution,
                 ],
@@ -193,6 +204,7 @@ class AiGatewayService
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
+                    ...$this->programmingMetadata($options),
                     'decision_receipt' => $decisionReceipt,
                 ],
             ]);
@@ -344,6 +356,7 @@ class AiGatewayService
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
+                    ...$this->programmingMetadata($options),
                     'decision_receipt' => $decisionReceipt,
                 ],
             ]);
@@ -400,6 +413,7 @@ class AiGatewayService
                         'execution_plan' => $prompt->executionPlan,
                         'skills_activated' => $prompt->activatedSkills,
                         'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
+                        ...$this->programmingMetadata($options),
                     ],
                 ]);
 
@@ -979,6 +993,35 @@ PROMPT;
         ];
     }
 
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function programmingMetadata(array $options): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $messagePlan = is_array($payload['programming_message_plan'] ?? null)
+            ? $payload['programming_message_plan']
+            : [];
+        $dispatch = is_array($payload['programming_dispatch'] ?? null)
+            ? $payload['programming_dispatch']
+            : [];
+
+        return array_filter([
+            'programming_profile' => data_get($payload, 'programming_profile'),
+            'programming_session_plan' => data_get($payload, 'programming_session_plan'),
+            'programming_message_plan' => data_get($payload, 'programming_message_plan'),
+            'programming_dispatch' => data_get($payload, 'programming_dispatch'),
+            'programming_repair' => data_get($payload, 'programming_repair'),
+            'programming_profile_context' => data_get($payload, 'programming_profile_context')
+                ?: data_get($messagePlan, 'policy_profile.profile_context')
+                ?: data_get($dispatch, 'profile_context'),
+            'programming_execution_policy' => data_get($payload, 'programming_execution_policy')
+                ?: data_get($messagePlan, 'policy_profile.execution_policy')
+                ?: data_get($dispatch, 'execution_policy'),
+        ], fn (mixed $value): bool => $value !== null);
+    }
+
     private function optionsWithResolvedRuntime(array $options, string $threadId, string $sessionId, ?string $compactionId = null, ?string $handoffId = null): array
     {
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
@@ -1087,7 +1130,7 @@ PROMPT;
             return $this->providerAllowedForInvocation((string) $manualProvider, $options, explicitProvider: true);
         }
 
-        $candidate = $this->decide->candidateProvider($options, $this->runtimeSettings->defaultProvider());
+        $candidate = $this->decide->operationalDecision($options)->selectedProvider();
 
         return $this->providerAllowedForInvocation($candidate, $options, explicitProvider: false);
     }
@@ -1117,6 +1160,48 @@ PROMPT;
         }
 
         return $this->automaticFallbackProvider($options);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function enforceFairModeProvider(array $payload, string $provider): array
+    {
+        if (! $this->fairClaude->isFairPayload($payload)) {
+            return $payload;
+        }
+
+        if ($provider !== FairClaudePolicy::PROVIDER_LOCK) {
+            $violation = $this->fairClaude->violation(
+                message: 'Fair Claude mode requires provider claude_cli.',
+                details: ['provider' => $provider],
+            );
+
+            throw new RuntimeException(FairClaudePolicy::ERROR_CODE.': '.$violation['message']);
+        }
+
+        return array_merge($payload, [
+            'fair_mode' => $this->fairClaude->metadataFromPayload($payload),
+            'decision_mode' => 'manual_override',
+            'operator_requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+            'requested_provider' => FairClaudePolicy::PROVIDER_LOCK,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function enforceFairModeModel(array $payload, string $provider, ?string $model): void
+    {
+        if (! $this->fairClaude->isFairPayload($payload)) {
+            return;
+        }
+
+        $violation = $this->fairClaude->validateInvocation($provider, $model, $payload);
+        if (! (bool) ($violation['ok'] ?? false)) {
+            throw new RuntimeException(FairClaudePolicy::ERROR_CODE.': '.(string) ($violation['message'] ?? 'Fair Claude mode violation.'));
+        }
     }
 
     private function providerFallbackReason(string $candidateProvider, string $selectedProvider, array $options): string

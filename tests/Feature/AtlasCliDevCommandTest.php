@@ -65,8 +65,41 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertArrayNotHasKey('context_refs', $payload['open_brain_preview']);
         $this->assertContains('dev-quality-gate', $payload['activated_skills']);
         $this->assertContains('--skill=dev-quality-gate', $payload['chat_command']);
+        $this->assertSame('dev_repair_executor', data_get($payload, 'dev_execution_plan.programming_session_plan.executor_decision.executor'));
+        $this->assertSame('dev_repair_executor', data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.execution_policy.executor_preference'));
+        $this->assertSame(3, data_get($payload, 'dev_execution_plan.programming_session_plan.execution_profile.max_iterations'));
         $this->assertSame('passed', data_get($payload, 'dev_execution_plan.quality_gate_policy.required_final_status'));
         $this->assertSame('plan_validate_execute', data_get($payload, 'dev_execution_plan.quality_gate_policy.procedure'));
+    }
+
+    public function test_plan_only_forge_uses_programming_orchestrator_max_profile(): void
+    {
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['implementar', 'fluxo', 'dificil'],
+            '--workspace' => $this->workspace,
+            '--provider' => 'codex_cli',
+            '--forge' => true,
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('forge', data_get($payload, 'workflow.programming_profile'));
+        $this->assertSame('programming.forge', data_get($payload, 'workflow.policy_profile_id'));
+        $this->assertSame('forge', data_get($payload, 'dev_execution_plan.programming_profile'));
+        $this->assertSame('AtlasProgrammingOrchestrator', data_get($payload, 'dev_execution_plan.orchestrator'));
+        $this->assertSame('forge', data_get($payload, 'dev_execution_plan.programming_session_plan.programming_profile'));
+        $this->assertSame('engineering_harness', data_get($payload, 'dev_execution_plan.programming_session_plan.executor_decision.executor'));
+        $this->assertSame('engineering_harness', data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.execution_policy.executor_preference'));
+        $this->assertSame('codex_cli', data_get($payload, 'dev_execution_plan.programming_session_plan.operational_decision.provider_selection.selected_provider'));
+        $this->assertSame('evidence_required', data_get($payload, 'dev_execution_plan.programming_session_plan.execution_profile.done_policy'));
+        $this->assertSame(5, data_get($payload, 'dev_execution_plan.quality_gate_policy.max_iterations'));
+        $this->assertTrue(data_get($payload, 'dev_execution_plan.operator_options.auto_test'));
+        $this->assertTrue(data_get($payload, 'dev_execution_plan.operator_options.complete'));
+        $this->assertSame('required', data_get($payload, 'dev_execution_plan.operator_options.open_brain.mode'));
+        $this->assertContains('--auto-test', $payload['chat_command']);
+        $this->assertContains('--require-open-brain', $payload['chat_command']);
     }
 
     public function test_operator_mode_promotes_dev_command_to_explicit_danger_runtime(): void
@@ -104,6 +137,150 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertSame('claude-opus-4-1', data_get($payload, 'workflow.selected_model.model'));
         $this->assertSame('claude-opus-4-1', data_get($payload, 'dev_execution_plan.operator_options.model'));
         $this->assertContains('--model=claude-opus-4-1', $payload['chat_command']);
+    }
+
+    public function test_plan_only_claude_only_defaults_to_configured_opus_and_exposes_fair_metadata(): void
+    {
+        config([
+            'atlas.ai.providers.claude_cli.premium_model' => 'claude-opus-test',
+            'atlas.ai.providers.claude_cli.premium_model_label' => 'Claude Opus Test',
+            'atlas.ai.providers.claude_cli.allow_auto' => false,
+            'atlas.ai.providers.claude_cli.allow_manual' => true,
+        ]);
+
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['implementar', 'getter'],
+            '--workspace' => $this->workspace,
+            '--claude-only' => true,
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('claude_cli', data_get($payload, 'workflow.selected_provider'));
+        $this->assertSame('claude-opus-test', data_get($payload, 'workflow.selected_model.model'));
+        $this->assertSame('opus', data_get($payload, 'workflow.selected_model.alias'));
+        $this->assertTrue(data_get($payload, 'workflow.fair_mode.fair_mode'));
+        $this->assertTrue(data_get($payload, 'workflow.fair_mode.single_provider'));
+        $this->assertTrue(data_get($payload, 'workflow.fair_mode.fallback_disabled'));
+        $this->assertSame(['claude_cli'], data_get($payload, 'workflow.fair_mode.allowed_providers'));
+        $this->assertTrue(data_get($payload, 'dev_execution_plan.operator_options.single_provider'));
+        $this->assertTrue(data_get($payload, 'dev_execution_plan.operator_options.no_decide'));
+        $this->assertTrue(data_get($payload, 'dev_execution_plan.operator_options.fallback_disabled'));
+        $this->assertSame('passed', data_get($payload, 'dev_execution_plan.quality_gate_policy.required_final_status'));
+        $this->assertTrue(data_get($payload, 'dev_execution_plan.quality_gate_policy.deterministic_gate_required'));
+        $this->assertFalse(data_get($payload, 'dev_execution_plan.quality_gate_policy.unverified_counts_as_passed'));
+        $this->assertContains('--provider=claude_cli', $payload['chat_command']);
+        $this->assertContains('--model=claude-opus-test', $payload['chat_command']);
+        $this->assertStringContainsString('Atlas Fair Claude Mode', implode("\n", $payload['chat_command']));
+        $this->assertStringContainsString('Provider is locked to claude_cli.', implode("\n", $payload['chat_command']));
+    }
+
+    public function test_plan_only_explicit_fair_flags_accept_claude_opus(): void
+    {
+        config([
+            'atlas.ai.providers.claude_cli.premium_model' => 'claude-opus-test',
+            'atlas.ai.providers.claude_cli.premium_model_label' => 'Claude Opus Test',
+        ]);
+
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['implementar', 'getter'],
+            '--workspace' => $this->workspace,
+            '--provider' => 'claude_cli',
+            '--model' => 'opus',
+            '--single-provider' => true,
+            '--no-decide' => true,
+            '--fallback-disabled' => true,
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('claude_cli', data_get($payload, 'workflow.selected_provider'));
+        $this->assertSame('claude-opus-test', data_get($payload, 'workflow.selected_model.model'));
+        $this->assertTrue(data_get($payload, 'dev_execution_plan.fair_mode.fair_mode'));
+    }
+
+    public function test_claude_only_rejects_codex_provider(): void
+    {
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['implementar', 'getter'],
+            '--workspace' => $this->workspace,
+            '--claude-only' => true,
+            '--provider' => 'codex_cli',
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertFalse(data_get($payload, 'ok'));
+        $this->assertSame('fair_mode_violation', data_get($payload, 'error'));
+        $this->assertSame('codex_cli', data_get($payload, 'details.provider'));
+    }
+
+    public function test_claude_only_rejects_gemini_provider(): void
+    {
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['implementar', 'getter'],
+            '--workspace' => $this->workspace,
+            '--claude-only' => true,
+            '--provider' => 'gemini_cli',
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertFalse(data_get($payload, 'ok'));
+        $this->assertSame('fair_mode_violation', data_get($payload, 'error'));
+        $this->assertSame('gemini_cli', data_get($payload, 'details.provider'));
+    }
+
+    public function test_claude_only_rejects_codex_model_alias(): void
+    {
+        config([
+            'atlas.ai.providers.codex_cli.premium_model' => 'gpt-5.5',
+            'atlas.ai.providers.codex_cli.premium_model_label' => 'GPT-5.5',
+        ]);
+
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['implementar', 'getter'],
+            '--workspace' => $this->workspace,
+            '--claude-only' => true,
+            '--model' => '5.5',
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertFalse(data_get($payload, 'ok'));
+        $this->assertSame('fair_mode_violation', data_get($payload, 'error'));
+        $this->assertSame('codex_cli', data_get($payload, 'details.model_provider'));
+    }
+
+    public function test_claude_only_respects_manual_provider_block(): void
+    {
+        config([
+            'atlas.ai.providers.claude_cli.allow_manual' => false,
+        ]);
+
+        $exitCode = Artisan::call('atlas:cli:dev', [
+            'task' => ['implementar', 'getter'],
+            '--workspace' => $this->workspace,
+            '--claude-only' => true,
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertFalse(data_get($payload, 'ok'));
+        $this->assertSame('atlas_manual_provider_blocked', data_get($payload, 'error'));
+        $this->assertSame('claude_cli', data_get($payload, 'provider'));
     }
 
     public function test_plan_only_automatic_provider_respects_codex_auto_block_even_when_codex_is_default(): void

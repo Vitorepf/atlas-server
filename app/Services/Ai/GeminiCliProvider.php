@@ -76,7 +76,7 @@ class GeminiCliProvider implements AiProvider
         $provider = $this->runtimeSettings->providerConfig('gemini_cli');
         $check = $this->checkBinary($this->key(), (string) ($provider['binary'] ?? 'gemini'));
 
-        return new AiProviderHealthCheck(
+        $check = new AiProviderHealthCheck(
             provider: $check->provider,
             status: $check->status,
             message: $check->message,
@@ -84,6 +84,22 @@ class GeminiCliProvider implements AiProvider
                 'required_model' => self::REQUIRED_MODEL,
                 'runtime_policy' => 'native_yolo',
             ]),
+        );
+
+        return $this->checkCliRuntimeContract(
+            check: $check,
+            binary: (string) ($provider['binary'] ?? 'gemini'),
+            helpArgs: ['--help'],
+            requiredTokens: [
+                '--model',
+                '--prompt',
+                '--output-format',
+                'stream-json',
+                '--approval-mode',
+                '--skip-trust',
+                '--include-directories',
+            ],
+            contractName: 'gemini_cli_provider.v1',
         );
     }
 
@@ -358,6 +374,7 @@ class GeminiCliProvider implements AiProvider
         ];
         $standaloneArgs = [
             '--sandbox',
+            '-s',
             '--no-sandbox',
             '--skip-trust',
             '--yolo',
@@ -367,45 +384,8 @@ class GeminiCliProvider implements AiProvider
             '--dangerously-skip-permissions',
             '--allow-dangerously-skip-permissions',
         ];
-        $sanitized = [];
-        $skipNext = false;
 
-        foreach (array_values($args) as $arg) {
-            if ($skipNext) {
-                $skipNext = false;
-
-                continue;
-            }
-
-            if (! is_string($arg) && ! is_numeric($arg)) {
-                continue;
-            }
-
-            $arg = trim((string) $arg);
-            if ($arg === '') {
-                continue;
-            }
-
-            if (in_array($arg, $valueArgs, true)) {
-                $skipNext = true;
-
-                continue;
-            }
-
-            if (in_array($arg, $standaloneArgs, true)) {
-                continue;
-            }
-
-            $blockedWithValue = collect($valueArgs)
-                ->contains(fn (string $name): bool => str_starts_with($arg, $name.'='));
-            if ($blockedWithValue) {
-                continue;
-            }
-
-            $sanitized[] = $arg;
-        }
-
-        return $sanitized;
+        return $this->sanitizeCliArgs($args, $valueArgs, $standaloneArgs);
     }
 
     /**

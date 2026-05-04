@@ -140,6 +140,15 @@ class EngineeringBenchmarkController extends Controller
         return response()->json($benchmarks->trendPayload($this->resolveSuite($suite), $data));
     }
 
+    public function showFairClaudeReport(Request $request, string $suite, EngineeringBenchmarkService $benchmarks): JsonResponse
+    {
+        $data = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+        ]);
+
+        return response()->json($benchmarks->fairClaudeReportPayload($this->resolveSuite($suite), $data));
+    }
+
     public function storeCase(
         Request $request,
         string $suite,
@@ -219,6 +228,23 @@ class EngineeringBenchmarkController extends Controller
             'provider' => ['nullable', 'string', 'max:80'],
             'model' => ['nullable', 'string', 'max:120'],
             'model_policy' => ['nullable', Rule::in(['fixed', 'off', 'auto', 'balanced', 'best_quality', 'best-quality', 'fastest', 'cheapest'])],
+            'fair_mode' => ['nullable', 'boolean'],
+            'claude_only' => ['nullable', 'boolean'],
+            'single_provider' => ['nullable', 'boolean'],
+            'no_decide' => ['nullable', 'boolean'],
+            'fallback_disabled' => ['nullable', 'boolean'],
+            'require_pass_without_human' => ['nullable', 'boolean'],
+            'claude_code_baseline' => ['nullable', Rule::in(['off', 'plan', 'run', true, false, 1, 0, '1', '0', 'true', 'false'])],
+            'claude_code_baseline_mode' => ['nullable', Rule::in(['off', 'plan', 'run'])],
+            'claude_code_baseline_model' => ['nullable', 'string', 'max:120'],
+            'claude_code_baseline_binary' => ['nullable', 'string', 'max:200'],
+            'claude_code_baseline_workspace' => ['nullable', 'string', 'max:1000'],
+            'claude_code_baseline_timeout' => ['nullable', 'integer', 'min:1', 'max:3600'],
+            'claude_code_baseline_validation_timeout' => ['nullable', 'integer', 'min:1', 'max:1800'],
+            'baseline_runner' => ['nullable', Rule::in(['off', 'plan', 'run'])],
+            'baseline_model' => ['nullable', 'string', 'max:120'],
+            'baseline_timeout_seconds' => ['nullable', 'integer', 'min:1', 'max:3600'],
+            'baseline_validation_timeout_seconds' => ['nullable', 'integer', 'min:1', 'max:1800'],
             'permission' => ['nullable', Rule::in(['auto', 'read', 'write', 'danger'])],
             'sandbox' => ['nullable', Rule::in(['workspace', 'worktree', 'docker'])],
             'docker_service' => ['nullable', 'string', 'max:120'],
@@ -275,6 +301,11 @@ class EngineeringBenchmarkController extends Controller
     public function showRun(AtlasEngineeringBenchmarkRun $benchmarkRun, EngineeringBenchmarkService $benchmarks): JsonResponse
     {
         return response()->json($benchmarks->runPayload($benchmarkRun));
+    }
+
+    public function replayManifest(AtlasEngineeringBenchmarkRun $benchmarkRun, EngineeringBenchmarkService $benchmarks): JsonResponse
+    {
+        return response()->json($benchmarks->replayManifestPayload($benchmarkRun));
     }
 
     public function refreshCorpus(string $suite, EngineeringBenchmarkService $benchmarks): JsonResponse

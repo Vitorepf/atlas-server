@@ -3,13 +3,16 @@
 namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringControlResult;
+use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
 use App\Models\AtlasTask;
 use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\FairClaudePolicy;
 use App\Services\Tools\AtlasToolGateService;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -70,6 +73,13 @@ class EngineeringHarnessRunnerService
         $dockerOptions = $this->dockerOptions($options);
         $providerRuntimeOptions = $this->providerRuntimeOptions($options);
         $replay = is_array($options['replay'] ?? null) ? $options['replay'] : null;
+        $fairModeOptions = $this->fairModeOptions($options);
+        [$requestedProvider, $requestedModel, $requestedModelPolicy] = $this->fairProviderRequest(
+            $requestedProvider,
+            $requestedModel,
+            $requestedModelPolicy,
+            $fairModeOptions,
+        );
 
         $task->loadMissing(['project', 'projectStep']);
         $contract = $this->contracts->forTask($task);
@@ -154,6 +164,7 @@ class EngineeringHarnessRunnerService
                 'docker' => $dockerOptions,
                 'provider_runtime' => $providerRuntimeOptions,
                 'replay' => $replay,
+                'fair_mode' => $fairModeOptions,
             ],
             'harnessability_score' => (int) ($harnessability['score'] ?? 0),
             'status' => 'preparing',
@@ -183,6 +194,7 @@ class EngineeringHarnessRunnerService
                 'harnessability' => $harnessability,
                 'blueprint_snapshot' => $snapshot,
                 'replay' => $replay,
+                'fair_mode' => $fairModeOptions,
             ],
         ]);
 
@@ -246,6 +258,7 @@ class EngineeringHarnessRunnerService
                 'complete' => (bool) ($options['complete'] ?? false),
                 'max_attempts' => $maxAttempts,
                 'critical' => (bool) ($options['critical'] ?? false),
+                'fair_mode' => $fairModeOptions,
             ], $workspacePlan, $providerRuntimePlan);
 
             $attempt = $this->syncProviderAttempts($run->refresh(), $attempt, $providerRun, $provider);
@@ -327,6 +340,7 @@ class EngineeringHarnessRunnerService
                 'score_components' => $scoring['components'] ?? [],
                 'blocking_reasons' => $scoring['blocking_reasons'] ?? [],
                 'provider_run' => $providerRun ? $this->compactProviderPayload($providerRun) : null,
+                'fair_mode_result' => data_get($providerRun, 'decoded.fair_mode_result'),
                 'isolated_patch_apply' => $patchApply,
             ]),
         ])->save();
@@ -1357,6 +1371,20 @@ class EngineeringHarnessRunnerService
             $hostCommand[] = '--critical';
         }
 
+        $fairMode = is_array($providerOptions['fair_mode'] ?? null) ? $providerOptions['fair_mode'] : [];
+        if ((bool) ($fairMode['claude_only'] ?? false)) {
+            $hostCommand[] = '--claude-only';
+        }
+        if ((bool) ($fairMode['single_provider'] ?? false)) {
+            $hostCommand[] = '--single-provider';
+        }
+        if ((bool) ($fairMode['no_decide'] ?? false)) {
+            $hostCommand[] = '--no-decide';
+        }
+        if ((bool) ($fairMode['fallback_disabled'] ?? false)) {
+            $hostCommand[] = '--fallback-disabled';
+        }
+
         $permission = (string) ($providerOptions['permission'] ?? 'auto');
         $hostCommand[] = '--permission='.$permission;
         if (in_array($permission, ['write', 'danger'], true)) {
@@ -1670,6 +1698,8 @@ class EngineeringHarnessRunnerService
             'autonomy_policy' => data_get($run->metadata, 'autonomy_policy'),
             'model_selection' => data_get($run->metadata, 'model_policy') ?: data_get($run->provider_strategy_json, 'model_policy'),
             'replay' => data_get($run->metadata, 'replay'),
+            'fair_mode' => data_get($run->metadata, 'fair_mode'),
+            'fair_mode_result' => data_get($run->metadata, 'fair_mode_result'),
             'workspace' => [
                 'mode' => data_get($run->metadata, 'workspace_plan.mode'),
                 'status' => data_get($run->metadata, 'workspace_plan.status'),
@@ -1725,6 +1755,7 @@ class EngineeringHarnessRunnerService
                 'diff_hash' => $patch->diff_hash,
                 'diff_excerpt' => $patch->diff_excerpt,
                 'diff_path' => $patch->diff_path,
+                'integrity' => $this->patchArtifactIntegrity($patch),
                 'changed_files' => $patch->changed_files_json,
                 'created_files' => $patch->created_files_json,
                 'deleted_files' => $patch->deleted_files_json,
@@ -1815,6 +1846,40 @@ class EngineeringHarnessRunnerService
             'timeline' => $this->timeline($run),
             'started_at' => $run->started_at?->toJSON(),
             'finished_at' => $run->finished_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function patchArtifactIntegrity(AtlasEngineeringPatchArtifact $patch): array
+    {
+        $path = is_string($patch->diff_path) ? trim($patch->diff_path) : '';
+        if ($path === '') {
+            return [
+                'checked' => true,
+                'exists' => false,
+                'hash_matches' => $patch->diff_hash === null,
+                'reason' => $patch->diff_hash === null ? 'empty_diff' : 'diff_path_missing',
+            ];
+        }
+
+        if (! File::exists($path)) {
+            return [
+                'checked' => true,
+                'exists' => false,
+                'hash_matches' => false,
+                'reason' => 'diff_path_not_found',
+            ];
+        }
+
+        $actualHash = hash('sha256', File::get($path));
+
+        return [
+            'checked' => true,
+            'exists' => true,
+            'hash_matches' => $patch->diff_hash === null || hash_equals((string) $patch->diff_hash, $actualHash),
+            'sha256' => $actualHash,
         ];
     }
 
@@ -2465,6 +2530,9 @@ class EngineeringHarnessRunnerService
             'phase' => data_get($providerRun, 'decoded.phase'),
             'ok' => data_get($providerRun, 'decoded.ok'),
             'completion_status' => data_get($providerRun, 'decoded.completion.status'),
+            'fair_mode_result' => data_get($providerRun, 'decoded.fair_mode_result'),
+            'fair_mode' => data_get($providerRun, 'decoded.dev_execution_plan.fair_mode'),
+            'quality_gate_policy' => data_get($providerRun, 'decoded.dev_execution_plan.quality_gate_policy'),
             'dev_plan_id' => data_get($providerRun, 'decoded.dev_execution_plan.plan_id'),
             'provider_runs' => collect((array) data_get($providerRun, 'decoded.provider_runs', []))
                 ->filter(fn (mixed $entry): bool => is_array($entry))
@@ -2487,6 +2555,54 @@ class EngineeringHarnessRunnerService
             'exit_code' => $providerRun['exit_code'] ?? null,
             'stdout_excerpt' => isset($providerRun['stdout']) ? Str::limit((string) $providerRun['stdout'], 1200) : null,
             'stderr_excerpt' => isset($providerRun['stderr']) ? Str::limit((string) $providerRun['stderr'], 1200) : null,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,bool>
+     */
+    private function fairModeOptions(array $options): array
+    {
+        $claudeOnly = (bool) ($options['claude_only'] ?? false);
+        $singleProvider = (bool) ($options['single_provider'] ?? false) || $claudeOnly;
+        $noDecide = (bool) ($options['no_decide'] ?? false) || $claudeOnly;
+        $fallbackDisabled = (bool) ($options['fallback_disabled'] ?? false) || $claudeOnly;
+        $fairMode = (bool) ($options['fair_mode'] ?? false)
+            || $claudeOnly
+            || ($singleProvider && $noDecide && $fallbackDisabled);
+
+        return [
+            'fair_mode' => $fairMode,
+            'claude_only' => $claudeOnly,
+            'single_provider' => $fairMode,
+            'no_decide' => $fairMode,
+            'fallback_disabled' => $fairMode,
+            'require_pass_without_human' => $fairMode && (bool) ($options['require_pass_without_human'] ?? true),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $fairMode
+     * @return array{0:?string,1:?string,2:string}
+     */
+    private function fairProviderRequest(?string $provider, ?string $model, string $modelPolicy, array $fairMode): array
+    {
+        if (! (bool) ($fairMode['fair_mode'] ?? false)) {
+            return [$provider, $model, $modelPolicy];
+        }
+
+        if ($provider !== null && $provider !== FairClaudePolicy::PROVIDER_LOCK) {
+            throw new \InvalidArgumentException(FairClaudePolicy::ERROR_CODE.': Fair Claude benchmark requires provider '.FairClaudePolicy::PROVIDER_LOCK.'.');
+        }
+        if ($model !== null && ! str_contains(strtolower($model), FairClaudePolicy::MODEL_LOCK)) {
+            throw new \InvalidArgumentException(FairClaudePolicy::ERROR_CODE.': Fair Claude benchmark requires Claude Opus model.');
+        }
+
+        return [
+            FairClaudePolicy::PROVIDER_LOCK,
+            $model ?: FairClaudePolicy::MODEL_LOCK,
+            'fixed',
         ];
     }
 

@@ -102,13 +102,15 @@ Provider Projections controladas
 | Hybrid Memory Retrieval | Servicos Atlas + Postgres | Recall provider-safe entre registry, verbatim e notas semanticas com fallback local |
 | Provider Projections | Artefatos gerados | Projecoes locais para ferramentas externas; nunca sao fonte primaria |
 | Open Brain API/CLI | API + CLI + audit log | Exporta context packs Atlas para ferramentas locais/remotas com rastreabilidade |
+| Obsidian / AtlasVault | Vault markdown opcional | Camada humana bidirecional de notas, curadoria, backlinks e espelho gerenciado; nunca fonte primaria |
 
 ### Politica De Fonte Da Verdade
 
 - Atlas e a fonte de verdade da memoria operacional.
 - Docs canonicos do repo sao a fonte de verdade para arquitetura, ADRs e playbooks.
 - Postgres e a fonte de verdade para estado vivo, indices, auditoria, runs e relacoes.
-- `CLAUDE.md`, `AGENTS.md`, Obsidian, Cursor, Claude, Codex e ChatGPT sao consumidores ou superficies auxiliares.
+- `CLAUDE.md`, `AGENTS.md`, Obsidian/AtlasVault, Cursor, Claude, Codex e ChatGPT sao consumidores ou superficies auxiliares.
+- Obsidian/AtlasVault segue o contrato canonico de `obsidian-atlas-vault.md`: import/export bidirecional seguro, com privacy, frontmatter, backlinks e review.
 - Conversa de IA nao vira memoria canonica sem promocao explicita, revisavel e auditavel.
 - Provider projections podem ser regeneradas a partir do Atlas; elas nao devem ser editadas como se fossem memoria primaria.
 - Embeddings externos exigem opt-in explicito e privacy policy; ChromaDB, Streamable HTTP completo/SSE e sync multiusuario continuam fora desta entrega.
@@ -2876,7 +2878,7 @@ Validacao executada:
 - `./bin/atlas open-brain mcp --describe --json`
 - `./bin/atlas open-brain mcp --once='{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`
 - `./bin/atlas open-brain mcp --once='{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"atlas_memory_maintenance_status","arguments":{"workspace":"/Users/vitorepf/Develop/atlas/atlas-server"}}}'`
-- `./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json`
+- `./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json` -> `status=ready`, `memory_quality.status=ready`, `memory_quality.trend.status=stable`, `memory_quality.trend.drivers=[]`, `memory_quality_snapshot.status=recorded`, `mcp_health.overall_status=ready`.
 - `./bin/atlas memory projection status --target=all --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json`
 - `/opt/homebrew/bin/php artisan test` -> `755 passed`, `5 skipped`, `4590 assertions`
 - `git diff --check`
@@ -3083,6 +3085,257 @@ Limites preservados:
 - nao faz projection apply automatico;
 - nao cria sync remoto multiusuario.
 
+### Fase 4AM - Learning Promotion + Memory Quality Scorecard
+
+Status: **implementada em 2026-05-03 no `atlas-server`**.
+
+Objetivo entregue: tornar o loop de aprendizado mais automatico sem perder
+governanca. O Atlas agora promove automaticamente, durante `memory maintain`,
+apenas `ai_memory_deltas` ja revisados como `accepted`, e calcula um scorecard
+read-only de qualidade da memoria para mostrar se o registry esta pronto,
+seguro e limpo o bastante para alimentar Open Brain.
+
+Decisao canonica:
+
+- AtlasVault/Obsidian continua como camada humana separada; esta fase nao toca
+  em `VaultFileStore`, frontmatter do vault nem notas gerenciadas;
+- deltas `accepted` sao aprendizado revisado e podem virar memoria canonica
+  automaticamente;
+- deltas `pending` sem confirmacao humana so podem ser promovidos com
+  `--auto-promote-candidates` e confianca minima explicita;
+- scorecard de memoria e read-only e nao substitui governance, privacy ou
+  review queue;
+- scorecard filtrado por workspace calcula relacoes/feedback pelo conjunto
+  ativo daquele contexto, sem vazar problemas de outro workspace;
+- snapshots persistidos registram tendencia operacional do scorecard sem virar
+  fonte primaria de memoria;
+- `latest_snapshot` no scorecard segue apenas o contexto de snapshot, sem
+  confundir `status` de memoria (`active`) com `status` historico
+  (`ready`/`watch`/`critical`);
+- `atlas_memory_maintenance_status` inclui `memory_quality`, para MCP/Claude/
+  Codex enxergarem qualidade real da memoria antes de confiar no contexto.
+
+Arquivos criados/atualizados nesta fase:
+
+- `atlas-server/app/Services/Ai/AtlasMemoryLearningPromotionService.php`
+- `atlas-server/app/Services/Ai/AtlasMemoryQualityService.php`
+- `atlas-server/app/Models/AtlasMemoryQualitySnapshot.php`
+- `atlas-server/app/Services/Ai/AtlasMemoryMaintenanceService.php`
+- `atlas-server/app/Services/Ai/AtlasOpenBrainMcpService.php`
+- `atlas-server/app/Console/Commands/AtlasMemoryMaintenanceCommand.php`
+- `atlas-server/app/Console/Commands/AtlasMemoryQualityCommand.php`
+- `atlas-server/app/Http/Controllers/AtlasMemoryController.php`
+- `atlas-server/app/Http/Controllers/AtlasMemoryMaintenanceController.php`
+- `atlas-server/app/Http/Requests/IndexAtlasMemoryQualitySnapshotRequest.php`
+- `atlas-server/app/Http/Requests/RunAtlasMemoryMaintenanceRequest.php`
+- `atlas-server/database/migrations/2026_05_03_190000_create_atlas_memory_quality_snapshots_table.php`
+- `atlas-server/routes/api.php`
+- `atlas-server/bootstrap/app.php`
+- `atlas-server/bin/atlas`
+- `atlas-server/bin/atlas-completion.bash`
+- `atlas-server/tests/Feature/AtlasMemoryRegistryTest.php`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-contracts.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-runbook.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-maturity-dod.md`
+- `atlas-server/docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md`
+
+Validacao executada:
+
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasMemoryLearningPromotionService.php`
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasMemoryQualityService.php`
+- `/opt/homebrew/bin/php -l app/Models/AtlasMemoryQualitySnapshot.php`
+- `/opt/homebrew/bin/php -l app/Http/Requests/IndexAtlasMemoryQualitySnapshotRequest.php`
+- `/opt/homebrew/bin/php -l database/migrations/2026_05_03_190000_create_atlas_memory_quality_snapshots_table.php`
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasMemoryMaintenanceService.php`
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasOpenBrainMcpService.php`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasMemoryQualityCommand.php`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasMemoryMaintenanceCommand.php`
+- `/opt/homebrew/bin/php -l app/Http/Controllers/AtlasMemoryController.php`
+- `/opt/homebrew/bin/php -l app/Http/Requests/RunAtlasMemoryMaintenanceRequest.php`
+- `/opt/homebrew/bin/php artisan migrate --path=database/migrations/2026_05_03_190000_create_atlas_memory_quality_snapshots_table.php`
+- `/opt/homebrew/bin/php artisan test --filter='memory_quality_snapshots|memory_maintenance_records_quality_snapshot|memory_quality_scorecard'` -> 4 testes, 32 assercoes.
+- `/opt/homebrew/bin/php artisan test --filter=AtlasMemoryRegistryTest` -> 42 testes, 513 assercoes.
+- `/opt/homebrew/bin/php artisan list atlas:memory --raw | rg "atlas:memory:(quality|maintain|recall)"`
+- `./bin/atlas memory quality --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json` -> `status=ready`, `score=97`, `active=5`, `provider_safe_active=5`.
+- `./bin/atlas memory quality snapshot --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json` -> snapshot CLI registrado com `source_type=cli`.
+- `./bin/atlas memory quality history --workspace=/Users/vitorepf/Develop/atlas/atlas-server --days=30 --json` -> historico consultavel com snapshots persistidos.
+- `./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --no-sync --no-index-code --dry-run --json` -> `status=dry_run_ready`, `learning_promotion.status=dry_run_ready`, `memory_quality.status=ready`, `mcp_health.overall_status=ready`.
+- `./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json` -> `status=ready`, `learning_promotion.status=no_eligible_learning`, `memory_quality.status=ready`, `memory_quality.score=97`, `memory_quality_snapshot.status=recorded`, `mcp_health.overall_status=ready`.
+- `git diff --check` em `atlas-server`.
+
+Fica para fases futuras:
+
+- UI dedicada para detalhar scorecard/series historicas se isso for necessario
+  no app;
+- auto-promocao de candidatos pending baseada em multiplas evidencias
+  independentes;
+- agregacao diaria/anomalia sobre snapshots quando o volume real justificar;
+- escrita MCP continua bloqueada ate haver human gate dedicado.
+
+### Fase 4AN - Memory Quality-Aware Open Brain Injection
+
+Status: **implementada em 2026-05-03 no `atlas-server`**.
+
+Objetivo entregue: fazer o Open Brain automatico usar as metricas reais de
+qualidade da memoria antes de enviar contexto para Claude/Codex. A injeção agora
+inclui um `Memory Quality Gate` compacto no prompt e salva
+`summary.memory_quality` na metadata/auditoria, permitindo que `atlas dev`,
+`atlas continue`, `atlas chat` e o app Atlas AI saibam se o recall esta pronto,
+degradado ou inseguro.
+
+Decisao canonica:
+
+- memory quality nao substitui privacy, governance ou review queue;
+- o provider recebe apenas status/score/contagens/issues compactas, nao dados
+  brutos de snapshot;
+- o `context_pack_hash` usa somente o resumo compacto de qualidade e ignora
+  timestamps volateis como `generated_at`;
+- `required` falha fechado quando a qualidade esta `critical`, `empty` ou
+  `not_migrated`;
+- `auto` segue fail-open/degraded com warnings para nao travar conversa simples;
+- a config `ATLAS_OPEN_BRAIN_INJECTION_INCLUDE_MEMORY_QUALITY` pode desligar
+  essa parte sem desligar Open Brain inteiro;
+- esta fase nao toca AtlasVault/Obsidian, embeddings, ChromaDB, MCP write tools
+  ou projection apply automatico.
+
+Arquivos criados/atualizados nesta fase:
+
+- `atlas-server/app/Services/Ai/AtlasOpenBrainContextInjectionService.php`
+- `atlas-server/config/atlas.php`
+- `atlas-server/tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php`
+- `atlas-server/docs/engineering-knowledge-base/open-brain-context-injection.md`
+- `atlas-server/docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md`
+
+Validacao esperada:
+
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasOpenBrainContextInjectionService.php`
+- `/opt/homebrew/bin/php artisan test --filter=AtlasOpenBrainContextInjectionServiceTest`
+- `/opt/homebrew/bin/php artisan test --filter=open_brain_context_injection`
+- `./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json`
+
+Fica para fases futuras:
+
+- exibir `memory_quality` do trace em mais superficies visuais do app;
+- criar notificacoes visuais quando o app detectar regressao recorrente em
+  varias manutencoes.
+
+### Fase 4AO - Memory Quality Trend Guard
+
+Status: **implementada em 2026-05-03 no `atlas-server`**.
+
+Objetivo entregue: transformar snapshots persistidos de qualidade em sinal
+operacional para o Open Brain. O scorecard agora compara o score atual com o
+ultimo snapshot, compara o ultimo snapshot com o anterior e resume a janela
+recente como `stable`, `improved`, `watch_regressed` ou `regressed`.
+
+Decisao canonica:
+
+- tendencia e derivada de `atlas_memory_quality_snapshots`, nao de memoria
+  solta em prompt;
+- `scorecard.trend` e `history.summary.trend_status` sao read-only;
+- regressao de tendencia gera warnings no Open Brain automatico, mas nao falha
+  fechado sozinha;
+- `required` continua falhando fechado apenas para memoria `critical`, `empty`
+  ou `not_migrated`;
+- o prompt recebe apenas resumo compacto da tendencia, sem snapshot bruto;
+- recomendacoes incluem `atlas memory quality history` quando ha regressao;
+- esta fase nao toca AtlasVault/Obsidian, embeddings, ChromaDB, vector search
+  ou escrita remota MCP.
+
+Arquivos atualizados nesta fase:
+
+- `atlas-server/app/Services/Ai/AtlasMemoryQualityService.php`
+- `atlas-server/app/Services/Ai/AtlasOpenBrainContextInjectionService.php`
+- `atlas-server/app/Console/Commands/AtlasMemoryQualityCommand.php`
+- `atlas-server/tests/Feature/AtlasMemoryRegistryTest.php`
+- `atlas-server/tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php`
+- `atlas-server/docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md`
+- `atlas-server/docs/engineering-knowledge-base/open-brain-context-injection.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-runbook.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-contracts.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-maturity-dod.md`
+
+Validacao executada:
+
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasOpenBrainContextInjectionService.php`
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasMemoryQualityService.php`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasMemoryQualityCommand.php`
+- `/opt/homebrew/bin/php artisan test --filter=AtlasOpenBrainContextInjectionServiceTest` -> 27 testes, 65 assercoes.
+- `/opt/homebrew/bin/php artisan test --filter='memory_quality_snapshots|memory_quality_scorecard_flags_regressed'` -> 2 testes, 17 assercoes.
+- `/opt/homebrew/bin/php artisan test --filter=AtlasMemoryRegistryTest` -> 42 testes, 513 assercoes.
+- `./bin/atlas memory quality --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json` -> `status=ready`, `score=97`, `trend.status=stable`.
+- `./bin/atlas dev "validar trend guard de qualidade da memoria" --workspace=/Users/vitorepf/Develop/atlas/atlas-server --provider=codex_cli --plan-only --json` -> `open_brain_preview.status=injected`, `memory_quality.status=ready`, `memory_quality.trend.status=stable`, `warnings=[]`.
+- `./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json` -> `status=ready`, `knowledge_sync.updated=1`, `code_index.symbol_count=9171`, `memory_quality.status=ready`, `memory_quality.trend.status=stable`, `memory_quality_snapshot.status=recorded`, `mcp_health.overall_status=ready`.
+- `git diff --check` em `atlas-server`.
+
+Fica para fases futuras:
+
+- alertas agregados quando varias manutencoes consecutivas ficarem
+  `watch_regressed`/`regressed`;
+- correlacionar regressao de qualidade com feedback negativo de uso real.
+
+### Fase 4AP - Memory Quality Regression Diagnostics And App Trend View
+
+Status: **implementada em 2026-05-03 no `atlas-server` e `atlas-app`**.
+
+Objetivo entregue: tornar regressao de qualidade acionavel. O scorecard agora
+inclui `trend.drivers`, derivados do ultimo snapshot persistido, e a tela
+`Atlas Open Brain` mostra score, tendencia, drivers e historico recente de
+snapshots. Assim, operador e IA nao veem apenas que houve regressao; veem se a
+queda veio de provider-safety, completude, feedback negativo, conflitos,
+backlog de aprendizados aceitos, fontes orfas ou queda direta de score.
+
+Decisao canonica:
+
+- drivers sao diagnostico operacional, nao nova memoria canonica;
+- drivers sao calculados por comparacao entre scorecard atual e ultimo
+  snapshot persistido;
+- drivers entram no resumo compacto do Open Brain e no prompt como
+  `trend_drivers`, sem expor snapshot bruto;
+- CLI, API, Open Brain e app usam o mesmo scorecard;
+- app consome `GET /ai/memory/quality` e `GET /ai/memory/quality/history`;
+- `memory maintain` continua sendo a rotina que sincroniza docs, indexa codigo
+  e registra snapshots;
+- esta fase nao toca AtlasVault/Obsidian, embeddings, ChromaDB, vector search
+  ou escrita remota MCP.
+
+Arquivos atualizados nesta fase:
+
+- `atlas-server/app/Services/Ai/AtlasMemoryQualityService.php`
+- `atlas-server/app/Services/Ai/AtlasOpenBrainContextInjectionService.php`
+- `atlas-server/app/Console/Commands/AtlasMemoryQualityCommand.php`
+- `atlas-server/tests/Feature/AtlasMemoryRegistryTest.php`
+- `atlas-server/tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php`
+- `atlas-app/app/open-brain.tsx`
+- `atlas-app/lib/api/client.ts`
+- `atlas-app/lib/openBrain.ts`
+- `atlas-app/scripts/open-brain.test.ts`
+- `atlas-server/docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md`
+- `atlas-server/docs/engineering-knowledge-base/open-brain-context-injection.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-runbook.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-contracts.md`
+- `atlas-server/docs/engineering-knowledge-base/memory-core-maturity-dod.md`
+
+Validacao executada:
+
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasMemoryQualityService.php`
+- `/opt/homebrew/bin/php -l app/Services/Ai/AtlasOpenBrainContextInjectionService.php`
+- `/opt/homebrew/bin/php -l app/Console/Commands/AtlasMemoryQualityCommand.php`
+- `/opt/homebrew/bin/php artisan test --filter='memory_quality_scorecard_flags_regressed|AtlasOpenBrainContextInjectionServiceTest'` -> 28 testes, 72 assercoes.
+- `/opt/homebrew/bin/php artisan test --filter=AtlasMemoryRegistryTest` -> 42 testes, 514 assercoes.
+- `npm run test:memory` em `atlas-app` -> memory/open-brain helpers passaram.
+- `npm run typecheck` em `atlas-app`.
+- `./bin/atlas memory quality --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json` -> `status=ready`, `score=97`, `trend.status=stable`, `drivers=[]`.
+- `git diff --check` em `atlas-server` e `atlas-app`.
+- `./bin/atlas memory maintain --workspace=/Users/vitorepf/Develop/atlas/atlas-server --json`
+
+Fica para fases futuras:
+
+- alertas agregados quando varias manutencoes consecutivas ficarem
+  `watch_regressed`/`regressed`;
+- correlacionar regressao com eventos especificos de uso real e traces de IA;
+- graficos compactos se a serie historica ficar grande o bastante.
+
 ---
 
 ## 0. Decisao Executiva
@@ -3099,7 +3352,7 @@ No Atlas, isso se traduz assim:
 
 ```text
 PostgreSQL = estado canonico, eventos, memoria estruturada, traces e recall verbatim
-AtlasVault = conhecimento narrativo, legivel por humano e IA
+AtlasVault = conhecimento narrativo, legivel por humano e IA, camada humana gerenciada
 Embeddings = busca semantica por significado
 Context Pack Builder = selecao do que entra no prompt
 Atlas AI Harness = injecao, roteamento, avaliacao e traces

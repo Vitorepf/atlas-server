@@ -6,11 +6,16 @@ use App\Http\Controllers\AiJobController;
 use App\Models\AiJob;
 use App\Models\AiJobAttempt;
 use App\Models\AiTrace;
+use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\AiCouncilCoordinator;
+use App\Services\Ai\Cli\AtlasCliQualityService;
 use App\Services\Ai\AiWorker;
+use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\AuditLogService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Mockery;
+use Mockery\MockInterface;
 use ReflectionClass;
 use Tests\TestCase;
 
@@ -171,6 +176,269 @@ class AiJobControlTest extends TestCase
 
         $this->assertSame(2, $attempt->attempt_number);
         $this->assertSame(2, $job->refresh()->attempts);
+    }
+
+    public function test_worker_programming_dispatch_update_closes_provider_execution_receipt(): void
+    {
+        $trace = $this->trace([
+            'metadata' => [
+                'programming_dispatch' => [
+                    'status' => 'selected',
+                    'dispatch_path' => 'ai_gateway_provider',
+                    'executor' => 'dev_repair_executor',
+                    'profile_context' => [
+                        'programming' => true,
+                        'forge' => false,
+                    ],
+                    'execution_policy' => [
+                        'executor_preference' => 'dev_repair_executor',
+                        'max_iterations' => 3,
+                    ],
+                ],
+            ],
+        ]);
+        $job = $this->job($trace, [
+            'provider' => 'claude_cli',
+            'payload' => [
+                'programming_dispatch' => [
+                    'status' => 'selected',
+                    'dispatch_path' => 'ai_gateway_provider',
+                    'executor' => 'dev_repair_executor',
+                    'profile_context' => [
+                        'programming' => true,
+                        'forge' => false,
+                    ],
+                    'execution_policy' => [
+                        'executor_preference' => 'dev_repair_executor',
+                        'max_iterations' => 3,
+                    ],
+                ],
+            ],
+        ])->load('trace');
+
+        $worker = (new ReflectionClass(AiWorker::class))->newInstanceWithoutConstructor();
+        $method = (new ReflectionClass(AiWorker::class))->getMethod('programmingDispatchUpdate');
+        $method->setAccessible(true);
+
+        $executed = $method->invoke($worker, $job, 'executed', 'claude_cli', 'response-hash-1');
+        $retrying = $method->invoke($worker, $job, 'retrying', 'claude_cli', null, 'provider_timeout');
+
+        $this->assertSame('executed', data_get($executed, 'programming_dispatch.status'));
+        $this->assertSame('claude_cli', data_get($executed, 'programming_dispatch.trace_provider'));
+        $this->assertSame('ai_gateway_provider', data_get($executed, 'programming_dispatch.dispatch_path'));
+        $this->assertNotNull(data_get($executed, 'programming_dispatch.completed_at'));
+        $this->assertSame('passed', data_get($executed, 'programming_completion.status'));
+        $this->assertSame('dev_repair_executor', data_get($executed, 'programming_completion.executor'));
+        $this->assertTrue((bool) data_get($executed, 'programming_completion.profile_context.programming'));
+        $this->assertSame('dev_repair_executor', data_get($executed, 'programming_completion.execution_policy.executor_preference'));
+        $this->assertSame('response-hash-1', data_get($executed, 'programming_completion.response_hash'));
+        $this->assertSame('retrying', data_get($retrying, 'programming_dispatch.status'));
+        $this->assertNull(data_get($retrying, 'programming_dispatch.completed_at'));
+        $this->assertSame('retrying', data_get($retrying, 'programming_completion.status'));
+        $this->assertSame('provider_timeout', data_get($retrying, 'programming_completion.error_code'));
+        $this->assertNotNull(data_get($retrying, 'programming_dispatch.updated_at'));
+    }
+
+    public function test_worker_native_dev_repair_executor_enqueues_repair_job_when_quality_fails(): void
+    {
+        $trace = $this->trace();
+        $job = $this->job($trace, [
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-test',
+            'payload' => [
+                'workspace_context' => [
+                    'workspace' => base_path(),
+                ],
+                'programming_dispatch' => [
+                    'status' => 'selected',
+                    'dispatch_path' => 'ai_gateway_provider',
+                    'executor' => 'dev_repair_executor',
+                ],
+                'programming_message_plan' => [
+                    'execution_profile' => [
+                        'complete' => true,
+                        'auto_test' => true,
+                        'max_iterations' => 3,
+                    ],
+                ],
+                'programming_repair' => [
+                    'enabled' => true,
+                    'status' => 'active',
+                    'complete_mode' => true,
+                    'max_iterations' => 3,
+                    'repair_when_status' => ['failed', 'needs_review'],
+                    'stop_when_status' => ['passed'],
+                ],
+            ],
+        ])->load('trace');
+        $attempt = AiJobAttempt::query()->create([
+            'ai_job_id' => $job->id,
+            'attempt_number' => 1,
+            'worker_id' => 'worker-1',
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-test',
+            'command' => [],
+            'prompt_hash' => hash('sha256', $job->prompt),
+            'status' => 'succeeded',
+            'started_at' => now(),
+            'metadata' => [],
+        ]);
+        $quality = [
+            'status' => 'failed',
+            'dirty_count' => 1,
+            'diff_hash' => 'diff-hash-1',
+            'completion_packet' => [
+                'tests' => [['command' => 'php artisan test', 'ok' => false]],
+                'risks' => ['tests failed'],
+            ],
+        ];
+
+        $this->mock(AtlasCliQualityService::class, function (MockInterface $mock) use ($quality): void {
+            $mock->shouldReceive('evaluate')
+                ->once()
+                ->withArgs(fn (string $workspace, bool $runTests): bool => $workspace === base_path() && $runTests)
+                ->andReturn($quality);
+        });
+        $this->mock(AtlasProgrammingOrchestrator::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('repairPrompt')
+                ->once()
+                ->with('pedido', Mockery::type('array'), 2, 3)
+                ->andReturn('repair prompt 2/3');
+        });
+
+        $worker = app(AiWorker::class);
+        $method = (new ReflectionClass(AiWorker::class))->getMethod('handleNativeProgrammingRepair');
+        $method->setAccessible(true);
+
+        $handled = $method->invoke($worker, $job, $attempt, new AiProviderResult(
+            ok: true,
+            output: 'saida inicial',
+            command: [],
+            exitCode: 0,
+            durationMs: 123,
+            stdout: 'saida inicial',
+            stderr: '',
+        ), 'response-hash-1');
+
+        $this->assertInstanceOf(AiJob::class, $handled);
+        $this->assertSame('queued', $trace->refresh()->status);
+        $this->assertSame('repairing', data_get($trace->metadata, 'programming_repair.status'));
+        $this->assertSame(2, data_get($trace->metadata, 'programming_repair.next_iteration'));
+        $this->assertSame('failed', data_get($trace->metadata, 'programming_completion.status'));
+        $this->assertSame('repairing', data_get($trace->metadata, 'programming_completion.repair.status'));
+        $this->assertSame(1, data_get($trace->metadata, 'programming_completion.repair.current_iteration'));
+        $this->assertSame(2, data_get($trace->metadata, 'programming_completion.repair.next_iteration'));
+        $this->assertSame(3, data_get($trace->metadata, 'programming_completion.repair.max_iterations'));
+        $this->assertSame('failed', data_get($trace->metadata, 'programming_completion.repair.last_quality_status'));
+        $this->assertSame('failed', data_get($trace->metadata, 'programming_completion.repair.history.0.status'));
+        $repairJob = AiJob::query()->where('id', '!=', $job->id)->firstOrFail();
+        $this->assertSame('queued', $repairJob->status);
+        $this->assertSame('repair prompt 2/3', $repairJob->prompt);
+        $this->assertSame(2, data_get($repairJob->payload, 'programming_repair.current_iteration'));
+        $this->assertSame('failed', data_get($repairJob->payload, 'programming_repair_history.0.status'));
+        $this->assertTrue((bool) data_get($repairJob->metadata, 'programming_repair_job'));
+    }
+
+    public function test_worker_native_dev_repair_executor_stops_when_quality_worsens(): void
+    {
+        $trace = $this->trace();
+        $job = $this->job($trace, [
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-test',
+            'payload' => [
+                'workspace_context' => [
+                    'workspace' => base_path(),
+                ],
+                'programming_dispatch' => [
+                    'status' => 'selected',
+                    'dispatch_path' => 'ai_gateway_provider',
+                    'executor' => 'dev_repair_executor',
+                ],
+                'programming_message_plan' => [
+                    'execution_profile' => [
+                        'complete' => true,
+                        'auto_test' => true,
+                        'max_iterations' => 3,
+                    ],
+                ],
+                'programming_repair' => [
+                    'enabled' => true,
+                    'status' => 'active',
+                    'complete_mode' => true,
+                    'current_iteration' => 2,
+                    'max_iterations' => 3,
+                    'previous_quality_status' => 'needs_review',
+                    'repair_when_status' => ['failed', 'needs_review'],
+                    'stop_when_status' => ['passed'],
+                    'stop_when_quality_worsens' => true,
+                ],
+                'programming_repair_history' => [
+                    [
+                        'iteration' => 1,
+                        'status' => 'needs_review',
+                        'diff_hash' => 'diff-hash-before',
+                        'recorded_at' => now()->subMinute()->toJSON(),
+                    ],
+                ],
+            ],
+        ])->load('trace');
+        $attempt = AiJobAttempt::query()->create([
+            'ai_job_id' => $job->id,
+            'attempt_number' => 1,
+            'worker_id' => 'worker-1',
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-test',
+            'command' => [],
+            'prompt_hash' => hash('sha256', $job->prompt),
+            'status' => 'succeeded',
+            'started_at' => now(),
+            'metadata' => [],
+        ]);
+
+        $this->mock(AtlasCliQualityService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('evaluate')
+                ->once()
+                ->andReturn([
+                    'status' => 'failed',
+                    'dirty_count' => 1,
+                    'diff_hash' => 'diff-hash-worse',
+                    'completion_packet' => [
+                        'tests' => [['command' => 'php artisan test', 'ok' => false]],
+                        'risks' => ['quality worsened'],
+                    ],
+                ]);
+        });
+        $this->mock(AtlasProgrammingOrchestrator::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('repairPrompt');
+        });
+
+        $worker = app(AiWorker::class);
+        $method = (new ReflectionClass(AiWorker::class))->getMethod('handleNativeProgrammingRepair');
+        $method->setAccessible(true);
+
+        $handled = $method->invoke($worker, $job, $attempt, new AiProviderResult(
+            ok: true,
+            output: 'saida de reparo pior',
+            command: [],
+            exitCode: 0,
+            durationMs: 123,
+            stdout: 'saida de reparo pior',
+            stderr: '',
+        ), 'response-hash-2');
+
+        $this->assertInstanceOf(AiJob::class, $handled);
+        $this->assertSame('failed', $trace->refresh()->status);
+        $this->assertSame('stopped', data_get($trace->metadata, 'programming_repair.status'));
+        $this->assertSame('quality_gate_worsened', data_get($trace->metadata, 'programming_repair.reason_if_stopped'));
+        $this->assertSame('blocked', data_get($trace->metadata, 'programming_completion.status'));
+        $this->assertSame('quality_gate_failed', data_get($trace->metadata, 'programming_completion.error_code'));
+        $this->assertSame('stopped', data_get($trace->metadata, 'programming_completion.repair.status'));
+        $this->assertSame(2, data_get($trace->metadata, 'programming_completion.repair.current_iteration'));
+        $this->assertSame('quality_gate_worsened', data_get($trace->metadata, 'programming_completion.repair.reason_if_stopped'));
+        $this->assertSame('needs_review', data_get($trace->metadata, 'programming_completion.repair.previous_quality_status'));
+        $this->assertSame('needs_review', data_get($trace->metadata, 'programming_completion.repair.history.0.status'));
+        $this->assertSame('failed', data_get($trace->metadata, 'programming_completion.repair.history.1.status'));
+        $this->assertSame(1, AiJob::query()->count());
     }
 
     private function trace(array $overrides = []): AiTrace

@@ -10,6 +10,7 @@ use App\Http\Requests\IndexAtlasVerbatimMemoryRequest;
 use App\Http\Requests\ApplyAtlasMemoryProviderProjectionRequest;
 use App\Http\Requests\AtlasMemoryProviderProjectionRequest;
 use App\Http\Requests\FeedbackAtlasMemoryUsageRequest;
+use App\Http\Requests\IndexAtlasMemoryQualitySnapshotRequest;
 use App\Http\Requests\PromoteAtlasMemoryDeltaRequest;
 use App\Http\Requests\PurgeAtlasMemoryProviderProjectionAuditRequest;
 use App\Http\Requests\ReviewAtlasVerbatimMemoryRequest;
@@ -36,6 +37,7 @@ use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\AtlasMemoryGovernanceService;
 use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\AtlasMemoryQualityService;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\AtlasMemoryReviewQueueService;
 use App\Services\Ai\AtlasMemoryUsageService;
@@ -44,6 +46,7 @@ use App\Services\Ai\AtlasProviderProjectionAuditService;
 use App\Services\Ai\AtlasProviderProjectionService;
 use App\Services\Ai\AtlasVerbatimMemoryService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -66,6 +69,56 @@ class AtlasMemoryController extends Controller
         return response()->json([
             'memory' => (new AtlasMemoryEntryResource($entry))->resolve(),
         ], 201);
+    }
+
+    public function quality(Request $request, AtlasMemoryQualityService $quality): JsonResponse
+    {
+        return response()->json([
+            'memory_quality' => $quality->scorecard([
+                'workspace' => $request->query('workspace'),
+                'scope_type' => $request->query('scope_type'),
+                'scope_id' => $request->query('scope_id'),
+                'project_id' => $request->query('project_id'),
+                'task_id' => $request->query('task_id'),
+                'engineering_run_id' => $request->query('engineering_run_id') ?: $request->query('run_id'),
+                'source_type' => $request->query('source_type'),
+                'status' => $request->query('status'),
+                'types' => array_values(array_filter((array) $request->query('type', []), 'is_string')),
+            ]),
+        ]);
+    }
+
+    public function qualityHistory(
+        IndexAtlasMemoryQualitySnapshotRequest $request,
+        AtlasMemoryQualityService $quality,
+    ): JsonResponse {
+        $data = $request->validated();
+
+        return response()->json([
+            'memory_quality_history' => $quality->history(
+                $data,
+                (int) ($data['days'] ?? 30),
+                (int) ($data['limit'] ?? 50),
+            ),
+        ]);
+    }
+
+    public function qualitySnapshot(
+        IndexAtlasMemoryQualitySnapshotRequest $request,
+        AtlasMemoryQualityService $quality,
+    ): JsonResponse {
+        $data = $request->validated();
+        $scorecard = $quality->scorecard($data);
+        $snapshot = $quality->recordSnapshot($scorecard, [
+            'workspace' => $data['workspace'] ?? null,
+            'source_type' => 'api',
+            'metadata' => (array) ($data['metadata'] ?? []),
+        ]);
+
+        return response()->json([
+            'memory_quality' => $scorecard,
+            'memory_quality_snapshot' => $snapshot ? $quality->snapshotPayload($snapshot) : null,
+        ], $snapshot ? 201 : 200);
     }
 
     public function show(AtlasMemoryEntry $memoryEntry): JsonResponse

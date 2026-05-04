@@ -18,17 +18,23 @@ capabilities:
   - api_contracts
   - cli_contracts
   - open_brain_context_injection
+  - obsidian_atlas_vault
 decisions:
   - Context packs devem carregar referencias pequenas e rastreaveis, nao dumps completos.
   - APIs e CLIs devem expor status e dry-run para operacao segura.
   - Contratos de refs sao parte da interface publica interna do Atlas.
   - Injecao automatica de Open Brain deve ser provider-safe, auditada e centralizada no backend.
+  - Obsidian/AtlasVault e camada humana bidirecional, nao fonte operacional primaria.
 maintenance:
   - Atualize este documento quando rotas, payloads, tabelas ou comandos mudarem.
   - Mantenha exemplos curtos e provider-safe.
 related_paths:
   - routes/api.php
   - app/Http/Controllers/AtlasMemoryController.php
+  - app/Console/Commands/AtlasVaultCommand.php
+  - app/Services/Semantic/AtlasVaultManagedNoteService.php
+  - app/Services/Semantic/AtlasVaultFrontmatterService.php
+  - app/Services/Semantic/AtlasVaultLinkService.php
   - app/Http/Controllers/EngineeringKnowledgeController.php
   - app/Services/Ai/AiContextPackBuilder.php
   - app/Services/Ai/AiPromptBuilder.php
@@ -36,6 +42,7 @@ related_paths:
   - app/Services/Ai/AtlasOpenBrainService.php
   - app/Services/Engineering/EngineeringContextPackService.php
   - docs/engineering-knowledge-base/open-brain-context-injection.md
+  - docs/engineering-knowledge-base/obsidian-atlas-vault.md
 ---
 
 # Atlas Memory Core Contracts
@@ -58,6 +65,127 @@ contexto de IA de forma rastreavel.
 | `atlas_engineering_code_symbols` | Code Intelligence | Simbolos, rotas, comandos, migrations e testes |
 | `atlas_engineering_doc_links` | Code Intelligence | Links docs->codigo e estado de cobertura |
 | `atlas_open_brain_access_logs` | Open Brain | Auditoria de exports de context pack por API/CLI/ferramenta |
+| `atlas_vault_sync_items` | AtlasVault Sync | Fila persistente de import/export/sync, conflitos e resolucao explicita |
+
+## Contrato Obsidian / AtlasVault
+
+O contrato canonico esta em `obsidian-atlas-vault.md`.
+
+Resumo obrigatorio:
+
+- Obsidian/AtlasVault pode importar notas para `semantic_notes` e candidatos de memoria;
+- o Atlas pode exportar notas humanas gerenciadas com frontmatter e links `atlas://`;
+- notas do vault nao viram `atlas_memory_entries` sem classificacao, privacy, redaction e review;
+- exports do Atlas para o vault sao projections humanas, nao fonte primaria;
+- conflitos devem ser marcados, nunca sobrescritos silenciosamente;
+- Open Brain deve consumir dados indexados/promovidos, nao ler Obsidian direto.
+
+Fase 1 implementada:
+
+- `AtlasVaultFrontmatterService` monta, renderiza, parseia e valida o
+  frontmatter minimo de nota gerenciada;
+- `AtlasVaultLinkService` gera e parseia `atlas://memory/{id}`,
+  `atlas://verbatim-memory/{id}`, `atlas://semantic-note/{id}`,
+  `atlas://task/{id}`, `atlas://project/{id}`,
+  `atlas://engineering-run/{id}`, `atlas://open-brain/audit/{id}` e
+  `atlas://trace/{id}`;
+- `AtlasVaultManagedNoteService` compoe dry-run, cria nota gerenciada, atualiza
+  somente quando seguro, preserva `## Manual Notes` e bloqueia overwrite em
+  arquivo nao gerenciado, com frontmatter invalido, sem markers gerenciados,
+  com markers duplicados/desordenados ou com drift fora do bloco permitido;
+- flags `atlas_managed`, `provider_safe` e `canonical` em frontmatter
+  gerenciado precisam parsear como booleanos reais; strings como `maybe` sao
+  erro de input ou conflito de nota existente, nao estado valido;
+- `privacy_class=secret` implica `provider_safe=false`; a combinacao
+  `secret/provider_safe=true` e bloqueada em input e marcada como invalida em
+  nota existente;
+- `redaction_status=blocked` ou `redaction_status=needs_review` tambem implica
+  `provider_safe=false`; essas combinacoes sao bloqueadas em input e marcadas
+  como invalidas em nota existente;
+- `updated_at` precisa ser timestamp ISO-8601 com timezone explicito; timestamps
+  malformados sao rejeitados em input e marcados como `invalid_updated_at` em
+  nota existente.
+- `AtlasVaultManagedNoteService` tambem bloqueia `--write` quando uma nota
+  existente ja esta em `sync_status=conflict` ou quando campos estaveis de
+  frontmatter foram alterados manualmente;
+- payloads de nota gerenciada incluem `operation`, `existing_content_hash`,
+  `proposed_content_hash`, `write_blocked_reason` quando aplicavel e conflicts
+  em formato auditavel;
+- IDs usados em nota gerenciada e URI `atlas://` sao segmentos seguros
+  (`A-Za-z0-9._:-`) e nao podem conter `/`, `\`, `..` ou espacos;
+- paths canonicos em blocos de links sao relativos e nao aceitam traversal;
+- labels de links em blocos `## Links Atlas` sao normalizados para uma linha,
+  precisam ser nao vazios e nao podem conter caracteres de markdown que tornem o
+  alvo ambiguo;
+- `--path` customizado para nota gerenciada precisa ser relativo ao vault; paths
+  absolutos sao recusados antes da normalizacao/confinamento;
+- `AtlasVaultCommand` expoe `atlas:vault status --json` e
+  `atlas:vault note ... --dry-run|--write --json`, com `--content` opcional para
+  atualizar apenas o bloco gerenciado;
+- `atlas:vault note --dry-run` nao cria arquivo nem diretorio de vault ausente;
+  criacao de diretorio raiz acontece apenas no caminho explicito de `--write`
+  quando nao ha conflito;
+- booleanos recebidos por `atlas:vault note`, como `--provider-safe`, sao
+  estritos e recusam valores ambiguos.
+- `AtlasVaultCommand` aceita `--canonical-doc=<path>` e
+  `--link=Label=atlas://type/id` para incluir backlinks humanos extras, mantendo
+  validacao de path relativo e URI `atlas://`;
+- links extras programaticos malformados sao recusados, nao ignorados
+  silenciosamente;
+- `atlas:vault status --json` reporta tipos de nota suportados e tipos de link
+  suportados para descoberta operacional.
+- `atlas:vault status` e read-only: reporta vault ausente sem criar diretorio ou
+  arquivo.
+
+Tipos de nota aceitos na fundacao atual:
+
+| `atlas_type` | URI primaria | Path deterministico |
+|---|---|---|
+| `memory_entry` | `atlas://memory/{id}` | `Atlas/Memory/memory_entry/{slug}-{id}.md` |
+| `verbatim_memory` | `atlas://verbatim-memory/{id}` | `Atlas/Memory/verbatim_memory/{slug}-{id}.md` |
+| `semantic_note` | `atlas://semantic-note/{id}` | `Atlas/SemanticNotes/{slug}-{id}.md` |
+| `task` | `atlas://task/{id}` | `Atlas/Tasks/managed/{slug}-{id}.md` |
+| `project` | `atlas://project/{id}` | `Atlas/Projects/{slug}-{id}.md` |
+| `engineering_run` | `atlas://engineering-run/{id}` | `Atlas/Engineering/Runs/{slug}-{id}.md` |
+| `open_brain_audit` | `atlas://open-brain/audit/{id}` | `Atlas/OpenBrain/Audits/{slug}-{id}.md` |
+| `trace` | `atlas://trace/{id}` | `Atlas/Traces/{slug}-{id}.md` |
+
+Fase 2 implementada:
+
+- `atlas_vault_sync_items` registra operacoes locais de import, export,
+  sync, conflito e resolucao explicita;
+- `AtlasVaultSyncService` importa nota individual do vault em dry-run ou write;
+- import de nota gerenciada (`atlas_managed=true`) e bloqueado para evitar loop
+  Atlas -> Vault -> Atlas;
+- import write indexa a nota em `semantic_notes` e cria
+  `semantic_curation_proposals` com `promotion_allowed=false`, sem promover para
+  `atlas_memory_entries`;
+- notas com privacy/redaction nao provider-safe entram como item bloqueado para
+  review, nao como contexto externo;
+- `export-semantic` cria projection humana gerenciada a partir de
+  `semantic_notes`, usando `AtlasVaultManagedNoteService`;
+- `sync` executa scan local do vault em dry-run ou write com limite explicito;
+- `status` inclui resumo operacional da fila local em `vault.sync_queue`
+  quando `atlas_vault_sync_items` esta migrada;
+- `conflicts` lista itens pendentes, candidatos, bloqueados ou em conflito;
+- `resolve` aceita `adopt`, `archive`, `merge`, `regenerate`, `force` e
+  `dismiss`; nesta fase essas acoes registram revisao/auditoria e nao fazem
+  overwrite destrutivo silencioso;
+- `audit_events` registra import, export e resolucao quando a tabela existe.
+
+Rotas HTTP locais autenticadas por `X-Atlas-Token`:
+
+| Metodo | Rota | Contrato |
+|---|---|---|
+| `GET` | `/ai/vault/status` | Status do vault, contagens, safety policy e resumo `sync_queue` |
+| `POST` | `/ai/vault/import` | `{path, dry_run|write}` para importar nota local permitida |
+| `POST` | `/ai/vault/export-semantic` | `{semantic_note_id, dry_run|write}` para gerar nota gerenciada |
+| `POST` | `/ai/vault/sync` | `{dry_run|write, limit}` para scan local limitado |
+| `GET` | `/ai/vault/conflicts` | Lista fila local pendente/bloqueada/conflitante |
+| `POST` | `/ai/vault/conflicts/{item}/resolve` | `{resolution}` para registrar decisao explicita |
+
+As rotas usam os mesmos services da CLI e nao autorizam sync remoto, UI, MCP
+write tools nem promocao automatica para `atlas_memory_entries`.
 
 ## Contrato `memory_refs`
 
@@ -189,9 +317,24 @@ Regras:
 | `GET/POST/PATCH` | `/ai/memory/verbatim*` | Verbatim Store |
 | `GET/POST` | `/ai/memory/provider-projection*` | Provider projections e auditoria |
 | `POST` | `/ai/memory/recall` | Recall hibrido provider-safe |
-| `POST` | `/ai/memory/maintain` | Rotina de manutencao para app/API: sync docs, index-code, projection status/apply opcional e health MCP |
+| `GET` | `/ai/memory/quality` | Scorecard read-only de qualidade da memoria |
+| `GET` | `/ai/memory/quality/history` | Historico persistido de scorecards de qualidade |
+| `POST` | `/ai/memory/quality/snapshots` | Registrar snapshot atual de qualidade |
+| `POST` | `/ai/memory/maintain` | Rotina de manutencao para app/API: sync docs, index-code, promocao de deltas aceitos, scorecard/snapshot de memoria, projection status/apply opcional e health MCP |
 | `POST` | `/ai/open-brain/context-pack` | Exportar context pack Atlas auditado |
 | `GET` | `/ai/open-brain/audits` | Auditar exports Open Brain |
+
+Contrato adicional de injecao automatica: quando `atlas dev`,
+`atlas continue`, `atlas chat --mode=dev|debug|review` ou o Atlas AI App entram
+em fluxo de programacao/review/debug, `AiPromptBuilder` injeta Open Brain com
+`summary.memory_quality`. Esse resumo contem apenas status, score, contagens,
+latest snapshot compacto, tendencia historica compacta e issues curtas; nao
+carrega snapshot bruto nem texto privado. Regressoes de tendencia aparecem como
+`memory_quality_trend_regressed` ou `memory_quality_trend_watch_regressed` e
+degradam a injecao automatica sem falhar fechado sozinhas. Quando houver
+regressao, `summary.memory_quality.trend.drivers` pode listar causas compactas
+como `component_drop`, `count_increase`, `issue_increase` ou `score_drop`; esses
+drivers sao diagnostico operacional e nao memoria canonica.
 
 ## Rotas De Knowledge E Code Intelligence
 
@@ -222,7 +365,15 @@ Regras:
 | `atlas:memory:projection` | Provider projections |
 | `atlas:memory:seed-core` | Memorias core provider-safe para projection nao vazia |
 | `atlas:memory:recall` | Recall hibrido provider-safe |
-| `atlas:memory:maintain` | Rotina local de sync docs, index-code, projection status/apply opcional e health MCP |
+| `atlas:memory:quality` | Scorecard, snapshot e historico de qualidade; com `workspace`, feedback e relacoes seguem o conjunto ativo daquele contexto |
+| `atlas:memory:maintain` | Rotina local de sync docs, index-code, promocao de aprendizados aceitos, scorecard/snapshot de memoria, projection status/apply opcional e health MCP |
+| `atlas:vault status` | Status local do AtlasVault: path, exists, writable, notas gerenciadas, conflitos, safety e resumo da fila `atlas_vault_sync_items` |
+| `atlas:vault note` | Dry-run ou escrita segura de nota humana gerenciada com frontmatter, links `atlas://`, bloco gerenciado e area manual preservada |
+| `atlas:vault import` | Dry-run ou import local auditado de nota humana para `semantic_notes` e proposta de curadoria |
+| `atlas:vault export-semantic` | Dry-run ou export seguro de `semantic_notes` para nota humana gerenciada |
+| `atlas:vault sync` | Scan local limitado do vault em dry-run ou write |
+| `atlas:vault conflicts` | Lista fila local de review/conflitos |
+| `atlas:vault resolve` | Registra resolucao explicita de item da fila sem overwrite silencioso |
 | `atlas:open-brain:context` | Exportar context pack Atlas auditado |
 | `atlas:open-brain:mcp` | Servir Open Brain MCP local/read-only por stdio |
 | `atlas:engineering:knowledge` | Knowledge Base, Code Intelligence e auditoria de drift |
@@ -237,7 +388,7 @@ Regras da tela:
 
 - recall e context pack usam os mesmos contratos de API/CLI/MCP;
 - preview/copy mostra conteudo provider-safe produzido pelo backend;
-- `Rodar maintain` chama `POST /ai/memory/maintain` com sync docs, index-code e health MCP;
+- `Rodar maintain` chama `POST /ai/memory/maintain` com sync docs, index-code, promocao de deltas aceitos, scorecard de memoria e health MCP;
 - `Aplicar projection` exige segundo toque no app e `confirm=true` no backend;
 - respostas `409` de manutencao ainda sao exibiveis quando o payload contem `memory_maintenance`.
 

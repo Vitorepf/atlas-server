@@ -53,6 +53,7 @@ capacidade vire "pronta" apenas porque existe codigo.
 | L10 | Hybrid retrieval | semantic/vector/hybrid search com policy | Implementado local/provider-safe |
 | L11 | Open Brain multi-tool | context export e MCP auditavel | Implementado como API/CLI/MCP local e HTTP JSON-RPC autenticado; SSE/sessoes futuras |
 | L12 | Open Brain automatic injection | `atlas dev`, `atlas continue`, `atlas chat` e Atlas AI App usam Open Brain automaticamente em codigo/review/debug | Implementado |
+| L13 | Learning promotion and memory quality | promocao automatica conservadora de deltas aceitos, scorecard read-only, snapshots e Open Brain quality gate | Implementado backend/API/CLI/injection |
 
 ## Definition Of Done Global
 
@@ -98,6 +99,12 @@ Toda fase que altera Memory Core deve entregar:
 | open brain injection rate | presente em dev/debug/review | ausente em `atlas dev` ou app programming |
 | open brain duplicate prompt | zero | mesma hash renderizada duas vezes |
 | memory feedback negative | usado para arquivar/rebaixar | ignorado |
+| memory quality score | `ready` ou `watch` com score alto e issues explicitas | `critical`, score baixo ou recomendacoes ignoradas |
+| memory quality trend guard | snapshots mostram estabilidade/melhora ou warning explicito com drivers em regressao | score cai sem investigacao |
+| memory quality injection | `open_brain_injection.summary.memory_quality` presente em dev/debug/review | provider recebe recall sem saber se a memoria esta pronta |
+| accepted learning backlog | zero apos `atlas memory maintain` | deltas `accepted` acumulando sem virar registry |
+| trusted auto candidate promotion | somente com flag explicita e confianca alta | pending nao revisado promovido sem gate |
+| source orphan count | zero para fontes verificaveis | memoria aponta para delta/run/verbatim inexistente |
 
 ## Gates Para Futuras Fases
 

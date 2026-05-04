@@ -66,6 +66,10 @@ class AtlasToolResultNormalizer
      */
     public function findingsFromOutput(string $toolSlug, string $stdout, string $stderr = ''): array
     {
+        if ($toolSlug === 'typescript') {
+            return $this->parseTypeScriptText($stdout."\n".$stderr);
+        }
+
         $payload = $this->jsonPayload($stdout) ?? $this->jsonPayload($stderr);
         if (! is_array($payload)) {
             return [];
@@ -74,10 +78,14 @@ class AtlasToolResultNormalizer
         return match ($toolSlug) {
             'gitleaks' => $this->parseGitleaks($payload),
             'semgrep' => $this->parseSemgrep($payload),
+            'laravel_pint' => $this->parsePint($payload),
+            'biome' => $this->parseBiome($payload),
             'eslint' => $this->parseEslint($payload),
             'phpstan' => $this->parsePhpstan($payload),
             'psalm' => $this->parsePsalm($payload),
             'shellcheck' => $this->parseShellCheck($payload),
+            'hadolint' => $this->parseHadolint($payload),
+            'codeql', 'checkov' => $this->parseSarif($payload, $toolSlug),
             'trivy' => $this->parseTrivy($payload),
             'osv_scanner' => $this->parseOsvScanner($payload),
             'grype' => $this->parseGrype($payload),
@@ -247,6 +255,85 @@ class AtlasToolResultNormalizer
      * @param  array<mixed>  $payload
      * @return array<int,array<string,mixed>>
      */
+    private function parsePint(array $payload): array
+    {
+        $files = $payload['files'] ?? [];
+
+        if (is_array($files) && array_is_list($files)) {
+            return collect($files)
+                ->filter(fn (mixed $file): bool => is_array($file) || is_string($file))
+                ->map(function (array|string $file): array {
+                    $path = is_array($file) ? (string) ($file['name'] ?? $file['file'] ?? $file['path'] ?? 'unknown') : $file;
+
+                    return [
+                        'severity' => 'medium',
+                        'rule_id' => 'pint.format',
+                        'title' => 'PHP file needs formatting',
+                        'file' => $path,
+                        'message' => 'Laravel Pint reported that this file is not formatted.',
+                        'blocks_resolved' => true,
+                        'metadata' => is_array($file) ? $file : [],
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+
+        return collect((array) $files)
+            ->filter(fn (mixed $value, string|int $path): bool => is_string($path) && is_array($value))
+            ->map(fn (array $file, string $path): array => [
+                'severity' => 'medium',
+                'rule_id' => 'pint.format',
+                'title' => 'PHP file needs formatting',
+                'file' => $path,
+                'message' => 'Laravel Pint reported that this file is not formatted.',
+                'blocks_resolved' => true,
+                'metadata' => $file,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<int,array<string,mixed>>
+     */
+    private function parseBiome(array $payload): array
+    {
+        return collect((array) ($payload['diagnostics'] ?? []))
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->map(function (array $item): array {
+                $severity = strtolower((string) ($item['severity'] ?? 'warning'));
+                $normalizedSeverity = match ($severity) {
+                    'fatal', 'error' => 'high',
+                    'warning' => 'medium',
+                    'information', 'hint' => 'low',
+                    default => 'medium',
+                };
+
+                return [
+                    'severity' => $normalizedSeverity,
+                    'rule_id' => data_get($item, 'category') ?: data_get($item, 'tags.0') ?: 'biome',
+                    'title' => data_get($item, 'description') ?: data_get($item, 'message.0.content') ?: 'Biome finding',
+                    'file' => data_get($item, 'location.path.file') ?: data_get($item, 'location.resource') ?: data_get($item, 'file'),
+                    'line' => data_get($item, 'location.span.start.line') ?: data_get($item, 'location.start.line'),
+                    'end_line' => data_get($item, 'location.span.end.line') ?: data_get($item, 'location.end.line'),
+                    'message' => data_get($item, 'description') ?: 'Biome reported a lint or format diagnostic.',
+                    'blocks_resolved' => in_array($normalizedSeverity, ['critical', 'high'], true),
+                    'metadata' => [
+                        'category' => data_get($item, 'category'),
+                        'advices' => data_get($item, 'advices', []),
+                    ],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<int,array<string,mixed>>
+     */
     private function parsePhpstan(array $payload): array
     {
         return collect((array) ($payload['files'] ?? []))
@@ -264,6 +351,37 @@ class AtlasToolResultNormalizer
                     ])
                     ->all();
             })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function parseTypeScriptText(string $output): array
+    {
+        return collect(preg_split('/\R/', $output) ?: [])
+            ->map(fn (string $line): string => trim($line))
+            ->filter(fn (string $line): bool => $line !== '')
+            ->map(function (string $line): ?array {
+                if (! preg_match('/^(?<file>.+?)\((?<line>\d+),(?<column>\d+)\):\s+error\s+(?<code>TS\d+):\s+(?<message>.+)$/', $line, $matches)) {
+                    return null;
+                }
+
+                return [
+                    'severity' => 'high',
+                    'rule_id' => $matches['code'] ?? 'typescript',
+                    'title' => $matches['message'] ?? 'TypeScript finding',
+                    'file' => $matches['file'] ?? null,
+                    'line' => isset($matches['line']) ? (int) $matches['line'] : null,
+                    'message' => $matches['message'] ?? 'TypeScript finding',
+                    'blocks_resolved' => true,
+                    'metadata' => [
+                        'column' => isset($matches['column']) ? (int) $matches['column'] : null,
+                    ],
+                ];
+            })
+            ->filter()
             ->values()
             ->all();
     }
@@ -313,6 +431,87 @@ class AtlasToolResultNormalizer
                 'blocks_resolved' => in_array($item['level'] ?? '', ['error'], true),
                 'metadata' => ['column' => $item['column'] ?? null],
             ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<int,array<string,mixed>>
+     */
+    private function parseHadolint(array $payload): array
+    {
+        return collect($payload)
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->map(function (array $item): array {
+                $severity = match (strtolower((string) ($item['level'] ?? 'warning'))) {
+                    'error' => 'high',
+                    'warning' => 'medium',
+                    'info', 'style' => 'low',
+                    default => 'medium',
+                };
+
+                return [
+                    'severity' => $severity,
+                    'rule_id' => $item['code'] ?? 'hadolint',
+                    'title' => $item['message'] ?? 'Hadolint finding',
+                    'file' => $item['file'] ?? 'Dockerfile',
+                    'line' => $item['line'] ?? null,
+                    'message' => $item['message'] ?? 'Hadolint reported a Dockerfile issue.',
+                    'blocks_resolved' => $severity === 'high',
+                    'metadata' => [
+                        'column' => $item['column'] ?? null,
+                        'level' => $item['level'] ?? null,
+                    ],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<int,array<string,mixed>>
+     */
+    private function parseSarif(array $payload, string $toolSlug): array
+    {
+        return collect((array) ($payload['runs'] ?? []))
+            ->filter(fn (mixed $run): bool => is_array($run))
+            ->flatMap(function (array $run) use ($toolSlug): array {
+                $rules = collect((array) data_get($run, 'tool.driver.rules', []))
+                    ->filter(fn (mixed $rule): bool => is_array($rule))
+                    ->keyBy(fn (array $rule): string => (string) ($rule['id'] ?? ''));
+
+                return collect((array) ($run['results'] ?? []))
+                    ->filter(fn (mixed $result): bool => is_array($result))
+                    ->map(function (array $result) use ($rules, $toolSlug): array {
+                        $ruleId = (string) ($result['ruleId'] ?? $toolSlug);
+                        $rule = (array) ($rules->get($ruleId) ?? []);
+                        $location = collect((array) ($result['locations'] ?? []))
+                            ->first(fn (mixed $candidate): bool => is_array($candidate));
+                        $physicalLocation = is_array($location) ? (array) data_get($location, 'physicalLocation', []) : [];
+                        $region = (array) data_get($physicalLocation, 'region', []);
+                        $severity = $this->sarifSeverity($result['level'] ?? data_get($result, 'properties.severity') ?? data_get($rule, 'properties.problem.severity'));
+
+                        return [
+                            'severity' => $severity,
+                            'rule_id' => $ruleId,
+                            'title' => data_get($rule, 'shortDescription.text') ?: data_get($result, 'message.text') ?: $ruleId,
+                            'file' => data_get($physicalLocation, 'artifactLocation.uri'),
+                            'line' => $region['startLine'] ?? null,
+                            'end_line' => $region['endLine'] ?? null,
+                            'message' => data_get($result, 'message.text') ?: data_get($rule, 'fullDescription.text') ?: 'SARIF finding',
+                            'blocks_resolved' => in_array($severity, ['critical', 'high'], true),
+                            'metadata' => [
+                                'level' => $result['level'] ?? null,
+                                'kind' => $result['kind'] ?? null,
+                                'precision' => data_get($rule, 'properties.precision'),
+                                'help_uri' => $rule['helpUri'] ?? null,
+                            ],
+                        ];
+                    })
+                    ->all();
+            })
             ->values()
             ->all();
     }
@@ -513,6 +712,19 @@ class AtlasToolResultNormalizer
             'medium' => 'medium',
             'low' => 'low',
             default => 'info',
+        };
+    }
+
+    private function sarifSeverity(mixed $severity): string
+    {
+        $severity = strtolower((string) $severity);
+
+        return match ($severity) {
+            'critical' => 'critical',
+            'error', 'high' => 'high',
+            'warning', 'medium' => 'medium',
+            'note', 'recommendation', 'low' => 'low',
+            default => 'medium',
         };
     }
 

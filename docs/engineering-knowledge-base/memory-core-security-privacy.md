@@ -118,6 +118,8 @@ Regras:
 Obsidian, Claude, Codex, Cursor, ChatGPT e outros clientes podem consumir ou
 espelhar memoria, mas nao sao fonte primaria.
 
+Contrato detalhado: `obsidian-atlas-vault.md`.
+
 Permitido:
 
 - espelhar docs canonicos;
@@ -129,6 +131,8 @@ Nao permitido:
 - tratar nota solta como memoria canonica sem sync/promocao;
 - promover conversa para memoria sem review;
 - copiar segredos para docs canonicos ou provider files.
+- exportar/importar nota do vault sem privacy, redaction, frontmatter e origem
+  auditavel.
 
 ## Retencao E Arquivamento
 
@@ -147,4 +151,3 @@ Nao permitido:
 5. O texto e curto o bastante para o budget?
 6. Existe motivo de inclusao no context pack?
 7. Existe rastro de auditoria se for memoria usada?
-
