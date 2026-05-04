@@ -1757,8 +1757,13 @@ class AiChatCommand extends Command
             $sequence = $char.$this->readAvailableTerminalSequence();
             if ($sequence === "\033[200~") {
                 $paste = $this->readBracketedPastePayload();
-                $buffer .= $paste;
-                $this->output->write($paste);
+                $classification = $this->classifyBracketedPaste($paste, $workspace);
+                if ($classification['kind'] === 'text') {
+                    $buffer .= $paste;
+                    $this->output->write($paste);
+                } else {
+                    $this->applyBracketedPasteClassification($classification, $images, $workspace, $buffer, $label, $pendingImages);
+                }
             }
 
             return 'continue';
@@ -1807,6 +1812,42 @@ class AiChatCommand extends Command
         $label = preg_replace('/\s+\[img:\d+\]\s+Enter=analisar$/', '', $label) ?: $label;
 
         return $label.' [img:'.$count.'] Enter=analisar';
+    }
+
+    /**
+     * @return array{kind:'clipboard_image'|'image_path'|'text', path?:string}
+     */
+    private function classifyBracketedPaste(string $payload, string $workspace): array
+    {
+        $trimmed = trim($payload);
+
+        if ($trimmed === '') {
+            return ['kind' => 'clipboard_image'];
+        }
+
+        return ['kind' => 'text'];
+    }
+
+    /**
+     * @param  array{kind:string, path?:string}  $classification
+     * @param  array<int,array<string,mixed>>  $pendingImages
+     */
+    private function applyBracketedPasteClassification(
+        array $classification,
+        AtlasImageAttachmentService $images,
+        string $workspace,
+        string &$buffer,
+        string &$label,
+        array &$pendingImages,
+    ): void {
+        if ($classification['kind'] === 'clipboard_image') {
+            [$label, $pendingImages] = $this->pasteClipboardImageIntoComposer($images, $workspace, $pendingImages, $label, $buffer);
+
+            return;
+        }
+
+        $buffer .= $classification['path'] ?? '';
+        $this->output->write($classification['path'] ?? '');
     }
 
     private function readAvailableTerminalSequence(): string
