@@ -7,12 +7,14 @@ use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
 use App\Models\AtlasTask;
+use App\Models\AiTrace;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\FairClaudePolicy;
 use App\Services\Tools\AtlasToolGateService;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -587,6 +589,9 @@ class EngineeringHarnessRunnerService
         $decodedRuns = collect((array) data_get($providerRun, 'decoded.provider_runs', []))
             ->filter(fn (mixed $entry): bool => is_array($entry))
             ->values();
+        if ($decodedRuns->isEmpty()) {
+            $decodedRuns = $this->providerRunsFromTrace($providerRun);
+        }
 
         if ($decodedRuns->isEmpty()) {
             $seedAttempt->forceFill([
@@ -604,10 +609,13 @@ class EngineeringHarnessRunnerService
             return $seedAttempt->refresh();
         }
 
-        $selectedProvider = $provider ?: data_get($providerRun, 'decoded.workflow.selected_provider');
+        $selectedProvider = $provider
+            ?: data_get($providerRun, 'decoded.workflow.selected_provider')
+            ?: data_get($providerRun, 'decoded.provider');
         $selectedModel = data_get($providerRun, 'decoded.dev_execution_plan.selected_model.model')
             ?: data_get($providerRun, 'decoded.workflow.selected_model.model')
             ?: data_get($providerRun, 'decoded.dev_execution_plan.operator_options.model')
+            ?: data_get($providerRun, 'decoded.model')
             ?: $seedAttempt->model;
         $lastAttempt = $seedAttempt;
         foreach ($decodedRuns as $index => $rawRun) {
@@ -627,7 +635,9 @@ class EngineeringHarnessRunnerService
                 'engineering_run_id' => $run->id,
                 'attempt_number' => $attemptNumber,
                 'trace_id' => $this->uuidOrNull($rawRun['trace_id'] ?? null),
-                'provider' => is_string($selectedProvider) && $selectedProvider !== '' ? $selectedProvider : $provider,
+                'provider' => is_string($rawRun['provider'] ?? null) && trim((string) $rawRun['provider']) !== ''
+                    ? trim((string) $rawRun['provider'])
+                    : (is_string($selectedProvider) && $selectedProvider !== '' ? $selectedProvider : $provider),
                 'model' => $attemptModel,
                 'phase' => $attemptNumber === 1 ? 'edit' : 'repair',
                 'prompt_hash' => $attempt->prompt_hash ?: $seedAttempt->prompt_hash,
@@ -1362,10 +1372,7 @@ class EngineeringHarnessRunnerService
             $hostCommand[] = '--model='.trim((string) $providerOptions['model']);
         }
 
-        if ((bool) ($providerOptions['complete'] ?? false)) {
-            $hostCommand[] = '--complete';
-            $hostCommand[] = '--max-iterations='.(string) ($providerOptions['max_attempts'] ?? 1);
-        }
+        $hostCommand[] = '--max-iterations='.(string) ($providerOptions['max_attempts'] ?? 1);
 
         if ((bool) ($providerOptions['critical'] ?? false)) {
             $hostCommand[] = '--critical';
@@ -1413,7 +1420,7 @@ class EngineeringHarnessRunnerService
         }
 
         $decoded = json_decode($stdout, true);
-        $traceId = is_array($decoded) ? data_get($decoded, 'provider_runs.0.trace_id') : null;
+        $traceId = is_array($decoded) ? $this->providerTraceId(['decoded' => $decoded]) : null;
 
         return [
             'exit_code' => $exitCode,
@@ -1426,6 +1433,77 @@ class EngineeringHarnessRunnerService
             'command_display' => $runtimeCommand['command_display'],
             'provider_runtime' => $this->compactProviderRuntimePlan($providerRuntimePlan),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $providerRun
+     */
+    private function providerTraceId(array $providerRun): ?string
+    {
+        foreach ([
+            data_get($providerRun, 'decoded.trace_id'),
+            data_get($providerRun, 'decoded.provider_runs.0.trace_id'),
+            data_get($providerRun, 'trace_id'),
+            data_get($providerRun, 'decoded.programming_result.trace_id'),
+        ] as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                return trim($candidate);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $providerRun
+     * @return \Illuminate\Support\Collection<int,array<string,mixed>>
+     */
+    private function providerRunsFromTrace(array $providerRun): \Illuminate\Support\Collection
+    {
+        $traceId = $this->uuidOrNull($this->providerTraceId($providerRun));
+        if ($traceId === null || ! Schema::hasTable('ai_traces') || ! Schema::hasTable('ai_jobs')) {
+            return collect();
+        }
+
+        $trace = AiTrace::query()
+            ->with(['jobs' => fn ($query) => $query->orderBy('created_at')->orderBy('id')])
+            ->find($traceId);
+
+        if (! $trace) {
+            return collect();
+        }
+
+        $jobs = $trace->jobs;
+        if ($jobs->isEmpty()) {
+            return collect([[
+                'iteration' => 1,
+                'trace_id' => $trace->id,
+                'provider' => $trace->provider,
+                'model' => $trace->model,
+                'exit_code' => $trace->status === 'succeeded' ? 0 : 1,
+                'stdout' => $trace->response_text,
+                'stderr' => null,
+                'programming_repair' => data_get($trace->metadata, 'programming_repair'),
+            ]]);
+        }
+
+        $totalJobs = $jobs->count();
+
+        return $jobs->values()->map(function ($job, int $index) use ($trace, $totalJobs): array {
+            $iteration = (int) data_get($job->metadata, 'programming_repair_iteration', $index + 1);
+            $status = (string) $job->status;
+
+            return [
+                'iteration' => max(1, $iteration),
+                'trace_id' => $trace->id,
+                'provider' => $job->provider ?: $trace->provider,
+                'model' => $job->model ?: $trace->model,
+                'exit_code' => in_array($status, ['succeeded'], true) ? 0 : 1,
+                'stdout' => $job->result_text ?: ($index === $totalJobs - 1 ? $trace->response_text : null),
+                'stderr' => $job->error_message,
+                'programming_repair' => data_get($job->metadata, 'programming_repair') ?: data_get($trace->metadata, 'programming_repair'),
+            ];
+        });
     }
 
     private function recordEvidence(AtlasTask $task, AtlasEngineeringRun $run, array $scoring, mixed $patch): void

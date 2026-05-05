@@ -72,7 +72,7 @@ class AtlasCliHelpCommand extends Command
                 ],
                 [
                     'command' => 'atlas dev + Ctrl+V',
-                    'description' => 'Fluxo produto para Print Screen: Ctrl+V cola imagem no composer, mostra [img:N] e anexa antes de enviar.',
+                    'description' => 'Fluxo produto para Print Screen: Ctrl+V cola imagem no composer, mostra [imagem 1, imagem 2] e anexa antes de enviar.',
                 ],
                 [
                     'command' => 'atlas dev',

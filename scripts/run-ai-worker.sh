@@ -3,7 +3,10 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${0}")/.." && pwd)"
 
-export PATH="/Users/vitorepf/.nvm/versions/node/v24.9.0/bin:/Users/vitorepf/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+# Resolve dinamicamente a versao mais recente do node do nvm
+# (hardcode de versao quebra apos nvm install de uma nova).
+NVM_NODE_BIN="$(ls -d "$HOME"/.nvm/versions/node/v*/bin 2>/dev/null | sort -V | tail -1)"
+export PATH="${NVM_NODE_BIN:-/usr/local/bin}:/Users/vitorepf/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
 
 cd "$ROOT_DIR"
 

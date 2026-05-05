@@ -12,6 +12,9 @@ tags:
   - start-here
   - onboarding
 capabilities:
+  - atlas_ai_master_architecture
+  - atlas_ai_operating_system
+  - resolver_corpus_governance
   - canonical_onboarding
   - memory_core_preservation
   - engineering_knowledge_navigation
@@ -24,6 +27,8 @@ capabilities:
   - atlas_supercharged_routing
 decisions:
   - Toda IA nova deve ler este arquivo antes de alterar Memory Core, Knowledge Base ou Code Intelligence.
+  - Toda IA nova deve ler Atlas AI Master Architecture antes de alterar a arquitetura-mae, autoridade operacional, Policy/Profile, Decide, Domain Orchestrator, Runtime, Evidence ou Learning.
+  - Toda IA nova deve ler Atlas AI Resolver Corpus Audit antes de alterar Policy/Profile, Atlas Decide, Programming Orchestrator, Forge ou Super Tool Runtime.
   - Toda IA nova deve ler Open Brain Context Injection antes de alterar fluxos de programacao por CLI ou app.
   - Toda IA nova deve ler Engineering Blueprint antes de alterar planejamento, task contracts, QA, review ou Postgres gate.
   - Toda IA nova deve ler Programming Power Tools Catalog antes de adicionar ou promover ferramentas de programacao.
@@ -34,6 +39,13 @@ maintenance:
   - Atualize este arquivo quando a ordem de leitura ou os docs canonicos mudarem.
   - Antes de trocar de maquina, confirme que este arquivo e os docs relacionados foram commitados e enviados ao remoto.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
+  - docs/engineering-knowledge-base/atlas-ai-vision.md
+  - docs/engineering-knowledge-base/atlas-ai-pipeline.md
+  - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
+  - docs/engineering-knowledge-base/atlas-ai-resolver-corpus-audit.md
+  - docs/engineering-knowledge-base/atlas-ai-operating-system.md
+  - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
   - docs/engineering-knowledge-base/README.md
   - docs/engineering-knowledge-base/memory-core-runbook.md
@@ -66,81 +78,124 @@ Atlas.
 
 ## Ordem De Leitura
 
-1. `atlas-ai-memory-context-core-open-brain.md`
+1. `atlas-ai-master-architecture.md`
+   Especificacao enterprise da arquitetura-mae: Control Plane, Domain Plane,
+   Runtime Plane, Evidence Plane, Learning Plane, Surface Plane, autoridade
+   unica, contratos canonicos e estrategia para superar Claude Code.
+
+2. `atlas-ai-vision.md`
+   Documento fundador curto: Atlas AI como inteligencia unica, com Core,
+   Domains, Pipeline, Surfaces e Curation.
+
+3. `atlas-ai-pipeline.md`
+   Fluxo unico de qualquer requisicao Atlas AI: Input, Intent, Domain,
+   Domain Profile, Flow Profile, Context, Policy, Decide, Executor, Gate,
+   Repair, Evidence, Learning e Output.
+
+4. `atlas-ai-core-vs-domain.md`
+   Regra de decisao entre capability horizontal de Core, logica especializada
+   de Domain e responsabilidade limitada de Surface.
+
+5. `atlas-ai-resolver-corpus-audit.md`
+   Auditoria da pasta `resolver-o-que-vale-a-pena`: classifica specs P0,
+   referencia, ideias futuras e historico. Obrigatorio antes de alterar
+   Policy/Profile, Atlas Decide, Programming Orchestrator, Forge ou Super Tool
+   Runtime.
+
+6. `atlas-ai-operating-system.md`
+   Arquitetura macro do Atlas AI como sistema operacional de orquestracao:
+   dominios, pipeline comum, anti-duplicacao, programming, desenvolvimento
+   pessoal, financas e curadoria evolutiva.
+
+7. `atlas-ai-memory-context-core-open-brain.md`
    Documento mestre: arquitetura, fases, status real e limites do Memory Core.
 
-2. `README.md`
+8. `atlas-ai-architecture-audit.md`
+   Analise de consolidacao: capacidades existentes, verdades concorrentes,
+   duplicacoes, lacunas de orquestracao e ordem recomendada para arrumar o
+   Atlas AI.
+
+9. `README.md`
    Visao da Engineering Knowledge Base e lista dos docs canonicos.
 
-3. `memory-core-runbook.md`
+10. `memory-core-runbook.md`
    Procedimentos operacionais para sync, index, privacy, governance, verbatim,
    provider projection e validacao.
 
-4. `memory-core-contracts.md`
+11. `memory-core-contracts.md`
    Contratos de tabelas, APIs, CLI, refs e configuracao.
 
-5. `open-brain-context-injection.md`
+12. `open-brain-context-injection.md`
    Arquitetura core para CLI/app usarem Open Brain automaticamente em
    programacao, review e debug.
 
-6. `memory-core-security-privacy.md`
+13. `memory-core-security-privacy.md`
    Politica de privacy, redaction e provider-safety.
 
-7. `obsidian-atlas-vault.md`
+14. `obsidian-atlas-vault.md`
    Contrato para Obsidian/AtlasVault como camada humana bidirecional, sem virar
    fonte primaria da memoria operacional.
 
-8. `memory-core-failure-modes.md`
+15. `memory-core-failure-modes.md`
    Diagnostico e recuperacao por camada.
 
-9. `memory-core-maturity-dod.md`
+16. `memory-core-maturity-dod.md`
    Maturity model e Definition of Done.
 
-10. `code-intelligence.md`
+17. `code-intelligence.md`
    Como o Atlas entende o codigo real via modulos, simbolos, rotas, comandos,
    migrations, testes e doc links.
 
-11. `engineering-blueprint.md`
+18. `engineering-blueprint.md`
    Produto final do Engineering Blueprint System: intencao de produto,
    blueprint, task contracts, Harness, QA, review, Postgres gate e memory delta.
 
-12. `engineering-blueprint-contracts.md`
+19. `engineering-blueprint-contracts.md`
     Schemas e invariantes de project blueprint, task blueprint, task contract,
     inventory, scenarios, evidencias e review findings.
 
-13. `engineering-blueprint-quality-gates.md`
+20. `engineering-blueprint-quality-gates.md`
     Gates de aceite, QA manual, visual smoke, deep review, Postgres review,
     telemetry e Definition of Done de qualidade.
 
-14. `engineering-blueprint-runbook.md`
+21. `engineering-blueprint-runbook.md`
     Como operar e implementar blueprint pelo app, CLI e API.
 
-15. `engineering-blueprint-maturity-dod.md`
+22. `engineering-blueprint-maturity-dod.md`
     Estado real dos 7 itens, fases faltantes e criterio final de conclusao.
 
-16. `super-tool-runtime-core.md`
+23. `super-tool-runtime-core.md`
     Registry, policy, executor, normalizer, Evidence Store, approvals, waivers,
     recipes e gates genericos para ferramentas locais.
 
-17. `programming-power-tools-catalog.md`
+24. `programming-power-tools-catalog.md`
     Bancada operacional de ferramentas para programacao pesada: tiers T0-T3,
     autoridade anti-duplicacao, agentes externos, lacunas e backlog.
 
-18. `../atlas-cli-5x-claude-code-plan.md`
+25. `../atlas-cli-5x-claude-code-plan.md`
     Plano ultra robusto para Fair Claude, Atlas Supercharged, Gemini Scout,
     Context Compiler, repair taxonomy, scorecard 5x e gates de eficiencia.
 
-19. `../atlas-cli-fair-claude-benchmark.md`
+26. `../atlas-cli-fair-claude-benchmark.md`
     Protocolo pareado para comparar Atlas Fair Claude contra Claude Code usando
     o mesmo Claude Opus sem contaminar com Codex, Gemini, fallback ou Decide.
 
-20. `../atlas-cli-final-product.md` e `../atlas-cli-release-checklist.md`
+27. `../atlas-cli-final-product.md` e `../atlas-cli-release-checklist.md`
     Superficie operacional do CLI, release gates, Fair Claude Gate e Atlas
     Supercharged Gate.
 
 ## Regras Para IAs
 
 - Nao assumir contexto de conversa anterior.
+- Ler `atlas-ai-master-architecture.md` antes de alterar arquitetura-mae,
+  autoridade operacional, Policy/Profile, Decide, Domain Orchestrator, Runtime,
+  Evidence ou Learning.
+- Ler os tres docs fundadores `atlas-ai-vision.md`, `atlas-ai-pipeline.md` e
+  `atlas-ai-core-vs-domain.md` antes de reorganizar fluxos macro.
+- Ler `atlas-ai-resolver-corpus-audit.md` antes de alterar Policy/Profile,
+  Atlas Decide, Domain Orchestrator, Programming, Forge ou Super Tool Runtime.
+- Ler `atlas-ai-operating-system.md` antes de criar comando, fluxo, harness,
+  dominio ou capability horizontal nova.
 - Ler os docs canonicos antes de alterar Memory Core.
 - Nao alterar `atlas dev`, `atlas continue`, `atlas chat` ou `AtlasAiSheet`
   para fluxos de codigo sem seguir `open-brain-context-injection.md`.

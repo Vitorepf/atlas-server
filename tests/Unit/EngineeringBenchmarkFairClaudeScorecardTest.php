@@ -23,6 +23,8 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
     {
         $scorecard = $this->fairScorecard([
             'run' => [
+                'status' => 'passed',
+                'decision' => 'resolved',
                 'model_selection' => [
                     'selected_provider' => 'claude_cli',
                     'selected_model' => 'claude-opus-test',
@@ -57,6 +59,42 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
         $this->assertTrue($scorecard['pass_without_human_reported']);
         $this->assertSame([], $scorecard['blocking_reasons']);
         $this->assertSame('applied', data_get($scorecard, 'scope_safety.status'));
+    }
+
+    public function test_fair_scorecard_blocks_pass_without_human_when_harness_gates_fail(): void
+    {
+        $scorecard = $this->fairScorecard([
+            'run' => [
+                'status' => 'failed',
+                'decision' => 'unresolved',
+                'model_selection' => [
+                    'selected_provider' => 'claude_cli',
+                    'selected_model' => 'claude-opus-test',
+                ],
+                'fair_mode_result' => [
+                    'status' => 'valid',
+                    'deterministic_gates_passed' => true,
+                    'pass_without_human' => true,
+                    'blocking_reasons' => [],
+                ],
+                'attempt_count' => 1,
+                'scope_safety' => $this->scopeSafetyApplied(),
+            ],
+        ], [
+            'claude_only' => true,
+            'require_pass_without_human' => true,
+        ]);
+        $evaluation = $this->evaluate($scorecard);
+
+        $this->assertIsArray($scorecard);
+        $this->assertFalse($scorecard['passed']);
+        $this->assertFalse($scorecard['pass_without_human']);
+        $this->assertTrue($scorecard['pass_without_human_reported']);
+        $this->assertFalse($scorecard['final_gate_passed']);
+        $this->assertFalse($scorecard['harness_gates_passed']);
+        $this->assertContains('harness_gates_not_passed', $scorecard['blocking_reasons']);
+        $this->assertContains('pass_without_human_false', $scorecard['blocking_reasons']);
+        $this->assertFalse($evaluation['passed']);
     }
 
     public function test_fair_scorecard_blocks_pass_without_human_on_dirty_state_overlap(): void

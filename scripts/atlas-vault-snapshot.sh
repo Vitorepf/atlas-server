@@ -21,7 +21,12 @@ case "$MIRROR" in
     ;;
 esac
 
-rsync -a --delete \
+# Materializa stubs do iCloud antes do rsync (evita "Resource deadlock" no mmap).
+# Tolerante: arquivos ainda nao baixados podem falhar e nao devem abortar o script.
+{ find "$SOURCE" -type f \! -path '*/.git/*' \! -name '.DS_Store' \! -name '._*' -print0 2>/dev/null \
+  | xargs -0 -P 8 -I {} sh -c 'dd if="$1" of=/dev/null bs=1 count=1 2>/dev/null || true' _ {} ; } || true
+
+rsync -aW --delete \
   --exclude='.git/' \
   --exclude='.gitignore' \
   --exclude='.DS_Store' \

@@ -180,7 +180,7 @@ class AiGatewayProviderGateTest extends TestCase
         $this->assertSame('claude_cli', $provider);
     }
 
-    public function test_visual_dev_task_falls_back_to_codex_instead_of_claude(): void
+    public function test_visual_dev_task_keeps_claude_default_with_image_attachments(): void
     {
         config([
             'atlas.ai.default_provider' => 'claude_cli',
@@ -203,15 +203,12 @@ class AiGatewayProviderGateTest extends TestCase
             ],
         ]);
 
-        $this->assertSame('codex_cli', $provider);
+        $this->assertSame('claude_cli', $provider);
     }
 
-    public function test_manual_claude_provider_rejects_image_attachments(): void
+    public function test_manual_claude_provider_accepts_image_attachments(): void
     {
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('nao suporta anexos de imagem');
-
-        $this->providerFromOptions([
+        $provider = $this->providerFromOptions([
             'provider' => 'claude_cli',
             'payload' => [
                 'requested_provider' => 'claude_cli',
@@ -222,6 +219,8 @@ class AiGatewayProviderGateTest extends TestCase
                 ],
             ],
         ]);
+
+        $this->assertSame('claude_cli', $provider);
     }
 
     public function test_fair_mode_provider_gate_rejects_non_claude_provider(): void

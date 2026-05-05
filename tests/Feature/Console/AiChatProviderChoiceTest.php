@@ -179,7 +179,7 @@ class AiChatProviderChoiceTest extends TestCase
         $this->assertSame('codex_cli', data_get($payload, 'details.provider'));
     }
 
-    public function test_chat_rejects_manual_claude_when_image_is_attached(): void
+    public function test_chat_accepts_manual_claude_with_image_attachment(): void
     {
         $workspace = storage_path('framework/testing/image-provider-'.bin2hex(random_bytes(4)));
         File::ensureDirectoryExists($workspace);
@@ -194,11 +194,14 @@ class AiChatProviderChoiceTest extends TestCase
             '--json' => true,
         ]);
         $payload = json_decode(Artisan::output(), true);
+        $job = AiJob::query()->latest('created_at')->first();
 
-        $this->assertSame(1, $exitCode);
-        $this->assertFalse(data_get($payload, 'ok'));
-        $this->assertSame('atlas_image_provider_unsupported', data_get($payload, 'error'));
+        $this->assertSame(0, $exitCode);
         $this->assertSame('claude_cli', data_get($payload, 'provider'));
+        $this->assertNotNull($job);
+        $images = (array) data_get($job?->payload, 'attachments.images', []);
+        $this->assertCount(1, $images);
+        $this->assertSame($imagePath, data_get($images[0] ?? [], 'path'));
     }
 
     public function test_chat_claude_only_projects_claude_only_session_policy_override(): void

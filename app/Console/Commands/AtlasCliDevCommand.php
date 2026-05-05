@@ -8,17 +8,12 @@ use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliModelCatalogService;
-use App\Services\Ai\Cli\AtlasCliQualityService;
-use App\Services\Ai\Cli\AtlasTerminalNotifier;
-use App\Services\Ai\Cli\AtlasTerminalTheme;
-use App\Services\Ai\Cli\DevProgressReporter;
 use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Engineering\EngineeringBlueprintService;
 use App\Services\Engineering\EngineeringBlueprintSnapshotService;
-use App\Services\Engineering\EngineeringRunArtifactService;
 use App\Services\Engineering\EngineeringTaskContractService;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
@@ -55,9 +50,8 @@ class AtlasCliDevCommand extends Command
         {--auto-test : Run tests in final quality gate}
         {--skill=* : Activate one or more agentskills bundle names}
         {--plan-only : Run preflight and print execution plan without calling provider}
-        {--complete : Keep running repair iterations until gates pass or max iterations is reached}
         {--forge : Use the maximum-power programming profile behind atlas forge}
-        {--max-iterations=3 : Maximum repair iterations for --complete}
+        {--max-iterations=3 : Maximum repair iterations for the default complete dev loop}
         {--resume= : Resume a previous dev execution plan id when present in traces}
         {--no-open-brain : Disable automatic Open Brain context injection for this dev run}
         {--require-open-brain : Fail if Open Brain context cannot be injected}
@@ -79,12 +73,9 @@ class AtlasCliDevCommand extends Command
     public function handle(
         AtlasCliDevWorkflowService $workflow,
         AtlasCliModelCatalogService $models,
-        AtlasCliQualityService $quality,
-        AtlasTerminalNotifier $notifier,
         EngineeringTaskContractService $contracts,
         EngineeringBlueprintService $blueprints,
         EngineeringBlueprintSnapshotService $blueprintSnapshots,
-        EngineeringRunArtifactService $artifacts,
         AtlasAiRuntimeSettings $settings,
         FairClaudePolicy $fairClaude,
         AtlasProgrammingOrchestrator $programming,
@@ -164,7 +155,7 @@ class AtlasCliDevCommand extends Command
             $preflight['fair_mode'] = $fairClaude->metadata();
         }
         $planOnly = (bool) $this->option('plan-only');
-        $complete = (bool) $this->option('complete') || $programmingProfile === 'forge';
+        $complete = true;
         $maxIterations = $this->maxIterations($programmingProfile);
         $skills = $workflow->qualityGateSkills($this->skillOptions(), $complete, $maxIterations);
         if ($engineeringContract !== null) {
@@ -361,325 +352,16 @@ class AtlasCliDevCommand extends Command
                 : self::FAILURE;
         }
 
-        $progress = $this->shouldShowProgress();
-        $reporter = new DevProgressReporter($this->output);
-        $startedAt = microtime(true);
+        $command = $this->interactiveChatCommand(
+            $workspace,
+            $programming,
+            $programmingProfile,
+            $providerPrompt,
+            $devPlan,
+        );
+        $run = $this->runProviderCommand($command, $workspace, passthrough: ! $json, tty: false);
 
-        if ($progress) {
-            $this->renderHeader($reporter, $workspace, $preflight, $task, $maxIterations, $complete, $modelSelection);
-        } elseif (! $json) {
-            $this->renderPreflightLegacy($preflight);
-        }
-
-        if ((bool) $preflight['requires_override'] && ! (bool) $this->option('force-offline-provider')) {
-            return $this->bailOffline($preflight, $json, $progress, $reporter);
-        }
-
-        if ($progress) {
-            $reporter->summarize('inspect', 'done', 0, 'preflight ok');
-        }
-
-        $devPlan = $workflow->markStep($devPlan, 'inspect', 'done', [
-            'tool' => 'atlas:cli:dev.preflight',
-            'output' => 'Preflight completed.',
-        ]);
-
-        if ($progress) {
-            $reporter->summarize('plan', 'done', 0, (string) data_get($preflight, 'provider_strategy.recommended_provider'));
-        }
-
-        $devPlan = $workflow->markStep($devPlan, 'plan', 'done', [
-            'output' => (string) data_get($preflight, 'provider_strategy.reason'),
-        ]);
-
-        $runs = [];
-        $completion = null;
-        $iteration = 0;
-        $previousStatus = null;
-        $passthrough = ! $progress && ! $json;
-
-        do {
-            $iteration++;
-            $phase = $iteration === 1 ? 'edit' : 'repair';
-            $prompt = $iteration === 1
-                ? $providerPrompt
-                : ($fairMode
-                    ? $workflow->fairClaudeRepairCapsule($providerPrompt, (array) $completion, $iteration, $maxIterations, $devPlan)
-                    : $programming->repairPrompt($providerPrompt, (array) $completion, $iteration, $maxIterations));
-
-            $devPlan = $workflow->markStep($devPlan, $phase, 'running', [
-                'iteration' => $iteration,
-                'tool' => 'atlas:ai:chat',
-                'model' => $modelOverride,
-            ]);
-
-            $command = $workflow->chatCommand(
-                task: $prompt,
-                workspace: $workspace,
-                provider: (string) $preflight['selected_provider'],
-                model: $modelOverride,
-                permission: $this->permission(),
-                allowWrite: $this->allowWrite(),
-                allowDanger: $this->allowDanger(),
-                allowUnsandboxed: $this->allowUnsandboxed(),
-                autoTest: $programmingProfile === 'forge',
-                timeout: (int) $this->option('timeout'),
-                stream: ! (bool) $this->option('no-stream') && ! $json && ! $progress,
-                noRun: (bool) $this->option('no-run'),
-                devExecutionPlan: $devPlan,
-                skills: $skills,
-                json: $json,
-                imagePaths: (array) $this->option('image'),
-                clipboardImage: (bool) $this->option('clipboard-image'),
-                noAutoImage: (bool) $this->option('no-auto-image'),
-                openBrain: $this->openBrainCommandOptions($complete, $programmingProfile),
-            );
-
-            if ($progress) {
-                $reporter->start($phase);
-            }
-
-            $run = $this->runProviderCommand($command, $workspace, passthrough: $passthrough);
-            $traceId = $this->extractTraceId($run['stdout']);
-            $runs[] = $run + [
-                'trace_id' => $traceId,
-                'iteration' => $iteration,
-                'model' => $modelOverride,
-                'model_label' => $modelSelection['label'] ?? null,
-                'model_tier' => $modelSelection['tier'] ?? null,
-                'model_source' => $modelSelection['source'] ?? null,
-            ];
-
-            $iterationCompletion = $quality->evaluate(
-                workspace: $workspace,
-                runTests: false,
-                approved: true,
-                traceId: $traceId,
-            );
-            $changedFiles = (array) ($iterationCompletion['changed_files'] ?? []);
-
-            if ($progress) {
-                $editNote = (int) $run['exit_code'] === 0
-                    ? $this->filesNote($changedFiles)
-                    : 'provider exit '.(int) $run['exit_code'];
-                if ((int) $run['exit_code'] === 0) {
-                    $reporter->done($phase, $editNote);
-                } else {
-                    $reporter->fail($phase, $editNote);
-                }
-            }
-
-            $devPlan = $workflow->markStep($devPlan, $phase, ((int) $run['exit_code'] === 0) ? 'done' : 'failed', [
-                'iteration' => $iteration,
-                'trace_id' => $traceId,
-                'error' => $run['stderr'] ?: null,
-                'files' => $changedFiles,
-            ]);
-
-            $shouldRunTests = (bool) $this->option('auto-test') || $complete || $programmingProfile === 'forge';
-
-            if ($progress) {
-                $reporter->start('test');
-            }
-
-            $completion = $quality->evaluate(
-                workspace: $workspace,
-                runTests: $shouldRunTests,
-                approved: true,
-                traceId: $traceId,
-            );
-
-            $testNote = $this->testsNote($completion, $shouldRunTests);
-            $testStatus = (string) $completion['status'];
-
-            if ($progress) {
-                if ($testStatus === 'failed') {
-                    $reporter->fail('test', $testNote);
-                } else {
-                    $reporter->done('test', $testNote);
-                }
-            }
-
-            $devPlan = $workflow->markStep($devPlan, 'test', $testStatus === 'failed' ? 'failed' : 'done', [
-                'iteration' => $iteration,
-                'tool' => 'atlas:cli:quality',
-                'quality_status' => $testStatus,
-                'files' => $completion['changed_files'] ?? [],
-            ]);
-            $workflow->persistPlan($traceId, $devPlan);
-
-            $shouldRepair = $complete
-                && ! (bool) $this->option('no-run')
-                && $testStatus !== 'passed'
-                && $iteration < $maxIterations;
-
-            if ($shouldRepair && $previousStatus !== null && $this->statusRank($testStatus) < $this->statusRank($previousStatus)) {
-                $devPlan = $workflow->markStep($devPlan, 'repair', 'failed', [
-                    'iteration' => $iteration,
-                    'reason_if_stopped' => 'quality_gate_worsened',
-                ]);
-                $shouldRepair = false;
-            }
-
-            $previousStatus = $testStatus;
-        } while ($shouldRepair);
-
-        $finalStatus = (string) ($completion['status'] ?? 'failed');
-
-        $providerOk = collect($runs)->every(fn (array $run): bool => (int) $run['exit_code'] === 0);
-        $humanInterventionCount = 0;
-        $fairProtocol = $fairMode
-            ? $workflow->fairClaudeProtocolStatus((array) $completion, $providerOk, $humanInterventionCount)
-            : null;
-
-        if ($fairProtocol !== null) {
-            $devPlan['fair_mode_result'] = $fairProtocol;
-        }
-
-        if ($progress) {
-            $reporter->summarize('review', $finalStatus === 'failed' ? 'failed' : 'done', 0, $finalStatus);
-        }
-
-        $devPlan = $workflow->markStep($devPlan, 'review', $finalStatus === 'failed' ? 'failed' : 'done', [
-            'quality_status' => $finalStatus,
-        ]);
-
-        if ($progress) {
-            $reporter->summarize('finish', $finalStatus === 'failed' ? 'failed' : 'done', $reporter->totalDurationMs());
-        }
-
-        $devPlan = $workflow->markStep($devPlan, 'finish', $finalStatus === 'failed' ? 'failed' : 'done', [
-            'reason_if_stopped' => $finalStatus === 'failed' ? 'max_iterations_or_quality_failed' : null,
-        ]);
-
-        $lastTraceId = data_get(last($runs) ?: [], 'trace_id');
-        if (is_string($lastTraceId) && $lastTraceId !== '') {
-            $workflow->persistPlan($lastTraceId, $devPlan);
-        }
-
-        $engineeringArtifact = null;
-        if ($atlasTask instanceof AtlasTask && $engineeringContract !== null && is_array($engineeringBlueprint)) {
-            $engineeringArtifact = $artifacts->completionArtifact(
-                task: $atlasTask->refresh(),
-                contract: $engineeringContract,
-                blueprint: $engineeringBlueprint,
-                devPlan: $devPlan,
-                completion: $completion,
-                runs: $runs,
-            );
-            $devPlan['engineering_artifact_summary'] = $artifacts->summary($engineeringArtifact);
-            $artifacts->persistTaskRun($atlasTask->refresh(), $engineeringArtifact);
-            $artifacts->persistTraceArtifact(is_string($lastTraceId) ? $lastTraceId : null, $engineeringArtifact);
-
-            if (is_string($lastTraceId) && $lastTraceId !== '') {
-                $workflow->persistPlan($lastTraceId, $devPlan);
-            }
-        }
-
-        $qualityOk = ($complete || $fairMode) ? $finalStatus === 'passed' : $finalStatus !== 'failed';
-        if ($fairProtocol !== null) {
-            $qualityOk = $qualityOk && (string) ($fairProtocol['status'] ?? 'unverified') === 'valid';
-        }
-        $ok = $providerOk && $qualityOk;
-        $fairFinalPacket = $fairProtocol !== null
-            ? $workflow->fairClaudeFinalPacket((array) $completion, $fairProtocol, $devPlan, $runs, $ok)
-            : null;
-        if ($fairFinalPacket !== null) {
-            $devPlan['final_packet'] = $fairFinalPacket;
-            if (is_string($lastTraceId) && $lastTraceId !== '') {
-                $workflow->persistPlan($lastTraceId, $devPlan);
-            }
-        }
-
-        if ($json) {
-            $this->line(json_encode(AtlasSecurity::redactArray([
-                'ok' => $ok,
-                'phase' => 'complete',
-                'workflow' => $preflight,
-                'dev_execution_plan' => $devPlan,
-                'activated_skills' => $skills,
-                'provider_runs' => $runs,
-                'completion' => $completion,
-                'fair_mode_result' => $fairProtocol,
-                'final_packet' => $fairFinalPacket,
-                'engineering_artifact' => $engineeringArtifact,
-            ]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-        } elseif ($progress) {
-            $this->renderRichCompletion($completion, $devPlan, $task, $ok, is_string($lastTraceId) ? $lastTraceId : null);
-        } else {
-            $this->renderCompletionLegacy($completion);
-        }
-
-        if (! (bool) $this->option('no-notify')) {
-            $totalMs = (int) ((microtime(true) - $startedAt) * 1000);
-            $title = 'atlas dev · '.($ok ? 'concluido' : 'precisa atencao');
-            $body = $this->notificationBody($task, $completion, $finalStatus);
-            $notifier->notify($title, $body, $totalMs);
-        }
-
-        return $ok ? self::SUCCESS : self::FAILURE;
-    }
-
-    /**
-     * @param  array<string,mixed>|null  $completion
-     */
-    private function notificationBody(string $task, ?array $completion, string $finalStatus): string
-    {
-        $changedFiles = (array) data_get($completion ?? [], 'completion_packet.files_changed', []);
-        $tests = (array) data_get($completion ?? [], 'completion_packet.tests', []);
-        $parts = [Str::limit($task, 60)];
-        if ($changedFiles !== []) {
-            $parts[] = count($changedFiles).' '.(count($changedFiles) === 1 ? 'arquivo' : 'arquivos');
-        }
-        if ($tests !== []) {
-            $first = (array) $tests[0];
-            $parts[] = ((bool) ($first['ok'] ?? false)) ? 'testes ok' : 'testes falharam';
-        }
-        $parts[] = 'status '.$finalStatus;
-
-        return implode(' · ', array_filter($parts));
-    }
-
-    private function shouldShowProgress(): bool
-    {
-        if ((bool) $this->option('no-progress')) {
-            return false;
-        }
-        if ((bool) $this->option('json')) {
-            return false;
-        }
-        if ($this->output->isVerbose()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @param  array<string,mixed>  $preflight
-     */
-    private function renderHeader(
-        DevProgressReporter $reporter,
-        string $workspace,
-        array $preflight,
-        string $task,
-        int $maxIterations,
-        bool $complete,
-        ?array $modelSelection = null,
-    ): void {
-        $reporter->blank();
-        $reporter->note('workspace', $workspace);
-        $reporter->note('provider', (string) $preflight['selected_provider']);
-        if ($modelSelection !== null) {
-            $reporter->note('modelo', $this->modelSelectionNote($modelSelection));
-        }
-        $online = (bool) data_get($preflight, 'provider_strategy.has_online_provider');
-        $reporter->note('online', $online ? 'sim' : 'nao');
-        $reporter->note('tarefa', Str::limit($task, 80));
-        if ($complete) {
-            $reporter->note('iteracoes', 'ate '.$maxIterations);
-        }
-        $reporter->blank();
+        return (int) $run['exit_code'];
     }
 
     /**
@@ -699,201 +381,6 @@ class AtlasCliDevCommand extends Command
         $this->line('Preflight quality: '.data_get($preflight, 'preflight_quality.status'));
     }
 
-    /**
-     * @param  array<string,mixed>  $completion
-     */
-    private function renderCompletionLegacy(array $completion): void
-    {
-        $this->newLine();
-        $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Dev Completion</>', (string) $completion['status']);
-        $this->line((string) data_get($completion, 'completion_packet.summary'));
-        $risks = (array) data_get($completion, 'completion_packet.risks', []);
-        if ($risks !== []) {
-            $this->line('Riscos:');
-            foreach ($risks as $risk) {
-                $this->line('  - '.$risk);
-            }
-        }
-    }
-
-    /**
-     * @param  array<string,mixed>  $completion
-     * @param  array<string,mixed>  $devPlan
-     */
-    private function renderRichCompletion(?array $completion, array $devPlan, string $task, bool $ok, ?string $lastTraceId): void
-    {
-        $completion = is_array($completion) ? $completion : [];
-        $summary = (string) data_get($completion, 'completion_packet.summary', '');
-        $changedFiles = (array) data_get($completion, 'completion_packet.files_changed', []);
-        $tests = (array) data_get($completion, 'completion_packet.tests', []);
-        $risks = (array) data_get($completion, 'completion_packet.risks', []);
-
-        $this->newLine();
-        $this->writeSection('resumo');
-        if ($summary !== '') {
-            $this->line('  '.$summary);
-        } else {
-            $this->line($this->ansi('2', '  '.($ok ? 'tarefa concluida sem alteracoes registradas' : 'sem resumo')));
-        }
-
-        $this->newLine();
-        $this->writeSection('arquivos alterados ('.count($changedFiles).')');
-        if ($changedFiles === []) {
-            $this->line($this->ansi('2', '  nenhum'));
-        } else {
-            foreach (array_slice($changedFiles, 0, 30) as $file) {
-                $this->line('  '.(string) $file);
-            }
-            $extra = count($changedFiles) - 30;
-            if ($extra > 0) {
-                $this->line($this->ansi('2', '  ... mais '.$extra));
-            }
-        }
-
-        $this->newLine();
-        $this->writeSection('testes');
-        $decorated = $this->output->isDecorated();
-        if ($tests === []) {
-            $this->line($this->ansi('2', '  nao executados (use --auto-test ou --complete)'));
-        } else {
-            foreach ($tests as $entry) {
-                if (! is_array($entry)) {
-                    continue;
-                }
-                $command = (string) ($entry['command'] ?? '-');
-                $okFlag = (bool) ($entry['ok'] ?? false);
-                $duration = (int) ($entry['duration_ms'] ?? 0);
-                $exit = $entry['exit_code'] ?? null;
-                $tag = $okFlag
-                    ? AtlasTerminalTheme::ok('ok', $decorated)
-                    : AtlasTerminalTheme::error('falhou'.($exit !== null ? ' · exit '.(int) $exit : ''), $decorated);
-                $meta = AtlasTerminalTheme::muted('· '.$this->humanDuration($duration), $decorated);
-                $this->line('  '.$command.' '.AtlasTerminalTheme::muted('· ', $decorated).$tag.' '.$meta);
-            }
-        }
-
-        $this->newLine();
-        $this->writeSection('riscos');
-        if ($risks === []) {
-            $this->line($this->ansi('2', '  nenhum'));
-        } else {
-            foreach ($risks as $risk) {
-                $this->line('  '.AtlasTerminalTheme::risk('· '.(string) $risk, $decorated));
-            }
-        }
-
-        $this->newLine();
-        $this->writeSection('continuar');
-        if (! $ok) {
-            $this->line('  atlas continue '.$this->ansi('2', '· retoma o plano e tenta repair'));
-        } else {
-            $this->line('  atlas chat'.($lastTraceId ? '' : '').' '.$this->ansi('2', '· abre a thread mais recente para revisar'));
-        }
-        $planId = (string) data_get($devPlan, 'plan_id', '');
-        if ($planId !== '') {
-            $this->line('  atlas dev '.escapeshellarg($task).' --resume='.$planId.' '.$this->ansi('2', '· reexecuta este plano'));
-        }
-        $this->newLine();
-    }
-
-    private function writeSection(string $label): void
-    {
-        $line = $this->ansi('1;36', $label);
-        $rule = $this->ansi('90', str_repeat('-', max(2, strlen($label) + 4)));
-        $this->line($line);
-        $this->line($rule);
-    }
-
-    private function humanDuration(int $ms): string
-    {
-        $seconds = (int) round($ms / 1000);
-        if ($seconds < 1) {
-            return '<1s';
-        }
-        if ($seconds < 60) {
-            return $seconds.'s';
-        }
-        $minutes = intdiv($seconds, 60);
-        $remaining = $seconds - $minutes * 60;
-
-        return $remaining === 0 ? $minutes.'m' : $minutes.'m'.$remaining.'s';
-    }
-
-    private function ansi(string $code, string $text): string
-    {
-        if (! $this->output->isDecorated()) {
-            return $text;
-        }
-
-        return "\033[".$code.'m'.$text."\033[0m";
-    }
-
-    /**
-     * @param  array<int,string>  $files
-     */
-    private function filesNote(array $files): string
-    {
-        $count = count($files);
-        if ($count === 0) {
-            return 'sem alteracoes';
-        }
-        if ($count === 1) {
-            return '1 arquivo';
-        }
-
-        return $count.' arquivos';
-    }
-
-    /**
-     * @param  array<string,mixed>  $completion
-     */
-    private function testsNote(array $completion, bool $ranTests): string
-    {
-        if (! $ranTests) {
-            return 'nao executados';
-        }
-        $tests = (array) data_get($completion, 'completion_packet.tests', []);
-        if ($tests === []) {
-            return 'sem teste detectado';
-        }
-        $first = (array) ($tests[0] ?? []);
-        $okFlag = (bool) ($first['ok'] ?? false);
-        if ($okFlag) {
-            return 'tudo verde';
-        }
-        $exit = $first['exit_code'] ?? null;
-
-        return 'falhou'.($exit !== null ? ' · exit '.(int) $exit : '');
-    }
-
-    /**
-     * @param  array<string,mixed>  $preflight
-     */
-    private function bailOffline(array $preflight, bool $json, bool $progress, DevProgressReporter $reporter): int
-    {
-        if ($json) {
-            $this->line(json_encode([
-                'ok' => false,
-                'phase' => 'preflight',
-                'workflow' => $preflight,
-                'error' => 'provider_offline',
-                'message' => 'Nenhum provider online. Rode atlas bootstrap --refresh-providers.',
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-
-            return self::FAILURE;
-        }
-
-        if ($progress) {
-            $reporter->fail('inspect', 'nenhum provider online');
-            $this->newLine();
-            $this->line('  rode '.$this->ansi('1', 'atlas bootstrap --refresh-providers').' ou use --force-offline-provider');
-        } else {
-            $this->error('Nenhum provider online. Rode atlas bootstrap --refresh-providers ou use --force-offline-provider se quiser tentar mesmo assim.');
-        }
-
-        return self::FAILURE;
-    }
-
     private function runInteractiveDev(string $workspace, AtlasProgrammingOrchestrator $programming, string $programmingProfile): int
     {
         $command = $this->interactiveChatCommand($workspace, $programming, $programmingProfile);
@@ -902,35 +389,64 @@ class AtlasCliDevCommand extends Command
     }
 
     /**
+     * @param  array<string,mixed>  $devPlan
      * @return array<int,string>
      */
     private function interactiveChatCommand(
         string $workspace,
         ?AtlasProgrammingOrchestrator $programming = null,
         string $programmingProfile = 'dev',
+        ?string $task = null,
+        array $devPlan = [],
     ): array {
         $programming ??= app(AtlasProgrammingOrchestrator::class);
-        $sessionPlan = $programming->sessionPlan($workspace, $programmingProfile, [
-            'interactive' => true,
+        $complete = true;
+        $autoTest = (bool) $this->option('auto-test') || $programmingProfile === 'forge';
+        $sessionPlan = $devPlan !== [] ? $devPlan : $programming->sessionPlan($workspace, $programmingProfile, [
+            'task' => $task,
+            'interactive' => $task === null,
             'provider' => $this->provider(),
             'model' => $this->modelOption(),
-            'complete' => $programmingProfile === 'forge',
-            'auto_test' => $programmingProfile === 'forge',
-            'max_iterations' => $programmingProfile === 'forge' ? 5 : 3,
+            'complete' => $complete,
+            'auto_test' => $autoTest,
+            'max_iterations' => $this->maxIterations($programmingProfile),
         ]);
+        if (is_array($sessionPlan)) {
+            data_set($sessionPlan, 'operator_options.input_mode', $task === null ? 'interactive' : 'one_shot');
+        }
         $command = [
             AtlasPhpBinary::path(),
             base_path('artisan'),
             'atlas:ai:chat',
+        ];
+
+        if ($task !== null && trim($task) !== '') {
+            $command[] = $task;
+        }
+
+        $command = array_merge($command, [
             '--dev',
             '--new-thread',
             '--workspace='.$workspace,
             '--permission='.$this->permission(),
-            '--stream',
             '--cockpit',
             '--no-skill-prompt',
             '--dev-plan='.json_encode($sessionPlan, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-        ];
+        ]);
+
+        if (! (bool) $this->option('no-stream') && ! (bool) $this->option('json')) {
+            $command[] = '--stream';
+        }
+
+        if ((bool) $this->option('json')) {
+            $command[] = '--json';
+        }
+
+        if ((bool) $this->option('no-run')) {
+            $command[] = '--no-run';
+        }
+
+        $command[] = '--timeout='.(int) $this->option('timeout');
 
         if ($provider = $this->provider()) {
             $command[] = '--provider='.$provider;
@@ -952,9 +468,40 @@ class AtlasCliDevCommand extends Command
             $command[] = '--allow-unsandboxed';
         }
 
-        if ($programmingProfile === 'forge') {
+        if ($autoTest) {
             $command[] = '--auto-test';
+        }
+
+        if ((bool) $this->option('claude-only')) {
+            $command[] = '--claude-only';
+        }
+
+        if ((bool) $this->option('single-provider')) {
+            $command[] = '--single-provider';
+        }
+
+        if ((bool) $this->option('no-decide')) {
+            $command[] = '--no-decide';
+        }
+
+        if ((bool) $this->option('fallback-disabled')) {
+            $command[] = '--fallback-disabled';
+        }
+
+        if ((bool) $this->option('no-open-brain')) {
+            $command[] = '--no-open-brain';
+        }
+
+        if ((bool) $this->option('require-open-brain') || $programmingProfile === 'forge') {
             $command[] = '--require-open-brain';
+        }
+
+        if ((bool) $this->option('open-brain-refresh')) {
+            $command[] = '--open-brain-refresh';
+        }
+
+        if (is_scalar($this->option('open-brain-budget')) && trim((string) $this->option('open-brain-budget')) !== '') {
+            $command[] = '--open-brain-budget='.trim((string) $this->option('open-brain-budget'));
         }
 
         foreach ($this->skillOptions() as $skill) {
@@ -1451,38 +998,6 @@ class AtlasCliDevCommand extends Command
             ->unique()
             ->values()
             ->all();
-    }
-
-    private function extractTraceId(string $stdout): ?string
-    {
-        $decoded = json_decode($stdout, true);
-        if (is_array($decoded) && is_string($decoded['trace_id'] ?? null)) {
-            return $decoded['trace_id'];
-        }
-
-        if (preg_match('/trace:\\s*([0-9a-fA-F-]{36})/', $stdout, $matches)) {
-            return $matches[1];
-        }
-
-        if (preg_match('/"trace_id"\\s*:\\s*"([^"]+)"/', $stdout, $matches)) {
-            return $matches[1];
-        }
-
-        if (preg_match('/trace\\s+([0-9a-fA-F]{8})/', $stdout, $matches)) {
-            return $matches[1];
-        }
-
-        return null;
-    }
-
-    private function statusRank(string $status): int
-    {
-        return match ($status) {
-            'passed' => 3,
-            'needs_review' => 2,
-            'failed' => 1,
-            default => 0,
-        };
     }
 
     private function workspace(): string

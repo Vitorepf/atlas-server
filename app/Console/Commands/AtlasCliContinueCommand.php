@@ -15,7 +15,6 @@ class AtlasCliContinueCommand extends Command
     protected $signature = 'atlas:cli:continue
         {--workspace= : Workspace path. Defaults to current directory}
         {--thread= : Specific thread id to resume}
-        {--complete : Force --complete on the resumed dev run}
         {--no-open-brain : Disable automatic Open Brain context injection for the resumed run}
         {--require-open-brain : Fail if Open Brain context cannot be injected}
         {--open-brain-refresh : Request a fresh Open Brain context for the resumed run}
@@ -52,10 +51,7 @@ class AtlasCliContinueCommand extends Command
         }
 
         $operatorOptions = (array) $resume['operator_options'];
-        $forceComplete = (bool) $this->option('complete');
-        $complete = $forceComplete || (bool) ($operatorOptions['complete'] ?? false);
-
-        $command = $this->buildResumeCommand($resume, $operatorOptions, $complete);
+        $command = $this->buildResumeCommand($resume, $operatorOptions);
 
         if ($json) {
             $this->line(json_encode([
@@ -115,7 +111,7 @@ class AtlasCliContinueCommand extends Command
      * @param  array<string,mixed>  $operatorOptions
      * @return array<int,string>
      */
-    private function buildResumeCommand(array $resume, array $operatorOptions, bool $complete): array
+    private function buildResumeCommand(array $resume, array $operatorOptions): array
     {
         $command = [
             AtlasPhpBinary::path(),
@@ -126,9 +122,6 @@ class AtlasCliContinueCommand extends Command
             '--resume='.$resume['plan_id'],
         ];
 
-        if ($complete) {
-            $command[] = '--complete';
-        }
         $maxIterations = (int) ($operatorOptions['max_iterations'] ?? 0);
         if ($maxIterations > 0) {
             $command[] = '--max-iterations='.$maxIterations;

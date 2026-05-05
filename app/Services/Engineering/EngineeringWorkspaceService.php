@@ -90,6 +90,8 @@ class EngineeringWorkspaceService
             ]);
         }
 
+        $bootstrap = $this->bootstrapWorktreeArtifacts($worktreePath, (string) $base['original_workspace']);
+
         return array_merge($base, [
             'status' => 'ready',
             'execution_workspace' => realpath($worktreePath) ?: $worktreePath,
@@ -97,6 +99,7 @@ class EngineeringWorkspaceService
             'isolation_type' => 'git_worktree',
             'worktree_path_hash' => hash('sha256', $worktreePath),
             'dirty_files_included' => false,
+            'bootstrapped_artifacts' => $bootstrap,
         ]);
     }
 
@@ -151,6 +154,8 @@ class EngineeringWorkspaceService
             ]);
         }
 
+        $bootstrap = $this->bootstrapWorktreeArtifacts($worktreePath, (string) $base['original_workspace']);
+
         return array_merge($base, [
             'status' => 'ready',
             'execution_workspace' => realpath($worktreePath) ?: $worktreePath,
@@ -159,6 +164,7 @@ class EngineeringWorkspaceService
             'isolation_type' => 'git_worktree',
             'worktree_path_hash' => hash('sha256', $worktreePath),
             'dirty_files_included' => false,
+            'bootstrapped_artifacts' => $bootstrap,
         ]);
     }
 
@@ -607,5 +613,78 @@ class EngineeringWorkspaceService
                 'stderr' => AtlasSecurity::redactString($exception->getMessage()),
             ];
         }
+    }
+
+    /**
+     * @return array{symlinks:array<int,string>,directories:array<int,string>,skipped:array<int,string>}
+     *
+     * Why: a fresh `git worktree add` only contains tracked files. Build artifacts
+     * (vendor/, node_modules/, .env, bootstrap/cache, storage/*) are gitignored and
+     * absent, so any deterministic test_command that requires Composer or Laravel
+     * runtime fails immediately. Atlas Rivals baseline arm exec'd `php artisan test`
+     * inside such a worktree and died with `vendor/autoload.php: No such file or directory`
+     * in 78ms, blocking every paired baseline measurement. We symlink read-only build
+     * artifacts from the original workspace and create writable Laravel skeleton dirs
+     * so the worktree is runnable without a slow `composer install`.
+     */
+    private function bootstrapWorktreeArtifacts(string $worktreePath, string $originalWorkspace): array
+    {
+        $artifacts = [
+            'symlinks' => [],
+            'directories' => [],
+            'skipped' => [],
+        ];
+
+        if ($originalWorkspace === '' || ! is_dir($originalWorkspace) || ! is_dir($worktreePath)) {
+            $artifacts['skipped'][] = 'invalid_workspace_pair';
+
+            return $artifacts;
+        }
+
+        $symlinkCandidates = ['vendor', 'node_modules', '.env', '.env.testing'];
+        foreach ($symlinkCandidates as $artifact) {
+            $source = $originalWorkspace.DIRECTORY_SEPARATOR.$artifact;
+            $target = $worktreePath.DIRECTORY_SEPARATOR.$artifact;
+
+            if (! file_exists($source) && ! is_link($source)) {
+                $artifacts['skipped'][] = $artifact.':source_missing';
+
+                continue;
+            }
+            if (file_exists($target) || is_link($target)) {
+                $artifacts['skipped'][] = $artifact.':already_present';
+
+                continue;
+            }
+
+            if (@symlink($source, $target)) {
+                $artifacts['symlinks'][] = $artifact;
+            } else {
+                $artifacts['skipped'][] = $artifact.':symlink_failed';
+            }
+        }
+
+        $writableDirs = [
+            'bootstrap/cache',
+            'storage/app',
+            'storage/framework/cache/data',
+            'storage/framework/sessions',
+            'storage/framework/testing',
+            'storage/framework/views',
+            'storage/logs',
+        ];
+        foreach ($writableDirs as $dir) {
+            $path = $worktreePath.DIRECTORY_SEPARATOR.$dir;
+            if (is_dir($path)) {
+                continue;
+            }
+            if (@mkdir($path, 0755, true)) {
+                $artifacts['directories'][] = $dir;
+            } else {
+                $artifacts['skipped'][] = $dir.':mkdir_failed';
+            }
+        }
+
+        return $artifacts;
     }
 }

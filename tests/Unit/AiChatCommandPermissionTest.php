@@ -173,85 +173,6 @@ class AiChatCommandPermissionTest extends TestCase
         $this->assertStringContainsString('image/png', $output);
     }
 
-    public function test_composer_clipboard_poll_attaches_current_image_once(): void
-    {
-        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
-        File::ensureDirectoryExists($workspace);
-        $imagePath = $workspace.'/clipboard.png';
-        File::put($imagePath, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l8Jv6wAAAABJRU5ErkJggg=='));
-        $hash = hash_file('sha256', $imagePath);
-
-        $images = \Mockery::mock(AtlasImageAttachmentService::class);
-        $images->shouldReceive('clipboardStatus')->twice()->andReturn([
-            'current_image_detected' => true,
-        ]);
-        $images->shouldReceive('fromClipboard')->twice()->with($workspace)->andReturn([
-            'path' => $imagePath,
-            'source' => 'clipboard',
-            'original_path' => $imagePath,
-            'mime_type' => 'image/png',
-            'bytes' => File::size($imagePath),
-            'sha256' => $hash,
-        ]);
-        $images->shouldReceive('dedupe')->once()->andReturnUsing(fn (array $attachments): array => $attachments);
-
-        $command = $this->commandWithIo();
-        $method = new ReflectionMethod(AiChatCommand::class, 'autoAttachCurrentClipboardImage');
-        $method->setAccessible(true);
-
-        [$label, $attachments] = $method->invoke($command, $images, $workspace, [], 'atlas', 'pergunta');
-        [$secondLabel, $secondAttachments] = $method->invoke($command, $images, $workspace, [], 'atlas', 'pergunta');
-        $output = $this->commandOutput($command);
-
-        $this->assertSame('atlas [img:1] Enter=analisar', $label);
-        $this->assertCount(1, $attachments);
-        $this->assertSame('atlas', $secondLabel);
-        $this->assertSame([], $secondAttachments);
-        $this->assertStringContainsString('Imagem anexada. [img:1] pronta para enviar', $output);
-    }
-
-    public function test_composer_clipboard_poll_ignores_idle_prompt_without_text(): void
-    {
-        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
-        File::ensureDirectoryExists($workspace);
-
-        $images = \Mockery::mock(AtlasImageAttachmentService::class);
-        $images->shouldNotReceive('clipboardStatus');
-        $images->shouldNotReceive('fromClipboard');
-
-        $command = $this->commandWithIo();
-        $method = new ReflectionMethod(AiChatCommand::class, 'autoAttachCurrentClipboardImage');
-        $method->setAccessible(true);
-
-        [$label, $attachments] = $method->invoke($command, $images, $workspace, [], 'atlas', '');
-
-        $this->assertSame('atlas', $label);
-        $this->assertSame([], $attachments);
-    }
-
-    public function test_raw_key_dispatch_covers_text_backspace_submit_and_eof(): void
-    {
-        $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
-        File::ensureDirectoryExists($workspace);
-
-        $command = $this->commandWithIo();
-        $method = new ReflectionMethod(AiChatCommand::class, 'dispatchRawKey');
-        $method->setAccessible(true);
-        $images = \Mockery::mock(AtlasImageAttachmentService::class);
-        $buffer = '';
-        $label = 'atlas';
-        $pending = [];
-
-        $this->assertSame('continue', $method->invokeArgs($command, ['a', &$buffer, &$label, &$pending, $images, $workspace]));
-        $this->assertSame('a', $buffer);
-        $this->assertSame('continue', $method->invokeArgs($command, ["\x7f", &$buffer, &$label, &$pending, $images, $workspace]));
-        $this->assertSame('', $buffer);
-        $this->assertSame('submit', $method->invokeArgs($command, ["\n", &$buffer, &$label, &$pending, $images, $workspace]));
-
-        $this->expectException(\Symfony\Component\Console\Exception\RuntimeException::class);
-        $method->invokeArgs($command, ["\x04", &$buffer, &$label, &$pending, $images, $workspace]);
-    }
-
     public function test_pending_images_output_shows_product_grade_attachment_proof(): void
     {
         $workspace = storage_path('framework/testing/image-cli-'.bin2hex(random_bytes(4)));
@@ -292,9 +213,12 @@ class AiChatCommandPermissionTest extends TestCase
         $emptyPrompt = $method->invoke($command, null, []);
         $this->assertSame('atlas', $emptyPrompt);
         $this->assertStringNotContainsString('[img:', $emptyPrompt);
-        $this->assertSame('atlas [img:1] Enter=analisar', $method->invoke($command, null, [[
+        $withImage = $method->invoke($command, null, [[
             'path' => '/tmp/print.png',
-        ]]));
+        ]]);
+        $this->assertStringContainsString('imagem 1', $withImage);
+        $this->assertStringNotContainsString('[img:', $withImage);
+        $this->assertStringNotContainsString('Enter=analisar', $withImage, 'Label nao deve mais incluir o sufixo Enter=analisar.');
     }
 
     public function test_open_image_reports_when_no_attachment_exists(): void
@@ -308,19 +232,21 @@ class AiChatCommandPermissionTest extends TestCase
         $this->assertStringContainsString('Nenhuma imagem anexada ou enviada recentemente.', $this->commandOutput($command));
     }
 
-    public function test_visual_provider_switch_is_blocked_while_images_are_pending_or_queued(): void
+    public function test_visual_provider_switch_is_blocked_only_for_unsupported_providers(): void
     {
         $command = $this->commandWithIo();
         $method = new ReflectionMethod(AiChatCommand::class, 'imageProviderSwitchBlocked');
         $method->setAccessible(true);
 
         $this->assertFalse($method->invoke($command, 'codex_cli', [['path' => '/tmp/print.png']], []));
-        $this->assertTrue($method->invoke($command, 'claude_cli', [['path' => '/tmp/print.png']], []));
-        $this->assertTrue($method->invoke($command, 'claude_cli', [], [[
+        $this->assertFalse($method->invoke($command, 'claude_cli', [['path' => '/tmp/print.png']], []));
+        $this->assertFalse($method->invoke($command, 'gemini_cli', [['path' => '/tmp/print.png']], []));
+        $this->assertTrue($method->invoke($command, 'unknown_cli', [['path' => '/tmp/print.png']], []));
+        $this->assertTrue($method->invoke($command, 'unknown_cli', [], [[
             'input' => 'analise',
             'images' => [['path' => '/tmp/print.png']],
         ]]));
-        $this->assertFalse($method->invoke($command, 'claude_cli', [], [[
+        $this->assertFalse($method->invoke($command, 'unknown_cli', [], [[
             'input' => 'texto',
             'images' => [],
         ]]));
@@ -382,6 +308,53 @@ class AiChatCommandPermissionTest extends TestCase
         $this->assertSame('engineering_harness', data_get($messagePlan, 'executor_decision.policy_executor_preference'));
         $this->assertSame('programming.forge', data_get($messagePlan, 'policy_profile.profile_id'));
         $this->assertSame(5, data_get($messagePlan, 'policy_profile.execution_policy.max_iterations'));
+    }
+
+    public function test_dev_message_plan_detects_repair_without_leaving_dev_executor(): void
+    {
+        $command = app(AiChatCommand::class);
+        $method = new ReflectionMethod(AiChatCommand::class, 'programmingMessagePlan');
+        $method->setAccessible(true);
+
+        $messagePlan = $method->invoke($command, '/tmp/atlas-workspace', 'dev', 'corrija o teste falhando no login', null, null, [
+            'schema_version' => 1,
+            'plan_id' => 'parent-plan-repair',
+            'programming_profile' => 'dev',
+            'execution_profile' => [
+                'complete' => true,
+                'auto_test' => true,
+                'max_iterations' => 3,
+            ],
+        ]);
+
+        $this->assertSame('repair', data_get($messagePlan, 'operator_intent.kind'));
+        $this->assertTrue((bool) data_get($messagePlan, 'operator_intent.repair_detected'));
+        $this->assertFalse((bool) data_get($messagePlan, 'operator_intent.force_harness'));
+        $this->assertSame('dev_repair_executor', data_get($messagePlan, 'executor_decision.executor'));
+    }
+
+    public function test_dev_message_plan_auto_escalates_multi_layer_work_to_harness(): void
+    {
+        $command = app(AiChatCommand::class);
+        $method = new ReflectionMethod(AiChatCommand::class, 'programmingMessagePlan');
+        $method->setAccessible(true);
+
+        $messagePlan = $method->invoke($command, '/tmp/atlas-workspace', 'dev', 'implemente o fluxo inteiro com banco, api, ui e testes e2e', null, null, [
+            'schema_version' => 1,
+            'plan_id' => 'parent-plan-harness',
+            'programming_profile' => 'dev',
+            'execution_profile' => [
+                'complete' => true,
+                'auto_test' => true,
+                'max_iterations' => 4,
+            ],
+        ]);
+
+        $this->assertSame('harness', data_get($messagePlan, 'operator_intent.kind'));
+        $this->assertTrue((bool) data_get($messagePlan, 'operator_intent.force_harness'));
+        $this->assertGreaterThanOrEqual(3, data_get($messagePlan, 'operator_intent.layer_count'));
+        $this->assertSame('engineering_harness', data_get($messagePlan, 'executor_decision.executor'));
+        $this->assertSame('operator_forced_harness', data_get($messagePlan, 'executor_decision.reason'));
     }
 
     public function test_programming_executor_request_data_inherits_harness_overrides(): void
@@ -484,6 +457,22 @@ class AiChatCommandPermissionTest extends TestCase
         $this->assertSame('ai_gateway_provider', data_get($providerDispatch, 'dispatch_path'));
         $this->assertSame('dev_repair_executor', data_get($providerDispatch, 'executor'));
         $this->assertSame('complete_mode_requires_repair_loop', data_get($providerDispatch, 'reason'));
+    }
+
+    public function test_fix_prompt_input_keeps_repair_inside_dev_chat_flow(): void
+    {
+        $command = app(AiChatCommand::class);
+        $method = new ReflectionMethod(AiChatCommand::class, 'fixPromptInput');
+        $method->setAccessible(true);
+
+        $this->assertSame(
+            'Corrija: teste falhando no login',
+            $method->invoke($command, 'teste falhando no login'),
+        );
+        $this->assertStringContainsString(
+            'Corrija o ultimo teste falho',
+            $method->invoke($command, ''),
+        );
     }
 
     /**

@@ -41,14 +41,13 @@ class AtlasCliDevCommandTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_plan_only_complete_auto_activates_dev_quality_gate(): void
+    public function test_plan_only_dev_activates_complete_quality_gate_by_default(): void
     {
         $exitCode = Artisan::call('atlas:cli:dev', [
             'task' => ['implementar', 'getter'],
             '--workspace' => $this->workspace,
             '--provider' => 'codex_cli',
             '--plan-only' => true,
-            '--complete' => true,
             '--json' => true,
         ]);
         $payload = json_decode(Artisan::output(), true);
@@ -449,6 +448,51 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertContains('--model=gpt-5.4-mini', $command);
     }
 
+    public function test_prompt_dev_uses_same_cockpit_chat_command_as_interactive(): void
+    {
+        $command = $this->interactiveCommand([
+            '--permission' => 'write',
+            '--provider' => 'codex_cli',
+        ], 'corrigir fluxo fragil');
+        $plan = $this->devPlanFromCommand($command);
+
+        $this->assertSame('/opt/homebrew/bin/php', $command[0]);
+        $this->assertContains('atlas:ai:chat', $command);
+        $this->assertContains('corrigir fluxo fragil', $command);
+        $this->assertContains('--dev', $command);
+        $this->assertContains('--new-thread', $command);
+        $this->assertContains('--cockpit', $command);
+        $this->assertContains('--no-skill-prompt', $command);
+        $this->assertContains('--provider=codex_cli', $command);
+        $this->assertSame('one_shot', data_get($plan, 'operator_options.input_mode'));
+    }
+
+    public function test_prompt_dev_forwards_execution_flags_to_chat_command(): void
+    {
+        $command = $this->interactiveCommand([
+            '--permission' => 'write',
+            '--auto-test' => true,
+            '--no-stream' => true,
+            '--json' => true,
+            '--no-run' => true,
+            '--claude-only' => true,
+            '--open-brain-refresh' => true,
+            '--open-brain-budget' => '12000',
+        ], 'implementar com reparo');
+        $plan = $this->devPlanFromCommand($command);
+
+        $this->assertContains('implementar com reparo', $command);
+        $this->assertContains('--auto-test', $command);
+        $this->assertContains('--json', $command);
+        $this->assertContains('--no-run', $command);
+        $this->assertContains('--claude-only', $command);
+        $this->assertContains('--open-brain-refresh', $command);
+        $this->assertContains('--open-brain-budget=12000', $command);
+        $this->assertNotContains('--stream', $command);
+        $this->assertSame('one_shot', data_get($plan, 'operator_options.input_mode'));
+        $this->assertTrue((bool) data_get($plan, 'execution_profile.complete'));
+    }
+
     public function test_workspace_auto_detects_git_project_root(): void
     {
         $nested = $this->workspace.'/app/Console';
@@ -587,7 +631,7 @@ class AtlasCliDevCommandTest extends TestCase
      * @param  array<string,mixed>  $options
      * @return array<int,string>
      */
-    private function interactiveCommand(array $options): array
+    private function interactiveCommand(array $options, ?string $task = null, array $devPlan = []): array
     {
         $command = app(AtlasCliDevCommand::class);
         $input = new ArrayInput($options + [
@@ -606,7 +650,22 @@ class AtlasCliDevCommandTest extends TestCase
         $method = new ReflectionMethod(AtlasCliDevCommand::class, 'interactiveChatCommand');
         $method->setAccessible(true);
 
-        return $method->invoke($command, $this->workspace);
+        return $method->invoke($command, $this->workspace, null, 'dev', $task, $devPlan);
+    }
+
+    /**
+     * @param  array<int,string>  $command
+     * @return array<string,mixed>
+     */
+    private function devPlanFromCommand(array $command): array
+    {
+        $option = collect($command)->first(
+            fn (string $argument): bool => str_starts_with($argument, '--dev-plan=')
+        );
+
+        $this->assertIsString($option);
+
+        return json_decode(substr($option, strlen('--dev-plan=')), true);
     }
 
     private function setCommandProperty(AtlasCliDevCommand $command, string $property, mixed $value): void
