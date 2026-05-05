@@ -55,7 +55,7 @@ class AiTelemetryPerformanceReportToolsTest extends TestCase
         $traceId = $this->seedTraceAndSummary();
 
         $report = app(AiTelemetryPerformanceReportService::class)
-            ->buildDaily(now()->subDay());
+            ->buildDaily($this->seededReportDate(), 'UTC');
 
         $this->assertArrayHasKey('tools', $report,
             'Top-level tools key surfaces digest without renderer needing to dig into windowAnalysis.');
@@ -72,7 +72,7 @@ class AiTelemetryPerformanceReportToolsTest extends TestCase
         }
 
         $report = app(AiTelemetryPerformanceReportService::class)
-            ->buildDaily(now()->subDay());
+            ->buildDaily($this->seededReportDate(), 'UTC');
 
         $this->assertSame('healthy', $report['tools']['status']);
         $this->assertSame(10, $report['tools']['tool_calls_total']);
@@ -87,7 +87,7 @@ class AiTelemetryPerformanceReportToolsTest extends TestCase
         $this->seedToolEvent($traceId, 'shell.run', 'medium', 'denied', exitCode: 1, error: 'boom');
 
         $report = app(AiTelemetryPerformanceReportService::class)
-            ->buildDaily(now()->subDay());
+            ->buildDaily($this->seededReportDate(), 'UTC');
 
         $this->assertSame('healthy', $report['tools']['status']);
         $this->assertSame(1, $report['tools']['tool_calls_total']);
@@ -107,7 +107,7 @@ class AiTelemetryPerformanceReportToolsTest extends TestCase
         }
 
         $report = app(AiTelemetryPerformanceReportService::class)
-            ->buildDaily(now()->subDay());
+            ->buildDaily($this->seededReportDate(), 'UTC');
 
         $this->assertSame('warning', $report['tools']['status'],
             '30% denial rate above 15% threshold and above min_calls=5 floor → warning.');
@@ -120,7 +120,7 @@ class AiTelemetryPerformanceReportToolsTest extends TestCase
         $this->seedToolEvent($traceId, 'git.apply_patch', 'critical', 'approved');
 
         $report = app(AiTelemetryPerformanceReportService::class)
-            ->buildDaily(now()->subDay());
+            ->buildDaily($this->seededReportDate(), 'UTC');
 
         $this->assertSame('critical', $report['tools']['status'],
             'Even one critical-risk operation forces status=critical regardless of rates.');
@@ -141,7 +141,7 @@ class AiTelemetryPerformanceReportToolsTest extends TestCase
         }
 
         $report = app(AiTelemetryPerformanceReportService::class)
-            ->buildDaily(now()->subDay());
+            ->buildDaily($this->seededReportDate(), 'UTC');
 
         $topFailures = $report['tools']['top_failures'];
         $this->assertCount(1, $topFailures, 'Only common.tool has >= 5 calls.');
@@ -162,7 +162,7 @@ class AiTelemetryPerformanceReportToolsTest extends TestCase
         }
 
         $report = app(AiTelemetryPerformanceReportService::class)
-            ->buildDaily(now()->subDay());
+            ->buildDaily($this->seededReportDate(), 'UTC');
 
         $topUsed = $report['tools']['top_used'];
         $this->assertSame('top.tool', $topUsed[0]['bucket'], '12 calls — most used.');
@@ -173,8 +173,8 @@ class AiTelemetryPerformanceReportToolsTest extends TestCase
     private function seedTraceAndSummary(): string
     {
         // Place the trace and summary inside the trace_created_at window of buildDaily()
-        // (which uses "yesterday" by default in São Paulo TZ).
-        $insideWindow = now()->subDay()->setTime(12, 0);
+        // without depending on the local wall-clock timezone near midnight.
+        $insideWindow = $this->seededReportDate();
 
         $trace = AiTrace::query()->create([
             'trace_key' => 'trace_'.Str::uuid(),
@@ -234,8 +234,13 @@ class AiTelemetryPerformanceReportToolsTest extends TestCase
             'exit_code' => $exitCode,
             'duration_ms' => 100,
             'error' => $error,
-            'created_at' => now()->subDay()->setTime(12, 0),
+            'created_at' => $this->seededReportDate(),
         ]);
+    }
+
+    private function seededReportDate(): \Illuminate\Support\Carbon
+    {
+        return now('UTC')->subDay()->setTime(12, 0);
     }
 
     private function bootMinimalSchema(): void

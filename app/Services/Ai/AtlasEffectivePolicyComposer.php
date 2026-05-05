@@ -313,7 +313,12 @@ class AtlasEffectivePolicyComposer
     {
         $executor = (string) data_get($policy, 'execution_policy.executor_preference', 'standard_ai_response');
         $mode = $this->text(data_get($toolPolicy, 'mode'), data_get($toolPolicy, 'preset'))
-            ?? ($executor === 'engineering_harness' ? 'harness' : (str_starts_with($executor, 'simple_') ? 'workspace_write' : 'read_only'));
+            ?? match (true) {
+                $executor === 'engineering_harness' => 'harness',
+                $executor === 'dev_repair_executor' => 'workspace_write',
+                str_starts_with($executor, 'simple_') => 'workspace_write',
+                default => 'read_only',
+            };
         $workspaceWrite = (bool) data_get($toolPolicy, 'workspace_write', in_array($mode, ['workspace_write', 'harness'], true));
 
         return [

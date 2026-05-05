@@ -61,13 +61,13 @@ Documentos centrais lidos nesta auditoria:
 | `START_HERE.md` / `README.md` | Entrada canonica da Knowledge Base. |
 | `atlas-ai-memory-context-core-open-brain.md` | Arquitetura longa de memoria, contexto e Open Brain. |
 | `open-brain-context-injection.md` | Injecao automatica de memoria/contexto em CLI/app. |
-| `context-pack.md` | Refs compactas de docs/codigo no context pack. |
+| `context-pack.md` | Documento legado avaliado na auditoria; contrato vivo esta em Open Brain/Memory/Core docs. |
 | `code-intelligence.md` | Indice operacional docs->codigo. |
 | `engineering-blueprint.md` | Disciplina de contrato, blueprint, task, QA, review e gates. |
 | `engineering-blueprint-quality-gates.md` | Regras objetivas de pronto. |
 | `super-tool-runtime-core.md` | Registry, policy, executor, normalizer, evidence store e gates de tools. |
 | `programming-power-tools-catalog.md` | Catalogo de ferramentas de programacao pesada e anti-duplicacao. |
-| `capability-matrix.md` | Estado declarado das capacidades do Harness. |
+| `capability-matrix.md` | Matriz legada avaliada na auditoria; status vivo esta em Blueprint Maturity, Super Tool Runtime e Programming Power Tools. |
 | `atlas-cli-5x-claude-code-plan.md` | Plano de produto para superar Claude Code por harness, contexto, gates e repair. |
 | `atlas-cli-fair-claude-benchmark.md` | Protocolo cientifico Fair Claude. |
 | `atlas-cli-final-product.md` | Superficie terminal final. |

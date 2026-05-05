@@ -10,6 +10,8 @@ use App\Models\AtlasTask;
 use App\Models\AiTrace;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Tools\AtlasToolGateService;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
@@ -38,6 +40,7 @@ class EngineeringHarnessRunnerService
         private readonly EngineeringReviewFindingService $reviewFindings,
         private readonly AtlasMemoryRegistryService $memoryRegistry,
         private readonly AtlasToolGateService $toolGate,
+        private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
     /**
@@ -199,6 +202,20 @@ class EngineeringHarnessRunnerService
                 'fair_mode' => $fairModeOptions,
             ],
         ]);
+        $this->recordHarnessLedgerEvent(LedgerEventType::ExecutionStarted, $run->refresh(), [
+            'task_id' => $task->id,
+            'project_id' => $task->project_id,
+            'provider' => $provider,
+            'model' => $model,
+            'dry_run' => $dryRun,
+            'no_provider' => $noProvider,
+            'sandbox' => $effectiveSandbox,
+            'permission' => $permission,
+            'max_attempts' => $maxAttempts,
+            'auto_test' => $autoTest,
+            'harnessability_score' => (int) ($harnessability['score'] ?? 0),
+            'context_pack_hash' => null,
+        ]);
 
         $this->recordAutonomyPolicyControl($run->refresh(), $autonomyPolicy);
         $this->recordModelSelectionControl($run->refresh(), $modelSelection);
@@ -225,6 +242,12 @@ class EngineeringHarnessRunnerService
         $this->recordProviderRuntimeControl($run->refresh(), $providerRuntimePlan);
 
         $contextPack = $this->contextPacks->build($task, $run, $executionWorkspace, $contract, $blueprint, $controls);
+        $this->recordHarnessLedgerEvent(LedgerEventType::ContextComposed, $run->refresh(), [
+            'context_pack_hash' => $contextPack['hash'] ?? null,
+            'control_count' => count($controls),
+            'blueprint_id' => $blueprint['blueprint_id'] ?? null,
+            'blueprint_snapshot_id' => $snapshot['id'] ?? null,
+        ]);
         $this->recordPrepareControls($run, $controls, $contract, $blueprint);
 
         $promptHash = hash('sha256', json_encode([$contract, $blueprint, $contextPack], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
@@ -264,6 +287,18 @@ class EngineeringHarnessRunnerService
             ], $workspacePlan, $providerRuntimePlan);
 
             $attempt = $this->syncProviderAttempts($run->refresh(), $attempt, $providerRun, $provider);
+            $this->recordHarnessLedgerEvent(LedgerEventType::ProviderReturned, $run->refresh(), [
+                'attempt_id' => $attempt->id,
+                'attempt_number' => $attempt->attempt_number,
+                'attempt_status' => $attempt->status,
+                'provider' => $provider,
+                'model' => $model,
+                'trace_id' => $attempt->trace_id ?: ($providerRun['trace_id'] ?? null),
+                'exit_code' => data_get($providerRun, 'exit_code'),
+                'duration_ms' => data_get($providerRun, 'duration_ms'),
+                'response_hash' => data_get($providerRun, 'response_hash'),
+                'completion_status' => data_get($providerRun, 'decoded.completion.status'),
+            ]);
         } else {
             $attempt->forceFill([
                 'status' => 'completed',
@@ -346,6 +381,20 @@ class EngineeringHarnessRunnerService
                 'isolated_patch_apply' => $patchApply,
             ]),
         ])->save();
+        $terminalEvent = in_array((string) $run->status, ['resolved', 'partial', 'succeeded', 'passed'], true)
+            || in_array((string) $run->decision, ['resolved', 'partial'], true)
+            ? LedgerEventType::OperationCompleted
+            : LedgerEventType::OperationFailed;
+        $this->recordHarnessLedgerEvent($terminalEvent, $run->refresh(), [
+            'decision' => $run->decision,
+            'status' => $run->status,
+            'score' => $run->score,
+            'attempt_count' => $run->attempt_count,
+            'trace_id' => $run->trace_id,
+            'test_run_count' => $testRuns->count(),
+            'patch_artifact_id' => $patch?->id,
+            'blocking_reasons' => $scoring['blocking_reasons'] ?? [],
+        ]);
 
         $this->recordEvidence($task->refresh(), $run->refresh(), $scoring, $patch);
         $this->persistTaskSummary($task->refresh(), $run->refresh(), $scoring);
@@ -2707,6 +2756,42 @@ class EngineeringHarnessRunnerService
     private function uuidOrNull(mixed $value): ?string
     {
         return is_string($value) && Str::isUuid($value) ? $value : null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function recordHarnessLedgerEvent(LedgerEventType $type, AtlasEngineeringRun $run, array $payload = []): void
+    {
+        $envelopeId = 'engineering_run:'.$run->id;
+
+        try {
+            $this->ledger->record($type, array_merge([
+                'envelope_id' => $envelopeId,
+                'engineering_run_id' => $run->id,
+                'task_id' => $run->task_id,
+                'project_id' => $run->project_id,
+                'project_step_id' => $run->project_step_id,
+                'trace_id' => $run->trace_id,
+                'status' => $run->status,
+                'decision' => $run->decision,
+                'score' => $run->score,
+                'workspace_path_hash' => $run->workspace_path_hash,
+                'workspace_label_hash' => $run->workspace_label ? hash('sha256', $run->workspace_label) : null,
+                'provider' => data_get($run->provider_strategy_json, 'provider'),
+                'model' => data_get($run->provider_strategy_json, 'model'),
+            ], $payload), [
+                'tenant_id' => (string) data_get($run->metadata, 'tenant_id', 'default'),
+                'operator_id' => (string) data_get($run->metadata, 'operator_id', 'system'),
+                'envelope_id' => $envelopeId,
+                'trace_id' => $this->uuidOrNull($run->trace_id),
+                'correlation_id' => $envelopeId,
+                'emitter_stage' => 'engineering.harness',
+                'emitter_version' => 'engineering-harness-v1',
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     private function workspace(mixed $workspace): string

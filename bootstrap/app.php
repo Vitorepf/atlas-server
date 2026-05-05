@@ -15,7 +15,11 @@ use App\Console\Commands\AiTelemetryHealthCommand;
 use App\Console\Commands\AiTelemetryPerformanceReportCommand;
 use App\Console\Commands\AiTelemetryRollupCommand;
 use App\Console\Commands\AiWorkCommand;
+use App\Console\Commands\AtlasAiArchitectureValidateCommand;
 use App\Console\Commands\AtlasAiDecideCommand;
+use App\Console\Commands\AtlasAiDomainsCommand;
+use App\Console\Commands\AtlasAiLedgerCommand;
+use App\Console\Commands\AtlasAiSelfImproveCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
 use App\Console\Commands\AtlasCliCheckpointCommand;
 use App\Console\Commands\AtlasCliCompareCommand;
@@ -117,7 +121,11 @@ return Application::configure(basePath: dirname(__DIR__))
         AiTelemetryPerformanceReportCommand::class,
         AiTelemetryRollupCommand::class,
         AiWorkCommand::class,
+        AtlasAiArchitectureValidateCommand::class,
         AtlasAiDecideCommand::class,
+        AtlasAiDomainsCommand::class,
+        AtlasAiLedgerCommand::class,
+        AtlasAiSelfImproveCommand::class,
         AtlasCliBootstrapCommand::class,
         AtlasCliCheckpointCommand::class,
         AtlasCliCompareCommand::class,
@@ -253,6 +261,21 @@ return Application::configure(basePath: dirname(__DIR__))
         if (config('atlas.ai.schedule_worker')) {
             $schedule->command('atlas:ai:work --once --limit=3')
                 ->everyMinute()
+                ->withoutOverlapping();
+        }
+
+        if (config('atlas_ai.self_improvement.enabled', false)) {
+            $selfImprovementCommand = 'atlas:ai:self-improve'
+                .' --hours='.(int) config('atlas_ai.self_improvement.hours', 24)
+                .' --limit='.(int) config('atlas_ai.self_improvement.limit', 5)
+                .' --json';
+
+            if (config('atlas_ai.self_improvement.emit', false)) {
+                $selfImprovementCommand .= ' --emit';
+            }
+
+            $schedule->command($selfImprovementCommand)
+                ->dailyAt((string) config('atlas_ai.self_improvement.time', '02:00'))
                 ->withoutOverlapping();
         }
 

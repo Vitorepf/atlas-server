@@ -325,6 +325,26 @@ class AtlasAiPolicyService
                 : $policy['source'];
         }
 
+        $flow = (string) data_get($domainProfile, 'flow_id');
+        if ($flow === 'programming.repair') {
+            $policy['executor_preference'] = 'dev_repair_executor';
+            $policy['quality_required'] = true;
+            $policy['auto_test'] = true;
+            $policy['max_iterations'] = max(3, (int) ($policy['max_iterations'] ?? 3));
+            $policy['source'] = $databaseBacked && $declared !== []
+                ? $policy['source']
+                : 'programming_repair_guard';
+        }
+
+        if (in_array($flow, ['programming.qa', 'programming.security', 'programming.database', 'programming.visual'], true)) {
+            $policy['executor_preference'] = 'engineering_harness';
+            $policy['harness_required'] = true;
+            $policy['quality_required'] = true;
+            $policy['source'] = $databaseBacked && $declared !== []
+                ? $policy['source']
+                : 'programming_harness_flow_guard';
+        }
+
         $policy['max_iterations'] = min(10, max(1, (int) ($policy['max_iterations'] ?? 1)));
 
         return $policy;

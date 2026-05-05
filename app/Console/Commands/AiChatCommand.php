@@ -131,8 +131,8 @@ class AiChatCommand extends Command
         FairClaudePolicy $fairClaude,
     ): int {
         $workspace = $this->workspace();
-        $devPlan = $this->devExecutionPlanOption();
-        $fairFlags = $fairClaude->normalizeFlags($this->fairClaudeFlags($devPlan));
+        $declaredDevPlan = $this->devExecutionPlanOption();
+        $fairFlags = $fairClaude->normalizeFlags($this->fairClaudeFlags($declaredDevPlan));
         $fairMode = (bool) ($fairFlags['fair_mode'] ?? false);
         $explicitProvider = $this->providerKey($this->option('conselho') ? 'conselho' : ($this->option('provider') ?: $this->option('ai') ?: null));
         $provider = $explicitProvider;
@@ -707,7 +707,14 @@ class AiChatCommand extends Command
                 'model_tier' => $modelSelection['tier'] ?? null,
             ],
         );
-        $devPlan = $this->devExecutionPlanOption();
+        $devPlan = $this->activeDevExecutionPlan(
+            workspace: $workspace,
+            mode: $mode,
+            input: $input,
+            provider: $provider,
+            model: $modelOverride,
+            aiPolicyOverride: $aiPolicyOverride,
+        );
         $payload = [
             'app_surface' => 'atlas_cli',
             'atlas_workflow_mode' => $mode,
@@ -4281,6 +4288,12 @@ class AiChatCommand extends Command
      */
     private function programmingIntent(string $input, string $profile, array $devPlan): array
     {
+        $explicitIntent = (string) (
+            data_get($devPlan, 'operator_options.programming_intent')
+            ?: data_get($devPlan, 'operator_options.intent')
+            ?: data_get($devPlan, 'programming_intent')
+            ?: ''
+        );
         $text = strtolower(Str::ascii($input));
         $matchedRepair = $this->matchedIntentSignals($text, [
             'corrija', 'corrigir', 'conserte', 'consertar', 'arrume', 'arrumar',
@@ -4295,6 +4308,7 @@ class AiChatCommand extends Command
             'dificil', 'critico', 'producao', 'seguranca', 'permissao',
         ]);
         $layerCount = $this->programmingIntentLayerCount($text);
+        $explicitRepair = in_array($explicitIntent, ['repair', 'fix', 'quality_repair'], true);
         $explicitHarness = in_array('forge', $matchedHarness, true) || in_array('harness', $matchedHarness, true);
         $forceHarness = $profile === 'forge'
             || $explicitHarness
@@ -4306,11 +4320,12 @@ class AiChatCommand extends Command
             'source' => 'atlas_dev_auto_intent',
             'kind' => match (true) {
                 $forceHarness => 'harness',
-                $matchedRepair !== [] => 'repair',
+                $explicitRepair || $matchedRepair !== [] => 'repair',
                 default => 'implementation',
             },
             'force_harness' => $forceHarness,
-            'repair_detected' => $matchedRepair !== [],
+            'repair_detected' => $explicitRepair || $matchedRepair !== [],
+            'explicit_intent' => $explicitIntent !== '' ? $explicitIntent : null,
             'harness_detected' => $matchedHarness !== [] || $layerCount >= 3,
             'matched_repair_signals' => $matchedRepair,
             'matched_harness_signals' => $matchedHarness,
@@ -4361,6 +4376,43 @@ class AiChatCommand extends Command
     }
 
     /**
+     * @param  array<string,mixed>  $aiPolicyOverride
+     * @return array<string,mixed>|null
+     */
+    private function activeDevExecutionPlan(
+        string $workspace,
+        string $mode,
+        string $input,
+        ?string $provider,
+        ?string $model,
+        array $aiPolicyOverride = [],
+    ): ?array {
+        $declared = $this->devExecutionPlanOption();
+        if ($declared !== null) {
+            return $declared;
+        }
+
+        if ($mode !== 'dev') {
+            return null;
+        }
+
+        $plan = app(AtlasProgrammingOrchestrator::class)->sessionPlan($workspace, 'dev', [
+            'task' => $input,
+            'provider' => $provider,
+            'model' => $model,
+            'interactive' => true,
+            'complete' => true,
+            'auto_test' => (bool) $this->option('auto-test'),
+            'max_iterations' => 3,
+            'ai_policy_override' => $aiPolicyOverride,
+        ]);
+        data_set($plan, 'operator_options.input_mode', 'chat_dev_auto_plan');
+        data_set($plan, 'operator_options.generated_by', 'AiChatCommand');
+
+        return $plan;
+    }
+
+    /**
      * @return array<string,mixed>|null
      */
     private function programmingMessagePlan(
@@ -4392,6 +4444,7 @@ class AiChatCommand extends Command
                 'parent_plan_id' => is_string($devPlan['plan_id'] ?? null) ? $devPlan['plan_id'] : null,
                 'ai_policy_override' => $aiPolicyOverride,
                 'force_harness' => (bool) ($intent['force_harness'] ?? false),
+                'intent' => (string) ($intent['kind'] ?? ''),
             ]);
             $plan['operator_intent'] = $intent;
 

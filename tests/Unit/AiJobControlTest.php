@@ -7,11 +7,13 @@ use App\Models\AiJob;
 use App\Models\AiJobAttempt;
 use App\Models\AiTrace;
 use App\Models\AiWorkerEvent;
+use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\AiCouncilCoordinator;
 use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\AiWorker;
 use App\Services\Ai\AiWorkerLogger;
 use App\Services\Ai\Cli\AtlasCliQualityService;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\AuditLogService;
 use App\Services\MacAgent\MacAgentService;
@@ -388,7 +390,7 @@ class AiJobControlTest extends TestCase
             durationMs: 123,
             stdout: 'saida inicial',
             stderr: '',
-        ), 'response-hash-1');
+        ), 'response-hash-1', 'worker-1');
 
         $this->assertInstanceOf(AiJob::class, $handled);
         $this->assertSame('queued', $trace->refresh()->status);
@@ -407,6 +409,19 @@ class AiJobControlTest extends TestCase
         $this->assertSame(2, data_get($repairJob->payload, 'programming_repair.current_iteration'));
         $this->assertSame('failed', data_get($repairJob->payload, 'programming_repair_history.0.status'));
         $this->assertTrue((bool) data_get($repairJob->metadata, 'programming_repair_job'));
+        $this->assertSame([
+            LedgerEventType::GateEvaluated->value,
+            LedgerEventType::RepairInitiated->value,
+        ], AtlasLedgerEvent::query()
+            ->where('envelope_id', $trace->id)
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->pluck('event_type')
+            ->all());
+        $this->assertSame($repairJob->id, data_get(AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::RepairInitiated->value)
+            ->firstOrFail()
+            ->payload, 'repair_job_id'));
     }
 
     public function test_worker_native_dev_repair_executor_uses_gate_contract_to_require_tests(): void
@@ -483,7 +498,7 @@ class AiJobControlTest extends TestCase
             durationMs: 123,
             stdout: 'saida inicial',
             stderr: '',
-        ), 'response-hash-pass');
+        ), 'response-hash-pass', 'worker-1');
 
         $this->assertNull($handled);
         $this->assertSame('passed', data_get($job->refresh()->metadata, 'programming_completion.status'));
@@ -567,7 +582,7 @@ class AiJobControlTest extends TestCase
             durationMs: 123,
             stdout: 'saida inicial',
             stderr: '',
-        ), 'response-hash-read-only');
+        ), 'response-hash-read-only', 'worker-1');
 
         $this->assertInstanceOf(AiJob::class, $handled);
         $this->assertSame('failed', $trace->refresh()->status);
@@ -663,7 +678,7 @@ class AiJobControlTest extends TestCase
             durationMs: 123,
             stdout: 'saida de reparo pior',
             stderr: '',
-        ), 'response-hash-2');
+        ), 'response-hash-2', 'worker-1');
 
         $this->assertInstanceOf(AiJob::class, $handled);
         $this->assertSame('failed', $trace->refresh()->status);
@@ -720,6 +735,25 @@ class AiJobControlTest extends TestCase
     private function createAiJobTables(): void
     {
         $this->dropAiJobTables();
+
+        Schema::create('atlas_ledger_events', function (Blueprint $table): void {
+            $table->string('event_id', 32)->primary();
+            $table->string('schema_version', 40)->default('atlas.ledger_event.v1');
+            $table->string('tenant_id', 120)->index();
+            $table->string('operator_id', 120)->index();
+            $table->string('envelope_id', 80)->index();
+            $table->string('receipt_id', 80)->nullable()->index();
+            $table->uuid('trace_id')->nullable()->index();
+            $table->string('correlation_id', 120)->index();
+            $table->string('causation_id', 80)->nullable()->index();
+            $table->string('event_type', 80)->index();
+            $table->string('emitter_stage', 120)->index();
+            $table->string('emitter_version', 80);
+            $table->json('payload');
+            $table->string('payload_hash', 64)->index();
+            $table->timestampTz('occurred_at')->index();
+            $table->timestampsTz();
+        });
 
         Schema::create('ai_traces', function (Blueprint $table): void {
             $table->uuid('id')->primary();
@@ -806,7 +840,7 @@ class AiJobControlTest extends TestCase
 
     private function dropAiJobTables(): void
     {
-        foreach (['ai_job_attempts', 'ai_jobs', 'ai_traces'] as $table) {
+        foreach (['ai_job_attempts', 'ai_jobs', 'ai_traces', 'atlas_ledger_events'] as $table) {
             Schema::dropIfExists($table);
         }
     }

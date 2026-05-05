@@ -1,11 +1,11 @@
 ---
 id: engineering-knowledge-base-architecture
 type: engineering_knowledge
-title: Arquitetura Da Knowledge Base De Engenharia
-status: active
+title: Arquitetura Da Knowledge Base De Engenharia Legacy
+status: deprecated
 category: architecture
-priority: 96
-summary: Arquitetura da camada que conecta docs versionados, registry Postgres, context packs e manutencao automatizada do Atlas.
+priority: 35
+summary: Documento legado da primeira arquitetura da Engineering Knowledge Base; mantido apenas como historico e substituido por README, START_HERE, Code Intelligence e Canonical Architecture Index.
 tags:
   - architecture
   - context-pack
@@ -17,9 +17,14 @@ capabilities:
 decisions:
   - O registry nao substitui docs; ele indexa e operacionaliza os docs.
   - Context packs devem carregar referencias compactas, nao documentos inteiros por padrao.
+  - Este documento nao e mais autoridade primaria; use os documentos em superseded_by.
 maintenance:
-  - Manter frontmatter com id, title, category, priority e summary.
-  - Evitar conteudo privado nesta pasta.
+  - Nao expandir este documento; promover qualquer regra ainda util para os docs canonicos.
+superseded_by:
+  - docs/engineering-knowledge-base/README.md
+  - docs/engineering-knowledge-base/START_HERE.md
+  - docs/engineering-knowledge-base/code-intelligence.md
+  - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
 related_paths:
   - app/Services/Engineering/EngineeringKnowledgeBaseService.php
   - app/Http/Controllers/EngineeringKnowledgeController.php
@@ -27,6 +32,10 @@ related_paths:
 ---
 
 # Arquitetura
+
+> Status: deprecated. Este documento foi a primeira descricao da Engineering
+> Knowledge Base. A autoridade atual esta em `README.md`, `START_HERE.md`,
+> `code-intelligence.md` e `atlas-ai-canonical-architecture-index.md`.
 
 O Atlas Engineering Knowledge Base tem quatro responsabilidades:
 

@@ -240,7 +240,7 @@ class AtlasCliSessionService
     }
 
     /**
-     * @return array{plan_id:string,task:string,workspace:string,thread_id:string,trace_id:string,reason:string,operator_options:array<string,mixed>}|null
+     * @return array{plan_id:string,task:string,workspace:string,thread_id:string,trace_id:string,reason:string,operator_options:array<string,mixed>,programming_profile:?string,model:?string}|null
      */
     public function findResumablePlan(string $workspace, ?string $threadId = null): ?array
     {
@@ -263,19 +263,28 @@ class AtlasCliSessionService
         }
 
         foreach ($query->limit(20)->get() as $trace) {
-            $plan = data_get($trace->metadata ?? [], 'dev_execution_plan');
+            $metadata = $trace->metadata ?? [];
+            $plan = $this->resumablePlanFromMetadata($metadata);
             if (! is_array($plan)) {
                 continue;
             }
             $planId = (string) ($plan['plan_id'] ?? '');
-            $objective = (string) ($plan['objective'] ?? '');
+            $objective = (string) (
+                $plan['objective']
+                ?? $plan['task']
+                ?? data_get($metadata, 'programming_message_plan.operator_intent.original_input')
+                ?? $trace->operator_input
+                ?? ''
+            );
             if ($planId === '' || $objective === '') {
                 continue;
             }
             $currentPhase = (string) ($plan['current_phase'] ?? '');
             $reasonStopped = (string) data_get($plan, 'iterations.reason_if_stopped', '');
-            $traceCancelled = $trace->status === 'cancelled';
-            $unfinished = $currentPhase !== 'finish' || $reasonStopped !== '' || $traceCancelled;
+            $traceCancelled = in_array($trace->status, ['cancelled', 'failed', 'queued', 'processing'], true);
+            $unfinished = $currentPhase === ''
+                ? $traceCancelled
+                : ($currentPhase !== 'finish' || $reasonStopped !== '' || $traceCancelled);
             if (! $unfinished) {
                 continue;
             }
@@ -292,10 +301,46 @@ class AtlasCliSessionService
                 'trace_id' => (string) $trace->id,
                 'reason' => $reason,
                 'operator_options' => is_array($plan['operator_options'] ?? null) ? (array) $plan['operator_options'] : [],
+                'programming_profile' => $this->programmingProfileFromPlan($plan, $metadata),
+                'model' => is_string($trace->model) && trim($trace->model) !== '' ? (string) $trace->model : null,
             ];
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     * @return array<string,mixed>|null
+     */
+    private function resumablePlanFromMetadata(array $metadata): ?array
+    {
+        foreach ([
+            'dev_execution_plan',
+            'programming_session_plan',
+            'programming_message_plan',
+        ] as $key) {
+            $plan = data_get($metadata, $key);
+            if (is_array($plan) && is_string($plan['plan_id'] ?? null) && trim((string) $plan['plan_id']) !== '') {
+                return $plan;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $metadata
+     */
+    private function programmingProfileFromPlan(array $plan, array $metadata): ?string
+    {
+        $profile = data_get($plan, 'programming_profile')
+            ?: data_get($plan, 'programming_session_plan.programming_profile')
+            ?: data_get($metadata, 'programming_profile')
+            ?: data_get($metadata, 'programming_message_plan.programming_profile');
+
+        return in_array($profile, ['dev', 'forge'], true) ? $profile : null;
     }
 
     /**

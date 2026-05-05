@@ -1,11 +1,11 @@
 ---
 id: engineering-knowledge-context-pack
 type: engineering_knowledge
-title: Knowledge Refs No Context Pack
-status: active
+title: Knowledge Refs No Context Pack Legacy
+status: deprecated
 category: context_pack
-priority: 90
-summary: Como o Atlas injeta referencias canonicas da Knowledge Base no context pack do Engineering Harness Runner.
+priority: 35
+summary: Documento legado sobre refs compactas no context pack; substituido por Open Brain Context Injection, Memory Core Contracts, Code Intelligence e Atlas AI Pipeline.
 tags:
   - context-pack
   - harness
@@ -22,9 +22,14 @@ decisions:
   - O markdown completo permanece versionado no repo.
   - Task contract e blueprint snapshot sao entradas obrigatorias para execucao autonoma de engenharia.
   - Open Brain Context Injection define quando esse contexto deve entrar automaticamente em CLI/app.
+  - Este documento nao e mais a fonte primaria do contrato de contexto.
 maintenance:
-  - Manter summaries curtos e paths corretos para que refs sejam uteis.
-  - Aumentar limite de refs apenas se houver evidencia de recall insuficiente.
+  - Nao expandir este documento; atualizar os docs em superseded_by.
+superseded_by:
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
+  - docs/engineering-knowledge-base/memory-core-contracts.md
+  - docs/engineering-knowledge-base/code-intelligence.md
+  - docs/engineering-knowledge-base/atlas-ai-pipeline.md
 related_paths:
   - app/Services/Engineering/EngineeringContextPackService.php
   - app/Services/Engineering/EngineeringKnowledgeBaseService.php
@@ -35,6 +40,10 @@ related_paths:
 ---
 
 # Knowledge Refs No Context Pack
+
+> Status: deprecated. O contrato vivo de injecao de contexto agora esta em
+> `open-brain-context-injection.md`, `memory-core-contracts.md`,
+> `code-intelligence.md` e `atlas-ai-pipeline.md`.
 
 O context pack do Harness deve lembrar o provider de quais fontes canonicas
 importam para a tarefa. Ele nao precisa colar todos os documentos no prompt.

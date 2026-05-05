@@ -1,4 +1,29 @@
+---
+id: atlas-mcp-tools-rollout-report-legacy
+type: engineering_knowledge
+title: MCP Tools Expansion Rollout Report Legacy
+status: archived
+category: mcp_legacy
+priority: 20
+summary: Relatorio historico do rollout MCP de 2026-05-03; preservado para auditoria, nao como contrato atual.
+tags:
+  - mcp
+  - rollout
+  - legacy
+decisions:
+  - Este arquivo e evidencia historica de entrega, nao fonte primaria de arquitetura.
+  - O estado atual do Open Brain MCP deve ser validado por testes, comando describe e docs canonicos de Memory/Open Brain.
+maintenance:
+  - Nao expandir este relatorio; criar novo relatorio datado se houver outro rollout.
+superseded_by:
+  - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
+  - docs/engineering-knowledge-base/memory-core-contracts.md
+---
+
 # MCP Tools Expansion Rollout Report
+
+> Status: archived. Relatorio historico de rollout, nao contrato operacional.
 
 Date: 2026-05-03
 Phases complete: 1, 2, 3, 4, 5, 6 (lifecycle), 7 (drill-down/analysis/composition)

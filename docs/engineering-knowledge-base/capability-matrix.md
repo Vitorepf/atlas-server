@@ -1,11 +1,11 @@
 ---
 id: engineering-knowledge-capability-matrix
 type: engineering_knowledge
-title: Matriz De Capacidades Do Harness
-status: active
+title: Matriz De Capacidades Do Harness Legacy
+status: deprecated
 category: capability_matrix
-priority: 94
-summary: Estado das principais capacidades do Atlas Engineering Harness Runner e como elas devem ser mantidas.
+priority: 35
+summary: Matriz legada das capacidades do Harness; mantida como historico e substituida por Blueprint Maturity, Super Tool Runtime, Programming Power Tools e Canonical Architecture Index.
 tags:
   - harness
   - atlas-bench
@@ -32,10 +32,14 @@ decisions:
   - Capacidades maduras precisam de teste focado e referencia em docs canonicos.
   - Capacidades calibradas por historico precisam indicar nivel de confianca.
   - Capacidades core precisam aparecer no indice de codigo e nao apenas em docs.
+  - Este documento nao e mais fonte primaria de status; use os documentos em superseded_by.
 maintenance:
-  - Atualizar esta matriz quando uma fase do Harness muda de escopo.
-  - Nao marcar como maduro aquilo que depende de volume real ainda inexistente.
-  - Rode atlas engineering knowledge index-code --prune para atualizar cobertura codigo->docs.
+  - Nao expandir esta matriz; mover atualizacoes para os docs canonicos vivos.
+superseded_by:
+  - docs/engineering-knowledge-base/engineering-blueprint-maturity-dod.md
+  - docs/engineering-knowledge-base/super-tool-runtime-core.md
+  - docs/engineering-knowledge-base/programming-power-tools-catalog.md
+  - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
 related_paths:
   - app/Services/Engineering/EngineeringHarnessRunnerService.php
   - app/Services/Engineering/EngineeringBlueprintService.php
@@ -54,6 +58,11 @@ related_paths:
 ---
 
 # Matriz De Capacidades
+
+> Status: deprecated. Esta matriz foi util durante a consolidacao inicial do
+> Harness, mas hoje duplica status que vive em docs mais especificos. Para
+> status atual, leia `engineering-blueprint-maturity-dod.md`,
+> `super-tool-runtime-core.md` e `programming-power-tools-catalog.md`.
 
 ## Implementado
 

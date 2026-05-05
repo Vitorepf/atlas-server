@@ -5,6 +5,8 @@ namespace App\Services\Tools;
 use App\Models\AtlasToolArtifact;
 use App\Models\AtlasToolFinding;
 use App\Models\AtlasToolRun;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -14,6 +16,7 @@ class AtlasToolEvidenceStore
     public function __construct(
         private readonly AtlasToolRegistryService $registry,
         private readonly AtlasToolResultNormalizer $normalizer,
+        private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
     /**
@@ -69,7 +72,60 @@ class AtlasToolEvidenceStore
             $this->recordFinding($run, $finding);
         }
 
+        $this->recordLedgerToolEvidence($run->refresh(), $normalized, $context);
+
         return $run->refresh();
+    }
+
+    /**
+     * @param  array<string,mixed>  $normalized
+     * @param  array<string,mixed>  $context
+     */
+    private function recordLedgerToolEvidence(AtlasToolRun $run, array $normalized, array $context): void
+    {
+        $envelopeId = (string) (
+            $context['envelope_id']
+            ?? data_get($context, 'decision_receipt.receipt_v2.envelope_id')
+            ?? ($run->run_context_id ? "{$run->run_context_type}:{$run->run_context_id}" : $run->id)
+        );
+        $receiptId = $context['receipt_id']
+            ?? data_get($context, 'decision_receipt.receipt_v2.receipt_id')
+            ?? null;
+
+        try {
+            $this->ledger->record(LedgerEventType::ToolEvidenceRecorded, [
+                'envelope_id' => $envelopeId,
+                'receipt_id' => $receiptId,
+                'tool_run_id' => $run->id,
+                'tool_slug' => $run->tool_slug,
+                'surface' => $run->surface,
+                'workspace_hash' => $run->workspace_hash,
+                'run_context_type' => $run->run_context_type,
+                'run_context_id' => $run->run_context_id,
+                'status' => $run->status,
+                'required' => $run->required,
+                'failure_policy' => $run->failure_policy,
+                'policy_decision' => $run->policy_decision,
+                'command_hash' => $run->command_hash,
+                'exit_code' => $run->exit_code,
+                'duration_ms' => $run->duration_ms,
+                'finding_count' => count((array) ($normalized['findings'] ?? [])),
+                'blocking_failure_count' => count((array) ($normalized['blocking_failures'] ?? [])),
+                'summary_hash' => hash('sha256', json_encode($normalized['summary'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}'),
+                'normalized_result_hash' => hash('sha256', json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}'),
+            ], [
+                'tenant_id' => (string) ($context['tenant_id'] ?? 'default'),
+                'operator_id' => (string) ($context['operator_id'] ?? 'system'),
+                'envelope_id' => $envelopeId,
+                'receipt_id' => $receiptId ? (string) $receiptId : null,
+                'trace_id' => is_string($context['trace_id'] ?? null) ? $context['trace_id'] : null,
+                'correlation_id' => (string) ($context['correlation_id'] ?? $envelopeId),
+                'emitter_stage' => 'atlas.tools',
+                'emitter_version' => 'tool-evidence-store-v1',
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     public function attachText(AtlasToolRun $run, string $type, string $filename, string $content): AtlasToolArtifact

@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai;
 use App\Models\AiJob;
 use App\Models\AiTrace;
 use App\Models\AiWorkerEvent;
+use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\AiPermissionDecision;
 use App\Services\Ai\AiPermissionEngine;
 use App\Services\Ai\AiProvider;
@@ -13,6 +14,7 @@ use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\AiWorker;
 use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -296,6 +298,73 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertSame($fingerprint, data_get($trace->refresh()->metadata, 'claude_invocation_fingerprint'));
     }
 
+    public function test_worker_records_kernel_ledger_events_for_successful_provider_execution(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'implemente com ledger',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'implemente com ledger',
+            'prompt' => 'prompt sensível',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'payload' => [
+                'decision_receipt' => [
+                    'receipt_v2' => [
+                        'envelope_id' => 'env_worker_success',
+                        'receipt_id' => 'rcpt_worker_success',
+                        'metadata' => [
+                            'tenant_id' => 'tenant_worker',
+                            'operator_id' => 'operator_worker',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->mockProviderManagerWith(new AiProviderResult(
+            ok: true,
+            output: 'ok',
+            command: ['codex', 'exec'],
+            exitCode: 0,
+            durationMs: 123,
+            stdout: 'ok',
+            stderr: '',
+        ));
+
+        app(AiWorker::class)->runNext(workerId: 'worker-ledger');
+
+        $events = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'env_worker_success')
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->get();
+
+        $this->assertSame([
+            LedgerEventType::ExecutionStarted->value,
+            LedgerEventType::ProviderCalled->value,
+            LedgerEventType::ProviderReturned->value,
+            LedgerEventType::OperationCompleted->value,
+        ], $events->pluck('event_type')->all());
+        $this->assertSame('tenant_worker', $events->first()?->tenant_id);
+        $this->assertSame('operator_worker', $events->first()?->operator_id);
+        $this->assertSame($trace->id, $events->firstWhere('event_type', LedgerEventType::OperationCompleted->value)?->trace_id);
+        $this->assertNull(data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'stdout'));
+        $this->assertNull(data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'output'));
+        $this->assertSame(hash('sha256', 'ok'), data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'response_hash'));
+        $this->assertSame('succeeded', $job->refresh()->status);
+    }
+
     public function test_programming_provider_execution_blocks_strict_gate_without_evidence_path(): void
     {
         $trace = AiTrace::create([
@@ -521,6 +590,25 @@ class AiWorkerProviderChoiceTest extends TestCase
     {
         $this->dropAiWorkerRuntimeTables();
 
+        Schema::create('atlas_ledger_events', function (Blueprint $table): void {
+            $table->string('event_id', 32)->primary();
+            $table->string('schema_version', 40)->default('atlas.ledger_event.v1');
+            $table->string('tenant_id', 120)->index();
+            $table->string('operator_id', 120)->index();
+            $table->string('envelope_id', 80)->index();
+            $table->string('receipt_id', 80)->nullable()->index();
+            $table->uuid('trace_id')->nullable()->index();
+            $table->string('correlation_id', 120)->index();
+            $table->string('causation_id', 80)->nullable()->index();
+            $table->string('event_type', 80)->index();
+            $table->string('emitter_stage', 120)->index();
+            $table->string('emitter_version', 80);
+            $table->json('payload');
+            $table->string('payload_hash', 64)->index();
+            $table->timestampTz('occurred_at')->index();
+            $table->timestampsTz();
+        });
+
         Schema::create('ai_threads', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->text('title');
@@ -668,6 +756,7 @@ class AiWorkerProviderChoiceTest extends TestCase
     {
         foreach ([
             'ai_stream_events',
+            'atlas_ledger_events',
             'ai_worker_events',
             'ai_job_attempts',
             'ai_jobs',

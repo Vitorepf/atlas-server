@@ -57,8 +57,10 @@ transformar Obsidian em fonte primaria da memoria operacional.
 
 ## Decisao Executiva
 
-Obsidian e o core da camada humana de conhecimento pessoal. Atlas Memory,
-Postgres, docs canonicos e Open Brain sao o core operacional da IA e do sistema.
+Obsidian/AtlasVault e o Human Knowledge Plane do Atlas: o core da camada humana
+de conhecimento pessoal, pesquisa, revisao, identidade e navegacao. Atlas
+Memory, Postgres, docs canonicos, Evidence Ledger, Code Intelligence e Open
+Brain sao o core operacional da IA e do sistema.
 
 Regra:
 

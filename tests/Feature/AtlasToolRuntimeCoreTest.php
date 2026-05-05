@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\AtlasToolFinding;
 use App\Models\AtlasToolRun;
+use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Tools\AtlasToolEvidenceStore;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
@@ -44,6 +46,7 @@ class AtlasToolRuntimeCoreTest extends TestCase
             'atlas_tool_policies',
             'atlas_tool_installations',
             'atlas_tool_definitions',
+            'atlas_ledger_events',
         ] as $table) {
             Schema::dropIfExists($table);
         }
@@ -90,6 +93,52 @@ class AtlasToolRuntimeCoreTest extends TestCase
         $this->assertDatabaseHas('atlas_tool_definitions', ['slug' => 'atlas_visual_smoke']);
         $this->assertDatabaseHas('atlas_tool_definitions', ['slug' => 'atlas_code_intelligence']);
         $this->assertDatabaseHas('atlas_tool_installations', ['status' => 'ready']);
+    }
+
+    public function test_tool_evidence_and_gate_emit_kernel_ledger_events(): void
+    {
+        $run = app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'passed',
+            'required' => true,
+            'duration_ms' => 42,
+            'summary' => ['ok' => true],
+            'findings' => [],
+        ], [
+            'run_context_type' => 'engineering_run',
+            'run_context_id' => 'run-ledger-1',
+            'envelope_id' => 'engineering_run:run-ledger-1',
+            'tenant_id' => 'tenant_tools',
+            'operator_id' => 'operator_tools',
+        ]);
+
+        $this->assertInstanceOf(AtlasToolRun::class, $run);
+        $gate = app(\App\Services\Tools\AtlasToolGateService::class)->evaluate([
+            'workspace' => $this->workspace,
+            'run_context_type' => 'engineering_run',
+            'run_context_id' => 'run-ledger-1',
+        ], [
+            'require_evidence' => true,
+            'required_tools' => ['semgrep'],
+            'envelope_id' => 'engineering_run:run-ledger-1',
+            'tenant_id' => 'tenant_tools',
+            'operator_id' => 'operator_tools',
+        ]);
+
+        $this->assertSame('passed', $gate['status']);
+        $events = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'engineering_run:run-ledger-1')
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->get();
+
+        $this->assertSame([
+            LedgerEventType::ToolEvidenceRecorded->value,
+            LedgerEventType::GatePassed->value,
+        ], $events->pluck('event_type')->all());
+        $this->assertSame('tenant_tools', $events->first()?->tenant_id);
+        $this->assertSame($run->id, data_get($events->first()?->payload, 'tool_run_id'));
+        $this->assertSame([$run->id], data_get($events->last()?->payload, 'run_ids'));
+        $this->assertNull(data_get($events->first()?->payload, 'workspace'));
     }
 
     public function test_tool_command_catalog_is_exposed_by_cli_and_api(): void
@@ -1912,6 +1961,25 @@ BASH);
 
     private function createTables(): void
     {
+        Schema::create('atlas_ledger_events', function (Blueprint $table): void {
+            $table->string('event_id', 32)->primary();
+            $table->string('schema_version', 40)->default('atlas.ledger_event.v1');
+            $table->string('tenant_id', 120)->index();
+            $table->string('operator_id', 120)->index();
+            $table->string('envelope_id', 80)->index();
+            $table->string('receipt_id', 80)->nullable()->index();
+            $table->uuid('trace_id')->nullable()->index();
+            $table->string('correlation_id', 120)->index();
+            $table->string('causation_id', 80)->nullable()->index();
+            $table->string('event_type', 80)->index();
+            $table->string('emitter_stage', 120)->index();
+            $table->string('emitter_version', 80);
+            $table->json('payload');
+            $table->string('payload_hash', 64)->index();
+            $table->timestampTz('occurred_at')->index();
+            $table->timestampsTz();
+        });
+
         Schema::create('atlas_tool_definitions', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('slug')->unique();
