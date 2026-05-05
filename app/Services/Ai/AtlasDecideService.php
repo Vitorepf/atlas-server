@@ -2,6 +2,9 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\ValueObjects\OperationalDecision;
 use Illuminate\Support\Str;
 
@@ -15,6 +18,9 @@ class AtlasDecideService
 
     public function __construct(
         private readonly AtlasAiPolicyService $policies,
+        private readonly OperationEnvelopeFactory $envelopes,
+        private readonly DecisionReceiptIssuer $receipts,
+        private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
     /**
@@ -148,10 +154,22 @@ class AtlasDecideService
 
         $plan = $this->decisionPlan($options, $selectedProvider, $selectedModel);
         $runtimeGraph = $plan['execution_graph'];
+        $decisionId = (string) Str::orderedUuid();
+        $receiptV2 = $this->decisionReceiptV2(
+            options: $options,
+            policy: $policy,
+            plan: $plan,
+            decisionId: $decisionId,
+            selectedProvider: $selectedProvider,
+            selectedModel: $selectedModel,
+            fallbackReason: $fallbackReason,
+            manualProvider: $manualProvider,
+        );
+        $this->recordDecisionReceipt($receiptV2, $options);
 
         return OperationalDecision::fromArray([
             'schema_version' => 1,
-            'decision_id' => (string) Str::orderedUuid(),
+            'decision_id' => $decisionId,
             'policy_profile_id' => $policy['profile_id'] ?? null,
             'policy_version' => $policy['policy_version'] ?? 'atlas-ai-policy-v1',
             'decision_policy_version' => 'atlas-decide-v2',
@@ -189,7 +207,125 @@ class AtlasDecideService
                 'traceable' => true,
                 'dry_run' => (bool) data_get($options, 'payload.dry_run', false),
             ],
+            'receipt_v2' => $receiptV2,
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $policy
+     * @param  array<string,mixed>  $plan
+     * @return array<string,mixed>
+     */
+    private function decisionReceiptV2(
+        array $options,
+        array $policy,
+        array $plan,
+        string $decisionId,
+        string $selectedProvider,
+        ?string $selectedModel,
+        ?string $fallbackReason,
+        ?string $manualProvider,
+    ): array {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $domain = (string) ($policy['domain'] ?? data_get($policy, 'profile_context.domain') ?? 'general');
+        $flow = (string) ($policy['flow'] ?? data_get($policy, 'profile_context.flow') ?? $policy['profile_id'] ?? $domain.'.default');
+        $selectionMode = $manualProvider !== null ? 'manual_override' : $this->automaticModelSelectionMode($policy);
+        $manualOverride = null;
+
+        if ($manualProvider !== null) {
+            $manualOverride = [
+                'requested_provider' => $manualProvider,
+                'requested_model' => data_get($payload, 'requested_model') ?: data_get($payload, 'operator_requested_model'),
+                'accepted' => true,
+                'reason' => 'operator_requested_provider_or_model',
+            ];
+        }
+
+        $envelope = $this->envelopes->create([
+            'operator' => [
+                'operator_id' => (string) data_get($payload, 'operator_id', 'vitor'),
+                'tenant_id' => (string) data_get($payload, 'tenant_id', 'vitor'),
+                'workspace' => (string) ($options['workspace'] ?? base_path()),
+                'default_privacy' => (string) data_get($payload, 'default_privacy', 'normal'),
+            ],
+            'origin' => [
+                'surface_id' => (string) ($policy['surface'] ?? data_get($payload, 'app_surface') ?? 'atlas_cli'),
+                'surface_version' => 'legacy-decide-adapter',
+                'session_id' => (string) data_get($payload, 'thread_id', data_get($payload, 'session_id', 'default')),
+            ],
+            'input' => [
+                'text' => (string) ($options['input_text'] ?? ''),
+                'attachments' => is_array($payload['attachments'] ?? null) ? $payload['attachments'] : [],
+                'hints' => [
+                    'decision_mode' => $this->decisionMode($options),
+                    'operator_requested_provider' => data_get($payload, 'operator_requested_provider', 'auto'),
+                    'profile_id' => $policy['profile_id'] ?? null,
+                ],
+            ],
+        ]);
+        $envelope->routing->domain = $domain;
+        $envelope->routing->flow = $flow;
+        $envelope->routing->profile = [
+            'profile_id' => $policy['profile_id'] ?? null,
+            'policy_profile_id' => $policy['profile_id'] ?? null,
+        ];
+
+        return $this->receipts->issue($envelope, [
+            'domain' => $domain,
+            'flow' => $flow,
+            'risk' => (string) data_get($plan, 'task_profile.risk_level', 'medium'),
+            'provider_selection' => [
+                'primary' => $selectedProvider,
+                'model' => $selectedModel ?: 'selected-by-decide',
+                'fallbacks' => array_values(array_filter((array) ($policy['fallback_order'] ?? []))),
+                'selection_mode' => $selectionMode,
+                'selection_reason' => $this->decisionReasonWithFallback($options, (string) data_get($plan, 'execution_graph.nodes.0.provider', $selectedProvider), $selectedProvider, $fallbackReason),
+                'manual_override' => $manualOverride,
+            ],
+            'budgets' => [
+                'budget_enabled' => (bool) data_get($policy, 'budget.enabled', false),
+                'max_execution_tier' => data_get($policy, 'effective_policy.operational_contracts.tools.max_execution_tier'),
+            ],
+            'required_gates' => (array) ($policy['required_gates'] ?? []),
+            'required_evidence' => ['provider_selection', 'context_strategy', 'execution_strategy'],
+            'repair_policy' => [
+                'enabled' => (bool) data_get($policy, 'execution_policy.quality_required', false),
+                'max_attempts' => (int) data_get($policy, 'execution_policy.max_iterations', 1),
+            ],
+            'metadata' => [
+                'legacy_decision_id' => $decisionId,
+                'decision_policy_version' => 'atlas-decide-v2',
+            ],
+        ])->toArray();
+    }
+
+    /**
+     * @param  array<string,mixed>  $receiptV2
+     * @param  array<string,mixed>  $options
+     */
+    private function recordDecisionReceipt(array $receiptV2, array $options): void
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+
+        $this->ledger->recordDecisionIssued($receiptV2, [
+            'tenant_id' => (string) data_get($payload, 'tenant_id', 'vitor'),
+            'operator_id' => (string) data_get($payload, 'operator_id', 'vitor'),
+            'trace_id' => data_get($payload, 'trace_id'),
+            'correlation_id' => data_get($payload, 'correlation_id') ?: data_get($payload, 'thread_id') ?: ($receiptV2['envelope_id'] ?? null),
+            'emitter_stage' => 'atlas.decide',
+            'emitter_version' => 'atlas-decide-v2',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $policy
+     */
+    private function automaticModelSelectionMode(array $policy): string
+    {
+        return ($policy['default_model_policy'] ?? null) === 'best_quality'
+            ? 'auto_best_available'
+            : 'auto_best_allowed';
     }
 
     /**
@@ -371,6 +507,7 @@ class AtlasDecideService
             'execution_strategy' => $decision['execution_strategy'] ?? null,
             'execution_graph' => $decision['runtime_graph'] ?? [],
             'planned_graph' => $decision['planned_graph'] ?? [],
+            'receipt_v2' => $decision['receipt_v2'] ?? null,
         ];
     }
 

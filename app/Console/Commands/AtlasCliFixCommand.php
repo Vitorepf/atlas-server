@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Programming\AtlasProgrammingSurfaceCommandBuilder;
 use Illuminate\Console\Command;
 
 class AtlasCliFixCommand extends Command
@@ -17,23 +18,17 @@ class AtlasCliFixCommand extends Command
 
     protected $description = 'Run Atlas dev repair loop for a known failing test, bug or quality gate.';
 
-    public function handle(): int
+    public function handle(AtlasProgrammingSurfaceCommandBuilder $commands): int
     {
-        $description = trim(implode(' ', (array) $this->argument('description')));
-        $task = $description !== ''
-            ? "Corrija: {$description}"
-            : 'Corrija o ultimo teste falho, bug ou quality gate detectado neste workspace. Primeiro inspecione o estado atual, depois aplique a menor correcao segura.';
-
-        return $this->call('atlas:cli:dev', array_filter([
-            'task' => [$task],
-            '--workspace' => $this->workspace(),
-            '--provider' => $this->provider(),
-            '--permission' => 'write',
-            '--allow-write' => (bool) $this->option('allow-write'),
-            '--auto-test' => (bool) $this->option('auto-test'),
-            '--max-iterations' => (string) max(1, min(10, (int) $this->option('max-iterations'))),
-            '--json' => (bool) $this->option('json'),
-        ], fn (mixed $value): bool => $value !== null && $value !== false && $value !== ''));
+        return $this->call('atlas:cli:dev', $commands->repairDevArguments(
+            workspace: $this->workspace(),
+            provider: $this->provider(),
+            description: trim(implode(' ', (array) $this->argument('description'))),
+            maxIterations: (int) $this->option('max-iterations'),
+            autoTest: (bool) $this->option('auto-test'),
+            allowWrite: (bool) $this->option('allow-write'),
+            json: (bool) $this->option('json'),
+        ));
     }
 
     private function workspace(): string

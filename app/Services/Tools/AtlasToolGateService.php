@@ -3,6 +3,8 @@
 namespace App\Services\Tools;
 
 use App\Models\AtlasToolRun;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Collection;
 
 class AtlasToolGateService
@@ -12,6 +14,7 @@ class AtlasToolGateService
         private readonly AtlasToolFindingWaiverService $waivers,
         private readonly AtlasToolFindingCorrelationService $correlations,
         private readonly AtlasToolAuthorityPolicyService $authorityPolicies,
+        private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
     /**
@@ -95,7 +98,7 @@ class AtlasToolGateService
 
         $status = $blockingFailures !== [] ? 'blocked' : ($warnings !== [] ? 'warning' : 'passed');
 
-        return [
+        $result = [
             'status' => $status,
             'allowed' => $status !== 'blocked',
             'filters' => $this->publicFilters($filters),
@@ -124,6 +127,55 @@ class AtlasToolGateService
             'finding_correlations' => $correlationResult['correlations'] ?? [],
             'runs' => $runs->map(fn (AtlasToolRun $run): array => $this->runSummary($run))->values()->all(),
         ];
+
+        $this->recordLedgerGate($result, $filters, $options);
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     * @param  array<string,mixed>  $filters
+     * @param  array<string,mixed>  $options
+     */
+    private function recordLedgerGate(array $result, array $filters, array $options): void
+    {
+        $envelopeId = (string) (
+            $options['envelope_id']
+            ?? $filters['envelope_id']
+            ?? (isset($filters['run_context_type'], $filters['run_context_id']) ? "{$filters['run_context_type']}:{$filters['run_context_id']}" : 'tool_gate:'.hash('sha256', json_encode([$filters, $options], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}'))
+        );
+        $eventType = ($result['status'] ?? null) === 'passed'
+            ? LedgerEventType::GatePassed
+            : (($result['status'] ?? null) === 'blocked' ? LedgerEventType::GateBlocked : LedgerEventType::GateEvaluated);
+
+        try {
+            $this->ledger->record($eventType, [
+                'envelope_id' => $envelopeId,
+                'gate_type' => 'tool_runtime',
+                'status' => $result['status'] ?? null,
+                'allowed' => $result['allowed'] ?? null,
+                'summary' => $result['summary'] ?? [],
+                'required_tools' => $result['required_tools'] ?? [],
+                'fail_statuses' => $result['fail_statuses'] ?? [],
+                'freshness' => $result['freshness'] ?? [],
+                'selection' => $result['selection'] ?? [],
+                'blocking_failure_count' => count((array) ($result['blocking_failures'] ?? [])),
+                'warning_count' => count((array) ($result['warnings'] ?? [])),
+                'run_ids' => collect((array) ($result['runs'] ?? []))->pluck('id')->filter()->values()->all(),
+            ], [
+                'tenant_id' => (string) ($options['tenant_id'] ?? 'default'),
+                'operator_id' => (string) ($options['operator_id'] ?? 'system'),
+                'envelope_id' => $envelopeId,
+                'receipt_id' => is_string($options['receipt_id'] ?? null) ? $options['receipt_id'] : null,
+                'trace_id' => is_string($options['trace_id'] ?? null) ? $options['trace_id'] : null,
+                'correlation_id' => (string) ($options['correlation_id'] ?? $envelopeId),
+                'emitter_stage' => 'atlas.tools.gate',
+                'emitter_version' => 'tool-gate-v1',
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**

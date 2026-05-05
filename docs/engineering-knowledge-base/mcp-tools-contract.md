@@ -1,4 +1,29 @@
+---
+id: atlas-mcp-tools-contract-legacy
+type: engineering_knowledge
+title: Atlas MCP Tools Contract Legacy
+status: archived
+category: mcp_legacy
+priority: 20
+summary: Contrato MCP antigo com inventario parcial de tools; preservado apenas como historico e substituido pelo Open Brain MCP implementado e pela documentacao de Memory/Open Brain.
+tags:
+  - mcp
+  - legacy
+  - open-brain
+decisions:
+  - Este contrato descreve uma fase antiga e nao deve ser usado como inventario atual.
+  - O inventario atual deve vir de `atlas:open-brain:mcp --describe --json`, testes MCP e docs de Memory/Open Brain.
+maintenance:
+  - Nao expandir este arquivo; atualizar docs canonicos vivos.
+superseded_by:
+  - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
+  - docs/engineering-knowledge-base/memory-core-contracts.md
+---
+
 # Atlas MCP Tools Contract v1.1
+
+> Status: archived. Documento historico de rollout; nao e inventario atual.
 
 Protocol: MCP 2025-06-18, STDIO local only.
 Server: atlas-open-brain.

@@ -329,7 +329,37 @@ class AiChatCommandPermissionTest extends TestCase
 
         $this->assertSame('repair', data_get($messagePlan, 'operator_intent.kind'));
         $this->assertTrue((bool) data_get($messagePlan, 'operator_intent.repair_detected'));
+        $this->assertSame('repair', data_get($messagePlan, 'programming_flow'));
+        $this->assertSame('programming.repair', data_get($messagePlan, 'policy_profile.profile_id'));
         $this->assertFalse((bool) data_get($messagePlan, 'operator_intent.force_harness'));
+        $this->assertSame('dev_repair_executor', data_get($messagePlan, 'executor_decision.executor'));
+    }
+
+    public function test_dev_message_plan_honors_explicit_repair_intent_from_surface(): void
+    {
+        $command = app(AiChatCommand::class);
+        $method = new ReflectionMethod(AiChatCommand::class, 'programmingMessagePlan');
+        $method->setAccessible(true);
+
+        $messagePlan = $method->invoke($command, '/tmp/atlas-workspace', 'dev', 'melhore o fluxo de login', null, null, [
+            'schema_version' => 1,
+            'plan_id' => 'parent-plan-explicit-repair',
+            'programming_profile' => 'dev',
+            'execution_profile' => [
+                'complete' => true,
+                'auto_test' => true,
+                'max_iterations' => 3,
+            ],
+            'operator_options' => [
+                'programming_intent' => 'repair',
+            ],
+        ]);
+
+        $this->assertSame('repair', data_get($messagePlan, 'operator_intent.kind'));
+        $this->assertSame('repair', data_get($messagePlan, 'operator_intent.explicit_intent'));
+        $this->assertTrue((bool) data_get($messagePlan, 'operator_intent.repair_detected'));
+        $this->assertSame('repair', data_get($messagePlan, 'programming_flow'));
+        $this->assertSame('programming.repair', data_get($messagePlan, 'policy_profile.profile_id'));
         $this->assertSame('dev_repair_executor', data_get($messagePlan, 'executor_decision.executor'));
     }
 

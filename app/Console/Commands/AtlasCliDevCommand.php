@@ -51,6 +51,7 @@ class AtlasCliDevCommand extends Command
         {--skill=* : Activate one or more agentskills bundle names}
         {--plan-only : Run preflight and print execution plan without calling provider}
         {--forge : Use the maximum-power programming profile behind atlas forge}
+        {--repair : Mark this dev run as an explicit repair/fix intent}
         {--max-iterations=3 : Maximum repair iterations for the default complete dev loop}
         {--resume= : Resume a previous dev execution plan id when present in traces}
         {--no-open-brain : Disable automatic Open Brain context injection for this dev run}
@@ -177,6 +178,7 @@ class AtlasCliDevCommand extends Command
             'auto_test' => (bool) $this->option('auto-test') || $programmingProfile === 'forge',
             'max_iterations' => $maxIterations,
             'ai_policy_override' => $aiPolicyOverride,
+            'intent' => (bool) $this->option('repair') ? 'repair' : null,
         ]);
         $devPlan['orchestrator'] = 'AtlasProgrammingOrchestrator';
         $devPlan['programming_profile'] = $programmingProfile;
@@ -212,6 +214,7 @@ class AtlasCliDevCommand extends Command
             'allow_unsandboxed' => $this->allowUnsandboxed(),
             'auto_test' => (bool) $this->option('auto-test') || $programmingProfile === 'forge',
             'complete' => $complete,
+            'programming_intent' => (bool) $this->option('repair') ? 'repair' : 'implementation',
             'max_iterations' => $maxIterations,
             'no_stream' => (bool) $this->option('no-stream'),
             'open_brain' => $this->openBrainOperatorOptions($complete, $programmingProfile),

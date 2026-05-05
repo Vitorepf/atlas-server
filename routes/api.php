@@ -12,6 +12,7 @@ use App\Http\Controllers\AiTelemetryController;
 use App\Http\Controllers\AiTelemetryMetricsController;
 use App\Http\Controllers\AiThreadController;
 use App\Http\Controllers\AtlasAiPolicyController;
+use App\Http\Controllers\AtlasAiDomainCatalogController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasDomainController;
 use App\Http\Controllers\AtlasMemoryController;
@@ -296,6 +297,7 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::post('/ai/policies/preview', [AtlasAiPolicyController::class, 'preview']);
     Route::patch('/ai/policies/domains/{domain}', [AtlasAiPolicyController::class, 'updateDomain']);
     Route::patch('/ai/policies/flows/{flow}', [AtlasAiPolicyController::class, 'updateFlow']);
+    Route::get('/ai/domains', AtlasAiDomainCatalogController::class);
     Route::get('/ai/memory', [AtlasMemoryController::class, 'index']);
     Route::post('/ai/memory', [AtlasMemoryController::class, 'store']);
     Route::post('/ai/memory/recall', AtlasMemoryRecallController::class);

@@ -14,6 +14,7 @@ use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
 use App\Models\AtlasEngineeringRunOperatorAction;
 use App\Models\AtlasEngineeringTestRun;
+use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasTask;
 use App\Models\AtlasToolRun;
 use App\Models\AiJob;
@@ -21,6 +22,7 @@ use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiPrompt;
 use App\Services\Ai\AiPromptBuilder;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use App\Services\Engineering\EngineeringControlRegistryService;
@@ -132,6 +134,16 @@ class EngineeringHarnessRunnerTest extends TestCase
             'source' => 'atlas:engineering:runner',
             'status' => 'passed',
         ]);
+
+        $events = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'engineering_run:'.data_get($payload, 'run.id'))
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->pluck('event_type')
+            ->all();
+        $this->assertContains(LedgerEventType::ExecutionStarted->value, $events);
+        $this->assertContains(LedgerEventType::ContextComposed->value, $events);
+        $this->assertContains(LedgerEventType::OperationCompleted->value, $events);
     }
 
     public function test_strict_changed_files_scope_blocks_resolved_when_diff_escapes_allowlist(): void
@@ -4238,6 +4250,25 @@ class EngineeringHarnessRunnerTest extends TestCase
     {
         $this->dropTables();
 
+        Schema::create('atlas_ledger_events', function (Blueprint $table): void {
+            $table->string('event_id', 32)->primary();
+            $table->string('schema_version', 40)->default('atlas.ledger_event.v1');
+            $table->string('tenant_id', 120)->index();
+            $table->string('operator_id', 120)->index();
+            $table->string('envelope_id', 80)->index();
+            $table->string('receipt_id', 80)->nullable()->index();
+            $table->uuid('trace_id')->nullable()->index();
+            $table->string('correlation_id', 120)->index();
+            $table->string('causation_id', 80)->nullable()->index();
+            $table->string('event_type', 80)->index();
+            $table->string('emitter_stage', 120)->index();
+            $table->string('emitter_version', 80);
+            $table->json('payload');
+            $table->string('payload_hash', 64)->index();
+            $table->timestampTz('occurred_at')->index();
+            $table->timestampsTz();
+        });
+
         Schema::create('atlas_tasks', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('title');
@@ -4869,6 +4900,7 @@ class EngineeringHarnessRunnerTest extends TestCase
             'ai_jobs',
             'ai_traces',
             'atlas_tasks',
+            'atlas_ledger_events',
         ] as $table) {
             Schema::dropIfExists($table);
         }

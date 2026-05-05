@@ -32,6 +32,23 @@ class AtlasDomainProfileRegistryTest extends TestCase
         $this->assertSame('EngineeringHarness', data_get($profile, 'flow_profile.runtime'));
     }
 
+    public function test_static_registry_resolves_marketing_forge_without_tables(): void
+    {
+        Schema::dropIfExists('ai_flow_profiles');
+        Schema::dropIfExists('ai_domain_profiles');
+
+        $profile = app(AtlasDomainProfileRegistry::class)->resolve('marketing.forge');
+
+        $this->assertSame('static_fallback', $profile['source']);
+        $this->assertSame('marketing', $profile['domain_id']);
+        $this->assertSame('marketing.forge', $profile['flow_id']);
+        $this->assertSame('AtlasMarketingOrchestrator', data_get($profile, 'domain_profile.orchestrator'));
+        $this->assertSame('MarketingForgeRuntime', data_get($profile, 'flow_profile.runtime'));
+        $this->assertSame('domain_forge_runtime', data_get($profile, 'flow_profile.execution_policy.executor_preference'));
+        $this->assertNotEmpty(data_get($profile, 'domain_profile.context_policy.sources'));
+        $this->assertNotEmpty(data_get($profile, 'flow_profile.gate_policy.required'));
+    }
+
     public function test_database_registry_overrides_static_profiles_when_tables_exist(): void
     {
         $this->createRegistryTables();

@@ -4,10 +4,11 @@ namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\AtlasAiPolicyService;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
 use App\Services\Engineering\EngineeringHarnessExecutionService;
 use Illuminate\Support\Str;
 
-class AtlasProgrammingOrchestrator
+class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
 {
     public function __construct(
         private readonly AtlasAiPolicyService $policies,
@@ -25,9 +26,11 @@ class AtlasProgrammingOrchestrator
         $workspace = realpath($workspace) ?: $workspace;
         $complete = $profile === 'forge' || (bool) ($options['complete'] ?? false);
         $maxIterations = max($profile === 'forge' ? 5 : 3, (int) ($options['max_iterations'] ?? 0));
+        $programmingFlow = $this->programmingFlow($profile, $options);
         $payload = [
             'app_surface' => 'atlas_cli',
             'atlas_workflow_mode' => 'dev',
+            'routing_task' => $programmingFlow,
             'decision_mode' => isset($options['provider']) && is_string($options['provider']) && trim($options['provider']) !== ''
                 ? 'manual_override'
                 : 'atlas_decide',
@@ -41,14 +44,17 @@ class AtlasProgrammingOrchestrator
                 ? trim($options['model'])
                 : null,
             'programming_profile' => $profile,
+            'programming_flow' => $programmingFlow,
             'dev_execution_plan' => [
                 'programming_profile' => $profile,
+                'programming_flow' => $programmingFlow,
                 'complete' => $complete,
                 'operator_options' => [
                     'complete' => $complete,
                     'auto_test' => $profile === 'forge' || (bool) ($options['auto_test'] ?? false),
                     'max_iterations' => $maxIterations,
                     'force_harness' => (bool) ($options['force_harness'] ?? false),
+                    'programming_intent' => is_string($options['intent'] ?? null) ? trim((string) $options['intent']) : null,
                 ],
             ],
         ];
@@ -77,6 +83,7 @@ class AtlasProgrammingOrchestrator
                 : null,
             'orchestrator' => 'AtlasProgrammingOrchestrator',
             'programming_profile' => $profile,
+            'programming_flow' => $programmingFlow,
             'workspace' => $workspace,
             'interactive' => (bool) ($options['interactive'] ?? true),
             'executor_decision' => $this->executorDecision($profile, $decision->toArray(), $options, $policyProfile),
@@ -105,6 +112,36 @@ class AtlasProgrammingOrchestrator
     public function executeWithHarness(ProgrammingExecutionRequest $request): ProgrammingExecutionResult
     {
         return $this->harness->execute($request);
+    }
+
+    public function orchestratorId(): string
+    {
+        return 'AtlasProgrammingOrchestrator';
+    }
+
+    public function supportedDomains(): array
+    {
+        return ['programming'];
+    }
+
+    public function supportedFlows(): array
+    {
+        return [
+            'programming.dev',
+            'programming.repair',
+            'programming.review',
+            'programming.refactor',
+            'programming.qa',
+            'programming.security',
+            'programming.database',
+            'programming.visual',
+            'programming.forge',
+        ];
+    }
+
+    public function maturity(): string
+    {
+        return 'implemented';
     }
 
     /**
@@ -262,6 +299,67 @@ class AtlasProgrammingOrchestrator
             'policy_profile_id' => data_get($policyProfile, 'profile_id'),
             'policy_executor_preference' => $policyExecutor,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     */
+    private function programmingFlow(string $profile, array $options): string
+    {
+        if ($profile === 'forge') {
+            return 'forge';
+        }
+
+        $explicit = strtolower(trim((string) (
+            $options['flow']
+            ?? $options['routing_task']
+            ?? $options['task_type']
+            ?? ''
+        )));
+        $intent = strtolower(trim((string) ($options['intent'] ?? '')));
+
+        $candidate = $explicit !== '' ? $explicit : $intent;
+        $candidate = match ($candidate) {
+            'fix', 'repair', 'quality_repair' => 'repair',
+            'code_review', 'review' => 'review',
+            'refactor', 'refactoring' => 'refactor',
+            'test', 'tests', 'testing', 'quality', 'qa' => 'qa',
+            'sec', 'security' => 'security',
+            'db', 'database', 'postgres', 'migration', 'migrations' => 'database',
+            'ui', 'frontend', 'visual', 'e2e' => 'visual',
+            default => $candidate,
+        };
+
+        if (in_array($candidate, ['repair', 'review', 'refactor', 'qa', 'security', 'database', 'visual'], true)) {
+            return $candidate;
+        }
+
+        $text = strtolower(Str::ascii((string) ($options['task'] ?? '')));
+
+        return match (true) {
+            $this->containsAny($text, ['corrija', 'corrigir', 'conserte', 'fix', 'repair', 'bug', 'erro', 'falha', 'quality gate']) => 'repair',
+            $this->containsAny($text, ['review', 'revisao', 'revisão', 'code review', 'analise o codigo', 'analise o código']) => 'review',
+            $this->containsAny($text, ['refactor', 'refator', 'refatore', 'refatoracao', 'refatoração']) => 'refactor',
+            $this->containsAny($text, ['security', 'seguranca', 'segurança', 'vulnerab', 'threat']) => 'security',
+            $this->containsAny($text, ['database', 'banco', 'postgres', 'migration', 'migracao', 'migração']) => 'database',
+            $this->containsAny($text, ['visual', 'frontend', 'ui', 'tela', 'screenshot', 'e2e']) => 'visual',
+            $this->containsAny($text, ['qa', 'testes', 'tests', 'regression', 'regressao', 'regressão']) => 'qa',
+            default => 'dev',
+        };
+    }
+
+    /**
+     * @param  array<int,string>  $needles
+     */
+    private function containsAny(string $text, array $needles): bool
+    {
+        foreach ($needles as $needle) {
+            if (str_contains($text, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

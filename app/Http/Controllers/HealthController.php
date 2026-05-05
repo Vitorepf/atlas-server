@@ -70,10 +70,10 @@ class HealthController extends Controller
 
     private function storageHealth(): array
     {
-        $disk = Storage::disk('atlas');
-        $probe = '.health/'.now()->format('YmdHisv').'-'.bin2hex(random_bytes(4)).'.txt';
-
         try {
+            $disk = Storage::disk('atlas');
+            $probe = '.health/'.now()->format('YmdHisv').'-'.bin2hex(random_bytes(4)).'.txt';
+
             $disk->put($probe, 'ok');
             $writable = $disk->exists($probe);
             $disk->delete($probe);

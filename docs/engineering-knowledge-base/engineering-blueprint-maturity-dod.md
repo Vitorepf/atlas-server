@@ -29,7 +29,8 @@ related_paths:
   - docs/engineering-knowledge-base/engineering-blueprint-contracts.md
   - docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md
   - docs/engineering-knowledge-base/engineering-blueprint-runbook.md
-  - docs/engineering-knowledge-base/capability-matrix.md
+  - docs/engineering-knowledge-base/super-tool-runtime-core.md
+  - docs/engineering-knowledge-base/programming-power-tools-catalog.md
 ---
 
 # Atlas Engineering Blueprint Maturity And DoD
@@ -326,7 +327,8 @@ O Engineering Blueprint System esta completo quando:
 Quando uma fase sair de parcial para implementada:
 
 1. atualizar esta matriz;
-2. atualizar `capability-matrix.md`;
-3. atualizar runbook se houver comando/tela nova;
+2. atualizar `engineering-blueprint-runbook.md` se houver comando/tela nova;
+3. atualizar `super-tool-runtime-core.md` ou `programming-power-tools-catalog.md`
+   quando a mudanca alterar tools, gates, recipes ou autoridade;
 4. rodar sync/index-code;
 5. registrar no final da PR ou changelog quais gates foram adicionados.

@@ -1011,22 +1011,25 @@ introduced_at: atlas-server@TBD
 Para implementar dominio, autor:
 
 1. Cria o manifest acima.
-2. Implementa `DomainOrchestrator` por flow:
+2. Implementa `AtlasDomainOrchestrator` por orchestrator canonico:
 
 ```php
-interface DomainOrchestrator
+interface AtlasDomainOrchestrator
 {
-    public function domainId(): DomainId;
-    public function flowId(): FlowId;
-
-    public function plan(OperationEnvelope $env, DecisionReceipt $receipt): DomainExecutionPlan;
-    public function execute(OperationEnvelope $env, DecisionReceipt $receipt): ExecutionResult;
-    public function repair(OperationEnvelope $env, GateResult $gate): ?ExecutionResult;
-    public function summarize(ExecutionResult $result): DomainRunSummary;
+    public function orchestratorId(): string;
+    public function supportedDomains(): array;
+    public function supportedFlows(): array;
+    public function maturity(): string; // implemented | scaffold | planned
 }
 ```
 
-3. Implementa gates novos como `Gate` plugavel:
+3. Para dominios com runtime completo, implementa metodos especificos de
+   planejamento/execucao no orchestrator concreto. Exemplo atual:
+   `AtlasProgrammingOrchestrator::sessionPlan()`,
+   `dispatchContract()`, `repairExecutionContract()` e
+   `executeWithHarness()`.
+
+4. Implementa gates novos como `Gate` plugavel:
 
 ```php
 interface Gate
@@ -1036,19 +1039,35 @@ interface Gate
 }
 ```
 
-4. Registra em `domain_registry`:
+5. Registra em `domain_registry`:
 
 ```bash
 atlas domain register --manifest=domains/personal_development.yaml
 ```
 
-5. Roda compliance:
+6. Roda compliance:
 
 ```bash
-atlas domain validate personal_development
+atlas ai architecture-validate
 ```
 
-`validate` checa: manifest passa schema, todos orchestrators existem, todos gates existem, capabilities listadas estao no registry, evidence schema extensions sao validas.
+`validate` checa: manifest passa schema, todos orchestrators existem,
+orchestrators implementam o SDK, cada flow ativo aponta para orchestrator que
+declara suporte ao domain/flow, todos gates existem, capabilities listadas
+estao no registry e evidence schema extensions sao validas.
+
+Status implementado:
+
+- `AtlasDomainOrchestrator` define o contrato minimo do SDK;
+- `AtlasDomainOrchestratorRegistry` resolve nomes curtos de manifest para
+  classes PHP reais e maturidade (`implemented`, `scaffold`, `planned`);
+- `AtlasDomainManifestValidator` falha quando domain/flow aponta para
+  orchestrator desconhecido, sem classe, sem interface ou sem suporte declarado;
+- `AtlasProgrammingOrchestrator` e `AtlasSelfImprovementOrchestrator` estao
+  marcados como `implemented`;
+- General, Research, Finance, Personal Development, Marketing, Health,
+  Learning, Writing, QA, Security, Operations e Background possuem scaffolds
+  explicitos para que a divida seja visivel e testavel, nao texto solto.
 
 ### 10.3 Domain Registry Test
 
@@ -1064,8 +1083,11 @@ public function test_every_registered_domain_passes_manifest_validation(): void
 public function test_every_flow_has_orchestrator_class(): void
 {
     foreach (DomainRegistry::flows() as $flow) {
-        $this->assertTrue(class_exists($flow->orchestrator),
-            "Flow {$flow->id} declares orchestrator {$flow->orchestrator} which does not exist.");
+        $definition = $orchestrators->get($flow->orchestrator);
+        $this->assertNotNull($definition);
+        $this->assertTrue(class_exists($definition['class']));
+        $this->assertTrue(is_subclass_of($definition['class'], AtlasDomainOrchestrator::class));
+        $this->assertContains($flow->id, app($definition['class'])->supportedFlows());
     }
 }
 ```
@@ -1886,16 +1908,35 @@ Para cada area do codigo atual, indica como ela se torna parte do kernel.
 | Codigo atual | Papel no kernel |
 |---|---|
 | `AtlasDecideService` | Renomear para `AtlasDecideEngine`, refactor para emitir `DecisionReceipt v2` |
-| `AtlasAiPolicyService` | Implementacao do Policy Engine declarativo |
+| `app/Services/Ai/Kernel/Envelope/*` | Primeira implementacao do `OperationEnvelope` tipado e factory canonica |
+| `DecisionReceiptIssuer` | Primeira implementacao executavel do `DecisionReceipt v2` hashable e chainable |
+| `AtlasCapabilityRegistry` | Primeira implementacao executavel do Capability Registry baseada em `config/atlas_ai.php` |
+| `AtlasDomainManifestValidator` | Primeira implementacao executavel do Domain Manifest/Profile compliance |
+| `AtlasDomainOrchestrator` + `AtlasDomainOrchestratorRegistry` | SDK minimo de dominios: nomes curtos de manifest resolvem para classes PHP reais, maturidade e suporte declarado por domain/flow |
+| `AtlasAiDomainCatalogService` | Service compartilhado que monta o inventario validado de domains/flows/orchestrators para CLI e API sem duplicacao |
+| `AtlasDomainOnboardingScorecard` | Scorecard de onboarding por dominio com 9 fases: charter, profile, context, orchestrator, runtime, gates, learning, surface e maturity_gate; Programming, Self-Improvement e Marketing estao `ready 9/9` |
+| `atlas:ai:architecture-validate` | Verificacao operacional dos contratos executaveis de Capability Registry, Domain Orchestrator Registry e Domain/Profile Registry |
+| `atlas:ai:domains` + `GET /ai/domains` | Inventario operacional de domains, flows e orchestrators; expoe maturidade, runtime, autonomia, executor preference, onboarding scorecard e validacao em JSON/humano |
+| `programming.*` flow profiles | Programming declarado no registry com dev, repair, review, refactor, qa, security, database, visual e forge; todos os flows declaram context policy, memory/learning policy, gate policy e surfaces |
+| `marketing.*` flow profiles | Marketing declarado no registry com 15 flows canonicos, context policy `marketing_growth_context`, memory/learning projection, gates de marca/claims/audience/medicao e `marketing.forge` como intensidade alta |
+| `AtlasEvidenceLedger` + `atlas_ledger_events` | Primeira implementacao append-only do Evidence Ledger para eventos de kernel |
+| `AiWorker` + `atlas:ai:ledger` | Primeira ponte runtime/provider/gate/repair para o ledger: execution started, provider called/returned, gate evaluated/passed/blocked, repair initiated/completed, terminal operation events e replay por envelope |
+| `EngineeringHarnessRunnerService` | Ponte do Engineering Harness para o ledger: execution started, context composed, provider returned e terminal operation event por engineering run |
+| `AtlasToolEvidenceStore` / `AtlasToolGateService` | Ponte do Super Tool Runtime para o ledger: tool evidence recorded e gate events por envelope/contexto |
+| `AtlasSelfImprovementOrchestrator` + `AtlasSelfImprovementRuntime` + `atlas:ai:self-improve` | Primeira implementacao ready do Curator/Self-Improvement sobre o ledger: resolve profile do dominio, emite plano do fluxo, executa nightly review, registra initiative run, learning proposals e proposals seguras opcionais; declara context, gates, learning e surfaces scheduler/CLI/API/app |
+| `AtlasAiPolicyService` | Implementacao do Policy Engine declarativo; inclui guard rails de kernel para `programming.repair` -> `dev_repair_executor` e flows Programming de harness -> `engineering_harness` |
 | `AiGatewayService` | Adapter entre kernel e camada legacy de jobs |
 | `AtlasOpenBrainContextInjectionService` | Implementacao concreta de `Atlas.Context` mode auto/required/off |
 | `EngineeringContextPackService` | Specializacao de `Atlas.Context` para Programming |
 | `AtlasMemoryRegistryService` | Backbone de `Atlas.Memory` |
 | `EngineeringHarnessRunnerService` | Executor heavy de Programming domain |
-| `AtlasProgrammingOrchestrator` | Implementacao de `DomainOrchestrator` para Programming |
+| `AtlasProgrammingOrchestrator` | Implementacao de `DomainOrchestrator` para Programming; resolve `programming_flow` por profile/intent/task signals e gera plano para `atlas dev`, `atlas:ai:chat --dev` com ou sem `--dev-plan`, Forge/Harness, repair, review, refactor, qa, security, database, visual e retomada |
+| `AtlasProgrammingSurfaceCommandBuilder` | Builder compartilhado que traduz surfaces Programming (`fix`, `continue`) para `atlas:cli:dev` com flags canonicas |
+| `AtlasCliFixCommand` / `AtlasCliContinueCommand` | Surfaces finas de Programming: fix marca intent `repair`; continue retoma `dev_execution_plan` ou `programming_session_plan` preservando profile/model/intent via builder compartilhado |
+| `AtlasEffectivePolicyComposer` | Composer de policy contract; `dev_repair_executor` deriva contrato `workspace_write` em vez de read-only |
 | `AtlasToolRegistryService` + Policy + Executor + EvidenceStore + Gate + ReleaseGate + AuthorityMatrix | Implementacao completa de `Atlas.Tools` |
 | `AtlasOpenBrainMcpService` (21 tools) | Adapter MCP do kernel |
-| `AtlasVaultManagedNoteService` + Sync | Adapter Vault humano (Obsidian) |
+| `AtlasVaultManagedNoteService` + Sync | Adapter do Human Knowledge Plane: Vault humano (Obsidian) |
 | `AiTrace` / `AiJob` | Projecao do Evidence Ledger |
 | `atlas_engineering_runs` | Projecao do Evidence Ledger para Programming |
 | `atlas_tool_runs` | Projecao do Evidence Ledger para Tools |

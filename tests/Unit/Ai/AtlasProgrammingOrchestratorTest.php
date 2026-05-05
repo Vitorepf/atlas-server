@@ -54,6 +54,37 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('strict', data_get($forge, 'execution_profile.gate_contract.minimum_gate'));
     }
 
+    public function test_session_plan_selects_specialized_programming_flows(): void
+    {
+        $workspace = sys_get_temp_dir();
+        $orchestrator = app(AtlasProgrammingOrchestrator::class);
+
+        $repair = $orchestrator->sessionPlan($workspace, 'dev', [
+            'task' => 'melhore login',
+            'intent' => 'repair',
+            'interactive' => false,
+        ]);
+        $this->assertSame('repair', data_get($repair, 'programming_flow'));
+        $this->assertSame('programming.repair', data_get($repair, 'policy_profile.profile_id'));
+        $this->assertSame('dev_repair_executor', data_get($repair, 'executor_decision.executor'));
+
+        $review = $orchestrator->sessionPlan($workspace, 'dev', [
+            'task' => 'faça code review do auth',
+            'interactive' => false,
+        ]);
+        $this->assertSame('review', data_get($review, 'programming_flow'));
+        $this->assertSame('programming.review', data_get($review, 'policy_profile.profile_id'));
+        $this->assertSame('read_only', data_get($review, 'execution_profile.tool_contract.mode'));
+
+        $database = $orchestrator->sessionPlan($workspace, 'dev', [
+            'task' => 'crie migration postgres com rollback',
+            'interactive' => false,
+        ]);
+        $this->assertSame('database', data_get($database, 'programming_flow'));
+        $this->assertSame('programming.database', data_get($database, 'policy_profile.profile_id'));
+        $this->assertSame('engineering_harness', data_get($database, 'executor_decision.executor'));
+    }
+
     public function test_dispatch_contract_records_selected_execution_path(): void
     {
         $dispatch = app(AtlasProgrammingOrchestrator::class)->dispatchContract([

@@ -28,13 +28,14 @@ capabilities:
   - atlas_vs_claude_code_strategy
 decisions:
   - Atlas AI e a inteligencia operacional do Atlas, nao um chat, comando, provider ou harness isolado.
-  - A arquitetura-mae e dividida em Control Plane, Domain Plane, Runtime Plane, Evidence Plane, Learning Plane e Surface Plane.
+  - A arquitetura-mae e dividida em Control Plane, Domain Plane, Runtime Plane, Evidence Plane, Learning Plane, Human Knowledge Plane e Surface Plane.
   - Toda tarefa operacional relevante deve passar por Profile Resolution, Policy Resolution, Decision Receipt, Domain Orchestrator, Runtime, Gates, Evidence e Learning.
   - Atlas Decide e o compilador operacional; ele decide e emite receipt, mas nao executa dominios.
   - Por padrao, Atlas Decide deve escolher o melhor provider/modelo permitido para a tarefa; override manual de modelo e excecao auditada.
   - Domain Orchestrators sao donos da semantica de execucao; Runtime executa; Gates julgam evidencia.
   - Super Tool Runtime e Core compartilhado, consumido por Dev, Forge, QA, Security, Finance, Personal Development e Curator.
   - Atlas vence Claude Code nao por um modelo melhor isolado, mas por memoria, contexto, ferramentas, gates, repair, evidencia, continuidade e aprendizado medido.
+  - AtlasVault/Obsidian e o Human Knowledge Plane: poderoso para escrita, pesquisa, revisao e identidade humana, mas nunca fonte operacional crua sem ingestao, classificacao, redacao e gates.
   - Novos dominios devem ser incorporados por contrato de domain onboarding, nao por improviso em comandos ou prompts.
   - Autoaprimoramento do Atlas e um dominio operacional proprio, com ciclos agendados, metricas, proposals, gates e aprovacao por risco.
 maintenance:
@@ -52,6 +53,7 @@ related_paths:
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
   - docs/engineering-knowledge-base/open-brain-context-injection.md
+  - docs/engineering-knowledge-base/obsidian-atlas-vault.md
   - docs/engineering-knowledge-base/engineering-blueprint.md
   - docs/atlas-cli-5x-claude-code-plan.md
   - docs/atlas-cli-fair-claude-benchmark.md
@@ -126,7 +128,7 @@ Surfaces podem ser simples. O cerebro nao pode ser simples.
 
 ## Modelo Mental Enterprise
 
-Atlas AI e dividido em seis planes:
+Atlas AI e dividido em sete planes:
 
 ```text
 Atlas AI
@@ -135,6 +137,7 @@ Atlas AI
 ├── Runtime Plane
 ├── Evidence Plane
 ├── Learning Plane
+├── Human Knowledge Plane
 └── Surface Plane
 ```
 
@@ -219,6 +222,30 @@ Inclui:
 - capability gap detection;
 - documentation updates;
 - anti-duplication findings.
+
+### Human Knowledge Plane
+
+Responsavel por leitura, escrita, revisao, curadoria humana e memoria narrativa.
+
+Inclui:
+
+- Obsidian;
+- AtlasVault;
+- notas longas;
+- pesquisa pessoal;
+- mapas mentais;
+- rascunhos de decisoes;
+- revisao humana de memorias candidatas;
+- managed notes geradas pelo Atlas;
+- backlinks `atlas://`;
+- promocao controlada para memoria operacional.
+
+Este plane e poderoso porque da ao Atlas continuidade humana, contexto rico,
+material de pesquisa e superficie de revisao que nenhum chat efemero possui.
+Mas ele nao e fonte primaria operacional. Antes de entrar no Runtime, Open Brain
+ou provider context, uma nota precisa passar por ingestao, classificacao,
+privacy/redaction, provider-safety, dedupe, evidence link e aprovacao quando o
+risco exigir.
 
 ### Surface Plane
 
@@ -674,6 +701,40 @@ Regra de produto:
 atlas dev e atlas forge sao intensidades do mesmo domain.
 ```
 
+Status inicial implementado:
+
+- `programming.dev`, `programming.repair`, `programming.review`,
+  `programming.refactor`, `programming.qa`, `programming.security`,
+  `programming.database`, `programming.visual` e `programming.forge` estao
+  declarados como flows executaveis no Domain/Profile Registry;
+- `atlas dev` interativo e `atlas dev "prompt"` passam um
+  `dev_execution_plan` gerado pelo `AtlasProgrammingOrchestrator`;
+- `atlas:ai:chat --dev` agora tambem gera automaticamente um plano raiz quando
+  nenhuma surface forneceu `--dev-plan`, impedindo que uma entrada em modo dev
+  pule o Programming Orchestrator;
+- `AtlasProgrammingOrchestrator` resolve `programming_flow` por profile,
+  intent explicito, `routing_task`, `task_type` e sinais do texto da tarefa,
+  roteando repair/review/refactor/qa/security/database/visual/forge para os
+  flow profiles especializados antes de compor policy e executor;
+- cada mensagem dev gera `programming_message_plan`, `programming_dispatch` e
+  `programming_repair` antes de executar provider ou Harness;
+- `AtlasAiPolicyService` tem guard rails para garantir que
+  `programming.repair` use `dev_repair_executor` e que flows de harness
+  (`qa/security/database/visual`) exijam Engineering Harness mesmo quando uma
+  projection local ainda nao carregou os seeds declarativos;
+- `dev_repair_executor` e tratado como executor com escrita controlada de
+  workspace no contrato de tools, alinhado ao objetivo de repair completo;
+- tarefas multi-layer ou explicitamente forge/harness escalam para
+  Engineering Harness pelo mesmo contrato.
+- `atlas fix` chama `atlas dev` com intent explicito `repair`, mantendo o
+  repair dentro do Programming Orchestrator em vez de criar fluxo paralelo;
+- `atlas continue` retoma tanto `dev_execution_plan` legado quanto
+  `programming_session_plan` novo, preservando profile `dev/forge`, modelo e
+  intent repair quando existirem.
+- `AtlasProgrammingSurfaceCommandBuilder` centraliza a traducao de surfaces
+  (`fix`, `continue`) para comandos `atlas:cli:dev`, removendo duplicacao de
+  flags criticas como `--repair`, `--forge`, modelo, Open Brain e permissao.
+
 ### Atlas AI Finance
 
 Objetivo:
@@ -730,6 +791,19 @@ Orchestrator:
 ```text
 AtlasMarketingOrchestrator
 ```
+
+Status inicial implementado:
+
+- Marketing esta `ready 9/9` no Domain Onboarding Scorecard;
+- `AtlasMarketingOrchestrator` implementa o SDK de dominio e declara suporte a
+  todos os 15 flows canonicos;
+- o Domain/Profile Registry declara context policy `marketing_growth_context`,
+  memory/learning projection `marketing`, gates de marca/claims/audience/medicao
+  e surfaces CLI/API/app/MCP;
+- `marketing.forge` existe como intensidade alta do mesmo domain, com
+  `domain_forge_runtime`, asset manifest, experiment plan e learning delta;
+- o output de Marketing permanece draft/review ate aprovacao explicita do
+  operador; publicacao externa nao e automatica.
 
 Contexto especializado:
 
@@ -1095,6 +1169,46 @@ Nenhuma surface deve chamar ferramenta diretamente quando existe registry.
 
 Evidence e a diferenca entre "parece resolvido" e "esta comprovado".
 
+Status inicial implementado:
+
+- `atlas_ledger_events` como event store append-only minimo;
+- `AtlasEvidenceLedger` como gravador canonico;
+- `LedgerEventType` com taxonomia inicial do kernel;
+- `AtlasDecideService` emitindo `ENVELOPE_CREATED` e `DECISION_ISSUED`;
+- `AiWorker` emitindo `EXECUTION_STARTED`, `PROVIDER_CALLED`,
+  `PROVIDER_RETURNED`, `OPERATION_COMPLETED`, `OPERATION_FAILED` e
+  `OPERATION_BLOCKED` sem gravar prompt/output bruto;
+- repair nativo de Programming emitindo `GATE_EVALUATED`, `GATE_PASSED`,
+  `GATE_BLOCKED`, `REPAIR_INITIATED` e `REPAIR_COMPLETED` com hashes/projecoes
+  seguras da evidencia de qualidade;
+- `EngineeringHarnessRunnerService` emitindo `EXECUTION_STARTED`,
+  `CONTEXT_COMPOSED`, `PROVIDER_RETURNED` quando aplicavel e evento terminal
+  `OPERATION_COMPLETED`/`OPERATION_FAILED` para runs do Harness;
+- `AtlasToolEvidenceStore` emitindo `TOOL_EVIDENCE_RECORDED` para evidencias
+  normalizadas do Super Tool Runtime;
+- `AtlasToolGateService` emitindo `GATE_PASSED`, `GATE_BLOCKED` ou
+  `GATE_EVALUATED` para gates de ferramentas;
+- `AtlasSelfImprovementOrchestrator` resolvendo o profile
+  `self_improvement.nightly_review`, normalizando opcoes, declarando autonomia
+  baixa, gates requeridos e plano de execucao antes de acionar o runtime;
+- `AtlasSelfImprovementRuntime` executando o primeiro
+  `self_improvement.nightly_review`: consulta o Evidence Ledger, detecta
+  envelopes sem terminal, falhas por stage, gates bloqueados e lacunas de tool
+  evidence, registra `AtlasInitiativeRun`, emite `LEARNING_PROPOSED` e pode
+  criar proposals seguras quando `--emit` estiver habilitado;
+- comando `atlas:ai:self-improve --hours=24 --limit=5 --json` com agendamento
+  opcional por `atlas_ai.self_improvement.*`;
+- comando `atlas:ai:ledger {envelope} --json` para replay operacional por
+  `envelope_id`.
+- comando `atlas:ai:architecture-validate --json` para validar contratos
+  executaveis de Capability Registry e Domain/Profile Registry sem depender de
+  leitura manual da documentacao.
+- comando `atlas:ai:domains --json` para inventariar domains, flows e
+  orchestrators, incluindo maturidade, runtime, autonomia, executor preference
+  onboarding scorecard e filtros por domain/flow/maturity.
+- endpoint `GET /ai/domains` usando o mesmo `AtlasAiDomainCatalogService` do
+  CLI, para app e automacoes consumirem o contrato sem duplicar logica.
+
 Todo fluxo operacional produz:
 
 ```json
@@ -1187,6 +1301,30 @@ Saidas:
 
 Learning nao deve promover memoria sensivel sem privacy policy.
 
+## Human Knowledge Plane
+
+O Human Knowledge Plane e a camada onde o Atlas conversa com conhecimento
+humano de alta densidade: Obsidian, AtlasVault, notas longas, pesquisas,
+rascunhos, reflexoes, identidade, mapas de projeto e revisao de memorias.
+
+Ele resolve um problema que nenhum provider resolve sozinho: continuidade
+humana. O Atlas pode ler o que o operador escreveu ao longo do tempo, devolver
+notas gerenciadas para revisao, criar backlinks `atlas://`, preparar resumos e
+propor promocao de conhecimento para a memoria operacional.
+
+Contrato duro:
+
+- Obsidian/AtlasVault e core da camada humana, nao core operacional bruto.
+- Open Brain nao deve ler nota solta diretamente em runtime.
+- Nota so entra em contexto de provider apos classificacao, redacao,
+  provider-safety, dedupe e link de evidencia.
+- Docs canonicos, Postgres, audits, code intelligence e evidence ledger continuam
+  sendo fonte operacional.
+- Atlas pode escrever notas no Vault como projection humana gerenciada, nao como
+  substituto de migrations, services, docs canonicos ou testes.
+
+O documento que manda nesta fronteira e `obsidian-atlas-vault.md`.
+
 ## Self-Improvement Operations
 
 O Atlas deve melhorar continuamente por ciclos controlados.
@@ -1205,6 +1343,7 @@ Tipos de ciclo:
 Cada ciclo gera:
 
 - `SelfImprovementRun`;
+- plano de orquestracao com domain/flow/profile;
 - findings;
 - proposals;
 - evidence;
@@ -1404,6 +1543,7 @@ L8 superior.
 
 - `ai_domain_profiles`;
 - `ai_flow_profiles`;
+- `AtlasDomainOrchestratorRegistry`;
 - `ai_policy_profiles`;
 - `ai_capabilities`;
 - `ai_surface_capabilities`;
@@ -1413,6 +1553,34 @@ L8 superior.
 - `ai_domain_onboarding_checklists`;
 - `ai_self_improvement_runs`;
 - `ai_curation_proposals`.
+
+Status parcial implementado:
+
+- domain/flow profiles existem em banco e fallback estatico;
+- `AtlasDomainOrchestratorRegistry` mapeia nomes curtos de manifest para
+  classes PHP reais;
+- `AtlasDomainManifestValidator` valida orchestrator por classe, interface,
+  maturidade e suporte declarado ao domain/flow;
+- `AtlasAiDomainCatalogService` fornece um payload unico para CLI e API;
+- `AtlasDomainOnboardingScorecard` calcula 9 fases de incorporacao por dominio
+  (`charter`, `profile`, `context`, `orchestrator`, `runtime`, `gates`,
+  `learning`, `surface`, `maturity_gate`) e expõe proximas acoes;
+- `atlas:ai:domains` e `GET /ai/domains` tornam o catalogo auditavel por
+  operador, app e automacao;
+- `programming` esta `ready 9/9`: declara context policy Open Brain/code
+  intelligence, memory/learning policy, gates por flow e surfaces oficiais
+  (`atlas dev`, `atlas forge`, `atlas fix`, `atlas continue`, chat dev/review/debug,
+  API, app e MCP);
+- `self_improvement` esta `ready 9/9`: declara fontes de contexto
+  (`atlas_evidence_ledger`, architecture validation, domain scorecards, KB,
+  code intelligence, tool evidence e memory quality), learning policy, gates de
+  risco/evidencia/aprovacao e surfaces scheduler/CLI/API/app;
+- `marketing` esta `ready 9/9`: declara 15 flows de estrategia, pesquisa,
+  positioning, campanha, criativos, copy, midia, landing page, email, social,
+  video script, A/B test, analytics, brand review e forge, com context,
+  memory/learning, gates e surfaces;
+- os demais dominios ativos possuem scaffolds explicitos para onboarding
+  incremental sem sumir da validacao arquitetural.
 
 ### Phase 3 - Control Plane Services
 
@@ -1427,8 +1595,8 @@ L8 superior.
 ### Phase 4 - Programming Unification
 
 - `AtlasProgrammingOrchestrator` vira autoridade unica;
-- `atlas dev`, `forge`, `fix`, `continue`, app e worker chamam o mesmo
-  orchestrator;
+- `atlas dev`, `atlas:ai:chat --dev`, `forge`, `fix`, `continue`, app e worker
+  chamam o mesmo orchestrator;
 - repair loop unificado;
 - quality matrix por risco;
 - evidence packet obrigatorio.

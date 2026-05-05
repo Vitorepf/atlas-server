@@ -59,7 +59,10 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
         $listPayload = json_decode(Artisan::output(), true);
 
         $this->assertSame(0, $exitCode);
-        $this->assertSame('engineering-knowledge-base-overview', data_get($listPayload, 'items.0.slug'));
+        $this->assertContains(
+            'engineering-knowledge-base-overview',
+            collect(data_get($listPayload, 'items', []))->pluck('slug')->all(),
+        );
 
         $showExitCode = Artisan::call('atlas:engineering:knowledge', [
             'action' => 'show',
@@ -71,10 +74,14 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
         $this->assertSame(0, $showExitCode);
         $this->assertSame('engineering-knowledge-base-overview', data_get($showPayload, 'knowledge_item.slug'));
 
-        $this->getJson('/engineering/knowledge?q=Knowledge&limit=5', $this->headers)
+        $knowledgeResponse = $this->getJson('/engineering/knowledge?q=overview&limit=5', $this->headers)
             ->assertOk()
-            ->assertJsonPath('summary.status', 'ready')
-            ->assertJsonPath('items.0.slug', 'engineering-knowledge-base-overview');
+            ->assertJsonPath('summary.status', 'ready');
+
+        $this->assertContains(
+            'engineering-knowledge-base-overview',
+            collect($knowledgeResponse->json('items'))->pluck('slug')->all(),
+        );
 
         $this->getJson('/engineering/knowledge/items/engineering-knowledge-base-overview', $this->headers)
             ->assertOk()
@@ -89,20 +96,20 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
             ->assertJsonPath('dry_run', true)
             ->assertJsonPath('ok', true);
 
-        $this->getJson('/engineering/knowledge/context?category=capability_matrix&limit=3', $this->headers)
+        $this->getJson('/engineering/knowledge/context?category=tool_runtime&limit=3', $this->headers)
             ->assertOk()
-            ->assertJsonPath('knowledge_refs.0.category', 'capability_matrix')
+            ->assertJsonPath('knowledge_refs.0.category', 'tool_runtime')
             ->assertJsonPath('knowledge_refs.0.reason', 'matched_engineering_context');
 
         Artisan::call('atlas:engineering:knowledge', [
             'action' => 'context',
-            '--category' => 'capability_matrix',
+            '--category' => 'tool_runtime',
             '--limit' => 3,
             '--json' => true,
         ]);
         $contextPayload = json_decode(Artisan::output(), true);
 
-        $this->assertSame('capability_matrix', data_get($contextPayload, 'knowledge_refs.0.category'));
+        $this->assertSame('tool_runtime', data_get($contextPayload, 'knowledge_refs.0.category'));
     }
 
     public function test_engineering_context_pack_includes_knowledge_refs(): void

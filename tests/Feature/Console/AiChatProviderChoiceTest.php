@@ -204,6 +204,40 @@ class AiChatProviderChoiceTest extends TestCase
         $this->assertSame($imagePath, data_get($images[0] ?? [], 'path'));
     }
 
+    public function test_chat_dev_without_explicit_dev_plan_generates_programming_contract(): void
+    {
+        $workspace = storage_path('framework/testing/chat-dev-plan-'.bin2hex(random_bytes(4)));
+        File::ensureDirectoryExists($workspace);
+        config()->set('atlas.ai.tool_permissions.allowed_roots', [dirname($workspace)]);
+
+        $exitCode = Artisan::call('atlas:ai:chat', [
+            'input' => 'corrija o teste falhando no login',
+            '--workspace' => $workspace,
+            '--dev' => true,
+            '--permission' => 'write',
+            '--allow-write' => true,
+            '--no-run' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $job = AiJob::query()->latest('created_at')->first();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('dev', data_get($job?->payload, 'atlas_workflow_mode'));
+        $this->assertSame('AtlasProgrammingOrchestrator', data_get($job?->payload, 'dev_execution_plan.orchestrator'));
+        $this->assertSame('AiChatCommand', data_get($job?->payload, 'dev_execution_plan.operator_options.generated_by'));
+        $this->assertSame('AtlasProgrammingOrchestrator', data_get($job?->payload, 'programming_message_plan.orchestrator'));
+        $this->assertSame(
+            data_get($job?->payload, 'dev_execution_plan.plan_id'),
+            data_get($job?->payload, 'programming_message_plan.parent_plan_id')
+        );
+        $this->assertSame('dev_repair_executor', data_get($job?->payload, 'programming_dispatch.executor'));
+        $this->assertSame('repair', data_get($job?->payload, 'programming_message_plan.operator_intent.kind'));
+        $this->assertSame(data_get($job?->payload, 'programming_dispatch'), data_get($payload, 'programming_dispatch'));
+
+        File::deleteDirectory($workspace);
+    }
+
     public function test_chat_claude_only_projects_claude_only_session_policy_override(): void
     {
         config([

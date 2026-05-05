@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cli\AtlasCliSessionService;
 use App\Services\Ai\Cli\DevProgressReporter;
-use App\Support\AtlasPhpBinary;
+use App\Services\Ai\Programming\AtlasProgrammingSurfaceCommandBuilder;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -24,7 +24,7 @@ class AtlasCliContinueCommand extends Command
 
     protected $description = 'Resume the most recent unfinished Atlas dev workflow in this workspace.';
 
-    public function handle(AtlasCliSessionService $sessions): int
+    public function handle(AtlasCliSessionService $sessions, AtlasProgrammingSurfaceCommandBuilder $commands): int
     {
         $workspace = $this->workspace();
         $threadId = is_string($this->option('thread')) ? trim((string) $this->option('thread')) : null;
@@ -51,7 +51,7 @@ class AtlasCliContinueCommand extends Command
         }
 
         $operatorOptions = (array) $resume['operator_options'];
-        $command = $this->buildResumeCommand($resume, $operatorOptions);
+        $command = $commands->resumeDevCommand($resume, $operatorOptions, $this->openBrainOptions($operatorOptions));
 
         if ($json) {
             $this->line(json_encode([
@@ -62,6 +62,7 @@ class AtlasCliContinueCommand extends Command
                 'task' => $resume['task'],
                 'thread_id' => $resume['thread_id'],
                 'reason' => $resume['reason'],
+                'programming_profile' => $resume['programming_profile'] ?? null,
                 'command' => AtlasSecurity::commandLineForDisplay($command),
                 'dry_run' => (bool) $this->option('dry-run'),
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -104,72 +105,6 @@ class AtlasCliContinueCommand extends Command
         });
 
         return is_int($exit) ? $exit : self::FAILURE;
-    }
-
-    /**
-     * @param  array<string,mixed>  $resume
-     * @param  array<string,mixed>  $operatorOptions
-     * @return array<int,string>
-     */
-    private function buildResumeCommand(array $resume, array $operatorOptions): array
-    {
-        $command = [
-            AtlasPhpBinary::path(),
-            base_path('artisan'),
-            'atlas:cli:dev',
-            (string) $resume['task'],
-            '--workspace='.$resume['workspace'],
-            '--resume='.$resume['plan_id'],
-        ];
-
-        $maxIterations = (int) ($operatorOptions['max_iterations'] ?? 0);
-        if ($maxIterations > 0) {
-            $command[] = '--max-iterations='.$maxIterations;
-        }
-        if (! empty($operatorOptions['provider'])) {
-            $command[] = '--provider='.(string) $operatorOptions['provider'];
-        }
-        if (! empty($operatorOptions['critical'])) {
-            $command[] = '--critical';
-        }
-        if (! empty($operatorOptions['allow_write'])) {
-            $command[] = '--allow-write';
-        }
-        if (! empty($operatorOptions['allow_danger'])) {
-            $command[] = '--dangerously-allow-all';
-        }
-        if (! empty($operatorOptions['allow_unsandboxed'])) {
-            $command[] = '--allow-unsandboxed';
-        }
-        if (! empty($operatorOptions['auto_test'])) {
-            $command[] = '--auto-test';
-        }
-        if (! empty($operatorOptions['no_stream'])) {
-            $command[] = '--no-stream';
-        }
-        $openBrain = $this->openBrainOptions($operatorOptions);
-        if (($openBrain['mode'] ?? null) === 'off') {
-            $command[] = '--no-open-brain';
-        } elseif (($openBrain['mode'] ?? null) === 'required') {
-            $command[] = '--require-open-brain';
-        }
-        if (! empty($openBrain['refresh'])) {
-            $command[] = '--open-brain-refresh';
-        }
-        if (! empty($openBrain['budget_chars'])) {
-            $command[] = '--open-brain-budget='.(int) $openBrain['budget_chars'];
-        }
-        $permission = (string) ($operatorOptions['permission'] ?? '');
-        if ($permission !== '' && in_array($permission, ['read', 'write', 'danger'], true)) {
-            $command[] = '--permission='.$permission;
-        }
-        foreach ((array) ($operatorOptions['skills'] ?? []) as $skill) {
-            if (is_scalar($skill) && trim((string) $skill) !== '') {
-                $command[] = '--skill='.trim((string) $skill);
-            }
-        }
-
-        return $command;
     }
 
     /**

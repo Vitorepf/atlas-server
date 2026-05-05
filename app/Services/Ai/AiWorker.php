@@ -7,6 +7,8 @@ use App\Models\AiJobAttempt;
 use App\Models\AiQualityAction;
 use App\Models\AiTrace;
 use App\Services\Ai\Cli\AtlasCliQualityService;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Mobile\JobResultInboxEmitter;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
@@ -45,6 +47,7 @@ class AiWorker
         private readonly AtlasProgrammingOrchestrator $programming,
         private readonly AtlasCliQualityService $cliQuality,
         private readonly MacAgentService $macAgent,
+        private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
     public function runNext(?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
@@ -140,6 +143,13 @@ class AiWorker
                         'attempt_number' => $attempt->attempt_number,
                     ],
                 ]);
+                $this->recordLedgerEvent(LedgerEventType::ProviderCalled, $job, $attempt, [
+                    'attempt_number' => $attempt->attempt_number,
+                    'prompt_hash' => $attempt->prompt_hash,
+                    'timeout_seconds' => $job->timeout_seconds,
+                    'permission_mode' => $permission->mode,
+                    'permission_allowed' => $permission->allowed,
+                ], $workerId);
                 $firstTokenRecorded = false;
                 $powerSession = $this->macAgent->startSession(
                     kind: 'ai_job',
@@ -248,6 +258,11 @@ class AiWorker
                         'provider_override' => $providerOverride,
                     ],
                 ]);
+                $this->recordLedgerEvent(LedgerEventType::ExecutionStarted, $job->refresh(), null, [
+                    'attempt_number' => $job->attempts,
+                    'provider_override' => $providerOverride,
+                    'available_at' => $job->available_at?->toJSON(),
+                ], $workerId);
 
                 return $job->refresh()->load('trace');
             }
@@ -645,7 +660,7 @@ class AiWorker
         ]);
     }
 
-    private function handleNativeProgrammingRepair(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, ?string $responseHash): ?AiJob
+    private function handleNativeProgrammingRepair(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, ?string $responseHash, string $workerId): ?AiJob
     {
         $workspace = $this->programmingRepairWorkspace($job);
         if ($workspace === null) {
@@ -670,6 +685,13 @@ class AiWorker
         $qualityStatus = (string) ($quality['status'] ?? 'unknown');
         $currentIteration = max(1, (int) ($repair['current_iteration'] ?? 1));
         $maxIterations = max(1, min(10, (int) ($repair['max_iterations'] ?? data_get($messagePlan, 'execution_profile.max_iterations', 1))));
+        $this->recordLedgerEvent(LedgerEventType::GateEvaluated, $job, $attempt, $this->programmingRepairLedgerPayload($quality, [
+            'run_tests' => $runTests,
+            'complete_mode' => $completeMode,
+            'current_iteration' => $currentIteration,
+            'max_iterations' => $maxIterations,
+            'gate_contract' => $gateContract,
+        ]), $workerId);
         $qualityWorsened = (bool) ($repair['stop_when_quality_worsens'] ?? true)
             && $this->programmingRepairQualityWorsened($qualityStatus, $repair['previous_quality_status'] ?? null);
         $shouldRepair = in_array($qualityStatus, (array) ($repair['repair_when_status'] ?? ['failed', 'needs_review']), true)
@@ -679,7 +701,14 @@ class AiWorker
         $toolBlocksRepair = $shouldRepair && ! $this->programmingRepairAllowsWorkspaceWrite($toolContract);
 
         if ($shouldRepair && ! $toolBlocksRepair) {
-            $this->enqueueNativeProgrammingRepairJob($job, $quality, $currentIteration + 1, $maxIterations);
+            $repairJob = $this->enqueueNativeProgrammingRepairJob($job, $quality, $currentIteration + 1, $maxIterations);
+            $this->recordLedgerEvent(LedgerEventType::RepairInitiated, $job, $attempt, $this->programmingRepairLedgerPayload($quality, [
+                'repair_job_id' => $repairJob->id,
+                'current_iteration' => $currentIteration,
+                'next_iteration' => $currentIteration + 1,
+                'max_iterations' => $maxIterations,
+                'reason' => 'quality_gate_requested_repair',
+            ]), $workerId);
             $metadata = $this->nativeProgrammingRepairMetadata($job, $repair, $quality, [
                 'status' => 'repairing',
                 'current_iteration' => $currentIteration,
@@ -701,14 +730,26 @@ class AiWorker
         }
 
         if (! $finalPassed) {
+            $reasonIfStopped = match (true) {
+                $toolBlocksRepair => 'tool_contract_blocks_workspace_write',
+                $qualityWorsened => 'quality_gate_worsened',
+                default => 'max_iterations_or_quality_failed',
+            };
+            $this->recordLedgerEvent(LedgerEventType::GateBlocked, $job, $attempt, $this->programmingRepairLedgerPayload($quality, [
+                'current_iteration' => $currentIteration,
+                'max_iterations' => $maxIterations,
+                'reason' => $reasonIfStopped,
+            ]), $workerId);
+            $this->recordLedgerEvent(LedgerEventType::RepairCompleted, $job, $attempt, $this->programmingRepairLedgerPayload($quality, [
+                'repair_status' => $qualityWorsened || $toolBlocksRepair ? 'stopped' : 'exhausted',
+                'current_iteration' => $currentIteration,
+                'max_iterations' => $maxIterations,
+                'reason' => $reasonIfStopped,
+            ]), $workerId);
             $metadata = $this->nativeProgrammingRepairMetadata($job, $repair, $quality, [
                 'status' => $qualityWorsened || $toolBlocksRepair ? 'stopped' : 'exhausted',
                 'current_iteration' => $currentIteration,
-                'reason_if_stopped' => match (true) {
-                    $toolBlocksRepair => 'tool_contract_blocks_workspace_write',
-                    $qualityWorsened => 'quality_gate_worsened',
-                    default => 'max_iterations_or_quality_failed',
-                },
+                'reason_if_stopped' => $reasonIfStopped,
             ], $attempt->provider, $responseHash, blocked: true);
 
             $job->trace?->update([
@@ -725,6 +766,15 @@ class AiWorker
             return $job->refresh()->load(['trace', 'attemptHistory']);
         }
 
+        $this->recordLedgerEvent(LedgerEventType::GatePassed, $job, $attempt, $this->programmingRepairLedgerPayload($quality, [
+            'current_iteration' => $currentIteration,
+            'max_iterations' => $maxIterations,
+        ]), $workerId);
+        $this->recordLedgerEvent(LedgerEventType::RepairCompleted, $job, $attempt, $this->programmingRepairLedgerPayload($quality, [
+            'repair_status' => 'passed',
+            'current_iteration' => $currentIteration,
+            'max_iterations' => $maxIterations,
+        ]), $workerId);
         $metadata = $this->nativeProgrammingRepairMetadata($job, $repair, $quality, [
             'status' => 'passed',
             'current_iteration' => $currentIteration,
@@ -855,6 +905,42 @@ class AiWorker
             'blocked' => 1,
             default => 0,
         };
+    }
+
+    /**
+     * @param  array<string,mixed>  $quality
+     * @param  array<string,mixed>  $extra
+     * @return array<string,mixed>
+     */
+    private function programmingRepairLedgerPayload(array $quality, array $extra = []): array
+    {
+        return array_merge([
+            'quality_status' => $quality['status'] ?? null,
+            'quality_score' => $quality['score'] ?? null,
+            'quality_decision' => $quality['decision'] ?? null,
+            'diff_hash' => $quality['diff_hash'] ?? null,
+            'test_command_hash' => is_string($quality['test_command'] ?? null) && $quality['test_command'] !== ''
+                ? hash('sha256', $quality['test_command'])
+                : null,
+            'evidence_hash' => hash('sha256', json_encode($this->programmingRepairEvidenceProjection($quality), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}'),
+        ], $extra);
+    }
+
+    /**
+     * @param  array<string,mixed>  $quality
+     * @return array<string,mixed>
+     */
+    private function programmingRepairEvidenceProjection(array $quality): array
+    {
+        return [
+            'status' => $quality['status'] ?? null,
+            'score' => $quality['score'] ?? null,
+            'decision' => $quality['decision'] ?? null,
+            'diff_hash' => $quality['diff_hash'] ?? null,
+            'test_status' => data_get($quality, 'tests.status'),
+            'lint_status' => data_get($quality, 'lint.status'),
+            'typecheck_status' => data_get($quality, 'typecheck.status'),
+        ];
     }
 
     /**
@@ -1078,6 +1164,11 @@ class AiWorker
                     'provider_result_ok' => $result->ok,
                 ],
             ]);
+            $this->recordLedgerEvent(LedgerEventType::OperationBlocked, $job, $attempt, [
+                'reason' => 'cancelled_by_operator',
+                'provider_result_ok' => $result->ok,
+                'duration_ms' => $result->durationMs,
+            ], $workerId);
 
             return $job->load(['trace', 'attemptHistory']);
         }
@@ -1107,6 +1198,15 @@ class AiWorker
                 'error_code' => $result->errorCode,
             ],
         ]);
+        if ($this->providerWasCalled($result)) {
+            $this->recordLedgerEvent(LedgerEventType::ProviderReturned, $job, $attempt, $this->providerResultLedgerPayload($result, $responseHash), $workerId);
+        } else {
+            $this->recordLedgerEvent(LedgerEventType::OperationBlocked, $job, $attempt, [
+                'reason' => $result->errorCode,
+                'error_message_hash' => $result->errorMessage ? hash('sha256', $result->errorMessage) : null,
+                'duration_ms' => $result->durationMs,
+            ], $workerId);
+        }
 
         if ($result->ok) {
             $job->update([
@@ -1148,6 +1248,12 @@ class AiWorker
                             'execution_policy' => 'dual_review',
                         ],
                     ]);
+                    $this->recordLedgerEvent(LedgerEventType::OperationCompleted, $job, $attempt, [
+                        'trace_status' => $synced->status,
+                        'execution_policy' => 'dual_review',
+                        'duration_ms' => $synced->latency_ms,
+                        'response_hash' => $synced->response_hash,
+                    ], $workerId);
                     $this->recomputeTraceMetrics($synced);
                 }
                 $this->logger->event('job_succeeded', 'AI council job completed successfully.', 'info', $attempt->provider, $job, $attempt, workerId: $workerId);
@@ -1186,7 +1292,7 @@ class AiWorker
             }
 
             if ($this->shouldEvaluateNativeProgrammingRepair($job)) {
-                $repairOutcome = $this->handleNativeProgrammingRepair($job, $attempt, $result, $responseHash);
+                $repairOutcome = $this->handleNativeProgrammingRepair($job, $attempt, $result, $responseHash, $workerId);
                 if ($repairOutcome !== null) {
                     return $repairOutcome;
                 }
@@ -1233,6 +1339,11 @@ class AiWorker
                         'trace_status' => $trace->status,
                     ],
                 ]);
+                $this->recordLedgerEvent(LedgerEventType::OperationCompleted, $job, $attempt, [
+                    'trace_status' => $trace->status,
+                    'duration_ms' => $trace->latency_ms,
+                    'response_hash' => $trace->response_hash,
+                ], $workerId);
                 $this->recomputeTraceMetrics($trace);
             }
             $this->audit->record('ai_job_succeeded', [
@@ -1351,6 +1462,13 @@ class AiWorker
                         'execution_policy' => 'dual_review',
                     ],
                 ]);
+                $this->recordLedgerEvent(LedgerEventType::OperationFailed, $job, $attempt, [
+                    'trace_status' => $synced->status,
+                    'execution_policy' => 'dual_review',
+                    'duration_ms' => $synced->latency_ms,
+                    'error_code' => $result->errorCode,
+                    'error_message_hash' => $result->errorMessage ? hash('sha256', $result->errorMessage) : null,
+                ], $workerId);
                 $this->recomputeTraceMetrics($synced);
                 $this->emitImportantJobResult($job->refresh(), 'failed');
             }
@@ -1440,6 +1558,13 @@ class AiWorker
                         'trace_status' => $failedTrace->status,
                     ],
                 ]);
+                $this->recordLedgerEvent(LedgerEventType::OperationFailed, $job, $attempt, [
+                    'trace_status' => $failedTrace->status,
+                    'duration_ms' => $failedTrace->latency_ms,
+                    'error_code' => $result->errorCode,
+                    'error_event_type' => $eventType,
+                    'error_message_hash' => $result->errorMessage ? hash('sha256', $result->errorMessage) : null,
+                ], $workerId);
                 $this->recomputeTraceMetrics($failedTrace);
             }
             $this->emitImportantJobResult($job->refresh(), 'failed');
@@ -1577,6 +1702,106 @@ class AiWorker
         } catch (\Throwable $exception) {
             report($exception);
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function recordLedgerEvent(
+        LedgerEventType $type,
+        AiJob $job,
+        ?AiJobAttempt $attempt = null,
+        array $payload = [],
+        ?string $workerId = null,
+    ): void {
+        try {
+            $receipt = $this->jobDecisionReceipt($job);
+            $receiptV2 = is_array(data_get($receipt, 'receipt_v2')) ? data_get($receipt, 'receipt_v2') : [];
+            $envelopeId = (string) (
+                data_get($receiptV2, 'envelope_id')
+                ?: data_get($receipt, 'envelope_id')
+                ?: data_get($job->metadata, 'decision_receipt.envelope_id')
+                ?: data_get($job->payload, 'decision_receipt.envelope_id')
+                ?: $job->trace_id
+                ?: $job->id
+            );
+            $receiptId = data_get($receiptV2, 'receipt_id')
+                ?: data_get($receipt, 'receipt_id')
+                ?: data_get($job->metadata, 'decision_receipt.receipt_id')
+                ?: data_get($job->payload, 'decision_receipt.receipt_id');
+            $tenantId = data_get($receiptV2, 'metadata.tenant_id')
+                ?: data_get($job->payload, 'tenant_id')
+                ?: data_get($job->metadata, 'tenant_id')
+                ?: 'default';
+            $operatorId = data_get($receiptV2, 'metadata.operator_id')
+                ?: data_get($job->payload, 'operator_id')
+                ?: data_get($job->metadata, 'operator_id')
+                ?: 'system';
+
+            $this->ledger->record($type, array_merge([
+                'envelope_id' => $envelopeId,
+                'receipt_id' => $receiptId,
+                'trace_id' => $job->trace_id,
+                'job_id' => $job->id,
+                'attempt_id' => $attempt?->id,
+                'attempt_number' => $attempt?->attempt_number,
+                'worker_id' => $workerId,
+                'job_status' => $job->status,
+                'attempt_status' => $attempt?->status,
+                'agent_slug' => $job->agent_slug,
+                'provider' => $attempt?->provider ?? $job->provider,
+                'model' => $attempt?->model ?? $job->model,
+            ], $payload), [
+                'tenant_id' => (string) $tenantId,
+                'operator_id' => (string) $operatorId,
+                'envelope_id' => $envelopeId,
+                'receipt_id' => $receiptId ? (string) $receiptId : null,
+                'trace_id' => $job->trace_id,
+                'correlation_id' => $job->trace_id ?: $envelopeId,
+                'emitter_stage' => 'ai.worker',
+                'emitter_version' => 'ai-worker-v1',
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function jobDecisionReceipt(AiJob $job): array
+    {
+        $metadataReceipt = data_get($job->metadata, 'decision_receipt');
+        if (is_array($metadataReceipt)) {
+            return $metadataReceipt;
+        }
+
+        $payloadReceipt = data_get($job->payload, 'decision_receipt');
+
+        return is_array($payloadReceipt) ? $payloadReceipt : [];
+    }
+
+    private function providerWasCalled(AiProviderResult $result): bool
+    {
+        return ! in_array($result->errorCode, ['permission_denied', 'policy_violation'], true);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function providerResultLedgerPayload(AiProviderResult $result, ?string $responseHash): array
+    {
+        return [
+            'ok' => $result->ok,
+            'exit_code' => $result->exitCode,
+            'duration_ms' => $result->durationMs,
+            'response_hash' => $responseHash,
+            'command_hash' => $result->command ? hash('sha256', json_encode($result->command, JSON_THROW_ON_ERROR)) : null,
+            'stdout_hash' => $result->stdout !== '' ? hash('sha256', $result->stdout) : null,
+            'stderr_hash' => $result->stderr !== '' ? hash('sha256', $result->stderr) : null,
+            'error_code' => $result->errorCode,
+            'error_message_hash' => $result->errorMessage ? hash('sha256', $result->errorMessage) : null,
+        ];
     }
 
     /**
