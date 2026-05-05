@@ -1780,7 +1780,7 @@ PROMPT;
 
     private function providerSupportsImageAttachments(string $provider): bool
     {
-        return in_array($provider, ['codex_cli', 'gemini_cli'], true);
+        return in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true);
     }
 
     private function imageAttachmentFallbackProvider(array $options): string

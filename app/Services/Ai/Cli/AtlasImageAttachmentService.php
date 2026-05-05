@@ -157,11 +157,34 @@ class AtlasImageAttachmentService
             throw new RuntimeException('Clipboard image so esta implementado no macOS.');
         }
 
+        $clipboardInfo = $this->clipboardInfo();
+        if ($clipboardInfo === null) {
+            throw new RuntimeException(
+                'Nao consegui inspecionar o clipboard via osascript. '.
+                'Verifique permissoes em Sistema > Privacidade e Seguranca > Automacao para o terminal.'
+            );
+        }
+
+        if (trim($clipboardInfo) === '') {
+            throw new RuntimeException(
+                'Clipboard vazio. Tire um screenshot com Cmd+Shift+Ctrl+4 (vai para clipboard) '.
+                'ou copie uma imagem ja existente, e tente colar de novo.'
+            );
+        }
+
+        if (! $this->clipboardInfoContainsImage($clipboardInfo)) {
+            $preview = $this->clipboardInfoPreview($clipboardInfo);
+            throw new RuntimeException(
+                "Clipboard nao contem imagem ({$preview}). ".
+                'Tire um screenshot com Cmd+Shift+Ctrl+4 (vai para clipboard) ou copie uma imagem do Finder, e tente de novo.'
+            );
+        }
+
         $target = storage_path('app/ai/attachments/clipboard-'.now()->format('Ymd-His').'-'.bin2hex(random_bytes(4)).'.png');
         File::ensureDirectoryExists(dirname($target));
 
         if (! $this->captureClipboardWithPngpaste($target)) {
-            $this->captureClipboardWithOsascript($target);
+            $this->captureClipboardWithOsascript($target, $clipboardInfo);
         }
 
         return $this->fromPath($target, $workspace, 'clipboard');
@@ -243,7 +266,7 @@ class AtlasImageAttachmentService
         return $process->isSuccessful() && File::isFile($target) && File::size($target) > 0;
     }
 
-    private function clipboardInfo(): ?string
+    protected function clipboardInfo(): ?string
     {
         $process = new Process(['/usr/bin/osascript', '-e', 'clipboard info'], base_path());
         $process->setTimeout(5);
@@ -269,7 +292,100 @@ class AtlasImageAttachmentService
         return false;
     }
 
-    private function captureClipboardWithOsascript(string $target): void
+    private function clipboardInfoContainsText(string $clipboardInfo): bool
+    {
+        foreach (['utf8', 'ut16', 'string', 'Unicode text', 'TEXT'] as $class) {
+            if (str_contains($clipboardInfo, $class)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Remove anexos antigos de storage/app/ai/attachments/ alem do limite em dias.
+     * Idempotente: chamadas seguidas nao apagam o que ja foi apagado.
+     *
+     * @return int Numero de arquivos removidos.
+     */
+    public function cleanupStaleAttachments(int $daysOld = 7): int
+    {
+        $directory = storage_path('app/ai/attachments');
+        if (! is_dir($directory)) {
+            return 0;
+        }
+
+        $threshold = time() - max(1, $daysOld) * 86400;
+        $removed = 0;
+
+        foreach (glob($directory.'/*') ?: [] as $path) {
+            if (! is_file($path)) {
+                continue;
+            }
+            $mtime = @filemtime($path);
+            if ($mtime === false || $mtime >= $threshold) {
+                continue;
+            }
+            if (@unlink($path)) {
+                $removed++;
+            }
+        }
+
+        return $removed;
+    }
+
+    /**
+     * Classifica o conteudo atual do clipboard sem capturar nada.
+     *
+     * @return 'image'|'text'|'empty'|'unknown'
+     */
+    public function clipboardKind(): string
+    {
+        if (PHP_OS_FAMILY !== 'Darwin') {
+            return 'unknown';
+        }
+
+        $info = $this->clipboardInfo();
+        if ($info === null) {
+            return 'unknown';
+        }
+        if (trim($info) === '') {
+            return 'empty';
+        }
+        if ($this->clipboardInfoContainsImage($info)) {
+            return 'image';
+        }
+        if ($this->clipboardInfoContainsText($info)) {
+            return 'text';
+        }
+
+        return 'unknown';
+    }
+
+    /**
+     * Retorna o conteudo textual do clipboard via pbpaste (macOS).
+     */
+    public function clipboardText(): ?string
+    {
+        if (PHP_OS_FAMILY !== 'Darwin') {
+            return null;
+        }
+
+        $process = new Process(['/usr/bin/pbpaste'], base_path());
+        $process->setTimeout(5);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            return null;
+        }
+
+        $output = $process->getOutput();
+
+        return $output !== '' ? $output : null;
+    }
+
+    private function captureClipboardWithOsascript(string $target, ?string $clipboardInfo = null): void
     {
         if ($this->writeClipboardClassToFile('PNGf', $target)) {
             return;
@@ -288,7 +404,28 @@ class AtlasImageAttachmentService
         }
 
         File::delete($target);
-        throw new RuntimeException('Nao encontrei imagem no clipboard. Tire/copie o screenshot e rode /paste-image de novo.');
+
+        $detail = $clipboardInfo !== null
+            ? ' Clipboard reporta: '.$this->clipboardInfoPreview($clipboardInfo).'.'
+            : '';
+
+        throw new RuntimeException(
+            'Falha ao extrair imagem do clipboard via osascript (classes PNGf e TIFF rejeitadas).'.$detail.
+            ' Instale pngpaste para um caminho mais robusto: brew install pngpaste.'
+        );
+    }
+
+    private function clipboardInfoPreview(string $clipboardInfo): string
+    {
+        $clean = trim(preg_replace('/\s+/', ' ', $clipboardInfo) ?? $clipboardInfo);
+        if ($clean === '') {
+            return 'sem conteudo';
+        }
+        if (function_exists('mb_strimwidth')) {
+            return mb_strimwidth($clean, 0, 80, '…');
+        }
+
+        return strlen($clean) > 80 ? substr($clean, 0, 79).'…' : $clean;
     }
 
     private function writeClipboardClassToFile(string $clipboardClass, string $target): bool

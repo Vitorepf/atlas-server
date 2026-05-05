@@ -40,7 +40,8 @@ class ClaudeCliProvider implements AiProvider
         $args = $this->withAtlasRuntimeArgs($args, $job);
         $command = array_values(array_merge([$binary], $args));
         $cwd = $this->workdirForJob($job);
-        $fingerprint = $this->cliInvocationFingerprint($command, $prompt, $job->timeout_seconds, $cwd, $job, [
+        $promptForProvider = $this->withImageAttachmentInstructions($prompt, $job);
+        $fingerprint = $this->cliInvocationFingerprint($command, $promptForProvider, $job->timeout_seconds, $cwd, $job, [
             'provider_key' => $this->key(),
             'requested_model' => $this->invocationModel($job, $provider),
             'output_format' => $this->argValue($args, '--output-format'),
@@ -51,7 +52,7 @@ class ClaudeCliProvider implements AiProvider
 
         $result = $this->runProcessStreaming(
             command: $command,
-            input: $prompt,
+            input: $promptForProvider,
             timeoutSeconds: $job->timeout_seconds,
             cwd: $cwd,
             onEvent: $onEvent,
@@ -292,11 +293,78 @@ class ClaudeCliProvider implements AiProvider
             $args = $this->withClaudeAddDirs($args, $this->allowedRootsForJob($job));
         }
 
+        $args = $this->withClaudeAddDirs($args, $this->imageAttachmentDirectoriesForJob($job));
+
         if ($mode === 'danger') {
             $args = $this->withArgValue($args, '--permission-mode', 'bypassPermissions');
         }
 
         return $args;
+    }
+
+    /**
+     * Diretorios contendo imagens anexadas, liberados via --add-dir para que
+     * o Claude Code consiga abri-los com a Read tool.
+     *
+     * @return array<int,string>
+     */
+    private function imageAttachmentDirectoriesForJob(AiJob $job): array
+    {
+        $directories = [];
+        foreach ($this->imageAttachmentPathsForJob($job) as $path) {
+            $directory = dirname($path);
+            if ($directory === '' || $directory === '.' || $directory === '/') {
+                continue;
+            }
+            $directories[$directory] = true;
+        }
+
+        return array_keys($directories);
+    }
+
+    /**
+     * Paths absolutos das imagens anexadas, validados como existentes no host.
+     *
+     * @return array<int,string>
+     */
+    private function imageAttachmentPathsForJob(AiJob $job): array
+    {
+        $images = data_get($job->payload, 'attachments.images', []);
+        if (! is_array($images)) {
+            return [];
+        }
+
+        $paths = [];
+        foreach ($images as $image) {
+            $path = is_array($image) ? ($image['path'] ?? null) : null;
+            if (! is_string($path)) {
+                continue;
+            }
+            $path = trim($path);
+            if ($path === '' || ! is_file($path)) {
+                continue;
+            }
+            $paths[$path] = true;
+        }
+
+        return array_keys($paths);
+    }
+
+    private function withImageAttachmentInstructions(string $prompt, AiJob $job): string
+    {
+        $paths = $this->imageAttachmentPathsForJob($job);
+        if ($paths === []) {
+            return $prompt;
+        }
+
+        $lines = ['', '# Imagens anexadas (paths absolutos para Read tool)'];
+        $lines[] = 'O Atlas anexou as imagens a seguir. Use a Read tool com o path absoluto para abrir cada uma e analisar visualmente; nao trate como referencia textual.';
+        foreach ($paths as $index => $path) {
+            $number = $index + 1;
+            $lines[] = "- imagem {$number}: {$path}";
+        }
+
+        return rtrim($prompt)."\n".implode("\n", $lines)."\n";
     }
 
     /**

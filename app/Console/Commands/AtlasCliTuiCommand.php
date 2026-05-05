@@ -219,7 +219,7 @@ class AtlasCliTuiCommand extends Command
         $lines[] = 'Open loops '.(string) ($state['open_loops_count'] ?? 0);
         $lines[] = 'Next steps '.(string) ($state['next_steps_count'] ?? 0);
         $lines[] = '';
-        $lines[] = 'Comandos   atlas state | atlas plan | atlas dev --complete';
+        $lines[] = 'Comandos   atlas state | atlas plan | atlas dev';
 
         return $lines;
     }

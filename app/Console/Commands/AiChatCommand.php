@@ -43,6 +43,15 @@ class AiChatCommand extends Command
 {
     use RendersProviderChoiceMenu;
 
+    private ?\DateTimeImmutable $replSessionStartedAt = null;
+
+    private ?string $replStatusBarProvider = null;
+
+    private ?string $replStatusBarModel = null;
+
+    /** @var array<int,string> */
+    private array $replSubmittedHistory = [];
+
     protected $signature = 'atlas:ai:chat
         {input? : One-shot input. Omit it to open the interactive Atlas CLI loop}
         {--ai= : Session AI/provider alias: claude, codex, gemini or conselho}
@@ -174,6 +183,8 @@ class AiChatCommand extends Command
             return self::FAILURE;
         }
 
+        $this->maybeCleanupStaleAttachments($imageAttachments);
+
         if ((bool) $this->option('list-threads')) {
             $this->printThreads($workspace);
 
@@ -199,6 +210,8 @@ class AiChatCommand extends Command
 
         if (! $this->option('json')) {
             $this->printWelcome($workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust, $modelSelection);
+            $this->replStatusBarProvider = $this->shortenProviderForStatus($provider);
+            $this->replStatusBarModel = $this->shortenModelForStatus($modelSelection);
             $history->load($workspace);
         }
 
@@ -258,6 +271,15 @@ class AiChatCommand extends Command
                 $this->printQuality($quality->compact($quality->evaluate($workspace)));
 
                 continue;
+            }
+
+            if ($line === '/fix' || str_starts_with($line, '/fix ')) {
+                $line = $this->fixPromptInput(trim(Str::after($line, '/fix')));
+                $mode = 'dev';
+                if (! $provider) {
+                    $provider = $this->defaultProviderKey();
+                }
+                $permissionMode = $this->permissionMode($permissionMode, $mode);
             }
 
             if ($line === '/doctor') {
@@ -353,7 +375,7 @@ class AiChatCommand extends Command
                 continue;
             }
 
-            if ($line === '/paste-image' || $line === '/clipboard-image') {
+            if (in_array($line, ['/paste-image', '/clipboard-image', '/paste', '/p', '/img'], true)) {
                 try {
                     $pendingImages = $this->mergeImageAttachments($pendingImages, [$imageAttachments->fromClipboard($workspace)], $imageAttachments);
                     $this->line('Imagem do clipboard anexada para a proxima mensagem.');
@@ -731,6 +753,7 @@ class AiChatCommand extends Command
             $payload['programming_profile'] = (string) ($programmingMessagePlan['programming_profile'] ?? $this->programmingProfileFromDevPlan($devPlan));
             $payload['programming_session_plan'] = $devPlan;
             $payload['programming_message_plan'] = $programmingMessagePlan;
+            $payload['programming_intent'] = data_get($programmingMessagePlan, 'operator_intent');
             $payload['programming_dispatch'] = $this->programmingDispatchContract($programmingMessagePlan);
             $payload['programming_repair'] = app(AtlasProgrammingOrchestrator::class)->repairExecutionContract($programmingMessagePlan);
             $payload['programming_profile_context'] = data_get($programmingMessagePlan, 'policy_profile.profile_context');
@@ -1388,8 +1411,10 @@ class AiChatCommand extends Command
                 'commands' => [
                     ['automático', 'copie screenshot no macOS e peça "analise essa tela"'],
                     ['Ctrl+V', 'cola imagem do clipboard no composer e mostra [imagem 1, imagem 2] antes de enviar'],
+                    ['Ctrl+X', 'remove a ultima imagem anexada (preserva o texto digitado)'],
+                    ['Ctrl+U', 'limpa o texto digitado na linha (preserva imagens anexadas)'],
                     ['Enter vazio', 'fallback: verifica clipboard e envia a imagem se houver'],
-                    ['/paste-image', 'anexa a imagem atual do clipboard do macOS'],
+                    ['/paste-image', 'anexa a imagem atual do clipboard (aliases: /paste, /p, /img)'],
                     ['/image <path>', 'anexa arquivo png/jpg/webp/gif'],
                     ['/images', 'lista imagens anexadas para a proxima mensagem'],
                     ['/open-image [N]', 'abre a imagem N no Preview/Finder do macOS'],
@@ -1415,6 +1440,7 @@ class AiChatCommand extends Command
                 'commands' => [
                     ['/status', 'runtime completo (todos os toggles)'],
                     ['/quality', 'quality gate da ultima execucao dev'],
+                    ['/fix [texto]', 'envia repair no fluxo atual do atlas dev'],
                     ['/doctor', 'diagnostico terminal + atlas'],
                     ['/providers', 'estrategia atual de providers'],
                     ['/skills <X>', 'X = list | show | doctor'],
@@ -1658,7 +1684,7 @@ class AiChatCommand extends Command
         $base = $threadId ? 'atlas '.$this->shortId($threadId) : 'atlas';
 
         if ($pendingImages !== []) {
-            return $base.' ['.$this->imagemTokens($pendingImages).'] Enter=analisar';
+            return $base.' ['.$this->imagemTokens($pendingImages).']';
         }
 
         return $base;
@@ -1674,25 +1700,61 @@ class AiChatCommand extends Command
             return [$this->ask($label), $pendingImages];
         }
 
-        $buffer = '';
+        $composer = new \App\Services\Ai\Cli\Repl\ReplComposer();
+        $composer->attachImages($pendingImages);
+
+        $renderer = new \App\Services\Ai\Cli\Repl\ReplRenderer(
+            $this->output,
+            supportsAnsi: $this->output->isDecorated(),
+        );
+        $parser = new \App\Services\Ai\Cli\Repl\KeySequenceParser();
+        $statusBar = new \App\Services\Ai\Cli\Repl\StatusBarFormatter();
+        $sessionStartedAt = $this->replSessionStartedAt ??= new \DateTimeImmutable();
+        $renderer->setStatusBarProducer(fn (\App\Services\Ai\Cli\Repl\ReplComposer $c): string => $statusBar->format(
+            $this->replStatusBarProvider,
+            $this->replStatusBarModel,
+            $c,
+            $sessionStartedAt,
+        ));
+
         $stty = trim((string) shell_exec('stty -g 2>/dev/null'));
         $bracketedPaste = false;
 
         try {
-            $this->output->write("\033[?2004h");
+            $this->output->write(\App\Services\Ai\Cli\Repl\KeyCodes::SEQ_BRACKETED_PASTE_ENABLE);
             $bracketedPaste = true;
             $this->setRawTerminalMode();
-            $this->renderRawPrompt($label, $buffer);
+            $renderer->paint($label, $composer);
 
             while (true) {
-                $char = fread(STDIN, 1);
-                if ($char === false || $char === '') {
+                $first = fread(STDIN, 1);
+                if ($first === false || $first === '') {
                     continue;
                 }
+                $keyChar = $this->readUtf8Char($first);
+                $event = $parser->parse(
+                    $keyChar,
+                    fn (int $maxBytes = 8): string => $this->readAvailableTerminalSequence($maxBytes),
+                    fn (string $marker): string => $this->readBracketedPasteUntil($marker),
+                );
 
-                $action = $this->dispatchRawKey($char, $buffer, $label, $pendingImages, $images, $workspace);
+                $action = $this->handleReplKey($event, $composer, $renderer, $images, $workspace, $label);
                 if ($action === 'submit') {
-                    return [$buffer, $pendingImages];
+                    $this->output->write("\n");
+                    $submitted = trim($composer->text());
+                    if ($submitted !== '' && (end($this->replSubmittedHistory) ?: null) !== $submitted) {
+                        $this->replSubmittedHistory[] = $submitted;
+                        if (count($this->replSubmittedHistory) > 200) {
+                            array_shift($this->replSubmittedHistory);
+                        }
+                    }
+
+                    return [$composer->text(), $composer->images()];
+                }
+                if ($action === 'cancel') {
+                    $composer->checkpoint();
+                    $composer->clearLine();
+                    $renderer->paint($label, $composer);
                 }
             }
         } finally {
@@ -1700,9 +1762,419 @@ class AiChatCommand extends Command
                 shell_exec('stty '.$stty.' 2>/dev/null');
             }
             if ($bracketedPaste) {
-                $this->output->write("\033[?2004l");
+                $this->output->write(\App\Services\Ai\Cli\Repl\KeyCodes::SEQ_BRACKETED_PASTE_DISABLE);
             }
         }
+    }
+
+    private function runHistoryReverseSearch(
+        \App\Services\Ai\Cli\Repl\ReplComposer $composer,
+        \App\Services\Ai\Cli\Repl\ReplRenderer $renderer,
+        string $label,
+    ): void {
+        if ($this->replSubmittedHistory === []) {
+            $renderer->feedback('Sem historico ainda nessa sessao.');
+            $renderer->paint($label, $composer);
+
+            return;
+        }
+
+        $search = new \App\Services\Ai\Cli\Repl\HistorySearch($this->replSubmittedHistory);
+        $original = $renderer->statusBarProducer();
+        $renderer->setStatusBarProducer(fn () => $search->statusLine());
+        $renderer->paint($label, $composer);
+
+        $parser = new \App\Services\Ai\Cli\Repl\KeySequenceParser();
+
+        while (true) {
+            $first = fread(STDIN, 1);
+            if ($first === false || $first === '') {
+                continue;
+            }
+            $keyChar = $this->readUtf8Char($first);
+            $event = $parser->parse(
+                $keyChar,
+                fn (int $maxBytes = 8): string => $this->readAvailableTerminalSequence($maxBytes),
+                fn (string $marker): string => $this->readBracketedPasteUntil($marker),
+            );
+
+            $kind = $event->kind;
+
+            if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CHAR) {
+                $search->appendQueryChar($event->payload);
+                $renderer->paint($label, $composer);
+
+                continue;
+            }
+            if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::BACKSPACE) {
+                $search->deleteQueryChar();
+                $renderer->paint($label, $composer);
+
+                continue;
+            }
+            if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_R) {
+                $search->findNext();
+                $renderer->paint($label, $composer);
+
+                continue;
+            }
+            if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::ENTER) {
+                $match = $search->currentMatch();
+                if ($match !== null) {
+                    $composer->checkpoint();
+                    $composer->clearLine();
+                    $composer->insertText($match);
+                }
+                $renderer->setStatusBarProducer($original);
+                $renderer->paint($label, $composer);
+
+                return;
+            }
+            if (in_array($kind, [
+                \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_G,
+                \App\Services\Ai\Cli\Repl\KeyEvent::INTERRUPT,
+            ], true)) {
+                $renderer->setStatusBarProducer($original);
+                $renderer->paint($label, $composer);
+
+                return;
+            }
+        }
+    }
+
+    private function shortenProviderForStatus(?string $provider): ?string
+    {
+        if ($provider === null) {
+            return null;
+        }
+        $clean = (string) preg_replace('/_cli$/', '', $provider);
+
+        return $clean !== '' ? $clean : null;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $modelSelection
+     */
+    private function shortenModelForStatus(?array $modelSelection): ?string
+    {
+        if ($modelSelection === null) {
+            return null;
+        }
+        $candidate = (string) ($modelSelection['model'] ?? $modelSelection['label'] ?? '');
+        if ($candidate === '') {
+            return null;
+        }
+        $candidate = preg_replace('/^claude-/', '', $candidate) ?? $candidate;
+        $candidate = preg_replace('/^gpt-/', 'gpt-', $candidate) ?? $candidate;
+
+        return strlen($candidate) > 30 ? substr($candidate, 0, 27).'...' : $candidate;
+    }
+
+    private function readUtf8Char(string $firstByte): string
+    {
+        if ($firstByte === '') {
+            return $firstByte;
+        }
+        $code = ord($firstByte);
+        if ($code < 0x80) {
+            return $firstByte;
+        }
+
+        $expected = match (true) {
+            ($code & 0xE0) === 0xC0 => 1,
+            ($code & 0xF0) === 0xE0 => 2,
+            ($code & 0xF8) === 0xF0 => 3,
+            default => 0,
+        };
+
+        $char = $firstByte;
+        for ($i = 0; $i < $expected; $i++) {
+            $next = fread(STDIN, 1);
+            if ($next === false || $next === '') {
+                break;
+            }
+            $char .= $next;
+        }
+
+        return $char;
+    }
+
+    private function readBracketedPasteUntil(string $marker): string
+    {
+        $payload = '';
+        while (true) {
+            $chunk = fread(STDIN, 4096);
+            if ($chunk === false) {
+                continue;
+            }
+            $payload .= $chunk;
+            if (str_contains($payload, $marker)) {
+                $payload = substr($payload, 0, strpos($payload, $marker));
+                break;
+            }
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Handler de KeyEvent emitido pelo KeySequenceParser. Atualiza Composer e
+     * delega rendering ao ReplRenderer. Devolve 'submit' apenas em ENTER.
+     */
+    private function handleReplKey(
+        \App\Services\Ai\Cli\Repl\KeyEvent $event,
+        \App\Services\Ai\Cli\Repl\ReplComposer $composer,
+        \App\Services\Ai\Cli\Repl\ReplRenderer $renderer,
+        AtlasImageAttachmentService $images,
+        string $workspace,
+        string $label,
+    ): string {
+        $kind = $event->kind;
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::ENTER) {
+            return 'submit';
+        }
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::INTERRUPT) {
+            throw new \Symfony\Component\Console\Exception\RuntimeException('Interrupted');
+        }
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::EOF) {
+            if ($composer->isEmpty()) {
+                throw new \Symfony\Component\Console\Exception\RuntimeException('EOF');
+            }
+
+            return 'continue';
+        }
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CHAR) {
+            if (! $composer->isImageSelectionActive()) {
+                $composer->checkpoint();
+            }
+            $composer->insertChar($event->payload);
+            $renderer->paint($label, $composer);
+
+            return 'continue';
+        }
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_Z) {
+            if ($composer->undo()) {
+                $renderer->paint($label, $composer);
+            }
+
+            return 'continue';
+        }
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_Y) {
+            if ($composer->redo()) {
+                $renderer->paint($label, $composer);
+            }
+
+            return 'continue';
+        }
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_R) {
+            $this->runHistoryReverseSearch($composer, $renderer, $label);
+
+            return 'continue';
+        }
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_G) {
+            return 'cancel';
+        }
+
+        $navOps = [
+            \App\Services\Ai\Cli\Repl\KeyEvent::ARROW_LEFT => fn () => $composer->moveCursorLeft(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::ARROW_RIGHT => fn () => $composer->moveCursorRight(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::ARROW_UP => fn () => $composer->moveCursorUp(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::ARROW_DOWN => fn () => $composer->moveCursorDown(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::HOME => fn () => $composer->moveCursorToLineStart(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::END => fn () => $composer->moveCursorToLineEnd(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::ALT_LEFT => fn () => $composer->moveCursorWordLeft(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::ALT_RIGHT => fn () => $composer->moveCursorWordRight(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_LEFT => fn () => $composer->extendSelectionLeft(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_RIGHT => fn () => $composer->extendSelectionRight(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_ALT_LEFT => fn () => $composer->extendSelectionWordLeft(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_ALT_RIGHT => fn () => $composer->extendSelectionWordRight(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_HOME => fn () => $composer->extendSelectionToLineStart(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_END => fn () => $composer->extendSelectionToLineEnd(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::SELECT_ALL => fn () => $composer->selectAll(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::SELECT_LINE => fn () => $composer->selectLine(),
+        ];
+
+        if (isset($navOps[$kind])) {
+            $navOps[$kind]();
+            $renderer->paint($label, $composer);
+
+            return 'continue';
+        }
+
+        $destructiveOps = [
+            \App\Services\Ai\Cli\Repl\KeyEvent::ALT_BACKSPACE => fn () => $composer->deleteWordBefore(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_W => fn () => $composer->deleteWordBefore(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::DELETE => fn () => $composer->deleteCharAfter(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::BACKSPACE => fn () => $composer->deleteCharBefore(),
+            \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_U => fn () => $composer->clearLine(),
+        ];
+
+        if (isset($destructiveOps[$kind])) {
+            $composer->checkpoint();
+            $destructiveOps[$kind]();
+            $renderer->paint($label, $composer);
+
+            return 'continue';
+        }
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_X) {
+            if ($composer->hasImages()) {
+                $isSelection = $composer->isImageSelectionActive();
+                $removed = $isSelection
+                    ? ($composer->images()[$composer->selectedImageIndex()] ?? null)
+                    : ($composer->images()[count($composer->images()) - 1] ?? null);
+                if ($isSelection) {
+                    $composer->removeSelectedImage();
+                } else {
+                    $composer->removeLastImage();
+                }
+                $name = is_array($removed) && is_string($removed['path'] ?? null) ? basename($removed['path']) : 'imagem';
+                $renderer->feedback(\App\Services\Ai\Cli\Repl\ReplMessages::imageRemoved($name));
+                $renderer->paint($label, $composer);
+            }
+
+            return 'continue';
+        }
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_L) {
+            $renderer->reset();
+            $renderer->paint($label, $composer);
+
+            return 'continue';
+        }
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_V) {
+            $this->handleSmartPasteFromClipboard($composer, $renderer, $images, $workspace, $label);
+
+            return 'continue';
+        }
+
+        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::BRACKETED_PASTE) {
+            $this->handleBracketedPasteEvent($event->payload, $composer, $renderer, $images, $workspace, $label);
+
+            return 'continue';
+        }
+
+        return 'continue';
+    }
+
+    private function handleSmartPasteFromClipboard(
+        \App\Services\Ai\Cli\Repl\ReplComposer $composer,
+        \App\Services\Ai\Cli\Repl\ReplRenderer $renderer,
+        AtlasImageAttachmentService $images,
+        string $workspace,
+        string $label,
+    ): void {
+        $kind = $images->clipboardKind();
+
+        if ($kind === 'image') {
+            $renderer->feedback(\App\Services\Ai\Cli\Repl\ReplMessages::clipboardImageReading());
+            try {
+                $attachment = $images->fromClipboard($workspace);
+            } catch (\Throwable $exception) {
+                $renderer->feedback(\App\Services\Ai\Cli\Repl\ReplMessages::clipboardImageInvalid($exception->getMessage()));
+                $renderer->paint($label, $composer);
+
+                return;
+            }
+            $added = $composer->attachImage($attachment);
+            $renderer->feedback($added
+                ? \App\Services\Ai\Cli\Repl\ReplMessages::clipboardImageAttached()
+                : \App\Services\Ai\Cli\Repl\ReplMessages::imageDuplicate(basename($attachment['path'] ?? 'imagem')));
+            $renderer->paint($label, $composer);
+
+            return;
+        }
+
+        if ($kind === 'text') {
+            $text = $images->clipboardText();
+            if ($text !== null && $text !== '') {
+                $composer->insertText($text);
+            }
+            $renderer->paint($label, $composer);
+
+            return;
+        }
+
+        $message = $kind === 'empty'
+            ? \App\Services\Ai\Cli\Repl\ReplMessages::clipboardEmpty()
+            : \App\Services\Ai\Cli\Repl\ReplMessages::clipboardOsascriptBlocked();
+        $renderer->feedback($message);
+        $renderer->paint($label, $composer);
+    }
+
+    private function handleBracketedPasteEvent(
+        string $payload,
+        \App\Services\Ai\Cli\Repl\ReplComposer $composer,
+        \App\Services\Ai\Cli\Repl\ReplRenderer $renderer,
+        AtlasImageAttachmentService $images,
+        string $workspace,
+        string $label,
+    ): void {
+        $classification = $this->classifyBracketedPaste($payload);
+
+        if ($classification['kind'] === 'text') {
+            $composer->insertText($payload);
+            $renderer->paint($label, $composer);
+
+            return;
+        }
+
+        if ($classification['kind'] === 'clipboard_image') {
+            $this->handleSmartPasteFromClipboard($composer, $renderer, $images, $workspace, $label);
+
+            return;
+        }
+
+        if ($classification['kind'] === 'image_path' && isset($classification['path'])) {
+            $this->attachImagesFromDrop([$classification['path']], $composer, $renderer, $images, $workspace, $label);
+
+            return;
+        }
+
+        if ($classification['kind'] === 'image_paths' && isset($classification['paths']) && is_array($classification['paths'])) {
+            $this->attachImagesFromDrop($classification['paths'], $composer, $renderer, $images, $workspace, $label);
+        }
+    }
+
+    /**
+     * @param  array<int,string>  $paths
+     */
+    private function attachImagesFromDrop(
+        array $paths,
+        \App\Services\Ai\Cli\Repl\ReplComposer $composer,
+        \App\Services\Ai\Cli\Repl\ReplRenderer $renderer,
+        AtlasImageAttachmentService $images,
+        string $workspace,
+        string $label,
+    ): void {
+        if ($paths === []) {
+            return;
+        }
+        $renderer->feedback(count($paths) === 1
+            ? \App\Services\Ai\Cli\Repl\ReplMessages::imageAttached(basename($paths[0]))
+            : 'Anexando '.count($paths).' imagens...');
+        try {
+            $attachments = $images->fromPaths($paths, $workspace);
+        } catch (\Throwable $exception) {
+            $renderer->feedback(\App\Services\Ai\Cli\Repl\ReplMessages::imageAttachFailed($exception->getMessage()));
+            $renderer->paint($label, $composer);
+
+            return;
+        }
+        $result = $composer->attachImages($attachments);
+        if ($result['skipped'] > 0) {
+            $renderer->feedback(\App\Services\Ai\Cli\Repl\ReplMessages::imagesDeduped($result['added'], $result['skipped']));
+        }
+        $renderer->paint($label, $composer);
     }
 
     private function canReadRawTerminal(): bool
@@ -1713,116 +2185,6 @@ class AiChatCommand extends Command
     private function setRawTerminalMode(): void
     {
         shell_exec('stty -icanon -echo min 0 time 1 2>/dev/null');
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $pendingImages
-     */
-    private function dispatchRawKey(string $char, string &$buffer, string &$label, array &$pendingImages, AtlasImageAttachmentService $images, string $workspace): string
-    {
-        if ($char === "\n" || $char === "\r") {
-            $this->output->write("\n");
-
-            return 'submit';
-        }
-
-        if ($char === "\x04") {
-            if ($buffer === '') {
-                throw new ConsoleRuntimeException('EOF');
-            }
-
-            return 'continue';
-        }
-
-        if ($char === "\x03") {
-            throw new ConsoleRuntimeException('Interrupted');
-        }
-
-        if ($char === "\x16") {
-            [$label, $pendingImages] = $this->pasteClipboardImageIntoComposer($images, $workspace, $pendingImages, $label, $buffer);
-
-            return 'continue';
-        }
-
-        if ($char === "\x7f" || $char === "\x08") {
-            if ($buffer !== '') {
-                $buffer = substr($buffer, 0, -1);
-                $this->output->write("\x08 \x08");
-            }
-
-            return 'continue';
-        }
-
-        if ($char === "\033") {
-            $sequence = $char.$this->readAvailableTerminalSequence();
-            if ($sequence === "\033[200~") {
-                $paste = $this->readBracketedPastePayload();
-                $classification = $this->classifyBracketedPaste($paste);
-                if ($classification['kind'] === 'text') {
-                    $buffer .= $paste;
-                    $this->output->write($paste);
-                } else {
-                    $this->applyBracketedPasteClassification($classification, $images, $workspace, $buffer, $label, $pendingImages);
-                }
-            }
-
-            return 'continue';
-        }
-
-        $buffer .= $char;
-        $this->output->write($char);
-
-        return 'continue';
-    }
-
-    private function renderRawPrompt(string $label, string $buffer): void
-    {
-        $this->line($label.':');
-        $this->output->write('> '.$buffer);
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $pendingImages
-     * @return array{0:string,1:array<int,array<string,mixed>>}
-     */
-    private function pasteClipboardImageIntoComposer(AtlasImageAttachmentService $images, string $workspace, array $pendingImages, string $label, string $buffer): array
-    {
-        $this->output->write("\n");
-        $this->line('Ctrl+V detectado; lendo imagem do clipboard...');
-
-        try {
-            $pendingImages = $this->mergeImageAttachments($pendingImages, [$images->fromClipboard($workspace)], $images);
-        } catch (\Throwable $exception) {
-            $this->warn('Clipboard sem imagem utilizavel: '.$exception->getMessage());
-            $this->renderRawPrompt($label, $buffer);
-
-            return [$label, $pendingImages];
-        }
-
-        $this->line('Imagem colada e anexada ao composer.');
-        $this->printPendingImages($pendingImages);
-        $label = $this->labelWithImageCount($label, $pendingImages);
-        $this->renderRawPrompt($label, $buffer);
-
-        return [$label, $pendingImages];
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $pendingImages
-     */
-    private function labelWithImageCount(string $label, array $pendingImages): string
-    {
-        $stripped = preg_replace('/ \[.*\] Enter=analisar$/s', '', $label) ?: $label;
-        if ($pendingImages === []) {
-            return $stripped;
-        }
-
-        return $stripped.' ['.$this->imagemTokens($pendingImages).'] Enter=analisar';
-    }
-
-    private function wrapOsc8(string $text, string $url): string
-    {
-        return "\033]8;;".$url."\033\\".$text."\033]8;;\033\\";
     }
 
     /**
@@ -1839,14 +2201,14 @@ class AiChatCommand extends Command
 
                 continue;
             }
-            $tokens[] = $this->wrapOsc8($label, 'file://'.$path);
+            $tokens[] = "\033]8;;file://".$path."\033\\".$label."\033]8;;\033\\";
         }
 
         return implode(', ', $tokens);
     }
 
     /**
-     * @return array{kind:'clipboard_image'|'image_path'|'text', path?:string}
+     * @return array{kind:'clipboard_image'|'image_path'|'image_paths'|'text', path?:string, paths?:array<int,string>}
      */
     private function classifyBracketedPaste(string $payload): array
     {
@@ -1860,27 +2222,51 @@ class AiChatCommand extends Command
             return ['kind' => 'text'];
         }
 
-        $candidate = $trimmed;
+        $singlePath = $this->resolveImagePathCandidate($trimmed);
+        if ($singlePath !== null) {
+            return ['kind' => 'image_path', 'path' => $singlePath];
+        }
+
+        $arguments = $this->shellLikeArguments($trimmed);
+        if (count($arguments) <= 1) {
+            return ['kind' => 'text'];
+        }
+
+        $resolvedPaths = [];
+        foreach ($arguments as $argument) {
+            $resolved = $this->resolveImagePathCandidate($argument);
+            if ($resolved === null) {
+                return ['kind' => 'text'];
+            }
+            $resolvedPaths[] = $resolved;
+        }
+
+        return ['kind' => 'image_paths', 'paths' => array_values(array_unique($resolvedPaths))];
+    }
+
+    private function resolveImagePathCandidate(string $candidate): ?string
+    {
+        $candidate = trim($candidate);
+        if ($candidate === '') {
+            return null;
+        }
+
         if (str_starts_with($candidate, 'file://')) {
             $path = parse_url($candidate, PHP_URL_PATH);
             $candidate = is_string($path) ? rawurldecode($path) : '';
         }
 
-        if (! str_starts_with($candidate, '/')) {
-            return ['kind' => 'text'];
-        }
-
-        if (! is_file($candidate)) {
-            return ['kind' => 'text'];
+        if ($candidate === '' || ! str_starts_with($candidate, '/') || ! is_file($candidate)) {
+            return null;
         }
 
         $imageInfo = @getimagesize($candidate);
         $mime = is_array($imageInfo) && is_string($imageInfo['mime'] ?? null) ? $imageInfo['mime'] : null;
         if (! in_array($mime, ['image/png', 'image/jpeg', 'image/webp', 'image/gif'], true)) {
-            return ['kind' => 'text'];
+            return null;
         }
 
-        return ['kind' => 'image_path', 'path' => $candidate];
+        return $candidate;
     }
 
     /**
@@ -1903,12 +2289,12 @@ class AiChatCommand extends Command
 
         if ($classification['kind'] === 'image_path' && isset($classification['path'])) {
             $this->output->write("\n");
-            $this->line('Imagem detectada no paste; anexando '.basename($classification['path']).'...');
+            $this->line('Anexando imagem '.basename($classification['path']).'...');
 
             try {
                 $attachments = $images->fromPaths([$classification['path']], $workspace);
             } catch (\Throwable $exception) {
-                $this->warn('Nao consegui anexar imagem do paste: '.$exception->getMessage());
+                $this->warn('Nao consegui anexar imagem: '.$exception->getMessage());
                 $this->renderRawPrompt($label, $buffer);
 
                 return;
@@ -1923,11 +2309,11 @@ class AiChatCommand extends Command
         }
     }
 
-    private function readAvailableTerminalSequence(): string
+    private function readAvailableTerminalSequence(int $maxBytes = 16): string
     {
         $sequence = '';
 
-        while (strlen($sequence) < 16) {
+        while (strlen($sequence) < $maxBytes) {
             $read = [STDIN];
             $write = null;
             $except = null;
@@ -1949,21 +2335,6 @@ class AiChatCommand extends Command
         return $sequence;
     }
 
-    private function readBracketedPastePayload(): string
-    {
-        $payload = '';
-        $end = "\033[201~";
-
-        while (! str_ends_with($payload, $end)) {
-            $char = fread(STDIN, 1);
-            if ($char === false || $char === '') {
-                continue;
-            }
-            $payload .= $char;
-        }
-
-        return substr($payload, 0, -strlen($end));
-    }
 
     /**
      * @param  array<int,array<string,mixed>>  $pending
@@ -3454,7 +3825,31 @@ class AiChatCommand extends Command
 
     private function providerSupportsCliImages(?string $provider): bool
     {
-        return $provider === null || in_array($provider, ['codex_cli', 'gemini_cli'], true);
+        return $provider === null || in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true);
+    }
+
+    /**
+     * Garbage collection de anexos de imagem antigos.
+     * Roda no maximo uma vez a cada 24h por workspace, controlado por touch file.
+     */
+    private function maybeCleanupStaleAttachments(AtlasImageAttachmentService $images): void
+    {
+        $marker = storage_path('app/ai/attachments/.last-cleanup');
+        $lastRun = is_file($marker) ? (int) @filemtime($marker) : 0;
+        if ($lastRun > 0 && (time() - $lastRun) < 86400) {
+            return;
+        }
+
+        try {
+            $directory = dirname($marker);
+            if (! is_dir($directory)) {
+                @mkdir($directory, 0775, true);
+            }
+            $images->cleanupStaleAttachments(7);
+            @touch($marker);
+        } catch (\Throwable) {
+            // cleanup nao deve quebrar o REPL
+        }
     }
 
     /**
@@ -3871,6 +4266,85 @@ class AiChatCommand extends Command
         return null;
     }
 
+    private function fixPromptInput(string $description): string
+    {
+        $description = trim($description);
+
+        return $description !== ''
+            ? "Corrija: {$description}"
+            : 'Corrija o ultimo teste falho, bug ou quality gate detectado neste workspace. Primeiro inspecione o estado atual, depois aplique a menor correcao segura.';
+    }
+
+    /**
+     * @param  array<string,mixed>  $devPlan
+     * @return array<string,mixed>
+     */
+    private function programmingIntent(string $input, string $profile, array $devPlan): array
+    {
+        $text = strtolower(Str::ascii($input));
+        $matchedRepair = $this->matchedIntentSignals($text, [
+            'corrija', 'corrigir', 'conserte', 'consertar', 'arrume', 'arrumar',
+            'fix', 'repair', 'bug', 'erro', 'error', 'falha', 'falhando',
+            'teste falhando', 'test failing', 'quality gate', 'quebrado',
+        ]);
+        $matchedHarness = $this->matchedIntentSignals($text, [
+            'forge', 'harness', 'fluxo inteiro', 'todo o fluxo', 'ponta a ponta',
+            'end to end', 'e2e', 'banco', 'database', 'migration', 'migracao',
+            'fila', 'queue', 'worker', 'ui', 'frontend', 'api', 'testes',
+            'arquitetura', 'refatoracao grande', 'refatorar grande', 'complexo',
+            'dificil', 'critico', 'producao', 'seguranca', 'permissao',
+        ]);
+        $layerCount = $this->programmingIntentLayerCount($text);
+        $explicitHarness = in_array('forge', $matchedHarness, true) || in_array('harness', $matchedHarness, true);
+        $forceHarness = $profile === 'forge'
+            || $explicitHarness
+            || $layerCount >= 3
+            || count($matchedHarness) >= 4;
+
+        return [
+            'schema_version' => 1,
+            'source' => 'atlas_dev_auto_intent',
+            'kind' => match (true) {
+                $forceHarness => 'harness',
+                $matchedRepair !== [] => 'repair',
+                default => 'implementation',
+            },
+            'force_harness' => $forceHarness,
+            'repair_detected' => $matchedRepair !== [],
+            'harness_detected' => $matchedHarness !== [] || $layerCount >= 3,
+            'matched_repair_signals' => $matchedRepair,
+            'matched_harness_signals' => $matchedHarness,
+            'layer_count' => $layerCount,
+            'profile' => $profile,
+            'parent_plan_id' => data_get($devPlan, 'plan_id'),
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $signals
+     * @return array<int,string>
+     */
+    private function matchedIntentSignals(string $text, array $signals): array
+    {
+        return collect($signals)
+            ->filter(fn (string $signal): bool => str_contains($text, $signal))
+            ->values()
+            ->all();
+    }
+
+    private function programmingIntentLayerCount(string $text): int
+    {
+        return collect([
+            ['banco', 'database', 'migration', 'migracao', 'schema'],
+            ['api', 'endpoint', 'controller', 'service', 'job', 'worker', 'fila', 'queue'],
+            ['ui', 'frontend', 'tela', 'componente', 'formulario'],
+            ['teste', 'testes', 'test', 'e2e', 'lint', 'quality'],
+            ['permissao', 'permission', 'auth', 'seguranca', 'security'],
+        ])->filter(fn (array $signals): bool => collect($signals)->contains(
+            fn (string $signal): bool => str_contains($text, $signal)
+        ))->count();
+    }
+
     /**
      * @return array<string,mixed>|null
      */
@@ -3904,9 +4378,10 @@ class AiChatCommand extends Command
 
         $profile = $this->programmingProfileFromDevPlan($devPlan);
         $executionProfile = (array) data_get($devPlan, 'execution_profile', []);
+        $intent = $this->programmingIntent($input, $profile, $devPlan);
 
         try {
-            return app(AtlasProgrammingOrchestrator::class)->sessionPlan($workspace, $profile, [
+            $plan = app(AtlasProgrammingOrchestrator::class)->sessionPlan($workspace, $profile, [
                 'task' => $input,
                 'provider' => $provider,
                 'model' => $model,
@@ -3916,13 +4391,18 @@ class AiChatCommand extends Command
                 'max_iterations' => (int) ($executionProfile['max_iterations'] ?? ($profile === 'forge' ? 5 : 3)),
                 'parent_plan_id' => is_string($devPlan['plan_id'] ?? null) ? $devPlan['plan_id'] : null,
                 'ai_policy_override' => $aiPolicyOverride,
+                'force_harness' => (bool) ($intent['force_harness'] ?? false),
             ]);
+            $plan['operator_intent'] = $intent;
+
+            return $plan;
         } catch (\Throwable $exception) {
             return [
                 'schema_version' => 1,
                 'status' => 'plan_failed',
                 'orchestrator' => 'AtlasProgrammingOrchestrator',
                 'programming_profile' => $profile,
+                'operator_intent' => $intent,
                 'workspace' => $workspace,
                 'error' => class_basename($exception),
                 'message' => AtlasSecurity::redactString($exception->getMessage()),

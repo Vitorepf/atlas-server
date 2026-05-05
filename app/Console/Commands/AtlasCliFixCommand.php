@@ -31,7 +31,6 @@ class AtlasCliFixCommand extends Command
             '--permission' => 'write',
             '--allow-write' => (bool) $this->option('allow-write'),
             '--auto-test' => (bool) $this->option('auto-test'),
-            '--complete' => true,
             '--max-iterations' => (string) max(1, min(10, (int) $this->option('max-iterations'))),
             '--json' => (bool) $this->option('json'),
         ], fn (mixed $value): bool => $value !== null && $value !== false && $value !== ''));

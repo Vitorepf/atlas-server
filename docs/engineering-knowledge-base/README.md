@@ -11,6 +11,12 @@ tags:
   - engineering
   - knowledge
 capabilities:
+  - atlas_ai_master_architecture
+  - atlas_ai_vision
+  - unified_pipeline
+  - core_domain_boundary
+  - resolver_corpus_governance
+  - atlas_ai_operating_system
   - canonical_onboarding
   - canonical_docs
   - postgres_registry
@@ -33,6 +39,10 @@ capabilities:
   - fair_claude_benchmark
   - atlas_supercharged_routing
 decisions:
+  - Atlas AI Master Architecture e a raiz enterprise para autoridade operacional, contratos canonicos, planes, dominios, runtimes, evidence, learning e estrategia contra Claude Code.
+  - Atlas AI Vision, Pipeline e Core Vs Domain sao os tres documentos fundadores curtos da arquitetura-mae.
+  - Atlas AI Resolver Corpus Audit classifica a pasta resolver-o-que-vale-a-pena e promove specs P0 para a arquitetura canonica.
+  - Atlas AI Operating System define a camada macro de orquestracao, dominios, pipeline comum e regras anti-duplicacao.
   - START_HERE.md e o ponto de entrada para humanos e IAs.
   - Docs versionados sao a fonte de verdade.
   - Postgres guarda indice operacional e estado consultavel.
@@ -44,6 +54,10 @@ decisions:
   - Programming Power Tools Catalog define a bancada operacional de ferramentas, tiers, autoridade e lacunas para programacao pesada.
   - Fair Claude e Atlas Supercharged separam prova cientifica com o mesmo Claude do produto real multi-provider.
 maintenance:
+  - Leia atlas-ai-master-architecture.md antes de alterar autoridade macro, Policy/Profile, Decide, Domain Orchestrator, Runtime, Evidence, Learning ou estrategia contra Claude Code.
+  - Leia atlas-ai-vision.md, atlas-ai-pipeline.md e atlas-ai-core-vs-domain.md antes de reorganizar fluxos macro.
+  - Leia atlas-ai-resolver-corpus-audit.md antes de alterar Atlas Decide, Policy/Profile, Programming Orchestrator, Forge ou Super Tool Runtime.
+  - Leia atlas-ai-operating-system.md antes de criar comando, fluxo, harness, dominio ou capability horizontal nova.
   - Leia START_HERE.md antes de continuar implementacoes de memoria/contexto.
   - Leia open-brain-context-injection.md antes de alterar atlas dev, atlas continue, atlas chat ou AtlasAiSheet.
   - Rode atlas engineering knowledge sync --prune depois de alterar estes docs.
@@ -54,6 +68,13 @@ maintenance:
   - Consulte atlas-cli-5x-claude-code-plan.md e atlas-cli-fair-claude-benchmark.md antes de declarar superioridade contra Claude Code.
   - Revise indexed_at e content_hash antes de confiar em uma sessao longa.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
+  - docs/engineering-knowledge-base/atlas-ai-vision.md
+  - docs/engineering-knowledge-base/atlas-ai-pipeline.md
+  - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
+  - docs/engineering-knowledge-base/atlas-ai-resolver-corpus-audit.md
+  - docs/engineering-knowledge-base/atlas-ai-operating-system.md
+  - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
   - app/Services/Engineering/EngineeringKnowledgeBaseService.php
   - app/Services/Engineering/EngineeringContextPackService.php
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
@@ -143,6 +164,13 @@ detalhe de modulo com docs/testes.
 | Doc | Papel |
 |---|---|
 | `START_HERE.md` | Ponto de entrada para humanos e IAs |
+| `atlas-ai-master-architecture.md` | Especificacao enterprise da arquitetura-mae: planes, autoridade unica, contratos canonicos, dominios, runtimes, evidence, learning e estrategia para superar Claude Code |
+| `atlas-ai-vision.md` | Documento fundador curto: Atlas AI como inteligencia unica do produto |
+| `atlas-ai-pipeline.md` | Pipeline unico de qualquer requisicao Atlas AI |
+| `atlas-ai-core-vs-domain.md` | Regra de decisao entre Core, Domain e Surface |
+| `atlas-ai-resolver-corpus-audit.md` | Auditoria da pasta `resolver-o-que-vale-a-pena`: o que vira canonico, referencia, futuro ou arquivo historico |
+| `atlas-ai-operating-system.md` | Arquitetura macro do Atlas AI: dominios, pipeline comum, anti-duplicacao e ownership entre dev, forge, decide, memoria, tools e curadoria |
+| `atlas-ai-architecture-audit.md` | Analise rigorosa de consolidacao dos docs: capacidades existentes, duplicacoes, lacunas e ordem recomendada para reorganizar o Atlas AI |
 | `atlas-ai-memory-context-core-open-brain.md` | Documento mestre versionado de memoria, contexto e recall |
 | `architecture.md` | Arquitetura da Engineering Knowledge Base |
 | `context-pack.md` | Como knowledge/code refs entram nos context packs |

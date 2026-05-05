@@ -16,6 +16,8 @@ use App\Models\AtlasEngineeringRunOperatorAction;
 use App\Models\AtlasEngineeringTestRun;
 use App\Models\AtlasTask;
 use App\Models\AtlasToolRun;
+use App\Models\AiJob;
+use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiPrompt;
 use App\Services\Ai\AiPromptBuilder;
@@ -3097,6 +3099,105 @@ class EngineeringHarnessRunnerTest extends TestCase
             'engineering_run_id' => $run->id,
             'attempt_number' => 2,
             'trace_id' => $secondTrace,
+            'phase' => 'repair',
+            'status' => 'failed',
+        ]);
+    }
+
+    public function test_ai_chat_dev_trace_jobs_are_persisted_as_runner_attempts(): void
+    {
+        $task = $this->task();
+        $run = AtlasEngineeringRun::query()->create([
+            'task_id' => $task->id,
+            'workspace_path_hash' => hash('sha256', $this->workspace),
+            'workspace_label' => basename($this->workspace),
+            'provider_strategy_json' => ['mode' => 'complete'],
+            'status' => 'running',
+            'max_attempts' => 3,
+            'started_at' => now(),
+            'metadata' => [],
+        ]);
+        $seed = AtlasEngineeringRunAttempt::query()->create([
+            'engineering_run_id' => $run->id,
+            'attempt_number' => 1,
+            'provider' => 'claude_cli',
+            'phase' => 'edit',
+            'prompt_hash' => hash('sha256', 'prompt'),
+            'input_summary_json' => ['task_id' => $task->id],
+            'status' => 'running',
+            'started_at' => now(),
+            'metadata' => [],
+        ]);
+        $trace = AiTrace::query()->create([
+            'id' => (string) Str::uuid(),
+            'status' => 'failed',
+            'operator_input' => 'corrigir fluxo',
+            'agent_slug' => 'dev',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-test',
+            'response_text' => 'repair still failed',
+            'metadata' => [
+                'programming_repair' => [
+                    'status' => 'exhausted',
+                    'last_quality_status' => 'failed',
+                ],
+            ],
+        ]);
+        AiJob::query()->create([
+            'id' => (string) Str::uuid(),
+            'trace_id' => $trace->id,
+            'status' => 'succeeded',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-test',
+            'input_text' => 'corrigir fluxo',
+            'prompt' => 'corrigir fluxo',
+            'result_text' => 'edit ok',
+            'metadata' => [],
+        ]);
+        AiJob::query()->create([
+            'id' => (string) Str::uuid(),
+            'trace_id' => $trace->id,
+            'status' => 'failed',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-test',
+            'input_text' => 'repair',
+            'prompt' => 'repair',
+            'error_message' => 'quality gate failed',
+            'metadata' => [
+                'programming_repair_job' => true,
+                'programming_repair_iteration' => 2,
+            ],
+        ]);
+
+        $latest = app(EngineeringHarnessRunnerService::class)->syncProviderAttempts($run, $seed, [
+            'exit_code' => 1,
+            'stdout' => json_encode(['trace_id' => $trace->id]),
+            'stderr' => '',
+            'decoded' => [
+                'trace_id' => $trace->id,
+                'status' => 'failed',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-test',
+                'programming_repair' => [
+                    'status' => 'exhausted',
+                ],
+            ],
+        ], null);
+
+        $this->assertSame(2, $latest->attempt_number);
+        $this->assertSame('repair', $latest->phase);
+        $this->assertSame('failed', $latest->status);
+        $this->assertDatabaseHas('atlas_engineering_run_attempts', [
+            'engineering_run_id' => $run->id,
+            'attempt_number' => 1,
+            'trace_id' => $trace->id,
+            'provider' => 'codex_cli',
+            'status' => 'completed',
+        ]);
+        $this->assertDatabaseHas('atlas_engineering_run_attempts', [
+            'engineering_run_id' => $run->id,
+            'attempt_number' => 2,
+            'trace_id' => $trace->id,
             'phase' => 'repair',
             'status' => 'failed',
         ]);
