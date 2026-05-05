@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md; docs/atlas-ai-telemetry.md.
+> Cleanup note: Performance report runbook remains useful, but should consolidate under the telemetry/evidence family.
+
 # Atlas AI Performance Reports
 
 This is the operational reporting layer for Atlas AI performance. It turns telemetry rollups into a daily mobile inbox report and, on the 15th and 30th day of each month, a second multi-window report covering the last 3, 7, 15 and 30 days.

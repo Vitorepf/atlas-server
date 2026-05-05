@@ -1,3 +1,7 @@
+> Cleanup status: archived.
+> Canonical replacement: docs/engineering-knowledge-base/engineering-blueprint.md; docs/engineering-knowledge-base/engineering-blueprint-contracts.md; docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md; docs/engineering-knowledge-base/engineering-blueprint-runbook.md.
+> Cleanup note: Historical blueprint implementation plan; a source-material copy is already preserved in the KB archive.
+
 # Atlas Engineering Blueprint - Plano Profissional Dos 7 Itens
 
 > Status em 2026-05-03: este arquivo foi preservado como material-fonte.

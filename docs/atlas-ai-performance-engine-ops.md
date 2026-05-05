@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md; docs/atlas-ai-telemetry.md.
+> Cleanup note: Performance engine ops remain useful, but should consolidate under the telemetry/evidence family.
+
 # Atlas AI Performance Engine Ops
 
 Este documento define como operar o engine de performance do Atlas AI em producao.

@@ -1,3 +1,7 @@
+> Cleanup status: human_vault_only.
+> Canonical replacement: docs/engineering-knowledge-base/domains/personal-development.md; docs/engineering-knowledge-base/obsidian-atlas-vault.md; docs/engineering-knowledge-base/memory-core-security-privacy.md.
+> Cleanup note: Sensitive digital-activity source. Preserve with privacy gate; do not inject raw into providers.
+
 # ATLAS — ADENDO
 
 **Sensor 4: Atividade Digital**

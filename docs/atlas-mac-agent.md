@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-local-agent-surface.md; docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md; docs/engineering-knowledge-base/atlas-ai-operating-system.md.
+> Cleanup note: Operational Mac Agent runbook remains useful; architecture authority now lives in the local agent surface doc.
+
 # Atlas Mac Agent
 
 O Atlas Mac Agent gerencia energia local do Mac para dois cenarios:

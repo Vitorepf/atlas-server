@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-continuity-session-state.md; docs/engineering-knowledge-base/open-brain-context-injection.md.
+> Cleanup note: Continuity/session decisions have been promoted to a canonical KB doc. Preserve this file as source material, not authority.
+
 # ATLAS AI - SESSOES, COMPACTACAO E CONTINUIDADE
 
 **Arquitetura profissional para conversas longas, implementacoes por horas, troca de providers e memoria operacional persistente**

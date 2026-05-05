@@ -63,7 +63,11 @@ Nada compete com a Knowledge Base sem ser promovido ou arquivado.
 | P2 | Ideia futura ou dominio ainda imaturo. |
 | Archive | Historico util, mas nao deve mandar na arquitetura atual. |
 
-## P0 - Promover Para Arquitetura Canonica
+## P0 - Promovidos Para Arquitetura Canonica
+
+Os itens abaixo eram marcados como "a promover" na auditoria original. A
+promocao foi executada em docs canonicos menores; os arquivos do resolver
+permanecem source material com redirect.
 
 ### Domain Profile Orchestration
 
@@ -73,7 +77,8 @@ Arquivo:
 resolver-o-que-vale-a-pena/docs/specs/2026-05-03-atlas-domain-profile-orchestration-architecture.md
 ```
 
-Decisao a promover:
+Decisao promovida para `atlas-ai-operating-system.md`,
+`atlas-ai-pipeline.md` e `atlas-ai-core-vs-domain.md`:
 
 ```text
 Domain != flow.
@@ -85,10 +90,12 @@ Um domain e uma vertical:
 - `programming`;
 - `finance`;
 - `personal_development`;
+- `self_improvement`;
 - `research`;
 - `security`;
 - `operations`;
-- `curation`.
+- `curation` como conceito historico, hoje coberto por `self_improvement` ate
+  haver Curator dedicado.
 
 Um flow/profile e uma forma operacional dentro do domain:
 
@@ -96,7 +103,7 @@ Um flow/profile e uma forma operacional dentro do domain:
 - `programming.forge`;
 - `programming.qa`;
 - `programming.security`;
-- `finance.portfolio_review`;
+- `finance.portfolio_analysis`;
 - `personal_development.weekly_review`.
 
 Implicacao:
@@ -122,7 +129,8 @@ Arquivo:
 resolver-o-que-vale-a-pena/docs/specs/2026-05-02-atlas-decide-final-architecture.md
 ```
 
-Decisao a promover:
+Decisao promovida para `atlas-ai-kernel-architecture.md`,
+`atlas-ai-operating-system.md` e `atlas-ai-pipeline.md`:
 
 ```text
 Atlas Decide e o compilador operacional do Atlas AI.
@@ -163,7 +171,9 @@ Arquivo:
 resolver-o-que-vale-a-pena/docs/specs/2026-05-03-atlas-programming-product-architecture.md
 ```
 
-Decisao a promover:
+Decisao promovida para `domains/programming.md`,
+`atlas-ai-operating-system.md`, `engineering-blueprint.md` e
+`super-tool-runtime-core.md`:
 
 ```text
 Atlas Programming e uma especializacao do Domain Profile model.
@@ -205,7 +215,8 @@ Arquivo:
 resolver-o-que-vale-a-pena/root-md/Atlas_AI_Harness_Super_Tool_Runtime_Core.md
 ```
 
-Decisao a promover:
+Decisao promovida para `super-tool-runtime-core.md`,
+`programming-power-tools-catalog.md` e `atlas-ai-runtime-packets.md`:
 
 ```text
 Super Tool Runtime e Core do Atlas AI.
@@ -257,7 +268,7 @@ Forge usa mais, mas nao possui o runtime.
 | `Atlas_Engineering_Blueprint_7_Itens_Plano_Implementacao.md` | Referencia de DoD e qualidade para Programming/Forges. |
 | `resolver-o-que-vale-a-pena/docs/atlas-ai-telemetry-quality-efficiency-implementation.md` | Referencia para medir qualidade, custo, continuidade e eficiencia. |
 
-## P2 - Dominios Futuros E Ideias Grandes
+## P2 - Dominios Promovidos E Ideias Grandes
 
 ### Personal Development
 
@@ -279,6 +290,13 @@ Ele aponta para um domain grande com:
 - deteccao de dependencia cognitiva;
 - curadoria semanal;
 - privacy gates fortes.
+
+Status canonico atual:
+
+`personal_development` ja foi promovido para dominio implemented/ready com
+runtime isolado, 10 flows, gates privados e contrato non-clinical. Este trecho
+permanece como origem historica do racional e como filtro para nao reduzir o
+dominio a chat motivacional.
 
 Decisao:
 
@@ -322,7 +340,7 @@ Exemplos:
 - `programming.dev`;
 - `programming.forge`;
 - `programming.qa`;
-- `finance.market_analysis`;
+- `finance.market_research`;
 - `personal_development.weekly_review`.
 
 `Policy` responde:
@@ -358,11 +376,13 @@ global settings
 
 ## Ordem Profissional De Promocao
 
-1. Promover `Domain Profile / Flow Profile` para os docs fundadores.
+1. Promover `Domain Profile / Flow Profile` para os docs fundadores e specs de
+   dominio em `docs/engineering-knowledge-base/domains/`.
 2. Definir `AtlasAiPolicyService` como camada obrigatoria entre settings e Decide.
 3. Padronizar `Decision Receipt` como contrato de saida do Decide.
 4. Criar `Domain Orchestrator Router` como fronteira entre Decide e execucao.
-5. Tratar `AtlasProgrammingOrchestrator` como especializacao de domain.
+5. Tratar `AtlasProgrammingOrchestrator` como especializacao de domain,
+   documentada em `domains/programming.md`.
 6. Mover toda execucao de tools para `Atlas.Tools` / Super Tool Runtime.
 7. Fazer `atlas dev`, `atlas forge`, `atlas fix` e `atlas continue` serem surfaces/aliases para profiles.
 8. Classificar o restante do corpus como P1, P2 ou Archive.

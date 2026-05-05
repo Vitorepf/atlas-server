@@ -1,3 +1,8 @@
+> Cleanup status: human_vault_only.
+> Canonical replacement: docs/engineering-knowledge-base/programming-power-tools-catalog.md; docs/engineering-knowledge-base/atlas-ai-governed-backlog.md.
+> Cleanup note: Competitive research source. Preserve as human research, not operational architecture.
+> Authority warning: source-of-truth examples below are competitive research notes, not Atlas operational authority.
+
 # Concorrente — Hermes Agent (Nous Research)
 
 **Análise técnica para o Atlas CLI**

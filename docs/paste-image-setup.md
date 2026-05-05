@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-cli-multimodal.md; docs/atlas-cli-final-product.md.
+> Cleanup note: Setup remains useful for operators. Architecture/design authority should be promoted to a small CLI multimodal doc or the CLI final product doc.
+
 # Paste de imagem — setup por terminal
 
 O Atlas captura imagens da clipboard (Cmd+Shift+Ctrl+4 ou copia do Finder) e as anexa ao composer do `atlas chat`/`atlas dev`. O suporte é nativo via Ctrl+V e via `/paste-image`. Para Cmd+V funcionar nativamente em terminais que absorvem a tecla quando a clipboard contem apenas imagem, e necessario remapear Cmd+V para enviar `0x16` (byte de Ctrl+V). Esta página documenta como fazer isso por terminal.

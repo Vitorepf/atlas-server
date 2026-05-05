@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-governed-backlog.md; docs/engineering-knowledge-base/domains/personal-development.md; docs/engineering-knowledge-base/atlas-ai-resolver-corpus-audit.md.
+> Cleanup note: Governed backlog rules have been promoted. Preserve this file as source material; promote curated items only.
+
 # Atlas — Gaps Achamos e Não Pode Esquecer
 
 > Funcionalidades que foram **specificadas** nos Documentos Mestre v3, v5 e v6 mas **nunca chegaram a ser implementadas** no código. Algumas o operador (Vitor) achava que estavam prontas. Não estão.

@@ -3,14 +3,26 @@
 namespace App\Services\Ai\Kernel\Evidence;
 
 use App\Models\AtlasLedgerEvent;
+use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelope;
+use App\Services\Ai\Kernel\Failure\FailureClassifier;
+use App\Services\Ai\Kernel\Failure\FailureHandlerRegistry;
+use App\Services\Ai\Kernel\Repair\RepairDecision;
+use App\Services\Ai\Kernel\Repair\RepairResult;
+use App\Services\Ai\Kernel\Slo\KernelSloAssessment;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AtlasEvidenceLedger
 {
     public const SCHEMA_VERSION = 'atlas.ledger_event.v1';
+
+    public function __construct(
+        private readonly FailureClassifier $failureClassifier,
+        private readonly FailureHandlerRegistry $failureHandlers,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $payload
@@ -124,6 +136,235 @@ class AtlasEvidenceLedger
     }
 
     /**
+     * @param  Throwable|array<string,mixed>|string  $failure
+     * @param  array<string,mixed>  $context
+     * @return array{classification:array<string,mixed>,handling:array<string,mixed>,event:?AtlasLedgerEvent}
+     */
+    public function recordFailure(Throwable|array|string $failure, array $context = []): array
+    {
+        $message = is_string($context['message'] ?? null) ? $context['message'] : null;
+        $classification = $this->failureClassifier->classify($failure, $message);
+        $classificationPayload = $classification->toArray();
+        $handling = $this->failureHandlers
+            ->handlerFor($classification->domain)
+            ->handle($classificationPayload, $context);
+
+        $eventType = match (true) {
+            (bool) ($handling['requires_human_review'] ?? false) => LedgerEventType::OperationNeedsReview,
+            (bool) ($handling['retryable'] ?? false) => LedgerEventType::OperationFailed,
+            default => LedgerEventType::OperationBlocked,
+        };
+
+        $event = $this->record($eventType, [
+            'classification' => $classificationPayload,
+            'handling' => $handling,
+            'failure' => $this->failurePayload($failure, $message),
+        ], $context + [
+            'emitter_stage' => 'atlas.failure_classifier',
+            'emitter_version' => 'atlas.failure.v1',
+        ]);
+
+        return [
+            'classification' => $classificationPayload,
+            'handling' => $handling,
+            'event' => $event,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $context
+     */
+    public function recordPolicyContractBlocked(
+        string $contract,
+        array $receipt,
+        array $options = [],
+        array $context = [],
+    ): ?AtlasLedgerEvent {
+        $status = $this->string($receipt['status'] ?? 'unknown', 120);
+        $payload = [
+            'policy_contract' => $contract,
+            'status' => $status,
+            'violation_code' => $contract.'.'.$status,
+            'receipt' => $receipt,
+            'surface_id' => data_get($options, 'payload.surface_id', data_get($options, 'source')),
+            'provider' => $options['provider'] ?? data_get($options, 'payload.selected_provider'),
+            'model' => $options['model'] ?? null,
+            'client_id' => $options['client_id'] ?? null,
+            'session_id' => data_get($options, 'payload.session_id'),
+            'thread_id' => data_get($options, 'payload.thread_id'),
+        ];
+
+        return $this->record(LedgerEventType::OperationBlocked, $payload, [
+            'tenant_id' => $context['tenant_id'] ?? data_get($options, 'payload.tenant_id', 'default'),
+            'operator_id' => $context['operator_id'] ?? data_get($options, 'payload.operator_id', 'system'),
+            'envelope_id' => $context['envelope_id']
+                ?? data_get($options, 'payload.decision_receipt.envelope_id')
+                ?? data_get($options, 'payload.decision_receipt.receipt_v2.envelope_id')
+                ?? 'policy_contract_pre_trace',
+            'receipt_id' => $context['receipt_id']
+                ?? data_get($options, 'payload.decision_receipt.receipt_id')
+                ?? data_get($options, 'payload.decision_receipt.receipt_v2.receipt_id'),
+            'trace_id' => $context['trace_id'] ?? data_get($options, 'payload.trace_id'),
+            'correlation_id' => $context['correlation_id']
+                ?? $options['client_id']
+                ?? data_get($options, 'payload.trace_id')
+                ?? data_get($options, 'payload.decision_receipt.envelope_id')
+                ?? 'policy_contract_pre_trace',
+            'emitter_stage' => 'atlas.policy_contract',
+            'emitter_version' => 'atlas.policy_contract.v1',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $decision
+     * @param  array<string,mixed>  $context
+     */
+    public function recordProviderMemoryBlocked(
+        AtlasMemoryEntry $entry,
+        array $decision,
+        string $target,
+        array $context = [],
+    ): ?AtlasLedgerEvent {
+        $payload = [
+            'policy_contract' => 'memory.provider_projection',
+            'status' => 'provider_memory_blocked',
+            'violation_code' => 'memory.provider_projection.'.($decision['reason'] ?? 'not_provider_safe'),
+            'target' => $target,
+            'memory_entry' => [
+                'id' => $entry->id ? (string) $entry->id : null,
+                'memory_type' => $entry->memory_type,
+                'scope_type' => $entry->scope_type,
+                'scope_id' => $entry->scope_id,
+                'source_type' => $entry->source_type,
+                'source_id' => $entry->source_id,
+            ],
+            'privacy' => [
+                'class' => $decision['privacy_class'] ?? null,
+                'external_ai_allowed' => $decision['external_ai_allowed'] ?? null,
+                'metadata_external_ai_allowed' => $decision['metadata_external_ai_allowed'] ?? null,
+                'reason' => $decision['reason'] ?? 'not_provider_safe',
+            ],
+        ];
+
+        return $this->record(LedgerEventType::OperationBlocked, $payload, [
+            'tenant_id' => $context['tenant_id'] ?? data_get($entry->metadata, 'operator.tenant_id', 'default'),
+            'operator_id' => $context['operator_id'] ?? data_get($entry->metadata, 'operator.operator_id', 'system'),
+            'envelope_id' => $context['envelope_id'] ?? data_get($entry->metadata, 'envelope_id', 'memory_provider_projection'),
+            'receipt_id' => $context['receipt_id'] ?? data_get($entry->metadata, 'receipt_id'),
+            'trace_id' => $context['trace_id'] ?? $entry->trace_id,
+            'correlation_id' => $context['correlation_id'] ?? $entry->trace_id ?? $entry->session_id ?? 'memory_provider_projection',
+            'emitter_stage' => 'atlas.memory_provider_privacy',
+            'emitter_version' => 'atlas.memory_provider_privacy.v1',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    public function recordRepairDecision(RepairDecision $decision, array $context = []): ?AtlasLedgerEvent
+    {
+        $payload = $decision->evidencePayload + [
+            'decision' => $decision->toArray(),
+            'repair_executed' => false,
+        ];
+
+        return $this->record(LedgerEventType::RepairInitiated, $payload, [
+            'tenant_id' => $context['tenant_id'] ?? data_get($payload, 'operator.tenant_id', 'default'),
+            'operator_id' => $context['operator_id'] ?? data_get($payload, 'operator.operator_id', 'system'),
+            'envelope_id' => $context['envelope_id'] ?? data_get($payload, 'envelope_id', 'repair_decision'),
+            'receipt_id' => $context['receipt_id'] ?? data_get($payload, 'receipt_id'),
+            'trace_id' => $context['trace_id'] ?? data_get($payload, 'trace_id'),
+            'correlation_id' => $context['correlation_id'] ?? data_get($payload, 'envelope_id', 'repair_decision'),
+            'emitter_stage' => $context['emitter_stage'] ?? 'atlas.repair',
+            'emitter_version' => $context['emitter_version'] ?? 'atlas.repair.v1',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    public function recordRepairResult(RepairResult $result, array $context = []): ?AtlasLedgerEvent
+    {
+        $payload = $result->evidencePayload + [
+            'request' => $result->request->toArray(),
+            'decision' => $result->decision->toArray(),
+            'attempt' => $result->attempt?->toArray(),
+            'repair_executed' => $result->executed,
+        ];
+
+        return $this->record(LedgerEventType::RepairCompleted, $payload, [
+            'tenant_id' => $context['tenant_id'] ?? data_get($payload, 'operator.tenant_id', 'default'),
+            'operator_id' => $context['operator_id'] ?? data_get($payload, 'operator.operator_id', 'system'),
+            'envelope_id' => $context['envelope_id'] ?? data_get($payload, 'envelope_id', 'repair_result'),
+            'receipt_id' => $context['receipt_id'] ?? data_get($payload, 'receipt_id'),
+            'trace_id' => $context['trace_id'] ?? data_get($payload, 'trace_id'),
+            'correlation_id' => $context['correlation_id'] ?? data_get($payload, 'envelope_id', 'repair_result'),
+            'causation_id' => $context['causation_id'] ?? data_get($result->decision->evidencePayload, 'decision_hash'),
+            'emitter_stage' => $context['emitter_stage'] ?? 'atlas.repair',
+            'emitter_version' => $context['emitter_version'] ?? 'atlas.repair.v1',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    public function recordSloObservation(KernelSloAssessment $assessment, array $context = []): ?AtlasLedgerEvent
+    {
+        return $this->record(LedgerEventType::SloObserved, [
+            'dimensions' => $this->sloDimensions($context),
+            'slo' => $assessment->toArray(),
+            'stage' => $assessment->stage,
+            'status' => $assessment->status,
+            'severity' => $assessment->severity,
+            'violations' => $assessment->violations,
+        ], [
+            'tenant_id' => $context['tenant_id'] ?? 'default',
+            'operator_id' => $context['operator_id'] ?? 'system',
+            'envelope_id' => $context['envelope_id'] ?? 'slo_observation',
+            'receipt_id' => $context['receipt_id'] ?? null,
+            'trace_id' => $context['trace_id'] ?? null,
+            'correlation_id' => $context['correlation_id'] ?? $context['trace_id'] ?? 'slo_observation',
+            'emitter_stage' => 'atlas.slo',
+            'emitter_version' => 'atlas.slo.v1',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     * @return array<string,string>
+     */
+    private function sloDimensions(array $context): array
+    {
+        $aliases = [
+            'domain' => ['domain', 'kernel_domain'],
+            'flow' => ['flow', 'kernel_flow'],
+            'surface_id' => ['surface_id', 'surface', 'app_surface'],
+            'provider' => ['provider', 'selected_provider', 'provider_id'],
+            'model' => ['model', 'selected_model'],
+            'runtime' => ['runtime', 'runtime_id'],
+            'tool_id' => ['tool_id', 'tool'],
+            'job_id' => ['job_id'],
+            'attempt_id' => ['attempt_id'],
+            'worker_id' => ['worker_id'],
+        ];
+
+        $dimensions = [];
+        foreach ($aliases as $target => $keys) {
+            foreach ($keys as $key) {
+                $value = data_get($context, $key);
+                if (is_scalar($value) && trim((string) $value) !== '') {
+                    $dimensions[$target] = $this->string($value, 120);
+                    break;
+                }
+            }
+        }
+
+        return $dimensions;
+    }
+
+    /**
      * @return array<int,array<string,mixed>>
      */
     public function eventsForEnvelope(string $envelopeId): array
@@ -183,5 +424,34 @@ class AtlasEvidenceLedger
         $value = trim((string) $value);
 
         return $value !== '' ? Str::limit($value, $max, '') : null;
+    }
+
+    /**
+     * @param  Throwable|array<string,mixed>|string  $failure
+     * @return array<string,mixed>
+     */
+    private function failurePayload(Throwable|array|string $failure, ?string $message): array
+    {
+        if ($failure instanceof Throwable) {
+            return [
+                'source' => 'throwable',
+                'class' => $failure::class,
+                'code' => $failure->getCode(),
+                'message' => $failure->getMessage(),
+            ];
+        }
+
+        if (is_array($failure)) {
+            return [
+                'source' => 'payload',
+                'payload' => $failure,
+            ];
+        }
+
+        return [
+            'source' => 'status_message',
+            'status' => $failure,
+            'message' => $message,
+        ];
     }
 }

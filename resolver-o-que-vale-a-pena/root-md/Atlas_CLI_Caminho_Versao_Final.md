@@ -1,3 +1,7 @@
+> Cleanup status: archived.
+> Canonical replacement: docs/atlas-cli-final-product.md; docs/atlas-cli-release-checklist.md.
+> Cleanup note: Historical CLI final-version plan. Product/release docs have authority.
+
 # Atlas CLI — Documentação técnica para Versão Final
 
 **Data:** 2026-04-30

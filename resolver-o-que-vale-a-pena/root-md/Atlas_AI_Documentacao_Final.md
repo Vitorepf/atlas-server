@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md; docs/engineering-knowledge-base/atlas-ai-master-architecture.md; docs/engineering-knowledge-base/atlas-ai-vision.md.
+> Cleanup note: Stable provider-safe identity/laws have been promoted to the canonical Layer 0 glossary. Preserve this file as source material.
+
 # ATLAS AI - DOCUMENTACAO FINAL
 
 **Core cognitivo persistente do Atlas, modelo-agnostico, multi-superficie e orientado a ampliar a capacidade de Vitor**

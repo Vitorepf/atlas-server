@@ -14,7 +14,7 @@ RUN git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git \
     && cd whisper.cpp \
     && cmake -B build -DGGML_NATIVE=OFF -DBUILD_SHARED_LIBS=OFF \
     && cmake --build build --config Release -j --target whisper-cli \
-    && bash ./models/download-ggml-model.sh base
+    && bash ./models/download-ggml-model.sh large-v3-turbo
 
 FROM php:8.4-cli-bookworm AS app
 
@@ -43,7 +43,7 @@ COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY --from=whisper-builder /opt/whisper.cpp/build/bin/whisper-cli /usr/local/bin/whisper-cli
-COPY --from=whisper-builder /opt/whisper.cpp/models/ggml-base.bin /opt/whisper-models/ggml-base.bin
+COPY --from=whisper-builder /opt/whisper.cpp/models/ggml-large-v3-turbo.bin /opt/whisper-models/ggml-large-v3-turbo.bin
 
 WORKDIR /app
 

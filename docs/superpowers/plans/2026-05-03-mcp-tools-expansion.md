@@ -1,3 +1,7 @@
+> Cleanup status: archived.
+> Canonical replacement: docs/engineering-knowledge-base/super-tool-runtime-core.md; docs/engineering-knowledge-base/programming-power-tools-catalog.md; docs/engineering-knowledge-base/open-brain-context-injection.md.
+> Cleanup note: Historical MCP expansion plan. Current authority is Tool Runtime plus Memory/Open Brain docs.
+
 # Atlas MCP Tools Expansion — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

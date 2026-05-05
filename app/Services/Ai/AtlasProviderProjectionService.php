@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -18,6 +19,7 @@ class AtlasProviderProjectionService
     public function __construct(
         private readonly AtlasMemoryRegistryService $registry,
         private readonly AtlasMemoryPrivacyService $privacy,
+        private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
     /**
@@ -31,7 +33,7 @@ class AtlasProviderProjectionService
         $workspace = $this->workspace($context['workspace'] ?? ($options['workspace'] ?? null));
         $maxLines = $this->boundedInt($options['max_lines'] ?? config('atlas.ai.provider_projection_max_lines', 80), 20, 240);
         $memoryLimit = $this->boundedInt($options['memory_limit'] ?? config('atlas.ai.provider_projection_memory_limit', 18), 1, 80);
-        $entries = $this->providerSafeEntries($context + ['workspace' => $workspace], $memoryLimit);
+        $entries = $this->providerSafeEntries($target, $context + ['workspace' => $workspace], $memoryLimit);
         $manualContent = $this->manualContent($workspace.DIRECTORY_SEPARATOR.$this->filename($target), $options);
         $body = $this->body($target, $workspace, $entries, max(1, $maxLines - 1), $manualContent);
         $checksum = $this->checksum($body);
@@ -632,7 +634,7 @@ class AtlasProviderProjectionService
      * @param  array<string,mixed>  $context
      * @return Collection<int,AtlasMemoryEntry>
      */
-    private function providerSafeEntries(array $context, int $limit): Collection
+    private function providerSafeEntries(string $target, array $context, int $limit): Collection
     {
         if (! Schema::hasTable('atlas_memory_entries')) {
             return collect();
@@ -648,7 +650,23 @@ class AtlasProviderProjectionService
                     'harness_learning',
                 ],
             ], $limit)
-            ->filter(fn (AtlasMemoryEntry $entry): bool => $this->privacy->providerAllowed($entry))
+            ->filter(function (AtlasMemoryEntry $entry) use ($target, $context): bool {
+                $decision = $this->privacy->providerDecision($entry);
+                if ((bool) $decision['allowed']) {
+                    return true;
+                }
+
+                $this->ledger->recordProviderMemoryBlocked($entry, $decision, $target, [
+                    'tenant_id' => $context['tenant_id'] ?? null,
+                    'operator_id' => $context['operator_id'] ?? null,
+                    'envelope_id' => $context['envelope_id'] ?? null,
+                    'receipt_id' => $context['receipt_id'] ?? null,
+                    'trace_id' => $context['trace_id'] ?? null,
+                    'correlation_id' => $context['correlation_id'] ?? null,
+                ]);
+
+                return false;
+            })
             ->values();
     }
 

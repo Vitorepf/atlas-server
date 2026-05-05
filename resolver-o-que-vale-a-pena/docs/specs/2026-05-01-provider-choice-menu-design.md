@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md; docs/engineering-knowledge-base/atlas-ai-operating-system.md; docs/atlas-cli-fair-claude-benchmark.md.
+> Cleanup note: Historical provider-choice UX/policy source. Do not use as standalone provider policy.
+
 # Provider Choice Menu — CLI + App Design
 
 **Status:** Approved (2026-05-01)

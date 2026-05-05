@@ -102,7 +102,7 @@ Provider Projections controladas
 | Hybrid Memory Retrieval | Servicos Atlas + Postgres | Recall provider-safe entre registry, verbatim e notas semanticas com fallback local |
 | Provider Projections | Artefatos gerados | Projecoes locais para ferramentas externas; nunca sao fonte primaria |
 | Open Brain API/CLI | API + CLI + audit log | Exporta context packs Atlas para ferramentas locais/remotas com rastreabilidade |
-| Obsidian / AtlasVault | Vault markdown opcional | Camada humana bidirecional de notas, curadoria, backlinks e espelho gerenciado; nunca fonte primaria |
+| Obsidian / AtlasVault | Vault markdown opcional | Human Knowledge Surface / Personal Knowledge Workspace para notas, curadoria, backlinks e espelho gerenciado; nunca fonte primaria operacional |
 
 ### Politica De Fonte Da Verdade
 

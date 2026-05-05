@@ -76,4 +76,150 @@ class AtlasAiLedgerCommandTest extends TestCase
         $this->assertSame(LedgerEventType::ExecutionStarted->value, $payload['events'][0]['event_type']);
         $this->assertSame(['job_id' => 'job-1'], $payload['events'][0]['payload']);
     }
+
+    public function test_command_can_include_slo_summary_for_envelope(): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => '01HLEDGERCOMMAND0000000000001',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_test',
+            'operator_id' => 'operator_test',
+            'envelope_id' => 'env_slo_command',
+            'receipt_id' => 'rcpt_slo_command',
+            'trace_id' => null,
+            'correlation_id' => 'env_slo_command',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::SloObserved->value,
+            'emitter_stage' => 'atlas.slo',
+            'emitter_version' => 'atlas.slo.v1',
+            'payload' => [
+                'stage' => 'runtime.execute',
+                'status' => 'ok',
+                'severity' => 'medium',
+                'violations' => [],
+                'slo' => [
+                    'stage' => 'runtime.execute',
+                    'duration_ms' => 120,
+                    'success' => true,
+                    'status' => 'ok',
+                    'severity' => 'medium',
+                    'violations' => [],
+                ],
+            ],
+            'payload_hash' => hash('sha256', 'slo-1'),
+            'occurred_at' => now()->subSecond(),
+        ]);
+        AtlasLedgerEvent::query()->create([
+            'event_id' => '01HLEDGERCOMMAND0000000000002',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_test',
+            'operator_id' => 'operator_test',
+            'envelope_id' => 'env_slo_command',
+            'receipt_id' => 'rcpt_slo_command',
+            'trace_id' => null,
+            'correlation_id' => 'env_slo_command',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::SloObserved->value,
+            'emitter_stage' => 'atlas.slo',
+            'emitter_version' => 'atlas.slo.v1',
+            'payload' => [
+                'stage' => 'runtime.execute',
+                'status' => 'warning',
+                'severity' => 'high',
+                'violations' => ['p95_budget_exceeded'],
+                'slo' => [
+                    'stage' => 'runtime.execute',
+                    'duration_ms' => 450,
+                    'success' => true,
+                    'status' => 'warning',
+                    'severity' => 'high',
+                    'violations' => ['p95_budget_exceeded'],
+                ],
+            ],
+            'payload_hash' => hash('sha256', 'slo-2'),
+            'occurred_at' => now(),
+        ]);
+
+        $exit = Artisan::call('atlas:ai:ledger', [
+            'envelope' => 'env_slo_command',
+            '--slo' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(2, $payload['slo']['observation_count']);
+        $this->assertSame('warning', $payload['slo']['worst_status']);
+        $this->assertSame('high', $payload['slo']['worst_severity']);
+        $this->assertSame(2, $payload['slo']['stages']['runtime.execute']['count']);
+        $this->assertSame(120, $payload['slo']['stages']['runtime.execute']['p50_ms']);
+        $this->assertSame(450, $payload['slo']['stages']['runtime.execute']['p95_ms']);
+        $this->assertSame(['p95_budget_exceeded'], $payload['slo']['stages']['runtime.execute']['violations']);
+    }
+
+    public function test_command_can_include_repair_summary_for_envelope(): void
+    {
+        $this->recordRepairEvent('01HLEDGERREPAIR000000000001', LedgerEventType::RepairInitiated, [
+            'status' => 'repair_allowed',
+            'strategy' => 'retry_provider',
+            'reasons' => ['repair_planned'],
+        ]);
+        $this->recordRepairEvent('01HLEDGERREPAIR000000000002', LedgerEventType::RepairCompleted, [
+            'status' => 'repair_allowed',
+            'strategy' => 'retry_provider',
+            'reasons' => ['execution_blocked_by_dry_run'],
+        ], causationId: 'decision-hash-command');
+
+        $exit = Artisan::call('atlas:ai:ledger', [
+            'envelope' => 'env_repair_command',
+            '--repair' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(2, $payload['repair']['repair_event_count']);
+        $this->assertSame(1, $payload['repair']['initiated_count']);
+        $this->assertSame(1, $payload['repair']['completed_count']);
+        $this->assertSame('repair_allowed', $payload['repair']['latest_status']);
+        $this->assertSame('retry_provider', $payload['repair']['latest_strategy']);
+        $this->assertSame(['retry_provider' => 2], $payload['repair']['strategy_counts']);
+        $this->assertSame('decision-hash-command', $payload['repair']['events'][1]['causation_id']);
+    }
+
+    /**
+     * @param  array<string,mixed>  $decision
+     */
+    private function recordRepairEvent(string $eventId, LedgerEventType $type, array $decision, ?string $causationId = null): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $eventId,
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_test',
+            'operator_id' => 'operator_test',
+            'envelope_id' => 'env_repair_command',
+            'receipt_id' => 'rcpt_repair_command',
+            'trace_id' => null,
+            'correlation_id' => 'env_repair_command',
+            'causation_id' => $causationId,
+            'event_type' => $type->value,
+            'emitter_stage' => 'atlas.repair',
+            'emitter_version' => 'atlas.repair.v1',
+            'payload' => [
+                'failure_classification' => [
+                    'failure_domain' => 'provider.timeout',
+                ],
+                'decision' => $decision,
+                'repair_executed' => false,
+                'decision_hash' => 'decision-hash-command',
+                'result_hash' => $type === LedgerEventType::RepairCompleted ? 'result-hash-command' : null,
+            ],
+            'payload_hash' => hash('sha256', $eventId),
+            'occurred_at' => now(),
+        ]);
+    }
 }

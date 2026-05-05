@@ -2,10 +2,10 @@
 id: legacy-documentation-cleanup-report
 type: engineering_knowledge
 title: Legacy Documentation Cleanup Report
-status: draft
+status: active
 category: documentation-governance
 priority: 90
-summary: Inventario profissional de documentacao canonica, legacy, duplicada e orfa do Atlas, sem executar limpeza.
+summary: Inventario e registro profissional da limpeza de documentacao canonica, legacy, duplicada e orfa do Atlas, com promocoes canonicas, redirects e pendencias residuais.
 tags:
   - atlas
   - documentation
@@ -24,17 +24,19 @@ Escopo auditado:
 - `resolver-o-que-vale-a-pena/`
 - buscas locais por vault/obsidian/backup/archive dentro do repo
 
-Observacao de concorrencia: durante a auditoria apareceram novos arquivos e
-mudancas nao produzidas por este trabalho, incluindo docs de dominios e plano de
-surface/domain catalog. Eles foram lidos apenas para classificacao e nao foram
-alterados.
+Observacao de concorrencia: durante a auditoria apareceram arquivos e mudancas
+nao produzidas por este trabalho, incluindo docs de dominios, docs mae e codigo.
+Este trabalho editou apenas documentacao dentro do escopo permitido e nao
+reverteu alteracoes concorrentes.
 
 Restricoes respeitadas:
 
-- Nenhum doc existente foi editado.
+- Docs existentes foram editados apenas para headers, redirects, navegacao,
+  relatorio e promocao canonica controlada.
 - Nenhum arquivo runtime, PHP, migration ou config foi editado.
-- Nenhum arquivo foi apagado, movido ou arquivado.
-- Este relatorio e o plano pareado sao os unicos arquivos criados.
+- Nenhum arquivo documental foi apagado ou movido.
+- Novos docs canonicos pequenos foram criados na KB para substituir lacunas
+  antes marcadas como futuras.
 
 ## Sumario Executivo
 
@@ -52,11 +54,11 @@ corpus historico governado, nao fonte direta de decisao.
 Recomendacao principal:
 
 1. Manter a KB como fonte primaria.
-2. Promover de forma controlada apenas lacunas de Layer 0, Atlas Mobile,
-   provider-choice, mobile gateway e telemetria.
-3. Arquivar com redirect os planos executados e prompts soltos.
+2. Manter as promocoes executadas como docs pequenos, subordinados ao indice,
+   sem copiar documentos mestres longos.
+3. Manter redirects nos planos executados e prompts soltos.
 4. Preservar documentos constitucionais e pessoais como `human_vault_only`.
-5. Tratar `obsolete_delete_candidate` como candidato futuro, nunca deletar nesta
+5. Tratar potenciais deletes como quarentena documental, nunca deletar nesta
    sessao.
 
 ## Cobertura Do Inventario
@@ -65,18 +67,21 @@ Arquivos documentais considerados nesta revisao:
 
 | Area | Volume observado | Tratamento neste relatorio |
 |---|---:|---|
-| `docs/engineering-knowledge-base` | 39 docs markdown apos a chegada de docs novos | Classificados por familia: canonicos, legados internos, novos dominios e planos de integracao. |
-| `docs/` fora da KB | 14 docs markdown | Classificados como canonicos externos, promocoes candidatas, merges ou arquivos com redirect. |
+| `docs/engineering-knowledge-base` | 54 docs markdown apos a chegada de docs novos | Classificados por familia: canonicos, legados internos, novos dominios, arquivo documental e planos de integracao. |
+| `docs/` fora da KB | 12 docs markdown | Classificados como canonicos externos, promocoes candidatas, merges ou arquivos com redirect. |
 | `resolver-o-que-vale-a-pena/docs` | 11 docs markdown | Classificados entre P0/P1/P2, promocao, merge ou archive. |
 | `resolver-o-que-vale-a-pena/provider-bootstrap` | 2 docs markdown | Classificados como projections historicas, nao fonte primaria. |
-| `resolver-o-que-vale-a-pena/root-md` | 27 docs markdown | Classificados por constituicao, harness, CLI, memoria, research e backlog. |
+| `resolver-o-que-vale-a-pena/root-md` | 26 docs markdown | Classificados por constituicao, harness, CLI, memoria, research e backlog. |
 
-O inventario e intencionalmente conservador: qualquer documento com possivel
-decisao ainda nao promovida recebeu `promote_to_kb` ou `merge_into_existing`, nao
-`obsolete_delete_candidate`.
+O inventario inicial era intencionalmente conservador: qualquer documento com
+possivel decisao ainda nao promovida recebeu `promote_to_kb` ou
+`merge_into_existing`, nao classificacao de delete. As tabelas de execucao
+mais abaixo registram quais desses itens ja foram fechados como
+`superseded_source_material`, `archived`, `archived_quarantine`,
+`archived_projection` ou `human_vault_only`.
 
-Linhas de classificacao registradas neste relatorio, incluindo documentos,
-fontes novas concorrentes e itens conceituais:
+Linhas de classificacao inicial registradas neste relatorio, incluindo
+documentos, fontes novas concorrentes e itens conceituais:
 
 | Classe | Linhas classificadas | Leitura executiva |
 |---|---:|---|
@@ -84,12 +89,29 @@ fontes novas concorrentes e itens conceituais:
 | `promote_to_kb` | 13 | Lacunas reais que precisam virar KB/ADR ou runbook. |
 | `merge_into_existing` | 14 | Conteudo valioso que nao deve criar novo doc mae. |
 | `archive_with_redirect` | 24 | Historico util, prompts, planos e specs antigas. |
-| `obsolete_delete_candidate` | 2 | Candidatos futuros, nunca delete imediato. |
+| delete candidate historico | 2 | Candidatos futuros, convertidos para quarentena nesta onda. |
 | `human_vault_only` | 6 | Material humano/pessoal/research a preservar com privacy. |
 
 Esta contagem nao e uma lista de delete; ela serve para estimar trabalho. Um
 mesmo arquivo pode aparecer em contexto principal e em area de atencao especial
 quando isso ajuda a sessao principal a nao perder o motivo.
+
+## Snapshot Atual Dos Headers
+
+Estado atual dos headers `Cleanup status` apos as ondas de limpeza de
+2026-05-05:
+
+| Cleanup status | Arquivos | Significado operacional |
+|---|---:|---|
+| `superseded_source_material` | 26 | Fonte historica util com substituto canonico declarado. |
+| `archived` | 14 | Plano, prompt, versao ou relatorio antigo preservado por rastreabilidade. |
+| `archived_projection` | 2 | Projection de provider/agente, nunca fonte primaria. |
+| `archived_quarantine` | 2 | Delete candidate preservado; delete exige auditoria e aprovacao humana. |
+| `human_vault_only` | 6 | Material humano/pessoal/research preservado, nao runtime cru. |
+
+Nao ha headers de pendencia residual restantes nesta onda. As classificacoes
+iniciais acima continuam no relatorio como trilha de auditoria, mas o estado
+operacional atual e o header do arquivo.
 
 ## Legenda
 
@@ -97,9 +119,9 @@ quando isso ajuda a sessao principal a nao perder o motivo.
 |---|---|
 | `keep_canonical` | Ja e fonte canonica ou suporte operacional oficialmente listado. |
 | `promote_to_kb` | Tem decisoes ainda nao consolidadas e deve virar doc canonico ou ADR. |
-| `merge_into_existing` | Conteudo util, mas deve entrar em doc canonico existente. |
+| `merge_into_existing` | Conteudo util que precisava diff semantico; se ja fechado, a tabela de execucao abaixo substitui esta classificacao inicial. |
 | `archive_with_redirect` | Deve ficar preservado com cabecalho apontando substituto; nao deve mandar. |
-| `obsolete_delete_candidate` | Provavel lixo historico depois de redirect e janela de quarentena. |
+| delete candidate historico | Classificacao inicial possivel; nesta onda os candidatos concretos foram rebaixados para `archived_quarantine`, sem delete. |
 | `human_vault_only` | Bom para Obsidian/AtlasVault/leitura humana, nao para runtime canonico. |
 
 ## Criterios De Decisao
@@ -112,11 +134,13 @@ Use estes criterios antes de mudar a classificacao de qualquer item.
 | O documento contem decisao ainda sem equivalente canonico? | `promote_to_kb` ou `merge_into_existing` | Continue avaliando. |
 | O documento e plano de execucao, prompt, bootstrap de provider ou spec ja implementada? | `archive_with_redirect` | Continue avaliando. |
 | O documento contem conteudo pessoal, constitucional, research ou notas longas humanas? | `human_vault_only` | Continue avaliando. |
-| O documento tem substituto claro, baixo risco e zero referencias vivas apos redirect? | `obsolete_delete_candidate` futuro | Nao deletar. |
+| O documento tem substituto claro, baixo risco e zero referencias vivas apos redirect? | `archived_quarantine` ate revisao de delete | Nao deletar. |
 
 Regras duras:
 
-- `obsolete_delete_candidate` nunca e acao imediata.
+- Delete candidate nunca e acao imediata; use `archived_quarantine` ate uma
+  revisao separada provar que o arquivo nao tem links, valor historico ou valor
+  de implementacao.
 - `human_vault_only` nao significa "sem valor"; muitas vezes e o material mais
   valioso, so nao deve virar runtime cru.
 - `merge_into_existing` exige diff semantico contra o substituto antes de
@@ -153,7 +177,7 @@ Regras duras:
 | `docs/engineering-knowledge-base/atlas-ai-architecture-audit.md` | `keep_canonical` | Diagnostico de consolidacao da arquitetura Atlas AI. | N/A | Medio/alto: perde racional historico. | Manter. |
 | `docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md` | `keep_canonical` | Documento mestre de memoria/contexto/Open Brain. | N/A | Critico: Memory Core perde contrato. | Manter. |
 | `docs/engineering-knowledge-base/open-brain-context-injection.md` | `keep_canonical` | Define injecao automatica de contexto em dev/continue/chat. | N/A | Critico: risco de contexto inseguro. | Manter. |
-| `docs/engineering-knowledge-base/obsidian-atlas-vault.md` | `keep_canonical` | Contrato canonico do Human Knowledge Plane. | N/A | Critico: Obsidian pode virar fonte crua indevida. | Manter. |
+| `docs/engineering-knowledge-base/obsidian-atlas-vault.md` | `keep_canonical` | Contrato canonico da Human Knowledge Surface / Personal Knowledge Workspace. | N/A | Critico: Obsidian pode virar fonte crua indevida. | Manter. |
 | `docs/engineering-knowledge-base/memory-core-runbook.md` | `keep_canonical` | Operacao diaria de memoria e sync. | N/A | Alto. | Manter. |
 | `docs/engineering-knowledge-base/memory-core-contracts.md` | `keep_canonical` | Contratos de tabelas, refs, API e CLI. | N/A | Alto. | Manter. |
 | `docs/engineering-knowledge-base/memory-core-security-privacy.md` | `keep_canonical` | Politica de privacy/redaction/provider-safety. | N/A | Critico. | Manter. |
@@ -191,14 +215,14 @@ Regras duras:
 
 | Documento | Classe | Motivo | Substituto canonico | Risco de apagar | Acao recomendada |
 |---|---|---|---|---|---|
-| `docs/atlas-ai-telemetry.md` | `merge_into_existing` | Operacional e possivelmente ainda util, mas compete com telemetria/performance docs e resolver telemetry plan. | `atlas-ai-master-architecture.md`, `atlas-ai-operating-system.md`, futuro doc KB de telemetry/evidence | Alto: pode conter comandos/API ativos. | Auditar contra codigo e promover resumo para KB antes de arquivar. |
-| `docs/atlas-ai-aggregator-versions.md` | `merge_into_existing` | Changelog tecnico de aggregator_version; deve morar perto de telemetria canonica. | Futuro doc KB `atlas-ai-telemetry-and-evidence.md` ou `atlas-ai-telemetry.md` promovido | Medio: perde historico de rollup. | Manter ate consolidar. |
-| `docs/atlas-ai-performance-reports.md` | `merge_into_existing` | Runbook pequeno de relatorios; pertence a evidence/telemetry. | Futuro doc KB de telemetry/evidence | Medio. | Mesclar e depois redirect. |
-| `docs/atlas-ai-performance-engine-ops.md` | `merge_into_existing` | Operacao diaria do performance engine; deve ser KB se runtime vivo. | Futuro doc KB de telemetry/evidence ou runbook de ops | Medio/alto. | Verificar uso; mesclar. |
-| `docs/atlas-mac-agent.md` | `promote_to_kb` | Doc operacional de agente Mac; se mantido, precisa entrar na KB como surface/local automation. | Novo doc KB ou secao em `atlas-cli-final-product.md` | Medio: instala/valida agente local. | Promover ou arquivar se o agente estiver morto. |
-| `docs/paste-image-setup.md` | `promote_to_kb` | Guia vivo para paste de imagem em terminal; especialmente relevante para `atlas dev`. | `atlas-ai-operating-system.md` + novo/atual doc CLI multimodal | Medio/alto: operador perde setup de terminal. | Promover para KB ou referenciar no README/START_HERE. |
-| `docs/superpowers/specs/2026-05-04-atlas-dev-paste-image-design.md` | `archive_with_redirect` | Spec implementavel de paste image; valor historico e criterio de DoD. | `docs/paste-image-setup.md` + eventual doc KB multimodal/dev REPL | Medio: detalhes de design/testes podem ser uteis. | Arquivar com redirect depois de consolidar outcome. |
-| `docs/superpowers/plans/2026-05-04-atlas-dev-paste-image.md` | `obsolete_delete_candidate` | Plano de execucao task-by-task, com commits/linhas volateis. | Spec paste image + setup final | Baixo/medio; util apenas para auditoria curta. | Quarentena e futuro delete candidate apos redirect. |
+| `docs/atlas-ai-telemetry.md` | `archive_with_redirect` | Operacional e util, mas autoridade de arquitetura/evidence foi consolidada na KB. | `atlas-ai-telemetry-evidence-performance.md`, `atlas-ai-kernel-architecture.md`, `atlas-ai-operating-system.md` | Alto: pode conter comandos/API ativos. | Manter como runbook/source material com redirect. |
+| `docs/atlas-ai-aggregator-versions.md` | `archive_with_redirect` | Changelog tecnico preservado; governanca de comparabilidade esta na KB. | `atlas-ai-telemetry-evidence-performance.md` | Medio: perde historico de rollup. | Manter como changelog/source material. |
+| `docs/atlas-ai-performance-reports.md` | `archive_with_redirect` | Runbook de relatorios preservado; contrato canonico esta na KB. | `atlas-ai-telemetry-evidence-performance.md` | Medio. | Manter como runbook/source material. |
+| `docs/atlas-ai-performance-engine-ops.md` | `archive_with_redirect` | Operacao diaria preservada; contrato canonico esta na KB. | `atlas-ai-telemetry-evidence-performance.md` | Medio/alto. | Manter como runbook/source material. |
+| `docs/atlas-mac-agent.md` | `archive_with_redirect` | Runbook operacional de agente Mac; arquitetura local surface foi promovida. | `atlas-local-agent-surface.md`, `atlas-ai-mobile-surface-gateway.md` | Medio: instala/valida agente local. | Manter como runbook com redirect. |
+| `docs/paste-image-setup.md` | `archive_with_redirect` | Guia vivo para paste de imagem em terminal; autoridade arquitetural foi promovida. | `atlas-ai-cli-multimodal.md`, `atlas-cli-final-product.md` | Medio/alto: operador perde setup de terminal. | Manter como runbook/setup. |
+| `docs/superpowers/specs/2026-05-04-atlas-dev-paste-image-design.md` | `archive_with_redirect` | Spec historica de paste image; valor de source material e criterio de DoD. | `atlas-ai-cli-multimodal.md`, `docs/paste-image-setup.md` | Medio: detalhes de design/testes podem ser uteis. | Manter como source material com redirect. |
+| `docs/superpowers/plans/2026-05-04-atlas-dev-paste-image.md` | `archived_quarantine` | Plano de execucao task-by-task, com commits/linhas volateis. | Spec paste image + setup final + `atlas-ai-cli-multimodal.md` | Baixo/medio; util apenas para auditoria curta. | Quarentena; delete futuro so apos link audit, `git log --follow` e aprovacao humana. |
 | `docs/superpowers/plans/2026-05-03-mcp-tools-expansion.md` | `archive_with_redirect` | Plano de expansao MCP parcialmente substituido por Tool Runtime/Memory docs. | `super-tool-runtime-core.md`, `programming-power-tools-catalog.md`, Memory/Open Brain docs | Medio. | Arquivar com redirect. |
 | `docs/atlas-cli-5x-codex-implementation-prompt.md` | `archive_with_redirect` | Prompt de implementacao, nao fonte canonica. | `atlas-cli-5x-claude-code-plan.md`, `atlas-cli-fair-claude-benchmark.md` | Baixo/medio: historico de decisao pode ajudar. | Arquivar com redirect. |
 | `docs/atlas-cli-5x-codex-safety-context-prompt.md` | `archive_with_redirect` | Prompt de safety/contexto, nao doc mae. | `atlas-cli-5x-claude-code-plan.md`, `atlas-cli-fair-claude-benchmark.md`, `START_HERE.md` | Baixo/medio. | Arquivar com redirect. |
@@ -211,9 +235,9 @@ trata-los como output de outra sessao e nao tentar normalizar tudo agora.
 
 | Documento | Classe | Motivo | Substituto canonico | Risco de apagar | Acao recomendada |
 |---|---|---|---|---|---|
-| `docs/engineering-knowledge-base/domains/finance.md` | `keep_canonical` | Especifica Finance como dominio enterprise de analise/review, com proibicao explicita de execucao de mercado. | Futuro registro no canonical index/domain catalog | Alto: safety financeiro fica implicito. | Integrar ao canonical index e registry apenas na sessao de dominio. |
-| `docs/engineering-knowledge-base/domains/personal-development.md` | `keep_canonical` | Define Personal Development como dominio privado, nao clinico, sem mutacoes automaticas. | Futuro registro no canonical index/domain catalog | Alto: risco de medical/therapy drift se removido. | Integrar com Human Knowledge Plane e privacy docs. |
-| `docs/engineering-knowledge-base/surface-domain-catalog-integration-plan.md` | `promote_to_kb` | Mapeia hardcodes e consumo do catalogo por CLI/API/app/mobile/MCP. | Futuro runbook de surface/domain catalog | Medio/alto. | Manter draft; quando aceito, separar decisoes permanentes de plano de PR. |
+| `docs/engineering-knowledge-base/domains/finance.md` | `keep_canonical` | Especifica Finance como dominio enterprise de analise/review, com proibicao explicita de execucao de mercado. | `atlas-ai-canonical-architecture-index.md`, `domains/README.md` | Alto: safety financeiro fica implicito. | Manter como Layer 4 implemented/ready. |
+| `docs/engineering-knowledge-base/domains/personal-development.md` | `keep_canonical` | Define Personal Development como dominio privado, nao clinico, sem mutacoes automaticas. | `atlas-ai-canonical-architecture-index.md`, `domains/README.md`, `atlas-ai-governed-backlog.md` | Alto: risco de medical/therapy drift se removido. | Manter como Layer 4 implemented/ready. |
+| `docs/engineering-knowledge-base/surface-domain-catalog-integration-plan.md` | `keep_canonical` | Mapeia hardcodes e consumo do catalogo por CLI/API/app/mobile/MCP. | `atlas-ai-mobile-surface-gateway.md`, `atlas-local-agent-surface.md`, `atlas-ai-operating-system.md` | Medio/alto. | Manter como plano ativo ate virar runbook permanente. |
 
 Impacto no inventario: esses docs reduzem a urgencia de promover material legado
 de Finance e Personal Development cru do `resolver-o-que-vale-a-pena`, mas nao
@@ -224,14 +248,14 @@ ou backlog.
 
 | Documento | Classe | Motivo | Substituto canonico | Risco de apagar | Acao recomendada |
 |---|---|---|---|---|---|
-| `resolver-o-que-vale-a-pena/docs/specs/2026-05-03-atlas-domain-profile-orchestration-architecture.md` | `merge_into_existing` | P0 ja reconhecido pelo resolver audit; conceitos promovidos parcialmente. | `atlas-ai-operating-system.md`, `atlas-ai-pipeline.md`, `atlas-ai-core-vs-domain.md` | Alto: contem fraseologia fonte de Profile/Flow. | Confirmar cobertura e arquivar com redirect. |
-| `resolver-o-que-vale-a-pena/docs/specs/2026-05-02-atlas-decide-final-architecture.md` | `merge_into_existing` | P0; Decide como compilador operacional ja aparece na KB, mas spec detalhada ainda pode ter lacunas. | `atlas-ai-kernel-architecture.md`, `atlas-ai-operating-system.md`, `atlas-ai-pipeline.md` | Alto. | Mesclar lacunas e depois redirect. |
-| `resolver-o-que-vale-a-pena/docs/specs/2026-05-03-atlas-programming-product-architecture.md` | `merge_into_existing` | P0; define Programming/Forge/Dev como dominio. | `atlas-ai-operating-system.md`, `engineering-blueprint.md`, `super-tool-runtime-core.md` | Alto. | Mesclar lacunas sobre `programming.forge` e arquivar. |
-| `resolver-o-que-vale-a-pena/docs/atlas-ai-telemetry-quality-efficiency-implementation.md` | `promote_to_kb` | P1 no resolver audit; telemetria/economia/qualidade ainda nao tem doc KB proprio. | Futuro doc KB de telemetry/evidence | Alto: pode conter schema/metricas relevantes. | Promover versao canonica enxuta. |
-| `resolver-o-que-vale-a-pena/docs/atlas-ai-mobile-operating-model.md` | `promote_to_kb` | Produto mobile nao parece coberto pela KB atual. | Novo doc KB de Atlas Mobile/domain surface | Medio/alto. | Promover se mobile continua no roadmap. |
-| `resolver-o-que-vale-a-pena/docs/mobile-gateway-push-inbox-implementation.md` | `promote_to_kb` | Gateway/push/inbox tem arquitetura de produto e dados nao vista na KB. | Novo doc KB mobile gateway/inbox | Alto se feature viva. | Promover apos validar codigo/schema. |
-| `resolver-o-que-vale-a-pena/docs/atlas-glossary.md` | `promote_to_kb` | Layer 0/glossary esta explicitamente "a promover" no canonical index. | Novo `atlas-ai-glossary.md` na KB ou ADR Layer 0 | Alto: termos legados podem divergir. | Promover glossario canonicalizado. |
-| `resolver-o-que-vale-a-pena/docs/specs/2026-05-01-provider-choice-menu-design.md` | `merge_into_existing` | Provider choice e surface UX; possivel valor historico, mas nao deve mandar sozinho. | `atlas-ai-operating-system.md`, Fair Claude docs, futuro provider policy doc | Medio. | Mesclar invariantes vivas; arquivar. |
+| `resolver-o-que-vale-a-pena/docs/specs/2026-05-03-atlas-domain-profile-orchestration-architecture.md` | `superseded_source_material` | P0 ja reconhecido pelo resolver audit; conceitos promovidos para Operating System/Pipeline/Core-vs-Domain. | `atlas-ai-operating-system.md`, `atlas-ai-pipeline.md`, `atlas-ai-core-vs-domain.md` | Alto: contem fraseologia fonte de Profile/Flow. | Preservar como source material; lacunas futuras exigem diff semantico. |
+| `resolver-o-que-vale-a-pena/docs/specs/2026-05-02-atlas-decide-final-architecture.md` | `superseded_source_material` | P0 Decide; contratos vivos ficam no Kernel/OS/Pipeline. | `atlas-ai-kernel-architecture.md`, `atlas-ai-operating-system.md`, `atlas-ai-pipeline.md` | Alto. | Preservar como source material; nao usar como autoridade direta. |
+| `resolver-o-que-vale-a-pena/docs/specs/2026-05-03-atlas-programming-product-architecture.md` | `superseded_source_material` | P0 Programming/Forge/Dev; domain spec e runtime docs mandam. | `domains/programming.md`, `atlas-ai-operating-system.md`, `engineering-blueprint.md`, `super-tool-runtime-core.md` | Alto. | Preservar como source material; backlog so via doc governado. |
+| `resolver-o-que-vale-a-pena/docs/atlas-ai-telemetry-quality-efficiency-implementation.md` | `archive_with_redirect` | P1 no resolver audit; telemetria/economia/qualidade foram sintetizadas na KB. | `atlas-ai-telemetry-evidence-performance.md` | Alto: pode conter schema/metricas relevantes. | Preservar como source material. |
+| `resolver-o-que-vale-a-pena/docs/atlas-ai-mobile-operating-model.md` | `archive_with_redirect` | Produto mobile foi promovido como surface/gateway, nao domain paralelo. | `atlas-ai-mobile-surface-gateway.md` | Medio/alto. | Preservar como source material. |
+| `resolver-o-que-vale-a-pena/docs/mobile-gateway-push-inbox-implementation.md` | `archive_with_redirect` | Gateway/push/inbox foram sintetizados na KB. | `atlas-ai-mobile-surface-gateway.md` | Alto se feature viva. | Preservar como source material/runbook historico. |
+| `resolver-o-que-vale-a-pena/docs/atlas-glossary.md` | `archive_with_redirect` | Layer 0/glossary foi promovido em forma enxuta. | `atlas-ai-layer-0-glossary.md` | Alto: termos legados podem divergir. | Preservar como source material. |
+| `resolver-o-que-vale-a-pena/docs/specs/2026-05-01-provider-choice-menu-design.md` | `superseded_source_material` | Provider choice e surface UX sao source material; policy atual fica no Kernel/OS/Fair Claude docs. | `atlas-ai-operating-system.md`, `atlas-ai-kernel-architecture.md`, Fair Claude docs | Medio. | Revisar edge cases apenas se diff semantico provar lacuna. |
 | `resolver-o-que-vale-a-pena/docs/plans/2026-05-01-provider-choice-app.md` | `archive_with_redirect` | Plano app executavel, linhas e tarefas volateis. | Provider policy/Decide docs canonicos | Medio. | Arquivar com redirect apos extrair lacunas. |
 | `resolver-o-que-vale-a-pena/docs/plans/2026-05-01-provider-choice-cli.md` | `archive_with_redirect` | Plano CLI executavel. | Provider policy/Decide/Fair Claude docs | Medio. | Arquivar com redirect. |
 | `resolver-o-que-vale-a-pena/docs/plans/2026-05-01-provider-choice-on-limit.md` | `archive_with_redirect` | Plano de rate-limit/auth choice; pode conter edge cases. | Provider policy/Decide docs | Medio. | Extrair edge cases e arquivar. |
@@ -247,31 +271,31 @@ ou backlog.
 
 | Documento | Classe | Motivo | Substituto canonico | Risco de apagar | Acao recomendada |
 |---|---|---|---|---|---|
-| `Atlas_Documento_Mestre_v6.md` | `human_vault_only` | Layer 0/constituicao mais recente; importante, mas nao deve competir cru com KB. | Futuro doc KB Layer 0/Constitution + `atlas-ai-canonical-architecture-index.md` | Critico: apagar perde lastro constitucional. | Preservar; promover recorte canonicalizado. |
-| `Atlas_Documento_Mestre_v5.md` | `archive_with_redirect` | Versao anterior da constituicao; historico. | `Atlas_Documento_Mestre_v6.md` e futuro Layer 0 KB | Medio. | Arquivar com redirect para v6. |
-| `Atlas_Documento_Mestre_v3.md` | `archive_with_redirect` | Versao antiga; historico. | `Atlas_Documento_Mestre_v6.md` e futuro Layer 0 KB | Baixo/medio. | Arquivar com redirect. |
-| `Atlas_AI_Documentacao_Final.md` | `merge_into_existing` | Contem definicao/leis do Atlas AI, possivel Layer 0/2. | `atlas-ai-master-architecture.md`, `atlas-ai-vision.md`, futuro Constitution | Alto. | Extrair leis ainda ausentes. |
-| `Atlas_AI_Harness_v1.md` | `merge_into_existing` | Conceitos do Harness absorvidos parcialmente por Engineering Blueprint/Operating System. | `engineering-blueprint.md`, `atlas-ai-operating-system.md` | Medio/alto. | Mesclar lacunas e arquivar. |
-| `Atlas_AI_Harness_Super_Tool_Runtime_Core.md` | `merge_into_existing` | P0; substituido em grande parte por `super-tool-runtime-core.md`. | `super-tool-runtime-core.md`, `programming-power-tools-catalog.md` | Alto. | Comparar lacunas; depois redirect. |
-| `Atlas_Engineering_Harness_Runner_Plano_Profissional.md` | `merge_into_existing` | P1; base historica do Harness Runner. | `engineering-blueprint*.md`, `super-tool-runtime-core.md` | Alto se houver DoD nao migrado. | Mesclar gaps; arquivar. |
+| `Atlas_Documento_Mestre_v6.md` | `human_vault_only` | Layer 0/constituicao mais recente; importante, mas nao deve competir cru com KB. | `atlas-ai-layer-0-glossary.md` + `atlas-ai-canonical-architecture-index.md` | Critico: apagar perde lastro constitucional. | Preservar; promover apenas recortes futuros revisados. |
+| `Atlas_Documento_Mestre_v5.md` | `archive_with_redirect` | Versao anterior da constituicao; historico. | `Atlas_Documento_Mestre_v6.md` + `atlas-ai-layer-0-glossary.md` | Medio. | Arquivar com redirect para v6/Layer 0. |
+| `Atlas_Documento_Mestre_v3.md` | `archive_with_redirect` | Versao antiga; historico. | `Atlas_Documento_Mestre_v6.md` + `atlas-ai-layer-0-glossary.md` | Baixo/medio. | Arquivar com redirect para v6/Layer 0. |
+| `Atlas_AI_Documentacao_Final.md` | `archive_with_redirect` | Definicao/leis do Atlas AI foram sintetizadas no Layer 0. | `atlas-ai-layer-0-glossary.md`, `atlas-ai-master-architecture.md`, `atlas-ai-vision.md` | Alto. | Preservar como source material. |
+| `Atlas_AI_Harness_v1.md` | `superseded_source_material` | Conceitos do Harness absorvidos por Engineering Blueprint/Operating System/Skills/Continuity. | `engineering-blueprint.md`, `atlas-ai-operating-system.md`, `atlas-ai-skill-system.md`, `atlas-ai-continuity-session-state.md` | Medio/alto. | Preservar como rationale historico. |
+| `Atlas_AI_Harness_Super_Tool_Runtime_Core.md` | `superseded_source_material` | P0 Runtime legado substituido pela familia Tool Runtime/Power Tools/Packets/Evidence. | `super-tool-runtime-core.md`, `programming-power-tools-catalog.md`, `atlas-ai-runtime-packets.md`, `atlas-ai-telemetry-evidence-performance.md` | Alto. | Preservar como rationale/sensores historicos. |
+| `Atlas_Engineering_Harness_Runner_Plano_Profissional.md` | `superseded_source_material` | P1 Harness Runner substituido pela familia Engineering Blueprint/runtime/evidence. | `engineering-blueprint*.md`, `super-tool-runtime-core.md`, `atlas-ai-telemetry-evidence-performance.md` | Alto se houver DoD nao migrado. | Preservar rollout historico; lacunas futuras so por diff. |
 | `Atlas_Engineering_Blueprint_7_Itens_Plano_Implementacao.md` | `archive_with_redirect` | Ja existe copia preservada em `archive/source-material`; familia KB atual substitui. | `engineering-blueprint*.md` | Baixo/medio. | Usar copia em archive como fonte; redirect. |
-| `Atlas_AI_Memory_Context_Core_Open_Brain.md` | `merge_into_existing` | P1; KB tem doc canonico com mesmo nome/conteudo evoluido. | `atlas-ai-memory-context-core-open-brain.md`, Memory docs | Alto se apagar antes de comparar hashes/lacunas. | Comparar e arquivar com redirect. |
-| `Atlas_AI_Sessoes_Compactacao_Continuidade.md` | `promote_to_kb` | Continuidade/sessoes/compactacao e `atlas continue` parecem subdocumentados na KB. | `open-brain-context-injection.md`, futuro doc continuity/session state | Alto. | Promover doc ou secao canonica. |
-| `Atlas_AI_Skill_System_v1.md` | `promote_to_kb` | Skills como capacidade governada nao aparecem como doc proprio na KB. | `atlas-ai-kernel-architecture.md`, futuro `atlas-ai-skill-system.md` | Medio/alto. | Promover se skill system esta no roadmap. |
-| `Atlas_AI_CLI_Nomenclatura_Comandos_TUI_ADR.md` | `promote_to_kb` | Nomenclatura/glossario/comandos toca Layer 0 e CLI UX. | Futuro ADR/glossario + `atlas-cli-final-product.md` | Alto: nomes divergentes voltam. | Promover como ADR ou glossario. |
+| `Atlas_AI_Memory_Context_Core_Open_Brain.md` | `superseded_source_material` | P1; KB tem doc canonico com mesmo nome/conteudo evoluido e familia memory atual. | `atlas-ai-memory-context-core-open-brain.md`, Memory docs, `atlas-ai-continuity-session-state.md` | Alto se apagar antes de comparar hashes/lacunas. | Preservar cronologia/backlog, nao autoridade direta. |
+| `Atlas_AI_Sessoes_Compactacao_Continuidade.md` | `archive_with_redirect` | Continuidade/session state foram promovidos na KB. | `atlas-ai-continuity-session-state.md`, `open-brain-context-injection.md` | Alto. | Preservar como source material. |
+| `Atlas_AI_Skill_System_v1.md` | `archive_with_redirect` | Skills como capacidade governada foram promovidas em doc enxuto. | `atlas-ai-skill-system.md`, `atlas-ai-kernel-architecture.md` | Medio/alto. | Preservar como source material. |
+| `Atlas_AI_CLI_Nomenclatura_Comandos_TUI_ADR.md` | `archive_with_redirect` | Nomenclatura/glossario foram promovidos; CLI produto segue fora da KB. | `atlas-ai-layer-0-glossary.md`, `atlas-cli-final-product.md` | Alto: nomes divergentes voltam. | Preservar como source material. |
 | `Atlas_CLI_Caminho_Versao_Final.md` | `archive_with_redirect` | Plano tecnico de versao final; substituido por produto final/release checklist. | `atlas-cli-final-product.md`, `atlas-cli-release-checklist.md` | Medio. | Extrair lacunas e arquivar. |
 | `Atlas_CLI_Plano_Execucao_Final.md` | `archive_with_redirect` | Plano faseado antigo. | `atlas-cli-final-product.md`, `atlas-cli-release-checklist.md` | Medio. | Arquivar com redirect. |
-| `Atlas_CLI_Produto_Final_Roadmap_7_Pontos.md` | `merge_into_existing` | P1; roadmap pode ter pontos ainda nao refletidos no CLI final. | `atlas-cli-final-product.md`, `atlas-cli-5x-claude-code-plan.md` | Medio/alto. | Comparar e mesclar lacunas. |
+| `Atlas_CLI_Produto_Final_Roadmap_7_Pontos.md` | `superseded_source_material` | P1; roadmap preservado e substituido por CLI product/5x/multimodal/backlog. | `atlas-cli-final-product.md`, `atlas-cli-5x-claude-code-plan.md`, `atlas-ai-cli-multimodal.md`, `atlas-ai-governed-backlog.md` | Medio/alto. | Lacunas futuras entram pelo governed backlog. |
 | `Atlas_CLI_TUI_Estado_da_Arte_Plano_Implementacao.md` | `archive_with_redirect` | Plano antigo de CLI/TUI. | `atlas-cli-final-product.md` | Medio. | Arquivar apos extrair comandos/UX vivos. |
-| `Atlas_CLI_Packets_v1.md` | `promote_to_kb` | Contratos de packets/eventos podem ser runtime/evidence relevantes. | `atlas-ai-kernel-architecture.md`, `super-tool-runtime-core.md` | Alto se usados por código/traces. | Verificar codigo; promover contratos vivos. |
-| `Atlas_CLI_Bootstrap_Setup.md` | `obsolete_delete_candidate` | Setup/scheduler antigo e provavel instrução local volátil. | `atlas-cli-final-product.md`, release docs | Baixo/medio; pode conter comandos antigos. | Quarentena; deletar apenas apos redirect e validacao. |
+| `Atlas_CLI_Packets_v1.md` | `archive_with_redirect` | Packets/eventos foram mapeados para contratos kernel/runtime atuais. | `atlas-ai-runtime-packets.md`, `atlas-ai-kernel-architecture.md`, `super-tool-runtime-core.md` | Alto se usados por código/traces. | Preservar como source material. |
+| `Atlas_CLI_Bootstrap_Setup.md` | `archived_quarantine` | Setup/scheduler antigo e provavel instrucao local volatil. | `atlas-cli-final-product.md`, release docs | Baixo/medio; pode conter comandos antigos. | Quarentena; deletar apenas apos redirect, link audit, `git log --follow` e validacao humana. |
 | `Atlas_V1_Implementacao_Tecnica.md` | `archive_with_redirect` | Sprint V1 antigo, grande e provavelmente obsoleto. | KB atual + docs mobile se feature viva | Medio. | Preservar historico; nao usar como fonte. |
 | `Atlas_AI_Plano_Implementacao_Profissional.md` | `archive_with_redirect` | Plano macro antigo substituido por Master/Operating System. | `atlas-ai-master-architecture.md`, `atlas-ai-operating-system.md` | Medio. | Arquivar com redirect. |
 | `Atlas_Memoria_Semantica_Ativa_Compartilhada.md` | `human_vault_only` | Documento de memoria humana/produto amplo; nao runtime canonico cru. | `obsidian-atlas-vault.md`, Memory docs, futuro Constitution | Alto como lastro conceitual. | Preservar em vault; promover apenas recortes. |
 | `Atlas_Memoria_Semantica_Ativa_Projeto_Funcional.md` | `human_vault_only` | Projeto funcional de memoria pessoal. | Memory docs + Obsidian contract | Medio/alto. | Preservar; recortar se virar produto. |
-| `Atlas_Captura_Pensamento_e_Notas_Vivas.md` | `human_vault_only` | Nota conceitual de captura/notes; pertence ao Human Knowledge Plane. | `obsidian-atlas-vault.md` + futuro personal knowledge doc | Medio/alto. | Preservar em vault. |
-| `Atlas_Adendo_Sensor4_Atividade_Digital.md` | `human_vault_only` | Sensor pessoal/digital; domain Personal Development futuro. | Futuro domain spec personal_development | Medio/alto; privacy sensivel. | Preservar, nao injetar em provider cru. |
-| `Atlas_Gaps_Achamos_Nao_Esquecer.md` | `promote_to_kb` | P2 no resolver audit, mas contem backlog de alto valor. | Futuro backlog/domain specs; `atlas-ai-resolver-corpus-audit.md` | Alto: apagar perde ideias relevantes. | Promover como backlog governado, nao spec runtime. |
+| `Atlas_Captura_Pensamento_e_Notas_Vivas.md` | `human_vault_only` | Nota conceitual de captura/notes; pertence a Human Knowledge Surface / Personal Knowledge Workspace. | `obsidian-atlas-vault.md`, `atlas-ai-governed-backlog.md` | Medio/alto. | Preservar em vault/source material. |
+| `Atlas_Adendo_Sensor4_Atividade_Digital.md` | `human_vault_only` | Sensor pessoal/digital; pertence a Personal Development com privacy forte. | `domains/personal-development.md`, `obsidian-atlas-vault.md`, `memory-core-security-privacy.md` | Medio/alto; privacy sensivel. | Preservar, nao injetar em provider cru. |
+| `Atlas_Gaps_Achamos_Nao_Esquecer.md` | `archive_with_redirect` | P2 no resolver audit; backlog de alto valor agora tem governanca. | `atlas-ai-governed-backlog.md`, `domains/personal-development.md`, `atlas-ai-resolver-corpus-audit.md` | Alto: apagar perde ideias relevantes. | Preservar como source material. |
 | `Atlas_Concorrente_Hermes_Agent.md` | `human_vault_only` | Pesquisa concorrencial extensa; nao fonte operacional direta. | `programming-power-tools-catalog.md`, strategy docs | Medio. | Preservar como research note. |
 
 ## AtlasVault / Obsidian
@@ -288,8 +312,8 @@ Classificacao:
 
 | Item | Classe | Motivo | Substituto canonico | Risco de apagar | Acao recomendada |
 |---|---|---|---|---|---|
-| Obsidian/AtlasVault como conceito | `keep_canonical` | Ja tem contrato claro: Human Knowledge Plane, nao fonte primaria operacional. | `obsidian-atlas-vault.md` | Critico se remover contrato. | Manter e usar como filtro para docs pessoais. |
-| Notas pessoais/constitucionais em `resolver-o-que-vale-a-pena/root-md` | `human_vault_only` | Conteudo forte, mas exige privacy, curadoria e promocao antes de runtime. | `obsidian-atlas-vault.md`, futuro Layer 0 KB | Alto. | Preservar; promover recortes. |
+| Obsidian/AtlasVault como conceito | `keep_canonical` | Ja tem contrato claro: Human Knowledge Surface / Personal Knowledge Workspace, nao fonte operacional primaria. | `obsidian-atlas-vault.md` | Critico se remover contrato. | Manter e usar como filtro para docs pessoais. |
+| Notas pessoais/constitucionais em `resolver-o-que-vale-a-pena/root-md` | `human_vault_only` | Conteudo forte, mas exige privacy, curadoria e promocao antes de runtime. | `obsidian-atlas-vault.md`, `atlas-ai-layer-0-glossary.md`, `atlas-ai-governed-backlog.md` | Alto. | Preservar; promover apenas recortes revisados. |
 | `.env.atlas-backup-*` encontrados na raiz | Fora de escopo documental | Backups de ambiente, possivelmente sensiveis; nao ler, nao indexar como doc. | N/A | Critico se expor segredos. | Ignorar neste inventario; tratar por politica de secrets separada. |
 
 ## Areas De Atencao Especial
@@ -389,18 +413,18 @@ terminal.
 
 | Prioridade | Acao | Documentos | Resultado esperado |
 |---|---|---|---|
-| P0 | Promover Layer 0/glossary | `Atlas_Documento_Mestre_v6.md`, `Atlas_AI_Documentacao_Final.md`, `atlas-glossary.md` | Constitution/glossary enxutos e versionados na KB. |
-| P0 | Fechar continuity/session | `Atlas_AI_Sessoes_Compactacao_Continuidade.md` | Contrato canonico para `atlas continue`, compactacao e session state. |
-| P1 | Consolidar telemetry/evidence | `docs/atlas-ai-telemetry.md`, performance docs, telemetry implementation legacy | Um unico doc KB para metricas, custo, evidence e quality efficiency. |
-| P1 | Integrar docs novos de domain catalog | `domains/finance.md`, `domains/personal-development.md`, `surface-domain-catalog-integration-plan.md` | Domain specs aceitos e plano surface/domain convertido em decisao/runbook. |
-| P1 | Promover paste image | `docs/paste-image-setup.md` e spec/plano superpowers | Setup vivo em lugar canonico; plano vira historico. |
-| P2 | Arquivar prompts e planos executados | Codex prompts, provider bootstrap, plans superpowers | Menos ruido para IAs novas. |
-| P2 | Quarentena delete candidates | paste-image implementation plan, bootstrap setup | Candidatos marcados, sem delete imediato. |
+| P0 | Promover Layer 0/glossary | `Atlas_Documento_Mestre_v6.md`, `Atlas_AI_Documentacao_Final.md`, `atlas-glossary.md` | Executado: `atlas-ai-layer-0-glossary.md`. |
+| P0 | Fechar continuity/session | `Atlas_AI_Sessoes_Compactacao_Continuidade.md` | Executado: `atlas-ai-continuity-session-state.md`. |
+| P1 | Consolidar telemetry/evidence | `docs/atlas-ai-telemetry.md`, performance docs, telemetry implementation legacy | Executado: `atlas-ai-telemetry-evidence-performance.md`. |
+| P1 | Integrar docs novos de domain catalog | `domains/finance.md`, `domains/personal-development.md`, `surface-domain-catalog-integration-plan.md` | Parcialmente executado: domain specs estao no index; plano surface-domain segue ativo. |
+| P1 | Promover paste image | `docs/paste-image-setup.md` e spec/plano superpowers | Executado: `atlas-ai-cli-multimodal.md`; setup segue runbook. |
+| P2 | Arquivar prompts e planos executados | Codex prompts, provider bootstrap, plans superpowers | Executado via headers/redirects; sem delete. |
+| P2 | Quarentena delete candidates | paste-image implementation plan, bootstrap setup | Executado via `archived_quarantine`; sem delete. |
 
 ## Bundles De Promocao Recomendados
 
-Estes bundles sao fatias naturais de trabalho para PRs futuros. Cada bundle deve
-terminar com substitutos claros e source material preservado.
+Estes bundles eram as fatias naturais de promocao. A maior parte foi executada
+em 2026-05-05; ficam aqui como trilha de auditoria e mapa de pendencias reais.
 
 ### Bundle A - Layer 0 Constitution E Glossary
 
@@ -411,12 +435,11 @@ Fontes:
 - `resolver-o-que-vale-a-pena/docs/atlas-glossary.md`
 - `resolver-o-que-vale-a-pena/root-md/Atlas_AI_CLI_Nomenclatura_Comandos_TUI_ADR.md`
 
-Destino recomendado:
+Destino executado:
 
-- Novo doc/ADR Layer 0 na KB.
-- Possivel glossario canonico separado, se o conteudo ficar grande.
+- `atlas-ai-layer-0-glossary.md`.
 
-Decisoes a extrair:
+Decisoes promovidas:
 
 - Identidade do Atlas e Atlas AI.
 - Termos canonicos vs termos legados.
@@ -434,11 +457,11 @@ Fontes:
 - `docs/engineering-knowledge-base/open-brain-context-injection.md`
 - `docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md`
 
-Destino recomendado:
+Destino executado:
 
-- Novo doc KB de continuity/session state ou secao clara em Open Brain.
+- `atlas-ai-continuity-session-state.md`.
 
-Decisoes a extrair:
+Decisoes promovidas:
 
 - Quando continuar thread vs nova sessao.
 - Como compactacao preserva intent, evidence e memory refs.
@@ -456,12 +479,11 @@ Fontes:
 - `docs/atlas-ai-performance-engine-ops.md`
 - `resolver-o-que-vale-a-pena/docs/atlas-ai-telemetry-quality-efficiency-implementation.md`
 
-Destino recomendado:
+Destino executado:
 
-- Novo doc KB de telemetry/evidence/performance, ou promocao de
-  `docs/atlas-ai-telemetry.md` para a KB.
+- `atlas-ai-telemetry-evidence-performance.md`.
 
-Decisoes a extrair:
+Decisoes promovidas:
 
 - Eventos e outcomes canonicos.
 - `aggregator_version` e regras de rollup.
@@ -478,11 +500,11 @@ Fontes:
 - `resolver-o-que-vale-a-pena/docs/mobile-gateway-push-inbox-implementation.md`
 - `docs/engineering-knowledge-base/surface-domain-catalog-integration-plan.md`
 
-Destino recomendado:
+Destino executado:
 
-- Doc KB de mobile surface/gateway/inbox, subordinado ao Operating System.
+- `atlas-ai-mobile-surface-gateway.md`.
 
-Decisoes a extrair:
+Decisoes promovidas:
 
 - Mobile como surface, nao domain separado por acidente.
 - Push/inbox como delivery/interaction layer.
@@ -498,11 +520,11 @@ Fontes:
 - `docs/superpowers/specs/2026-05-04-atlas-dev-paste-image-design.md`
 - `docs/superpowers/plans/2026-05-04-atlas-dev-paste-image.md`
 
-Destino recomendado:
+Destino executado:
 
-- Doc KB pequeno de CLI multimodal ou secao em `atlas-cli-final-product.md`.
+- `atlas-ai-cli-multimodal.md`.
 
-Decisoes a extrair:
+Decisoes promovidas:
 
 - Setup por terminal.
 - Comportamento esperado de `atlas dev`/`atlas chat`.
@@ -521,12 +543,14 @@ Fontes:
 - `resolver-o-que-vale-a-pena/root-md/Atlas_Gaps_Achamos_Nao_Esquecer.md`
 - `resolver-o-que-vale-a-pena/root-md/Atlas_Adendo_Sensor4_Atividade_Digital.md`
 
-Destino recomendado:
+Destino atual:
 
 - Layer 4 domain specs aceitos pelo canonical index.
-- Runbook ou architecture doc para surfaces consumirem domain catalog.
+- `atlas-ai-governed-backlog.md` para backlog/personal source material.
+- `surface-domain-catalog-integration-plan.md` segue como plano ativo ate virar
+  runbook permanente.
 
-Decisoes a extrair:
+Decisoes promovidas ou preservadas:
 
 - Finance e review-only, sem market execution.
 - Personal Development e privado, nao clinico e sem mutacao automatica.
@@ -577,9 +601,9 @@ arquivado. Ele mostra onde a autoridade deve morar.
 | Memory/Open Brain | memory context core legacy, memoria semantica docs | `atlas-ai-memory-context-core-open-brain.md`, `memory-core-*.md`, `open-brain-context-injection.md` | Human notes exigem privacy/redaction. |
 | CLI produto/final | CLI roadmap/plans/TUI docs | `atlas-cli-final-product.md`, `atlas-cli-release-checklist.md`, Fair Claude docs | Separar produto vivo de plano antigo. |
 | Benchmark 5x/Fair Claude | Codex prompts e safety prompts | `atlas-cli-5x-claude-code-plan.md`, `atlas-cli-fair-claude-benchmark.md` | Prompt nao manda no protocolo. |
-| Paste image/multimodal | paste-image setup/spec/plan | Futuro doc KB de CLI multimodal ou `atlas-cli-final-product.md` | Setup vivo, plano historico. |
-| Mobile/gateway/inbox | mobile operating model, push inbox implementation | Futuro doc KB mobile surface/gateway | Mobile e surface, nao domain paralelo. |
-| Finance/Personal Development | new domain docs, personal gaps/sensor docs | `domains/finance.md`, `domains/personal-development.md`, futuro index Layer 4 | Personal material nao vira provider context cru. |
+| Paste image/multimodal | paste-image setup/spec/plan | `atlas-ai-cli-multimodal.md`, `atlas-cli-final-product.md` | Setup vivo, plano historico. |
+| Mobile/gateway/inbox | mobile operating model, push inbox implementation | `atlas-ai-mobile-surface-gateway.md` | Mobile e surface, nao domain paralelo. |
+| Finance/Personal Development | new domain docs, personal gaps/sensor docs | `domains/finance.md`, `domains/personal-development.md`, `atlas-ai-governed-backlog.md` | Personal material nao vira provider context cru. |
 | Provider bootstrap | `CLAUDE.md`, `AGENTS.md` | `START_HERE.md`, README e docs canonicos | Projection historica, nao fonte primaria. |
 
 ## O Que Nao Fazer
@@ -595,15 +619,138 @@ arquivado. Ele mostra onde a autoridade deve morar.
 | Atualizar docs mae junto com domain registry runtime. | Mistura governanca com implementacao e dificulta rollback. | PR documental separado. |
 | Copiar conteudo pessoal para domain specs. | Risco de privacy/medical/financial unsafe context. | Sintetizar, redigir e citar source material. |
 
+## Limpeza Executada Em 2026-05-05
+
+Esta rodada executou apenas organizacao documental: headers de status, redirects
+conceituais e navegacao. Nenhum arquivo foi deletado. Nenhum corpo legado foi
+removido. Nenhum codigo/runtime foi alterado por esta limpeza.
+
+| Path | Acao | Motivo | Doc canonica substituta |
+|---|---|---|---|
+| `docs/atlas-ai-telemetry.md` | superseded_source_material header | Telemetria operacional viva, mas arquitetura/evidence devem morar na KB. | `atlas-ai-telemetry-evidence-performance.md` + Kernel + Operating System |
+| `docs/atlas-ai-aggregator-versions.md` | superseded_source_material header | Changelog util de aggregator, parte da familia telemetry/evidence. | `atlas-ai-telemetry-evidence-performance.md` |
+| `docs/atlas-ai-performance-reports.md` | superseded_source_material header | Runbook util de reports, mas nao doc mae. | `atlas-ai-telemetry-evidence-performance.md` |
+| `docs/atlas-ai-performance-engine-ops.md` | superseded_source_material header | Ops util do engine, consolidado sob telemetry/evidence. | `atlas-ai-telemetry-evidence-performance.md` |
+| `docs/atlas-mac-agent.md` | superseded_source_material header | Agente local e surface/automation, nao arquitetura-mae. | `atlas-local-agent-surface.md` + Operating System |
+| `docs/paste-image-setup.md` | superseded_source_material header | Setup vivo de operador; arquitetura esta no doc CLI multimodal. | `atlas-ai-cli-multimodal.md` + atlas-cli-final-product.md |
+| `docs/superpowers/specs/2026-05-04-atlas-dev-paste-image-design.md` | superseded_source_material header | Spec historica util, substituida por setup/produto CLI. | paste-image-setup.md + atlas-cli-final-product.md |
+| `docs/superpowers/plans/2026-05-04-atlas-dev-paste-image.md` | archived_quarantine header | Plano task-by-task volátil; delete futuro exige auditoria. | paste-image spec/setup |
+| `docs/superpowers/plans/2026-05-03-mcp-tools-expansion.md` | archived header | Plano MCP antigo; authority atual e Tool Runtime/Open Brain. | super-tool-runtime-core.md + programming-power-tools-catalog.md + open-brain-context-injection.md |
+| `docs/atlas-cli-5x-codex-implementation-prompt.md` | archived header | Prompt de provider, nao protocolo. | atlas-cli-5x-claude-code-plan.md + atlas-cli-fair-claude-benchmark.md |
+| `docs/atlas-cli-5x-codex-safety-context-prompt.md` | archived header | Prompt de provider, nao safety policy canonica. | Fair Claude docs + START_HERE.md |
+| `resolver-o-que-vale-a-pena/docs/specs/2026-05-03-atlas-domain-profile-orchestration-architecture.md` | superseded_source_material header | P0 ja promovido parcialmente; impede competir com KB. | Operating System + Pipeline + Core-vs-Domain + Canonical Index |
+| `resolver-o-que-vale-a-pena/docs/specs/2026-05-02-atlas-decide-final-architecture.md` | superseded_source_material header | P0 Decide; contratos vivos estao no Kernel/OS/Pipeline. | Kernel Architecture + Operating System + Pipeline |
+| `resolver-o-que-vale-a-pena/docs/specs/2026-05-03-atlas-programming-product-architecture.md` | superseded_source_material header | P0 Programming; domain spec e runtime docs mandam agora. | domains/programming.md + Operating System + Engineering Blueprint + Super Tool Runtime |
+| `resolver-o-que-vale-a-pena/docs/specs/2026-05-01-provider-choice-menu-design.md` | superseded_source_material header | Spec UX/policy historica, nao provider policy atual. | Kernel Architecture + Operating System + Fair Claude docs |
+| `resolver-o-que-vale-a-pena/docs/plans/2026-05-01-provider-choice-app.md` | archived header | Plano app executado/volatil. | Kernel Architecture + Operating System |
+| `resolver-o-que-vale-a-pena/docs/plans/2026-05-01-provider-choice-cli.md` | archived header | Plano CLI executado/volatil. | Kernel Architecture + Operating System |
+| `resolver-o-que-vale-a-pena/docs/plans/2026-05-01-provider-choice-on-limit.md` | archived header | Plano de rate-limit historico; preservar edge cases. | Kernel Architecture + Operating System |
+| `resolver-o-que-vale-a-pena/docs/atlas-ai-telemetry-quality-efficiency-implementation.md` | superseded_source_material header | Fonte de qualidade/custo ainda util. | `atlas-ai-telemetry-evidence-performance.md` + Kernel |
+| `resolver-o-que-vale-a-pena/docs/atlas-ai-mobile-operating-model.md` | superseded_source_material header | Mobile e surface, nao dominio paralelo. | `atlas-ai-mobile-surface-gateway.md` + Operating System |
+| `resolver-o-que-vale-a-pena/docs/mobile-gateway-push-inbox-implementation.md` | superseded_source_material header | Gateway/inbox mobile recebeu sintese canonica. | `atlas-ai-mobile-surface-gateway.md` |
+| `resolver-o-que-vale-a-pena/docs/atlas-glossary.md` | superseded_source_material header | Layer 0/glossary foi promovido em forma controlada. | `atlas-ai-layer-0-glossary.md` + Canonical Index |
+| `resolver-o-que-vale-a-pena/provider-bootstrap/CLAUDE.md` | archived_projection header | Projection gerada para provider, nao source of truth. | START_HERE.md + README.md + KB canonica |
+| `resolver-o-que-vale-a-pena/provider-bootstrap/AGENTS.md` | archived_projection header | Projection gerada para agentes, nao source of truth. | START_HERE.md + README.md + KB canonica |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Documento_Mestre_v6.md` | human_vault_only header | Constitucional/humano; promover somente excertos redigidos. | `atlas-ai-layer-0-glossary.md` + Canonical Index |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Documento_Mestre_v5.md` | archived header | Versao antiga do documento mestre. | Atlas_Documento_Mestre_v6.md + `atlas-ai-layer-0-glossary.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Documento_Mestre_v3.md` | archived header | Versao antiga do documento mestre. | Atlas_Documento_Mestre_v6.md + `atlas-ai-layer-0-glossary.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Documentacao_Final.md` | superseded_source_material header | Leis/identidade extraidas em forma enxuta. | `atlas-ai-layer-0-glossary.md` + Master Architecture + Vision |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Harness_v1.md` | superseded_source_material header | Harness antigo preservado como rationale; Blueprint/OS/Skills/Continuity mandam agora. | Engineering Blueprint + Operating System + Skill System + Continuity |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Harness_Super_Tool_Runtime_Core.md` | superseded_source_material header | P0 Super Tool Runtime reconciliado com runtime/tooling/evidence docs. | super-tool-runtime-core.md + programming-power-tools-catalog.md + Runtime Packets + Telemetry/Evidence |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Engineering_Harness_Runner_Plano_Profissional.md` | superseded_source_material header | Plano runner preservado para rollout historico; autoridade atual e Blueprint/runtime/evidence. | engineering-blueprint*.md + super-tool-runtime-core.md + Telemetry/Evidence |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Engineering_Blueprint_7_Itens_Plano_Implementacao.md` | archived header | Plano historico; familia Blueprint substitui. | engineering-blueprint*.md |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Memory_Context_Core_Open_Brain.md` | superseded_source_material header | Memory/Open Brain legado preservado para cronologia/backlog; KB memory family manda. | atlas-ai-memory-context-core-open-brain.md + memory/open-brain docs + Continuity |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Sessoes_Compactacao_Continuidade.md` | superseded_source_material header | Continuidade/session state foi promovido. | `atlas-ai-continuity-session-state.md` + open-brain-context-injection.md |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Skill_System_v1.md` | superseded_source_material header | Skills como capacidade governada foram promovidas. | `atlas-ai-skill-system.md` + Kernel Architecture |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_CLI_Nomenclatura_Comandos_TUI_ADR.md` | superseded_source_material header | Nomenclatura/CLI recebeu promocao seletiva. | `atlas-ai-layer-0-glossary.md` + atlas-cli-final-product.md |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_CLI_Caminho_Versao_Final.md` | archived header | Plano CLI antigo. | atlas-cli-final-product.md + release checklist |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_CLI_Plano_Execucao_Final.md` | archived header | Plano CLI antigo. | atlas-cli-final-product.md + release checklist |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_CLI_Produto_Final_Roadmap_7_Pontos.md` | superseded_source_material header | Roadmap CLI preservado; produto/5x governam e lacunas novas passam pelo governed backlog. | atlas-cli-final-product.md + 5x Claude plan + CLI Multimodal + Governed Backlog |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_CLI_TUI_Estado_da_Arte_Plano_Implementacao.md` | archived header | Plano TUI antigo. | atlas-cli-final-product.md |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_CLI_Packets_v1.md` | superseded_source_material header | Packets foram mapeados para contrato runtime/evidence atual. | `atlas-ai-runtime-packets.md` + Kernel Architecture + Super Tool Runtime |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_CLI_Bootstrap_Setup.md` | archived_quarantine header | Setup local antigo; delete futuro separado. | atlas-cli-final-product.md + release checklist |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_V1_Implementacao_Tecnica.md` | archived header | V1 tecnico historico. | Master Architecture + Operating System |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Plano_Implementacao_Profissional.md` | archived header | Plano macro antigo. | Master Architecture + Operating System |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Memoria_Semantica_Ativa_Compartilhada.md` | human_vault_only header | Memoria humana/pessoal; privacy gate. | Obsidian AtlasVault + Memory Core + Security/Privacy |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Memoria_Semantica_Ativa_Projeto_Funcional.md` | human_vault_only header | Memoria humana/pessoal; privacy gate. | Obsidian AtlasVault + Memory Core + Security/Privacy |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Captura_Pensamento_e_Notas_Vivas.md` | human_vault_only header | Human Knowledge Surface source. | Obsidian AtlasVault + `atlas-ai-governed-backlog.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Adendo_Sensor4_Atividade_Digital.md` | human_vault_only header | Sensor/digital activity sensivel. | domains/personal-development.md + Obsidian + Privacy |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Gaps_Achamos_Nao_Esquecer.md` | superseded_source_material header | Backlog valioso, nao spec runtime crua. | `atlas-ai-governed-backlog.md` + domains/personal-development.md + resolver audit |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Concorrente_Hermes_Agent.md` | human_vault_only header | Research concorrencial humano. | programming-power-tools-catalog.md + research note futuro, se necessario |
+| `docs/engineering-knowledge-base/README.md` | navigation_update | Adicionou plano/relatorio de cleanup e familias legadas ao mapa de leitura. | KB canonica |
+| `docs/engineering-knowledge-base/START_HERE.md` | navigation_update | Incluiu cleanup report na ordem de leitura antes do Operating System. | KB canonica |
+| `docs/engineering-knowledge-base/archive/README.md` | archive_registry_created | Criou regra explicita para arquivo/source material sem mover docs grandes nem apagar conhecimento util. | Cleanup Report + Resolver Corpus Audit + KB canonica |
+| `resolver-o-que-vale-a-pena/docs/mobile-gateway-push-inbox-implementation.md` | authority_warning_added | Corpo legado continha claim historico de fonte de verdade; header agora bloqueia leitura como autoridade. | `atlas-ai-mobile-surface-gateway.md` |
+| `resolver-o-que-vale-a-pena/docs/atlas-ai-telemetry-quality-efficiency-implementation.md` | authority_warning_added | Checklist legado pedia aprovar como fonte de verdade; header agora marca obsoleto. | `atlas-ai-telemetry-evidence-performance.md` |
+| `resolver-o-que-vale-a-pena/docs/specs/2026-05-03-atlas-domain-profile-orchestration-architecture.md` | authority_warning_added | Draft legado usa linguagem canonical; header aponta autoridade atual. | Operating System + Pipeline + Core-vs-Domain + Canonical Index |
+| `resolver-o-que-vale-a-pena/docs/specs/2026-05-03-atlas-programming-product-architecture.md` | authority_warning_added | Draft legado usa linguagem canonical; header aponta autoridade atual. | Programming domain + Operating System + Engineering Blueprint + Super Tool Runtime |
+| `resolver-o-que-vale-a-pena/docs/specs/2026-05-02-atlas-decide-final-architecture.md` | authority_warning_added | Spec Decide chama a si mesma de canonica; header agora aponta Kernel/OS/Pipeline como autoridade atual. | Kernel + Operating System + Pipeline |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Memory_Context_Core_Open_Brain.md` | authority_warning_added | Corpo legado contem claims de fonte de verdade; header agora limita leitura a source material. | Memory Core + Contracts + Open Brain Context + Continuity |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Skill_System_v1.md` | authority_warning_added | Corpo legado usa linguagem canonical; header agora aponta Skill System + Kernel. | `atlas-ai-skill-system.md` + Kernel |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Engineering_Harness_Runner_Plano_Profissional.md` | authority_warning_added | Plano de rollout contem source-of-truth historico; header agora aponta Engineering Blueprint + runtime/evidence. | Engineering Blueprint family + Super Tool Runtime + Telemetry/Evidence |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Documento_Mestre_v6.md` | authority_warning_added | Documento constitucional deve ser preservado sem competir com o indice vivo. | Layer 0 Glossary + Canonical Index |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Memoria_Semantica_Ativa_Compartilhada.md` | authority_warning_added | Memoria humana contem claims de fonte de verdade; header reforca privacy/source-material boundary. | Obsidian AtlasVault + Memory Core + Security/Privacy |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Memoria_Semantica_Ativa_Projeto_Funcional.md` | authority_warning_added | Memoria humana contem claims de fonte de verdade; header reforca privacy/source-material boundary. | Obsidian AtlasVault + Memory Core + Security/Privacy |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Concorrente_Hermes_Agent.md` | authority_warning_added | Research competitivo usa exemplos de source of truth; header impede leitura como arquitetura Atlas. | Programming Power Tools Catalog + Governed Backlog |
+
+## Promocoes Canonicas Executadas Em 2026-05-05
+
+Esta segunda rodada fechou as maiores referencias a substitutos canonicos ainda
+inexistentes criando docs pequenos, subordinados ao indice existente e com source
+material preservado. A arquitetura-mae nao foi reescrita; cada promocao apenas
+colocou lacunas P0/P1 em docs governados.
+
+| Path | Acao | Motivo | Doc canonica substituta |
+|---|---|---|---|
+| `docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md` | canonical_promotion_created | Layer 0/glossary estava parcial e espalhado entre Documento Mestre, glossario antigo e ADR de nomenclatura. | N/A; novo doc canonico de Layer 0 |
+| `docs/engineering-knowledge-base/atlas-ai-continuity-session-state.md` | canonical_promotion_created | Continuidade, compactacao e handoff precisavam contrato pequeno alem de Open Brain injection. | N/A; novo doc canonico de continuity/session |
+| `docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md` | canonical_promotion_created | Telemetry, aggregator_version, health, reports, custo e evidence estavam em docs soltos fora da KB. | N/A; novo doc canonico de telemetry/evidence/performance |
+| `docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md` | canonical_promotion_created | Mobile gateway, push, inbox e domain catalog precisavam ficar como surface governada, nao domain paralelo. | N/A; novo doc canonico de mobile surface |
+| `docs/engineering-knowledge-base/atlas-ai-cli-multimodal.md` | canonical_promotion_created | Paste image/setup precisava autoridade canonica pequena para input multimodal CLI. | N/A; novo doc canonico CLI multimodal |
+| `docs/engineering-knowledge-base/atlas-ai-skill-system.md` | canonical_promotion_created | Skills estavam como especificacao legada longa, sem contrato canonico pequeno na KB. | N/A; novo doc canonico de skill system |
+| `docs/engineering-knowledge-base/atlas-ai-runtime-packets.md` | canonical_promotion_created | Packets legados precisavam mapear para envelopes, receipts, ledger e tool runtime atuais. | N/A; novo doc canonico de runtime packets |
+| `docs/engineering-knowledge-base/atlas-local-agent-surface.md` | canonical_promotion_created | Mac Agent precisava ser classificado como local surface/automation, nao arquitetura-mae. | N/A; novo doc canonico de local agent surface |
+| `docs/engineering-knowledge-base/atlas-ai-governed-backlog.md` | canonical_promotion_created | Backlog legado de alto ROI precisava governanca sem virar roadmap automatico. | N/A; novo doc canonico de governed backlog |
+| `docs/engineering-knowledge-base/archive/README.md` | archive_registry_created | Arquivo documental precisava regra operacional propria para preservar legados em paths originais sem disputar autoridade. | Cleanup Report + Resolver Corpus Audit |
+| `docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md` | navigation_update | Registrou novos docs por autoridade e atualizou Layer 0 de parcial para ativo enxuto. | KB canonica |
+| `docs/engineering-knowledge-base/README.md` | navigation_update | Incluiu os docs promovidos e o arquivo documental na lista de docs canonicos principais. | KB canonica |
+| `docs/engineering-knowledge-base/START_HERE.md` | navigation_update | Inseriu os docs promovidos e o arquivo documental na ordem de leitura. | KB canonica |
+| `resolver-o-que-vale-a-pena/docs/atlas-glossary.md` | superseded_source_material header | Termos revisados agora estao no Layer 0 canonico. | `atlas-ai-layer-0-glossary.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Documento_Mestre_v6.md` | canonical replacement update | Continua human_vault_only, mas agora aponta para Layer 0 canonico real. | `atlas-ai-layer-0-glossary.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Documentacao_Final.md` | superseded_source_material header | Leis/identidade provider-safe foram sintetizadas no Layer 0 canonico. | `atlas-ai-layer-0-glossary.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_CLI_Nomenclatura_Comandos_TUI_ADR.md` | superseded_source_material header | Nomenclatura e termos canonicos foram promovidos. | `atlas-ai-layer-0-glossary.md` + `../atlas-cli-final-product.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Sessoes_Compactacao_Continuidade.md` | superseded_source_material header | Continuidade/session state foram promovidos. | `atlas-ai-continuity-session-state.md` |
+| `docs/atlas-ai-telemetry.md` | superseded_source_material header | Runbook operacional preservado; autoridade consolidada agora esta na KB. | `atlas-ai-telemetry-evidence-performance.md` |
+| `docs/atlas-ai-aggregator-versions.md` | superseded_source_material header | Changelog preservado; governanca de aggregator_version consolidada. | `atlas-ai-telemetry-evidence-performance.md` |
+| `docs/atlas-ai-performance-reports.md` | superseded_source_material header | Runbook preservado; contrato de reports consolidado. | `atlas-ai-telemetry-evidence-performance.md` |
+| `docs/atlas-ai-performance-engine-ops.md` | superseded_source_material header | Ops preservado; ordem/quality gates consolidados. | `atlas-ai-telemetry-evidence-performance.md` |
+| `resolver-o-que-vale-a-pena/docs/atlas-ai-telemetry-quality-efficiency-implementation.md` | superseded_source_material header | Quality/cost/economics foram sintetizados na KB. | `atlas-ai-telemetry-evidence-performance.md` |
+| `resolver-o-que-vale-a-pena/docs/atlas-ai-mobile-operating-model.md` | superseded_source_material header | Mobile operating model foi promovido como surface gateway. | `atlas-ai-mobile-surface-gateway.md` |
+| `resolver-o-que-vale-a-pena/docs/mobile-gateway-push-inbox-implementation.md` | superseded_source_material header | Gateway/push/inbox foram promovidos em contrato canonico pequeno. | `atlas-ai-mobile-surface-gateway.md` |
+| `docs/paste-image-setup.md` | superseded_source_material header | Setup preservado; autoridade arquitetural de multimodal esta na KB. | `atlas-ai-cli-multimodal.md` |
+| `docs/superpowers/specs/2026-05-04-atlas-dev-paste-image-design.md` | canonical replacement update | Spec historica agora aponta para doc CLI multimodal real. | `atlas-ai-cli-multimodal.md` + `../paste-image-setup.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Skill_System_v1.md` | superseded_source_material header | Contrato de skills foi promovido em forma pequena e provider-neutral. | `atlas-ai-skill-system.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_CLI_Packets_v1.md` | superseded_source_material header | Packets foram mapeados para contratos atuais. | `atlas-ai-runtime-packets.md` |
+| `docs/atlas-mac-agent.md` | superseded_source_material header | Runbook operacional preservado; autoridade de arquitetura local surface foi promovida. | `atlas-local-agent-surface.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Gaps_Achamos_Nao_Esquecer.md` | superseded_source_material header | Backlog legado agora tem governanca propria e nao manda no runtime. | `atlas-ai-governed-backlog.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Documento_Mestre_v5.md` | canonical replacement update | Versao antiga agora aponta para Layer 0 canonico real. | `Atlas_Documento_Mestre_v6.md` + `atlas-ai-layer-0-glossary.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Documento_Mestre_v3.md` | canonical replacement update | Versao antiga agora aponta para Layer 0 canonico real. | `Atlas_Documento_Mestre_v6.md` + `atlas-ai-layer-0-glossary.md` |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Harness_v1.md` | superseded_source_material header | Harness antigo fechado como fonte historica; nao compete com Blueprint/OS. | Engineering Blueprint + Operating System + Skill System + Continuity |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Harness_Super_Tool_Runtime_Core.md` | superseded_source_material header | Super Tool Runtime legado reconciliado com tooling/runtime/evidence canonicos. | super-tool-runtime-core.md + programming-power-tools-catalog.md + Runtime Packets + Telemetry/Evidence |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_Engineering_Harness_Runner_Plano_Profissional.md` | superseded_source_material header | Plano runner preservado como rollout source; DoD e operacao atuais estao na KB. | Engineering Blueprint family + Super Tool Runtime + Telemetry/Evidence |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Memory_Context_Core_Open_Brain.md` | superseded_source_material header | Memory/Open Brain legado fechado como source material; autoridade esta na familia memory. | Memory Core + Memory Contracts + Open Brain Injection + Continuity |
+| `resolver-o-que-vale-a-pena/root-md/Atlas_CLI_Produto_Final_Roadmap_7_Pontos.md` | superseded_source_material header | Roadmap CLI preservado; docs de produto/5x governam execucao e backlog governa lacunas. | atlas-cli-final-product.md + atlas-cli-5x-claude-code-plan.md + Governed Backlog |
+
 ## Recomendacao Final
 
 Nao executar delete agora.
 
 Aplicar limpeza em ondas:
 
-1. Promocoes P0/P1 para lacunas reais: Layer 0/glossary, telemetry/evidence,
-   continuity/session, mobile, provider choice e paste image.
+1. Promocoes restantes de menor prioridade: provider-choice edge cases e
+   pequenas lacunas futuras descobertas por diff semantico, apenas se houver
+   lacuna real.
 2. Redirects para legados ja substituidos.
 3. Quarentena de planos executados e prompts.
-4. Somente depois, avaliar `obsolete_delete_candidate` com busca de links,
-   codigo e historico git.
+4. Somente depois, avaliar arquivos em `archived_quarantine` com busca de
+   links, codigo e historico git.

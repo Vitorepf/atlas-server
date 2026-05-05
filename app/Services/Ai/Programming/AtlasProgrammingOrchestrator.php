@@ -5,6 +5,7 @@ namespace App\Services\Ai\Programming;
 use App\Services\Ai\AtlasAiPolicyService;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
+use App\Services\Ai\Kernel\Repair\RepairStrategy;
 use App\Services\Engineering\EngineeringHarnessExecutionService;
 use Illuminate\Support\Str;
 
@@ -75,7 +76,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         $policyMaxIterations = max(1, min(10, (int) data_get($executionPolicy, 'max_iterations', $maxIterations)));
         $policyAutoTest = (bool) data_get($executionPolicy, 'auto_test', $profile === 'forge' || (bool) ($options['auto_test'] ?? false));
 
-        return [
+        $plan = [
             'schema_version' => 1,
             'plan_id' => (string) Str::orderedUuid(),
             'parent_plan_id' => is_string($options['parent_plan_id'] ?? null) && trim((string) $options['parent_plan_id']) !== ''
@@ -107,6 +108,9 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'operational_decision' => $decision->toArray(),
             'created_at' => now()->toJSON(),
         ];
+        $plan['repair_execution_contract'] = $this->repairExecutionContract($plan);
+
+        return $plan;
     }
 
     public function executeWithHarness(ProgrammingExecutionRequest $request): ProgrammingExecutionResult
@@ -249,6 +253,8 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'score' => data_get($result, 'harness_payload.run.score'),
             'evidence_refs' => (array) ($result['evidence_refs'] ?? []),
             'blocking_failures' => (array) ($result['blocking_failures'] ?? []),
+            'kernel_repair_decision' => $result['kernel_repair_decision'] ?? null,
+            'repair_contract' => $result['repair_contract'] ?? null,
             'policy_contracts' => data_get($dispatch, 'policy_contracts'),
             'completed_at' => now()->toJSON(),
         ], fn (mixed $value): bool => $value !== null && $value !== []);
@@ -284,6 +290,21 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'repair_when_status' => ['failed', 'needs_review'],
             'stop_when_status' => $complete ? ['passed'] : ['passed', 'needs_review'],
             'stop_when_quality_worsens' => true,
+            'kernel_repair_contract' => [
+                'schema_version' => 1,
+                'orchestrator' => 'AtlasRepairOrchestrator',
+                'request_factory' => 'RepairRequestFactory',
+                'failure_domain' => 'gate.failed',
+                'decision_required_before_enqueue' => true,
+                'records_kernel_decision' => true,
+                'blocks_when_kernel_blocks' => true,
+            ],
+            'allowed_strategies' => RepairStrategy::values(),
+            'heavy_strategies' => [
+                RepairStrategy::RerunTool->value,
+                RepairStrategy::RerunHarness->value,
+            ],
+            'requires_evidence_for_heavy_repair' => true,
             'gate_contract' => data_get($contracts, 'gates'),
             'tool_contract' => data_get($contracts, 'tools'),
             'created_at' => now()->toJSON(),

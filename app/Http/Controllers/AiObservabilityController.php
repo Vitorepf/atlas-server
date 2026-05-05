@@ -7,6 +7,8 @@ use App\Models\AiQualityAction;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiThread;
 use App\Models\AiTrace;
+use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use App\Services\Ai\Telemetry\AiTelemetryHealthService;
 use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +28,8 @@ class AiObservabilityController extends Controller
         Request $request,
         AiTelemetryScorecardService $scorecards,
         AiTelemetryHealthService $health,
+        AtlasLedgerReplayService $ledgerReplay,
+        AtlasSelfImprovementScheduleService $selfImprovementSchedule,
     ): JsonResponse
     {
         $data = $request->validate([
@@ -36,8 +40,9 @@ class AiObservabilityController extends Controller
         $payload = Cache::remember(
             'atlas.ai.observability:hours='.$hours,
             self::CACHE_TTL_SECONDS,
-            function () use ($hours, $scorecards, $health): array {
+            function () use ($hours, $scorecards, $health, $ledgerReplay, $selfImprovementSchedule): array {
                 $since = now()->subHours($hours);
+                $scheduledSelfImprovement = $selfImprovementSchedule->schedulePlan();
 
                 return [
                     'window' => [
@@ -61,6 +66,9 @@ class AiObservabilityController extends Controller
                     'quality' => $this->quality($since),
                     'metrics' => $scorecards->build($since),
                     'metrics_health' => $health->evaluate($since),
+                    'kernel_slo' => $ledgerReplay->sloReportForWindow($since),
+                    'kernel_repair' => $ledgerReplay->repairReportForWindow($since),
+                    'self_improvement_schedule' => $scheduledSelfImprovement,
                     'actions' => $this->actions(),
                 ];
             },

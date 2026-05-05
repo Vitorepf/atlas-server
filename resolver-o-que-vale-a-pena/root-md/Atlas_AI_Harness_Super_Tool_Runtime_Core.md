@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/super-tool-runtime-core.md; docs/engineering-knowledge-base/programming-power-tools-catalog.md; docs/engineering-knowledge-base/atlas-ai-runtime-packets.md; docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md.
+> Cleanup note: P0 Super Tool Runtime source material. Canonical authority is now the KB runtime/tooling family; preserve for rationale, sensors and historical implementation notes only.
+
 # Atlas AI Harness - Super Tool Runtime Core
 
 **Camada core de ferramentas, sensores, validadores e atuadores que transforma o Atlas em um sistema operacional de execucao, verificacao e aprendizado**

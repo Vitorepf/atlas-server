@@ -1,3 +1,7 @@
+> Cleanup status: archived.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-operating-system.md; docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md.
+> Cleanup note: Task-by-task app plan. Preserve for history; current provider-choice authority is Kernel/Operating System plus implemented API/contracts.
+
 # Provider Choice — App Implementation Plan (Plano B)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

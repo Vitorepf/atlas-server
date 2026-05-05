@@ -6,6 +6,8 @@ interface ProviderDriver
 {
     public function providerId(): string;
 
+    public function legacyProviderClass(): string;
+
     /**
      * @return array<int,string>
      */

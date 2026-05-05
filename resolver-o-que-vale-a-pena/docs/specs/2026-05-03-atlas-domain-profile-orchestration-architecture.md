@@ -1,3 +1,9 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-operating-system.md; docs/engineering-knowledge-base/atlas-ai-pipeline.md; docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md; docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md.
+> Cleanup note: P0 source material already partially promoted. Preserve terminology, but canonical authority is now the KB hierarchy.
+
+> Authority warning: this draft uses "canonical" in historical sections. Current authority is the replacement set above plus the Canonical Architecture Index.
+
 # Atlas Domain Profile Orchestration Architecture
 
 Status: canonical architecture draft

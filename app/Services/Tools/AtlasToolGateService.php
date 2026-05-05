@@ -5,6 +5,7 @@ namespace App\Services\Tools;
 use App\Models\AtlasToolRun;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use Illuminate\Support\Collection;
 
 class AtlasToolGateService
@@ -15,7 +16,12 @@ class AtlasToolGateService
         private readonly AtlasToolFindingCorrelationService $correlations,
         private readonly AtlasToolAuthorityPolicyService $authorityPolicies,
         private readonly AtlasEvidenceLedger $ledger,
-    ) {}
+        ?KernelSloProbe $slo = null,
+    ) {
+        $this->slo = $slo ?? app(KernelSloProbe::class);
+    }
+
+    private KernelSloProbe $slo;
 
     /**
      * @param  array<string,mixed>  $filters
@@ -23,6 +29,29 @@ class AtlasToolGateService
      * @return array<string,mixed>
      */
     public function evaluate(array $filters = [], array $options = []): array
+    {
+        return $this->slo->measure('gate.evaluate', fn (): array => $this->evaluateUnmeasured($filters, $options), [
+            'tenant_id' => $options['tenant_id'] ?? 'default',
+            'operator_id' => $options['operator_id'] ?? 'system',
+            'envelope_id' => $options['envelope_id']
+                ?? $filters['envelope_id']
+                ?? (isset($filters['run_context_type'], $filters['run_context_id']) ? "{$filters['run_context_type']}:{$filters['run_context_id']}" : 'tool_gate'),
+            'receipt_id' => is_string($options['receipt_id'] ?? null) ? $options['receipt_id'] : null,
+            'trace_id' => is_string($options['trace_id'] ?? null) ? $options['trace_id'] : null,
+            'correlation_id' => $options['correlation_id'] ?? $options['envelope_id'] ?? $filters['envelope_id'] ?? 'tool_gate',
+            'domain' => $options['domain'] ?? $filters['domain'] ?? null,
+            'flow' => $options['flow'] ?? $filters['flow'] ?? null,
+            'surface_id' => $options['surface_id'] ?? $filters['surface_id'] ?? null,
+            'tool_id' => $options['tool_id'] ?? $filters['tool_id'] ?? null,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $filters
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function evaluateUnmeasured(array $filters = [], array $options = []): array
     {
         $allRuns = $this->evidence->recent($filters);
         $latestPerTool = (bool) ($options['latest_per_tool'] ?? false);

@@ -1,3 +1,7 @@
+> Cleanup status: archived.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-master-architecture.md; docs/engineering-knowledge-base/atlas-ai-operating-system.md.
+> Cleanup note: Historical V1 implementation plan. Preserve for history; not current architecture.
+
 # Atlas V1 — Documento de Implementação Técnica
 
 > **Briefing técnico para implementação por Claude Code**

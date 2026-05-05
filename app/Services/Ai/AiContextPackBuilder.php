@@ -7,6 +7,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
 use App\Services\Ai\Security\PromptInjectionScanner;
+use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Semantic\SemanticSearchService;
@@ -23,11 +24,13 @@ class AiContextPackBuilder
         ?AtlasMemorySourcePrivacyPolicy $sourcePrivacy = null,
         ?AtlasVerbatimMemoryService $verbatimMemory = null,
         ?AtlasMemoryContextComposer $memoryComposer = null,
+        ?KernelSloProbe $slo = null,
     ) {
         $this->memoryPrivacy = $memoryPrivacy ?? app(AtlasMemoryPrivacyService::class);
         $this->sourcePrivacy = $sourcePrivacy ?? app(AtlasMemorySourcePrivacyPolicy::class);
         $this->verbatimMemory = $verbatimMemory ?? app(AtlasVerbatimMemoryService::class);
         $this->memoryComposer = $memoryComposer ?? app(AtlasMemoryContextComposer::class);
+        $this->slo = $slo ?? app(KernelSloProbe::class);
     }
 
     private AtlasMemoryPrivacyService $memoryPrivacy;
@@ -38,7 +41,28 @@ class AiContextPackBuilder
 
     private AtlasMemoryContextComposer $memoryComposer;
 
+    private KernelSloProbe $slo;
+
     public function build(string $input, AiTaskRequest $task, array $options = []): AiContextPack
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+
+        return $this->slo->measure('context.compose', fn (): AiContextPack => $this->buildUnmeasured($input, $task, $options), [
+            'tenant_id' => data_get($payload, 'tenant_id', 'default'),
+            'operator_id' => data_get($payload, 'operator_id', 'system'),
+            'envelope_id' => data_get($payload, 'envelope_id', data_get($payload, 'thread_id', 'context_compose')),
+            'receipt_id' => data_get($payload, 'receipt_id'),
+            'trace_id' => data_get($payload, 'trace_id'),
+            'correlation_id' => data_get($payload, 'correlation_id', data_get($payload, 'thread_id', 'context_compose')),
+            'domain' => data_get($payload, 'domain', data_get($payload, 'profile_context.domain')),
+            'flow' => data_get($payload, 'flow', data_get($payload, 'profile_context.flow')),
+            'surface_id' => data_get($payload, 'surface_id', data_get($payload, 'app_surface')),
+            'provider' => data_get($payload, 'selected_provider', data_get($payload, 'provider')),
+            'model' => data_get($payload, 'selected_model', data_get($payload, 'model')),
+        ]);
+    }
+
+    private function buildUnmeasured(string $input, AiTaskRequest $task, array $options = []): AiContextPack
     {
         $notes = $this->contextNotes($input, $options);
         $contextRefs = $notes->map(function (SemanticNote $note): array {

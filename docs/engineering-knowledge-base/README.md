@@ -17,6 +17,7 @@ capabilities:
   - unified_pipeline
   - core_domain_boundary
   - resolver_corpus_governance
+  - documentation_archive_governance
   - atlas_ai_operating_system
   - canonical_onboarding
   - canonical_docs
@@ -39,17 +40,23 @@ capabilities:
   - programming_power_tools_catalog
   - fair_claude_benchmark
   - atlas_supercharged_routing
+  - programming_domain
+  - domain_specs_index
+  - self_improvement_domain
+  - finance_domain
+  - personal_development_domain
 decisions:
   - Atlas AI Canonical Architecture Index define a hierarquia oficial entre Constitution, Kernel, Master Architecture, Topology e Domain Specs.
   - Atlas AI Master Architecture e a raiz enterprise para autoridade operacional, contratos canonicos, planes, dominios, runtimes, evidence, learning e estrategia contra Claude Code.
   - Atlas AI Vision, Pipeline e Core Vs Domain sao os tres documentos fundadores curtos da arquitetura-mae.
   - Atlas AI Resolver Corpus Audit classifica a pasta resolver-o-que-vale-a-pena e promove specs P0 para a arquitetura canonica.
+  - Archive README define como ler source material preservado sem deixar docs legados competirem com a arquitetura canonica.
   - Atlas AI Operating System define a camada macro de orquestracao, dominios, pipeline comum e regras anti-duplicacao.
   - START_HERE.md e o ponto de entrada para humanos e IAs.
   - Docs versionados sao a fonte de verdade.
   - Postgres guarda indice operacional e estado consultavel.
   - O indice de codigo liga docs canonicos a implementacao real.
-  - Obsidian/AtlasVault e o Human Knowledge Plane: camada humana poderosa para escrita, revisao, pesquisa e navegacao, nunca fonte primaria automatica.
+  - Obsidian/AtlasVault e a Human Knowledge Surface / Personal Knowledge Workspace: camada humana poderosa para escrita, revisao, pesquisa e navegacao, nunca fonte primaria automatica.
   - Obsidian/AtlasVault tem contrato proprio para import/export bidirecional seguro.
   - Engineering Blueprint define o contrato de produto e qualidade antes de execucao pelo Harness Runner.
   - Open Brain Context Injection define quando CLI/app devem usar memoria automaticamente em tarefas de codigo.
@@ -60,6 +67,7 @@ maintenance:
   - Leia atlas-ai-master-architecture.md antes de alterar autoridade macro, Policy/Profile, Decide, Domain Orchestrator, Runtime, Evidence, Learning ou estrategia contra Claude Code.
   - Leia atlas-ai-vision.md, atlas-ai-pipeline.md e atlas-ai-core-vs-domain.md antes de reorganizar fluxos macro.
   - Leia atlas-ai-resolver-corpus-audit.md antes de alterar Atlas Decide, Policy/Profile, Programming Orchestrator, Forge ou Super Tool Runtime.
+  - Leia archive/README.md antes de mover, arquivar ou apagar source material preservado.
   - Leia atlas-ai-operating-system.md antes de criar comando, fluxo, harness, dominio ou capability horizontal nova.
   - Leia START_HERE.md antes de continuar implementacoes de memoria/contexto.
   - Leia open-brain-context-injection.md antes de alterar atlas dev, atlas continue, atlas chat ou AtlasAiSheet.
@@ -73,10 +81,13 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
+  - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
+  - docs/engineering-knowledge-base/kernel/failure-domain-taxonomy.md
   - docs/engineering-knowledge-base/atlas-ai-vision.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
   - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
   - docs/engineering-knowledge-base/atlas-ai-resolver-corpus-audit.md
+  - docs/engineering-knowledge-base/archive/README.md
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
   - app/Services/Engineering/EngineeringKnowledgeBaseService.php
@@ -119,7 +130,7 @@ O Atlas usa uma arquitetura de conhecimento em camadas:
 1. Docs canonicos versionados neste repositorio.
 2. Registry operacional em Postgres.
 3. Context packs do Atlas e do Harness consumindo esse registry.
-4. Human Knowledge Plane: Obsidian/AtlasVault e outras notas humanas como escrita, revisao, pesquisa, navegacao e espelho gerenciado.
+4. Human Knowledge Surface / Personal Knowledge Workspace: Obsidian/AtlasVault e outras notas humanas como escrita, revisao, pesquisa, navegacao e espelho gerenciado.
 
 O repositorio e a fonte de verdade porque muda junto com o codigo, passa por
 review, entra no diff e acompanha migrations/testes. O Postgres e o indice vivo
@@ -130,11 +141,12 @@ codigo real e registra modulos, simbolos, rotas, comandos, migrations, testes e
 links docs->codigo. Assim, a IA recebe conceito e implementacao no mesmo context
 pack.
 
-Obsidian/AtlasVault e o Human Knowledge Plane: uma camada humana bidirecional de
-leitura, escrita, curadoria, pesquisa, identidade e navegacao. O contrato
-canonico esta em `obsidian-atlas-vault.md`. Ele permite import/export seguro,
-managed notes e revisao humana rica, mas nao transforma notas soltas em fonte
-primaria operacional.
+Obsidian/AtlasVault e a Human Knowledge Surface / Personal Knowledge Workspace:
+um workspace humano de leitura, escrita, curadoria, pesquisa, identidade,
+navegacao e espelho gerenciado. O contrato canonico esta em
+`obsidian-atlas-vault.md`. Ele permite import/export seguro, managed notes e
+revisao humana rica, mas nao transforma notas soltas em fonte operacional
+primaria.
 
 ## Regra De Ouro
 
@@ -170,16 +182,35 @@ detalhe de modulo com docs/testes.
 |---|---|
 | `START_HERE.md` | Ponto de entrada para humanos e IAs |
 | `atlas-ai-canonical-architecture-index.md` | Indice oficial da hierarquia entre Constitution, Kernel, Master Architecture, Topology e Domain Specs |
+| `atlas-ai-layer-0-glossary.md` | Constituicao operacional enxuta e glossario canonico de Layer 0; impede que providers, prompts ou docs legados disputem a identidade do Atlas AI |
+| `atlas-ai-kernel-architecture.md` | Especificacao kernel formal: OperationEnvelope, DecisionReceipt tipado, Evidence Ledger, SDKs, failure domains e SLOs |
+| `kernel/failure-domain-taxonomy.md` | Taxonomia canonica de FailureDomain, FailureClassifier e FailureHandlerRegistry |
 | `atlas-ai-master-architecture.md` | Especificacao enterprise da arquitetura-mae: planes, autoridade unica, contratos canonicos, dominios, runtimes, evidence, learning e estrategia para superar Claude Code |
 | `atlas-ai-vision.md` | Documento fundador curto: Atlas AI como inteligencia unica do produto |
 | `atlas-ai-pipeline.md` | Pipeline unico de qualquer requisicao Atlas AI |
 | `atlas-ai-core-vs-domain.md` | Regra de decisao entre Core, Domain e Surface |
+| `domains/README.md` | Indice local das Domain Specs e status implemented/ready vs scaffold |
+| `domains/programming.md` | Spec canonica do dominio implemented/ready Programming |
+| `domains/self-improvement.md` | Spec canonica do dominio implemented/ready Self-Improvement |
+| `domains/finance.md` | Spec canonica do dominio implemented/ready Finance |
+| `domains/personal-development.md` | Spec canonica do dominio implemented/ready Personal Development |
 | `atlas-ai-resolver-corpus-audit.md` | Auditoria da pasta `resolver-o-que-vale-a-pena`: o que vira canonico, referencia, futuro ou arquivo historico |
+| `legacy-documentation-cleanup-report.md` | Inventario e registro de limpeza de docs legados, duplicados, humanos, arquivados e pendentes de promocao |
+| `legacy-documentation-cleanup-plan.md` | Plano seguro para futuras ondas de promocao, redirect, arquivo e delete candidate |
 | `atlas-ai-operating-system.md` | Arquitetura macro do Atlas AI: dominios, pipeline comum, anti-duplicacao e ownership entre dev, forge, decide, memoria, tools e curadoria |
+| `atlas-ai-continuity-session-state.md` | Contrato canonico para continuidade, compactacao, handoff de provider/surface e session snapshots |
+| `atlas-ai-telemetry-evidence-performance.md` | Contrato canonico para telemetry, Evidence Ledger projections, aggregator_version, health gates, reports, custo e performance |
+| `atlas-ai-mobile-surface-gateway.md` | Contrato canonico para mobile como surface, pairing, push, inbox, discussion handoff e domain catalog |
+| `atlas-ai-cli-multimodal.md` | Contrato canonico para input multimodal no CLI, paste de imagem, anexos clicaveis e fallbacks por terminal |
+| `atlas-ai-skill-system.md` | Contrato canonico para skills provider-neutral, lifecycle, evals, governance e traceability |
+| `atlas-ai-runtime-packets.md` | Mapa canonico dos packets legados para envelopes, receipts, ledger, tool events, permissions, memory deltas e router decisions |
+| `atlas-local-agent-surface.md` | Contrato canonico para Mac Agent/local automation como surface, readiness e background jobs |
+| `atlas-ai-governed-backlog.md` | Contrato para preservar backlog legado sem transformar notas pessoais ou ideias cruas em runtime/roadmap automatico |
 | `atlas-ai-architecture-audit.md` | Analise rigorosa de consolidacao dos docs: capacidades existentes, duplicacoes, lacunas e ordem recomendada para reorganizar o Atlas AI |
+| `archive/README.md` | Regras do arquivo documental: como ler source material preservado sem deixar docs legados competirem com a arquitetura canonica |
 | `atlas-ai-memory-context-core-open-brain.md` | Documento mestre versionado de memoria, contexto e recall |
 | `open-brain-context-injection.md` | Como CLI e app devem usar Open Brain automaticamente em dev, continue, chat, programming, review e debug |
-| `obsidian-atlas-vault.md` | Contrato para Obsidian/AtlasVault como camada humana bidirecional, sem virar fonte primaria |
+| `obsidian-atlas-vault.md` | Contrato para Obsidian/AtlasVault como Human Knowledge Surface / Personal Knowledge Workspace, sem virar fonte operacional primaria |
 | `code-intelligence.md` | Indice de codigo, modulos, simbolos e doc links |
 | `engineering-blueprint.md` | Produto final do Engineering Blueprint System |
 | `engineering-blueprint-contracts.md` | Contratos de blueprint, task, inventory, scenarios, evidencias e findings |
@@ -217,6 +248,8 @@ historico, auditoria e compatibilidade de links antigos.
 | `maintenance-playbook.md` | deprecated | `START_HERE.md`, `engineering-blueprint-runbook.md`, `memory-core-runbook.md` |
 | `mcp-tools-contract.md` | archived | `atlas-ai-memory-context-core-open-brain.md`, `open-brain-context-injection.md`, `memory-core-contracts.md` |
 | `mcp-tools-rollout-report.md` | archived | Tests MCP, command describe e docs de Memory/Open Brain |
+| `../superpowers/plans/*` e `../superpowers/specs/*` | archived/source material | `super-tool-runtime-core.md`, `programming-power-tools-catalog.md`, `paste-image-setup.md`, `atlas-cli-final-product.md` |
+| `../../resolver-o-que-vale-a-pena/**` | governed legacy corpus | `atlas-ai-resolver-corpus-audit.md`, `legacy-documentation-cleanup-report.md`, docs canonicos por familia |
 
 ## O Que Entra Aqui
 

@@ -28,14 +28,14 @@ capabilities:
   - atlas_vs_claude_code_strategy
 decisions:
   - Atlas AI e a inteligencia operacional do Atlas, nao um chat, comando, provider ou harness isolado.
-  - A arquitetura-mae e dividida em Control Plane, Domain Plane, Runtime Plane, Evidence Plane, Learning Plane, Human Knowledge Plane e Surface Plane.
+  - A arquitetura-mae e dividida em Control Plane, Domain Plane, Runtime Plane, Evidence Plane, Learning Plane, Human Knowledge Surface / Personal Knowledge Workspace e Surface Plane.
   - Toda tarefa operacional relevante deve passar por Profile Resolution, Policy Resolution, Decision Receipt, Domain Orchestrator, Runtime, Gates, Evidence e Learning.
   - Atlas Decide e o compilador operacional; ele decide e emite receipt, mas nao executa dominios.
   - Por padrao, Atlas Decide deve escolher o melhor provider/modelo permitido para a tarefa; override manual de modelo e excecao auditada.
   - Domain Orchestrators sao donos da semantica de execucao; Runtime executa; Gates julgam evidencia.
   - Super Tool Runtime e Core compartilhado, consumido por Dev, Forge, QA, Security, Finance, Personal Development e Curator.
   - Atlas vence Claude Code nao por um modelo melhor isolado, mas por memoria, contexto, ferramentas, gates, repair, evidencia, continuidade e aprendizado medido.
-  - AtlasVault/Obsidian e o Human Knowledge Plane: poderoso para escrita, pesquisa, revisao e identidade humana, mas nunca fonte operacional crua sem ingestao, classificacao, redacao e gates.
+  - AtlasVault/Obsidian e a Human Knowledge Surface / Personal Knowledge Workspace: poderoso para escrita, pesquisa, revisao e identidade humana, mas nunca fonte operacional crua sem ingestao, classificacao, redacao e gates.
   - Novos dominios devem ser incorporados por contrato de domain onboarding, nao por improviso em comandos ou prompts.
   - Autoaprimoramento do Atlas e um dominio operacional proprio, com ciclos agendados, metricas, proposals, gates e aprovacao por risco.
 maintenance:
@@ -137,7 +137,7 @@ Atlas AI
 ├── Runtime Plane
 ├── Evidence Plane
 ├── Learning Plane
-├── Human Knowledge Plane
+├── Human Knowledge Surface / Personal Knowledge Workspace
 └── Surface Plane
 ```
 
@@ -223,7 +223,7 @@ Inclui:
 - documentation updates;
 - anti-duplication findings.
 
-### Human Knowledge Plane
+### Human Knowledge Surface / Personal Knowledge Workspace
 
 Responsavel por leitura, escrita, revisao, curadoria humana e memoria narrativa.
 
@@ -240,12 +240,12 @@ Inclui:
 - backlinks `atlas://`;
 - promocao controlada para memoria operacional.
 
-Este plane e poderoso porque da ao Atlas continuidade humana, contexto rico,
-material de pesquisa e superficie de revisao que nenhum chat efemero possui.
-Mas ele nao e fonte primaria operacional. Antes de entrar no Runtime, Open Brain
-ou provider context, uma nota precisa passar por ingestao, classificacao,
-privacy/redaction, provider-safety, dedupe, evidence link e aprovacao quando o
-risco exigir.
+Esta surface/workspace e poderosa porque da ao Atlas continuidade humana,
+contexto rico, material de pesquisa e superficie de revisao que nenhum chat
+efemero possui. Mas ela nao e fonte operacional primaria. Antes de entrar no
+Runtime, Open Brain ou provider context, uma nota precisa passar por ingestao,
+classificacao, privacy/redaction, provider-safety, dedupe, evidence link e
+aprovacao quando o risco exigir.
 
 ### Surface Plane
 
@@ -740,7 +740,8 @@ Status inicial implementado:
 Objetivo:
 
 ```text
-Executar analise financeira, risco e operacao com auditabilidade enterprise.
+Executar analise financeira, risco, portfolio, tese, compliance e backtest com
+auditabilidade enterprise, sempre em modo review-only.
 ```
 
 Requisitos:
@@ -786,24 +787,23 @@ Flows:
 - `marketing.brand_review`;
 - `marketing.forge`.
 
-Orchestrator:
+Catalog/orchestrator alvo:
 
 ```text
 AtlasMarketingOrchestrator
 ```
 
-Status inicial implementado:
+Status real atual:
 
-- Marketing esta `ready 9/9` no Domain Onboarding Scorecard;
-- `AtlasMarketingOrchestrator` implementa o SDK de dominio e declara suporte a
-  todos os 15 flows canonicos;
-- o Domain/Profile Registry declara context policy `marketing_growth_context`,
-  memory/learning projection `marketing`, gates de marca/claims/audience/medicao
-  e surfaces CLI/API/app/MCP;
-- `marketing.forge` existe como intensidade alta do mesmo domain, com
-  `domain_forge_runtime`, asset manifest, experiment plan e learning delta;
-- o output de Marketing permanece draft/review ate aprovacao explicita do
-  operador; publicacao externa nao e automatica.
+- Marketing e scaffold/catalog-ready, nao implemented/ready;
+- o catalogo declara 15 flows canonicos para preservar a arquitetura alvo e
+  evitar perda de vocabulario de produto;
+- ainda falta runtime/orchestrator proprio antes de marcar Marketing como
+  implemented;
+- `marketing.forge` e fluxo alvo de intensidade alta, mas nao deve ser exposto
+  como runtime pronto;
+- qualquer output de Marketing deve permanecer draft/review ate aprovacao
+  explicita do operador, e publicacao externa nao pode ser automatica.
 
 Contexto especializado:
 
@@ -1131,7 +1131,7 @@ Tipos:
 | Engineering Harness | Programacao pesada, worktree/sandbox, multi-gate. |
 | Browser/Visual Runtime | UI, screenshots, e2e, acessibilidade, visual smoke. |
 | Finance Runtime | Dados, simulacao, risco, compliance. |
-| Marketing Runtime | Pesquisa, criativos, assets, copy, analytics, experimentos e brand/compliance checks. |
+| Marketing Runtime (alvo/scaffold) | Pesquisa, criativos, assets, copy, analytics, experimentos e brand/compliance checks; ainda precisa runtime/orchestrator proprio antes de ser implemented/ready. |
 | Personal Runtime | Rotinas, sensores, follow-up, metricas pessoais. |
 | Curator Runtime | Auditoria de docs/codigo/processos. |
 | Self-Improvement Runtime | Jobs agendados de auditoria, metricas, proposals, learning e arquitetura. |
@@ -1174,7 +1174,8 @@ Status inicial implementado:
 - `atlas_ledger_events` como event store append-only minimo;
 - `AtlasEvidenceLedger` como gravador canonico;
 - `LedgerEventType` com taxonomia inicial do kernel;
-- `AtlasDecideService` emitindo `ENVELOPE_CREATED` e `DECISION_ISSUED`;
+- `OperationEnvelopeFactory` emitindo `ENVELOPE_CREATED`;
+- `AtlasDecideService` emitindo `DECISION_ISSUED`;
 - `AiWorker` emitindo `EXECUTION_STARTED`, `PROVIDER_CALLED`,
   `PROVIDER_RETURNED`, `OPERATION_COMPLETED`, `OPERATION_FAILED` e
   `OPERATION_BLOCKED` sem gravar prompt/output bruto;
@@ -1191,7 +1192,7 @@ Status inicial implementado:
 - `AtlasSelfImprovementOrchestrator` resolvendo qualquer flow
   `self_improvement.*` suportado, normalizando opcoes, declarando autonomia
   baixa, gates requeridos e plano de execucao antes de acionar o runtime;
-- `AtlasSelfImprovementRuntime` executando 10 flows especializados
+- `AtlasSelfImprovementRuntime` executando 11 flows especializados
   (`nightly_review`, `weekly_architecture_audit`, `capability_gap_scan`,
   `benchmark_review`, `memory_quality_review`, `tool_runtime_review`,
   `domain_learning_review`, `docs_drift_review`,
@@ -1202,11 +1203,12 @@ Status inicial implementado:
   habilitado;
 - comando `atlas:ai:self-improve --list-flows --json` para inspecionar os flows
   suportados sem executar;
-- comando `atlas:ai:self-improve --flow=tool_runtime_review --plan-only --json`
+- comando `atlas:ai:self-improve --flow=repair_loop_review --plan-only --json`
   para renderizar o plano, gates, runtime e executor sem criar `AtlasInitiativeRun`;
-- comando `atlas:ai:self-improve --flow=tool_runtime_review --hours=24 --limit=5 --json`
+- comando `atlas:ai:self-improve --flow=repair_loop_review --hours=24 --limit=5 --json`
   com agendamento opcional por `atlas_ai.self_improvement.*`; o scheduler aceita
-  `ATLAS_AI_SELF_IMPROVEMENT_FLOWS` como lista CSV de flows para rodar ciclos
+  `ATLAS_AI_SELF_IMPROVEMENT_FLOWS` como lista CSV de flows para rodar ciclos;
+  o default recorrente roda `nightly_review,repair_loop_review`
   especializados na madrugada;
 - comando `atlas:ai:ledger {envelope} --json` para replay operacional por
   `envelope_id`.
@@ -1311,10 +1313,10 @@ Saidas:
 
 Learning nao deve promover memoria sensivel sem privacy policy.
 
-## Human Knowledge Plane
+## Human Knowledge Surface / Personal Knowledge Workspace
 
-O Human Knowledge Plane e a camada onde o Atlas conversa com conhecimento
-humano de alta densidade: Obsidian, AtlasVault, notas longas, pesquisas,
+A Human Knowledge Surface / Personal Knowledge Workspace reune Obsidian,
+AtlasVault, notas longas, pesquisas,
 rascunhos, reflexoes, identidade, mapas de projeto e revisao de memorias.
 
 Ele resolve um problema que nenhum provider resolve sozinho: continuidade
@@ -1324,12 +1326,13 @@ propor promocao de conhecimento para a memoria operacional.
 
 Contrato duro:
 
-- Obsidian/AtlasVault e core da camada humana, nao core operacional bruto.
+- Obsidian/AtlasVault e Human Knowledge Surface / Personal Knowledge Workspace,
+  nao core runtime operacional bruto.
 - Open Brain nao deve ler nota solta diretamente em runtime.
 - Nota so entra em contexto de provider apos classificacao, redacao,
   provider-safety, dedupe e link de evidencia.
-- Docs canonicos, Postgres, audits, code intelligence e evidence ledger continuam
-  sendo fonte operacional.
+- Docs canonicos, Postgres/index, memory/core, audits, code intelligence e
+  evidence ledger continuam sendo fonte operacional.
 - Atlas pode escrever notas no Vault como projection humana gerenciada, nao como
   substituto de migrations, services, docs canonicos ou testes.
 
@@ -1581,15 +1584,11 @@ Status parcial implementado:
   intelligence, memory/learning policy, gates por flow e surfaces oficiais
   (`atlas dev`, `atlas forge`, `atlas fix`, `atlas continue`, chat dev/review/debug,
   API, app e MCP);
-- `self_improvement` esta `ready 9/9`: declara 10 flows especializados de
+- `self_improvement` esta `ready 9/9`: declara 11 flows especializados de
   auditoria/evolucao, fontes de contexto (`atlas_evidence_ledger`, architecture
   validation, domain scorecards, KB, code intelligence, tool evidence, memory
   quality, provider performance e benchmark corpus), learning policy, gates de
   risco/evidencia/aprovacao e surfaces scheduler/CLI/API/app;
-- `marketing` esta `ready 9/9`: declara 15 flows de estrategia, pesquisa,
-  positioning, campanha, criativos, copy, midia, landing page, email, social,
-  video script, A/B test, analytics, brand review e forge, com context,
-  memory/learning, gates e surfaces;
 - `finance` esta `ready 9/9`: declara 10 flows enterprise de pesquisa,
   risco, portfolio, tese, macro, earnings, impacto de noticias, compliance,
   backtest e forge, com autonomia baixa, gates de compliance/source/risk,
@@ -1598,8 +1597,14 @@ Status parcial implementado:
   plan-only para reflexao, revisoes, habitos, foco, aprendizado, energia,
   objetivos, recuperacao e forge, com redacao obrigatoria para provider-safe,
   linguagem nao clinica e bloqueio de mutacao automatica de calendario/tarefas;
-- os demais dominios ativos possuem scaffolds explicitos para onboarding
-  incremental sem sumir da validacao arquitetural.
+- `marketing` esta scaffold/catalog-ready: declara catalogo alvo com 15 flows
+  de estrategia, pesquisa, positioning, campanha, criativos, copy, midia,
+  landing page, email, social, video script, A/B test, analytics, brand review e
+  forge, mas ainda precisa runtime/orchestrator proprio antes de virar
+  implemented/ready;
+- `research`, `health`, `learning`, `writing`, `qa`, `security`,
+  `operations`, `background` e `general` tambem sao scaffolds auditaveis para
+  onboarding incremental sem sumir da validacao arquitetural.
 
 ### Phase 3 - Control Plane Services
 

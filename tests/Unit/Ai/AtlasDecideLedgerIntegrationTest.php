@@ -49,6 +49,25 @@ class AtlasDecideLedgerIntegrationTest extends TestCase
             'tenant_id' => 'atlas-local',
             'operator_id' => 'vitor',
         ]);
+        $this->assertDatabaseHas('atlas_ledger_events', [
+            'envelope_id' => $envelopeId,
+            'event_type' => 'SLO_OBSERVED',
+            'emitter_stage' => 'atlas.slo',
+            'tenant_id' => 'atlas-local',
+            'operator_id' => 'vitor',
+        ]);
+        $this->assertDatabaseHas('atlas_ledger_events', [
+            'envelope_id' => 'provider_prepare_pre_envelope',
+            'event_type' => 'SLO_OBSERVED',
+            'emitter_stage' => 'atlas.slo',
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+        ]);
+        $providerPrepareEvent = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'provider_prepare_pre_envelope')
+            ->where('event_type', 'SLO_OBSERVED')
+            ->first();
+        $this->assertSame('provider.prepare', data_get($providerPrepareEvent?->payload, 'stage'));
 
         $events = AtlasLedgerEvent::query()
             ->where('envelope_id', $envelopeId)
@@ -57,7 +76,7 @@ class AtlasDecideLedgerIntegrationTest extends TestCase
             ->pluck('event_type')
             ->all();
 
-        $this->assertSame(['ENVELOPE_CREATED', 'DECISION_ISSUED'], $events);
+        $this->assertSame(['ENVELOPE_CREATED', 'SLO_OBSERVED', 'DECISION_ISSUED'], $events);
     }
 
     private function migrateLedger(): void

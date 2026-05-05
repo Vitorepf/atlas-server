@@ -1,3 +1,7 @@
+> Cleanup status: archived.
+> Canonical replacement: docs/atlas-cli-final-product.md.
+> Cleanup note: Historical CLI/TUI implementation plan. Current CLI product doc has authority.
+
 # ATLAS CLI/TUI - PLANO DE IMPLEMENTACAO ESTADO DA ARTE
 
 **Produto principal do Atlas no Mac para substituir Claude Code, Codex CLI e o uso direto de providers no trabalho pesado**

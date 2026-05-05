@@ -150,6 +150,14 @@ class AtlasProgrammingOrchestratorTest extends TestCase
             'task_id' => 'task-1',
             'evidence_refs' => ['run:1', 'patch:1'],
             'blocking_failures' => [],
+            'kernel_repair_decision' => [
+                'status' => 'repair_allowed',
+                'strategy' => 'rerun_harness',
+            ],
+            'repair_contract' => [
+                'orchestrator' => 'AtlasRepairOrchestrator',
+                'decision_required_before_enqueue' => true,
+            ],
             'harness_payload' => [
                 'run' => [
                     'id' => 'run-1',
@@ -174,6 +182,8 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('run-1', data_get($completion, 'engineering_run_id'));
         $this->assertSame(100, data_get($completion, 'score'));
         $this->assertSame(['run:1', 'patch:1'], data_get($completion, 'evidence_refs'));
+        $this->assertSame('repair_allowed', data_get($completion, 'kernel_repair_decision.status'));
+        $this->assertSame('AtlasRepairOrchestrator', data_get($completion, 'repair_contract.orchestrator'));
         $this->assertSame('harness', data_get($completion, 'policy_contracts.tools.mode'));
         $this->assertSame('strict', data_get($completion, 'policy_contracts.gates.minimum_gate'));
     }
@@ -210,6 +220,13 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('passed', data_get($contract, 'required_final_status'));
         $this->assertSame(['failed', 'needs_review'], data_get($contract, 'repair_when_status'));
         $this->assertSame(['passed'], data_get($contract, 'stop_when_status'));
+        $this->assertSame('AtlasRepairOrchestrator', data_get($contract, 'kernel_repair_contract.orchestrator'));
+        $this->assertSame('RepairRequestFactory', data_get($contract, 'kernel_repair_contract.request_factory'));
+        $this->assertTrue((bool) data_get($contract, 'kernel_repair_contract.decision_required_before_enqueue'));
+        $this->assertTrue((bool) data_get($contract, 'kernel_repair_contract.blocks_when_kernel_blocks'));
+        $this->assertContains('collect_evidence', data_get($contract, 'allowed_strategies'));
+        $this->assertContains('rerun_harness', data_get($contract, 'heavy_strategies'));
+        $this->assertTrue((bool) data_get($contract, 'requires_evidence_for_heavy_repair'));
         $this->assertSame('workspace_write', data_get($contract, 'tool_contract.mode'));
         $this->assertSame('strict', data_get($contract, 'gate_contract.minimum_gate'));
     }

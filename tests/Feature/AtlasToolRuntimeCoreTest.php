@@ -134,10 +134,12 @@ class AtlasToolRuntimeCoreTest extends TestCase
         $this->assertSame([
             LedgerEventType::ToolEvidenceRecorded->value,
             LedgerEventType::GatePassed->value,
+            LedgerEventType::SloObserved->value,
         ], $events->pluck('event_type')->all());
         $this->assertSame('tenant_tools', $events->first()?->tenant_id);
         $this->assertSame($run->id, data_get($events->first()?->payload, 'tool_run_id'));
-        $this->assertSame([$run->id], data_get($events->last()?->payload, 'run_ids'));
+        $this->assertSame([$run->id], data_get($events[1]?->payload, 'run_ids'));
+        $this->assertSame('gate.evaluate', data_get($events->last()?->payload, 'stage'));
         $this->assertNull(data_get($events->first()?->payload, 'workspace'));
     }
 

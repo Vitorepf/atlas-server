@@ -1,3 +1,9 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md; docs/engineering-knowledge-base/atlas-ai-master-architecture.md; docs/engineering-knowledge-base/atlas-ai-operating-system.md.
+> Cleanup note: Useful mobile gateway/inbox source. Canonical synthesis now lives in atlas-ai-mobile-surface-gateway.md; body-level claims about READMEs or sections as source of truth are historical only.
+
+> Authority warning: this file is source material, not operational authority. If any section below says "fonte de verdade", read it as historical context superseded by the canonical replacement above.
+
 # Atlas Mobile Gateway + Push + Inbox - Plano de Implementacao
 
 **Status:** especificacao operacional para implementar P6  

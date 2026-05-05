@@ -12,6 +12,7 @@ use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\Capture;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\ValueObjects\AiThreadResolution;
 use App\Services\AuditLogService;
 use App\Services\CapturePrivacyService;
@@ -45,6 +46,7 @@ class AiGatewayService
         private readonly AtlasDecideService $decide,
         private readonly FairClaudePolicy $fairClaude,
         private readonly AuditLogService $audit,
+        private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
     public function enqueueInteraction(string $input, array $options = []): AiTrace
@@ -209,6 +211,7 @@ class AiGatewayService
                     'open_brain_injection' => $prompt->openBrainInjection,
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
+                    'decision_receipt' => $decisionReceipt,
                 ],
                 'available_at' => $executorAvailableAt,
                 'max_attempts' => (int) ($options['max_attempts'] ?? config('atlas.ai.max_attempts', 1)),
@@ -247,6 +250,7 @@ class AiGatewayService
                     providerHandoffId: $providerHandoff?->id,
                     availableAt: $options['available_at'] ?? $now,
                     priority: max(0, ((int) ($options['priority'] ?? 50)) - 1),
+                    decisionReceipt: $decisionReceipt,
                 );
             }
 
@@ -380,11 +384,11 @@ class AiGatewayService
                     'task_request' => $prompt->taskRequest,
                     'context_pack' => $prompt->contextPack,
                     'open_brain_injection' => $prompt->openBrainInjection,
-                    'execution_plan' => $prompt->executionPlan,
-                    'skills_activated' => $prompt->activatedSkills,
-                    'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
-                    ...$this->programmingMetadata($options),
-                    'decision_receipt' => $decisionReceipt,
+                        'execution_plan' => $prompt->executionPlan,
+                        'skills_activated' => $prompt->activatedSkills,
+                        'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
+                        ...$this->programmingMetadata($options),
+                        'decision_receipt' => $decisionReceipt,
                 ],
             ]);
 
@@ -419,6 +423,7 @@ class AiGatewayService
                         'open_brain_injection' => $prompt->openBrainInjection,
                         'execution_plan' => $prompt->executionPlan,
                         'skills_activated' => $prompt->activatedSkills,
+                        'decision_receipt' => $decisionReceipt,
                     ]),
                     'available_at' => $options['available_at'] ?? $now,
                     'max_attempts' => (int) ($options['max_attempts'] ?? config('atlas.ai.max_attempts', 1)),
@@ -441,6 +446,7 @@ class AiGatewayService
                         'skills_activated' => $prompt->activatedSkills,
                         'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
                         ...$this->programmingMetadata($options),
+                        'decision_receipt' => $decisionReceipt,
                     ],
                 ]);
 
@@ -617,6 +623,7 @@ class AiGatewayService
         $receipt = $this->decisionReceiptForTrace($decisionOptions, $provider, $model);
         $plan = $this->decisionPlanForTrace($decisionOptions, $provider, $model);
         $taskProfile = is_array($plan['task_profile'] ?? null) ? $plan['task_profile'] : [];
+        $kernelContracts = data_get($receipt, 'kernel_contracts') ?: data_get($receipt, 'receipt_v2.metadata.kernel_contracts');
         $signals = [
             ...($fairMode ? $this->fairModeSignals($decisionOptions, $provider, $model) : $this->decide->signals($decisionOptions)),
             'decision_mode' => $this->decide->decisionMode($decisionOptions),
@@ -628,6 +635,7 @@ class AiGatewayService
             'model_allow_manual' => (bool) ($modelResolution['allow_manual'] ?? true),
             'task_request' => $prompt->taskRequest,
             'execution_plan' => $prompt->executionPlan,
+            'kernel_contracts' => is_array($kernelContracts) ? $kernelContracts : null,
         ];
 
         AiDecision::query()->updateOrCreate([
@@ -926,6 +934,7 @@ class AiGatewayService
         ?string $providerHandoffId,
         \DateTimeInterface $availableAt,
         int $priority,
+        array $decisionReceipt,
     ): AiJob {
         $modelResolution = $this->models->resolveWithSource('gemini_cli');
         $execution = array_merge(
@@ -955,6 +964,7 @@ class AiGatewayService
             'context_pack' => $prompt->contextPack,
             'execution_plan' => $prompt->executionPlan,
             'skills_activated' => $prompt->activatedSkills,
+            'decision_receipt' => $decisionReceipt,
         ];
 
         $job = AiJob::query()->create([
@@ -987,6 +997,7 @@ class AiGatewayService
                 'context_pack' => $prompt->contextPack,
                 'execution_plan' => $prompt->executionPlan,
                 'skills_activated' => $prompt->activatedSkills,
+                'decision_receipt' => $decisionReceipt,
             ],
         ]);
 
@@ -1225,6 +1236,7 @@ PROMPT;
         }
 
         $status = (string) ($receipt['status'] ?? 'unknown');
+        $this->ledger->recordPolicyContractBlocked('programming.tools', $receipt, $options);
 
         throw new RuntimeException("atlas_tool_contract_policy_violation: permissao de ferramenta incompatível com contrato ({$status}).");
     }
@@ -1318,6 +1330,11 @@ PROMPT;
             data_get($payload, 'tool_permissions.mode') ?: data_get($payload, 'permission_mode'),
         );
         $confirmed = (bool) data_get($payload, 'tool_permissions.confirmed', false);
+        $requestedExecutionTier = $this->normalizedExecutionTier(
+            data_get($payload, 'tool_permissions.max_execution_tier') ?: data_get($payload, 'max_execution_tier'),
+        );
+        $contractMaxExecutionTier = $this->normalizedExecutionTier(data_get($tools, 'max_execution_tier')) ?? 'T1';
+        $hotPath = filter_var(data_get($payload, 'tool_permissions.hot_path', true), FILTER_VALIDATE_BOOL);
 
         if ($tools === []) {
             return [
@@ -1328,6 +1345,9 @@ PROMPT;
                 'destructive_requires_approval' => null,
                 'requested_permission_mode' => $requestedMode,
                 'confirmed' => $confirmed,
+                'requested_execution_tier' => $requestedExecutionTier,
+                'max_execution_tier' => $contractMaxExecutionTier,
+                'hot_path' => $hotPath,
                 'require_evidence_packet' => false,
             ];
         }
@@ -1338,6 +1358,8 @@ PROMPT;
         $workspaceWriteAllowed = (bool) data_get($tools, 'workspace_write', in_array($contractMode, ['workspace_write', 'harness'], true));
         $destructiveRequiresApproval = (bool) data_get($tools, 'destructive_requires_approval', true);
         $status = match (true) {
+            $hotPath && $requestedExecutionTier !== null && $this->executionTierWeight($requestedExecutionTier) > $this->executionTierWeight('T1') => 'execution_tier_hot_path_blocked',
+            $requestedExecutionTier !== null && $this->executionTierWeight($requestedExecutionTier) > $this->executionTierWeight($contractMaxExecutionTier) => 'execution_tier_above_contract',
             $requestedMode === null => 'satisfied',
             ! $workspaceWriteAllowed && in_array($requestedMode, ['write', 'danger'], true) => 'workspace_write_blocked',
             $destructiveRequiresApproval && $requestedMode === 'danger' && ! $confirmed => 'destructive_approval_missing',
@@ -1352,6 +1374,9 @@ PROMPT;
             'destructive_requires_approval' => $destructiveRequiresApproval,
             'requested_permission_mode' => $requestedMode,
             'confirmed' => $confirmed,
+            'requested_execution_tier' => $requestedExecutionTier,
+            'max_execution_tier' => $contractMaxExecutionTier,
+            'hot_path' => $hotPath,
             'require_evidence_packet' => (bool) data_get($tools, 'require_evidence_packet', false),
         ];
     }
@@ -1369,6 +1394,28 @@ PROMPT;
             'workspace-write', 'edit', 'write-scoped' => 'write',
             'danger-full-access', 'full', 'all' => 'danger',
             default => in_array($mode, ['read', 'write', 'danger'], true) ? $mode : 'read',
+        };
+    }
+
+    private function normalizedExecutionTier(mixed $tier): ?string
+    {
+        if (! is_scalar($tier) || trim((string) $tier) === '') {
+            return null;
+        }
+
+        $tier = strtoupper(trim((string) $tier));
+
+        return in_array($tier, ['T0', 'T1', 'T2', 'T3'], true) ? $tier : 'T1';
+    }
+
+    private function executionTierWeight(string $tier): int
+    {
+        return match ($this->normalizedExecutionTier($tier) ?? 'T1') {
+            'T0' => 0,
+            'T1' => 1,
+            'T2' => 2,
+            'T3' => 3,
+            default => 1,
         };
     }
 

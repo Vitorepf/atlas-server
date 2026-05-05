@@ -7,8 +7,16 @@ use App\Models\AiJobAttempt;
 use App\Models\AiQualityAction;
 use App\Models\AiTrace;
 use App\Services\Ai\Cli\AtlasCliQualityService;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Kernel\Failure\FailureClassification;
+use App\Services\Ai\Kernel\Failure\FailureDomain;
+use App\Services\Ai\Kernel\Repair\AtlasRepairOrchestrator;
+use App\Services\Ai\Kernel\Repair\RepairDecision;
+use App\Services\Ai\Kernel\Repair\RepairRequestFactory;
+use App\Services\Ai\Kernel\Repair\RepairStrategy;
+use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Mobile\JobResultInboxEmitter;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
@@ -48,6 +56,10 @@ class AiWorker
         private readonly AtlasCliQualityService $cliQuality,
         private readonly MacAgentService $macAgent,
         private readonly AtlasEvidenceLedger $ledger,
+        private readonly DecisionReceiptRuntimeGuard $decisionReceipts,
+        private readonly KernelSloProbe $slo,
+        private readonly AtlasRepairOrchestrator $repairOrchestrator,
+        private readonly RepairRequestFactory $repairRequests,
     ) {}
 
     public function runNext(?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
@@ -89,6 +101,28 @@ class AiWorker
         }
         $job = $this->applyExpiredAtlasScoutDependency($job);
         $job = $this->applyProgrammingProviderPolicyRuntime($job);
+        if ($violation = $this->decisionReceipts->violationForJob($job, $providerKey, $job->model)) {
+            $violationPayload = $violation->toArray();
+            $attempt = $this->createAttempt($job, $workerId, $providerKey);
+            $this->emitStreamEvent($job, $attempt, 'policy', 'decision_receipt_blocked', $violation->message, [
+                'decision_receipt_enforcement' => $violationPayload,
+            ], null, $onStream);
+
+            return $this->completeAttempt($job, $attempt, new AiProviderResult(
+                ok: false,
+                output: '',
+                command: [],
+                exitCode: null,
+                durationMs: 0,
+                stdout: '',
+                stderr: '',
+                errorCode: $violation->errorCode,
+                errorMessage: $violation->message,
+                metadata: [
+                    'decision_receipt_enforcement' => $violationPayload,
+                ],
+            ), $workerId);
+        }
         $provider = $this->providers->get($providerKey);
         $permission = $this->permissions->authorizeJob($job, $providerKey);
 
@@ -165,27 +199,30 @@ class AiWorker
                 );
 
                 try {
-                    $result = $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream, &$firstTokenRecorded): void {
-                        $recorded = $this->stream->recordProviderEvent($job, $attempt, $event);
-                        if (! $firstTokenRecorded && in_array(($event['type'] ?? null), ['token', 'response'], true)) {
-                            $firstTokenRecorded = true;
-                            $this->recordTelemetry('provider_first_token', $job, $attempt, [
-                                'event_phase' => 'provider',
-                                'duration_ms' => $this->diffMs($attempt->started_at, now()),
-                                'metadata' => [
-                                    'stream_event_type' => $event['type'] ?? null,
-                                    'stream_event_name' => $event['name'] ?? null,
-                                    'sequence' => $recorded?->sequence,
-                                ],
-                            ]);
-                        }
-                        $event['sequence'] = $recorded?->sequence;
-                        $event['job_id'] = $job->id;
-                        $event['trace_id'] = $job->trace_id;
-                        $event['attempt_id'] = $attempt->id;
-                        $onStream?->__invoke($event);
-                    });
-                    $result = $this->withPowerSessionMetadata($result, (string) $powerSession->id);
+                    $result = $this->slo->measure('runtime.execute', function () use ($provider, $job, $attempt, $onStream, &$firstTokenRecorded, $powerSession): AiProviderResult {
+                        $result = $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream, &$firstTokenRecorded): void {
+                            $recorded = $this->stream->recordProviderEvent($job, $attempt, $event);
+                            if (! $firstTokenRecorded && in_array(($event['type'] ?? null), ['token', 'response'], true)) {
+                                $firstTokenRecorded = true;
+                                $this->recordTelemetry('provider_first_token', $job, $attempt, [
+                                    'event_phase' => 'provider',
+                                    'duration_ms' => $this->diffMs($attempt->started_at, now()),
+                                    'metadata' => [
+                                        'stream_event_type' => $event['type'] ?? null,
+                                        'stream_event_name' => $event['name'] ?? null,
+                                        'sequence' => $recorded?->sequence,
+                                    ],
+                                ]);
+                            }
+                            $event['sequence'] = $recorded?->sequence;
+                            $event['job_id'] = $job->id;
+                            $event['trace_id'] = $job->trace_id;
+                            $event['attempt_id'] = $attempt->id;
+                            $onStream?->__invoke($event);
+                        });
+
+                        return $this->withPowerSessionMetadata($result, (string) $powerSession->id);
+                    }, $this->sloContextForJob($job, $attempt, $workerId));
                 } finally {
                     $this->macAgent->stopSession($powerSession, 'ai_job_finished');
                 }
@@ -662,6 +699,20 @@ class AiWorker
 
     private function handleNativeProgrammingRepair(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, ?string $responseHash, string $workerId): ?AiJob
     {
+        $repair = (array) data_get($job->payload, 'programming_repair', []);
+
+        return $this->slo->measure('repair.loop', function () use ($job, $attempt, $result, $responseHash, $workerId): ?AiJob {
+            return $this->handleNativeProgrammingRepairUnmeasured($job, $attempt, $result, $responseHash, $workerId);
+        }, array_merge($this->sloContextForJob($job, $attempt, $workerId), [
+            'current_iteration' => max(1, (int) ($repair['current_iteration'] ?? 1)),
+            'max_iterations' => max(1, min(10, (int) ($repair['max_iterations'] ?? data_get($job->payload, 'programming_message_plan.execution_profile.max_iterations', 1)))),
+            'complete_mode' => (bool) ($repair['complete_mode'] ?? data_get($job->payload, 'programming_message_plan.execution_profile.complete', false)),
+            'workspace_present' => $this->programmingRepairWorkspace($job) !== null,
+        ]));
+    }
+
+    private function handleNativeProgrammingRepairUnmeasured(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, ?string $responseHash, string $workerId): ?AiJob
+    {
         $workspace = $this->programmingRepairWorkspace($job);
         if ($workspace === null) {
             return null;
@@ -699,8 +750,22 @@ class AiWorker
             && $currentIteration < $maxIterations;
         $finalPassed = in_array($qualityStatus, (array) ($repair['stop_when_status'] ?? ['passed']), true);
         $toolBlocksRepair = $shouldRepair && ! $this->programmingRepairAllowsWorkspaceWrite($toolContract);
+        $kernelRepairDecision = ! $finalPassed
+            ? $this->nativeProgrammingRepairKernelDecision(
+                job: $job,
+                attempt: $attempt,
+                quality: $quality,
+                repair: $repair,
+                currentIteration: $currentIteration,
+                maxIterations: $maxIterations,
+                evidenceRefs: $this->nativeProgrammingRepairEvidenceRefs($job, $attempt, $quality),
+            )
+            : null;
+        $kernelBlocksRepair = $shouldRepair
+            && $kernelRepairDecision instanceof RepairDecision
+            && ! $kernelRepairDecision->allowsRepair();
 
-        if ($shouldRepair && ! $toolBlocksRepair) {
+        if ($shouldRepair && ! $toolBlocksRepair && ! $kernelBlocksRepair) {
             $repairJob = $this->enqueueNativeProgrammingRepairJob($job, $quality, $currentIteration + 1, $maxIterations);
             $this->recordLedgerEvent(LedgerEventType::RepairInitiated, $job, $attempt, $this->programmingRepairLedgerPayload($quality, [
                 'repair_job_id' => $repairJob->id,
@@ -708,11 +773,13 @@ class AiWorker
                 'next_iteration' => $currentIteration + 1,
                 'max_iterations' => $maxIterations,
                 'reason' => 'quality_gate_requested_repair',
+                'kernel_repair' => $kernelRepairDecision?->toArray(),
             ]), $workerId);
             $metadata = $this->nativeProgrammingRepairMetadata($job, $repair, $quality, [
                 'status' => 'repairing',
                 'current_iteration' => $currentIteration,
                 'next_iteration' => $currentIteration + 1,
+                'kernel_decision' => $kernelRepairDecision?->toArray(),
             ], $attempt->provider, $responseHash);
 
             $job->trace?->update([
@@ -731,6 +798,7 @@ class AiWorker
 
         if (! $finalPassed) {
             $reasonIfStopped = match (true) {
+                $kernelBlocksRepair => 'kernel_repair_contract_blocks',
                 $toolBlocksRepair => 'tool_contract_blocks_workspace_write',
                 $qualityWorsened => 'quality_gate_worsened',
                 default => 'max_iterations_or_quality_failed',
@@ -739,17 +807,20 @@ class AiWorker
                 'current_iteration' => $currentIteration,
                 'max_iterations' => $maxIterations,
                 'reason' => $reasonIfStopped,
+                'kernel_repair' => $kernelRepairDecision?->toArray(),
             ]), $workerId);
             $this->recordLedgerEvent(LedgerEventType::RepairCompleted, $job, $attempt, $this->programmingRepairLedgerPayload($quality, [
-                'repair_status' => $qualityWorsened || $toolBlocksRepair ? 'stopped' : 'exhausted',
+                'repair_status' => $qualityWorsened || $toolBlocksRepair || $kernelBlocksRepair ? 'stopped' : 'exhausted',
                 'current_iteration' => $currentIteration,
                 'max_iterations' => $maxIterations,
                 'reason' => $reasonIfStopped,
+                'kernel_repair' => $kernelRepairDecision?->toArray(),
             ]), $workerId);
             $metadata = $this->nativeProgrammingRepairMetadata($job, $repair, $quality, [
-                'status' => $qualityWorsened || $toolBlocksRepair ? 'stopped' : 'exhausted',
+                'status' => $qualityWorsened || $toolBlocksRepair || $kernelBlocksRepair ? 'stopped' : 'exhausted',
                 'current_iteration' => $currentIteration,
                 'reason_if_stopped' => $reasonIfStopped,
+                'kernel_decision' => $kernelRepairDecision?->toArray(),
             ], $attempt->provider, $responseHash, blocked: true);
 
             $job->trace?->update([
@@ -1038,10 +1109,94 @@ class AiWorker
         $metadata['programming_repair'] = array_merge($repair, $repairUpdates, [
             'last_quality_status' => $quality['status'] ?? null,
             'last_quality_diff_hash' => $quality['diff_hash'] ?? null,
+            'kernel_decision' => $repairUpdates['kernel_decision'] ?? null,
             'updated_at' => now()->toJSON(),
         ]);
 
         return $metadata;
+    }
+
+    /**
+     * @param  array<string,mixed>  $quality
+     * @param  array<string,mixed>  $repair
+     * @param  array<int,string>  $evidenceRefs
+     */
+    private function nativeProgrammingRepairKernelDecision(
+        AiJob $job,
+        AiJobAttempt $attempt,
+        array $quality,
+        array $repair,
+        int $currentIteration,
+        int $maxIterations,
+        array $evidenceRefs,
+    ): RepairDecision {
+        $context = $this->kernelContextForJob($job);
+        $qualityStatus = (string) ($quality['status'] ?? 'unknown');
+
+        $request = $this->repairRequests->fromKernelContext(
+            envelopeId: $context['envelope_id'],
+            receiptId: $context['receipt_id'],
+            failure: new FailureClassification(
+                domain: $this->nativeProgrammingRepairFailureDomain($qualityStatus),
+                source: 'ai_worker.native_programming_repair',
+                signals: array_values(array_filter([
+                    'quality_status:'.$qualityStatus,
+                    is_string($quality['decision'] ?? null) ? 'quality_decision:'.$quality['decision'] : null,
+                    is_string($quality['diff_hash'] ?? null) ? 'diff_hash_present' : null,
+                ])),
+                metadata: [
+                    'job_id' => $job->id,
+                    'attempt_id' => $attempt->id,
+                    'current_iteration' => $currentIteration,
+                    'max_iterations' => $maxIterations,
+                    'quality_status' => $qualityStatus,
+                ],
+            ),
+            policy: [
+                'enabled' => (bool) ($repair['enabled'] ?? true),
+                'max_attempts' => max(0, $maxIterations - 1),
+                'allowed_strategies' => (array) ($repair['allowed_strategies'] ?? RepairStrategy::values()),
+                'requires_evidence_for_heavy_repair' => (bool) ($repair['requires_evidence_for_heavy_repair'] ?? true),
+                'metadata' => [
+                    'source' => 'programming_repair',
+                    'complete_mode' => (bool) ($repair['complete_mode'] ?? false),
+                ],
+            ],
+            currentAttempt: max(0, $currentIteration - 1),
+            evidenceRefs: $evidenceRefs,
+            dryRun: false,
+            metadata: [
+                'surface' => 'ai_worker',
+                'flow' => 'programming.repair',
+                'contract_bridge' => 'native_programming_repair',
+            ],
+        );
+
+        return $this->repairOrchestrator->plan($request);
+    }
+
+    private function nativeProgrammingRepairFailureDomain(string $qualityStatus): FailureDomain
+    {
+        return match ($qualityStatus) {
+            'failed', 'needs_review', 'blocked' => FailureDomain::GateFailed,
+            default => FailureDomain::OutputInvalid,
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $quality
+     * @return array<int,string>
+     */
+    private function nativeProgrammingRepairEvidenceRefs(AiJob $job, AiJobAttempt $attempt, array $quality): array
+    {
+        return array_values(array_filter([
+            $job->trace_id ? 'trace://'.$job->trace_id : null,
+            'ai-job://'.$job->id,
+            'ai-attempt://'.$attempt->id,
+            is_string($quality['diff_hash'] ?? null) && $quality['diff_hash'] !== ''
+                ? 'diff-hash://'.$quality['diff_hash']
+                : null,
+        ]));
     }
 
     /**
@@ -1705,6 +1860,34 @@ class AiWorker
     }
 
     /**
+     * @return array{envelope_id:string,receipt_id:?string,tenant_id:string,operator_id:string}
+     */
+    private function kernelContextForJob(AiJob $job): array
+    {
+        $receipt = $this->decisionReceipts->receiptForJob($job);
+        $receiptV2 = is_array(data_get($receipt, 'receipt_v2')) ? data_get($receipt, 'receipt_v2') : [];
+        $envelopeId = (string) (
+            data_get($receiptV2, 'envelope_id')
+            ?: data_get($receipt, 'envelope_id')
+            ?: data_get($job->metadata, 'decision_receipt.envelope_id')
+            ?: data_get($job->payload, 'decision_receipt.envelope_id')
+            ?: $job->trace_id
+            ?: $job->id
+        );
+        $receiptId = data_get($receiptV2, 'receipt_id')
+            ?: data_get($receipt, 'receipt_id')
+            ?: data_get($job->metadata, 'decision_receipt.receipt_id')
+            ?: data_get($job->payload, 'decision_receipt.receipt_id');
+
+        return [
+            'envelope_id' => $envelopeId,
+            'receipt_id' => $receiptId ? (string) $receiptId : null,
+            'tenant_id' => (string) (data_get($receiptV2, 'metadata.tenant_id') ?: data_get($job->payload, 'tenant_id') ?: data_get($job->metadata, 'tenant_id') ?: 'default'),
+            'operator_id' => (string) (data_get($receiptV2, 'metadata.operator_id') ?: data_get($job->payload, 'operator_id') ?: data_get($job->metadata, 'operator_id') ?: 'system'),
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      */
     private function recordLedgerEvent(
@@ -1715,7 +1898,7 @@ class AiWorker
         ?string $workerId = null,
     ): void {
         try {
-            $receipt = $this->jobDecisionReceipt($job);
+            $receipt = $this->decisionReceipts->receiptForJob($job);
             $receiptV2 = is_array(data_get($receipt, 'receipt_v2')) ? data_get($receipt, 'receipt_v2') : [];
             $envelopeId = (string) (
                 data_get($receiptV2, 'envelope_id')
@@ -1769,21 +1952,70 @@ class AiWorker
     /**
      * @return array<string,mixed>
      */
-    private function jobDecisionReceipt(AiJob $job): array
+    private function sloContextForJob(AiJob $job, AiJobAttempt $attempt, ?string $workerId): array
     {
-        $metadataReceipt = data_get($job->metadata, 'decision_receipt');
-        if (is_array($metadataReceipt)) {
-            return $metadataReceipt;
-        }
+        $receipt = $this->decisionReceipts->receiptForJob($job);
+        $receiptV2 = is_array(data_get($receipt, 'receipt_v2')) ? data_get($receipt, 'receipt_v2') : [];
+        $envelopeId = (string) (
+            data_get($receiptV2, 'envelope_id')
+            ?: data_get($receipt, 'envelope_id')
+            ?: data_get($job->metadata, 'decision_receipt.envelope_id')
+            ?: data_get($job->payload, 'decision_receipt.envelope_id')
+            ?: $job->trace_id
+            ?: $job->id
+        );
+        $receiptId = data_get($receiptV2, 'receipt_id')
+            ?: data_get($receipt, 'receipt_id')
+            ?: data_get($job->metadata, 'decision_receipt.receipt_id')
+            ?: data_get($job->payload, 'decision_receipt.receipt_id');
+        $tenantId = data_get($receiptV2, 'metadata.tenant_id')
+            ?: data_get($job->payload, 'tenant_id')
+            ?: data_get($job->metadata, 'tenant_id')
+            ?: 'default';
+        $operatorId = data_get($receiptV2, 'metadata.operator_id')
+            ?: data_get($job->payload, 'operator_id')
+            ?: data_get($job->metadata, 'operator_id')
+            ?: 'system';
 
-        $payloadReceipt = data_get($job->payload, 'decision_receipt');
-
-        return is_array($payloadReceipt) ? $payloadReceipt : [];
+        return [
+            'tenant_id' => (string) $tenantId,
+            'operator_id' => (string) $operatorId,
+            'envelope_id' => $envelopeId,
+            'receipt_id' => $receiptId ? (string) $receiptId : null,
+            'trace_id' => $job->trace_id,
+            'correlation_id' => $job->trace_id ?: $envelopeId,
+            'domain' => data_get($receiptV2, 'domain')
+                ?: data_get($job->payload, 'domain')
+                ?: data_get($job->payload, 'programming_message_plan.domain')
+                ?: data_get($job->metadata, 'domain'),
+            'flow' => data_get($receiptV2, 'flow')
+                ?: data_get($job->payload, 'flow')
+                ?: data_get($job->payload, 'programming_message_plan.flow')
+                ?: data_get($job->metadata, 'flow'),
+            'surface_id' => data_get($job->payload, 'surface_id')
+                ?: data_get($job->payload, 'app_surface')
+                ?: data_get($job->metadata, 'surface_id')
+                ?: data_get($job->trace?->metadata, 'surface_id'),
+            'job_id' => $job->id,
+            'attempt_id' => $attempt->id,
+            'attempt_number' => $attempt->attempt_number,
+            'worker_id' => $workerId,
+            'provider' => $attempt->provider ?? $job->provider,
+            'model' => $attempt->model ?? $job->model,
+        ];
     }
 
     private function providerWasCalled(AiProviderResult $result): bool
     {
-        return ! in_array($result->errorCode, ['permission_denied', 'policy_violation'], true);
+        return ! in_array($result->errorCode, [
+            'decision_receipt_dry_run',
+            'decision_receipt_expired',
+            'decision_receipt_invalid',
+            'decision_receipt_model_mismatch',
+            'decision_receipt_provider_mismatch',
+            'permission_denied',
+            'policy_violation',
+        ], true);
     }
 
     /**

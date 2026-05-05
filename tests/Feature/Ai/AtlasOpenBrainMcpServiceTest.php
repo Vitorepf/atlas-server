@@ -7,6 +7,8 @@ use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringKnowledgeItem;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasOpenBrainMcpService;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\CreatesAtlasEngineeringCodeTables;
 use Tests\Concerns\CreatesAtlasEngineeringKnowledgeTables;
 use Tests\Concerns\CreatesAtlasMemoryEntryRelationsTable;
@@ -34,6 +36,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('atlas_ledger_events');
         $this->dropAtlasTaskTables();
         $this->dropAtlasEngineeringKnowledgeTables();
         $this->dropAtlasEngineeringCodeTables();
@@ -644,6 +647,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
     public function test_memory_get_blocks_non_provider_safe(): void
     {
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
         $entry = \App\Models\AtlasMemoryEntry::create([
             'memory_type' => 'decision', 'scope_type' => 'global',
             'title' => 'Sensitive', 'body' => 'Secret',
@@ -663,6 +668,11 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
         $this->assertFalse($response['result']['structuredContent']['ok']);
         $this->assertSame('not_provider_safe', $response['result']['structuredContent']['error']);
+        $this->assertDatabaseHas('atlas_ledger_events', [
+            'event_type' => LedgerEventType::OperationBlocked->value,
+            'emitter_stage' => 'atlas.memory_provider_privacy',
+        ]);
+
     }
 
     public function test_module_info_returns_module_with_symbols(): void

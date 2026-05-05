@@ -67,6 +67,9 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertSame('dev_repair_executor', data_get($payload, 'dev_execution_plan.programming_session_plan.executor_decision.executor'));
         $this->assertSame('dev_repair_executor', data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.execution_policy.executor_preference'));
         $this->assertSame(3, data_get($payload, 'dev_execution_plan.programming_session_plan.execution_profile.max_iterations'));
+        $this->assertSame('AtlasRepairOrchestrator', data_get($payload, 'dev_execution_plan.programming_session_plan.repair_execution_contract.kernel_repair_contract.orchestrator'));
+        $this->assertTrue((bool) data_get($payload, 'dev_execution_plan.programming_session_plan.repair_execution_contract.kernel_repair_contract.decision_required_before_enqueue'));
+        $this->assertContains('collect_evidence', data_get($payload, 'dev_execution_plan.programming_session_plan.repair_execution_contract.allowed_strategies'));
         $this->assertSame('passed', data_get($payload, 'dev_execution_plan.quality_gate_policy.required_final_status'));
         $this->assertSame('plan_validate_execute', data_get($payload, 'dev_execution_plan.quality_gate_policy.procedure'));
     }

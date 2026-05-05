@@ -1,3 +1,7 @@
+> Cleanup status: archived.
+> Canonical replacement: resolver-o-que-vale-a-pena/root-md/Atlas_Documento_Mestre_v6.md; docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md.
+> Cleanup note: Older master document version. Preserve for history; v6 and the canonical Layer 0 glossary have precedence.
+
 # ATLAS
 
 **Documento Mestre — Versão 5.0**
@@ -2039,4 +2043,3 @@ O sistema serve Vitor. Vitor serve à vida. Atlas é veículo, não destino.
 **Próxima revisão operacional:** julho de 2026
 
 > *"O multiplicador humano mais absurdo já operado por uma única pessoa."*
-

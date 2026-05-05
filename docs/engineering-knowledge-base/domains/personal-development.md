@@ -1,3 +1,38 @@
+---
+id: atlas-ai-personal-development-domain
+type: engineering_knowledge
+title: Atlas AI Personal Development Domain
+status: active
+category: architecture
+priority: 96
+summary: Spec canonica do dominio implemented/ready Personal Development para reflexao, rotina, foco, energia, aprendizado, objetivos, recuperacao e forge plan-only.
+tags:
+  - atlas-ai
+  - domains
+  - personal-development
+  - privacy
+  - non-clinical
+capabilities:
+  - personal_development_domain
+  - private_reflection
+  - non_clinical_safety
+  - plan_only_runtime
+decisions:
+  - Personal Development e dominio implemented/ready, privado por default e explicitamente non-clinical.
+  - O runtime retorna planos e artefatos estruturados, mas nao muta calendario, tarefas, habit trackers ou sistemas externos automaticamente.
+  - Conteudo sensivel exige privacy/redaction e review humano quando necessario.
+maintenance:
+  - Atualize este documento quando flows, gates, runtime, memory policy ou safety policy de Personal Development mudarem.
+  - Leia junto de atlas-ai-master-architecture.md e atlas-ai-kernel-architecture.md antes de alterar runtime Personal Development.
+related_paths:
+  - app/Services/Ai/PersonalDevelopment/AtlasPersonalDevelopmentOrchestrator.php
+  - app/Services/Ai/PersonalDevelopment/PersonalDevelopmentRuntime.php
+  - app/Services/Ai/PersonalDevelopment/PersonalDevelopmentSafetyPolicy.php
+  - app/Services/Ai/PersonalDevelopment/PersonalDevelopmentMemoryPolicy.php
+  - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
+  - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
+---
+
 # Personal Development Domain
 
 Personal Development is an isolated Atlas AI domain for habits, routine, focus, energy, learning, personal performance, and life review. It is private by default and explicitly non-clinical: the domain may help organize reflection, evidence, plans, routine experiments, and review checkpoints, but it must not diagnose psychological conditions, prescribe medical treatment, or present itself as a therapeutic workflow.

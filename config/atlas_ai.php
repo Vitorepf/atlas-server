@@ -296,6 +296,7 @@ return [
                 'self_improvement.benchmark_review',
                 'self_improvement.memory_quality_review',
                 'self_improvement.tool_runtime_review',
+                'self_improvement.repair_loop_review',
                 'self_improvement.domain_learning_review',
                 'self_improvement.docs_drift_review',
                 'self_improvement.provider_performance_review',
@@ -315,7 +316,7 @@ return [
         'time' => env('ATLAS_AI_SELF_IMPROVEMENT_TIME', '02:00'),
         'flows' => array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('ATLAS_AI_SELF_IMPROVEMENT_FLOWS', 'nightly_review'))
+            explode(',', (string) env('ATLAS_AI_SELF_IMPROVEMENT_FLOWS', 'nightly_review,repair_loop_review'))
         ))),
         'hours' => (int) env('ATLAS_AI_SELF_IMPROVEMENT_HOURS', 24),
         'limit' => (int) env('ATLAS_AI_SELF_IMPROVEMENT_LIMIT', 5),

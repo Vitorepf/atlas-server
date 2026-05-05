@@ -3,11 +3,16 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
-use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Envelope\EffectiveProfile;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Provider\ProviderPreparedRequestValidator;
+use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
+use App\Services\Ai\Surface\SurfaceAdapterRegistry;
 use App\Services\Ai\ValueObjects\OperationalDecision;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 class AtlasDecideService
 {
@@ -22,6 +27,10 @@ class AtlasDecideService
         private readonly OperationEnvelopeFactory $envelopes,
         private readonly DecisionReceiptIssuer $receipts,
         private readonly AtlasEvidenceLedger $ledger,
+        private readonly SurfaceAdapterRegistry $surfaceAdapters,
+        private readonly ProviderDriverRegistry $providerDrivers,
+        private readonly ProviderPreparedRequestValidator $providerRequestValidator,
+        private readonly KernelSloProbe $slo,
     ) {}
 
     /**
@@ -124,7 +133,6 @@ class AtlasDecideService
 
     /**
      * @param  array<string,mixed>  $options
-     * @return OperationalDecision
      */
     public function operationalDecision(array $options, ?string $selectedProvider = null, ?string $selectedModel = null): OperationalDecision
     {
@@ -156,6 +164,14 @@ class AtlasDecideService
         $plan = $this->decisionPlan($options, $selectedProvider, $selectedModel);
         $runtimeGraph = $plan['execution_graph'];
         $decisionId = (string) Str::orderedUuid();
+        $kernelContracts = $this->kernelContractReceipts(
+            options: $options,
+            policy: $policy,
+            plan: $plan,
+            decisionId: $decisionId,
+            selectedProvider: $selectedProvider,
+            selectedModel: $selectedModel,
+        );
         $receiptV2 = $this->decisionReceiptV2(
             options: $options,
             policy: $policy,
@@ -165,6 +181,7 @@ class AtlasDecideService
             selectedModel: $selectedModel,
             fallbackReason: $fallbackReason,
             manualProvider: $manualProvider,
+            kernelContracts: $kernelContracts,
         );
         $this->recordDecisionReceipt($receiptV2, $options);
 
@@ -209,7 +226,184 @@ class AtlasDecideService
                 'dry_run' => (bool) data_get($options, 'payload.dry_run', false),
             ],
             'receipt_v2' => $receiptV2,
+            'kernel_contracts' => $kernelContracts,
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $policy
+     * @param  array<string,mixed>  $plan
+     * @return array<string,mixed>
+     */
+    private function kernelContractReceipts(
+        array $options,
+        array $policy,
+        array $plan,
+        string $decisionId,
+        string $selectedProvider,
+        ?string $selectedModel,
+    ): array {
+        $surface = $this->surfaceContractReceipt($options, $policy);
+        $provider = $this->providerDriverReceipt($selectedProvider, $selectedModel, $decisionId, $plan);
+        $blockingErrors = $this->kernelContractBlockingErrors($surface, $provider);
+
+        return [
+            'schema_version' => 1,
+            'valid' => $blockingErrors === [],
+            'execution_allowed' => $blockingErrors === [],
+            'blocking_errors' => $blockingErrors,
+            'surface' => $surface,
+            'provider' => $provider,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $surface
+     * @param  array<string,mixed>  $provider
+     * @return array<int,string>
+     */
+    private function kernelContractBlockingErrors(array $surface, array $provider): array
+    {
+        $errors = [];
+
+        if (($surface['status'] ?? null) !== 'normalized') {
+            $errors[] = 'surface_contract_not_normalized';
+        }
+
+        if (($provider['status'] ?? null) !== 'prepared') {
+            $errors[] = 'provider_contract_not_prepared';
+        }
+
+        foreach ((array) data_get($provider, 'validation.errors', []) as $error) {
+            if (is_string($error) && trim($error) !== '') {
+                $errors[] = 'provider_validation:'.$error;
+            }
+        }
+
+        return array_values(array_unique($errors));
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $policy
+     * @return array<string,mixed>
+     */
+    private function surfaceContractReceipt(array $options, array $policy): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $surfaceId = $this->resolveSurfaceAdapterId($options, $policy);
+
+        try {
+            $adapter = $this->surfaceAdapters->get($surfaceId);
+            $input = $adapter->normalizeInput(array_merge($payload, [
+                'text' => (string) ($options['input_text'] ?? data_get($payload, 'text', '')),
+                'source_type' => $options['source_type'] ?? data_get($payload, 'source_type'),
+            ]));
+
+            return [
+                'status' => 'normalized',
+                'surface_id' => $adapter->surfaceId(),
+                'capabilities' => $adapter->supportedCapabilities(),
+                'input_hash' => $input->inputHash,
+                'primary_type' => $input->primaryType,
+            ];
+        } catch (InvalidArgumentException $exception) {
+            return [
+                'status' => 'unregistered_surface',
+                'surface_id' => $surfaceId,
+                'reason' => $exception->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $policy
+     */
+    private function resolveSurfaceAdapterId(array $options, array $policy): string
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $sourceType = strtolower((string) ($options['source_type'] ?? data_get($payload, 'source_type', '')));
+        $surface = strtolower((string) (data_get($payload, 'app_surface') ?? $policy['surface'] ?? ''));
+        $workflow = strtolower((string) (data_get($payload, 'atlas_workflow_mode') ?? data_get($payload, 'mode') ?? $policy['mode'] ?? ''));
+        $routingTask = strtolower((string) (data_get($payload, 'routing_task') ?? data_get($payload, 'programming_flow') ?? ''));
+
+        if ($sourceType === 'app' || $surface === 'atlas_app' || $surface === 'app') {
+            return 'atlas_app';
+        }
+
+        if ($sourceType === 'api' || str_contains($surface, 'api')) {
+            return 'atlas_api_interaction';
+        }
+
+        if ($workflow === 'forge' || $routingTask === 'forge') {
+            return 'atlas_cli_forge';
+        }
+
+        if ($workflow === 'dev' || $routingTask !== '') {
+            return 'atlas_cli_dev';
+        }
+
+        return 'atlas_cli_chat';
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @return array<string,mixed>
+     */
+    private function providerDriverReceipt(string $selectedProvider, ?string $selectedModel, string $decisionId, array $plan): array
+    {
+        try {
+            $driver = $this->providerDrivers->get($selectedProvider);
+            $providerContract = $this->slo->measure('provider.prepare', function () use ($driver, $selectedModel, $decisionId, $plan): array {
+                $prepared = $driver->prepareRequest([
+                    'model' => $selectedModel ?: 'selected-by-decide',
+                    'payload' => [
+                        'decision_id' => $decisionId,
+                        'task_profile' => $plan['task_profile'] ?? [],
+                    ],
+                ], [
+                    'decision_id' => $decisionId,
+                    'model' => $selectedModel ?: null,
+                ]);
+
+                return [
+                    'prepared' => $prepared,
+                    'validation' => $this->providerRequestValidator->validate($driver, $prepared),
+                ];
+            }, [
+                'envelope_id' => 'provider_prepare_pre_envelope',
+                'correlation_id' => $decisionId,
+                'provider' => $selectedProvider,
+                'model' => $selectedModel ?: 'selected-by-decide',
+                'domain' => data_get($plan, 'task_profile.domain'),
+                'flow' => data_get($plan, 'task_profile.flow'),
+            ]);
+            $prepared = $providerContract['prepared'];
+            $validation = $providerContract['validation'];
+
+            return [
+                'status' => $validation['ok'] ? 'prepared' : 'provider_contract_failed',
+                'provider_id' => $driver->providerId(),
+                'model' => $prepared['model'] ?? null,
+                'identity_fragment_id' => data_get($prepared, 'audit.identity_fragment_id'),
+                'identity_fragment_hash' => data_get($prepared, 'audit.identity_fragment_hash'),
+                'identity_fragment_source' => data_get($prepared, 'payload.identity_fragment.metadata.source'),
+                'identity_fragment_fallback' => (bool) data_get($prepared, 'payload.identity_fragment.metadata.fallback', false),
+                'request_hash' => data_get($prepared, 'audit.request_hash'),
+                'request_hash_algorithm' => data_get($prepared, 'audit.request_hash_algorithm'),
+                'request_hash_canonicalization' => data_get($prepared, 'audit.request_hash_canonicalization'),
+                'delegates_to_legacy_provider' => data_get($prepared, 'execution_policy.delegates_to_legacy_provider'),
+                'validation' => $validation,
+            ];
+        } catch (InvalidArgumentException $exception) {
+            return [
+                'status' => 'unregistered_provider_driver',
+                'provider_id' => $selectedProvider,
+                'reason' => $exception->getMessage(),
+            ];
+        }
     }
 
     /**
@@ -227,6 +421,7 @@ class AtlasDecideService
         ?string $selectedModel,
         ?string $fallbackReason,
         ?string $manualProvider,
+        array $kernelContracts,
     ): array {
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
         $domain = (string) ($policy['domain'] ?? data_get($policy, 'profile_context.domain') ?? 'general');
@@ -272,7 +467,7 @@ class AtlasDecideService
             'policy_profile_id' => $policy['profile_id'] ?? null,
         ]);
 
-        return $this->receipts->issue($envelope, [
+        return $this->slo->measure('decide.issue', fn (): array => $this->receipts->issue($envelope, [
             'dry_run' => (bool) data_get($payload, 'dry_run', false),
             'signed_by' => 'atlas.decide.v2',
             'domain' => $domain,
@@ -299,8 +494,20 @@ class AtlasDecideService
             'metadata' => [
                 'legacy_decision_id' => $decisionId,
                 'decision_policy_version' => 'atlas-decide-v2',
+                'kernel_contracts' => $kernelContracts,
             ],
-        ])->toArray();
+        ])->toArray(), [
+            'tenant_id' => $envelope->operator->tenantId,
+            'operator_id' => $envelope->operator->operatorId,
+            'envelope_id' => $envelope->envelopeId,
+            'trace_id' => $envelope->audit->traceId,
+            'correlation_id' => data_get($payload, 'correlation_id') ?: data_get($payload, 'thread_id') ?: $envelope->audit->traceId,
+            'domain' => $domain,
+            'flow' => $flow,
+            'surface_id' => $envelope->origin->surfaceId,
+            'provider' => $selectedProvider,
+            'model' => $selectedModel ?: 'selected-by-decide',
+        ]);
     }
 
     /**
@@ -510,6 +717,7 @@ class AtlasDecideService
             'execution_strategy' => $decision['execution_strategy'] ?? null,
             'execution_graph' => $decision['runtime_graph'] ?? [],
             'planned_graph' => $decision['planned_graph'] ?? [],
+            'kernel_contracts' => $decision['kernel_contracts'] ?? data_get($decision, 'receipt_v2.metadata.kernel_contracts'),
             'receipt_v2' => $decision['receipt_v2'] ?? null,
         ];
     }

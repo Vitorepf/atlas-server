@@ -1,3 +1,7 @@
+> Cleanup status: archived.
+> Canonical replacement: docs/atlas-cli-5x-claude-code-plan.md; docs/atlas-cli-fair-claude-benchmark.md.
+> Cleanup note: Prompt for an implementation provider, not policy. Preserve for history; benchmark authority is the Fair Claude plan/protocol.
+
 # Prompt Para Implementacao Codex - Atlas Fair Claude 5x
 
 Use este prompt quando for pedir ao Codex para implementar, por etapas, o plano

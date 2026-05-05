@@ -266,6 +266,7 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame('required', data_get($result, 'policy_contract_enforcement.effective_options.quality_scan'));
         $this->assertSame('strict', data_get($result, 'policy_contract_enforcement.effective_options.harness_policy'));
         $this->assertSame('strict', data_get($result, 'policy_contracts.gates.minimum_gate'));
+        $this->assertNull(data_get($result, 'kernel_repair_decision'));
 
         $run = AtlasEngineeringRun::query()->findOrFail(data_get($result, 'harness_payload.run.id'));
         $this->assertSame('required', data_get($run->provider_strategy_json, 'quality_scan.mode'));
@@ -295,8 +296,56 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertContains('tool_contract_blocks_workspace_write', data_get($result, 'blocking_failures'));
         $this->assertSame('tool_contract_blocks_workspace_write', data_get($result, 'policy_contract_enforcement.blocked_reason'));
         $this->assertSame('read_only', data_get($result, 'policy_contracts.tools.mode'));
+        $this->assertSame('needs_human_review', data_get($result, 'kernel_repair_decision.status'));
+        $this->assertSame('human_review', data_get($result, 'kernel_repair_decision.strategy'));
+        $this->assertSame('tool.policy_denied', data_get($result, 'kernel_repair_decision.evidence_payload.failure_classification.failure_domain'));
+        $this->assertSame('AtlasRepairOrchestrator', data_get($result, 'repair_contract.orchestrator'));
+        $this->assertTrue((bool) data_get($result, 'repair_contract.decision_required_before_enqueue'));
+        $this->assertDatabaseHas('atlas_ledger_events', [
+            'event_type' => LedgerEventType::RepairInitiated->value,
+            'emitter_stage' => 'engineering_harness.repair',
+        ]);
         $this->assertDatabaseMissing('atlas_tasks', [
             'title' => 'Tentativa de harness com contrato read-only',
+        ]);
+    }
+
+    public function test_harness_execution_service_attaches_kernel_repair_decision_when_harness_blocks(): void
+    {
+        $task = $this->task([
+            'goal' => 'Alterar apenas o arquivo principal.',
+            'acceptance_criteria' => ['src/example.txt deve ser o unico arquivo alterado.'],
+            'allowed_files' => ['src/example.txt'],
+            'strict_file_scope' => true,
+            'test_coverage' => ['Comando de validacao passa.'],
+        ]);
+        File::put($this->workspace.'/README.md', "# Test repo\n\nOutside scope\n");
+
+        $result = app(EngineeringHarnessExecutionService::class)
+            ->execute(ProgrammingExecutionRequest::fromArray([
+                'profile' => 'forge',
+                'task_id' => $task->id,
+                'workspace' => $this->workspace,
+                'objective' => 'Executar harness com bloqueio de escopo',
+                'no_provider' => true,
+                'auto_test' => true,
+                'test_command' => $this->passingPhpCommand(),
+                'max_attempts' => 2,
+            ]))
+            ->toArray();
+
+        $this->assertSame('blocked', data_get($result, 'status'));
+        $this->assertContains('Controle falhou: changed_files_scope_policy', data_get($result, 'blocking_failures', []));
+        $this->assertSame('repair_allowed', data_get($result, 'kernel_repair_decision.status'));
+        $this->assertSame('rerun_harness', data_get($result, 'kernel_repair_decision.strategy'));
+        $this->assertSame('harness.failed', data_get($result, 'kernel_repair_decision.evidence_payload.failure_classification.failure_domain'));
+        $this->assertContains('engineering_run:'.data_get($result, 'harness_payload.run.id'), data_get($result, 'kernel_repair_decision.evidence_payload.evidence_refs', []));
+        $this->assertSame('AtlasRepairOrchestrator', data_get($result, 'repair_contract.orchestrator'));
+        $this->assertTrue((bool) data_get($result, 'repair_contract.blocks_when_kernel_blocks'));
+        $this->assertDatabaseHas('atlas_ledger_events', [
+            'envelope_id' => 'engineering_run:'.data_get($result, 'harness_payload.run.id'),
+            'event_type' => LedgerEventType::RepairInitiated->value,
+            'emitter_stage' => 'engineering_harness.repair',
         ]);
     }
 
@@ -721,6 +770,162 @@ class EngineeringHarnessRunnerTest extends TestCase
         ));
 
         $this->assertSame('destructive_approval_missing', data_get($options, 'payload.programming_policy_contract_receipt.tools.status'));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('atlas_tool_contract_policy_violation');
+
+        $assertMethod->invoke($gateway, $options);
+    }
+
+    public function test_ai_gateway_blocks_heavy_tool_tier_in_hot_path(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $promptMethod = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $promptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingToolContractsAllowRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $promptMethod->invoke($gateway, [
+            'payload' => [
+                'tool_permissions' => [
+                    'mode' => 'read',
+                    'max_execution_tier' => 'T2',
+                    'hot_path' => true,
+                ],
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'tools' => [
+                            'mode' => 'read_only',
+                            'workspace_write' => false,
+                            'max_execution_tier' => 'T1',
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: ['schema_version' => 1],
+            activatedSkills: [],
+            openBrainInjection: ['status' => 'injected'],
+        ));
+
+        $this->assertSame('execution_tier_hot_path_blocked', data_get($options, 'payload.programming_policy_contract_receipt.tools.status'));
+        $this->assertSame('T2', data_get($options, 'payload.programming_policy_contract_receipt.tools.requested_execution_tier'));
+        $this->assertSame('T1', data_get($options, 'payload.programming_policy_contract_receipt.tools.max_execution_tier'));
+        $this->assertTrue((bool) data_get($options, 'payload.programming_policy_contract_receipt.tools.hot_path'));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('atlas_tool_contract_policy_violation');
+
+        $assertMethod->invoke($gateway, $options);
+    }
+
+    public function test_ai_gateway_records_tool_contract_block_in_kernel_ledger(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $promptMethod = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $promptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingToolContractsAllowRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $promptMethod->invoke($gateway, [
+            'client_id' => 'client-tool-ap14',
+            'provider' => 'codex_cli',
+            'payload' => [
+                'tenant_id' => 'tenant-a',
+                'operator_id' => 'operator-a',
+                'tool_permissions' => [
+                    'mode' => 'read',
+                    'max_execution_tier' => 'T2',
+                    'hot_path' => true,
+                ],
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'tools' => [
+                            'mode' => 'read_only',
+                            'workspace_write' => false,
+                            'max_execution_tier' => 'T1',
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: ['schema_version' => 1],
+            activatedSkills: [],
+            openBrainInjection: ['status' => 'injected'],
+        ));
+
+        try {
+            $assertMethod->invoke($gateway, $options);
+            $this->fail('Expected tool contract policy violation.');
+        } catch (\ReflectionException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            $this->assertStringContainsString('atlas_tool_contract_policy_violation', $exception->getMessage());
+        }
+
+        $event = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::OperationBlocked->value)
+            ->where('emitter_stage', 'atlas.policy_contract')
+            ->latest('occurred_at')
+            ->first();
+
+        $this->assertInstanceOf(AtlasLedgerEvent::class, $event);
+        $this->assertSame('tenant-a', $event->tenant_id);
+        $this->assertSame('operator-a', $event->operator_id);
+        $this->assertSame('client-tool-ap14', $event->correlation_id);
+        $this->assertSame('programming.tools.execution_tier_hot_path_blocked', data_get($event->payload, 'violation_code'));
+        $this->assertSame('T2', data_get($event->payload, 'receipt.requested_execution_tier'));
+        $this->assertSame('T1', data_get($event->payload, 'receipt.max_execution_tier'));
+    }
+
+    public function test_ai_gateway_blocks_tool_tier_above_contract_outside_hot_path(): void
+    {
+        $gateway = app(AiGatewayService::class);
+        $promptMethod = new \ReflectionMethod($gateway, 'optionsWithPromptContracts');
+        $promptMethod->setAccessible(true);
+        $assertMethod = new \ReflectionMethod($gateway, 'assertProgrammingToolContractsAllowRuntime');
+        $assertMethod->setAccessible(true);
+
+        $options = $promptMethod->invoke($gateway, [
+            'payload' => [
+                'tool_permissions' => [
+                    'mode' => 'read',
+                    'max_execution_tier' => 'T3',
+                    'hot_path' => false,
+                ],
+                'programming_message_plan' => [
+                    'policy_contracts' => [
+                        'tools' => [
+                            'mode' => 'harness',
+                            'workspace_write' => true,
+                            'max_execution_tier' => 'T2',
+                        ],
+                    ],
+                ],
+            ],
+        ], new AiPrompt(
+            prompt: 'prompt',
+            agentSlug: 'orquestrador',
+            intent: 'dev',
+            skillVersions: [],
+            contextRefs: [],
+            contextPack: ['schema_version' => 1],
+            activatedSkills: [],
+            openBrainInjection: ['status' => 'injected'],
+        ));
+
+        $this->assertSame('execution_tier_above_contract', data_get($options, 'payload.programming_policy_contract_receipt.tools.status'));
+        $this->assertSame('T3', data_get($options, 'payload.programming_policy_contract_receipt.tools.requested_execution_tier'));
+        $this->assertSame('T2', data_get($options, 'payload.programming_policy_contract_receipt.tools.max_execution_tier'));
+        $this->assertFalse((bool) data_get($options, 'payload.programming_policy_contract_receipt.tools.hot_path'));
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('atlas_tool_contract_policy_violation');
 

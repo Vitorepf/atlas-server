@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -27,6 +28,7 @@ class AtlasMemoryLearningPromotionService
 
     public function __construct(
         private readonly AtlasMemoryDeltaPromotionService $promoter,
+        private readonly KernelSloProbe $slo,
     ) {}
 
     /**
@@ -34,6 +36,27 @@ class AtlasMemoryLearningPromotionService
      * @return array<string,mixed>
      */
     public function run(array $options = []): array
+    {
+        return $this->slo->measure('learning.project', function () use ($options): array {
+            return $this->runUnmeasured($options);
+        }, [
+            'tenant_id' => (string) ($options['tenant_id'] ?? 'default'),
+            'operator_id' => (string) ($options['operator_id'] ?? $options['initiator'] ?? 'system'),
+            'envelope_id' => (string) ($options['envelope_id'] ?? 'memory_learning_promotion'),
+            'receipt_id' => isset($options['receipt_id']) ? (string) $options['receipt_id'] : null,
+            'trace_id' => isset($options['trace_id']) ? (string) $options['trace_id'] : null,
+            'correlation_id' => (string) ($options['correlation_id'] ?? $options['trace_id'] ?? 'memory_learning_promotion'),
+            'domain' => (string) ($options['domain'] ?? 'self_improvement'),
+            'flow' => (string) ($options['flow'] ?? 'learning.project'),
+            'surface_id' => isset($options['surface_id']) ? (string) $options['surface_id'] : null,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function runUnmeasured(array $options = []): array
     {
         if (! Schema::hasTable('ai_memory_deltas') || ! Schema::hasTable('atlas_memory_entries')) {
             return [

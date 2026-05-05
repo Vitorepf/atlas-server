@@ -1,3 +1,7 @@
+> Cleanup status: archived.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-master-architecture.md; docs/engineering-knowledge-base/atlas-ai-operating-system.md.
+> Cleanup note: Historical macro implementation plan. Master/Operating System have authority.
+
 # ATLAS AI - PLANO DE IMPLEMENTACAO PROFISSIONAL
 
 **Plano para transformar Atlas AI + Atlas AI Harness em substituto real de Claude/GPT apps, Claude Code e Codex CLI**

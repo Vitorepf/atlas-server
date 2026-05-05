@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/atlas-cli-final-product.md; docs/atlas-cli-5x-claude-code-plan.md; docs/engineering-knowledge-base/atlas-ai-cli-multimodal.md; docs/engineering-knowledge-base/atlas-ai-governed-backlog.md.
+> Cleanup note: CLI roadmap source material. Product authority now lives in CLI product/5x docs and architecture deltas must enter the governed backlog before execution.
+
 # ATLAS CLI - ROADMAP DE PRODUTO FINAL EM 7 PONTOS
 
 **Documentacao especifica para levar o Atlas CLI da versao V1 utilizavel ate a versao final verificavel**

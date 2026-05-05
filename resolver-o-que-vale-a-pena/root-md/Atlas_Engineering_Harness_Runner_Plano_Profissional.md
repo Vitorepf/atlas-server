@@ -1,3 +1,8 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/engineering-blueprint.md; docs/engineering-knowledge-base/engineering-blueprint-maturity-dod.md; docs/engineering-knowledge-base/engineering-blueprint-runbook.md; docs/engineering-knowledge-base/super-tool-runtime-core.md; docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md.
+> Cleanup note: Harness runner source material. Current authority is the Engineering Blueprint family plus runtime/evidence contracts; preserve for historical rollout details only.
+> Authority warning: body-level source-of-truth claims are historical rollout notes; current authority is the canonical replacement set above.
+
 # Atlas Engineering Harness Runner - Plano Profissional
 
 | | |

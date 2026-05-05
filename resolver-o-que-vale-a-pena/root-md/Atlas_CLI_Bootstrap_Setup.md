@@ -1,3 +1,7 @@
+> Cleanup status: archived_quarantine.
+> Canonical replacement: docs/atlas-cli-final-product.md; docs/atlas-cli-release-checklist.md.
+> Cleanup note: Local setup/bootstrap candidate for future deletion. Do not delete without explicit approval, link audit and git history review.
+
 # Atlas CLI Bootstrap Setup
 
 Este documento registra a configuracao operacional do Atlas CLI no Mac. O comando recomendado continua sendo um so:

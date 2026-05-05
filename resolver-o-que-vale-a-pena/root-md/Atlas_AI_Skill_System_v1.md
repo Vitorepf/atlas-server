@@ -1,3 +1,8 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-skill-system.md; docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md.
+> Cleanup note: Stable skill-system contracts have been promoted to the canonical KB doc. Preserve this file as source material.
+> Authority warning: body-level canonical/source-of-truth language is historical; current authority is the canonical replacement set above.
+
 # ATLAS AI - SKILL SYSTEM V1
 
 **Sistema profissional de skills do Atlas AI para transformar modelos intercambiaveis em capacidade operacional acumulativa**

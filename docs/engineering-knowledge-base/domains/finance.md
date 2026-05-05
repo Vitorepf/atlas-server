@@ -1,3 +1,40 @@
+---
+id: atlas-ai-finance-domain
+type: engineering_knowledge
+title: Atlas AI Finance Domain
+status: active
+category: architecture
+priority: 96
+summary: Spec canonica do dominio implemented/ready Finance para pesquisa, risco, portfolio, tese, macro, earnings, noticias, compliance, backtest e forge review-only.
+tags:
+  - atlas-ai
+  - domains
+  - finance
+  - compliance
+  - review-only
+capabilities:
+  - finance_domain
+  - finance_compliance_review
+  - portfolio_analysis
+  - market_research
+decisions:
+  - Finance e dominio implemented/ready, mas sempre analysis/review-only.
+  - Finance nunca executa, prepara ou sugere payload executavel de ordem de mercado.
+  - Qualquer pedido de execucao financeira deve ser bloqueado por compliance gate.
+maintenance:
+  - Atualize este documento quando flows, gates, runtime, profile factory ou safety policy de Finance mudarem.
+  - Leia junto de atlas-ai-master-architecture.md e atlas-ai-kernel-architecture.md antes de alterar runtime Finance.
+related_paths:
+  - app/Services/Ai/Finance/AtlasFinanceComplianceGate.php
+  - app/Services/Ai/Finance/AtlasFinanceDomainContract.php
+  - app/Services/Ai/Finance/AtlasFinanceProfileFactory.php
+  - app/Services/Ai/Finance/AtlasFinanceOrchestrator.php
+  - app/Services/Ai/Finance/AtlasFinanceRuntime.php
+  - app/Services/Ai/Finance/AtlasFinanceSafetyPolicy.php
+  - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
+  - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
+---
+
 # Atlas AI Finance Domain
 
 ## Charter

@@ -1,3 +1,7 @@
+> Cleanup status: archived.
+> Canonical replacement: resolver-o-que-vale-a-pena/root-md/Atlas_Documento_Mestre_v6.md; docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md.
+> Cleanup note: Older master document version. Preserve for history; v6 and the canonical Layer 0 glossary have precedence.
+
 # Atlas — Documento Mestre v3.0
 
 > **Constituição do Sistema Operacional Pessoal de Vitor**

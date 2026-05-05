@@ -1,0 +1,98 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Services\Ai\Kernel\Pipeline\PipelineInput;
+use App\Services\Ai\Kernel\Pipeline\ScaffoldAtlasKernelPipeline;
+use Illuminate\Console\Command;
+
+class AtlasAiPipelineCommand extends Command
+{
+    protected $signature = 'atlas:ai:pipeline
+        {text? : Input text to plan through the scaffold pipeline}
+        {--surface=atlas_cli : Surface id for audit metadata}
+        {--tenant=atlas-single-tenant : Tenant id for audit metadata}
+        {--operator=cli : Operator id for audit metadata}
+        {--hint=* : Optional key=value hints}
+        {--execute : Return scaffold stage results instead of plan only}
+        {--json : Print machine-readable JSON}';
+
+    protected $description = 'Inspect the Atlas AI kernel pipeline scaffold without executing providers or runtime.';
+
+    public function handle(ScaffoldAtlasKernelPipeline $pipeline): int
+    {
+        $input = PipelineInput::fromArray([
+            'text' => (string) ($this->argument('text') ?: 'atlas kernel pipeline inspection'),
+            'surface_id' => (string) $this->option('surface'),
+            'tenant_id' => (string) $this->option('tenant'),
+            'operator_id' => (string) $this->option('operator'),
+            'hints' => $this->hints(),
+            'dry_run' => true,
+        ]);
+
+        $payload = (bool) $this->option('execute')
+            ? [
+                'schema_version' => 1,
+                'status' => 'executed_scaffold',
+                'pipeline' => $pipeline->execute($input)->toArray(),
+            ]
+            : [
+                'schema_version' => 1,
+                'status' => 'planned_scaffold',
+                'pipeline' => $pipeline->plan($input),
+                'compliance' => $pipeline->complianceReport(),
+            ];
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        }
+
+        $pipelinePayload = (array) ($payload['pipeline'] ?? []);
+        $compliance = (array) ($payload['compliance'] ?? data_get($pipelinePayload, 'compliance_report', []));
+
+        $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas AI Kernel Pipeline</>', (string) ($payload['status'] ?? 'unknown'));
+        $this->components->twoColumnDetail('Pipeline', (string) ($pipelinePayload['pipeline_id'] ?? '-'));
+        $this->components->twoColumnDetail('Dry run', data_get($pipelinePayload, 'dry_run', true) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Provider execution', data_get($pipelinePayload, 'provider_execution_attempted', false) ? 'attempted' : 'disabled');
+        $this->components->twoColumnDetail('Compliance', ($compliance['ok'] ?? false) ? 'ok' : 'failed');
+
+        $stages = (array) (data_get($pipelinePayload, 'stages') ?: data_get($pipelinePayload, 'stage_results') ?: []);
+        if ($stages !== []) {
+            $this->table(
+                ['order', 'stage', 'reads', 'writes'],
+                collect($stages)->map(fn (array $stage, int $index): array => [
+                    $stage['order'] ?? data_get($stage, 'metadata.order', $index + 1),
+                    $stage['stage'] ?? '-',
+                    implode(', ', (array) ($stage['reads'] ?? [])),
+                    implode(', ', (array) ($stage['writes'] ?? [])),
+                ])->all(),
+            );
+        }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function hints(): array
+    {
+        $hints = [];
+
+        foreach ((array) $this->option('hint') as $hint) {
+            if (! is_string($hint) || ! str_contains($hint, '=')) {
+                continue;
+            }
+
+            [$key, $value] = explode('=', $hint, 2);
+            $key = trim($key);
+            if ($key !== '') {
+                $hints[$key] = trim($value);
+            }
+        }
+
+        return $hints;
+    }
+}

@@ -403,6 +403,8 @@ class AiJobControlTest extends TestCase
         $this->assertSame(3, data_get($trace->metadata, 'programming_completion.repair.max_iterations'));
         $this->assertSame('failed', data_get($trace->metadata, 'programming_completion.repair.last_quality_status'));
         $this->assertSame('failed', data_get($trace->metadata, 'programming_completion.repair.history.0.status'));
+        $this->assertSame('repair_allowed', data_get($trace->metadata, 'programming_repair.kernel_decision.status'));
+        $this->assertSame('collect_evidence', data_get($trace->metadata, 'programming_repair.kernel_decision.strategy'));
         $repairJob = AiJob::query()->where('id', '!=', $job->id)->firstOrFail();
         $this->assertSame('queued', $repairJob->status);
         $this->assertSame('repair prompt 2/3', $repairJob->prompt);
@@ -414,6 +416,10 @@ class AiJobControlTest extends TestCase
             LedgerEventType::RepairInitiated->value,
         ], AtlasLedgerEvent::query()
             ->where('envelope_id', $trace->id)
+            ->whereIn('event_type', [
+                LedgerEventType::GateEvaluated->value,
+                LedgerEventType::RepairInitiated->value,
+            ])
             ->orderBy('occurred_at')
             ->orderBy('event_id')
             ->pluck('event_type')

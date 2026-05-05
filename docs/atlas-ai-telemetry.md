@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md; docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md; docs/engineering-knowledge-base/atlas-ai-operating-system.md.
+> Cleanup note: Operational telemetry details remain useful, but architecture authority lives in the canonical KB. Do not treat this standalone doc as Atlas AI mother architecture.
+
 # Atlas AI Telemetry
 
 Esta base mede qualidade, eficiencia e continuidade do Atlas AI em tres superficies:

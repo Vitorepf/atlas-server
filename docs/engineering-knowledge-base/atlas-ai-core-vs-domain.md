@@ -72,7 +72,7 @@ Profile e contrato operacional, nao preset de modelo.
 
 | Conceito | Exemplo | Dono |
 |---|---|---|
-| Domain Profile | `programming`, `finance`, `personal_development` | Core Profile Resolver |
+| Domain Profile | `programming`, `finance`, `personal_development`, `self_improvement` | Core Profile Resolver |
 | Flow Profile | `programming.dev`, `programming.forge`, `programming.qa` | Domain + Policy |
 | Model Profile | `opus`, `codex-high`, `gemini-scout` | Provider/Policy |
 
@@ -92,12 +92,23 @@ intent `repair`, dependendo de risco.
 
 Domain adiciona semantica especializada.
 
+Status operacional atual:
+
+- `programming`, `finance`, `personal_development` e `self_improvement` sao os
+  dominios implemented/ready.
+- `marketing`, `research`, `health`, `learning`, `writing`, `qa`, `security`,
+  `operations`, `background` e `general` sao scaffold/catalog-ready ate terem
+  runtime/orchestrator proprio.
+- Marketing pode aparecer como exemplo de dominio vertical ou catalogo alvo,
+  mas nao deve ser tratado como implemented/ready.
+
 | Domain | Responsabilidades |
 |---|---|
 | Programming | bug, feature, refactor, review, QA, testes, release, migrations, code intelligence e engineering harness. |
 | Personal Development | habitos, foco, performance, saude, rotina, intervencoes, measurement harness e memoria pessoal. |
-| Finance | mercado, risco, tese, operacao, compliance, data provenance e audit trail financeiro. |
-| Curation | detectar lacunas, duplicacao, regressao de processo, proposta de melhoria e medicao. |
+| Finance | mercado, risco, portfolio, tese, compliance, data provenance e audit trail financeiro, sempre review-only. |
+| Self-Improvement | melhoria do proprio Atlas: docs drift, capability gaps, benchmark review, memory quality, provider performance e propostas de evolucao. |
+| Marketing | catalogo alvo/scaffold para estrategia, pesquisa, campanhas, copy, analytics, brand review e forge; ainda nao implemented/ready. |
 
 Domain pode ter:
 

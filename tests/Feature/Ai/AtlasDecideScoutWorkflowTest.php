@@ -65,6 +65,16 @@ class AtlasDecideScoutWorkflowTest extends TestCase
         $this->assertSame('codex_cli', $executor->provider);
         $this->assertSame('pending', data_get($executor->metadata, 'dependency_state'));
         $this->assertTrue($executor->available_at->isFuture());
+        $this->assertSame(
+            data_get($trace->metadata, 'decision_receipt.receipt_v2.receipt_id'),
+            data_get($scout->metadata, 'decision_receipt.receipt_v2.receipt_id'),
+        );
+        $this->assertSame(
+            data_get($trace->metadata, 'decision_receipt.receipt_v2.receipt_id'),
+            data_get($executor->payload, 'decision_receipt.receipt_v2.receipt_id'),
+        );
+        $this->assertTrue(data_get($scout->metadata, 'decision_receipt.kernel_contracts.valid'));
+        $this->assertTrue(data_get($executor->payload, 'decision_receipt.kernel_contracts.valid'));
 
         $this
             ->withHeader('X-Atlas-Token', 'testing-atlas-token-with-enough-length')

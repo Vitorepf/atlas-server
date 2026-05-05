@@ -1,3 +1,8 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md; docs/engineering-knowledge-base/memory-core-contracts.md; docs/engineering-knowledge-base/open-brain-context-injection.md; docs/engineering-knowledge-base/atlas-ai-continuity-session-state.md.
+> Cleanup note: Legacy memory/Open Brain source material. Canonical authority is the KB memory family; preserve for implementation chronology and backlog references only.
+> Authority warning: body-level "fonte de verdade" claims are superseded by the canonical replacement set above.
+
 # Atlas AI Memory Context Core - Open Brain
 
 | | |

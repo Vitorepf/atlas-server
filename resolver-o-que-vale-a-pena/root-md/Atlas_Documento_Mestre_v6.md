@@ -1,3 +1,8 @@
+> Cleanup status: human_vault_only.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md; docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md.
+> Cleanup note: Constitutional source material. Preserve, redact and promote excerpts; do not inject the raw document as operational context.
+> Authority warning: this is constitutional source material, not the live architecture index. Current authority is the canonical replacement set above.
+
 # ATLAS
 
 **Documento Mestre — Versão 6.0**

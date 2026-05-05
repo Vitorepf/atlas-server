@@ -1,0 +1,131 @@
+---
+id: atlas-ai-layer-0-glossary
+type: engineering_knowledge
+title: Atlas AI Layer 0 Constitution And Glossary
+status: active
+category: architecture-governance
+priority: 98
+summary: Constituicao operacional enxuta e glossario canonico de Layer 0 para impedir que docs legados, prompts ou providers disputem a identidade do Atlas AI.
+tags:
+  - atlas-ai
+  - layer-0
+  - glossary
+  - constitution
+capabilities:
+  - canonical_architecture_index
+  - documentation_governance
+  - provider_safe_identity
+decisions:
+  - Atlas AI e o core cognitivo persistente e modelo-agnostico do Atlas, nao um provider, chat, CLI ou app.
+  - Providers sao motores substituiveis; surfaces sao pontos de contato; runtime e kernel preservam contratos, evidence e policy.
+  - Conteudo constitucional legado e source material humano; somente excertos revisados e provider-safe viram autoridade operacional.
+  - Este documento governa linguagem e identidade; contratos executaveis continuam no Kernel Architecture.
+maintenance:
+  - Atualizar junto com o Canonical Architecture Index quando um termo mudar de autoridade.
+  - Nao copiar documentos mestres legados inteiros para a KB.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
+  - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
+  - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
+  - docs/engineering-knowledge-base/atlas-ai-vision.md
+  - resolver-o-que-vale-a-pena/docs/atlas-glossary.md
+  - resolver-o-que-vale-a-pena/root-md/Atlas_Documento_Mestre_v6.md
+  - resolver-o-que-vale-a-pena/root-md/Atlas_AI_Documentacao_Final.md
+  - resolver-o-que-vale-a-pena/root-md/Atlas_AI_CLI_Nomenclatura_Comandos_TUI_ADR.md
+---
+
+# Atlas AI Layer 0 Constitution And Glossary
+
+Este e o doc canonico enxuto de Layer 0. Ele nao substitui o Kernel, a Master
+Architecture ou as Domain Specs; ele fixa identidade, linguagem e regras de
+promocao de material humano/legado.
+
+## Autoridade
+
+| Assunto | Autoridade |
+|---|---|
+| Identidade e termos canonicos do Atlas AI | Este documento + `atlas-ai-canonical-architecture-index.md` |
+| Contratos executaveis, envelopes, receipts, ledger, SLOs | `atlas-ai-kernel-architecture.md` |
+| Produto, planes, dominios, surfaces e roadmap | `atlas-ai-master-architecture.md` |
+| Open Brain, memoria e contexto | `atlas-ai-memory-context-core-open-brain.md` + `open-brain-context-injection.md` |
+| AtlasVault/Obsidian | `obsidian-atlas-vault.md` |
+
+## Constituicao Operacional
+
+1. Atlas AI e continuidade, nao provider.
+   Claude, Codex, GPT, Gemini, modelos locais e modelos futuros sao motores.
+   Atlas AI e a camada persistente que decide contexto, policy, ferramenta,
+   evidence, memoria, surface e criterio de qualidade.
+
+2. Surface nao e core.
+   App, CLI, TUI, mobile, API, MCP, automacao e voz futura podem mudar. A
+   identidade operacional mora no Kernel, Master Architecture, Memory Core,
+   Evidence Ledger e docs canonicos.
+
+3. Contexto e compilado, nao despejado.
+   Open Brain monta o menor contexto suficiente, provider-safe, rastreavel e
+   reversivel. Nota humana, vault, prompt ou chat nunca entram crus no provider.
+
+4. Qualidade vem antes de autonomia.
+   Aumentar permissao exige evidence, gates, trace, reversibilidade, safety
+   boundary e caminho de rollback. Workflow vem antes de autonomia aberta.
+
+5. Skills e flows governam agentes.
+   Agente e papel operacional temporario. Skill, domain, flow, policy e receipt
+   definem comportamento antes de qualquer executor agir.
+
+6. Memoria nao e historico bruto.
+   Memoria operacional precisa de fonte, escopo, validade, privacy class,
+   confidence, provider-safety e caminho de esquecimento.
+
+7. Fase antiga nao e verdade presente.
+   Material legado pode conter conhecimento valioso, mas deve ser marcado como
+   source material, merge pending, human vault only ou archived antes de orientar
+   implementacao atual.
+
+## Glossario Canonico
+
+| Termo | Significado canonico | Nao confundir com |
+|---|---|---|
+| Atlas AI | Core cognitivo persistente, modelo-agnostico e multi-surface do Atlas. | Provider, app, chat, CLI ou agente especifico |
+| Provider | Motor substituivel chamado pelo Atlas. | Identidade do Atlas AI |
+| Surface | Ponto de contato: app, CLI, mobile, API, MCP, automacao, voz futura. | Domain ou Kernel |
+| Kernel | Contratos executaveis: envelope, receipt, ledger, manifests, SDKs, tests, SLOs. | Roadmap de produto |
+| Master Architecture | Arquitetura de produto: planes, dominios, surfaces, learning, strategy e maturidade. | Contrato de DB/API especifico |
+| Domain | Especializacao governada de comportamento e policy. | Tela, comando ou provider |
+| Flow | Recorte operacional dentro de um domain. | Prompt solto |
+| Profile | Configuracao derivada de domain/flow/surface/policy para uma operacao. | Pessoa/agente |
+| Operation Envelope | Envelope tipado que delimita uma operacao do Kernel. | Trace solto |
+| Decision Receipt | Registro da decisao operacional: policy, provider, budgets, evidence e fallback. | Resposta textual do modelo |
+| Evidence Ledger | Stream append-only de eventos auditaveis do runtime. | Relatorio final manual |
+| Context Pack | Pacote de contexto escolhido, resumido e auditado para uma tarefa. | Dump de historico |
+| AtlasVault / Obsidian | Human Knowledge Surface / Personal Knowledge Workspace. | Fonte operacional primaria |
+| Skill | Lente/policy/contrato de comportamento especializado. | Agente ou prompt |
+| Agent | Papel operacional temporario usado por um flow. | Produto independente |
+| Atlas Tool Runtime | Execucao governada de tools, shell, arquivos, git e testes. | Tool use livre do provider |
+
+## Termos Legados
+
+| Termo legado | Tratamento |
+|---|---|
+| Atlas Harness | Alias informal aceitavel; em docs canonicos prefira Atlas AI Harness ou runtime conforme contexto. |
+| Atlas AI Orchestrator | Evitar como camada separada; normalmente significa Task Orchestrator ou Domain Orchestrator. |
+| Documento Mestre | Source material humano/constitucional; nao substitui a KB canonica. |
+| CLAUDE.md / AGENTS.md | Projection de provider/agente; nunca fonte primaria. |
+
+## Regras De Promocao De Source Material
+
+- Promover apenas decisoes estaveis, pequenas e provider-safe.
+- Preservar o legado com redirect em vez de apagar.
+- Redigir conteudo pessoal, sensivel, aspiracional ou historico antes de virar
+  contrato operacional.
+- Declarar source material no doc promovido.
+- Atualizar `atlas-ai-canonical-architecture-index.md`, `README.md` e
+  `START_HERE.md` quando a promocao mudar autoridade.
+
+## Source Material
+
+- `resolver-o-que-vale-a-pena/docs/atlas-glossary.md`
+- `resolver-o-que-vale-a-pena/root-md/Atlas_Documento_Mestre_v6.md`
+- `resolver-o-que-vale-a-pena/root-md/Atlas_AI_Documentacao_Final.md`
+- `resolver-o-que-vale-a-pena/root-md/Atlas_AI_CLI_Nomenclatura_Comandos_TUI_ADR.md`

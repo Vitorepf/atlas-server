@@ -62,6 +62,24 @@ class AtlasSelfImprovementOrchestratorTest extends TestCase
         $this->assertSame('proposal_only', data_get($plan, 'domain_profile.gate_policy.autonomy_ceiling'));
     }
 
+    public function test_repair_loop_review_plan_uses_dedicated_executor_contract(): void
+    {
+        $plan = app(AtlasSelfImprovementOrchestrator::class)->flowPlan('repair_loop_review', [
+            'hours' => 24,
+            'limit' => 5,
+            'repair_strategy' => 'human_review',
+            'failure_domain' => 'compliance.violation',
+        ]);
+
+        $this->assertSame('self_improvement.repair_loop_review', $plan['flow']);
+        $this->assertSame('repair_loop_review_runtime', data_get($plan, 'execution_policy.executor_preference'));
+        $this->assertSame([
+            'strategy' => 'human_review',
+            'failure_domain' => 'compliance.violation',
+        ], data_get($plan, 'options.filters'));
+        $this->assertTrue((bool) data_get($plan, 'execution_policy.proposal_only'));
+    }
+
     public function test_execute_nightly_review_returns_plan_runtime_and_evidence_refs(): void
     {
         app(AtlasEvidenceLedger::class)->record(LedgerEventType::OperationFailed, [

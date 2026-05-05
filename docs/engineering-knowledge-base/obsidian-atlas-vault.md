@@ -5,7 +5,7 @@ title: Atlas Obsidian And AtlasVault Architecture
 status: active
 category: architecture
 priority: 97
-summary: Contrato canonico para o Atlas usar Obsidian/AtlasVault como camada humana bidirecional, sem transformar notas soltas em fonte primaria da memoria operacional.
+summary: Contrato canonico para o Atlas usar Obsidian/AtlasVault como Human Knowledge Surface / Personal Knowledge Workspace, sem transformar notas soltas em fonte operacional primaria.
 tags:
   - atlas
   - obsidian
@@ -19,7 +19,7 @@ capabilities:
   - bidirectional_memory_links
   - provider_safe_note_projection
 decisions:
-  - Obsidian e AtlasVault sao camada humana de escrita, leitura, revisao e navegacao.
+  - Obsidian e AtlasVault sao Human Knowledge Surface / Personal Knowledge Workspace para escrita, leitura, revisao e navegacao humanas.
   - Postgres, docs canonicos versionados e audits continuam sendo a fonte operacional do Atlas.
   - O Atlas pode importar notas do vault, mas so memoria classificada, redigida e revisada entra em Open Brain.
   - O Atlas pode criar notas no vault, mas notas geradas sao projections humanas gerenciadas, nao substituem migrations, docs canonicos ou tabelas.
@@ -57,10 +57,11 @@ transformar Obsidian em fonte primaria da memoria operacional.
 
 ## Decisao Executiva
 
-Obsidian/AtlasVault e o Human Knowledge Plane do Atlas: o core da camada humana
-de conhecimento pessoal, pesquisa, revisao, identidade e navegacao. Atlas
-Memory, Postgres, docs canonicos, Evidence Ledger, Code Intelligence e Open
-Brain sao o core operacional da IA e do sistema.
+Obsidian/AtlasVault e a Human Knowledge Surface / Personal Knowledge Workspace
+do Atlas: o espaco humano de conhecimento pessoal, pesquisa, revisao,
+identidade e navegacao. Atlas Memory, Postgres/index, docs canonicos, Evidence
+Ledger, Code Intelligence e Open Brain continuam sendo o core operacional da IA
+e do sistema.
 
 Regra:
 
@@ -68,7 +69,7 @@ Regra:
 Obsidian / AtlasVault
   = escrita humana, pesquisa, notas longas, revisao, navegacao, espelho rico
 
-atlas-server/docs + Postgres + audits
+atlas-server/docs + Postgres/index + memory/core + audits
   = fonte operacional, testavel, versionada, consultavel e provider-safe
 ```
 

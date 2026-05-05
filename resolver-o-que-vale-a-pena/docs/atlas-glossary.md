@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md; docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md.
+> Cleanup note: Reviewed Layer 0 terminology has been promoted to the canonical glossary. Preserve this file as source material, not authority.
+
 # Atlas CLI - Glossario Canonico
 
 **Status:** fonte operacional para implementacao do Atlas CLI

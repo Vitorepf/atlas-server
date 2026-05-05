@@ -1,3 +1,8 @@
+> Cleanup status: human_vault_only.
+> Canonical replacement: docs/engineering-knowledge-base/obsidian-atlas-vault.md; docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md; docs/engineering-knowledge-base/memory-core-security-privacy.md.
+> Cleanup note: Human/personal memory source. Preserve, redact and promote excerpts; never inject raw into providers.
+> Authority warning: body-level "fonte de verdade" claims are historical human source material; operational authority is the canonical replacement set above.
+
 # ATLAS
 
 **Memoria Semantica Ativa Compartilhada**
@@ -1535,4 +1540,3 @@ Frase raiz:
 > **Atlas deve lembrar o que Vitor esqueceu, no momento em que lembrar muda a acao.**
 
 Se uma implementacao futura nao servir a essa frase, ela desviou.
-

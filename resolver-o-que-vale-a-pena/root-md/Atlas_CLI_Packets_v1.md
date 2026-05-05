@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-runtime-packets.md; docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md; docs/engineering-knowledge-base/super-tool-runtime-core.md.
+> Cleanup note: Packet concepts have been mapped to current Kernel/runtime contracts. Preserve this file as source material.
+
 # ATLAS CLI - PACKETS TECNICOS V1
 
 **Anexo tecnico dos contratos minimos para o Atlas CLI evoluir de dashboard/CLI para produto terminal profissional**
@@ -208,4 +212,3 @@ Registro da escolha de provider/modelo.
 5. `router_decision`
 
 Motivo: primeiro o Atlas precisa executar trabalho com rastro e permissao; depois aprender e melhorar o roteamento.
-

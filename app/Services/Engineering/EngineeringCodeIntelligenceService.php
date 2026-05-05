@@ -10,6 +10,7 @@ use App\Services\Tools\AtlasToolEvidenceStore;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -1458,48 +1459,98 @@ class EngineeringCodeIntelligenceService
 
     private function refreshDocumentationStatus(): void
     {
-        $moduleDocs = AtlasEngineeringDocLink::query()
+        $moduleDocs = [];
+
+        foreach (DB::table('atlas_engineering_doc_links')
+            ->select(['module_id', 'canonical_path', 'doc_hash'])
             ->whereNotNull('module_id')
             ->whereNull('archived_at')
             ->where('status', 'current')
-            ->get(['module_id', 'canonical_path', 'doc_hash'])
-            ->groupBy(fn (AtlasEngineeringDocLink $link): string => (string) $link->module_id);
-        $symbolDocs = AtlasEngineeringDocLink::query()
+            ->orderBy('module_id')
+            ->cursor() as $link) {
+            $moduleId = (string) $link->module_id;
+
+            $moduleDocs[$moduleId]['paths'][] = (string) $link->canonical_path;
+
+            if (is_string($link->doc_hash) && $link->doc_hash !== '') {
+                $moduleDocs[$moduleId]['hashes'][] = $link->doc_hash;
+            }
+        }
+
+        foreach ($moduleDocs as $moduleId => $docs) {
+            $paths = array_values(array_unique($docs['paths'] ?? []));
+            $hashes = array_values(array_filter($docs['hashes'] ?? [], fn (string $hash): bool => $hash !== ''));
+            sort($hashes);
+
+            $moduleDocs[$moduleId] = [
+                'paths' => $paths,
+                'docs_hash' => $hashes === [] ? null : hash('sha256', implode('|', $hashes)),
+            ];
+        }
+
+        $symbolDocs = [];
+
+        foreach (DB::table('atlas_engineering_doc_links')
+            ->select(['symbol_id', 'knowledge_item_id'])
             ->whereNotNull('symbol_id')
             ->whereNull('archived_at')
             ->where('status', 'current')
-            ->get(['symbol_id', 'knowledge_item_id'])
-            ->groupBy(fn (AtlasEngineeringDocLink $link): string => (string) $link->symbol_id);
-        $documentedModuleIds = [];
+            ->orderBy('symbol_id')
+            ->cursor() as $link) {
+            $symbolId = (string) $link->symbol_id;
+            $knowledgeItemId = (string) $link->knowledge_item_id;
 
-        foreach (AtlasEngineeringCodeModule::query()->active()->get(['id']) as $module) {
-            $links = $moduleDocs->get($module->id, collect());
-            $relatedDocs = $links->pluck('canonical_path')->unique()->values()->all();
-            $docsHash = $relatedDocs === [] ? null : hash('sha256', implode('|', $links->pluck('doc_hash')->sort()->all()));
-
-            if ($relatedDocs !== []) {
-                $documentedModuleIds[$module->id] = true;
+            if ($knowledgeItemId !== '') {
+                $symbolDocs[$symbolId][] = $knowledgeItemId;
             }
-
-            AtlasEngineeringCodeModule::query()->whereKey($module->id)->update([
-                'docs_status' => $relatedDocs === [] ? 'undocumented' : 'documented',
-                'related_docs_json' => $this->json($relatedDocs),
-                'docs_hash' => $docsHash,
-            ]);
         }
 
-        AtlasEngineeringCodeSymbol::query()
-            ->active()
+        foreach ($symbolDocs as $symbolId => $knowledgeItemIds) {
+            $symbolDocs[$symbolId] = array_values(array_unique($knowledgeItemIds));
+        }
+
+        $documentedModuleIds = [];
+        $now = now();
+
+        DB::table('atlas_engineering_code_modules')
+            ->select(['id'])
+            ->where('status', 'active')
+            ->whereNull('archived_at')
+            ->orderBy('id')
+            ->chunkById(200, function ($modules) use ($moduleDocs, &$documentedModuleIds, $now): void {
+                foreach ($modules as $module) {
+                    $moduleId = (string) $module->id;
+                    $docs = $moduleDocs[$moduleId] ?? ['paths' => [], 'docs_hash' => null];
+                    $relatedDocs = $docs['paths'];
+
+                    if ($relatedDocs !== []) {
+                        $documentedModuleIds[$moduleId] = true;
+                    }
+
+                    DB::table('atlas_engineering_code_modules')->where('id', $moduleId)->update([
+                        'docs_status' => $relatedDocs === [] ? 'undocumented' : 'documented',
+                        'related_docs_json' => $this->json($relatedDocs),
+                        'docs_hash' => $docs['docs_hash'],
+                        'updated_at' => $now,
+                    ]);
+                }
+            });
+
+        DB::table('atlas_engineering_code_symbols')
             ->select(['id', 'module_id'])
-            ->chunkById(500, function ($symbols) use ($symbolDocs, $documentedModuleIds): void {
+            ->where('status', 'active')
+            ->whereNull('archived_at')
+            ->orderBy('id')
+            ->chunkById(500, function ($symbols) use ($symbolDocs, $documentedModuleIds, $now): void {
                 foreach ($symbols as $symbol) {
-                    $links = $symbolDocs->get($symbol->id, collect());
-                    $relatedDocIds = $links->pluck('knowledge_item_id')->unique()->values()->all();
+                    $symbolId = (string) $symbol->id;
+                    $relatedDocIds = $symbolDocs[$symbolId] ?? [];
                     $moduleDocumented = is_string($symbol->module_id) && isset($documentedModuleIds[$symbol->module_id]);
 
-                    AtlasEngineeringCodeSymbol::query()->whereKey($symbol->id)->update([
+                    DB::table('atlas_engineering_code_symbols')->where('id', $symbolId)->update([
                         'docs_status' => $relatedDocIds !== [] ? 'documented' : ($moduleDocumented ? 'module_documented' : 'undocumented'),
                         'related_doc_ids_json' => $this->json($relatedDocIds),
+                        'updated_at' => $now,
                     ]);
                 }
             });

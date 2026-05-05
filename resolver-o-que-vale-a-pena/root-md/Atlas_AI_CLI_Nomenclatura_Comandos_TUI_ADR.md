@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md; docs/atlas-cli-final-product.md.
+> Cleanup note: Useful naming/CLI ADR source. Promote stable naming decisions before archival.
+
 # ATLAS AI/CLI - ADR DE NOMENCLATURA, COMANDOS E TUI
 
 **Documento de saneamento arquitetural para remover ambiguidades entre especificacao, codigo e roadmap**

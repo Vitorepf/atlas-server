@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md; docs/engineering-knowledge-base/atlas-ai-master-architecture.md; docs/engineering-knowledge-base/atlas-ai-operating-system.md.
+> Cleanup note: Useful mobile surface source. Mobile must remain a surface, not a parallel domain architecture.
+
 # Atlas AI Mobile - Modelo Operacional, Telas E Fluxos
 
 **Status:** especificacao canonica de produto e arquitetura mobile

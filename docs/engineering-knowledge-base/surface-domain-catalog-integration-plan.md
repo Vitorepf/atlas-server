@@ -42,7 +42,7 @@ Campos ja expostos para surfaces:
 | API catalog | `GET /ai/domains` ja expoe o catalogo com filtros `domain`, `flow`, `maturity`. | Ser a fonte principal de app/mobile para picker, badges e readiness. |
 | API interaction | `POST /ai/interactions` aceita `payload` generico, `agent_slug`, provider e source, mas nao valida explicitamente domain/flow no request. | Receber `payload.domain_id` e `payload.flow_id` vindos do catalogo; opcionalmente previewar policy via `/ai/policies/preview` antes de enfileirar. |
 | App settings | `atlas-app/components/sheets/SettingsSheet.tsx` ja consome `/ai/policies/profiles`, mostra flows, executor, autonomy, approval, background, gates, context/memory/skill/tool policy. | Reusar `GET /ai/domains` como read model para readiness/onboarding e deixar `/ai/policies/profiles` para edicao/policy preview. |
-| App AI routing sheet | `atlas-app/components/console/StatusRouting.tsx` e `RoutingSheet.tsx` hardcodam modos, tarefas, dominios e executors. | Popular domain/flow picker a partir de `/ai/domains`. Mapear modo visual para flow canonico: `programming -> programming.dev|review|repair`, `operational -> operations.diagnostic`, `general -> general.answer`, e liberar `marketing.*`/`self_improvement.*` quando surface estiver pronta. |
+| App AI routing sheet | `atlas-app/components/console/StatusRouting.tsx` e `RoutingSheet.tsx` hardcodam modos, tarefas, dominios e executors. | Popular domain/flow picker a partir de `/ai/domains`. Mapear modo visual para flow canonico: `programming -> programming.dev|review|repair`, `operational -> operations.diagnostic`, `general -> general.answer`; expor `self_improvement.*` como ready quando a surface suportar seus controles, e manter `marketing.*` como scaffold/catalog-ready ate runtime/orchestrator proprio. |
 | Mobile gateway/thread | `MobileThreadController` usa defaults read-only (`mobile_operational_read`, `permission_mode=read`). `DiscussionBootstrapper` promove discussao com `atlas_full_access`, `permission_mode=danger`, `operational_diagnostic`. | Trocar defaults por flow canonico (`operations.diagnostic` para discussao operacional; `programming.*` somente quando aprovado). Mostrar safety/autonomy antes de elevar runtime. |
 | MCP/Open Brain | `AtlasOpenBrainMcpService` declara tools diretamente e expoe `atlas_capabilities`, mas nao publica domain catalog nem usa flow readiness para tool availability. | Adicionar tool read-only futuro `atlas_domain_catalog` ou incluir resumo de domains em `atlas_capabilities`. Tools write/execution devem declarar domain/flow permitido e capability registry correspondente. |
 
@@ -81,6 +81,10 @@ Campos ja expostos para surfaces:
 ## Implementação Nesta Etapa
 
 - Criado `DomainCatalogSurfaceSelectionService` como adapter de surface para traduzir UX mode/task/domain em `domain_id` e `flow_id` canonicos.
+- Surface adapters formais agora declaram `surface_id`, capabilities, attachment kinds, hint keys e `supportedDomainFlowHints()` quando podem aceitar domain/flow do catalogo.
+- `supportedDomainFlowHints()` tem vocabulario fechado (`SurfaceDomainFlowHintKey`) e compliance forte: keys desconhecidas, listas malformadas, default flow fora de `supported_flow_ids` ou `task_flow_map` fora dos flows suportados falham nos testes.
+- `DomainCatalogSurfaceSelectionService` valida dominio e flow contra `AtlasAiDomainCatalogService`, exige que surfaces registradas declarem suporte antes de aceitar selecao explicita (`surface_domain_flow_selection_not_supported`), respeita limites declarados pela surface (`surface_domain_not_supported`, `surface_flow_not_supported`), retorna diagnostico claro (`domain_not_found`, `flow_not_found`, `domain_flow_mismatch`) para selecoes invalidas, e so usa fallback seguro para mapeamento implicito de UX quando o catalogo permitir.
+- `atlas_cli_dev` mapeia tarefas de programacao para `programming.dev`, `programming.review` e `programming.repair`; `atlas_cli_forge` prefere `programming.forge` para tarefas `forge`, `heavy`, `build` e `plan`.
 - `atlas:ai:domains` ganhou preview opt-in com `--select`, `--surface`, `--mode`, `--task` e `--routing-domain`.
 - `POST /ai/interactions` agora enriquece payloads de surface com `domain_catalog_selection`, `domain_id`, `flow_id`, `surface_id`, safety e executor preference quando o payload traz sinais de roteamento.
 - MCP/Open Brain ganhou tool read-only `atlas_domain_catalog`, com filtros `domain`, `flow` e `maturity`.
@@ -94,9 +98,16 @@ Essas mudancas nao alteram os contratos centrais do catalogo, nao mexem em route
 Criar um adaptador por surface, nao no registry central:
 
 - Input: UX mode/task/domain/executor atual.
+- Input canonico recomendado: `domain_catalog_selection` com `surface_id`, `ux.mode`, `ux.task`, `ux.product_domain`, `domain.id` e `flow.id`; campos planos `domain_id` e `flow_id` continuam aceitos e vencem envelopes antigos.
 - Output: `domain_id`, `flow_id`, `surface_id`, `selection_source`, `operator_override`.
-- Fonte: `GET /ai/domains`.
-- Fallback: se catalogo indisponivel, manter UX atual com `flow_id=null` e aviso discreto.
+- Fonte: `AtlasAiDomainCatalogService` no server e `GET /ai/domains` nas clients.
+- Surface hints: adapters podem declarar defaults e `task_flow_map`, mas o selector sempre valida o resultado contra o catalogo canonico.
+- Surface hints sao declarativos e auditaveis: `default_domain_id`, `default_flow_id`, `supported_domain_ids`, `supported_flow_ids`, `task_flow_map`, `prefer_default_flow` e flags de aceitacao passam por compliance antes de virarem contrato de surface.
+- Surface registrada que nao declara `domain_flow_selection` nao aceita `domain_id` ou `flow_id` explicitos; o selector retorna `surface_domain_flow_selection_not_supported` em vez de tratar a escolha como override valido.
+- Quando `supported_domain_ids` ou `supported_flow_ids` existem, eles restringem o que a surface aceita expor. O catalogo continua sendo a fonte de verdade, e o selector retorna `status=unresolved` se uma escolha canonica nao estiver declarada pela surface.
+- O resultado inclui `surface_hints.supported_capabilities` para UI/API/MCP exibirem badges e diagnosticarem limites da surface; isso nao autoriza provider, memoria ou runtime diretamente.
+- Aliases legados sao resolvidos antes da selecao: `atlas_cli` aponta para `atlas_cli_dev` e `atlas_api` aponta para `atlas_api_interaction`, evitando surface desconhecida e bypass de limites formais.
+- Fallback: permitido apenas para selecao implicita de UX. `domain_id`/`flow_id` explicitos invalidos retornam `status=unresolved` com `error.code` e nao fazem fallback silencioso.
 
 Mapeamento inicial recomendado:
 
@@ -109,6 +120,7 @@ Mapeamento inicial recomendado:
 | `programming/debug` | `programming.repair` |
 | `programming/review` | `programming.review` |
 | `programming/plan` | `programming.dev` com autonomy/gates conservadores |
+| `atlas_cli_forge/heavy` | `programming.forge` |
 | marketing entrypoints | `marketing.strategy`, `marketing.campaign`, `marketing.copywriting` etc. |
 | self-improvement scheduled/manual | `self_improvement.*` |
 
@@ -131,6 +143,15 @@ Usar `domains[].orchestrator_maturity` e `domains[].onboarding` como read-only b
 - `ready 9/9`: habilitado sem aviso.
 - `executable_incomplete`: habilitado com "em consolidacao".
 - `scaffold/planned`: visivel em settings/catalog, oculto no picker padrao ou marcado como experimental.
+
+Estado canonico atual:
+
+- Ready/implemented: `programming`, `finance`, `personal_development`,
+  `self_improvement`.
+- Scaffold/catalog-ready: `marketing`, `research`, `health`, `learning`,
+  `writing`, `qa`, `security`, `operations`, `background`, `general`.
+- Marketing nao deve ser liberado no picker principal como dominio pronto ate
+  existir runtime/orchestrator proprio.
 
 Para app/mobile:
 
@@ -226,4 +247,6 @@ Fase futura pequena:
 - Surface mostra maturity/onboarding, executor preference e safety/autonomy.
 - Surface preserva selection metadata em payload/trace/job.
 - Surface nao chama runtime/capability sem capability id reconhecido ou not_supported reason.
+- Adapter com `domain_flow_selection` deve expor `supportedDomainFlowHints()` e passar no compliance report.
+- Flow explicito inexistente deve retornar diagnostico (`flow_not_found`) e preservar ausencia de patch canonico.
 - Teste cobre pelo menos um ready domain (`programming`) e um flow executor-specific (`programming.repair` ou `programming.forge`).

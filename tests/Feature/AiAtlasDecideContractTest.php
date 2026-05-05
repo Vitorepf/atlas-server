@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Resources\AiDecisionResource;
 use App\Models\AiDecision;
 use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
@@ -64,6 +65,14 @@ class AiAtlasDecideContractTest extends TestCase
         $this->assertSame('research', data_get($decision->task_profile, 'task_type'));
         $this->assertSame('gemini_cli', data_get($decision->execution_graph, 'nodes.0.provider'));
         $this->assertSame('long_context_or_multimodal', data_get($decision->signals, 'context_strategy_hint'));
+        $this->assertTrue(data_get($decision->signals, 'kernel_contracts.valid'));
+        $this->assertTrue(data_get($decision->signals, 'kernel_contracts.execution_allowed'));
+        $this->assertSame('atlas_app', data_get($decision->signals, 'kernel_contracts.surface.surface_id'));
+        $this->assertSame('gemini_cli', data_get($decision->signals, 'kernel_contracts.provider.provider_id'));
+        $resource = (new AiDecisionResource($decision))->resolve();
+        $this->assertTrue(data_get($resource, 'kernel_contracts.valid'));
+        $this->assertSame('atlas_app', data_get($resource, 'kernel_contracts.surface.surface_id'));
+        $this->assertSame('gemini_cli', data_get($resource, 'kernel_contracts.provider.provider_id'));
         $this->assertIsArray($decision->candidates);
         $this->assertNotEmpty($decision->candidates);
     }
@@ -124,6 +133,9 @@ class AiAtlasDecideContractTest extends TestCase
             ->assertJsonPath('decision.context_strategy', 'repo_focused_context')
             ->assertJsonPath('decision.execution_strategy', 'single_provider_code_execution')
             ->assertJsonPath('decision.execution_graph.nodes.0.provider', 'codex_cli')
+            ->assertJsonPath('decision.kernel_contracts.surface.surface_id', 'atlas_cli_dev')
+            ->assertJsonPath('decision.kernel_contracts.provider.provider_id', 'codex_cli')
+            ->assertJsonPath('decision.receipt_v2.metadata.kernel_contracts.surface.surface_id', 'atlas_cli_dev')
             ->assertJsonPath('decision.was_overridden', false);
     }
 

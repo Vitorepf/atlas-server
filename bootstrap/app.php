@@ -94,6 +94,7 @@ use App\Console\Commands\SemanticProposeCommand;
 use App\Http\Middleware\AuthenticateAtlasToken;
 use App\Http\Middleware\AuthenticateMobileDevice;
 use App\Jobs\FlushBatchedMobilePushes;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -265,24 +266,10 @@ return Application::configure(basePath: dirname(__DIR__))
         }
 
         if (config('atlas_ai.self_improvement.enabled', false)) {
-            $selfImprovementFlows = array_values(array_filter((array) config('atlas_ai.self_improvement.flows', ['nightly_review']), 'is_string'));
-            if ($selfImprovementFlows === []) {
-                $selfImprovementFlows = ['nightly_review'];
-            }
-
-            foreach ($selfImprovementFlows as $selfImprovementFlow) {
-                $selfImprovementCommand = 'atlas:ai:self-improve'
-                    .' --flow='.$selfImprovementFlow
-                    .' --hours='.(int) config('atlas_ai.self_improvement.hours', 24)
-                    .' --limit='.(int) config('atlas_ai.self_improvement.limit', 5)
-                    .' --json';
-
-                if (config('atlas_ai.self_improvement.emit', false)) {
-                    $selfImprovementCommand .= ' --emit';
-                }
-
-                $schedule->command($selfImprovementCommand)
-                    ->dailyAt((string) config('atlas_ai.self_improvement.time', '02:00'))
+            foreach (app(AtlasSelfImprovementScheduleService::class)->scheduledCommands() as $selfImprovementCommand) {
+                $schedule->command($selfImprovementCommand['command'])
+                    ->dailyAt($selfImprovementCommand['time'])
+                    ->timezone($selfImprovementCommand['timezone'])
                     ->withoutOverlapping();
             }
         }

@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-cli-multimodal.md; docs/paste-image-setup.md; docs/atlas-cli-final-product.md.
+> Cleanup note: Historical design source. Preserve for audit, but do not use as live architecture without checking the canonical replacement.
+
 # Atlas dev REPL — paste-image clicável
 
 Spec para deixar `atlas:cli:dev` interativo aceitar Cmd+V de imagem em qualquer terminal e mostrar os anexos como `[imagem 1, imagem 2]` clicáveis.

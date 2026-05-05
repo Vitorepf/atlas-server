@@ -1,3 +1,8 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md; docs/engineering-knowledge-base/atlas-ai-operating-system.md; docs/engineering-knowledge-base/atlas-ai-pipeline.md.
+> Cleanup note: P0 source material for Decide. Preserve for audit; canonical runtime contracts now live in Kernel/Operating System/Pipeline.
+> Authority warning: this file calls itself canonical in historical sections; current authority is the canonical replacement set above.
+
 # Atlas Decide - Especificacao Canonica Final
 
 **Status:** especificacao canonica de arquitetura, produto e implementacao

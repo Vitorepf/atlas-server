@@ -150,7 +150,20 @@ class AiSessionManagerTest extends TestCase
         $this->assertSame('claude_codex', $session->provider_last);
         $this->assertSame($clientId, $trace->metadata['client_id']);
         $this->assertSame(2, $trace->jobs()->count());
-        $this->assertSame($clientId, $trace->jobs()->where('provider', 'claude_cli')->firstOrFail()->client_id);
+        $claudeJob = $trace->jobs()->where('provider', 'claude_cli')->firstOrFail();
+        $codexJob = $trace->jobs()->where('provider', 'codex_cli')->firstOrFail();
+
+        $this->assertSame($clientId, $claudeJob->client_id);
+        $this->assertSame(
+            data_get($trace->metadata, 'decision_receipt.receipt_v2.receipt_id'),
+            data_get($claudeJob->metadata, 'decision_receipt.receipt_v2.receipt_id'),
+        );
+        $this->assertSame(
+            data_get($trace->metadata, 'decision_receipt.receipt_v2.receipt_id'),
+            data_get($codexJob->payload, 'decision_receipt.receipt_v2.receipt_id'),
+        );
+        $this->assertTrue(data_get($claudeJob->metadata, 'decision_receipt.kernel_contracts.valid'));
+        $this->assertTrue(data_get($codexJob->payload, 'decision_receipt.kernel_contracts.valid'));
     }
 
     public function test_gateway_records_open_brain_injection_for_dev_app_interaction(): void
@@ -175,6 +188,16 @@ class AiSessionManagerTest extends TestCase
         $this->assertSame('app_ai', data_get($trace->metadata, 'open_brain_injection.surface'));
         $this->assertNotEmpty(data_get($trace->metadata, 'open_brain_injection.context_pack_hash'));
         $this->assertStringContainsString('Atlas Open Brain Context', (string) $trace->job->prompt);
+        $this->assertSame(
+            data_get($trace->metadata, 'decision_receipt.receipt_v2.receipt_id'),
+            data_get($trace->job->metadata, 'decision_receipt.receipt_v2.receipt_id'),
+        );
+        $this->assertSame(
+            data_get($trace->metadata, 'decision_receipt.receipt_v2.receipt_id'),
+            data_get($trace->job->payload, 'decision_receipt.receipt_v2.receipt_id'),
+        );
+        $this->assertTrue(data_get($trace->job->metadata, 'decision_receipt.kernel_contracts.valid'));
+        $this->assertTrue(data_get($trace->job->payload, 'decision_receipt.kernel_contracts.valid'));
         $this->assertDatabaseHas('atlas_open_brain_access_logs', [
             'surface' => 'app_ai',
             'action' => 'context_injection',

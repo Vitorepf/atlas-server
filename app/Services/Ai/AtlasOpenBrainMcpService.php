@@ -6,6 +6,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Facades\Schema;
@@ -24,6 +25,7 @@ class AtlasOpenBrainMcpService
         private readonly EngineeringKnowledgeBaseService $knowledge,
         private readonly EngineeringCodeIntelligenceService $code,
         private readonly AtlasAiDomainCatalogService $domainCatalog,
+        private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
     /**
@@ -1188,7 +1190,13 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_memory_get', 'error' => 'memory_entry_not_found'];
         }
 
-        if (! $this->privacy->providerAllowed($entry)) {
+        $privacyDecision = $this->privacy->providerDecision($entry);
+        if (! (bool) $privacyDecision['allowed']) {
+            $this->ledger->recordProviderMemoryBlocked($entry, $privacyDecision, 'open_brain_mcp', [
+                'correlation_id' => $this->string($arguments['correlation_id'] ?? null) ?? $entry->trace_id,
+                'trace_id' => $this->string($arguments['trace_id'] ?? null) ?? $entry->trace_id,
+            ]);
+
             return ['ok' => false, 'tool' => 'atlas_memory_get', 'error' => 'not_provider_safe'];
         }
 

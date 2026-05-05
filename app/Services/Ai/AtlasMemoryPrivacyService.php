@@ -112,11 +112,31 @@ class AtlasMemoryPrivacyService
 
     public function providerAllowed(AtlasMemoryEntry $entry): bool
     {
-        if (($entry->external_ai_allowed ?? null) === false) {
-            return false;
-        }
+        return (bool) $this->providerDecision($entry)['allowed'];
+    }
 
-        return data_get($entry->metadata ?? [], 'privacy.external_ai_allowed') !== false;
+    /**
+     * @return array{allowed:bool,privacy_class:string,external_ai_allowed:bool,metadata_external_ai_allowed:mixed,reason:string}
+     */
+    public function providerDecision(AtlasMemoryEntry $entry): array
+    {
+        $privacyClass = $this->privacyClass(data_get($entry->metadata, 'privacy.class', $entry->privacy_class ?? 'normal'));
+        $externalAiAllowed = $this->externalAiAllowed($privacyClass, $entry->external_ai_allowed ?? null);
+        $metadataExternalAiAllowed = data_get($entry->metadata ?? [], 'privacy.external_ai_allowed');
+        $allowed = $externalAiAllowed && $metadataExternalAiAllowed !== false;
+
+        return [
+            'allowed' => $allowed,
+            'privacy_class' => $privacyClass,
+            'external_ai_allowed' => $externalAiAllowed,
+            'metadata_external_ai_allowed' => $metadataExternalAiAllowed,
+            'reason' => match (true) {
+                $allowed => 'provider_safe',
+                ! $externalAiAllowed => 'external_ai_blocked_by_privacy_class',
+                $metadataExternalAiAllowed === false => 'external_ai_blocked_by_metadata',
+                default => 'not_provider_safe',
+            },
+        ];
     }
 
     public function providerTitle(AtlasMemoryEntry $entry): ?string

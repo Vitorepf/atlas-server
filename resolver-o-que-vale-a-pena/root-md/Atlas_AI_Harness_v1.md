@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/engineering-blueprint.md; docs/engineering-knowledge-base/atlas-ai-operating-system.md; docs/engineering-knowledge-base/atlas-ai-skill-system.md; docs/engineering-knowledge-base/atlas-ai-continuity-session-state.md.
+> Cleanup note: Legacy harness source material. Authority now lives in Engineering Blueprint, Operating System, Skill System and Continuity contracts; preserve for historical rationale only.
+
 # ATLAS AI HARNESS V1.1
 
 **Infraestrutura operacional interna do Atlas AI para orquestracao, controle, memoria, avaliacao e melhoria continua de IA**

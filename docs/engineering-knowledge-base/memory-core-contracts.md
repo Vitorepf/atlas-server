@@ -24,7 +24,7 @@ decisions:
   - APIs e CLIs devem expor status e dry-run para operacao segura.
   - Contratos de refs sao parte da interface publica interna do Atlas.
   - Injecao automatica de Open Brain deve ser provider-safe, auditada e centralizada no backend.
-  - Obsidian/AtlasVault e camada humana bidirecional, nao fonte operacional primaria.
+  - Obsidian/AtlasVault e Human Knowledge Surface / Personal Knowledge Workspace, nao fonte operacional primaria.
 maintenance:
   - Atualize este documento quando rotas, payloads, tabelas ou comandos mudarem.
   - Mantenha exemplos curtos e provider-safe.

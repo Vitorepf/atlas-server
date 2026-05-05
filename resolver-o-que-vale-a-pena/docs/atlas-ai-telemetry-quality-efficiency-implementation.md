@@ -1,3 +1,9 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md; docs/atlas-ai-telemetry.md; docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md.
+> Cleanup note: Telemetry/economics decisions have been promoted to the canonical telemetry/evidence doc. Preserve this file as source material.
+
+> Authority warning: this file is source material, not operational authority. Any checklist item below asking to approve this document as "fonte de verdade" is obsolete and superseded by the canonical replacement above.
+
 # Atlas AI Telemetry, Quality And Efficiency - Implementacao Core
 
 **Status:** especificacao operacional para implementacao  
@@ -1324,4 +1330,3 @@ O primeiro PR deve ser pequeno e estrutural:
 8. `AtlasCliTelemetry` minimo com command start/end e spool.
 
 Esse PR cria a fundacao. Nao implementar score complexo antes de existir evento bruto confiavel.
-

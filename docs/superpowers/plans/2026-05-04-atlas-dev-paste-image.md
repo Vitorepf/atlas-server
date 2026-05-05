@@ -1,3 +1,7 @@
+> Cleanup status: archived_quarantine.
+> Canonical replacement: docs/superpowers/specs/2026-05-04-atlas-dev-paste-image-design.md; docs/paste-image-setup.md.
+> Cleanup note: Task-by-task implementation plan. Preserve for history and link compatibility; future delete requires explicit approval and link audit.
+
 # Atlas dev REPL — paste-image Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

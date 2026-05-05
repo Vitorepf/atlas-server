@@ -323,6 +323,9 @@ class AiWorkerProviderChoiceTest extends TestCase
                     'receipt_v2' => [
                         'envelope_id' => 'env_worker_success',
                         'receipt_id' => 'rcpt_worker_success',
+                        'schema_version' => 'atlas.decide.v2',
+                        'expires_at' => now()->addMinute()->toISOString(),
+                        'dry_run' => false,
                         'metadata' => [
                             'tenant_id' => 'tenant_worker',
                             'operator_id' => 'operator_worker',
@@ -353,6 +356,7 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertSame([
             LedgerEventType::ExecutionStarted->value,
             LedgerEventType::ProviderCalled->value,
+            LedgerEventType::SloObserved->value,
             LedgerEventType::ProviderReturned->value,
             LedgerEventType::OperationCompleted->value,
         ], $events->pluck('event_type')->all());
@@ -362,7 +366,132 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertNull(data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'stdout'));
         $this->assertNull(data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'output'));
         $this->assertSame(hash('sha256', 'ok'), data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'response_hash'));
+        $this->assertSame('runtime.execute', data_get($events->firstWhere('event_type', LedgerEventType::SloObserved->value)?->payload, 'stage'));
+        $this->assertTrue((bool) data_get($events->firstWhere('event_type', LedgerEventType::SloObserved->value)?->payload, 'slo.success'));
         $this->assertSame('succeeded', $job->refresh()->status);
+    }
+
+    public function test_worker_blocks_expired_decision_receipt_before_provider_execution(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'execute com receipt expirado',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'execute com receipt expirado',
+            'prompt' => 'prompt',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'payload' => [
+                'decision_receipt' => [
+                    'receipt_v2' => [
+                        'envelope_id' => 'env_worker_expired',
+                        'receipt_id' => 'rcpt_worker_expired',
+                        'schema_version' => 'atlas.decide.v2',
+                        'expires_at' => now()->subSecond()->toISOString(),
+                        'dry_run' => false,
+                    ],
+                ],
+            ],
+        ]);
+
+        $manager = $this->createMock(AiProviderManager::class);
+        $manager->expects($this->never())->method('get');
+        $this->app->instance(AiProviderManager::class, $manager);
+
+        app(AiWorker::class)->runNext(workerId: 'worker-receipt');
+
+        $job->refresh();
+        $this->assertSame('failed', $job->status);
+        $this->assertSame('decision_receipt_expired', $job->error_code);
+        $this->assertSame('failed', $trace->refresh()->status);
+        $this->assertSame('decision_receipt_expired', $job->attemptHistory()->first()?->error_code);
+
+        $events = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'env_worker_expired')
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->get();
+
+        $this->assertSame([
+            LedgerEventType::ExecutionStarted->value,
+            LedgerEventType::OperationBlocked->value,
+            LedgerEventType::OperationFailed->value,
+        ], $events->pluck('event_type')->all());
+    }
+
+    public function test_worker_blocks_provider_mismatch_decision_receipt_before_provider_execution(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'execute com provider adulterado',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'claude_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'execute com provider adulterado',
+            'prompt' => 'prompt',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'payload' => [
+                'decision_receipt' => [
+                    'receipt_v2' => [
+                        'envelope_id' => 'env_worker_provider_mismatch',
+                        'receipt_id' => 'rcpt_worker_provider_mismatch',
+                        'schema_version' => 'atlas.decide.v2',
+                        'expires_at' => now()->addMinute()->toISOString(),
+                        'dry_run' => false,
+                        'provider_selection' => [
+                            'primary' => 'codex_cli',
+                            'model' => 'gpt-5.5',
+                            'fallbacks' => [],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $manager = $this->createMock(AiProviderManager::class);
+        $manager->expects($this->never())->method('get');
+        $this->app->instance(AiProviderManager::class, $manager);
+
+        app(AiWorker::class)->runNext(workerId: 'worker-receipt');
+
+        $job->refresh();
+        $this->assertSame('failed', $job->status);
+        $this->assertSame('decision_receipt_provider_mismatch', $job->error_code);
+        $this->assertSame('failed', $trace->refresh()->status);
+        $this->assertSame('decision_receipt_provider_mismatch', $job->attemptHistory()->first()?->error_code);
+        $this->assertSame('codex_cli', data_get($job->metadata, 'decision_receipt_enforcement.expected_provider'));
+        $this->assertSame('claude_cli', data_get($job->metadata, 'decision_receipt_enforcement.actual_provider'));
+
+        $events = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'env_worker_provider_mismatch')
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->get();
+
+        $this->assertSame([
+            LedgerEventType::ExecutionStarted->value,
+            LedgerEventType::OperationBlocked->value,
+            LedgerEventType::OperationFailed->value,
+        ], $events->pluck('event_type')->all());
     }
 
     public function test_programming_provider_execution_blocks_strict_gate_without_evidence_path(): void

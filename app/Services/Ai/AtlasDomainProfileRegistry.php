@@ -663,6 +663,7 @@ class AtlasDomainProfileRegistry
             ['self_improvement.benchmark_review', 'Benchmark Review', 'benchmark_review_runtime', 'Benchmark corpus review that converts regressions and weak cases into improvement proposals.'],
             ['self_improvement.memory_quality_review', 'Memory Quality Review', 'memory_quality_runtime', 'Memory quality review over source safety, trend drivers, stale knowledge, and accepted learning promotion.'],
             ['self_improvement.tool_runtime_review', 'Tool Runtime Review', 'tool_runtime_review_runtime', 'Super Tool Runtime review over evidence freshness, gate blocks, authority overlap, and missing sensors.'],
+            ['self_improvement.repair_loop_review', 'Repair Loop Review', 'repair_loop_review_runtime', 'Dedicated Repair Loop review over repair decisions, blocked/exhausted states, human review recurrence, strategies, reasons, and emitter stages.'],
             ['self_improvement.domain_learning_review', 'Domain Learning Review', 'domain_learning_runtime', 'Cross-domain learning review that checks whether domain outcomes are feeding memory, docs, and gates.'],
             ['self_improvement.docs_drift_review', 'Docs Drift Review', 'docs_drift_runtime', 'Documentation drift review comparing kernel contracts, KB docs, code intelligence, and domain manifests.'],
             ['self_improvement.provider_performance_review', 'Provider Performance Review', 'provider_performance_runtime', 'Provider and model performance review over failures, routing decisions, benchmark outcomes, and cost signals.'],

@@ -141,6 +141,357 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         ]);
     }
 
+    public function test_self_improvement_detects_kernel_slo_drift_from_replay_service(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::SloObserved, [
+            'stage' => 'runtime.execute',
+            'status' => 'breach',
+            'severity' => 'high',
+            'violations' => ['stage_failed'],
+            'dimensions' => [
+                'domain' => 'programming',
+                'surface_id' => 'atlas_cli_dev',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.2',
+            ],
+            'slo' => [
+                'stage' => 'runtime.execute',
+                'duration_ms' => 450000,
+                'success' => false,
+                'status' => 'breach',
+                'severity' => 'high',
+                'violations' => ['stage_failed'],
+            ],
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'env_slo_breach',
+            'correlation_id' => 'env_slo_breach',
+            'emitter_stage' => 'atlas.slo',
+            'emitter_version' => 'test',
+        ]);
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::SloObserved, [
+            'stage' => 'runtime.execute',
+            'status' => 'breach',
+            'severity' => 'high',
+            'violations' => ['stage_failed'],
+            'dimensions' => [
+                'domain' => 'finance',
+                'surface_id' => 'atlas_api',
+                'provider' => 'claude_cli',
+                'model' => 'claude-sonnet',
+            ],
+            'slo' => [
+                'stage' => 'runtime.execute',
+                'duration_ms' => 999000,
+                'success' => false,
+                'status' => 'breach',
+                'severity' => 'high',
+                'violations' => ['stage_failed'],
+            ],
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'env_slo_breach_finance',
+            'correlation_id' => 'env_slo_breach_finance',
+            'emitter_stage' => 'atlas.slo',
+            'emitter_version' => 'test',
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'provider_performance_review',
+            emit: false,
+            hours: 24,
+            limit: 5,
+            filters: ['domain' => 'programming', 'provider' => 'codex_cli'],
+        );
+
+        $finding = collect($result['findings'])->firstWhere('dedupe_key', 'self-improvement:slo-drift:'.sha1('runtime.execute:breach:stage_failed'));
+
+        $this->assertIsArray($finding);
+        $this->assertSame('Investigar SLO drift em runtime.execute', $finding['title']);
+        $this->assertSame('runtime.execute', data_get($finding, 'metadata.stage'));
+        $this->assertSame('breach', data_get($finding, 'metadata.status'));
+        $this->assertSame(1, data_get($finding, 'metadata.failure_count'));
+        $this->assertSame(['domain' => 'programming', 'provider' => 'codex_cli'], $result['filters']);
+        $this->assertSame(['domain' => 'programming', 'provider' => 'codex_cli'], data_get($finding, 'metadata.filters'));
+        $this->assertSame(['programming' => 1], data_get($finding, 'metadata.dimensions.domain'));
+        $this->assertSame(['codex_cli' => 1], data_get($finding, 'metadata.dimensions.provider'));
+        $this->assertSame('env_slo_breach', data_get($finding, 'source_refs.0.envelope_id'));
+        $this->assertSame('atlas_cli_dev', data_get($finding, 'source_refs.0.dimensions.surface_id'));
+    }
+
+    public function test_self_improvement_detects_repair_loop_patterns_from_replay_service(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::RepairInitiated, [
+            'failure_classification' => [
+                'failure_domain' => 'compliance.violation',
+            ],
+            'decision' => [
+                'status' => 'needs_human_review',
+                'strategy' => 'human_review',
+                'next_attempt' => 1,
+                'reasons' => ['failure_domain_requires_human_review'],
+            ],
+            'repair_executed' => false,
+            'decision_hash' => 'repair-human-review-decision',
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'env_repair_human_review',
+            'correlation_id' => 'env_repair_human_review',
+            'emitter_stage' => 'atlas.repair',
+            'emitter_version' => 'test',
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'tool_runtime_review',
+            emit: false,
+            hours: 24,
+            limit: 5,
+        );
+
+        $finding = collect($result['findings'])->firstWhere('dedupe_key', 'self-improvement:repair-loop:'.sha1('human-review'));
+
+        $this->assertIsArray($finding);
+        $this->assertSame('Reduzir repairs que exigem revisao humana', $finding['title']);
+        $this->assertTrue((bool) data_get($finding, 'metadata.requires_human_review'));
+        $this->assertSame(['human_review' => 1], data_get($finding, 'metadata.strategy_counts'));
+        $this->assertSame(['needs_human_review' => 1], data_get($finding, 'metadata.status_counts'));
+        $this->assertSame('env_repair_human_review', data_get($finding, 'source_refs.0.envelope_id'));
+        $this->assertSame('compliance.violation', data_get($finding, 'source_refs.0.failure_domain'));
+    }
+
+    public function test_self_improvement_filters_repair_loop_patterns(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::RepairInitiated, [
+            'failure_classification' => [
+                'failure_domain' => 'harness.failed',
+            ],
+            'decision' => [
+                'status' => 'repair_allowed',
+                'strategy' => 'rerun_harness',
+                'next_attempt' => 1,
+                'reasons' => ['repair_planned'],
+            ],
+            'repair_executed' => false,
+            'decision_hash' => 'repair-harness-decision',
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'env_repair_harness',
+            'correlation_id' => 'env_repair_harness',
+            'emitter_stage' => 'engineering_harness.repair',
+            'emitter_version' => 'test',
+        ]);
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::RepairInitiated, [
+            'failure_classification' => [
+                'failure_domain' => 'compliance.violation',
+            ],
+            'decision' => [
+                'status' => 'needs_human_review',
+                'strategy' => 'human_review',
+                'next_attempt' => 1,
+                'reasons' => ['failure_domain_requires_human_review'],
+            ],
+            'repair_executed' => false,
+            'decision_hash' => 'repair-human-filter-decision',
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'env_repair_human_filter',
+            'correlation_id' => 'env_repair_human_filter',
+            'emitter_stage' => 'atlas.repair',
+            'emitter_version' => 'test',
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'tool_runtime_review',
+            emit: false,
+            hours: 24,
+            limit: 5,
+            filters: [
+                'strategy' => 'human_review',
+                'failure_domain' => 'compliance.violation',
+            ],
+        );
+
+        $finding = collect($result['findings'])->firstWhere('dedupe_key', 'self-improvement:repair-loop:'.sha1('human-review'));
+
+        $this->assertSame([
+            'strategy' => 'human_review',
+            'failure_domain' => 'compliance.violation',
+        ], $result['filters']);
+        $this->assertIsArray($finding);
+        $this->assertSame(['strategy' => 'human_review', 'failure_domain' => 'compliance.violation'], data_get($finding, 'metadata.filters'));
+        $this->assertSame(1, data_get($finding, 'metadata.repair_event_count'));
+        $this->assertSame(['human_review' => 1], data_get($finding, 'metadata.strategy_counts'));
+        $this->assertSame('env_repair_human_filter', data_get($finding, 'source_refs.0.envelope_id'));
+    }
+
+    public function test_self_improvement_repair_loop_review_is_dedicated_to_repair_evidence(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::GateBlocked, [
+            'envelope_id' => 'env_gate_blocked_should_not_leak',
+            'gate_type' => 'tool_runtime',
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'env_gate_blocked_should_not_leak',
+            'correlation_id' => 'env_gate_blocked_should_not_leak',
+            'emitter_stage' => 'atlas.tools.gate',
+            'emitter_version' => 'test',
+        ]);
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::RepairInitiated, [
+            'failure_classification' => [
+                'failure_domain' => 'harness.failed',
+            ],
+            'decision' => [
+                'status' => 'repair_allowed',
+                'strategy' => 'rerun_harness',
+                'next_attempt' => 1,
+                'reasons' => ['repair_planned'],
+            ],
+            'repair_executed' => false,
+            'decision_hash' => 'repair-loop-dedicated-a',
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'env_repair_loop_dedicated_a',
+            'correlation_id' => 'env_repair_loop_dedicated_a',
+            'emitter_stage' => 'engineering_harness.repair',
+            'emitter_version' => 'test',
+        ]);
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::RepairInitiated, [
+            'failure_classification' => [
+                'failure_domain' => 'harness.failed',
+            ],
+            'decision' => [
+                'status' => 'repair_allowed',
+                'strategy' => 'rerun_harness',
+                'next_attempt' => 1,
+                'reasons' => ['repair_planned'],
+            ],
+            'repair_executed' => false,
+            'decision_hash' => 'repair-loop-dedicated-b',
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'env_repair_loop_dedicated_b',
+            'correlation_id' => 'env_repair_loop_dedicated_b',
+            'emitter_stage' => 'engineering_harness.repair',
+            'emitter_version' => 'test',
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'repair_loop_review',
+            emit: false,
+            hours: 24,
+            limit: 5,
+            filters: ['strategy' => 'rerun_harness'],
+        );
+
+        $this->assertSame('self_improvement.repair_loop_review', $result['flow']);
+        $this->assertSame(['strategy' => 'rerun_harness'], $result['filters']);
+        $this->assertCount(1, $result['findings']);
+        $this->assertSame('Investigar repair recorrente rerun_harness', data_get($result, 'findings.0.title'));
+        $this->assertSame(['strategy' => 'rerun_harness'], data_get($result, 'findings.0.metadata.filters'));
+        $this->assertSame(2, data_get($result, 'findings.0.metadata.repair_event_count'));
+    }
+
+    public function test_self_improvement_command_accepts_slo_dimension_filters(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::SloObserved, [
+            'stage' => 'runtime.execute',
+            'status' => 'warning',
+            'severity' => 'high',
+            'violations' => ['latency_above_p95'],
+            'dimensions' => [
+                'domain' => 'programming',
+                'surface_id' => 'atlas_cli_dev',
+                'provider' => 'codex_cli',
+            ],
+            'slo' => [
+                'stage' => 'runtime.execute',
+                'duration_ms' => 120000,
+                'success' => true,
+                'status' => 'warning',
+                'severity' => 'high',
+                'violations' => ['latency_above_p95'],
+            ],
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'env_slo_filtered_command',
+            'correlation_id' => 'env_slo_filtered_command',
+            'emitter_stage' => 'atlas.slo',
+            'emitter_version' => 'test',
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--flow' => 'provider_performance_review',
+            '--domain' => 'programming',
+            '--provider' => 'codex_cli',
+            '--hours' => 24,
+            '--limit' => 3,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(['domain' => 'programming', 'provider' => 'codex_cli'], data_get($payload, 'plan.options.filters'));
+        $this->assertSame(['domain' => 'programming', 'provider' => 'codex_cli'], data_get($payload, 'runtime.filters'));
+        $this->assertSame(['codex_cli' => 1], data_get($payload, 'runtime.findings.0.metadata.dimensions.provider'));
+    }
+
+    public function test_self_improvement_command_accepts_repair_loop_filters(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::RepairInitiated, [
+            'failure_classification' => [
+                'failure_domain' => 'compliance.violation',
+            ],
+            'decision' => [
+                'status' => 'needs_human_review',
+                'strategy' => 'human_review',
+                'next_attempt' => 1,
+                'reasons' => ['failure_domain_requires_human_review'],
+            ],
+            'repair_executed' => false,
+            'decision_hash' => 'repair-command-filter-decision',
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'env_repair_command_filter',
+            'correlation_id' => 'env_repair_command_filter',
+            'emitter_stage' => 'atlas.repair',
+            'emitter_version' => 'test',
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--flow' => 'repair_loop_review',
+            '--repair-strategy' => 'human_review',
+            '--failure-domain' => 'compliance.violation',
+            '--hours' => 24,
+            '--limit' => 3,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame([
+            'strategy' => 'human_review',
+            'failure_domain' => 'compliance.violation',
+        ], data_get($payload, 'plan.options.filters'));
+        $this->assertSame([
+            'strategy' => 'human_review',
+            'failure_domain' => 'compliance.violation',
+        ], data_get($payload, 'runtime.filters'));
+        $this->assertSame('self_improvement.repair_loop_review', data_get($payload, 'plan.flow'));
+        $this->assertSame('repair_loop_review_runtime', data_get($payload, 'plan.execution_policy.executor_preference'));
+        $this->assertSame(['human_review' => 1], data_get($payload, 'runtime.findings.0.metadata.strategy_counts'));
+        $this->assertSame('env_repair_command_filter', data_get($payload, 'runtime.findings.0.source_refs.0.envelope_id'));
+    }
+
     public function test_command_lists_supported_flows_and_can_render_plan_only(): void
     {
         $listExit = Artisan::call('atlas:ai:self-improve', [
@@ -151,11 +502,13 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
 
         $this->assertSame(0, $listExit);
         $this->assertSame('ok', $listPayload['status']);
-        $this->assertSame(10, $listPayload['count']);
+        $this->assertSame(11, $listPayload['count']);
         $this->assertContains('self_improvement.provider_performance_review', $listPayload['flows']);
+        $this->assertContains('self_improvement.repair_loop_review', $listPayload['flows']);
 
         $planExit = Artisan::call('atlas:ai:self-improve', [
             '--flow' => 'provider_performance_review',
+            '--domain' => 'programming',
             '--hours' => 72,
             '--limit' => 7,
             '--plan-only' => true,
@@ -168,8 +521,209 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('self_improvement.provider_performance_review', data_get($planPayload, 'plan.flow'));
         $this->assertSame(72, data_get($planPayload, 'plan.options.hours'));
         $this->assertSame(7, data_get($planPayload, 'plan.options.limit'));
+        $this->assertSame(['domain' => 'programming'], data_get($planPayload, 'plan.options.filters'));
         $this->assertSame('provider_performance_runtime', data_get($planPayload, 'plan.execution_policy.executor_preference'));
         $this->assertSame(0, AtlasInitiativeRun::query()->count(), 'Plan-only must not create initiative runs.');
+    }
+
+    public function test_command_can_render_recurring_schedule_plan(): void
+    {
+        config()->set('atlas_ai.self_improvement.enabled', true);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'repair_loop_review']);
+        config()->set('atlas_ai.self_improvement.time', '02:00');
+        config()->set('atlas_ai.self_improvement.hours', 24);
+        config()->set('atlas_ai.self_improvement.limit', 5);
+        config()->set('atlas_ai.self_improvement.emit', false);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--schedule-plan' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertTrue((bool) $payload['enabled']);
+        $this->assertSame('02:00', $payload['time']);
+        $this->assertSame(config('app.timezone'), $payload['timezone']);
+        $this->assertArrayHasKey('next_run_at', $payload);
+        $this->assertTrue($payload['schedulable']);
+        $this->assertSame('registered', data_get($payload, 'scheduler_registration.status'));
+        $this->assertSame(2, data_get($payload, 'scheduler_registration.registered_command_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['plan_hash']);
+        $this->assertSame('sha256', $payload['plan_hash_algorithm']);
+        $this->assertSame(2, $payload['count']);
+        $this->assertSame(['nightly_review', 'repair_loop_review'], $payload['configured_flows']);
+        $this->assertSame([], $payload['invalid_flows']);
+        $this->assertFalse($payload['defaulted']);
+        $this->assertSame('healthy', data_get($payload, 'health.status'));
+        $this->assertSame(['nightly_review', 'repair_loop_review'], $payload['flows']);
+        $this->assertSame('atlas:ai:self-improve --flow=repair_loop_review --hours=24 --limit=5 --json', data_get($payload, 'commands.1.command'));
+        $this->assertSame(0, AtlasInitiativeRun::query()->count(), 'Schedule-plan must not create initiative runs.');
+    }
+
+    public function test_schedule_plan_reports_invalid_configured_flows(): void
+    {
+        config()->set('atlas_ai.self_improvement.enabled', true);
+        config()->set('atlas_ai.self_improvement.flows', ['unknown_flow', 'self_improvement.repair_loop_review']);
+        config()->set('atlas_ai.self_improvement.time', '02:00');
+        config()->set('atlas_ai.self_improvement.hours', 24);
+        config()->set('atlas_ai.self_improvement.limit', 5);
+        config()->set('atlas_ai.self_improvement.emit', false);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--schedule-plan' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(['unknown_flow', 'self_improvement.repair_loop_review'], $payload['configured_flows']);
+        $this->assertSame(['unknown_flow'], $payload['invalid_flows']);
+        $this->assertFalse($payload['defaulted']);
+        $this->assertSame('warning', data_get($payload, 'health.status'));
+        $this->assertSame(['invalid_self_improvement_flows_configured'], data_get($payload, 'health.issues'));
+        $this->assertSame(['repair_loop_review'], $payload['flows']);
+        $this->assertSame('atlas:ai:self-improve --flow=repair_loop_review --hours=24 --limit=5 --json', data_get($payload, 'commands.0.command'));
+    }
+
+    public function test_schedule_plan_can_fail_on_unhealthy_schedule_for_ci(): void
+    {
+        config()->set('atlas_ai.self_improvement.enabled', true);
+        config()->set('atlas_ai.self_improvement.flows', ['unknown_flow', 'repair_loop_review']);
+        config()->set('atlas_ai.self_improvement.time', '02:00');
+        config()->set('atlas_ai.self_improvement.hours', 24);
+        config()->set('atlas_ai.self_improvement.limit', 5);
+        config()->set('atlas_ai.self_improvement.emit', false);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--schedule-plan' => true,
+            '--fail-on-schedule-warning' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $exit);
+        $this->assertSame('warning', data_get($payload, 'health.status'));
+        $this->assertSame(['invalid_self_improvement_flows_configured'], data_get($payload, 'health.issues'));
+        $this->assertSame(0, AtlasInitiativeRun::query()->count(), 'Schedule health check must not create initiative runs.');
+    }
+
+    public function test_schedule_plan_fail_on_warning_passes_when_schedule_is_healthy(): void
+    {
+        config()->set('atlas_ai.self_improvement.enabled', true);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'repair_loop_review']);
+        config()->set('atlas_ai.self_improvement.time', '02:00');
+        config()->set('atlas_ai.self_improvement.hours', 24);
+        config()->set('atlas_ai.self_improvement.limit', 5);
+        config()->set('atlas_ai.self_improvement.emit', false);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--schedule-plan' => true,
+            '--fail-on-schedule-warning' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('healthy', data_get($payload, 'health.status'));
+        $this->assertSame(0, AtlasInitiativeRun::query()->count(), 'Schedule health check must not create initiative runs.');
+    }
+
+    public function test_command_can_render_compact_schedule_health(): void
+    {
+        config()->set('atlas_ai.self_improvement.enabled', true);
+        config()->set('atlas_ai.self_improvement.flows', ['unknown_flow', 'repair_loop_review']);
+        config()->set('atlas_ai.self_improvement.time', '02:00');
+        config()->set('atlas_ai.self_improvement.hours', 24);
+        config()->set('atlas_ai.self_improvement.limit', 5);
+        config()->set('atlas_ai.self_improvement.emit', false);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--schedule-health' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('warning', data_get($payload, 'health.status'));
+        $this->assertSame(1, $payload['flow_count']);
+        $this->assertSame(1, $payload['invalid_flow_count']);
+        $this->assertTrue($payload['schedulable']);
+        $this->assertSame('registered', data_get($payload, 'scheduler_registration.status'));
+        $this->assertSame(1, data_get($payload, 'scheduler_registration.registered_command_count'));
+        $this->assertSame(config('app.timezone'), $payload['timezone']);
+        $this->assertArrayHasKey('next_run_at', $payload);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['plan_hash']);
+        $this->assertSame('sha256', $payload['plan_hash_algorithm']);
+        $this->assertArrayNotHasKey('commands', $payload);
+        $this->assertArrayNotHasKey('configured_flows', $payload);
+        $this->assertSame(0, AtlasInitiativeRun::query()->count(), 'Schedule-health must not create initiative runs.');
+    }
+
+    public function test_schedule_health_can_fail_on_unhealthy_schedule_for_ci(): void
+    {
+        config()->set('atlas_ai.self_improvement.enabled', true);
+        config()->set('atlas_ai.self_improvement.flows', ['unknown_flow', 'repair_loop_review']);
+        config()->set('atlas_ai.self_improvement.time', '02:00');
+        config()->set('atlas_ai.self_improvement.hours', 24);
+        config()->set('atlas_ai.self_improvement.limit', 5);
+        config()->set('atlas_ai.self_improvement.emit', false);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--schedule-health' => true,
+            '--fail-on-schedule-warning' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $exit);
+        $this->assertSame('warning', data_get($payload, 'health.status'));
+        $this->assertSame(0, AtlasInitiativeRun::query()->count(), 'Schedule health gate must not create initiative runs.');
+    }
+
+    public function test_schedule_health_human_output_includes_scheduler_registration(): void
+    {
+        config()->set('atlas_ai.self_improvement.enabled', true);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'repair_loop_review']);
+        config()->set('atlas_ai.self_improvement.time', '02:00');
+        config()->set('atlas_ai.self_improvement.hours', 24);
+        config()->set('atlas_ai.self_improvement.limit', 5);
+        config()->set('atlas_ai.self_improvement.emit', false);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--schedule-health' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Schedulable', $output);
+        $this->assertStringContainsString('Scheduler registration', $output);
+        $this->assertStringContainsString('Registered commands', $output);
+        $this->assertStringContainsString('registered', $output);
+        $this->assertStringContainsString('2', $output);
+    }
+
+    public function test_schedule_plan_human_output_includes_skipped_scheduler_registration_reason(): void
+    {
+        config()->set('atlas_ai.self_improvement.enabled', true);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'repair_loop_review']);
+        config()->set('atlas_ai.self_improvement.time', '25:99');
+        config()->set('atlas_ai.self_improvement.hours', 24);
+        config()->set('atlas_ai.self_improvement.limit', 5);
+        config()->set('atlas_ai.self_improvement.emit', false);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--schedule-plan' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Schedulable', $output);
+        $this->assertStringContainsString('Scheduler registration', $output);
+        $this->assertStringContainsString('Skipped reason', $output);
+        $this->assertStringContainsString('skipped', $output);
+        $this->assertStringContainsString('invalid_self_improvement_schedule_time', $output);
     }
 
     private function createTables(): void

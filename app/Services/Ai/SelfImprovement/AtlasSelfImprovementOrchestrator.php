@@ -11,13 +11,14 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
     /**
      * @var array<int,string>
      */
-    private const FLOWS = [
+    public const SUPPORTED_FLOWS = [
         'self_improvement.nightly_review',
         'self_improvement.weekly_architecture_audit',
         'self_improvement.capability_gap_scan',
         'self_improvement.benchmark_review',
         'self_improvement.memory_quality_review',
         'self_improvement.tool_runtime_review',
+        'self_improvement.repair_loop_review',
         'self_improvement.domain_learning_review',
         'self_improvement.docs_drift_review',
         'self_improvement.provider_performance_review',
@@ -67,6 +68,7 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
                 'hours' => $hours,
                 'limit' => $limit,
                 'emit' => $emit,
+                'filters' => $this->dimensionFilters($options),
             ],
             'domain_profile' => $profile['domain_profile'] ?? [],
             'flow_profile' => $profile['flow_profile'] ?? [],
@@ -88,7 +90,7 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
 
     public function supportedFlows(): array
     {
-        return self::FLOWS;
+        return self::SUPPORTED_FLOWS;
     }
 
     public function maturity(): string
@@ -107,6 +109,7 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
             'hours' => data_get($plan, 'options.hours'),
             'limit' => data_get($plan, 'options.limit'),
             'emit' => data_get($plan, 'options.emit'),
+            'filters' => data_get($plan, 'options.filters', []),
         ]));
     }
 
@@ -155,6 +158,7 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
             emit: (bool) data_get($plan, 'options.emit', false),
             hours: (int) data_get($plan, 'options.hours', 24),
             limit: (int) data_get($plan, 'options.limit', 5),
+            filters: (array) data_get($plan, 'options.filters', []),
         );
 
         return [
@@ -182,10 +186,48 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
             $flow = 'self_improvement.'.$flow;
         }
 
-        if (! in_array($flow, self::FLOWS, true)) {
+        if (! in_array($flow, self::SUPPORTED_FLOWS, true)) {
             throw new \InvalidArgumentException("Unsupported self-improvement flow [{$flow}].");
         }
 
         return $flow;
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,string>
+     */
+    private function dimensionFilters(array $options): array
+    {
+        $filters = is_array($options['filters'] ?? null) ? $options['filters'] : [];
+        $aliases = [
+            'domain' => ['domain'],
+            'flow' => ['dimension_flow', 'slo_flow'],
+            'surface_id' => ['surface_id', 'surface'],
+            'provider' => ['provider'],
+            'model' => ['model'],
+            'runtime' => ['runtime'],
+            'tool_id' => ['tool_id', 'tool'],
+            'status' => ['status', 'repair_status'],
+            'strategy' => ['strategy', 'repair_strategy'],
+            'failure_domain' => ['failure_domain'],
+            'emitter_stage' => ['emitter_stage', 'repair_emitter_stage'],
+        ];
+
+        foreach ($aliases as $dimension => $keys) {
+            foreach ($keys as $key) {
+                $value = $options[$key] ?? null;
+                if (is_scalar($value) && trim((string) $value) !== '') {
+                    $filters[$dimension] = trim((string) $value);
+                    break;
+                }
+            }
+        }
+
+        return collect($filters)
+            ->filter(fn (mixed $value): bool => is_scalar($value) && trim((string) $value) !== '')
+            ->map(fn (mixed $value): string => trim((string) $value))
+            ->only(['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id', 'status', 'strategy', 'failure_domain', 'emitter_stage'])
+            ->all();
     }
 }

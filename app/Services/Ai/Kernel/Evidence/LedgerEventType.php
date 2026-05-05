@@ -37,6 +37,7 @@ enum LedgerEventType: string
     case EvidencePacked = 'EVIDENCE_PACKED';
     case LearningProposed = 'LEARNING_PROPOSED';
     case MemoryDeltaAccepted = 'MEMORY_DELTA_ACCEPTED';
+    case SloObserved = 'SLO_OBSERVED';
     case OperationCompleted = 'OPERATION_COMPLETED';
     case OperationFailed = 'OPERATION_FAILED';
     case OperationBlocked = 'OPERATION_BLOCKED';

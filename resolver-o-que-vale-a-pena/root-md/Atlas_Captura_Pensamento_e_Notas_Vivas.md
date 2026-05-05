@@ -1,3 +1,7 @@
+> Cleanup status: human_vault_only.
+> Canonical replacement: docs/engineering-knowledge-base/obsidian-atlas-vault.md; docs/engineering-knowledge-base/atlas-ai-governed-backlog.md.
+> Cleanup note: Human Knowledge Surface source. Preserve for AtlasVault/Obsidian concepts; do not treat as runtime source.
+
 # ATLAS
 
 **Captura de Pensamento e Notas Vivas**

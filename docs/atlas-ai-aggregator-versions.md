@@ -1,3 +1,7 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md; docs/atlas-ai-telemetry.md.
+> Cleanup note: Aggregator changelog remains useful for operations, but should consolidate under the telemetry/evidence family.
+
 # `aggregator_version` changelog
 
 `AiTraceMetricSummary.metadata.aggregator_version` is the discriminator that

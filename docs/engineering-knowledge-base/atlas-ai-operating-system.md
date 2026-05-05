@@ -103,8 +103,8 @@ Nomes de subcamadas:
 |---|---|
 | Atlas AI Core | Pipeline comum, dominio, intent, contexto, politica, executor, gates, repair, evidencia e memoria. |
 | Atlas AI Programming | Fluxo completo de programacao: dev, forge, fix, review, refactor, QA, tests, release e benchmarks. |
-| Atlas AI Personal Development | Fluxo futuro de desenvolvimento pessoal: performance, saude, comportamento, objetivos, memoria pessoal e coaching operacional. |
-| Atlas AI Finance | Fluxo futuro enterprise de financas, mercado, risco, operacao e compliance. |
+| Atlas AI Personal Development | Dominio implemented/ready para desenvolvimento pessoal privado, nao clinico e plan-only: reflexao, rotina, foco, energia, aprendizado, objetivos e recuperacao. |
+| Atlas AI Finance | Dominio implemented/ready para analise financeira enterprise review-only: pesquisa, risco, portfolio, tese, macro, earnings, noticias, compliance, backtest e forge sem execucao de mercado. |
 | Atlas AI Curator | Fluxo de curadoria e evolucao automatica dos proprios processos do Atlas. |
 
 ## Superficies Nao Sao Fluxos
@@ -138,9 +138,10 @@ Exemplos:
 | Domain Profile | Flow Profiles |
 |---|---|
 | `programming` | `programming.dev`, `programming.forge`, `programming.qa`, `programming.security`, `programming.refactor` |
-| `finance` | `finance.market_analysis`, `finance.portfolio_review`, `finance.risk_review` |
-| `personal_development` | `personal_development.daily_review`, `personal_development.weekly_review`, `personal_development.focus_recovery` |
-| `curation` | `curation.process_audit`, `curation.capability_gap_review`, `curation.prompt_gate_review` |
+| `finance` | `finance.market_research`, `finance.portfolio_analysis`, `finance.risk_review` |
+| `personal_development` | `personal_development.daily_review`, `personal_development.weekly_review`, `personal_development.focus_plan` |
+| `self_improvement` | `self_improvement.docs_drift_review`, `self_improvement.capability_gap_scan`, `self_improvement.proposal_generation` |
+| `curation` | Conceito historico; usar `self_improvement.*` ate existir Curator dedicado. |
 
 Profile nao e modelo. Profile pode escolher modelo, tools, gates e autonomia,
 mas um provider/modelo nunca deve definir o fluxo.
@@ -242,57 +243,73 @@ Diferença:
 Objetivo: orquestrar desenvolvimento pessoal com rigor de sistema, nao apenas
 chat motivacional.
 
-Escopo futuro:
+Escopo atual implemented/ready:
 
-- performance;
-- energia, sono, saude e readiness;
-- rotina;
-- comportamento digital;
-- foco e procrastinacao;
-- metas e projetos pessoais;
-- memoria autobiografica governada;
-- coaching;
-- experimentos pessoais;
-- plano de intervencao;
-- harness proprio de validacao por sinais reais.
+- reflexao;
+- revisao diaria;
+- revisao semanal;
+- design de habitos;
+- plano de foco;
+- plano de aprendizado;
+- revisao de energia;
+- decomposicao de objetivos;
+- plano de recuperacao;
+- `personal_development.forge`.
 
-Pipeline previsto:
+Limites obrigatorios:
+
+- privado por default;
+- linguagem operacional e nao clinica;
+- sem diagnostico psicologico;
+- sem tratamento medico;
+- sem mutacao automatica de calendario, tarefas ou sistemas externos.
+
+Pipeline canonico:
 
 ```text
 sinal ou pedido pessoal
   -> personal intent
   -> context pack pessoal
   -> privacy and consent gate
-  -> intervention policy
+  -> plan policy
   -> action plan
-  -> measurement harness
+  -> review checkpoint
   -> follow-up
   -> memory update
   -> evolution recommendation
 ```
 
-Esse dominio deve ter harness proprio porque sucesso pessoal precisa ser medido
-por sinais, aderencia, efeitos e seguranca, nao por testes de codigo.
+Esse dominio usa runtime plan-only. Sucesso pessoal deve ser avaliado por
+evidencias, aderencia, revisao humana, privacy e safety, nao por mutacao
+automatica de sistemas pessoais.
 
 ### Atlas AI Finance
 
 Objetivo: fluxo enterprise para financas, mercado, risco e operacao.
 
-Escopo futuro:
+Escopo atual implemented/ready:
 
 - pesquisa de mercado;
-- tese;
-- dados e indicadores;
-- portfolio/risk;
-- trading/operacao quando autorizado;
-- compliance;
-- auditoria;
-- simulacao;
-- decisao sob incerteza;
-- alertas;
-- memoria de tese e performance.
+- risk review;
+- portfolio analysis;
+- trade thesis review;
+- macro review;
+- earnings review;
+- news impact;
+- compliance review;
+- backtest plan;
+- `finance.forge`.
 
-Pipeline previsto:
+Limites obrigatorios:
+
+- review-only;
+- autonomia baixa por default;
+- sem ordens de mercado;
+- sem broker execution;
+- sem rebalanceamento ou transferencia;
+- sem recomendacao automatica personalizada como instrucao executavel.
+
+Pipeline canonico:
 
 ```text
 pedido financeiro ou sinal de mercado
@@ -300,15 +317,16 @@ pedido financeiro ou sinal de mercado
   -> data provenance gate
   -> market context pack
   -> risk and compliance policy
-  -> analysis or operation plan
-  -> execution or recommendation
-  -> post-trade/post-decision review
+  -> analysis or review packet
+  -> human approval checkpoint
+  -> post-decision review
   -> evidence and audit trail
   -> memory update
 ```
 
 Regra: qualquer dado financeiro temporariamente instavel precisa de fonte,
-timestamp, provenance e gate de risco.
+timestamp, provenance e gate de risco. Finance nunca deve gerar payload de ordem
+ou executar acao de mercado.
 
 ### Atlas AI Curator
 
@@ -427,9 +445,9 @@ Nao deve:
 
 ### Fase 5 - Personal Development e Finance
 
-- criar docs canonicos de dominio;
-- definir harnesses proprios;
-- implementar gates de privacidade, risco, medida e evidencia;
+- manter docs canonicos de dominio alinhados ao registry;
+- evoluir harnesses proprios sem romper os limites review-only/plan-only;
+- ampliar gates de privacidade, risco, medida e evidencia;
 - nao misturar esses dominios com Programming.
 
 ### Fase 6 - Curadoria Evolutiva

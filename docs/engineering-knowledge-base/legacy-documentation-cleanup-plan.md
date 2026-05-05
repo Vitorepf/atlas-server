@@ -2,10 +2,10 @@
 id: legacy-documentation-cleanup-plan
 type: engineering_knowledge
 title: Legacy Documentation Cleanup Plan
-status: draft
+status: active
 category: documentation-governance
 priority: 90
-summary: Plano seguro para promover, mesclar, arquivar e eventualmente remover documentacao legacy do Atlas sem executar limpeza nesta sessao.
+summary: Plano seguro e estado atual das ondas de promocao, merge, arquivo e eventual remocao de documentacao legacy do Atlas.
 tags:
   - atlas
   - documentation
@@ -15,8 +15,9 @@ tags:
 
 # Legacy Documentation Cleanup Plan
 
-Este plano descreve como uma sessao futura deve aplicar a limpeza documental.
-Ele nao executa limpeza.
+Este plano descreve como aplicar e continuar a limpeza documental. As promocoes
+prioritarias ja foram executadas em 2026-05-05; as fases restantes devem focar
+em merges finos, redirects, quarentena e delete candidates com aprovacao humana.
 
 Nota de concorrencia: a worktree pode conter alteracoes de outras sessoes,
 incluindo novos docs de dominios, docs mae modificados, migrations e codigo.
@@ -77,13 +78,16 @@ Promover apenas lacunas reais:
 
 | Prioridade | Fonte | Destino recomendado | Motivo |
 |---|---|---|---|
-| P0 | `resolver-o-que-vale-a-pena/docs/atlas-glossary.md` | Novo glossario/ADR Layer 0 na KB | Canonical index diz que Layer 0 ainda esta parcial. |
-| P0 | `Atlas_Documento_Mestre_v6.md` + `Atlas_AI_Documentacao_Final.md` | Constitution/Layer 0 enxuto na KB | Preserva leis/identidade sem fazer vault mandar no runtime. |
-| P0 | `Atlas_AI_Sessoes_Compactacao_Continuidade.md` | Doc KB de continuity/session state | Importante para `atlas continue`, compactacao e provider continuity. |
-| P1 | `atlas-ai-telemetry-quality-efficiency-implementation.md` + `docs/atlas-ai-telemetry.md` | Doc KB de telemetry/evidence/performance | Evita docs soltos de metrica, custo e quality efficiency. |
-| P1 | `docs/paste-image-setup.md` | Doc KB de CLI multimodal ou referencia em CLI final | Setup vivo para `atlas dev` multimodal. |
-| P1 | `atlas-ai-mobile-operating-model.md` + `mobile-gateway-push-inbox-implementation.md` | Docs KB mobile/domain surface | Conteudo nao coberto pela KB atual. |
-| P2 | `Atlas_CLI_Packets_v1.md` | Kernel/evidence contracts se usado | Pode conter contratos vivos de packets. |
+| P0 | `resolver-o-que-vale-a-pena/docs/atlas-glossary.md` | `atlas-ai-layer-0-glossary.md` | Executado em 2026-05-05. |
+| P0 | `Atlas_Documento_Mestre_v6.md` + `Atlas_AI_Documentacao_Final.md` | `atlas-ai-layer-0-glossary.md` | Executado em forma enxuta; fonte longa permanece human_vault_only/source material. |
+| P0 | `Atlas_AI_Sessoes_Compactacao_Continuidade.md` | `atlas-ai-continuity-session-state.md` | Executado em 2026-05-05. |
+| P1 | `atlas-ai-telemetry-quality-efficiency-implementation.md` + `docs/atlas-ai-telemetry.md` | `atlas-ai-telemetry-evidence-performance.md` | Executado em 2026-05-05. |
+| P1 | `docs/paste-image-setup.md` | `atlas-ai-cli-multimodal.md` | Executado em 2026-05-05; setup segue como runbook. |
+| P1 | `atlas-ai-mobile-operating-model.md` + `mobile-gateway-push-inbox-implementation.md` | `atlas-ai-mobile-surface-gateway.md` | Executado em 2026-05-05. |
+| P2 | `Atlas_CLI_Packets_v1.md` | `atlas-ai-runtime-packets.md` | Executado em 2026-05-05. |
+| P2 | `Atlas_AI_Skill_System_v1.md` | `atlas-ai-skill-system.md` | Executado em 2026-05-05. |
+| P2 | `Atlas_Gaps_Achamos_Nao_Esquecer.md` | `atlas-ai-governed-backlog.md` | Executado em 2026-05-05. |
+| P2 | `docs/atlas-mac-agent.md` | `atlas-local-agent-surface.md` | Executado em 2026-05-05. |
 
 Promocoes condicionais ja iniciadas por outra sessao:
 
@@ -115,7 +119,7 @@ Comparar e fechar lacunas entre legados P0 e docs atuais:
 |---|---|---|
 | `2026-05-03-atlas-domain-profile-orchestration-architecture.md` | `atlas-ai-operating-system.md`, `atlas-ai-pipeline.md`, `atlas-ai-core-vs-domain.md` | Confirmar cobertura de Domain/Flow/Profile. |
 | `2026-05-02-atlas-decide-final-architecture.md` | `atlas-ai-kernel-architecture.md`, `atlas-ai-operating-system.md` | Confirmar receipt, fallback, policy e evidence contract. |
-| `2026-05-03-atlas-programming-product-architecture.md` | `atlas-ai-operating-system.md`, `engineering-blueprint.md` | Confirmar `programming.dev/forge/qa/security/refactor`. |
+| `2026-05-03-atlas-programming-product-architecture.md` | `domains/programming.md`, `atlas-ai-operating-system.md`, `engineering-blueprint.md` | Confirmar `programming.dev/forge/qa/security/refactor`. |
 | `Atlas_AI_Harness_Super_Tool_Runtime_Core.md` | `super-tool-runtime-core.md`, `programming-power-tools-catalog.md` | Confirmar registry, policy, executor, normalizer, evidence e learning loop. |
 | `Atlas_Engineering_Harness_Runner_Plano_Profissional.md` | `engineering-blueprint*.md` | Confirmar DoD e gaps de harness runner. |
 
@@ -244,7 +248,7 @@ Gate de aceite:
 - PR contem resultado de `rg` e `git log --follow`.
 - O PR prova que redirect existiu antes do delete.
 
-### Fase 5 - AtlasVault / Human Knowledge Plane
+### Fase 5 - AtlasVault / Human Knowledge Surface
 
 Acoes:
 
@@ -333,32 +337,31 @@ mae, como esta.
 
 ## Sequencia Profissional Recomendada Para O Proximo PR
 
-1. PR `docs-governance-layer0`: criar/atualizar apenas Constitution/Glossary,
-   com source material e redaction.
-2. PR `docs-governance-telemetry`: consolidar telemetria, performance,
-   aggregator versions e quality efficiency.
-3. PR `docs-governance-domains`: aceitar ou ajustar Finance, Personal
+1. PR futuro `docs-governance-domains`: aceitar ou ajustar Finance, Personal
    Development e surface-domain catalog.
-4. PR `docs-governance-cli-multimodal`: promover paste-image setup e arquivar
-   spec/plano.
-5. PR `docs-governance-redirects`: adicionar redirects nos legados ja
-   substituidos.
-6. PR `docs-governance-quarantine`: marcar delete candidates, sem apagar.
+2. PR futuro `docs-governance-provider-choice`: revisar edge cases vivos dos
+   planos provider-choice ja marcados como source material, sem criar policy
+   paralela.
+3. PR futuro `docs-governance-redirects`: revisar redirects nos legados ja
+   substituidos, usando `archive/README.md` como regra operacional.
+4. PR futuro `docs-governance-quarantine`: revisar delete candidates, sem
+   apagar, com busca de links e aprovacao humana.
 
 ## Backlog Operacional
 
 | ID | PR sugerido | Escopo | Arquivos fonte | Entrega | Risco |
 |---|---|---|---|---|---|
-| DOCGOV-01 | `docs-governance-layer0` | Constitution, glossary e nomenclatura | `Atlas_Documento_Mestre_v6.md`, `Atlas_AI_Documentacao_Final.md`, `atlas-glossary.md`, `Atlas_AI_CLI_Nomenclatura_Comandos_TUI_ADR.md` | Doc/ADR Layer 0 + glossario canonico | Alto |
-| DOCGOV-02 | `docs-governance-continuity` | Sessions, compactacao e `atlas continue` | `Atlas_AI_Sessoes_Compactacao_Continuidade.md`, Open Brain docs | Doc KB de continuity/session state | Alto |
-| DOCGOV-03 | `docs-governance-telemetry` | Telemetry, performance, aggregator versions e quality efficiency | `docs/atlas-ai-telemetry.md`, performance docs, telemetry implementation legacy | Doc KB de telemetry/evidence/performance | Alto |
-| DOCGOV-04 | `docs-governance-mobile` | Atlas Mobile, gateway, push e inbox | mobile operating model, mobile gateway/push/inbox plan | Doc KB mobile surface/gateway | Medio/alto |
+| DOCGOV-01 | `docs-governance-layer0` | Constitution, glossary e nomenclatura | `Atlas_Documento_Mestre_v6.md`, `Atlas_AI_Documentacao_Final.md`, `atlas-glossary.md`, `Atlas_AI_CLI_Nomenclatura_Comandos_TUI_ADR.md` | Executado: `atlas-ai-layer-0-glossary.md` | Alto |
+| DOCGOV-02 | `docs-governance-continuity` | Sessions, compactacao e `atlas continue` | `Atlas_AI_Sessoes_Compactacao_Continuidade.md`, Open Brain docs | Executado: `atlas-ai-continuity-session-state.md` | Alto |
+| DOCGOV-03 | `docs-governance-telemetry` | Telemetry, performance, aggregator versions e quality efficiency | `docs/atlas-ai-telemetry.md`, performance docs, telemetry implementation legacy | Executado: `atlas-ai-telemetry-evidence-performance.md` | Alto |
+| DOCGOV-04 | `docs-governance-mobile` | Atlas Mobile, gateway, push e inbox | mobile operating model, mobile gateway/push/inbox plan | Executado: `atlas-ai-mobile-surface-gateway.md` | Medio/alto |
 | DOCGOV-05 | `docs-governance-domains` | Finance, Personal Development e surface/domain catalog | `domains/*.md`, surface-domain plan, selected human-vault sources | Domain specs aceitos e plano surface/domain estabilizado | Alto |
-| DOCGOV-06 | `docs-governance-cli-multimodal` | Paste image e CLI multimodal | paste-image setup/spec/plan | Doc canonico de CLI multimodal + redirects | Medio |
-| DOCGOV-07 | `docs-governance-resolver-p0` | Resolver P0 ja parcialmente promovidos | Domain Profile, Decide, Programming, Super Tool Runtime legados | Lacunas migradas + redirects | Alto |
+| DOCGOV-06 | `docs-governance-cli-multimodal` | Paste image e CLI multimodal | paste-image setup/spec/plan | Executado: `atlas-ai-cli-multimodal.md` + redirects | Medio |
+| DOCGOV-07 | `docs-governance-resolver-p0` | Resolver P0 ja parcialmente promovidos | Domain Profile, Decide, Programming, Super Tool Runtime legados | Executado como source material governado; lacunas futuras so por diff semantico comprovado | Alto |
 | DOCGOV-08 | `docs-governance-redirects-kb` | Legados internos da KB ja deprecated/archived | `architecture.md`, `context-pack.md`, `capability-matrix.md`, etc. | Redirect headers | Baixo |
 | DOCGOV-09 | `docs-governance-provider-prompts` | Provider bootstrap e Codex prompts | `CLAUDE.md`, `AGENTS.md`, Codex prompt docs | Redirects e source status | Medio |
 | DOCGOV-10 | `docs-governance-quarantine` | Delete candidates sem apagar | paste-image implementation plan, CLI bootstrap setup | Marcacao/quarentena e evidencia de links | Medio |
+| DOCGOV-11 | `docs-governance-skills-packets-backlog` | Skills, runtime packets, Mac Agent e governed backlog | skill system, packets, Mac Agent, gaps | Executado: quatro docs canonicos pequenos + redirects | Medio |
 
 ## Estimativa De Esforco
 
@@ -372,8 +375,8 @@ mae, como esta.
 | CLI multimodal/paste image | Pequeno/medio | Conteudo bem delimitado; risco principal e plano antigo parecer vivo. |
 | Resolver P0 merges | Grande | Exige diff semantico contra docs mae. |
 | Redirects KB | Pequeno | Substitutos ja estao declarados. |
-| Provider prompts | Pequeno | Projections, nao fonte primaria. |
-| Quarentena | Pequeno | Nao deleta, so prepara evidencia. |
+| Provider prompts | Executado/pequeno | Projections, nao fonte primaria. |
+| Quarentena | Executado/pequeno | Nao deleta, so prepara evidencia. |
 
 ## Ordem De Dependencias
 
@@ -495,7 +498,7 @@ Estado final desejado:
 - KB com autoridade clara e sem docs mae concorrentes.
 - `resolver-o-que-vale-a-pena` preservado como corpus historico, com redirects.
 - Prompts e planos task-by-task fora do caminho canonico.
-- AtlasVault/Obsidian respeitado como Human Knowledge Plane.
+- AtlasVault/Obsidian respeitado como Human Knowledge Surface / Personal Knowledge Workspace.
 - Fair Claude separado de Atlas Supercharged.
 - Paste image documentado como capacidade viva de `atlas dev`.
 - Tool Runtime e Power Tools com uma unica fonte canonica.

@@ -94,7 +94,7 @@ Input
 programming.dev
 programming.forge
 programming.qa
-finance.market_analysis
+finance.market_research
 personal_development.weekly_review
 ```
 

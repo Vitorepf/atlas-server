@@ -52,6 +52,7 @@ maintenance:
   - Architectural tests devem permanecer verdes; falha bloqueia merge.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
+  - docs/engineering-knowledge-base/kernel/failure-domain-taxonomy.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
   - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
   - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
@@ -121,8 +122,8 @@ A documentacao Atlas AI tem tres camadas:
 +------------------------------------------------------+
 | Layer 3 - Domain Specs                               |
 |   atlas-programming-architecture                     |
-|   atlas-personal-development-domain (futuro)         |
-|   atlas-finance-domain (futuro)                      |
+|   atlas-personal-development-domain                  |
+|   atlas-finance-domain                               |
 |   atlas-curator-domain (futuro)                      |
 +------------------------------------------------------+
 | Layer 2 - Topology                                   |
@@ -131,16 +132,13 @@ A documentacao Atlas AI tem tres camadas:
 |   atlas-ai-core-vs-domain                            |
 |   atlas-ai-operating-system                          |
 |   atlas-ai-architecture-audit                        |
-|   atlas-ai-domain-profile-architecture (a promover)  |
 +------------------------------------------------------+
 | Layer 1 - Kernel (este documento)                    |
 |   atlas-ai-kernel-architecture                       |
 +------------------------------------------------------+
 | Layer 0 - Constitution                               |
-|   atlas-ai-master-prompt (a promover)                |
-|   atlas-ai-identity (a promover)                     |
-|   atlas-glossary (a promover)                        |
-|   atlas-ai-laws (a extrair de Documento_Mestre_v6)   |
+|   atlas-ai-layer-0-glossary                          |
+|   source material: Atlas_Documento_Mestre_v6         |
 +------------------------------------------------------+
 ```
 
@@ -189,7 +187,9 @@ Toda capability declarada como horizontal tem `CapabilityManifest` registrado. S
 
 ### Ax-5. Dominio e plugin via Domain Manifest declarativo
 
-Adicionar um dominio (Programming, Personal Dev, Finance, Curator) e adicionar arquivo de manifesto + classes que implementam `DomainOrchestrator`. Sem hardcode no kernel.
+Adicionar um dominio (Programming, Personal Dev, Finance, Self-Improvement ou
+um Curator dedicado futuro) e adicionar arquivo de manifesto + classes que
+implementam `DomainOrchestrator`. Sem hardcode no kernel.
 
 **Implicacao**: o kernel nao sabe sobre Programming. Programming e o dominio que mais usa o kernel.
 
@@ -542,6 +542,61 @@ Observe:
 - Cada estagio e injetavel — substituivel para teste.
 - `dry_run=true` em `decision` faz Data Plane abortar antes de executar (preview).
 - Composicao linear no caso simples; orquestradores complexos podem rodar grafo de execucao definido em `runtime_graph`.
+
+### 5.3 Pipeline Kernel Scaffold Atual
+
+Status atual: existe uma infraestrutura inicial em
+`app/Services/Ai/Kernel/Pipeline/` para representar o pipeline unificado sem
+migrar fluxos existentes. O contrato `AtlasKernelPipeline` expoe:
+
+- `stages()`;
+- `plan(PipelineInput $input)`;
+- `execute(PipelineInput $input)`;
+- `complianceReport()`.
+
+A implementacao `ScaffoldAtlasKernelPipeline` roda apenas em modo scaffold/dry-run:
+
+- aceita input normalizado por `PipelineInput`;
+- declara a ordem canonica `Input -> OperationEnvelope -> Intent -> Decide ->
+  DecisionReceipt -> Domain -> Context -> Policy -> Runtime -> Gate -> Repair
+  -> Evidence -> Learning -> Output`;
+- declara slots lidos/escritos por estagio;
+- valida ordem, numeros sequenciais, nomes de slots, ausencia de duplicidade em
+  stages/ordens/escritas e que cada stage so le slots iniciais ou escritos por
+  estagios anteriores;
+- gera plano auditavel, placeholders de evidence e trace;
+- versiona o contrato como `atlas.kernel.pipeline.scaffold.v1`, expoe
+  `canonical_flow`, `stage_count`, manifesto de slots, guards de execucao e
+  `plan_hash` para consumidores CLI/API compararem payloads sem depender de
+  prosa;
+- centraliza constantes e guards scaffold em `KernelPipelineContract`, incluindo
+  `canonical_flow_hash`, para reduzir drift entre plano, resultado, scanner e
+  testes;
+- o plano auditavel guarda hash do texto primario, hash de hints completos,
+  valores apenas de hints operacionais allowlisted e nomes de metadata, sem
+  copiar texto bruto ou valores sensiveis;
+- `PipelineInput` normaliza hashes de hints de forma recursiva e ordena
+  `metadata_keys`, evitando drift por ordem de payload ou valores nao escalares
+  vindos de surface futura;
+- `PipelineInput` publica `input_fingerprint` deterministico e o `pipeline_id`
+  scaffold usa esse fingerprint como sufixo auditavel;
+- retorna `provider_execution_allowed=false`,
+  `runtime_execution_allowed=false` e `providerExecutionAttempted=false`;
+- nao chama provider real, worker, gateway, surface concreta ou runtime amplo.
+- pode ser inspecionado por `atlas:ai:pipeline --json`; com `--execute`, retorna
+  resultados scaffold por stage, evidence refs e trace refs sem executar
+  provider nem runtime real.
+- tambem esta exposto por `POST /ai/pipeline` com `atlas.token`, para App,
+  dashboard, mobile e Curator inspecionarem a mesma ponte sem duplicar logica.
+  A API aceita `text`, `surface_id`, `operator_id`, `hints`, `metadata` e
+  `execute`; sempre forca `dry_run=true`.
+- o Repair Loop segue a mesma regra operacional: `atlas:ai:repair --json` e
+  `POST /ai/repair` expoem plano/tentativa scaffold, sempre com `dry_run=true`
+  nas surfaces CLI/API, sem executar provider, tool, harness ou patch real.
+
+Esse scaffold e uma ponte de contrato. Ele permite testar ordem, slots,
+compliance e auditabilidade antes de migrar `atlas dev`, `atlas forge`,
+`atlas:ai:chat`, API ou worker para o pipeline real.
 
 ---
 
@@ -910,7 +965,8 @@ Kernel valida: `Capability X requested but surface_id Y did not declare support`
 
 ## 10. Domain Manifest E SDK
 
-Adicionar dominio (Personal Dev, Finance, Curator) deve ser **contrato declarativo**, nao alteracao do kernel.
+Adicionar dominio (Personal Dev, Finance, Self-Improvement ou Curator dedicado
+futuro) deve ser **contrato declarativo**, nao alteracao do kernel.
 
 ### 10.1 Manifest
 
@@ -1063,11 +1119,12 @@ Status implementado:
   classes PHP reais e maturidade (`implemented`, `scaffold`, `planned`);
 - `AtlasDomainManifestValidator` falha quando domain/flow aponta para
   orchestrator desconhecido, sem classe, sem interface ou sem suporte declarado;
-- `AtlasProgrammingOrchestrator` e `AtlasSelfImprovementOrchestrator` estao
-  marcados como `implemented`;
-- General, Research, Finance, Personal Development, Marketing, Health,
-  Learning, Writing, QA, Security, Operations e Background possuem scaffolds
-  explicitos para que a divida seja visivel e testavel, nao texto solto.
+- `AtlasProgrammingOrchestrator`, `AtlasSelfImprovementOrchestrator`,
+  `AtlasFinanceOrchestrator` e `AtlasPersonalDevelopmentOrchestrator` sao os
+  dominios implemented/ready atuais;
+- Marketing, General, Research, Health, Learning, Writing, QA, Security,
+  Operations e Background possuem scaffolds explicitos para que a divida seja
+  visivel e testavel, nao texto solto.
 
 ### 10.3 Domain Registry Test
 
@@ -1145,11 +1202,37 @@ Cada proibicao tem teste correspondente que escaneia codigo da surface por strin
 | **Override** | Sim, com escopo | `--ai=codex --model=5.5` vira `session_override` no envelope. AtlasAiPolicyService merge respeitando precedencia. |
 | **Bypass** | Nao | Surface ignorando policy/decide nao compila (test arquitetural). |
 
+### 11.4 Domain/Flow Hints De Surface
+
+Surface pode declarar preferencias de domain/flow, mas nao vira autoridade de catalogo.
+
+- `surface_id` identifica a origem da coleta/renderizacao.
+- `supportedCapabilities()` declara capacidades formais usando o vocabulario fechado de `SurfaceCapability`.
+- `supportedDomainFlowHints()` usa o vocabulario fechado `SurfaceDomainFlowHintKey` e pode declarar `default_domain_id`, `default_flow_id`, `supported_domain_ids`, `supported_flow_ids`, `task_flow_map`, `prefer_default_flow` e flags de aceitacao.
+- Compliance de surface falha para hint key desconhecida, lista malformada, boolean invalido, default fora de supported ids ou task flow fora dos flows suportados declarados.
+- `DomainCatalogSurfaceSelectionService` valida qualquer hint, `domain_id` ou `flow_id` contra `AtlasAiDomainCatalogService`.
+- `domain_catalog_selection` pode ser reenviado como envelope canonico entre surfaces; campos planos `domain_id` e `flow_id` continuam aceitos e tem precedencia sobre envelopes antigos.
+- Surface registrada sem `domain_flow_selection` nao aceita `domain_id` ou `flow_id` explicitos; o selector retorna `surface_domain_flow_selection_not_supported`.
+- `supported_domain_ids` e `supported_flow_ids`, quando declarados, limitam a exposicao da surface; escolhas canonicas fora desses limites retornam `surface_domain_not_supported` ou `surface_flow_not_supported`.
+- O read model de selecao inclui `surface_hints.supported_capabilities` para renderizacao e diagnostico; capabilities de surface nao concedem autoridade para provider, memoria ou runtime.
+- Aliases legados de surface devem ser canonizados antes da selecao: `atlas_cli` para `atlas_cli_dev` e `atlas_api` para `atlas_api_interaction`.
+- `flow_id` ou `domain_id` explicito invalido retorna `status=unresolved` com `error.code`, sem fallback silencioso.
+- Fallback seguro e permitido apenas quando a selecao veio de UX implicita e o catalogo tem `general.answer`.
+- Surface continua proibida de escolher provider, montar contexto/memoria ou chamar runtime diretamente.
+
+Exemplos atuais:
+
+| Surface | Domain/flow behavior |
+|---|---|
+| `atlas_cli_dev` | `debug/repair -> programming.repair`, `review -> programming.review`, `dev/plan -> programming.dev` |
+| `atlas_cli_forge` | `heavy/forge/build/plan -> programming.forge` |
+| `atlas_app` e `atlas_api_interaction` | aceitam selecao explicita vinda do catalogo e preservam metadata para o kernel |
+
 ---
 
 ## 12. Provider Driver Contract
 
-Provider (Claude, Codex, Gemini, GPT, local) e plugin governado.
+Provider (Claude, Codex, Gemini, council, GPT, local) e plugin governado.
 
 ### 12.1 Contrato
 
@@ -1185,6 +1268,34 @@ Driver recebe `IdentityFragment` (texto Atlas AI canonico extraido de `atlas-ai-
 1. Inclui identity no prompt enviado ao motor.
 2. Nao adultera identity.
 3. Retorna `provider_safe` outputs (sem leak de internal IDs do driver).
+
+### 12.2.1 Estado Atual Do Driver Wrapper
+
+O contrato executavel atual vive em:
+
+- `app/Services/Ai/Kernel/Provider/ProviderPreparedRequestValidator.php`
+- `app/Services/Ai/Kernel/Provider/ProviderDriverExecutionPlan.php`
+- `app/Services/Ai/Kernel/Provider/ProviderDriverExecutionResult.php`
+- `app/Services/Ai/Kernel/Provider/ProviderExecutionAudit.php`
+- `app/Services/Ai/Provider/Drivers/*ProviderDriver.php`
+
+Nesta etapa os drivers Claude, Codex, Gemini e Council sao wrappers seguros e auditaveis. Eles preparam request, injetam `IdentityFragment`, calculam `audit.request_hash`, validam via `ProviderPreparedRequestValidator` e retornam `ProviderDriverExecutionResult`. Eles **nao chamam processo real** e mantem `provider_real_execution_called=false`.
+
+`ProviderDriverRegistry::manifest()` publica um snapshot sem side effects para integracao futura: provider id, classe do driver, modelos suportados, identity id/hash, delegate legado, modo de policy, algoritmo/canonicalizacao do request hash, suporte a dry-run e resultado de validacao do prepared request.
+
+Regras enforced antes de qualquer boundary de execucao:
+
+- identity fragment precisa existir, bater id/hash e vir no payload e no audit;
+- prepared request precisa estar em `status=prepared`;
+- `schema_version`, `provider_driver` e `supported_models` precisam bater com o driver executando;
+- `audit.request_hash` precisa existir, declarar `request_hash_algorithm=sha256`, declarar `request_hash_canonicalization=provider_prepared_request.v1` e bater com o envelope canonico preparado (`provider`, `status`, `execution_policy`, `model`, `prompt`, `payload` e audit de identity/hash metadata);
+- `prompt` e um snapshot do input operacional sem `payload` e sem `execution_policy`; o payload auditavel fica em `payload` e a policy normalizada fica somente em `execution_policy`;
+- `ProviderDriver::legacyProviderClass()` declara o boundary legado esperado, e `execution_policy.delegates_to_legacy_provider` precisa bater com esse contrato;
+- `execution_policy.mode=prepare_only`, `provider_real_execution_allowed=false` e `execution_policy.dry_run` precisam estar claros;
+- `dry_run=true` no request preparado ou no contexto de execucao retorna status `dry_run` e nunca chega ao boundary legado; contexto nao pode rebaixar um request preparado como dry-run;
+- Council preserva identity dos subproviders (`claude_cli`, `codex_cli`) no payload antes do hash.
+
+Execucao real ainda permanece no caminho legado. A troca Claude/Codex/Gemini passa a ter contrato seguro de driver, mas a chamada efetiva de provider so deve ser plugada em sessao futura quando `AiWorker`/gateway puderem ser alterados com guard de DecisionReceipt.
 
 ### 12.3 Provider Health & Fallback
 
@@ -1456,6 +1567,16 @@ Sem medida, doutrina e aspiracional. Cada estagio kernel tem SLO publicado.
 | gate.evaluate (T0/T1) | 100ms | 500ms | 2000ms | 99% | local tools |
 | gate.evaluate (T2) | 5s | 60s | 5min | 95% | PR/review tools |
 
+Status implementado: `KernelSloTarget` e `KernelSloAssessment` sao contratos
+versionados (`atlas.kernel.slo_target.v1`) usados por `KernelSloTargets`.
+Cada stage canonico declara p50/p95/p99, success rate, severidade e nota
+operacional. O avaliador deterministico classifica observacoes como `ok`,
+`warning`, `breach` ou `unknown_stage`, com violacoes nomeadas
+(`latency_above_p95`, `latency_above_p99`, `stage_failed`,
+`slo_stage_not_declared`). `atlas:ai:architecture-validate --json` publica
+`schema_version` e a lista de stages SLO ativos, permitindo que Curator,
+dashboards e CI comparem runtime real contra o contrato sem reler prosa.
+
 ### 17.2 SLO Violation Handling
 
 - Slack/email/inbox alerta quando p95 ultrapassa target por 10 minutos.
@@ -1664,21 +1785,23 @@ Cada anti-padrao tem teste arquitetural correspondente.
 
 | ID | Anti-padrao | Teste |
 |---|---|---|
-| AP-1 | Surface chama provider direto | Static scan de import/use de `ProviderDriver` em pasta de surface |
-| AP-2 | Surface monta context proprio | Static scan de `new ContextPack(...)` em surface |
+| AP-1 | Surface chama provider direto | `KernelArchitectureStaticScanner` em `atlas:ai:architecture-validate` |
+| AP-2 | Surface monta context proprio | `KernelArchitectureStaticScanner` em `atlas:ai:architecture-validate` |
 | AP-3 | Comando decide provider | Static scan de selecao de provider em comandos sem ir via `AtlasDecide` |
 | AP-4 | Capability presa a surface | `CapabilityComplianceTest` |
 | AP-5 | Domain reimplementa Memory | Static scan de classes que mantem cache/store de memoria fora de `AtlasMemory` |
-| AP-6 | Decision sem receipt | Test que verifica que toda chamada a provider drive vem com receipt valido |
+| AP-6 | Decision sem receipt | `KernelArchitectureStaticScanner` em `atlas:ai:architecture-validate` + testes de gateway/scout verificando receipt valido em trace, payload e metadata |
 | AP-7 | Policy hardcoded | Static scan de `if (provider === 'X')` em codigo fora de `ProviderRegistry` |
 | AP-8 | Failure sem handler | `test_every_failure_domain_has_at_least_one_handler` |
 | AP-9 | Schema break sem deprecation | Linter de schema diff em CI |
 | AP-10 | Tabela como fonte de verdade em vez de Ledger | Code review checklist + lint sobre projecoes |
 | AP-11 | Background com autonomia A4-A5 sem human approval | Policy invariant test |
-| AP-12 | Provider driver ignora identity | `ProviderComplianceTest` |
-| AP-13 | Receipt expirado consumido por Data Plane | Test de tempo |
-| AP-14 | Tool T2/T3 em hot path | Tier policy test |
-| AP-15 | Memory secret entrando em provider | Privacy invariant test |
+| AP-12 | Provider driver ignora identity ou abre execucao sem validator | `ProviderComplianceTest` + `KernelArchitectureStaticScanner` em `atlas:ai:architecture-validate` |
+| AP-13 | Receipt invalido consumido por Data Plane | `DecisionReceiptRuntimeGuard` valida receipt v2 no Data Plane; `AiWorker` bloqueia receipt com schema invalido, `dry_run`, expirado, provider divergente ou modelo divergente antes de lookup/execucao do provider; `KernelArchitectureStaticScanner` em `atlas:ai:architecture-validate` verifica o guard dedicado e a ordem antes do provider |
+| AP-14 | Tool T2/T3 em hot path | Tool Runtime bloqueia `execution_tier_above_policy_budget`; `AiGatewayService` bloqueia `execution_tier_hot_path_blocked` e `execution_tier_above_contract`; `KernelArchitectureStaticScanner` publica AP-14 |
+| AP-15 | Memory secret entrando em provider | `AtlasMemoryPrivacyService::providerDecision` recalcula privacy class e blocklist antes de provider projection/Open Brain; `KernelArchitectureStaticScanner` verifica filtros provider-safe, redacao e ledger de bloqueio |
+| AP-16 | SLO declarado mas nao medido | `KernelSloProbe` mede estagios, `AtlasEvidenceLedger::recordSloObservation` persiste `SLO_OBSERVED`; `KernelArchitectureStaticScanner` publica AP-16 |
+| AP-17 | Pipeline Kernel chama provider/runtime real antes da migracao | `AtlasKernelPipeline` e `ScaffoldAtlasKernelPipeline` declaram stages, slots, plano, evidence/trace placeholders e `provider_execution_allowed=false`; `KernelArchitectureStaticScanner` verifica contrato e ausencia de bypass para providers/gateway/worker |
 
 Cada AP e merge-blocking. CI roda todos.
 
@@ -1740,29 +1863,67 @@ Fundamentos textuais ja implicitos no codigo, agora canonizados:
 - Promover `Atlas_Gaps_Achamos_Nao_Esquecer.md` como fonte de Personal Dev domain.
 - Rodar `atlas engineering knowledge sync --prune` + `index-code --prune`.
 
-### Fase 1 — Operation Envelope Tipada (3-5 dias)
+### Fase 1 — Operation Envelope Tipada
 
-Substituir payloads ad-hoc por classe canonica:
+Status atual: implementado como base tipada inicial. `OperationEnvelopeFactory`
+cria envelopes tipados, preserva compatibilidade com traces/jobs atuais e emite
+`ENVELOPE_CREATED` no Evidence Ledger.
 
-- Criar `App\Kernel\Envelope\OperationEnvelope` e classes auxiliares.
-- Adapter em surfaces existentes (`AiChatCommand`, `AtlasCliDevCommand`, `AtlasAiSheet`) para construir envelope.
+Proximos incrementos:
+
 - Manter compatibilidade com `AiTrace`/`AiJob` legados (envelope projeta para tabelas atuais).
-- `tests/Architecture/EnvelopeImmutabilityTest`.
+- Expandir adapters de surfaces existentes (`AiChatCommand`, `AtlasCliDevCommand`, `AtlasAiSheet`) quando cada surface migrar totalmente.
+- Ampliar `tests/Architecture/EnvelopeImmutabilityTest`.
 
-### Fase 2 — Decision Receipt v2 Determinista (3-5 dias)
+### Fase 2 — Decision Receipt v2 Determinista
 
-- Refatorar `AtlasDecideService::operationalDecision()` para emitir `DecisionReceipt` typed.
-- Adicionar hash determinista, expires_at, chain_hash.
-- Implementar `dry_run=true` com identidade comportamental.
-- `tests/Architecture/DecisionReceiptDeterminismTest`.
+Status atual: implementado como receipt tipado via `DecisionReceiptIssuer`, com
+`dryRun`, `signedBy`, integracao em `AtlasDecideService` e payload deterministico
+tipado, nao estrutura ad hoc. `AiGatewayService` propaga `decision_receipt` para
+trace e jobs, incluindo jobs normais, scout e council (`claude_codex`), para que
+ledger/replay/auditoria por job nao dependam de fallback para trace.
+`DecisionReceiptRuntimeGuard` aplica a regra do Data Plane: receipt v2 com
+`schema_version` invalido, `dry_run=true`, `expires_at` ausente/invalido ou
+expirado e bloqueado antes de qualquer lookup/execucao de provider. O mesmo
+guard valida `provider_selection.primary` e `provider_selection.model` contra o
+provider/model reais do job, com excecoes formais para council (`claude_codex`
+delegando para `claude_cli`/`codex_cli`) e para scout (`context_scout` usando
+`gemini_cli`). Esse guard tem teste unitario dedicado, teste de integracao no
+worker e tambem e verificado por static scan AP-13.
 
-### Fase 3 — Evidence Ledger Append-Only (5-7 dias)
+Proximos incrementos:
 
-- Migration `atlas_ledger_events` (particionada por mes).
-- Emitter em cada estagio kernel atual.
+- Promover validacao de assinatura/hash do receipt para o mesmo guard quando o
+  replay forte passar a rejeitar divergencias de hash em runtime.
+- Ampliar `tests/Architecture/DecisionReceiptDeterminismTest`.
+
+### Fase 3 — Evidence Ledger Append-Only
+
+Status atual: implementado como base append-only com `atlas_ledger_events`,
+`AtlasEvidenceLedger`, taxonomia inicial e `ENVELOPE_CREATED` emitido pela
+`OperationEnvelopeFactory`. Decide emite `DECISION_ISSUED`.
+
+Proximos incrementos:
+
 - Projecao de `ai_traces`, `atlas_engineering_runs`, `atlas_tool_runs` derivada do ledger via worker.
-- `tests/Architecture/LedgerAppendOnlyTest`.
-- Replay tool: `atlas ledger replay --envelope=<id>`.
+- Ampliar `tests/Architecture/LedgerAppendOnlyTest`.
+- Evoluir replay tool: `atlas ledger replay --envelope=<id>`.
+
+### Fase 3.5 — Pipeline Kernel Scaffold
+
+Status atual: implementado como contrato inicial em
+`app/Services/Ai/Kernel/Pipeline/`. O scaffold declara a ordem completa do
+pipeline, reads/writes por stage, plano auditavel, placeholders de evidence e
+trace, e compliance report. Ele nao executa provider, runtime real, worker,
+gateway ou adapters concretos.
+
+Proximos incrementos:
+
+- Conectar `OperationEnvelopeFactory`, `DecisionReceiptIssuer` e
+  `AtlasEvidenceLedger` ao pipeline real por adapters, mantendo compatibilidade.
+- Criar adapters finos para surfaces existentes em PRs separados.
+- Migrar `atlas dev`/`forge`/`chat` apenas depois de testes de paridade,
+  observabilidade e rollback.
 
 ### Fase 4 — Capability Registry Executavel (3-5 dias)
 
@@ -1778,32 +1939,197 @@ Substituir payloads ad-hoc por classe canonica:
 - Programming domain como primeiro consumer (refactor de `AtlasProgrammingOrchestrator` para implementar `DomainOrchestrator`).
 - Validador (`atlas domain validate <id>`).
 
-### Fase 6 — Surface Adapter Contract (3-5 dias)
+### Fase 6 — Surface Adapter Contract
 
-- Interfaces tipadas para CLI, App, Worker, API, MCP, Background.
-- Surfaces existentes adaptadas.
-- Static scan tests para AP-1, AP-2.
+Status atual: contrato `SurfaceAdapter` existe como interface tipada do Kernel.
+`KernelArchitectureStaticScanner`, exposto por
+`atlas:ai:architecture-validate`, faz static scan AP-1 para impedir que a
+camada Surface importe/chame providers, gateway ou worker diretamente, e AP-2
+para impedir que Surface monte context pack ou memory projection propria. O
+mesmo contrato tambem e coberto por `KernelContractComplianceTest`.
 
-### Fase 7 — Provider Driver Contract (3-5 dias)
+Proximos incrementos:
 
-- `ProviderDriver` interface.
-- Drivers existentes (Claude, Codex, Gemini) adaptados.
-- Identity injection enforcement.
-- `ProviderComplianceTest`.
+- Adaptar CLI, App, Worker, API, MCP e Background progressivamente.
+- Expandir static scan para CLI command entrypoints fora de `app/Services/Ai/Surface`
+  conforme cada entrypoint migrar para adapter formal.
 
-### Fase 8 — Failure Domains E Handlers (3-5 dias)
+### Fase 7 — Provider Driver Contract
 
-- Enum `FailureDomain`.
-- Handlers para cada caso.
+Status atual: contratos `ProviderDriver` e `IdentityFragment` existem como
+interfaces/value objects do Kernel. `claude_cli`, `codex_cli`, `gemini_cli` e
+`claude_codex` ja possuem drivers formais registrados em
+`ProviderDriverRegistry`. `AtlasProviderIdentityProjector` injeta uma projecao
+canonica do master prompt em cada provider request, com fallback auditavel se o
+Vault nao estiver disponivel. Provider ainda deve ser tratado como motor, nao
+identidade do Atlas. `KernelArchitectureStaticScanner`, exposto por
+`atlas:ai:architecture-validate`, faz static scan AP-12 para impedir que wrappers
+abram execucao real sem identidade e validator. O mesmo contrato tambem e
+coberto por `KernelContractComplianceTest`.
+
+Proximos incrementos:
+
+- Ligar execucao real ao wrapper sem permitir bypass do `ProviderDriver`.
+- Expandir `ProviderComplianceTest` com health, limits e capabilities declaradas.
+
+### Fase 8 — Failure Domains E Handlers
+
+Status atual: `FailureDomain` e `FailureHandler` existem como base.
+
+Proximos incrementos:
+
+- Registrar handlers concretos para cada caso.
 - `FailureCoverageTest`.
 
-### Fase 9 — SLO Telemetry (5-7 dias)
+### Fase 8.1 — Tool Tier Hot Path Guard
 
-- Probe de latencia em cada estagio.
-- Dashboard.
+Status atual: AP-14 esta executavel em duas camadas. O Super Tool Runtime ja
+bloqueia ferramentas acima do budget por `execution_tier_above_policy_budget`.
+O Gateway agora tambem projeta `requested_execution_tier`,
+`max_execution_tier` e `hot_path` dentro do receipt de tool contracts, bloqueia
+T2/T3 em hot path interativo com `execution_tier_hot_path_blocked`, e bloqueia
+pedido acima do contrato com `execution_tier_above_contract`. O validator
+arquitetural publica `ap14_tool_tier_hot_path`. Antes de lançar
+`atlas_tool_contract_policy_violation`, o Gateway registra o bloqueio no
+Evidence Ledger via `recordPolicyContractBlocked('programming.tools', ...)`,
+com `OPERATION_BLOCKED`, `emitter_stage=atlas.policy_contract` e
+`violation_code=programming.tools.<status>`.
+
+Proximos incrementos:
+
+- Expor contadores por surface para detectar surfaces tentando promover tool
+  pesada no caminho interativo.
+
+### Fase 9 — SLO Telemetry
+
+Status atual: SLO targets estao declarados no Kernel como contratos
+versionados, com success rate, severidade e avaliador deterministico.
+`KernelSloProbe` mede blocos reais, classifica a observacao via
+`KernelSloAssessment` e persiste `SLO_OBSERVED` no Evidence Ledger por
+`recordSloObservation()`. Os primeiros hot paths instrumentados sao
+`context.compose` (`AiContextPackBuilder::build`), `provider.prepare`
+(preparacao + validacao do provider contract), `decide.issue` (emissao do
+`DecisionReceipt v2`), `runtime.execute` (`AiWorker` envolvendo a chamada real
+ao provider), `repair.loop` (native programming repair no `AiWorker`) e
+`gate.evaluate` (`AtlasToolGateService::evaluate`), `learning.project`
+(`AtlasMemoryLearningPromotionService`) e `output.render`
+(`BaseSurfaceAdapter::renderOutput`).
+`atlas:ai:architecture-validate --json` expoe `schema_version`, stages ativos e
+o static scan `ap16_slo_observability`. `AtlasLedgerReplayService` e o read
+model reutilizavel para replay/projecoes: `atlas:ai:ledger <envelope> --slo
+--json` e `GET /ai/ledger/{envelope}?slo=1` usam
+`sloReportForEnvelope()` para transformar eventos `SLO_OBSERVED` em resumo
+operacional por envelope: contagem, sucesso, falha, pior status/severidade,
+p50/p95/max por stage e violacoes agregadas. `AtlasEvidenceLedger` permanece
+focado em append/replay bruto; a projecao vive no replay service para evitar
+misturar escrita canonica com dashboard/curadoria. A mesma camada tambem
+publica `repairReportForEnvelope()`: `atlas:ai:ledger <envelope> --repair
+--json` e `GET /ai/ledger/{envelope}?repair=1` transformam
+`REPAIR_INITIATED`/`REPAIR_COMPLETED` em resumo de Repair Loop por envelope,
+incluindo initiated/completed count, executed count, status/strategy/reason
+counts, latest status/strategy, flag `requires_human_review` e eventos recentes
+com `causation_id`, `decision_hash` e `result_hash`. Isso da ao operador,
+Curator e Self-Improvement uma leitura canonica de repair sem consultar payload
+raw nem recriar logica por surface. A mesma camada publica
+`sloReportForWindow()` para agregacao por janela: envelope count, status
+counts, success/failure, resumo por stage, dimensoes agregadas e
+`recent_breaches`. Cada observacao SLO pode carregar dimensoes canonicas
+provider-safe (`domain`, `flow`, `surface_id`, `provider`, `model`, `runtime`,
+`tool_id`), permitindo dashboards por dominio/surface/provider/model sem ler
+payloads privados nem transformar tabela operacional em fonte de verdade. O
+payload `GET /ai/observability` agora inclui `kernel_slo`, `kernel_repair` e
+`self_improvement_schedule`,
+permitindo dashboard e Self-Improvement/Curator enxergarem drift por janela e
+padroes de repair sem reimplementar queries. `self_improvement_schedule` vem de
+`AtlasSelfImprovementScheduleService` e publica enabled/time/flows/commands,
+`configured_flows`, `invalid_flows`, `defaulted`, `timezone`, `next_run_at` e
+`health` do ciclo recorrente efetivo, incluindo o default `nightly_review` +
+`repair_loop_review`. O payload tambem publica `plan_hash` com algoritmo
+`sha256`, calculado sobre a configuracao efetiva e health issues, mas sem
+depender de `next_run_at`, permitindo detectar drift entre CLI, API,
+observability e cron sem confundir mudanca natural de data. O scheduler real em
+`bootstrap/app.php` consome `scheduledCommands()` e aplica explicitamente
+`dailyAt(time)` + `timezone(timezone)` do mesmo contrato somente quando
+`schedulable=true`. Schedule desligado, horario invalido ou timezone invalida
+permanece auditavel em plano/health, mas nao vira registro real no cron. O bloco
+`scheduler_registration` explicita `registered_command_count` e
+`skipped_reason` para dashboards e CI distinguirem plano auditavel de registro
+real. Assim configuracao
+errada fica visivel em CLI, API e observability, sem execucao silenciosa. Horario invalido gera
+`invalid_self_improvement_schedule_time`, `health.status=warning` e
+`next_run_at=null`; timezone invalida gera
+`invalid_self_improvement_schedule_timezone` com o mesmo bloqueio de registro.
+`health.status` diferencia `healthy`, `warning` e
+`disabled`, com issues e next actions para operacao. O mesmo comando aceita
+`--fail-on-schedule-warning`, permitindo health gate em CI/cron sem criar
+`AtlasInitiativeRun` nem executar runtime. `--schedule-health` e a API
+`GET /ai/self-improvement/schedule/health` expoem o mesmo estado em formato
+compacto para shell, App, mobile, cron e monitors que nao precisam carregar
+comandos ou configuracao completa.
+`kernel_repair` vem de
+`repairReportForWindow()` e agrega repair event count, envelope count,
+initiated/completed, executed count, status/strategy/reason counts,
+latest status/strategy, `requires_human_review` e eventos recentes. O operador
+tambem pode usar `atlas:ai:slo --hours=24 --json` para inspecionar SLO por
+janela e `atlas:ai:repair-report --hours=24 --json` para inspecionar o Repair
+Loop por janela sem carregar todo o payload de observability. A API operacional
+equivalente e `GET /ai/repair/report?hours=24`, consumindo o mesmo read model
+e retornando `kernel_repair`. O report de Repair Loop tambem aceita filtros
+operacionais por `status`, `strategy`, `failure_domain` e `emitter_stage` no
+CLI e API, por exemplo `atlas:ai:repair-report --strategy=human_review --json`
+ou `GET /ai/repair/report?strategy=human_review&failure_domain=compliance.violation`.
+Isso permite que Curator, dashboard e operador isolem padroes de repair sem
+reconsultar payload raw nem criar queries paralelas.
+`GET /ai/slo` publica a mesma projecao como API operacional autenticada, com
+filtros por `domain`, `flow`, `surface_id`/`surface`, `provider`, `model`,
+`runtime` e `tool_id`/`tool`. Isso cria uma interface unica para dashboard,
+Curator, mobile e scripts sem duplicar consultas ao ledger. O dominio
+`self_improvement` tambem consome esses filtros em
+`atlas:ai:self-improve --flow=provider_performance_review`, permitindo abrir
+proposals de SLO drift por dominio/provider/model em vez de gerar um alerta
+global sem dono claro.
+`AtlasSelfImprovementRuntime` consome esse read model nos flows noturnos e de
+provider performance para gerar proposals revisaveis de SLO drift, mantendo
+autonomia baixa: detectar e propor, nunca alterar target/runtime automaticamente.
+O mesmo runtime agora consome `repairReportForWindow()` para abrir findings
+revisaveis quando o Repair Loop acumula `human_review`, bloqueios/exhaustion ou
+estrategias repetidas. Isso fecha o ciclo: repair gera ledger, replay projeta,
+observability mostra e Self-Improvement transforma padrao em proposta sem
+autoaplicar mudanca critica. Para operacao direcionada, o flow dedicado
+`self_improvement.repair_loop_review` consome apenas evidencia de Repair Loop e
+aceita os mesmos filtros (`repair status`, `strategy`, `failure_domain`,
+`emitter_stage`), preservando-os em `runtime.filters` e
+`finding.metadata.filters`. `tool_runtime_review` pode agregar esse mesmo sinal,
+mas a curadoria de repair tem executor proprio (`repair_loop_review_runtime`)
+para evitar heuristicas paralelas ou mistura acidental com gates/tools.
+
+Proximos incrementos:
+
+- Dashboard visual para dimensoes SLO.
 - Alertas.
 
-### Fase 10 — Domain Expansion: Personal Dev / Finance / Curator
+### Fase 9.1 — Provider Memory Privacy
+
+Status atual: AP-15 esta executavel no hot path de projection. `AtlasMemoryPrivacyService`
+nao confia em colunas legadas isoladas: `providerDecision()` recalcula
+`privacy_class`, aplica `block_external_ai_for_sensitivity`, bloqueia `secret`
+sempre, respeita `metadata.privacy.external_ai_allowed=false` e retorna uma razao
+auditavel. `providerAllowed()` e apenas o boolean derivado dessa decisao.
+`AtlasProviderProjectionService` registra cada memoria bloqueada no Evidence
+Ledger via `recordProviderMemoryBlocked()`, sem gravar titulo, body ou resumo no
+payload do evento. `atlas_memory_get` no Open Brain MCP usa a mesma decisao e
+tambem registra bloqueios provider-facing. `AtlasHybridMemoryRetrievalService`
+continua obrigado a filtrar entradas por `providerAllowed($entry)`, e os campos
+expostos ao provider usam fallbacks redigidos (`providerTitle`,
+`providerSummary`, `providerBody`). `KernelArchitectureStaticScanner` publica
+`ap15_provider_memory_privacy` no architecture validator.
+
+Proximos incrementos:
+
+- Criar amostragem Curator para procurar entradas antigas com privacy drift.
+- Expor metricas de memoria provider-safe por dominio/surface.
+
+### Fase 10 — Domain Expansion: Personal Dev / Finance / Self-Improvement
 
 Status: Finance e Personal Development ja foram promovidos para `ready 9/9`.
 Curator domain dedicado ainda precisa ser separado do Self-Improvement quando
@@ -1825,7 +2151,8 @@ Cada novo dominio:
 
 ### Fase 12 — Self-Evolution Curator (n+ dias)
 
-- Curator domain.
+- Curator dedicado se e quando precisar separar governanca/proposals do dominio
+  implemented/ready `self_improvement`.
 - Continuous audit jobs.
 - Proposal inbox.
 
@@ -1840,12 +2167,12 @@ A arquitetura mae esta em estado **production-grade kernel** quando:
 3. Toda decisao real emite `DecisionReceipt` valido com hash + chain.
 4. Evidence Ledger e fonte de verdade; tabelas projetadas reconstruivel.
 5. Pelo menos 2 dominios (Programming + Personal Dev) implementam `DomainOrchestrator` via manifest.
-6. Pelo menos 3 providers (Claude, Codex, Gemini) implementam `ProviderDriver`.
+6. Pelo menos 4 providers (Claude, Codex, Gemini, Claude+Codex council) implementam `ProviderDriver`.
 7. Failure domains tem handler para todos os 30+ casos.
 8. SLOs publicados, medidos e dashboard ativo.
 9. Cost model integrado a budget de receipt.
 10. Multi-tenancy foundation propagada (mesmo com unico operador).
-11. Curator domain audita ledger e gera proposals.
+11. `self_improvement` ou um Curator dedicado audita ledger e gera proposals.
 12. Doutrina executavel via `atlas kernel doctrine --json`.
 13. Documentacao da spec mae sincronizada via `atlas engineering knowledge sync`.
 14. Operator consegue dizer "atlas dev", "atlas finance review", "atlas reflect" e cada um passa pelo mesmo kernel sem que o operador note diferenca arquitetural.
@@ -1892,12 +2219,12 @@ Esta spec **nao substitui** documentos existentes. Ela os enraiza.
 | `atlas-ai-operating-system.md` | Topology e ownership; este spec define como cada peca encaixa |
 | `atlas-ai-architecture-audit.md` | Diagnostico; este spec define o estado-alvo |
 | `atlas-ai-resolver-corpus-audit.md` | Triagem do corpus legacy |
-| `atlas-ai-domain-profile-architecture.md` (a promover) | Especializacao desta spec para domains |
-| `atlas-programming-architecture.md` (a promover) | Especializacao desta spec para Programming domain |
-| `atlas-decide.md` (a promover) | Detalhamento do estagio Decide |
-| `atlas-ai-master-prompt.md` (a promover) | Source da `IdentityFragment` |
-| `atlas-glossary.md` (a promover) | Glossario humano; este spec tem glossario kernel |
-| `atlas-ai-laws.md` (a extrair) | Leis de identidade Atlas AI |
+| `atlas-ai-operating-system.md` + `atlas-ai-core-vs-domain.md` | Especializacao desta spec para domains |
+| `domains/programming.md` | Especializacao canonica desta spec para Programming domain |
+| `app/Services/Ai/Kernel/Pipeline/*` | Contrato/scaffold executavel do pipeline unificado; ainda nao migra fluxos reais |
+| `atlas-ai-kernel-architecture.md` + `atlas-ai-operating-system.md` + `atlas-ai-pipeline.md` | Detalhamento canonico atual do estagio Decide |
+| `atlas-ai-layer-0-glossary.md` | Source canonico enxuto da `IdentityFragment` e glossario humano; este spec mantem glossario kernel |
+| `atlas-ai-layer-0-glossary.md` | Leis/identidade Atlas AI extraidas em forma operacional enxuta |
 | `super-tool-runtime-core.md` | Implementacao concreta de `Atlas.Tools` |
 | `engineering-blueprint.md` | Specializacao de gates/evidence para Programming |
 | `code-intelligence.md` | Implementacao de code refs em context pack |
@@ -1911,25 +2238,25 @@ Para cada area do codigo atual, indica como ela se torna parte do kernel.
 
 | Codigo atual | Papel no kernel |
 |---|---|
-| `AtlasDecideService` | Renomear para `AtlasDecideEngine`, refactor para emitir `DecisionReceipt v2` |
+| `AtlasDecideService` | Decide engine atual que integra o `DecisionReceiptIssuer` e emite `DECISION_ISSUED`; renomear para `AtlasDecideEngine` e apenas refinamento futuro de nomenclatura/ownership |
 | `app/Services/Ai/Kernel/Envelope/*` | Primeira implementacao do `OperationEnvelope` tipado e factory canonica |
 | `DecisionReceiptIssuer` | Primeira implementacao executavel do `DecisionReceipt v2` hashable e chainable |
 | `AtlasCapabilityRegistry` | Primeira implementacao executavel do Capability Registry baseada em `config/atlas_ai.php` |
 | `AtlasDomainManifestValidator` | Primeira implementacao executavel do Domain Manifest/Profile compliance |
 | `AtlasDomainOrchestrator` + `AtlasDomainOrchestratorRegistry` | SDK minimo de dominios: nomes curtos de manifest resolvem para classes PHP reais, maturidade e suporte declarado por domain/flow |
 | `AtlasAiDomainCatalogService` | Service compartilhado que monta o inventario validado de domains/flows/orchestrators para CLI e API sem duplicacao |
-| `AtlasDomainOnboardingScorecard` | Scorecard de onboarding por dominio com 9 fases: charter, profile, context, orchestrator, runtime, gates, learning, surface e maturity_gate; Programming, Self-Improvement, Marketing, Finance e Personal Development estao `ready 9/9` |
+| `AtlasDomainOnboardingScorecard` | Scorecard de onboarding por dominio com 9 fases: charter, profile, context, orchestrator, runtime, gates, learning, surface e maturity_gate; Programming, Self-Improvement, Finance e Personal Development estao implemented/ready; Marketing e os demais dominios listados permanecem scaffold/catalog-ready ate existir runtime/orchestrator proprio |
 | `atlas:ai:architecture-validate` | Verificacao operacional dos contratos executaveis de Capability Registry, Domain Orchestrator Registry e Domain/Profile Registry |
 | `atlas:ai:domains` + `GET /ai/domains` | Inventario operacional de domains, flows e orchestrators; expoe maturidade, runtime, autonomia, executor preference, onboarding scorecard e validacao em JSON/humano |
 | `programming.*` flow profiles | Programming declarado no registry com dev, repair, review, refactor, qa, security, database, visual e forge; todos os flows declaram context policy, memory/learning policy, gate policy e surfaces |
-| `marketing.*` flow profiles | Marketing declarado no registry com 15 flows canonicos, context policy `marketing_growth_context`, memory/learning projection, gates de marca/claims/audience/medicao e `marketing.forge` como intensidade alta |
+| `marketing.*` flow profiles | Marketing declarado como scaffold/catalog-ready com 15 flows canonicos alvo; nao e implemented/ready ate existir runtime/orchestrator proprio |
 | `finance.*` flow profiles | Finance declarado no registry com 10 flows enterprise analysis-only, gates de compliance/source/risk, memoria provider-safe, tool policy read-only e bloqueio de qualquer execucao de mercado |
 | `personal_development.*` flow profiles | Personal Development declarado no registry com 10 flows privados plan-only, memoria privada/redacted, gates non-clinical/privacy/no-diagnosis e proibicao de mutacao automatica de calendario/tarefas |
 | `AtlasEvidenceLedger` + `atlas_ledger_events` | Primeira implementacao append-only do Evidence Ledger para eventos de kernel |
 | `AiWorker` + `atlas:ai:ledger` | Primeira ponte runtime/provider/gate/repair para o ledger: execution started, provider called/returned, gate evaluated/passed/blocked, repair initiated/completed, terminal operation events e replay por envelope |
 | `EngineeringHarnessRunnerService` | Ponte do Engineering Harness para o ledger: execution started, context composed, provider returned e terminal operation event por engineering run |
 | `AtlasToolEvidenceStore` / `AtlasToolGateService` | Ponte do Super Tool Runtime para o ledger: tool evidence recorded e gate events por envelope/contexto |
-| `AtlasSelfImprovementOrchestrator` + `AtlasSelfImprovementRuntime` + `atlas:ai:self-improve` | Primeira implementacao ready do Curator/Self-Improvement sobre o ledger: resolve profile do dominio, emite plano para 10 flows especializados, suporta `--list-flows` e `--plan-only`, executa reviews por flow, registra initiative run, learning proposals e proposals seguras opcionais; declara context, gates, learning e surfaces scheduler/CLI/API/app com agendamento multi-flow |
+| `AtlasSelfImprovementOrchestrator` + `AtlasSelfImprovementRuntime` + `AtlasSelfImprovementScheduleService` + `atlas:ai:self-improve` + `GET /ai/self-improvement/schedule` | Primeira implementacao ready do Curator/Self-Improvement sobre o ledger: resolve profile do dominio, emite plano para 11 flows especializados, suporta `--list-flows`, `--schedule-plan` e `--plan-only`, executa reviews por flow, registra initiative run, learning proposals e proposals seguras opcionais; declara context, gates, learning e surfaces scheduler/CLI/API/app com agendamento multi-flow. O default recorrente agenda `nightly_review` e `repair_loop_review` |
 | `AtlasAiPolicyService` | Implementacao do Policy Engine declarativo; inclui guard rails de kernel para `programming.repair` -> `dev_repair_executor` e flows Programming de harness -> `engineering_harness` |
 | `AiGatewayService` | Adapter entre kernel e camada legacy de jobs |
 | `AtlasOpenBrainContextInjectionService` | Implementacao concreta de `Atlas.Context` mode auto/required/off |
@@ -1942,7 +2269,7 @@ Para cada area do codigo atual, indica como ela se torna parte do kernel.
 | `AtlasEffectivePolicyComposer` | Composer de policy contract; `dev_repair_executor` deriva contrato `workspace_write` em vez de read-only |
 | `AtlasToolRegistryService` + Policy + Executor + EvidenceStore + Gate + ReleaseGate + AuthorityMatrix | Implementacao completa de `Atlas.Tools` |
 | `AtlasOpenBrainMcpService` (21 tools) | Adapter MCP do kernel |
-| `AtlasVaultManagedNoteService` + Sync | Adapter do Human Knowledge Plane: Vault humano (Obsidian) |
+| `AtlasVaultManagedNoteService` + Sync | Adapter da Human Knowledge Surface / Personal Knowledge Workspace: Vault humano (Obsidian) |
 | `AiTrace` / `AiJob` | Projecao do Evidence Ledger |
 | `atlas_engineering_runs` | Projecao do Evidence Ledger para Programming |
 | `atlas_tool_runs` | Projecao do Evidence Ledger para Tools |
@@ -2017,6 +2344,158 @@ Codex desenhou o **mapa**. Esta spec define o **kernel** que faz o mapa ser obed
 Topologia sem kernel e doutrina sem enforcamento. Doutrina sem enforcamento e PowerPoint.
 
 ---
+
+## Unified Repair Loop Foundation
+
+O Repair Loop unico do Atlas AI passa a ter um contrato de kernel em
+`app/Services/Ai/Kernel/Repair/*`. Esta primeira fundacao nao migra execucoes
+existentes e nao altera comportamento de producao: ela define a forma canonica
+para qualquer repair futuro ser planejado, limitado, auditado e bloqueado antes
+de existir uma tentativa real.
+
+Fluxo alvo:
+
+1. Gate, runtime, provider, tool, harness ou surface falha.
+2. A falha e normalizada para `FailureClassification` usando o vocabulario
+   fechado de `FailureDomain`.
+3. O caller monta `RepairRequest` com `envelope_id`, `receipt_id`,
+   classificacao de falha, `RepairPolicy`, tentativa atual, evidencias
+   referenciadas e `dry_run`.
+   `RepairRequestFactory::fromKernelContext()` e o caminho preferido para
+   callers futuros montarem esse request a partir de contexto de kernel ou
+   `DecisionRepairPolicy`, sem duplicar normalizacao local.
+4. `AtlasRepairOrchestrator::plan()` retorna uma `RepairDecision` com um dos
+   estados canonicos: `repair_allowed`, `repair_blocked`,
+   `repair_exhausted` ou `needs_human_review`.
+   `RepairStrategyResolver` concentra a matriz `FailureDomain` ->
+   `RepairStrategy` e quais dominios exigem revisao humana.
+5. `AtlasRepairOrchestrator::attempt()` formata um `RepairResult` e payloads
+   prontos para o Evidence Ledger, usando eventos `REPAIR_INITIATED` e
+   `REPAIR_COMPLETED`, mas sem executar repair real nesta fase.
+   `RepairEvidencePayloadFormatter` e a fronteira canonica para montar esses
+   payloads e calcular hashes deterministicos.
+
+Pontos de entrada operacionais da fundacao:
+
+- `atlas:ai:repair --json` retorna `planned_scaffold` com `RepairRequest`,
+  `RepairDecision`, payload ledger-ready, `evidence_ledger` com status da
+  gravacao e compliance report.
+- `atlas:ai:repair --attempt-repair --json` retorna `attempted_scaffold` com
+  `RepairResult`; a tentativa continua `executed=false` e registra
+  `execution_blocked_by_dry_run`. Quando o ledger existe, a tentativa scaffold
+  grava o par `REPAIR_INITIATED`/`REPAIR_COMPLETED`; o evento completed usa
+  `causation_id` apontando para o `decision_hash`.
+- `POST /ai/repair` exposto por `AtlasAiRepairController` aceita
+  `envelope_id`, `receipt_id`, `failure_domain` ou
+  `failure_classification`, `policy`, `current_attempt`, `evidence_refs` e
+  `attempt`. A rota usa `atlas.token`, forca `dry_run=true` e retorna o mesmo
+  contrato do CLI para App, dashboard, mobile, Curator e futuras surfaces.
+  CLI e API gravam a decisao planejada no Evidence Ledger como
+  `REPAIR_INITIATED` quando a tabela `atlas_ledger_events` existe; quando
+  `attempt=true`, tambem gravam `REPAIR_COMPLETED` por
+  `AtlasEvidenceLedger::recordRepairResult()`. Em ambientes leves sem ledger,
+  continuam retornando o mesmo contrato sem quebrar.
+
+Estrategias canonicas iniciais:
+
+- `retry_provider` para timeout/indisponibilidade de provider;
+- `refresh_context` para falhas de contexto, memoria, profile ou attachment;
+- `collect_evidence` para gate, evidence ou ledger incompleto;
+- `repair_output` para output/runtime/decision invalidos;
+- `rerun_tool` para falha de tool runtime;
+- `rerun_harness` para falha de harness;
+- `human_review` quando o dominio de falha exige julgamento humano;
+- `none` reservado para estados terminais.
+
+Motivos canonicos de decisao e tentativa:
+
+- `repair_policy_disabled`;
+- `max_attempts_reached`;
+- `failure_domain_requires_human_review`;
+- `no_automatic_strategy_for_failure_domain`;
+- `strategy_not_allowed`;
+- `heavy_repair_requires_evidence_refs`;
+- `repair_planned`;
+- `repair_not_allowed`;
+- `execution_blocked_by_dry_run`;
+- `execution_not_implemented_contract_foundation_only`;
+- `envelope_id_required`;
+- `current_attempt_must_be_non_negative`;
+- `allowed_strategies_required`.
+
+Invariantes:
+
+- Todo motivo emitido por `RepairDecision`, `RepairAttempt` ou payload de
+  evidence vem do enum fechado `RepairReason`.
+- `envelope_id` e estrategias permitidas sao parte minima do contrato; requests
+  sem esses campos retornam `repair_blocked` com motivo auditavel.
+- `current_attempt >= max_attempts` sempre retorna `repair_exhausted`.
+- Dominios de policy, privacy, security, compliance, provider refusal,
+  runtime unsupported, replay mismatch e unknown exigem `needs_human_review`.
+- Estrategias pesadas como `rerun_tool` e `rerun_harness` exigem
+  `evidence_refs` quando `requires_evidence_for_heavy_repair=true`.
+- `dry_run` nunca executa repair real.
+- Mesmo fora de `dry_run`, esta fundacao retorna `executed=false` ate uma
+  sessao futura plugar executores reais.
+- CLI e API nunca permitem desligar `dry_run`; qualquer execucao real futura
+  deve entrar por executor aprovado, com policy explicita, evidence refs e
+  ledger append-only.
+- Payloads de `RepairDecision` e `RepairResult` incluem hashes deterministicos
+  para facilitar replay, deduplicacao e auditoria no Evidence Ledger futuro.
+- O hash canonico ordena chaves associativas antes de assinar, preservando a
+  ordem de listas como `evidence_refs`.
+- `RepairPolicy::fromDecisionRepairPolicy()` permite consumir a policy emitida
+  pelo Decide sem duplicar contrato central nem alterar `DecisionReceipt`.
+- `RepairRequestFactory` e a fronteira recomendada para AiWorker/dev/forge
+  futuros montarem requests de repair; callers nao devem montar arrays ad hoc
+  quando tiverem `FailureClassification` e policy tipada.
+- `RepairStrategyResolver` e a fronteira recomendada para manter a matriz de
+  strategy/human-review fora de callers e fora do orchestrator.
+- `RepairEvidencePayloadFormatter` concentra eventos de ledger, schema version,
+  `decision_hash`, `result_hash` e canonicalizacao de payload.
+- `atlas:ai:architecture-validate --json` inclui AP18
+  `repair_loop_contract`, que falha se o contrato tipado do Repair Loop,
+  o comando `atlas:ai:repair`, a rota `POST /ai/repair` ou os guards de
+  scaffold-safe/dry-run forem removidos ou desviados. AP18 tambem verifica
+  que o repair nativo do `AiWorker` passa por `AtlasRepairOrchestrator` e
+  `RepairRequestFactory` antes de enfileirar novos jobs de reparo, e que
+  `AtlasProgrammingOrchestrator::sessionPlan()` publica
+  `repair_execution_contract` com policy explicita do Kernel Repair. AP18
+  tambem verifica que `EngineeringHarnessExecutionService` anexa
+  `kernel_repair_decision` em resultados de Forge/Harness bloqueados, parciais
+  ou falhos, grava a decisao no Evidence Ledger como `REPAIR_INITIATED`, e nao
+  executa reparo por fora do kernel.
+
+Integracao futura:
+
+- `AiWorker` ja consulta o contrato do Repair Loop no repair nativo de
+  programacao: ele monta `RepairRequest`, recebe `RepairDecision`, anexa a
+  decisao em metadata/ledger payload e respeita bloqueios do kernel antes de
+  enfileirar novo job de reparo. A execucao final do repair continua pelo
+  mecanismo legado ate o executor real do kernel ser plugado.
+- `AtlasProgrammingOrchestrator` ja faz `atlas dev`, `atlas fix` e
+  `atlas chat --dev` nascerem com `repair_execution_contract`, incluindo
+  `kernel_repair_contract`, estrategias permitidas, estrategias pesadas e
+  obrigatoriedade de evidencia para repair pesado.
+- `EngineeringHarnessExecutionService` ja anexa `kernel_repair_decision` e
+  `repair_contract` quando o Engineering Harness retorna `blocked`, `partial`
+  ou falha de policy preflight. Falhas de contrato read-only viram
+  `tool.policy_denied` e exigem `human_review`; falhas de harness com run/evidence
+  refs podem planejar `rerun_harness` respeitando limite de tentativas e
+  evidence required para repair pesado. A decisao tambem e gravada pelo
+  `AtlasEvidenceLedger::recordRepairDecision()` como evento `REPAIR_INITIATED`
+  com `emitter_stage=engineering_harness.repair`, deixando replay, auditoria e
+  Curator com uma fonte canonica do repair planejado.
+- `atlas:ai:repair-report` e `GET /ai/repair/report` expõem o read model de
+  Repair Loop por janela com filtros por `status`, `strategy`,
+  `failure_domain` e `emitter_stage`. Esses filtros sao parte do contrato
+  operacional AP18: operador, dashboard e Curator devem consultar o repair
+  pelo replay service, nao por payload raw nem por queries locais duplicadas.
+- `atlas dev` e `atlas complete` devem classificar falhas em `FailureDomain` e
+  passar pelo `AtlasRepairOrchestrator` antes de acionar repair de engenharia.
+- Nenhum caller deve gravar eventos de repair com formato proprio; o payload do
+  `RepairDecision`/`RepairResult` deve ser a origem canonica para o Evidence
+  Ledger.
 
 **Fim da especificacao.**
 

@@ -1,3 +1,9 @@
+> Cleanup status: superseded_source_material.
+> Canonical replacement: docs/engineering-knowledge-base/domains/programming.md; docs/engineering-knowledge-base/atlas-ai-operating-system.md; docs/engineering-knowledge-base/engineering-blueprint.md; docs/engineering-knowledge-base/super-tool-runtime-core.md.
+> Cleanup note: P0 source material for Programming. Preserve for audit; canonical authority is the Programming domain spec plus operating/runtime docs.
+
+> Authority warning: this draft uses "canonical" in historical sections. Current authority is the Programming domain spec plus the replacement set above.
+
 # Atlas Programming Product Architecture
 
 Status: draft canonical specification
