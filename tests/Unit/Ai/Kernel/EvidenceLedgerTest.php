@@ -5,6 +5,7 @@ namespace Tests\Unit\Ai\Kernel;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -33,25 +34,30 @@ class EvidenceLedgerTest extends TestCase
             'operator_id' => 'operator-a',
         ]);
 
-        $this->assertInstanceOf(AtlasLedgerEvent::class, $result['envelope_created']);
+        $this->assertNull($result['envelope_created']);
         $this->assertInstanceOf(AtlasLedgerEvent::class, $result['decision_issued']);
-        $this->assertSame(LedgerEventType::EnvelopeCreated->value, $result['envelope_created']->event_type);
         $this->assertSame(LedgerEventType::DecisionIssued->value, $result['decision_issued']->event_type);
-        $this->assertSame($result['envelope_created']->event_id, $result['decision_issued']->causation_id);
+        $this->assertNull($result['decision_issued']->causation_id);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $result['decision_issued']->payload_hash);
-        $this->assertDatabaseCount('atlas_ledger_events', 2);
+        $this->assertDatabaseCount('atlas_ledger_events', 1);
     }
 
-    public function test_events_for_envelope_replays_in_order(): void
+    public function test_factory_records_envelope_and_decision_replays_in_order(): void
     {
-        $receipt = $this->receipt();
+        $envelope = app(OperationEnvelopeFactory::class)->create([
+            'operator' => ['tenant_id' => 'tenant-a', 'operator_id' => 'operator-a'],
+            'input' => ['text' => 'planeje'],
+        ]);
+        $receipt = array_merge($this->receipt(), [
+            'envelope_id' => $envelope->envelopeId,
+        ]);
 
         app(AtlasEvidenceLedger::class)->recordDecisionIssued($receipt, [
             'tenant_id' => 'tenant-a',
             'operator_id' => 'operator-a',
         ]);
 
-        $events = app(AtlasEvidenceLedger::class)->eventsForEnvelope('env_01');
+        $events = app(AtlasEvidenceLedger::class)->eventsForEnvelope($envelope->envelopeId);
 
         $this->assertCount(2, $events);
         $this->assertSame('ENVELOPE_CREATED', $events[0]['event_type']);

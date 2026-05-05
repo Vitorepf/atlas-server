@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Models\AtlasVerbatimMemory;
+use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Facades\Schema;
@@ -22,6 +23,7 @@ class AtlasOpenBrainMcpService
         private readonly AtlasMemoryQualityService $quality,
         private readonly EngineeringKnowledgeBaseService $knowledge,
         private readonly EngineeringCodeIntelligenceService $code,
+        private readonly AtlasAiDomainCatalogService $domainCatalog,
     ) {}
 
     /**
@@ -182,6 +184,20 @@ class AtlasOpenBrainMcpService
                 'title' => 'Atlas Capabilities',
                 'description' => 'Retorna inventário completo de tools MCP do Atlas, com schemas, annotations, protocol version e server info. Use para capability negotiation.',
                 'inputSchema' => ['type' => 'object', 'properties' => [], 'required' => []],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_domain_catalog',
+                'title' => 'Atlas Domain Catalog',
+                'description' => 'Retorna o catalogo canonico de dominios e flows do Atlas AI, incluindo maturity, onboarding, executor preference, autonomia e safety read-only.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'domain' => ['type' => 'string', 'description' => 'Filtra por domain id, por exemplo programming ou marketing.'],
+                        'flow' => ['type' => 'string', 'description' => 'Filtra por flow id, por exemplo programming.repair.'],
+                        'maturity' => ['type' => 'string', 'description' => 'Filtra orchestrators por maturity: implemented, scaffold ou planned.'],
+                    ],
+                ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
             [
@@ -449,6 +465,7 @@ class AtlasOpenBrainMcpService
                 'atlas_code_find_relevant' => $this->toolResponse($id, $this->codeFindRelevant($arguments)),
                 'atlas_docs_lookup' => $this->toolResponse($id, $this->docsLookup($arguments)),
                 'atlas_capabilities' => $this->toolResponse($id, $this->capabilities()),
+                'atlas_domain_catalog' => $this->toolResponse($id, $this->domainCatalog($arguments)),
                 'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
                 'atlas_recent_changes' => $this->toolResponse($id, $this->recentChanges($arguments)),
                 'atlas_decision_query' => $this->toolResponse($id, $this->decisionQuery($arguments)),
@@ -708,6 +725,35 @@ class AtlasOpenBrainMcpService
             'docs' => $result['items'] ?? [],
             'count' => count($result['items'] ?? []),
             'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function domainCatalog(array $arguments): array
+    {
+        $maturity = $this->string($arguments['maturity'] ?? null);
+        if ($maturity !== null && ! in_array($maturity, ['implemented', 'scaffold', 'planned'], true)) {
+            return [
+                'ok' => false,
+                'tool' => 'atlas_domain_catalog',
+                'error' => 'invalid_maturity',
+                'allowed_maturity' => ['implemented', 'scaffold', 'planned'],
+            ];
+        }
+
+        $catalog = $this->domainCatalog->inspect([
+            'domain' => $this->string($arguments['domain'] ?? null),
+            'flow' => $this->string($arguments['flow'] ?? null),
+            'maturity' => $maturity,
+        ]);
+
+        return [
+            'ok' => ($catalog['status'] ?? null) === 'ok',
+            'tool' => 'atlas_domain_catalog',
+            ...$catalog,
         ];
     }
 

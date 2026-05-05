@@ -144,6 +144,56 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         return 'implemented';
     }
 
+    public function plan(string $flow, array $input = [], array $context = []): array
+    {
+        $profile = str_ends_with($flow, '.forge') || $flow === 'forge' ? 'forge' : 'dev';
+
+        return $this->sessionPlan(
+            workspace: (string) ($context['workspace'] ?? $input['workspace'] ?? base_path()),
+            profile: $profile,
+            options: array_merge($input, $context, [
+                'flow' => str_replace('programming.', '', $flow),
+                'task' => (string) ($input['task'] ?? $input['text'] ?? ''),
+            ]),
+        );
+    }
+
+    public function execute(array $plan, array $context = []): array
+    {
+        return [
+            'schema_version' => 1,
+            'orchestrator' => $this->orchestratorId(),
+            'status' => 'requires_runner',
+            'reason' => 'programming_execution_is_dispatched_by_cli_or_engineering_harness',
+            'plan' => $plan,
+            'context' => $context,
+        ];
+    }
+
+    public function repair(array $failure, array $context = []): array
+    {
+        return [
+            'schema_version' => 1,
+            'orchestrator' => $this->orchestratorId(),
+            'status' => 'planned',
+            'repair_prompt' => $this->repairPrompt($failure),
+            'failure' => $failure,
+            'context' => $context,
+        ];
+    }
+
+    public function summarize(array $result, array $context = []): array
+    {
+        return [
+            'schema_version' => 1,
+            'orchestrator' => $this->orchestratorId(),
+            'status' => (string) ($result['status'] ?? 'unknown'),
+            'decision' => $result['decision'] ?? null,
+            'evidence_refs' => (array) ($result['evidence_refs'] ?? []),
+            'context' => $context,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>|null  $programmingMessagePlan
      * @return array<string,mixed>|null

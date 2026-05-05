@@ -18,16 +18,18 @@ class AtlasSelfImprovementRuntime
     ) {}
 
     /**
-     * @return array{ok:bool,run_id:?string,dry_run:bool,hours:int,findings:array<int,array<string,mixed>>,emitted_item_ids:array<int,string>,emitted_count:int}
+     * @return array{ok:bool,run_id:?string,flow:string,dry_run:bool,hours:int,findings:array<int,array<string,mixed>>,emitted_item_ids:array<int,string>,emitted_count:int}
      */
-    public function nightlyReview(bool $emit = false, int $hours = 24, int $limit = 5): array
+    public function nightlyReview(string $flow = 'self_improvement.nightly_review', bool $emit = false, int $hours = 24, int $limit = 5): array
     {
+        $flow = $this->normalizeFlow($flow);
         $hours = max(1, min(168, $hours));
         $limit = max(1, min(20, $limit));
-        $run = $this->startRun($emit, $hours, $limit);
+        $run = $this->startRun($flow, $emit, $hours, $limit);
         $envelopeId = $run ? 'self_improvement_run:'.$run->id : 'self_improvement_run:ad_hoc';
 
         $this->recordCycleEvent(LedgerEventType::ExecutionStarted, $envelopeId, $run, [
+            'flow' => $flow,
             'hours' => $hours,
             'limit' => $limit,
             'emit' => $emit,
@@ -35,12 +37,7 @@ class AtlasSelfImprovementRuntime
 
         try {
             $events = $this->ledgerEvents($hours);
-            $findings = collect([
-                ...$this->missingTerminalFindings($events),
-                ...$this->operationFailureFindings($events),
-                ...$this->gateBlockedFindings($events),
-                ...$this->toolCoverageFindings($events),
-            ])
+            $findings = collect($this->findingsForFlow($flow, $events))
                 ->unique('dedupe_key')
                 ->sortByDesc(fn (array $finding): float => (float) ($finding['confidence'] ?? 0))
                 ->take($limit)
@@ -63,6 +60,7 @@ class AtlasSelfImprovementRuntime
 
             foreach ($findings as $finding) {
                 $this->recordCycleEvent(LedgerEventType::LearningProposed, $envelopeId, $run, [
+                    'flow' => $flow,
                     'finding' => $this->ledgerFindingProjection($finding),
                     'emitted' => $emit,
                 ]);
@@ -70,6 +68,7 @@ class AtlasSelfImprovementRuntime
 
             $this->finishRun($run, 'succeeded', $findings, $emitted);
             $this->recordCycleEvent(LedgerEventType::OperationCompleted, $envelopeId, $run, [
+                'flow' => $flow,
                 'finding_count' => count($findings),
                 'emitted_count' => count($emitted),
             ]);
@@ -77,6 +76,7 @@ class AtlasSelfImprovementRuntime
             return [
                 'ok' => true,
                 'run_id' => $run?->id,
+                'flow' => $flow,
                 'dry_run' => ! $emit,
                 'hours' => $hours,
                 'findings' => $findings,
@@ -86,11 +86,49 @@ class AtlasSelfImprovementRuntime
         } catch (\Throwable $throwable) {
             $this->finishRun($run, 'failed', [], [], $throwable->getMessage());
             $this->recordCycleEvent(LedgerEventType::OperationFailed, $envelopeId, $run, [
+                'flow' => $flow,
                 'error_message_hash' => hash('sha256', $throwable->getMessage()),
             ]);
 
             throw $throwable;
         }
+    }
+
+    /**
+     * @param  Collection<int,AtlasLedgerEvent>  $events
+     * @return array<int,array<string,mixed>>
+     */
+    private function findingsForFlow(string $flow, Collection $events): array
+    {
+        return match ($flow) {
+            'self_improvement.capability_gap_scan' => [
+                ...$this->missingTerminalFindings($events),
+                ...$this->toolCoverageFindings($events),
+            ],
+            'self_improvement.benchmark_review',
+            'self_improvement.provider_performance_review' => [
+                ...$this->operationFailureFindings($events),
+                ...$this->gateBlockedFindings($events),
+            ],
+            'self_improvement.memory_quality_review',
+            'self_improvement.docs_drift_review',
+            'self_improvement.weekly_architecture_audit',
+            'self_improvement.domain_learning_review' => [
+                ...$this->missingTerminalFindings($events),
+                ...$this->operationFailureFindings($events),
+                ...$this->gateBlockedFindings($events),
+            ],
+            'self_improvement.tool_runtime_review' => [
+                ...$this->gateBlockedFindings($events),
+                ...$this->toolCoverageFindings($events),
+            ],
+            default => [
+                ...$this->missingTerminalFindings($events),
+                ...$this->operationFailureFindings($events),
+                ...$this->gateBlockedFindings($events),
+                ...$this->toolCoverageFindings($events),
+            ],
+        };
     }
 
     /**
@@ -241,20 +279,21 @@ class AtlasSelfImprovementRuntime
         ]];
     }
 
-    private function startRun(bool $emit, int $hours, int $limit): ?AtlasInitiativeRun
+    private function startRun(string $flow, bool $emit, int $hours, int $limit): ?AtlasInitiativeRun
     {
         if (! Schema::hasTable('atlas_initiative_runs')) {
             return null;
         }
 
         return AtlasInitiativeRun::query()->create([
-            'kind' => 'self_improvement_nightly_review',
+            'kind' => str_replace('.', '_', $flow),
             'status' => 'running',
             'started_at' => now(),
             'scope' => [
                 'hours' => $hours,
                 'emit' => $emit,
                 'limit' => $limit,
+                'flow' => $flow,
                 'source' => 'atlas_ledger_events',
             ],
             'findings' => [],
@@ -290,7 +329,7 @@ class AtlasSelfImprovementRuntime
         $this->ledger->record($type, array_merge([
             'envelope_id' => $envelopeId,
             'self_improvement_run_id' => $run?->id,
-            'flow' => 'self_improvement.nightly_review',
+            'flow' => (string) ($payload['flow'] ?? 'self_improvement.nightly_review'),
         ], $payload), [
             'tenant_id' => 'default',
             'operator_id' => 'atlas_self_improvement',
@@ -314,5 +353,19 @@ class AtlasSelfImprovementRuntime
             'confidence' => $finding['confidence'] ?? null,
             'source_ref_count' => count((array) ($finding['source_refs'] ?? [])),
         ];
+    }
+
+    private function normalizeFlow(string $flow): string
+    {
+        $flow = trim($flow);
+        if ($flow === '') {
+            return 'self_improvement.nightly_review';
+        }
+
+        if (! str_starts_with($flow, 'self_improvement.')) {
+            return 'self_improvement.'.$flow;
+        }
+
+        return $flow;
     }
 }

@@ -108,6 +108,70 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertNotEmpty($payload['evidence_refs']);
     }
 
+    public function test_command_can_run_specialized_self_improvement_flow(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::GateBlocked, [
+            'envelope_id' => 'engineering_run:tool_gate',
+            'gate_type' => 'tool_runtime',
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'engineering_run:tool_gate',
+            'correlation_id' => 'engineering_run:tool_gate',
+            'emitter_stage' => 'atlas.tools.gate',
+            'emitter_version' => 'test',
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--flow' => 'tool_runtime_review',
+            '--hours' => 24,
+            '--limit' => 3,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('completed', $payload['status']);
+        $this->assertSame('self_improvement.tool_runtime_review', data_get($payload, 'plan.flow'));
+        $this->assertSame('self_improvement.tool_runtime_review', data_get($payload, 'runtime.flow'));
+        $this->assertDatabaseHas('atlas_initiative_runs', [
+            'id' => data_get($payload, 'runtime.run_id'),
+            'kind' => 'self_improvement_tool_runtime_review',
+            'status' => 'succeeded',
+        ]);
+    }
+
+    public function test_command_lists_supported_flows_and_can_render_plan_only(): void
+    {
+        $listExit = Artisan::call('atlas:ai:self-improve', [
+            '--list-flows' => true,
+            '--json' => true,
+        ]);
+        $listPayload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $listExit);
+        $this->assertSame('ok', $listPayload['status']);
+        $this->assertSame(10, $listPayload['count']);
+        $this->assertContains('self_improvement.provider_performance_review', $listPayload['flows']);
+
+        $planExit = Artisan::call('atlas:ai:self-improve', [
+            '--flow' => 'provider_performance_review',
+            '--hours' => 72,
+            '--limit' => 7,
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $planPayload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $planExit);
+        $this->assertSame('planned', $planPayload['status']);
+        $this->assertSame('self_improvement.provider_performance_review', data_get($planPayload, 'plan.flow'));
+        $this->assertSame(72, data_get($planPayload, 'plan.options.hours'));
+        $this->assertSame(7, data_get($planPayload, 'plan.options.limit'));
+        $this->assertSame('provider_performance_runtime', data_get($planPayload, 'plan.execution_policy.executor_preference'));
+        $this->assertSame(0, AtlasInitiativeRun::query()->count(), 'Plan-only must not create initiative runs.');
+    }
+
     private function createTables(): void
     {
         Schema::create('atlas_ledger_events', function (Blueprint $table): void {

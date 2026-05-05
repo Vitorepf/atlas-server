@@ -265,18 +265,26 @@ return Application::configure(basePath: dirname(__DIR__))
         }
 
         if (config('atlas_ai.self_improvement.enabled', false)) {
-            $selfImprovementCommand = 'atlas:ai:self-improve'
-                .' --hours='.(int) config('atlas_ai.self_improvement.hours', 24)
-                .' --limit='.(int) config('atlas_ai.self_improvement.limit', 5)
-                .' --json';
-
-            if (config('atlas_ai.self_improvement.emit', false)) {
-                $selfImprovementCommand .= ' --emit';
+            $selfImprovementFlows = array_values(array_filter((array) config('atlas_ai.self_improvement.flows', ['nightly_review']), 'is_string'));
+            if ($selfImprovementFlows === []) {
+                $selfImprovementFlows = ['nightly_review'];
             }
 
-            $schedule->command($selfImprovementCommand)
-                ->dailyAt((string) config('atlas_ai.self_improvement.time', '02:00'))
-                ->withoutOverlapping();
+            foreach ($selfImprovementFlows as $selfImprovementFlow) {
+                $selfImprovementCommand = 'atlas:ai:self-improve'
+                    .' --flow='.$selfImprovementFlow
+                    .' --hours='.(int) config('atlas_ai.self_improvement.hours', 24)
+                    .' --limit='.(int) config('atlas_ai.self_improvement.limit', 5)
+                    .' --json';
+
+                if (config('atlas_ai.self_improvement.emit', false)) {
+                    $selfImprovementCommand .= ' --emit';
+                }
+
+                $schedule->command($selfImprovementCommand)
+                    ->dailyAt((string) config('atlas_ai.self_improvement.time', '02:00'))
+                    ->withoutOverlapping();
+            }
         }
 
         $schedule->command('atlas:scheduler:tick')

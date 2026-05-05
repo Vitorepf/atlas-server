@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
+use App\Services\Ai\Surface\DomainCatalogSurfaceSelectionService;
 use Illuminate\Console\Command;
 
 class AtlasAiDomainsCommand extends Command
@@ -11,17 +12,33 @@ class AtlasAiDomainsCommand extends Command
         {--domain= : Filter by domain id}
         {--flow= : Filter by flow id}
         {--maturity= : Filter orchestrators by maturity: implemented, scaffold, planned}
+        {--select : Preview the canonical domain/flow selection for a surface UX route}
+        {--surface=atlas_cli : Surface id used by --select, for example atlas_cli, atlas_app, atlas_api or atlas_mcp_readonly}
+        {--mode=general : UX mode used by --select: general, operational or programming}
+        {--task=direct : UX task used by --select: direct, plan, review, dev or debug}
+        {--routing-domain= : Optional product/routing domain used by --select, for example blackink or atlas}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Inspect Atlas AI domain, flow, and orchestrator contracts.';
 
-    public function handle(AtlasAiDomainCatalogService $catalog): int
+    public function handle(AtlasAiDomainCatalogService $catalog, DomainCatalogSurfaceSelectionService $surfaceSelection): int
     {
         $payload = $catalog->inspect([
             'domain' => $this->option('domain'),
             'flow' => $this->option('flow'),
             'maturity' => $this->option('maturity'),
         ]);
+
+        if ((bool) $this->option('select')) {
+            $payload['surface_selection'] = $surfaceSelection->select([
+                'surface_id' => $this->option('surface'),
+                'mode' => $this->option('mode'),
+                'task' => $this->option('task'),
+                'routing_domain' => $this->option('routing-domain'),
+                'domain_id' => $this->option('domain'),
+                'flow_id' => $this->option('flow'),
+            ]);
+        }
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -34,6 +51,17 @@ class AtlasAiDomainsCommand extends Command
         $this->components->twoColumnDetail('Domains', (string) $payload['summary']['domains']);
         $this->components->twoColumnDetail('Flows', (string) $payload['summary']['flows']);
         $this->components->twoColumnDetail('Orchestrators', $payload['summary']['orchestrators'].' ('.$payload['summary']['implemented_orchestrators'].' implemented)');
+
+        if (isset($payload['surface_selection']) && is_array($payload['surface_selection'])) {
+            $selection = $payload['surface_selection'];
+            $this->newLine();
+            $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Surface Selection</>', (string) ($selection['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Surface', (string) ($selection['surface_id'] ?? '-'));
+            $this->components->twoColumnDetail('Domain', (string) data_get($selection, 'domain.id', '-'));
+            $this->components->twoColumnDetail('Flow', (string) data_get($selection, 'flow.id', '-'));
+            $this->components->twoColumnDetail('Executor', (string) data_get($selection, 'flow.executor_preference', '-'));
+            $this->components->twoColumnDetail('Safety', data_get($selection, 'safety.onboarding_status', '-').' / '.data_get($selection, 'safety.autonomy', '-'));
+        }
 
         if (collect($payload['domains'])->isNotEmpty()) {
             $this->newLine();

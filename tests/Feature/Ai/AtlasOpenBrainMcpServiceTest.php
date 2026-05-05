@@ -196,10 +196,49 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After phase 7: 16 + 5 new (memory_get, module_info, route_info, test_for, context_for) = 21
-        $this->assertCount(21, $structured['tools']);
+        // After phase 7: 16 + 5 new tools + atlas_domain_catalog = 22.
+        $this->assertCount(22, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_domain_catalog', array_column($structured['tools'], 'name'));
+    }
+
+    public function test_domain_catalog_tool_exposes_ready_domain_flow_contracts(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 70, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_domain_catalog',
+                'arguments' => ['flow' => 'programming.repair'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_domain_catalog', $structured['tool']);
+        $this->assertSame('ok', $structured['status']);
+        $this->assertTrue(data_get($structured, 'validation.valid'));
+        $this->assertSame('programming', data_get($structured, 'domains.0.id'));
+        $this->assertSame('ready', data_get($structured, 'domains.0.onboarding.status'));
+        $this->assertSame('programming.repair', data_get($structured, 'flows.0.id'));
+        $this->assertSame('dev_repair_executor', data_get($structured, 'flows.0.executor_preference'));
+    }
+
+    public function test_domain_catalog_tool_rejects_invalid_maturity_filter(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 71, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_domain_catalog',
+                'arguments' => ['maturity' => 'experimental'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('invalid_maturity', $structured['error']);
     }
 
     public function test_workspace_info_returns_metadata_for_atlas_tracked_workspace(): void

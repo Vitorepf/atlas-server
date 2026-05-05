@@ -101,15 +101,15 @@ Quando dois documentos parecerem conflitar:
 | Layer 1 | Especificado em `atlas-ai-kernel-architecture.md`; enforcement inicial iniciado por `AtlasCapabilityRegistry`, `OperationEnvelopeFactory`, `DecisionReceiptIssuer`, `AtlasDomainOrchestratorRegistry`, `AtlasDomainManifestValidator`, `AtlasAiDomainCatalogService`, `AtlasDomainOnboardingScorecard`, `AtlasEvidenceLedger`, `atlas:ai:domains`, `GET /ai/domains` e `atlas:ai:ledger` |
 | Layer 2 | Especificado em `atlas-ai-master-architecture.md`, agora com sete planes incluindo Human Knowledge Plane |
 | Layer 3 | Ativo: vision, pipeline, core-vs-domain, operating-system, resolver audit |
-| Layer 4 | Parcial: Programming, Self-Improvement e Marketing estao `ready 9/9` no Domain Onboarding Scorecard; Marketing possui 15 flows canonicos de estrategia, pesquisa, positioning, campanha, criativos, copy, midia, assets, experimentos, analytics, brand review e forge; Finance/Personal Development/Curator precisam specs proprias |
+| Layer 4 | Parcial: Programming, Self-Improvement, Marketing, Finance e Personal Development estao `ready 9/9` no Domain Onboarding Scorecard; Marketing possui 15 flows canonicos; Self-Improvement possui 10 flows canonicos de auditoria/evolucao; Finance possui 10 flows enterprise analysis-only; Personal Development possui 10 flows privados plan-only; Curator ainda precisa spec propria |
 
 ## Proxima Implementacao Obrigatoria
 
 1. Capability Registry executavel. Status: iniciado com `AtlasCapabilityRegistry`, `CapabilityComplianceTest` e `atlas:ai:architecture-validate`.
 2. Operation Envelope tipada. Status: iniciado com `OperationEnvelopeFactory` + unit tests.
 3. Decision Receipt v2. Status: iniciado com `DecisionReceiptIssuer` + integracao em `AtlasDecideService`.
-4. Domain Manifest + validator. Status: iniciado com `AtlasDomainManifestValidator`, `DomainProfileComplianceTest`, `atlas:ai:architecture-validate`, `AtlasAiDomainCatalogService`, `AtlasDomainOnboardingScorecard`, `atlas:ai:domains`, `GET /ai/domains`; Programming, Self-Improvement e Marketing estao `ready 9/9`, e os demais dominios ativos aparecem como scaffolds auditaveis.
+4. Domain Manifest + validator. Status: iniciado com `AtlasDomainManifestValidator`, `DomainProfileComplianceTest`, `atlas:ai:architecture-validate`, `AtlasAiDomainCatalogService`, `AtlasDomainOnboardingScorecard`, `atlas:ai:domains`, `GET /ai/domains`; Programming, Self-Improvement, Marketing, Finance e Personal Development estao `ready 9/9`, e os demais dominios ativos aparecem como scaffolds auditaveis.
 5. Evidence Ledger. Status: iniciado com `atlas_ledger_events`, `AtlasEvidenceLedger`, `LedgerEventType`, emissao `ENVELOPE_CREATED`/`DECISION_ISSUED` no Decide, eventos de runtime/provider no `AiWorker`, eventos de gate/repair no repair nativo, eventos do Engineering Harness, eventos do Super Tool Runtime e replay via `atlas:ai:ledger`.
-6. Self-Improvement jobs. Status: iniciado com `AtlasSelfImprovementOrchestrator`, `AtlasSelfImprovementRuntime`, comando `atlas:ai:self-improve`, `AtlasInitiativeRun`, plano de dominio/flow, leitura do Evidence Ledger, emissao de `LEARNING_PROPOSED` e agendamento opcional por config.
+6. Self-Improvement jobs. Status: iniciado com `AtlasSelfImprovementOrchestrator`, `AtlasSelfImprovementRuntime`, comando `atlas:ai:self-improve --flow=...`, `--list-flows`, `--plan-only`, `AtlasInitiativeRun`, 10 flow profiles, plano de dominio/flow, leitura do Evidence Ledger, emissao de `LEARNING_PROPOSED` e agendamento multi-flow por `ATLAS_AI_SELF_IMPROVEMENT_FLOWS`.
 
 Cada etapa deve entregar codigo, teste e doc.

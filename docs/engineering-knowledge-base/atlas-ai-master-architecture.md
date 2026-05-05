@@ -1188,16 +1188,26 @@ Status inicial implementado:
   normalizadas do Super Tool Runtime;
 - `AtlasToolGateService` emitindo `GATE_PASSED`, `GATE_BLOCKED` ou
   `GATE_EVALUATED` para gates de ferramentas;
-- `AtlasSelfImprovementOrchestrator` resolvendo o profile
-  `self_improvement.nightly_review`, normalizando opcoes, declarando autonomia
+- `AtlasSelfImprovementOrchestrator` resolvendo qualquer flow
+  `self_improvement.*` suportado, normalizando opcoes, declarando autonomia
   baixa, gates requeridos e plano de execucao antes de acionar o runtime;
-- `AtlasSelfImprovementRuntime` executando o primeiro
-  `self_improvement.nightly_review`: consulta o Evidence Ledger, detecta
-  envelopes sem terminal, falhas por stage, gates bloqueados e lacunas de tool
-  evidence, registra `AtlasInitiativeRun`, emite `LEARNING_PROPOSED` e pode
-  criar proposals seguras quando `--emit` estiver habilitado;
-- comando `atlas:ai:self-improve --hours=24 --limit=5 --json` com agendamento
-  opcional por `atlas_ai.self_improvement.*`;
+- `AtlasSelfImprovementRuntime` executando 10 flows especializados
+  (`nightly_review`, `weekly_architecture_audit`, `capability_gap_scan`,
+  `benchmark_review`, `memory_quality_review`, `tool_runtime_review`,
+  `domain_learning_review`, `docs_drift_review`,
+  `provider_performance_review`, `proposal_generation`): consulta o Evidence
+  Ledger, detecta envelopes sem terminal, falhas por stage, gates bloqueados e
+  lacunas de tool evidence, registra `AtlasInitiativeRun`, emite
+  `LEARNING_PROPOSED` e pode criar proposals seguras quando `--emit` estiver
+  habilitado;
+- comando `atlas:ai:self-improve --list-flows --json` para inspecionar os flows
+  suportados sem executar;
+- comando `atlas:ai:self-improve --flow=tool_runtime_review --plan-only --json`
+  para renderizar o plano, gates, runtime e executor sem criar `AtlasInitiativeRun`;
+- comando `atlas:ai:self-improve --flow=tool_runtime_review --hours=24 --limit=5 --json`
+  com agendamento opcional por `atlas_ai.self_improvement.*`; o scheduler aceita
+  `ATLAS_AI_SELF_IMPROVEMENT_FLOWS` como lista CSV de flows para rodar ciclos
+  especializados na madrugada;
 - comando `atlas:ai:ledger {envelope} --json` para replay operacional por
   `envelope_id`.
 - comando `atlas:ai:architecture-validate --json` para validar contratos
@@ -1571,14 +1581,23 @@ Status parcial implementado:
   intelligence, memory/learning policy, gates por flow e surfaces oficiais
   (`atlas dev`, `atlas forge`, `atlas fix`, `atlas continue`, chat dev/review/debug,
   API, app e MCP);
-- `self_improvement` esta `ready 9/9`: declara fontes de contexto
-  (`atlas_evidence_ledger`, architecture validation, domain scorecards, KB,
-  code intelligence, tool evidence e memory quality), learning policy, gates de
+- `self_improvement` esta `ready 9/9`: declara 10 flows especializados de
+  auditoria/evolucao, fontes de contexto (`atlas_evidence_ledger`, architecture
+  validation, domain scorecards, KB, code intelligence, tool evidence, memory
+  quality, provider performance e benchmark corpus), learning policy, gates de
   risco/evidencia/aprovacao e surfaces scheduler/CLI/API/app;
 - `marketing` esta `ready 9/9`: declara 15 flows de estrategia, pesquisa,
   positioning, campanha, criativos, copy, midia, landing page, email, social,
   video script, A/B test, analytics, brand review e forge, com context,
   memory/learning, gates e surfaces;
+- `finance` esta `ready 9/9`: declara 10 flows enterprise de pesquisa,
+  risco, portfolio, tese, macro, earnings, impacto de noticias, compliance,
+  backtest e forge, com autonomia baixa, gates de compliance/source/risk,
+  memoria provider-safe e proibicao absoluta de execucao de mercado;
+- `personal_development` esta `ready 9/9`: declara 10 flows privados
+  plan-only para reflexao, revisoes, habitos, foco, aprendizado, energia,
+  objetivos, recuperacao e forge, com redacao obrigatoria para provider-safe,
+  linguagem nao clinica e bloqueio de mutacao automatica de calendario/tarefas;
 - os demais dominios ativos possuem scaffolds explicitos para onboarding
   incremental sem sumir da validacao arquitetural.
 

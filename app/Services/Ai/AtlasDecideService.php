@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Envelope\EffectiveProfile;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\ValueObjects\OperationalDecision;
 use Illuminate\Support\Str;
@@ -266,12 +267,14 @@ class AtlasDecideService
         ]);
         $envelope->routing->domain = $domain;
         $envelope->routing->flow = $flow;
-        $envelope->routing->profile = [
+        $envelope->routing->profile = EffectiveProfile::fromArray([
             'profile_id' => $policy['profile_id'] ?? null,
             'policy_profile_id' => $policy['profile_id'] ?? null,
-        ];
+        ]);
 
         return $this->receipts->issue($envelope, [
+            'dry_run' => (bool) data_get($payload, 'dry_run', false),
+            'signed_by' => 'atlas.decide.v2',
             'domain' => $domain,
             'flow' => $flow,
             'risk' => (string) data_get($plan, 'task_profile.risk_level', 'medium'),

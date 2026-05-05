@@ -349,6 +349,35 @@ class AiAtlasDecideContractTest extends TestCase
         $this->assertSame('gemini-3.1-pro-preview', data_get($payload, 'decision.selected_model'));
     }
 
+    public function test_cli_decide_outputs_domain_catalog_selection_preview(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'codex_cli',
+            'atlas.ai.providers.codex_cli.allow_auto' => true,
+        ]);
+
+        $exitCode = Artisan::call('atlas:ai:decide', [
+            'input' => 'Corrija a falha do fluxo de onboarding',
+            '--mode' => 'debug',
+            '--flow' => 'programming.repair',
+            '--routing-domain' => 'blackink',
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertSame('ok', data_get($payload, 'decision.domain_catalog_selection.status'));
+        $this->assertSame('atlas_cli', data_get($payload, 'decision.domain_catalog_selection.surface_id'));
+        $this->assertSame('explicit_flow', data_get($payload, 'decision.domain_catalog_selection.selection_source'));
+        $this->assertSame('programming', data_get($payload, 'decision.domain_catalog_selection.domain.id'));
+        $this->assertSame('ready', data_get($payload, 'decision.domain_catalog_selection.domain.onboarding_status'));
+        $this->assertSame('programming.repair', data_get($payload, 'decision.domain_catalog_selection.flow.id'));
+        $this->assertSame('dev_repair_executor', data_get($payload, 'decision.domain_catalog_selection.flow.executor_preference'));
+        $this->assertSame('blackink', data_get($payload, 'decision.domain_catalog_selection.ux.product_domain'));
+        $this->assertSame('medium', data_get($payload, 'decision.domain_catalog_selection.safety.autonomy'));
+        $this->assertTrue(data_get($payload, 'decision.domain_catalog_selection.safety.surface_must_confirm_destructive'));
+    }
+
     private function recordDecision(AiTrace $trace, array $options, string $provider, ?string $model, AiPrompt $prompt): void
     {
         $service = app(AiGatewayService::class);

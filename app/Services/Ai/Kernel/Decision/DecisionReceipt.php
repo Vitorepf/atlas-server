@@ -9,11 +9,8 @@ final readonly class DecisionReceipt
     public const SCHEMA_VERSION = 'atlas.decide.v2';
 
     /**
-     * @param  array<string,mixed>  $providerSelection
-     * @param  array<string,mixed>  $budgets
      * @param  array<int,string>  $requiredGates
      * @param  array<int,string>  $requiredEvidence
-     * @param  array<string,mixed>  $repairPolicy
      * @param  array<string,mixed>  $metadata
      */
     public function __construct(
@@ -22,14 +19,16 @@ final readonly class DecisionReceipt
         public string $schemaVersion,
         public CarbonImmutable $issuedAt,
         public CarbonImmutable $expiresAt,
+        public bool $dryRun,
+        public string $signedBy,
         public string $domain,
         public string $flow,
         public string $risk,
-        public array $providerSelection,
-        public array $budgets,
+        public DecisionProviderSelection $providerSelection,
+        public DecisionBudgets $budgets,
         public array $requiredGates,
         public array $requiredEvidence,
-        public array $repairPolicy,
+        public DecisionRepairPolicy $repairPolicy,
         public string $inputsHash,
         public string $receiptHash,
         public ?string $parentReceiptId,
@@ -53,14 +52,16 @@ final readonly class DecisionReceipt
             'schema_version' => $this->schemaVersion,
             'issued_at' => $this->issuedAt->toISOString(),
             'expires_at' => $this->expiresAt->toISOString(),
+            'dry_run' => $this->dryRun,
+            'signed_by' => $this->signedBy,
             'domain' => $this->domain,
             'flow' => $this->flow,
             'risk' => $this->risk,
-            'provider_selection' => $this->providerSelection,
-            'budgets' => $this->budgets,
+            'provider_selection' => $this->providerSelection->toArray(),
+            'budgets' => $this->budgets->toArray(),
             'required_gates' => $this->requiredGates,
             'required_evidence' => $this->requiredEvidence,
-            'repair_policy' => $this->repairPolicy,
+            'repair_policy' => $this->repairPolicy->toArray(),
             'inputs_hash' => $this->inputsHash,
             'receipt_hash' => $this->receiptHash,
             'parent_receipt_id' => $this->parentReceiptId,

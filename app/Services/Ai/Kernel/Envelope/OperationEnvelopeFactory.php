@@ -2,10 +2,15 @@
 
 namespace App\Services\Ai\Kernel\Envelope;
 
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use Illuminate\Support\Str;
 
 class OperationEnvelopeFactory
 {
+    public function __construct(
+        private readonly AtlasEvidenceLedger $ledger,
+    ) {}
+
     /**
      * @param  array<string,mixed>  $payload
      */
@@ -28,7 +33,7 @@ class OperationEnvelopeFactory
             'input_hash' => $input->inputHash,
         ]);
 
-        return new OperationEnvelope(
+        $envelope = new OperationEnvelope(
             envelopeId: $envelopeId,
             parentEnvelopeId: $parentEnvelopeId,
             schemaVersion: OperationEnvelope::SCHEMA_VERSION,
@@ -45,6 +50,10 @@ class OperationEnvelopeFactory
                 chainHash: $chainHash,
             ),
         );
+
+        $this->ledger->recordEnvelopeCreated($envelope);
+
+        return $envelope;
     }
 
     /**
@@ -52,9 +61,26 @@ class OperationEnvelopeFactory
      */
     private function chainHash(?string $parentChainHash, array $payload): string
     {
-        ksort($payload);
+        $payload = $this->canonicalize($payload);
 
         return hash('sha256', ($parentChainHash ?? '').json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function canonicalize(array $payload): array
+    {
+        ksort($payload);
+
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $payload[$key] = $this->canonicalize($value);
+            }
+        }
+
+        return $payload;
     }
 
     private function optionalString(mixed $value): ?string

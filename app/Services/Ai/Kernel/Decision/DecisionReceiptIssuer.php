@@ -23,27 +23,29 @@ class DecisionReceiptIssuer
         $ttlSeconds = max(1, (int) ($decision['ttl_seconds'] ?? 30));
         $expiresAt = isset($decision['expires_at']) ? CarbonImmutable::parse($decision['expires_at']) : $issuedAt->addSeconds($ttlSeconds);
         $receiptId = $this->string($decision['receipt_id'] ?? (string) Str::ulid());
+        $dryRun = (bool) ($decision['dry_run'] ?? false);
+        $signedBy = $this->string($decision['signed_by'] ?? 'atlas.decide.v2') ?: 'atlas.decide.v2';
         $parentReceiptId = $this->optionalString($decision['parent_receipt_id'] ?? null);
         $parentChainHash = $this->optionalString($decision['parent_chain_hash'] ?? null);
         $domain = $this->string($decision['domain'] ?? $envelope->routing->domain ?? 'general') ?: 'general';
         $flow = $this->string($decision['flow'] ?? $envelope->routing->flow ?? $domain.'.default') ?: $domain.'.default';
         $risk = $this->validRisk($decision['risk'] ?? 'medium');
         $providerSelection = $this->providerSelection($decision['provider_selection'] ?? []);
-        $budgets = is_array($decision['budgets'] ?? null) ? $decision['budgets'] : [];
+        $budgets = DecisionBudgets::fromArray(is_array($decision['budgets'] ?? null) ? $decision['budgets'] : []);
         $requiredGates = $this->stringList($decision['required_gates'] ?? []);
         $requiredEvidence = $this->stringList($decision['required_evidence'] ?? ['summary']);
-        $repairPolicy = is_array($decision['repair_policy'] ?? null) ? $decision['repair_policy'] : ['enabled' => false, 'max_attempts' => 0];
+        $repairPolicy = DecisionRepairPolicy::fromArray(is_array($decision['repair_policy'] ?? null) ? $decision['repair_policy'] : ['enabled' => false, 'max_attempts' => 0]);
         $metadata = is_array($decision['metadata'] ?? null) ? $decision['metadata'] : [];
         $inputsHash = $this->hash([
             'envelope_input_hash' => $envelope->input->inputHash,
             'domain' => $domain,
             'flow' => $flow,
             'risk' => $risk,
-            'provider_selection' => $providerSelection,
-            'budgets' => $budgets,
+            'provider_selection' => $providerSelection->toArray(),
+            'budgets' => $budgets->toArray(),
             'required_gates' => $requiredGates,
             'required_evidence' => $requiredEvidence,
-            'repair_policy' => $repairPolicy,
+            'repair_policy' => $repairPolicy->toArray(),
         ]);
         $receiptHash = $this->hash([
             'receipt_id' => $receiptId,
@@ -51,6 +53,8 @@ class DecisionReceiptIssuer
             'schema_version' => DecisionReceipt::SCHEMA_VERSION,
             'issued_at' => $issuedAt->toISOString(),
             'expires_at' => $expiresAt->toISOString(),
+            'dry_run' => $dryRun,
+            'signed_by' => $signedBy,
             'inputs_hash' => $inputsHash,
             'parent_receipt_id' => $parentReceiptId,
         ]);
@@ -65,6 +69,8 @@ class DecisionReceiptIssuer
             schemaVersion: DecisionReceipt::SCHEMA_VERSION,
             issuedAt: $issuedAt,
             expiresAt: $expiresAt,
+            dryRun: $dryRun,
+            signedBy: $signedBy,
             domain: $domain,
             flow: $flow,
             risk: $risk,
@@ -83,26 +89,27 @@ class DecisionReceiptIssuer
 
     /**
      * @param  mixed  $selection
-     * @return array<string,mixed>
      */
-    private function providerSelection(mixed $selection): array
+    private function providerSelection(mixed $selection): DecisionProviderSelection
     {
         $selection = is_array($selection) ? $selection : [];
-        $mode = $this->string($selection['selection_mode'] ?? 'auto_best_allowed');
-        if (! in_array($mode, self::MODEL_SELECTION_MODES, true)) {
-            $mode = 'auto_best_allowed';
-        }
-
-        $manualOverride = is_array($selection['manual_override'] ?? null) ? $selection['manual_override'] : null;
-
-        return [
+        $selection = [
             'primary' => $this->string($selection['primary'] ?? 'auto') ?: 'auto',
             'model' => $this->string($selection['model'] ?? 'selected-by-decide') ?: 'selected-by-decide',
             'fallbacks' => $this->stringList($selection['fallbacks'] ?? []),
-            'selection_mode' => $mode,
+            'selection_mode' => $this->validModelSelectionMode($selection['selection_mode'] ?? 'auto_best_allowed'),
             'selection_reason' => $this->string($selection['selection_reason'] ?? ''),
-            'manual_override' => $manualOverride,
+            'manual_override' => is_array($selection['manual_override'] ?? null) ? $selection['manual_override'] : null,
         ];
+
+        return DecisionProviderSelection::fromArray($selection);
+    }
+
+    private function validModelSelectionMode(mixed $mode): string
+    {
+        $mode = $this->string($mode);
+
+        return in_array($mode, self::MODEL_SELECTION_MODES, true) ? $mode : 'auto_best_allowed';
     }
 
     private function validRisk(mixed $risk): string
@@ -144,8 +151,25 @@ class DecisionReceiptIssuer
      */
     private function hash(array $payload): string
     {
-        ksort($payload);
+        $payload = $this->canonicalize($payload);
 
         return hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function canonicalize(array $payload): array
+    {
+        ksort($payload);
+
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $payload[$key] = $this->canonicalize($value);
+            }
+        }
+
+        return $payload;
     }
 }

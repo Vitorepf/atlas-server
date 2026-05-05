@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Finance\AtlasFinanceDomainContract;
 use App\Models\AiDomainProfile;
 use App\Models\AiFlowProfile;
 use Illuminate\Support\Facades\Schema;
@@ -257,12 +258,29 @@ class AtlasDomainProfileRegistry
                 'id' => 'finance',
                 'label' => 'Finance',
                 'status' => 'active',
-                'default_flow' => 'finance.research',
+                'default_flow' => AtlasFinanceDomainContract::FLOW_MARKET_RESEARCH,
                 'orchestrator' => 'AtlasFinanceOrchestrator',
                 'runtime_family' => 'finance',
+                'description' => 'Financial research, portfolio analysis, risk review, thesis planning, macro and issuer review, compliance checks, and backtest planning for analysis/review only.',
                 'autonomy_default' => 'low',
                 'background_allowed' => false,
-                'metadata' => ['registry' => 'static_fallback'],
+                'context_policy' => $this->financeContextPolicy(),
+                'tool_policy' => $this->financeToolPolicy(),
+                'memory_policy' => $this->financeMemoryPolicy(),
+                'gate_policy' => $this->financeDomainGatePolicy(),
+                'metadata' => [
+                    'registry' => 'static_fallback',
+                    'surfaces' => ['cli:atlas ai --domain=finance', 'api:ai/domains', 'app:finance', 'mcp:open_brain'],
+                    'surface_policy' => [
+                        'analysis_review_only' => true,
+                        'market_orders_forbidden' => true,
+                        'broker_execution_requires_separate_non_ai_system' => true,
+                    ],
+                    'learning_policy' => [
+                        'reviewed_finance_findings_feed_memory' => true,
+                        'compliance_blocks_feed_self_improvement' => true,
+                    ],
+                ],
             ],
             'personal_development' => [
                 'id' => 'personal_development',
@@ -271,9 +289,25 @@ class AtlasDomainProfileRegistry
                 'default_flow' => 'personal_development.reflect',
                 'orchestrator' => 'AtlasPersonalDevelopmentOrchestrator',
                 'runtime_family' => 'personal_development',
-                'autonomy_default' => 'medium',
-                'background_allowed' => true,
-                'metadata' => ['registry' => 'static_fallback'],
+                'description' => 'Private, non-clinical planning and reflection for habits, routines, focus, energy, learning, personal performance, and life review.',
+                'autonomy_default' => 'low',
+                'background_allowed' => false,
+                'context_policy' => $this->personalDevelopmentContextPolicy(),
+                'memory_policy' => $this->personalDevelopmentMemoryPolicy(),
+                'gate_policy' => $this->personalDevelopmentDomainGatePolicy(),
+                'metadata' => [
+                    'registry' => 'static_fallback',
+                    'surfaces' => ['cli:atlas ai --domain=personal_development', 'api:ai/domains', 'app:personal_development', 'mcp:open_brain'],
+                    'surface_policy' => [
+                        'private_by_default' => true,
+                        'plan_and_artifacts_only' => true,
+                        'no_auto_calendar_or_task_mutation' => true,
+                    ],
+                    'learning_policy' => [
+                        'accepted_reflections_feed_private_memory' => true,
+                        'sensitive_items_require_review_before_promotion' => true,
+                    ],
+                ],
             ],
             'marketing' => [
                 'id' => 'marketing',
@@ -598,55 +632,10 @@ class AtlasDomainProfileRegistry
                 'gate_policy' => $this->programmingFlowGatePolicy(['visual_evidence', 'responsive_check'], 'engineering_harness'),
                 'metadata' => $this->programmingFlowMetadata(),
             ],
-            'finance.research' => [
-                'id' => 'finance.research',
-                'domain_id' => 'finance',
-                'label' => 'Finance Research',
-                'status' => 'active',
-                'orchestrator' => 'AtlasFinanceOrchestrator',
-                'runtime' => 'FinanceRuntime',
-                'autonomy' => 'low',
-                'background_allowed' => false,
-                'requires_human_approval_for_destructive' => true,
-                'metadata' => ['registry' => 'static_fallback'],
-            ],
-            'personal_development.reflect' => [
-                'id' => 'personal_development.reflect',
-                'domain_id' => 'personal_development',
-                'label' => 'Reflect',
-                'status' => 'active',
-                'orchestrator' => 'AtlasPersonalDevelopmentOrchestrator',
-                'runtime' => 'PersonalDevelopmentRuntime',
-                'autonomy' => 'medium',
-                'background_allowed' => true,
-                'requires_human_approval_for_destructive' => true,
-                'metadata' => ['registry' => 'static_fallback'],
-            ],
+            ...$this->financeStaticFlows(),
+            ...$this->personalDevelopmentStaticFlows(),
             ...$this->marketingStaticFlows(),
-            'self_improvement.nightly_review' => [
-                'id' => 'self_improvement.nightly_review',
-                'domain_id' => 'self_improvement',
-                'label' => 'Nightly Review',
-                'status' => 'active',
-                'orchestrator' => 'AtlasSelfImprovementOrchestrator',
-                'runtime' => 'SelfImprovementRuntime',
-                'autonomy' => 'low',
-                'background_allowed' => true,
-                'requires_human_approval_for_destructive' => true,
-                'gate_policy' => $this->selfImprovementGatePolicy(),
-                'execution_policy' => ['executor_preference' => 'scheduled_self_improvement'],
-                'context_policy' => $this->selfImprovementContextPolicy(),
-                'memory_policy' => $this->selfImprovementMemoryPolicy(),
-                'metadata' => [
-                    'registry' => 'static_fallback',
-                    'surfaces' => ['scheduler', 'cli', 'api', 'app'],
-                    'learning' => [
-                        'record_findings' => true,
-                        'emit_safe_review_proposals' => true,
-                        'feed_domain_onboarding' => true,
-                    ],
-                ],
-            ],
+            ...$this->selfImprovementStaticFlows(),
             'background.safe' => [
                 'id' => 'background.safe',
                 'domain_id' => 'background',
@@ -658,6 +647,67 @@ class AtlasDomainProfileRegistry
                 'background_allowed' => true,
                 'requires_human_approval_for_destructive' => true,
                 'metadata' => ['registry' => 'static_fallback'],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function selfImprovementStaticFlows(): array
+    {
+        $flows = [
+            ['self_improvement.nightly_review', 'Nightly Review', 'scheduled_self_improvement', 'Daily evidence-led review that detects gaps, drift, repeated failures, and safe improvement proposals.'],
+            ['self_improvement.weekly_architecture_audit', 'Weekly Architecture Audit', 'architecture_audit_runtime', 'Weekly kernel and domain architecture audit over contracts, docs, runtime evidence, and code intelligence.'],
+            ['self_improvement.capability_gap_scan', 'Capability Gap Scan', 'capability_gap_runtime', 'Surface and capability scan that finds missing shared capabilities, weak adoption, and duplicated behavior.'],
+            ['self_improvement.benchmark_review', 'Benchmark Review', 'benchmark_review_runtime', 'Benchmark corpus review that converts regressions and weak cases into improvement proposals.'],
+            ['self_improvement.memory_quality_review', 'Memory Quality Review', 'memory_quality_runtime', 'Memory quality review over source safety, trend drivers, stale knowledge, and accepted learning promotion.'],
+            ['self_improvement.tool_runtime_review', 'Tool Runtime Review', 'tool_runtime_review_runtime', 'Super Tool Runtime review over evidence freshness, gate blocks, authority overlap, and missing sensors.'],
+            ['self_improvement.domain_learning_review', 'Domain Learning Review', 'domain_learning_runtime', 'Cross-domain learning review that checks whether domain outcomes are feeding memory, docs, and gates.'],
+            ['self_improvement.docs_drift_review', 'Docs Drift Review', 'docs_drift_runtime', 'Documentation drift review comparing kernel contracts, KB docs, code intelligence, and domain manifests.'],
+            ['self_improvement.provider_performance_review', 'Provider Performance Review', 'provider_performance_runtime', 'Provider and model performance review over failures, routing decisions, benchmark outcomes, and cost signals.'],
+            ['self_improvement.proposal_generation', 'Proposal Generation', 'proposal_generation_runtime', 'Final proposal synthesis flow that emits bounded, reviewable improvement proposals linked to evidence.'],
+        ];
+
+        return collect($flows)
+            ->mapWithKeys(fn (array $flow): array => [
+                $flow[0] => $this->selfImprovementFlow($flow[0], $flow[1], $flow[2], $flow[3]),
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function selfImprovementFlow(string $id, string $label, string $executor, string $description): array
+    {
+        return [
+            'id' => $id,
+            'domain_id' => 'self_improvement',
+            'label' => $label,
+            'status' => 'active',
+            'orchestrator' => 'AtlasSelfImprovementOrchestrator',
+            'runtime' => 'SelfImprovementRuntime',
+            'description' => $description,
+            'autonomy' => 'low',
+            'background_allowed' => true,
+            'requires_human_approval_for_destructive' => true,
+            'gate_policy' => $this->selfImprovementGatePolicy(),
+            'execution_policy' => [
+                'executor_preference' => $executor,
+                'proposal_only' => true,
+                'max_autonomy' => 'low',
+            ],
+            'context_policy' => $this->selfImprovementContextPolicy(),
+            'memory_policy' => $this->selfImprovementMemoryPolicy(),
+            'metadata' => [
+                'registry' => 'static_fallback',
+                'surfaces' => ['scheduler', 'cli', 'api', 'app'],
+                'learning' => [
+                    'record_findings' => true,
+                    'emit_safe_review_proposals' => true,
+                    'feed_domain_onboarding' => true,
+                ],
             ],
         ];
     }
@@ -765,6 +815,237 @@ class AtlasDomainProfileRegistry
                 'promote_useful_patterns' => true,
                 'feed_self_improvement' => true,
             ],
+        ];
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function financeStaticFlows(): array
+    {
+        return collect($this->financeContract()->flowDefinitions())
+            ->mapWithKeys(fn (array $definition, string $id): array => [
+                $id => $this->financeFlow($id, $definition),
+            ])
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $definition
+     * @return array<string,mixed>
+     */
+    private function financeFlow(string $id, array $definition): array
+    {
+        $requiresApproval = (bool) ($definition['requires_human_approval'] ?? false);
+
+        return [
+            'id' => $id,
+            'domain_id' => 'finance',
+            'label' => (string) $definition['label'],
+            'status' => 'active',
+            'orchestrator' => 'AtlasFinanceOrchestrator',
+            'runtime' => (string) $definition['runtime'],
+            'description' => "{$definition['label']} canonical Finance flow for analysis/review only.",
+            'autonomy' => 'low',
+            'background_allowed' => false,
+            'requires_human_approval_for_destructive' => true,
+            'context_policy' => $this->financeContextPolicy(),
+            'tool_policy' => $this->financeToolPolicy(),
+            'memory_policy' => $this->financeMemoryPolicy(),
+            'gate_policy' => [
+                'required' => (array) $definition['required_gates'],
+                'requires_final_summary' => true,
+                'autonomy_ceiling' => AtlasFinanceDomainContract::OUTPUT_MODE,
+                'market_execution_allowed' => false,
+            ],
+            'execution_policy' => [
+                'executor_preference' => $requiresApproval ? 'finance_forge_review_runtime' : 'finance_review_runtime',
+                'analysis_only' => true,
+                'market_execution_allowed' => false,
+                'order_generation_allowed' => false,
+                'requires_human_approval' => $requiresApproval,
+                'required_evidence' => (array) $definition['required_evidence'],
+            ],
+            'metadata' => [
+                'registry' => 'static_fallback',
+                'surfaces' => ['cli', 'api', 'app', 'mcp'],
+                'learning' => [
+                    'record_evidence' => true,
+                    'promote_reviewed_findings' => true,
+                    'feed_self_improvement' => true,
+                ],
+                'requires_human_approval' => $requiresApproval,
+                'forbidden_actions' => AtlasFinanceDomainContract::FORBIDDEN_MARKET_ACTIONS,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function financeContextPolicy(): array
+    {
+        return [
+            'preset' => 'finance_review_context',
+            'require_context_pack' => true,
+            'sources' => $this->financeContract()->contextSources(),
+            'budget' => [
+                'max_prompt_tokens' => 14000,
+                'reserved_output_tokens' => 4000,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function financeToolPolicy(): array
+    {
+        return $this->financeContract()->toolPolicy();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function financeMemoryPolicy(): array
+    {
+        return $this->financeContract()->memoryPolicy();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function financeDomainGatePolicy(): array
+    {
+        return $this->financeContract()->domainGatePolicy();
+    }
+
+    private function financeContract(): AtlasFinanceDomainContract
+    {
+        return new AtlasFinanceDomainContract;
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function personalDevelopmentStaticFlows(): array
+    {
+        return [
+            'personal_development.reflect' => $this->personalDevelopmentFlow('personal_development.reflect', 'Reflect', 'reflection_runtime', 'Guided non-clinical reflection that turns observations into evidence and small experiments.', ['privacy_review', 'non_clinical_language']),
+            'personal_development.daily_review' => $this->personalDevelopmentFlow('personal_development.daily_review', 'Daily Review', 'daily_review_runtime', 'Daily review of routine evidence, focus, energy, commitments, and next experiment.', ['privacy_review', 'evidence_link']),
+            'personal_development.weekly_review' => $this->personalDevelopmentFlow('personal_development.weekly_review', 'Weekly Review', 'weekly_review_runtime', 'Weekly review across goals, routines, learning, energy, and personal operating rhythm.', ['privacy_review', 'evidence_link']),
+            'personal_development.habit_design' => $this->personalDevelopmentFlow('personal_development.habit_design', 'Habit Design', 'habit_design_runtime', 'Habit design flow that drafts cues, friction changes, minimum viable routines, and review checkpoints.', ['privacy_review', 'routine_experiment']),
+            'personal_development.focus_plan' => $this->personalDevelopmentFlow('personal_development.focus_plan', 'Focus Plan', 'focus_plan_runtime', 'Focus planning flow for attention budget, priority evidence, focus blocks, and interruption policy.', ['privacy_review', 'attention_budget']),
+            'personal_development.learning_plan' => $this->personalDevelopmentFlow('personal_development.learning_plan', 'Learning Plan', 'learning_plan_runtime', 'Learning plan flow for skill goals, practice loops, evidence, and lightweight review cadence.', ['privacy_review', 'learning_evidence']),
+            'personal_development.energy_review' => $this->personalDevelopmentFlow('personal_development.energy_review', 'Energy Review', 'energy_review_runtime', 'Non-clinical energy review focused on routine patterns, load, recovery evidence, and experiments.', ['privacy_review', 'non_clinical_language', 'evidence_link']),
+            'personal_development.goal_decomposition' => $this->personalDevelopmentFlow('personal_development.goal_decomposition', 'Goal Decomposition', 'goal_decomposition_runtime', 'Goal decomposition flow that breaks outcomes into projects, next actions, risks, and review evidence.', ['privacy_review', 'bounded_plan']),
+            'personal_development.recovery_plan' => $this->personalDevelopmentFlow('personal_development.recovery_plan', 'Recovery Plan', 'recovery_plan_runtime', 'Non-clinical recovery plan for workload, rest routines, boundaries, and review checkpoints.', ['privacy_review', 'non_clinical_language', 'human_review_for_sensitive']),
+            'personal_development.forge' => $this->personalDevelopmentFlow('personal_development.forge', 'Forge', 'personal_development_forge_runtime', 'Integrated personal operating plan across goals, habits, focus, learning, energy, recovery, and review loops.', ['privacy_review', 'human_approval', 'non_clinical_language', 'no_auto_calendar_or_task_changes'], true),
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $requiredGates
+     * @return array<string,mixed>
+     */
+    private function personalDevelopmentFlow(string $id, string $label, string $executor, string $description, array $requiredGates, bool $approvalRequired = false): array
+    {
+        return [
+            'id' => $id,
+            'domain_id' => 'personal_development',
+            'label' => $label,
+            'status' => 'active',
+            'orchestrator' => 'AtlasPersonalDevelopmentOrchestrator',
+            'runtime' => 'PersonalDevelopmentRuntime',
+            'description' => $description,
+            'autonomy' => 'low',
+            'background_allowed' => false,
+            'requires_human_approval_for_destructive' => true,
+            'context_policy' => $this->personalDevelopmentContextPolicy(),
+            'memory_policy' => $this->personalDevelopmentMemoryPolicy(),
+            'gate_policy' => [
+                'required' => $requiredGates,
+                'global_required' => ['privacy_review', 'non_clinical_language', 'no_diagnosis'],
+                'sensitive_requires' => ['human_review'],
+                'autonomy_ceiling' => 'plan_only',
+            ],
+            'execution_policy' => [
+                'executor_preference' => $executor,
+                'plan_and_artifacts_only' => true,
+                'calendar_mutation' => false,
+                'task_mutation' => false,
+                'forge_requires_human_approval' => $approvalRequired,
+                'sensitive_recommendations_require_review' => true,
+            ],
+            'metadata' => [
+                'registry' => 'static_fallback',
+                'surfaces' => ['cli', 'api', 'app', 'mcp'],
+                'learning' => [
+                    'record_evidence' => true,
+                    'promote_private_reviewed_patterns' => true,
+                    'feed_self_improvement' => true,
+                ],
+                'approval_required' => $approvalRequired,
+                'artifacts' => ['structured_plan', 'review_prompts'],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function personalDevelopmentContextPolicy(): array
+    {
+        return [
+            'preset' => 'personal_development_private_context',
+            'require_context_pack' => true,
+            'sources' => [
+                'operator_goals',
+                'habit_notes',
+                'daily_review_notes',
+                'weekly_review_notes',
+                'focus_logs',
+                'learning_notes',
+                'energy_observations',
+                'routine_experiments',
+            ],
+            'provider_context_requires_redaction' => true,
+            'budget' => [
+                'max_prompt_tokens' => 10000,
+                'reserved_output_tokens' => 3000,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function personalDevelopmentMemoryPolicy(): array
+    {
+        return [
+            'projection' => 'personal_development',
+            'privacy_default' => 'private',
+            'provider_safe_default' => false,
+            'provider_safe_only_when_redacted' => true,
+            'record_usage' => true,
+            'learning' => [
+                'promote_from' => ['accepted_reflection', 'routine_experiment_result', 'reviewed_goal_change'],
+                'requires_review_for' => ['sensitive_recommendation', 'identity_level_claim', 'life_review_summary'],
+                'never_auto_publish' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function personalDevelopmentDomainGatePolicy(): array
+    {
+        return [
+            'required' => ['privacy_review', 'non_clinical_language', 'no_diagnosis', 'evidence_link'],
+            'sensitive_requires' => ['human_review'],
+            'autonomy_ceiling' => 'plan_only',
+            'forbidden' => ['medical_treatment', 'psychological_diagnosis', 'automatic_calendar_or_task_mutation'],
         ];
     }
 
@@ -911,6 +1192,8 @@ class AtlasDomainProfileRegistry
                 'code_intelligence',
                 'tool_evidence',
                 'memory_quality',
+                'provider_performance',
+                'benchmark_corpus',
             ],
             'lookback_hours_default' => 24,
             'budget' => [

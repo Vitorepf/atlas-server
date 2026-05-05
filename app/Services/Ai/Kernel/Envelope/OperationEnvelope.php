@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Envelope;
 
+use App\Services\Ai\Kernel\Decision\DecisionReceipt;
+
 final class OperationEnvelope
 {
     public const SCHEMA_VERSION = 'atlas.envelope.v1';
@@ -14,14 +16,14 @@ final class OperationEnvelope
         public readonly Provenance $origin,
         public readonly KernelInput $input,
         public RoutingState $routing,
-        public ?array $decision,
+        public ?DecisionReceipt $decision,
         public ExecutionState $execution,
-        public ?array $output,
+        public ?KernelOutput $output,
         public readonly AuditState $audit,
     ) {}
 
     public function hasDecisionReceipt(): bool
     {
-        return is_array($this->decision) && isset($this->decision['receipt_id']);
+        return $this->decision instanceof DecisionReceipt;
     }
 }

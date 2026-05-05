@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AiProviderModelResolver;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\Surface\DomainCatalogSurfaceSelectionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -17,6 +18,10 @@ class AtlasAiDecideCommand extends Command
         {--provider= : auto, claude, codex, gemini, conselho, claude_cli, codex_cli, gemini_cli or claude_codex}
         {--model= : Optional explicit model id}
         {--mode=direct : direct, plan, review, dev, debug or research}
+        {--surface=atlas_cli : Surface id used for domain catalog preview}
+        {--domain= : Optional canonical Atlas AI domain id, or product domain for UX mapping}
+        {--flow= : Optional canonical Atlas AI flow id}
+        {--routing-domain= : Optional product domain context, for example blackink}
         {--agent= : Optional Atlas agent slug}
         {--source=manual : Source type for the decision preview}
         {--workspace= : Workspace path passed by the Atlas CLI wrapper}
@@ -28,6 +33,7 @@ class AtlasAiDecideCommand extends Command
         AtlasDecideService $decide,
         AtlasAiRuntimeSettings $settings,
         AiProviderModelResolver $models,
+        DomainCatalogSurfaceSelectionService $surfaceSelection,
     ): int {
         $input = trim((string) $this->argument('input'));
         if ($input === '') {
@@ -50,6 +56,16 @@ class AtlasAiDecideCommand extends Command
         if (in_array($mode, ['research', 'analysis'], true)) {
             $payload['context_strategy_hint'] = 'long_context';
         }
+
+        $domainSelection = $surfaceSelection->select([
+            'surface_id' => $this->option('surface') ?: 'atlas_cli',
+            'mode' => $this->surfaceModeForWorkflowMode($mode),
+            'task' => $this->routingTaskForWorkflowMode($mode),
+            'domain_id' => $this->option('domain') ?: null,
+            'flow_id' => $this->option('flow') ?: null,
+            'routing_domain' => $this->option('routing-domain') ?: $this->option('domain') ?: null,
+        ]);
+        $payload = $this->payloadWithDomainSelection($payload, $domainSelection);
 
         $options = $decide->normalizeOptions([
             'input_text' => $input,
@@ -83,6 +99,7 @@ class AtlasAiDecideCommand extends Command
             'confidence_score' => $this->confidenceScore($decide, $options, $selectedProvider),
             'candidates' => $this->candidates($settings, $models, $selectedProvider, $options, $decide),
             'constraints' => $this->constraints($settings, $options, $selectedProvider, $decide),
+            'domain_catalog_selection' => $this->domainSelectionForDecision($domainSelection),
         ];
 
         if ((bool) $this->option('json')) {
@@ -96,6 +113,7 @@ class AtlasAiDecideCommand extends Command
             ['modo', $decision['decision_mode']],
             ['provider selecionado', $decision['selected_provider']],
             ['modelo', $decision['selected_model_label']],
+            ['domain catalog', $this->domainSelectionSummary($decision['domain_catalog_selection'])],
             ['pedido do operador', $decision['operator_requested_provider']],
             ['override manual', $decision['was_overridden'] ? 'sim' : 'nao'],
             ['candidato inicial', $decision['candidate_provider']],
@@ -124,6 +142,108 @@ class AtlasAiDecideCommand extends Command
         $options['payload'] = $payload;
 
         return $options;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $selection
+     * @return array<string,mixed>
+     */
+    private function payloadWithDomainSelection(array $payload, array $selection): array
+    {
+        $patch = is_array($selection['payload_patch'] ?? null) ? $selection['payload_patch'] : [];
+
+        if (($selection['status'] ?? null) === 'ok') {
+            foreach ($patch as $key => $value) {
+                if ($value !== null) {
+                    $payload[$key] = $value;
+                }
+            }
+        } else {
+            $payload['surface_id'] = $patch['surface_id'] ?? ($selection['surface_id'] ?? 'atlas_cli');
+            $payload['catalog_schema_version'] = $patch['catalog_schema_version'] ?? null;
+            $payload['selection_source'] = 'unresolved';
+            $payload['product_domain'] = $patch['product_domain'] ?? data_get($selection, 'ux.product_domain');
+        }
+
+        $payload['domain_catalog_selection'] = $this->domainSelectionForDecision($selection);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $selection
+     * @return array<string,mixed>
+     */
+    private function domainSelectionForDecision(array $selection): array
+    {
+        $result = [
+            'schema_version' => (int) ($selection['schema_version'] ?? 1),
+            'status' => (string) ($selection['status'] ?? 'unknown'),
+            'surface_id' => (string) ($selection['surface_id'] ?? 'atlas_cli'),
+            'selection_source' => (string) ($selection['selection_source'] ?? 'unknown'),
+            'operator_override' => (bool) ($selection['operator_override'] ?? false),
+            'ux' => is_array($selection['ux'] ?? null) ? $selection['ux'] : [],
+            'catalog' => is_array($selection['catalog'] ?? null) ? $selection['catalog'] : [],
+        ];
+
+        if (($selection['status'] ?? null) === 'ok') {
+            $result['domain'] = [
+                'id' => (string) data_get($selection, 'domain.id'),
+                'label' => (string) data_get($selection, 'domain.label'),
+                'orchestrator_maturity' => (string) data_get($selection, 'domain.orchestrator_maturity'),
+                'onboarding_status' => (string) data_get($selection, 'domain.onboarding.status', 'unknown'),
+            ];
+            $result['flow'] = [
+                'id' => (string) data_get($selection, 'flow.id'),
+                'label' => (string) data_get($selection, 'flow.label'),
+                'orchestrator_maturity' => (string) data_get($selection, 'flow.orchestrator_maturity'),
+                'executor_preference' => (string) data_get($selection, 'flow.executor_preference'),
+            ];
+            $result['safety'] = is_array($selection['safety'] ?? null) ? $selection['safety'] : [];
+
+            return $result;
+        }
+
+        $result['requested'] = is_array($selection['requested'] ?? null) ? $selection['requested'] : [];
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string,mixed>  $selection
+     */
+    private function domainSelectionSummary(array $selection): string
+    {
+        if (($selection['status'] ?? null) !== 'ok') {
+            $requestedFlow = data_get($selection, 'requested.flow_id') ?: data_get($selection, 'requested.resolved_flow_id');
+
+            return 'unresolved'.($requestedFlow ? " ({$requestedFlow})" : '');
+        }
+
+        return sprintf(
+            '%s / %s / %s / %s',
+            data_get($selection, 'domain.id', '-'),
+            data_get($selection, 'flow.id', '-'),
+            data_get($selection, 'flow.executor_preference', '-'),
+            data_get($selection, 'safety.autonomy', '-'),
+        );
+    }
+
+    private function surfaceModeForWorkflowMode(string $mode): string
+    {
+        return match ($mode) {
+            'dev', 'debug' => 'programming',
+            default => 'general',
+        };
+    }
+
+    private function routingTaskForWorkflowMode(string $mode): string
+    {
+        return match ($mode) {
+            'plan', 'review', 'dev', 'debug' => $mode,
+            default => 'direct',
+        };
     }
 
     private function fallbackReason(

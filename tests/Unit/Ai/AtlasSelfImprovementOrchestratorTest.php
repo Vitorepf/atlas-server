@@ -46,6 +46,22 @@ class AtlasSelfImprovementOrchestratorTest extends TestCase
         $this->assertFalse((bool) $plan['destructive_actions_allowed']);
     }
 
+    public function test_specialized_flow_plan_uses_matching_profile_contract(): void
+    {
+        $plan = app(AtlasSelfImprovementOrchestrator::class)->flowPlan('provider_performance_review', [
+            'hours' => 48,
+            'limit' => 6,
+            'emit' => false,
+        ]);
+
+        $this->assertSame('self_improvement.provider_performance_review', $plan['flow']);
+        $this->assertSame('SelfImprovementRuntime', $plan['runtime']);
+        $this->assertSame(48, data_get($plan, 'options.hours'));
+        $this->assertSame(6, data_get($plan, 'options.limit'));
+        $this->assertSame('provider_performance_runtime', data_get($plan, 'execution_policy.executor_preference'));
+        $this->assertSame('proposal_only', data_get($plan, 'domain_profile.gate_policy.autonomy_ceiling'));
+    }
+
     public function test_execute_nightly_review_returns_plan_runtime_and_evidence_refs(): void
     {
         app(AtlasEvidenceLedger::class)->record(LedgerEventType::OperationFailed, [

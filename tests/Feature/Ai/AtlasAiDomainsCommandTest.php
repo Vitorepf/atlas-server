@@ -38,14 +38,29 @@ class AtlasAiDomainsCommandTest extends TestCase
 
         $this->assertSame('ready', data_get($selfImprovement, 'onboarding.status'));
         $this->assertSame(9, data_get($selfImprovement, 'onboarding.completed_count'));
+        $this->assertSame(10, data_get($selfImprovement, 'flow_count'));
         $this->assertSame([], data_get($selfImprovement, 'onboarding.missing_phases'));
 
         $marketing = collect($payload['domains'])->firstWhere('id', 'marketing');
 
-        $this->assertSame('ready', data_get($marketing, 'onboarding.status'));
-        $this->assertSame(9, data_get($marketing, 'onboarding.completed_count'));
+        $this->assertSame('scaffold', data_get($marketing, 'onboarding.status'));
+        $this->assertSame('scaffold', data_get($marketing, 'orchestrator_maturity'));
         $this->assertSame(15, data_get($marketing, 'flow_count'));
-        $this->assertSame([], data_get($marketing, 'onboarding.missing_phases'));
+        $this->assertContains('maturity_gate', data_get($marketing, 'onboarding.missing_phases'));
+
+        $finance = collect($payload['domains'])->firstWhere('id', 'finance');
+
+        $this->assertSame('ready', data_get($finance, 'onboarding.status'));
+        $this->assertSame(9, data_get($finance, 'onboarding.completed_count'));
+        $this->assertSame(10, data_get($finance, 'flow_count'));
+        $this->assertSame([], data_get($finance, 'onboarding.missing_phases'));
+
+        $personalDevelopment = collect($payload['domains'])->firstWhere('id', 'personal_development');
+
+        $this->assertSame('ready', data_get($personalDevelopment, 'onboarding.status'));
+        $this->assertSame(9, data_get($personalDevelopment, 'onboarding.completed_count'));
+        $this->assertSame(10, data_get($personalDevelopment, 'flow_count'));
+        $this->assertSame([], data_get($personalDevelopment, 'onboarding.missing_phases'));
     }
 
     public function test_domains_command_filters_flow_contract(): void
@@ -78,7 +93,7 @@ class AtlasAiDomainsCommandTest extends TestCase
 
         $this->assertSame(0, $exit);
         $this->assertSame('implemented', data_get($payload, 'filters.maturity'));
-        $this->assertGreaterThanOrEqual(2, data_get($payload, 'summary.orchestrators'));
+        $this->assertGreaterThanOrEqual(4, data_get($payload, 'summary.orchestrators'));
 
         foreach ($payload['orchestrators'] as $orchestrator) {
             $this->assertSame('implemented', $orchestrator['maturity']);

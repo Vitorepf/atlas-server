@@ -3,9 +3,12 @@
 namespace App\Services\Ai\Domain;
 
 use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
+use App\Services\Ai\Kernel\Domain\SupportsScaffoldDomainExecution;
 
 class AtlasMarketingOrchestrator implements AtlasDomainOrchestrator
 {
+    use SupportsScaffoldDomainExecution;
+
     public function orchestratorId(): string
     {
         return 'AtlasMarketingOrchestrator';
@@ -39,6 +42,6 @@ class AtlasMarketingOrchestrator implements AtlasDomainOrchestrator
 
     public function maturity(): string
     {
-        return 'implemented';
+        return 'scaffold';
     }
 }

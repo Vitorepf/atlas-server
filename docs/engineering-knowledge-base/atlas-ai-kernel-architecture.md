@@ -1803,9 +1803,13 @@ Substituir payloads ad-hoc por classe canonica:
 - Dashboard.
 - Alertas.
 
-### Fase 10 — Personal Dev / Finance / Curator Domains (n+ dias por dominio)
+### Fase 10 — Domain Expansion: Personal Dev / Finance / Curator
 
-Cada um:
+Status: Finance e Personal Development ja foram promovidos para `ready 9/9`.
+Curator domain dedicado ainda precisa ser separado do Self-Improvement quando
+for necessario distinguir curadoria de produto, governanca e evolucao noturna.
+
+Cada novo dominio:
 
 - Manifest.
 - Orchestrator(s).
@@ -1914,16 +1918,18 @@ Para cada area do codigo atual, indica como ela se torna parte do kernel.
 | `AtlasDomainManifestValidator` | Primeira implementacao executavel do Domain Manifest/Profile compliance |
 | `AtlasDomainOrchestrator` + `AtlasDomainOrchestratorRegistry` | SDK minimo de dominios: nomes curtos de manifest resolvem para classes PHP reais, maturidade e suporte declarado por domain/flow |
 | `AtlasAiDomainCatalogService` | Service compartilhado que monta o inventario validado de domains/flows/orchestrators para CLI e API sem duplicacao |
-| `AtlasDomainOnboardingScorecard` | Scorecard de onboarding por dominio com 9 fases: charter, profile, context, orchestrator, runtime, gates, learning, surface e maturity_gate; Programming, Self-Improvement e Marketing estao `ready 9/9` |
+| `AtlasDomainOnboardingScorecard` | Scorecard de onboarding por dominio com 9 fases: charter, profile, context, orchestrator, runtime, gates, learning, surface e maturity_gate; Programming, Self-Improvement, Marketing, Finance e Personal Development estao `ready 9/9` |
 | `atlas:ai:architecture-validate` | Verificacao operacional dos contratos executaveis de Capability Registry, Domain Orchestrator Registry e Domain/Profile Registry |
 | `atlas:ai:domains` + `GET /ai/domains` | Inventario operacional de domains, flows e orchestrators; expoe maturidade, runtime, autonomia, executor preference, onboarding scorecard e validacao em JSON/humano |
 | `programming.*` flow profiles | Programming declarado no registry com dev, repair, review, refactor, qa, security, database, visual e forge; todos os flows declaram context policy, memory/learning policy, gate policy e surfaces |
 | `marketing.*` flow profiles | Marketing declarado no registry com 15 flows canonicos, context policy `marketing_growth_context`, memory/learning projection, gates de marca/claims/audience/medicao e `marketing.forge` como intensidade alta |
+| `finance.*` flow profiles | Finance declarado no registry com 10 flows enterprise analysis-only, gates de compliance/source/risk, memoria provider-safe, tool policy read-only e bloqueio de qualquer execucao de mercado |
+| `personal_development.*` flow profiles | Personal Development declarado no registry com 10 flows privados plan-only, memoria privada/redacted, gates non-clinical/privacy/no-diagnosis e proibicao de mutacao automatica de calendario/tarefas |
 | `AtlasEvidenceLedger` + `atlas_ledger_events` | Primeira implementacao append-only do Evidence Ledger para eventos de kernel |
 | `AiWorker` + `atlas:ai:ledger` | Primeira ponte runtime/provider/gate/repair para o ledger: execution started, provider called/returned, gate evaluated/passed/blocked, repair initiated/completed, terminal operation events e replay por envelope |
 | `EngineeringHarnessRunnerService` | Ponte do Engineering Harness para o ledger: execution started, context composed, provider returned e terminal operation event por engineering run |
 | `AtlasToolEvidenceStore` / `AtlasToolGateService` | Ponte do Super Tool Runtime para o ledger: tool evidence recorded e gate events por envelope/contexto |
-| `AtlasSelfImprovementOrchestrator` + `AtlasSelfImprovementRuntime` + `atlas:ai:self-improve` | Primeira implementacao ready do Curator/Self-Improvement sobre o ledger: resolve profile do dominio, emite plano do fluxo, executa nightly review, registra initiative run, learning proposals e proposals seguras opcionais; declara context, gates, learning e surfaces scheduler/CLI/API/app |
+| `AtlasSelfImprovementOrchestrator` + `AtlasSelfImprovementRuntime` + `atlas:ai:self-improve` | Primeira implementacao ready do Curator/Self-Improvement sobre o ledger: resolve profile do dominio, emite plano para 10 flows especializados, suporta `--list-flows` e `--plan-only`, executa reviews por flow, registra initiative run, learning proposals e proposals seguras opcionais; declara context, gates, learning e surfaces scheduler/CLI/API/app com agendamento multi-flow |
 | `AtlasAiPolicyService` | Implementacao do Policy Engine declarativo; inclui guard rails de kernel para `programming.repair` -> `dev_repair_executor` e flows Programming de harness -> `engineering_harness` |
 | `AiGatewayService` | Adapter entre kernel e camada legacy de jobs |
 | `AtlasOpenBrainContextInjectionService` | Implementacao concreta de `Atlas.Context` mode auto/required/off |

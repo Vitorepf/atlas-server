@@ -48,8 +48,25 @@ final readonly class KernelInput
      */
     private static function hash(array $payload): string
     {
-        ksort($payload);
+        $payload = self::canonicalize($payload);
 
         return hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private static function canonicalize(array $payload): array
+    {
+        ksort($payload);
+
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $payload[$key] = self::canonicalize($value);
+            }
+        }
+
+        return $payload;
     }
 }

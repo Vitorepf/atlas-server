@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Kernel\Evidence;
 
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\Kernel\Envelope\OperationEnvelope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -48,10 +49,39 @@ class AtlasEvidenceLedger
         ]);
     }
 
+    public function recordEnvelopeCreated(OperationEnvelope $envelope): ?AtlasLedgerEvent
+    {
+        return $this->record(LedgerEventType::EnvelopeCreated, [
+            'envelope_id' => $envelope->envelopeId,
+            'parent_envelope_id' => $envelope->parentEnvelopeId,
+            'schema_version' => $envelope->schemaVersion,
+            'trace_id' => $envelope->audit->traceId,
+            'chain_hash' => $envelope->audit->chainHash,
+            'input_hash' => $envelope->input->inputHash,
+            'operator' => [
+                'tenant_id' => $envelope->operator->tenantId,
+                'operator_id' => $envelope->operator->operatorId,
+            ],
+            'origin' => [
+                'surface_id' => $envelope->origin->surfaceId,
+                'surface_version' => $envelope->origin->surfaceVersion,
+                'session_id' => $envelope->origin->sessionId,
+            ],
+        ], [
+            'tenant_id' => $envelope->operator->tenantId,
+            'operator_id' => $envelope->operator->operatorId,
+            'envelope_id' => $envelope->envelopeId,
+            'trace_id' => $envelope->audit->traceId,
+            'correlation_id' => $envelope->audit->traceId,
+            'emitter_stage' => 'atlas.envelope_factory',
+            'emitter_version' => OperationEnvelope::SCHEMA_VERSION,
+        ]);
+    }
+
     /**
      * @param  array<string,mixed>  $receipt
      * @param  array<string,mixed>  $context
-     * @return array{envelope_created:?AtlasLedgerEvent,decision_issued:?AtlasLedgerEvent}
+     * @return array{envelope_created:null,decision_issued:?AtlasLedgerEvent}
      */
     public function recordDecisionIssued(array $receipt, array $context = []): array
     {
@@ -66,22 +96,12 @@ class AtlasEvidenceLedger
             'emitter_version' => $context['emitter_version'] ?? 'atlas-decide-v2',
         ];
 
-        $envelopeEvent = $this->record(LedgerEventType::EnvelopeCreated, [
-            'envelope_id' => $receipt['envelope_id'] ?? null,
-            'receipt_id' => $receipt['receipt_id'] ?? null,
-            'domain' => $receipt['domain'] ?? null,
-            'flow' => $receipt['flow'] ?? null,
-            'inputs_hash' => $receipt['inputs_hash'] ?? null,
-            'operator' => [
-                'tenant_id' => $ledgerContext['tenant_id'],
-                'operator_id' => $ledgerContext['operator_id'],
-            ],
-        ], $ledgerContext);
-
         $decisionEvent = $this->record(LedgerEventType::DecisionIssued, [
             'envelope_id' => $receipt['envelope_id'] ?? null,
             'receipt_id' => $receipt['receipt_id'] ?? null,
             'schema_version' => $receipt['schema_version'] ?? null,
+            'dry_run' => (bool) ($receipt['dry_run'] ?? false),
+            'signed_by' => $receipt['signed_by'] ?? null,
             'domain' => $receipt['domain'] ?? null,
             'flow' => $receipt['flow'] ?? null,
             'risk' => $receipt['risk'] ?? null,
@@ -95,12 +115,10 @@ class AtlasEvidenceLedger
             'chain_hash' => $receipt['chain_hash'] ?? null,
             'issued_at' => $receipt['issued_at'] ?? null,
             'expires_at' => $receipt['expires_at'] ?? null,
-        ], array_merge($ledgerContext, [
-            'causation_id' => $envelopeEvent?->event_id,
-        ]));
+        ], $ledgerContext);
 
         return [
-            'envelope_created' => $envelopeEvent,
+            'envelope_created' => null,
             'decision_issued' => $decisionEvent,
         ];
     }

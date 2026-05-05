@@ -13,6 +13,7 @@ use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\Attachments\AiChunkedUploadService;
 use App\Services\Ai\Cli\AtlasFileAttachmentService;
 use App\Services\Ai\Cli\AtlasImageAttachmentService;
+use App\Services\Ai\Surface\DomainCatalogSurfaceSelectionService;
 use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Illuminate\Http\JsonResponse;
@@ -48,6 +49,7 @@ class AiInteractionController extends Controller
         AtlasImageAttachmentService $images,
         AtlasFileAttachmentService $files,
         AiChunkedUploadService $chunkedUploads,
+        DomainCatalogSurfaceSelectionService $domainSelection,
     ): JsonResponse {
         $data = $request->validated();
         $uploadedImages = $this->uploadedImageFiles($request->file('images', []));
@@ -87,6 +89,7 @@ class AiInteractionController extends Controller
         }
 
         $data = $this->applyThreadRuntimePolicy($data);
+        $data = $this->applySurfaceDomainCatalogSelection($data, $domainSelection);
 
         $trace = $gateway->enqueueInteraction((string) $data['input_text'], $data);
         if ((bool) config('atlas.attachments.pdf.background_processing_enabled', true)
@@ -378,6 +381,103 @@ class AiInteractionController extends Controller
         $data['payload'] = $payload;
 
         return $data;
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function applySurfaceDomainCatalogSelection(array $data, DomainCatalogSurfaceSelectionService $domainSelection): array
+    {
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        if (! $this->payloadRequestsDomainCatalogSelection($payload)) {
+            return $data;
+        }
+
+        $selection = $domainSelection->select([
+            'surface_id' => $this->surfaceIdFromPayload($payload, (string) ($data['source_type'] ?? 'app')),
+            'mode' => $this->metadataString($payload, 'atlas_mode') ?? $this->metadataString($payload, 'current_mode'),
+            'task' => $this->metadataString($payload, 'routing_task'),
+            'routing_domain' => $this->metadataString($payload, 'routing_domain') ?? $this->metadataString($payload, 'domain'),
+            'domain_id' => $this->metadataString($payload, 'domain_id'),
+            'flow_id' => $this->metadataString($payload, 'flow_id'),
+        ]);
+
+        if (($selection['status'] ?? null) === 'ok') {
+            $patch = is_array($selection['payload_patch'] ?? null) ? $selection['payload_patch'] : [];
+            foreach (['domain_id', 'flow_id', 'surface_id', 'catalog_schema_version', 'selection_source', 'product_domain'] as $key) {
+                if (array_key_exists($key, $patch) && $patch[$key] !== null) {
+                    $payload[$key] = $patch[$key];
+                }
+            }
+        }
+
+        $payload['domain_catalog_selection'] = $this->selectionForPayload($selection);
+        $data['payload'] = $payload;
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function payloadRequestsDomainCatalogSelection(array $payload): bool
+    {
+        foreach ([
+            'domain_id',
+            'flow_id',
+            'atlas_mode',
+            'current_mode',
+            'routing_task',
+            'routing_domain',
+            'app_surface',
+        ] as $key) {
+            if (is_string($payload[$key] ?? null) && trim((string) $payload[$key]) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $selection
+     * @return array<string,mixed>
+     */
+    private function selectionForPayload(array $selection): array
+    {
+        return array_filter([
+            'schema_version' => $selection['schema_version'] ?? 1,
+            'status' => $selection['status'] ?? 'unknown',
+            'surface_id' => $selection['surface_id'] ?? null,
+            'selection_source' => $selection['selection_source'] ?? null,
+            'operator_override' => $selection['operator_override'] ?? false,
+            'ux' => $selection['ux'] ?? null,
+            'requested' => $selection['requested'] ?? null,
+            'domain' => $selection['domain'] ?? null,
+            'flow' => $selection['flow'] ?? null,
+            'safety' => $selection['safety'] ?? null,
+            'catalog' => $selection['catalog'] ?? null,
+        ], fn (mixed $value): bool => $value !== null);
+    }
+
+    private function surfaceIdFromPayload(array $payload, string $sourceType): string
+    {
+        $surfaceId = $this->metadataString($payload, 'surface_id');
+        if ($surfaceId) {
+            return $surfaceId;
+        }
+
+        $appSurface = $this->metadataString($payload, 'app_surface');
+        if ($appSurface) {
+            return 'atlas_app';
+        }
+
+        return match ($sourceType) {
+            'app' => 'atlas_app',
+            'scheduled', 'system' => 'atlas_worker',
+            default => 'atlas_api',
+        };
     }
 
     private function runtimeWorkspace(mixed $workspace): string

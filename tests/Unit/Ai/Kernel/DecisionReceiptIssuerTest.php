@@ -36,6 +36,8 @@ class DecisionReceiptIssuerTest extends TestCase
         $this->assertSame('programming.dev', $receipt->flow);
         $this->assertSame('auto_best_allowed', $receipt->providerSelection['selection_mode']);
         $this->assertSame(['claude'], $receipt->providerSelection['fallbacks']);
+        $this->assertFalse($receipt->dryRun);
+        $this->assertSame('atlas.decide.v2', $receipt->signedBy);
         $this->assertFalse($receipt->isExpired(CarbonImmutable::parse('2026-05-05T10:00:10Z')));
         $this->assertTrue($receipt->isExpired(CarbonImmutable::parse('2026-05-05T10:00:31Z')));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $receipt->inputsHash);
@@ -84,5 +86,31 @@ class DecisionReceiptIssuerTest extends TestCase
         $this->assertSame($first->inputsHash, $second->inputsHash);
         $this->assertSame($first->receiptHash, $second->receiptHash);
         $this->assertSame($first->chainHash, $second->chainHash);
+    }
+
+    public function test_nested_decision_payload_order_does_not_change_hashes(): void
+    {
+        $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'mesma decisao']);
+        $issuer = app(DecisionReceiptIssuer::class);
+        $base = [
+            'receipt_id' => 'receipt-fixed',
+            'issued_at' => '2026-05-05T10:00:00Z',
+            'expires_at' => '2026-05-05T10:00:30Z',
+            'domain' => 'programming',
+            'flow' => 'programming.dev',
+            'budgets' => [
+                'outer' => ['z' => 1, 'a' => 2],
+            ],
+        ];
+
+        $first = $issuer->issue($envelope, $base);
+        $second = $issuer->issue($envelope, array_merge($base, [
+            'budgets' => [
+                'outer' => ['a' => 2, 'z' => 1],
+            ],
+        ]));
+
+        $this->assertSame($first->inputsHash, $second->inputsHash);
+        $this->assertSame($first->receiptHash, $second->receiptHash);
     }
 }
