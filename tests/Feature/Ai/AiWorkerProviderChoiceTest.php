@@ -323,6 +323,7 @@ class AiWorkerProviderChoiceTest extends TestCase
             'max_attempts' => 1,
             'payload' => [
                 'task_type' => 'feature',
+                'specialist_profile' => 'programming.frontend',
                 'decision_receipt' => [
                     'receipt_v2' => [
                         'envelope_id' => 'env_worker_success',
@@ -391,16 +392,29 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertSame('programming', data_get($calledPayload, 'domain'));
         $this->assertSame('programming.dev', data_get($calledPayload, 'flow'));
         $this->assertSame('feature', data_get($calledPayload, 'task_type'));
+        $this->assertSame('programming.frontend', data_get($calledPayload, 'specialist_profile'));
         $this->assertSame('medium', data_get($calledPayload, 'risk'));
         $this->assertSame('env_worker_success', data_get($calledPayload, 'envelope_id'));
         $this->assertSame('rcpt_worker_success', data_get($calledPayload, 'receipt_id'));
         $this->assertSame('auto', data_get($calledPayload, 'selection_mode'));
         $this->assertSame('claude_cli', data_get($calledPayload, 'router_fallback_provider'));
+        $this->assertIsInt(data_get($calledPayload, 'total_tokens'));
+        $this->assertSame('estimated_chars', data_get($calledPayload, 'token_source'));
+        $this->assertSame('unknown', data_get($calledPayload, 'cost_confidence'));
+        $this->assertSame('missing_cost_rate', data_get($calledPayload, 'cost_source'));
+        $this->assertSame('unknown', data_get($calledPayload, 'cost_mode'));
         $this->assertSame('atlas.provider_usage.v1', data_get($returnedPayload, 'schema_version'));
         $this->assertSame('returned', data_get($returnedPayload, 'phase'));
         $this->assertSame('succeeded', data_get($returnedPayload, 'exit_status'));
         $this->assertSame(0.123, data_get($returnedPayload, 'latency_seconds'));
         $this->assertSame(2, data_get($returnedPayload, 'output_size_estimate'));
+        $this->assertIsInt(data_get($returnedPayload, 'total_tokens'));
+        $this->assertGreaterThan(0, data_get($returnedPayload, 'total_tokens'));
+        $this->assertSame('estimated_chars', data_get($returnedPayload, 'token_source'));
+        $this->assertNull(data_get($returnedPayload, 'cost_microusd'));
+        $this->assertSame('unknown', data_get($returnedPayload, 'cost_confidence'));
+        $this->assertSame('missing_cost_rate', data_get($returnedPayload, 'cost_source'));
+        $this->assertSame('unknown', data_get($returnedPayload, 'cost_mode'));
         $this->assertNull(data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'stdout'));
         $this->assertNull(data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'output'));
         $this->assertSame(hash('sha256', 'ok'), data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'response_hash'));

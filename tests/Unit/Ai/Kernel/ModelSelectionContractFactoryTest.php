@@ -23,6 +23,7 @@ class ModelSelectionContractFactoryTest extends TestCase
         $this->assertSame(['auto_best_allowed', 'auto_best_available', 'manual_override'], $contract['available_selection_modes']);
         $this->assertSame('auto', $contract['operator_requested_provider']);
         $this->assertNull($contract['requested_model']);
+        $this->assertNull($contract['specialist_profile']);
         $this->assertFalse($contract['fair_mode']);
     }
 
@@ -46,6 +47,28 @@ class ModelSelectionContractFactoryTest extends TestCase
         $this->assertSame('gpt-5.5', $contract['requested_model']);
         $this->assertSame('codex-premium', $contract['requested_model_alias']);
         $this->assertSame('catalog', $contract['requested_model_source']);
+    }
+
+    public function test_contract_carries_specialist_profile_without_changing_decide_authority(): void
+    {
+        $contract = app(ModelSelectionContractFactory::class)->forCliDev(
+            provider: null,
+            modelSelection: null,
+            modelOverride: null,
+            fairMode: false,
+            context: [
+                'domain' => 'programming',
+                'flow' => 'programming.visual',
+                'task' => 'corrigir layout frontend mobile',
+            ],
+        );
+
+        $this->assertSame('atlas_decide', $contract['authority']);
+        $this->assertSame('auto_best_allowed', $contract['selection_mode']);
+        $this->assertSame('programming', $contract['domain']);
+        $this->assertSame('programming.visual', $contract['flow']);
+        $this->assertSame('programming.frontend', $contract['specialist_profile']);
+        $this->assertSame('flow_or_task_inference', $contract['specialist_profile_source']);
     }
 
     public function test_fair_mode_is_audited_as_manual_override_without_provider(): void

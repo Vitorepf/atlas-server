@@ -22,6 +22,14 @@ use App\Services\Ai\Cli\AtlasReplHistory;
 use App\Services\Ai\Cli\AtlasTerminalTheme;
 use App\Services\Ai\Cli\IntentPermissionResolver;
 use App\Services\Ai\Cli\IntentResolution;
+use App\Services\Ai\Cli\Repl\HistorySearch;
+use App\Services\Ai\Cli\Repl\KeyCodes;
+use App\Services\Ai\Cli\Repl\KeyEvent;
+use App\Services\Ai\Cli\Repl\KeySequenceParser;
+use App\Services\Ai\Cli\Repl\ReplComposer;
+use App\Services\Ai\Cli\Repl\ReplMessages;
+use App\Services\Ai\Cli\Repl\ReplRenderer;
+use App\Services\Ai\Cli\Repl\StatusBarFormatter;
 use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Kernel\Decision\ModelSelectionContractFactory;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineAuditService;
@@ -753,6 +761,11 @@ class AiChatCommand extends Command
                 modelSelection: $modelSelection,
                 modelOverride: $modelOverride,
                 fairMode: $fairModeMetadata !== null,
+                context: [
+                    'domain' => $mode === 'dev' ? 'programming' : null,
+                    'flow' => data_get($devPlan, 'kernel_pipeline.input.safe_hints.flow'),
+                    'task' => $input,
+                ],
             ),
             'operator_requested_provider' => $provider ?: 'auto',
             'requested_provider' => $provider,
@@ -1747,17 +1760,17 @@ class AiChatCommand extends Command
             return [$this->ask($label), $pendingImages];
         }
 
-        $composer = new \App\Services\Ai\Cli\Repl\ReplComposer();
+        $composer = new ReplComposer;
         $composer->attachImages($pendingImages);
 
-        $renderer = new \App\Services\Ai\Cli\Repl\ReplRenderer(
+        $renderer = new ReplRenderer(
             $this->output,
             supportsAnsi: $this->output->isDecorated(),
         );
-        $parser = new \App\Services\Ai\Cli\Repl\KeySequenceParser();
-        $statusBar = new \App\Services\Ai\Cli\Repl\StatusBarFormatter();
-        $sessionStartedAt = $this->replSessionStartedAt ??= new \DateTimeImmutable();
-        $renderer->setStatusBarProducer(fn (\App\Services\Ai\Cli\Repl\ReplComposer $c): string => $statusBar->format(
+        $parser = new KeySequenceParser;
+        $statusBar = new StatusBarFormatter;
+        $sessionStartedAt = $this->replSessionStartedAt ??= new \DateTimeImmutable;
+        $renderer->setStatusBarProducer(fn (ReplComposer $c): string => $statusBar->format(
             $this->replStatusBarProvider,
             $this->replStatusBarModel,
             $c,
@@ -1768,7 +1781,7 @@ class AiChatCommand extends Command
         $bracketedPaste = false;
 
         try {
-            $this->output->write(\App\Services\Ai\Cli\Repl\KeyCodes::SEQ_BRACKETED_PASTE_ENABLE);
+            $this->output->write(KeyCodes::SEQ_BRACKETED_PASTE_ENABLE);
             $bracketedPaste = true;
             $this->setRawTerminalMode();
             $renderer->paint($label, $composer);
@@ -1809,14 +1822,14 @@ class AiChatCommand extends Command
                 shell_exec('stty '.$stty.' 2>/dev/null');
             }
             if ($bracketedPaste) {
-                $this->output->write(\App\Services\Ai\Cli\Repl\KeyCodes::SEQ_BRACKETED_PASTE_DISABLE);
+                $this->output->write(KeyCodes::SEQ_BRACKETED_PASTE_DISABLE);
             }
         }
     }
 
     private function runHistoryReverseSearch(
-        \App\Services\Ai\Cli\Repl\ReplComposer $composer,
-        \App\Services\Ai\Cli\Repl\ReplRenderer $renderer,
+        ReplComposer $composer,
+        ReplRenderer $renderer,
         string $label,
     ): void {
         if ($this->replSubmittedHistory === []) {
@@ -1826,12 +1839,12 @@ class AiChatCommand extends Command
             return;
         }
 
-        $search = new \App\Services\Ai\Cli\Repl\HistorySearch($this->replSubmittedHistory);
+        $search = new HistorySearch($this->replSubmittedHistory);
         $original = $renderer->statusBarProducer();
         $renderer->setStatusBarProducer(fn () => $search->statusLine());
         $renderer->paint($label, $composer);
 
-        $parser = new \App\Services\Ai\Cli\Repl\KeySequenceParser();
+        $parser = new KeySequenceParser;
 
         while (true) {
             $first = fread(STDIN, 1);
@@ -1847,25 +1860,25 @@ class AiChatCommand extends Command
 
             $kind = $event->kind;
 
-            if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CHAR) {
+            if ($kind === KeyEvent::CHAR) {
                 $search->appendQueryChar($event->payload);
                 $renderer->paint($label, $composer);
 
                 continue;
             }
-            if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::BACKSPACE) {
+            if ($kind === KeyEvent::BACKSPACE) {
                 $search->deleteQueryChar();
                 $renderer->paint($label, $composer);
 
                 continue;
             }
-            if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_R) {
+            if ($kind === KeyEvent::CTRL_R) {
                 $search->findNext();
                 $renderer->paint($label, $composer);
 
                 continue;
             }
-            if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::ENTER) {
+            if ($kind === KeyEvent::ENTER) {
                 $match = $search->currentMatch();
                 if ($match !== null) {
                     $composer->checkpoint();
@@ -1878,8 +1891,8 @@ class AiChatCommand extends Command
                 return;
             }
             if (in_array($kind, [
-                \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_G,
-                \App\Services\Ai\Cli\Repl\KeyEvent::INTERRUPT,
+                KeyEvent::CTRL_G,
+                KeyEvent::INTERRUPT,
             ], true)) {
                 $renderer->setStatusBarProducer($original);
                 $renderer->paint($label, $composer);
@@ -1969,32 +1982,32 @@ class AiChatCommand extends Command
      * delega rendering ao ReplRenderer. Devolve 'submit' apenas em ENTER.
      */
     private function handleReplKey(
-        \App\Services\Ai\Cli\Repl\KeyEvent $event,
-        \App\Services\Ai\Cli\Repl\ReplComposer $composer,
-        \App\Services\Ai\Cli\Repl\ReplRenderer $renderer,
+        KeyEvent $event,
+        ReplComposer $composer,
+        ReplRenderer $renderer,
         AtlasImageAttachmentService $images,
         string $workspace,
         string $label,
     ): string {
         $kind = $event->kind;
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::ENTER) {
+        if ($kind === KeyEvent::ENTER) {
             return 'submit';
         }
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::INTERRUPT) {
-            throw new \Symfony\Component\Console\Exception\RuntimeException('Interrupted');
+        if ($kind === KeyEvent::INTERRUPT) {
+            throw new ConsoleRuntimeException('Interrupted');
         }
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::EOF) {
+        if ($kind === KeyEvent::EOF) {
             if ($composer->isEmpty()) {
-                throw new \Symfony\Component\Console\Exception\RuntimeException('EOF');
+                throw new ConsoleRuntimeException('EOF');
             }
 
             return 'continue';
         }
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CHAR) {
+        if ($kind === KeyEvent::CHAR) {
             if (! $composer->isImageSelectionActive()) {
                 $composer->checkpoint();
             }
@@ -2004,7 +2017,7 @@ class AiChatCommand extends Command
             return 'continue';
         }
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_Z) {
+        if ($kind === KeyEvent::CTRL_Z) {
             if ($composer->undo()) {
                 $renderer->paint($label, $composer);
             }
@@ -2012,7 +2025,7 @@ class AiChatCommand extends Command
             return 'continue';
         }
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_Y) {
+        if ($kind === KeyEvent::CTRL_Y) {
             if ($composer->redo()) {
                 $renderer->paint($label, $composer);
             }
@@ -2020,33 +2033,33 @@ class AiChatCommand extends Command
             return 'continue';
         }
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_R) {
+        if ($kind === KeyEvent::CTRL_R) {
             $this->runHistoryReverseSearch($composer, $renderer, $label);
 
             return 'continue';
         }
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_G) {
+        if ($kind === KeyEvent::CTRL_G) {
             return 'cancel';
         }
 
         $navOps = [
-            \App\Services\Ai\Cli\Repl\KeyEvent::ARROW_LEFT => fn () => $composer->moveCursorLeft(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::ARROW_RIGHT => fn () => $composer->moveCursorRight(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::ARROW_UP => fn () => $composer->moveCursorUp(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::ARROW_DOWN => fn () => $composer->moveCursorDown(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::HOME => fn () => $composer->moveCursorToLineStart(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::END => fn () => $composer->moveCursorToLineEnd(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::ALT_LEFT => fn () => $composer->moveCursorWordLeft(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::ALT_RIGHT => fn () => $composer->moveCursorWordRight(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_LEFT => fn () => $composer->extendSelectionLeft(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_RIGHT => fn () => $composer->extendSelectionRight(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_ALT_LEFT => fn () => $composer->extendSelectionWordLeft(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_ALT_RIGHT => fn () => $composer->extendSelectionWordRight(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_HOME => fn () => $composer->extendSelectionToLineStart(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::SHIFT_END => fn () => $composer->extendSelectionToLineEnd(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::SELECT_ALL => fn () => $composer->selectAll(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::SELECT_LINE => fn () => $composer->selectLine(),
+            KeyEvent::ARROW_LEFT => fn () => $composer->moveCursorLeft(),
+            KeyEvent::ARROW_RIGHT => fn () => $composer->moveCursorRight(),
+            KeyEvent::ARROW_UP => fn () => $composer->moveCursorUp(),
+            KeyEvent::ARROW_DOWN => fn () => $composer->moveCursorDown(),
+            KeyEvent::HOME => fn () => $composer->moveCursorToLineStart(),
+            KeyEvent::END => fn () => $composer->moveCursorToLineEnd(),
+            KeyEvent::ALT_LEFT => fn () => $composer->moveCursorWordLeft(),
+            KeyEvent::ALT_RIGHT => fn () => $composer->moveCursorWordRight(),
+            KeyEvent::SHIFT_LEFT => fn () => $composer->extendSelectionLeft(),
+            KeyEvent::SHIFT_RIGHT => fn () => $composer->extendSelectionRight(),
+            KeyEvent::SHIFT_ALT_LEFT => fn () => $composer->extendSelectionWordLeft(),
+            KeyEvent::SHIFT_ALT_RIGHT => fn () => $composer->extendSelectionWordRight(),
+            KeyEvent::SHIFT_HOME => fn () => $composer->extendSelectionToLineStart(),
+            KeyEvent::SHIFT_END => fn () => $composer->extendSelectionToLineEnd(),
+            KeyEvent::SELECT_ALL => fn () => $composer->selectAll(),
+            KeyEvent::SELECT_LINE => fn () => $composer->selectLine(),
         ];
 
         if (isset($navOps[$kind])) {
@@ -2057,11 +2070,11 @@ class AiChatCommand extends Command
         }
 
         $destructiveOps = [
-            \App\Services\Ai\Cli\Repl\KeyEvent::ALT_BACKSPACE => fn () => $composer->deleteWordBefore(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_W => fn () => $composer->deleteWordBefore(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::DELETE => fn () => $composer->deleteCharAfter(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::BACKSPACE => fn () => $composer->deleteCharBefore(),
-            \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_U => fn () => $composer->clearLine(),
+            KeyEvent::ALT_BACKSPACE => fn () => $composer->deleteWordBefore(),
+            KeyEvent::CTRL_W => fn () => $composer->deleteWordBefore(),
+            KeyEvent::DELETE => fn () => $composer->deleteCharAfter(),
+            KeyEvent::BACKSPACE => fn () => $composer->deleteCharBefore(),
+            KeyEvent::CTRL_U => fn () => $composer->clearLine(),
         ];
 
         if (isset($destructiveOps[$kind])) {
@@ -2072,7 +2085,7 @@ class AiChatCommand extends Command
             return 'continue';
         }
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_X) {
+        if ($kind === KeyEvent::CTRL_X) {
             if ($composer->hasImages()) {
                 $isSelection = $composer->isImageSelectionActive();
                 $removed = $isSelection
@@ -2084,27 +2097,27 @@ class AiChatCommand extends Command
                     $composer->removeLastImage();
                 }
                 $name = is_array($removed) && is_string($removed['path'] ?? null) ? basename($removed['path']) : 'imagem';
-                $renderer->feedback(\App\Services\Ai\Cli\Repl\ReplMessages::imageRemoved($name));
+                $renderer->feedback(ReplMessages::imageRemoved($name));
                 $renderer->paint($label, $composer);
             }
 
             return 'continue';
         }
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_L) {
+        if ($kind === KeyEvent::CTRL_L) {
             $renderer->reset();
             $renderer->paint($label, $composer);
 
             return 'continue';
         }
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::CTRL_V) {
+        if ($kind === KeyEvent::CTRL_V) {
             $this->handleSmartPasteFromClipboard($composer, $renderer, $images, $workspace, $label);
 
             return 'continue';
         }
 
-        if ($kind === \App\Services\Ai\Cli\Repl\KeyEvent::BRACKETED_PASTE) {
+        if ($kind === KeyEvent::BRACKETED_PASTE) {
             $this->handleBracketedPasteEvent($event->payload, $composer, $renderer, $images, $workspace, $label);
 
             return 'continue';
@@ -2114,8 +2127,8 @@ class AiChatCommand extends Command
     }
 
     private function handleSmartPasteFromClipboard(
-        \App\Services\Ai\Cli\Repl\ReplComposer $composer,
-        \App\Services\Ai\Cli\Repl\ReplRenderer $renderer,
+        ReplComposer $composer,
+        ReplRenderer $renderer,
         AtlasImageAttachmentService $images,
         string $workspace,
         string $label,
@@ -2123,19 +2136,19 @@ class AiChatCommand extends Command
         $kind = $images->clipboardKind();
 
         if ($kind === 'image') {
-            $renderer->feedback(\App\Services\Ai\Cli\Repl\ReplMessages::clipboardImageReading());
+            $renderer->feedback(ReplMessages::clipboardImageReading());
             try {
                 $attachment = $images->fromClipboard($workspace);
             } catch (\Throwable $exception) {
-                $renderer->feedback(\App\Services\Ai\Cli\Repl\ReplMessages::clipboardImageInvalid($exception->getMessage()));
+                $renderer->feedback(ReplMessages::clipboardImageInvalid($exception->getMessage()));
                 $renderer->paint($label, $composer);
 
                 return;
             }
             $added = $composer->attachImage($attachment);
             $renderer->feedback($added
-                ? \App\Services\Ai\Cli\Repl\ReplMessages::clipboardImageAttached()
-                : \App\Services\Ai\Cli\Repl\ReplMessages::imageDuplicate(basename($attachment['path'] ?? 'imagem')));
+                ? ReplMessages::clipboardImageAttached()
+                : ReplMessages::imageDuplicate(basename($attachment['path'] ?? 'imagem')));
             $renderer->paint($label, $composer);
 
             return;
@@ -2152,16 +2165,16 @@ class AiChatCommand extends Command
         }
 
         $message = $kind === 'empty'
-            ? \App\Services\Ai\Cli\Repl\ReplMessages::clipboardEmpty()
-            : \App\Services\Ai\Cli\Repl\ReplMessages::clipboardOsascriptBlocked();
+            ? ReplMessages::clipboardEmpty()
+            : ReplMessages::clipboardOsascriptBlocked();
         $renderer->feedback($message);
         $renderer->paint($label, $composer);
     }
 
     private function handleBracketedPasteEvent(
         string $payload,
-        \App\Services\Ai\Cli\Repl\ReplComposer $composer,
-        \App\Services\Ai\Cli\Repl\ReplRenderer $renderer,
+        ReplComposer $composer,
+        ReplRenderer $renderer,
         AtlasImageAttachmentService $images,
         string $workspace,
         string $label,
@@ -2197,8 +2210,8 @@ class AiChatCommand extends Command
      */
     private function attachImagesFromDrop(
         array $paths,
-        \App\Services\Ai\Cli\Repl\ReplComposer $composer,
-        \App\Services\Ai\Cli\Repl\ReplRenderer $renderer,
+        ReplComposer $composer,
+        ReplRenderer $renderer,
         AtlasImageAttachmentService $images,
         string $workspace,
         string $label,
@@ -2207,19 +2220,19 @@ class AiChatCommand extends Command
             return;
         }
         $renderer->feedback(count($paths) === 1
-            ? \App\Services\Ai\Cli\Repl\ReplMessages::imageAttached(basename($paths[0]))
+            ? ReplMessages::imageAttached(basename($paths[0]))
             : 'Anexando '.count($paths).' imagens...');
         try {
             $attachments = $images->fromPaths($paths, $workspace);
         } catch (\Throwable $exception) {
-            $renderer->feedback(\App\Services\Ai\Cli\Repl\ReplMessages::imageAttachFailed($exception->getMessage()));
+            $renderer->feedback(ReplMessages::imageAttachFailed($exception->getMessage()));
             $renderer->paint($label, $composer);
 
             return;
         }
         $result = $composer->attachImages($attachments);
         if ($result['skipped'] > 0) {
-            $renderer->feedback(\App\Services\Ai\Cli\Repl\ReplMessages::imagesDeduped($result['added'], $result['skipped']));
+            $renderer->feedback(ReplMessages::imagesDeduped($result['added'], $result['skipped']));
         }
         $renderer->paint($label, $composer);
     }
@@ -2381,7 +2394,6 @@ class AiChatCommand extends Command
 
         return $sequence;
     }
-
 
     /**
      * @param  array<int,array<string,mixed>>  $pending
@@ -3825,9 +3837,9 @@ class AiChatCommand extends Command
      * @param  array<string,mixed>|null  $modelSelection
      * @return array<string,mixed>
      */
-    private function modelSelectionContract(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array
+    private function modelSelectionContract(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode, array $context = []): array
     {
-        return app(ModelSelectionContractFactory::class)->forAiChat($provider, $modelSelection, $modelOverride, $fairMode);
+        return app(ModelSelectionContractFactory::class)->forAiChat($provider, $modelSelection, $modelOverride, $fairMode, $context);
     }
 
     private function modelSelectionLabel(array $modelSelection): string

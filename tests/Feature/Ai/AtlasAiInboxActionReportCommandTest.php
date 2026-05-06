@@ -75,6 +75,77 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
         $this->assertSame('cmd-inbox-filter-a', data_get($payload, 'inbox_actions.recent_events.0.inbox_item_id'));
     }
 
+    public function test_command_exposes_rivals_review_scores_as_json(): void
+    {
+        $this->recordInboxAction(
+            '01HINBOXACTIONCMDRIVALS1',
+            'cmd-inbox-rivals',
+            'record_rivals_review',
+            'operator_cli',
+            'record_due_rivals_strategy_reviews',
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.rivals_review.v1',
+                'recorded_review_id' => 'review-rivals-command',
+                'case_id' => 'case-rivals-command',
+                'horizon_days' => 30,
+                'scores' => ['regret' => 7, 'alignment' => 94, 'agency' => 89],
+                'remaining_due_review_count' => 0,
+            ],
+        );
+
+        $exit = Artisan::call('atlas:ai:inbox-action-report', [
+            '--hours' => 24,
+            '--action' => 'record_rivals_review',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'inbox_actions.rivals_review_recorded_count'));
+        $this->assertSame(1, data_get($payload, 'inbox_actions.rivals_review_with_scores_count'));
+        $this->assertSame('ok', data_get($payload, 'inbox_actions.review_signal.status'));
+        $this->assertSame('review-rivals-command', data_get($payload, 'inbox_actions.recent_events.0.rivals_review_id'));
+        $this->assertSame(89, data_get($payload, 'inbox_actions.recent_events.0.rivals_agency_score'));
+    }
+
+    public function test_command_exposes_provider_cost_rate_action_as_json(): void
+    {
+        $this->recordInboxAction(
+            '01HINBOXACTIONCMDCOST001',
+            'cmd-inbox-cost-rate',
+            'configure_provider_cost_rates',
+            'operator_cli',
+            'configure_provider_cost_rates',
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.2',
+                'input_microusd_per_1k' => 120,
+                'output_microusd_per_1k' => 480,
+                'currency' => 'USD',
+                'applied' => true,
+            ],
+        );
+
+        $exit = Artisan::call('atlas:ai:inbox-action-report', [
+            '--hours' => 24,
+            '--action' => 'configure_provider_cost_rates',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'inbox_actions.provider_cost_rate_action_count'));
+        $this->assertSame(1, data_get($payload, 'inbox_actions.provider_cost_rate_applied_count'));
+        $this->assertSame('ok', data_get($payload, 'inbox_actions.review_signal.status'));
+        $this->assertSame('codex_cli', data_get($payload, 'inbox_actions.recent_events.0.provider_cost_rate_provider'));
+        $this->assertSame('gpt-5.2', data_get($payload, 'inbox_actions.recent_events.0.provider_cost_rate_model'));
+        $this->assertSame(480, data_get($payload, 'inbox_actions.recent_events.0.provider_cost_rate_output_microusd'));
+    }
+
     public function test_command_human_output_includes_inbox_action_review_signal(): void
     {
         $this->recordInboxAction('01HINBOXACTIONCMDHUMAN01', 'cmd-inbox-human', 'review_patch', 'operator_cli', 'review_observability_patch', []);
@@ -110,8 +181,16 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
     /**
      * @param  array<int,string>  $diffRefs
      */
-    private function recordInboxAction(string $eventId, string $inboxItemId, string $action, string $actorType, string $recommendedAction, array $diffRefs): void
-    {
+    private function recordInboxAction(
+        string $eventId,
+        string $inboxItemId,
+        string $action,
+        string $actorType,
+        string $recommendedAction,
+        array $diffRefs,
+        array $rivalsReviewAction = [],
+        array $providerCostRateAction = [],
+    ): void {
         AtlasLedgerEvent::query()->create([
             'event_id' => $eventId,
             'schema_version' => 'atlas.ledger_event.v1',
@@ -144,6 +223,8 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
                         'action' => $action,
                         'diff_refs' => $diffRefs,
                     ],
+                    'rivals_review_action' => $rivalsReviewAction,
+                    'provider_cost_rate_action' => $providerCostRateAction,
                 ],
                 'recommended_action' => $recommendedAction,
                 'review_signal' => [

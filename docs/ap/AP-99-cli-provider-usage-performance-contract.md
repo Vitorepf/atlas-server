@@ -86,7 +86,8 @@ provider_cli + domain + task_type:
 - [x] `ProviderCalled`, `ProviderReturned` e `ProviderFallback` carregam campos suficientes para projetar `CLI Provider Usage Event`.
 - [x] `ai_router_decisions` pode ser correlacionado com ledger por `trace_id`, `envelope_id` ou `receipt_id` quando disponivel.
 - [x] Existe teste cobrindo a normalizacao do payload no hot path do Worker.
-- [x] Existe teste cobrindo agregacao minima por `provider_cli + domain + task_type`.
+- [x] Existe teste cobrindo agregacao minima por `provider_cli + domain + specialist_profile + task_type`.
+- [x] Provider usage captura `specialist_profile` e AP-99 filtra/agrega essa dimensao em CLI, API e MCP.
 - [x] O resultado alimenta `AtlasCliProviderStrategyService` como `empirical_performance`.
 - [x] O Self-Improvement recebe `provider_performance_review` como insumo em modo report/proposal.
 - [x] Existe comando read-only `atlas:ai:provider-performance` para auditar performance recente por janela e filtros canonicos.
@@ -127,7 +128,41 @@ tests/Unit/Ai/ProviderPerformanceProjectionTest.php
 ## Status Operacional
 
 AP-99 esta implementado como read model operacional. O Atlas mede, projeta e
-expoe evidencia empirica de provider por CLI, MCP, Strategy Matrix e
-Self-Improvement. Ele ainda nao muda automaticamente a estrategia default com
-base em performance empirica; isso continua bloqueado ate haver amostra
-suficiente, benchmark e proposta revisavel.
+expoe evidencia empirica de provider por CLI, MCP, API, Strategy Matrix e
+Self-Improvement. O rollup inclui `specialist_profile`, permitindo comparar
+frontend, arquitetura, QA ou seguranca sem hardcode de provider.
+
+Eventos `PROVIDER_CALLED`, `PROVIDER_RETURNED` e `PROVIDER_FALLBACK` tambem
+carregam telemetria normalizada de tokens e custo: `prompt_tokens`,
+`completion_tokens`, `total_tokens`, `estimated_tokens`, `token_source`,
+`cost_microusd`, `cost_confidence`, `cost_source` e `cost_mode`. Quando nao
+existe rate configurado, o custo permanece `null` com
+`cost_confidence=unknown`; isso e sinal operacional para completar a tabela de
+rates, nao autorizacao para inventar custo.
+
+O Atlas ainda nao muda automaticamente a estrategia default com base em
+performance empirica. Qualquer alteracao de provider/modelo continua bloqueada
+ate haver amostra suficiente, benchmark e proposta revisavel.
+
+`atlas:ai:provider-performance`, `GET /ai/provider-performance`, Observability
+e MCP devem expor esses rollups. `self_improvement.provider_performance_review`
+deve abrir finding revisavel quando provider falha/faz fallback e tambem quando
+`unknown_cost_count > 0`, pedindo `configure_provider_cost_rates`.
+
+`configure_provider_cost_rates` e uma Inbox action assistida. Sem rates
+informados, ela devolve template e marca o item como lido, sem resolver. Com
+`input_microusd_per_1k` e `output_microusd_per_1k`, ela grava em
+`ai_provider_cost_rates`, atualiza `provider_cost_rate_action`, resolve o item e
+emite `INBOX_ACTION_RECORDED`. Essa action nao consulta internet, nao inventa
+preco e nao muda provider/modelo; ela apenas transforma revisao humana de custo
+em evidencia operacional governada.
+
+O replay do Evidence Ledger tambem deve projetar essa action. O contrato minimo
+do `inboxActionReportForWindow` inclui `provider_cost_rate_action_count`,
+`provider_cost_rate_applied_count`, contagens por provider/modelo e os campos
+recentes `provider_cost_rate_provider`, `provider_cost_rate_model`,
+`provider_cost_rate_input_microusd`, `provider_cost_rate_output_microusd` e
+`provider_cost_rate_applied`. Quando a action foi apenas preview/template, o
+review signal recomenda `configure_provider_cost_rates`; quando aplicou rate
+real, publica `provider_cost_rates_configured`. Isso fecha o ciclo:
+Curator -> Inbox -> tabela de rates -> Evidence Ledger -> replay/report.

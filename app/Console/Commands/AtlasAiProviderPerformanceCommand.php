@@ -14,6 +14,7 @@ class AtlasAiProviderPerformanceCommand extends Command
         {--domain= : Filter by domain}
         {--flow= : Filter by flow}
         {--task-type= : Filter by task type}
+        {--specialist-profile= : Filter by specialist profile}
         {--risk= : Filter by risk}
         {--selection-mode= : Filter by auto/manual_override selection mode}
         {--json : Print machine-readable JSON}';
@@ -45,6 +46,7 @@ class AtlasAiProviderPerformanceCommand extends Command
             'domain' => ['domain'],
             'flow' => ['flow'],
             'task_type' => ['task-type'],
+            'specialist_profile' => ['specialist-profile'],
             'risk' => ['risk'],
             'selection_mode' => ['selection-mode'],
         ]);
@@ -71,6 +73,11 @@ class AtlasAiProviderPerformanceCommand extends Command
         $this->components->twoColumnDetail('Success rate', $report['success_rate'] === null ? '-' : (string) $report['success_rate']);
         $this->components->twoColumnDetail('Avg latency seconds', $report['average_latency_seconds'] === null ? '-' : (string) $report['average_latency_seconds']);
         $this->components->twoColumnDetail('Avg repair count', $report['average_repair_count'] === null ? '-' : (string) $report['average_repair_count']);
+        $this->components->twoColumnDetail('Total tokens', (string) ($report['total_tokens'] ?? 0));
+        $this->components->twoColumnDetail('Avg tokens', $report['average_total_tokens'] === null ? '-' : (string) $report['average_total_tokens']);
+        $this->components->twoColumnDetail('Total cost microusd', (string) ($report['total_cost_microusd'] ?? 0));
+        $this->components->twoColumnDetail('Avg cost microusd', $report['average_cost_microusd'] === null ? '-' : (string) $report['average_cost_microusd']);
+        $this->components->twoColumnDetail('Unknown cost events', (string) ($report['unknown_cost_count'] ?? 0));
         $this->components->twoColumnDetail('Review signal', (string) data_get($report, 'review_signal.status', 'unknown'));
         $this->components->twoColumnDetail('Recommended action', (string) data_get($report, 'review_signal.recommended_action', 'none'));
 
@@ -78,18 +85,21 @@ class AtlasAiProviderPerformanceCommand extends Command
             ->map(fn (array $group): array => [
                 $group['provider_cli'] ?? '-',
                 $group['domain'] ?? '-',
+                $group['specialist_profile'] ?? '-',
                 $group['task_type'] ?? '-',
                 $group['returned_count'] ?? 0,
                 $group['fallback_count'] ?? 0,
                 $group['success_rate'] ?? '-',
                 $group['average_latency_seconds'] ?? '-',
                 $group['average_repair_count'] ?? '-',
+                $group['average_total_tokens'] ?? '-',
+                $group['average_cost_microusd'] ?? '-',
             ])
             ->values()
             ->all();
 
         if ($groupRows !== []) {
-            $this->table(['provider', 'domain', 'task', 'returned', 'fallbacks', 'success', 'avg latency', 'avg repairs'], $groupRows);
+            $this->table(['provider', 'domain', 'specialist', 'task', 'returned', 'fallbacks', 'success', 'avg latency', 'avg repairs', 'avg tokens', 'avg cost'], $groupRows);
         }
 
         $failureRows = collect((array) ($report['failure_reason_counts'] ?? []))

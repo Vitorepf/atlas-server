@@ -37,6 +37,11 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-governed-backlog.md
   - docs/engineering-knowledge-base/domains/self-improvement.md
   - docs/engineering-knowledge-base/domains/personal-development.md
+  - app/Services/Ai/Kernel/Architecture/AtlasQualitativeLevelsReadModel.php
+  - app/Services/Ai/Kernel/Architecture/AtlasRivalsStrategyReadModel.php
+  - app/Console/Commands/AtlasAiQualitativeLevelsCommand.php
+  - app/Console/Commands/AtlasAiRivalsStrategyCommand.php
+  - app/Http/Controllers/AtlasAiQualitativeLevelsController.php
 ---
 
 # Atlas AI Qualitative Levels Roadmap
@@ -183,33 +188,35 @@ DoD:
 
 ### QL-1 — Patamar maturity model
 
-Criar read model que declara `current_level`, `evidence`, `missing_gates` e
-`next_level_blockers`.
+Status: implementado como read model.
+
+Superficie: `atlas ai qualitative-levels --hours=720 --json` e
+`GET /ai/qualitative-levels`.
+
+Declara `current_level`, `evidence`, `missing_gates` e `next_level_blockers`.
 
 Nao muda comportamento. So mede.
 
 ### QL-2 — Rivals Strategy
 
-Criar benchmark para decisoes estrategicas:
+Status: implementado como storage/read model inicial.
 
-1. decisao direta vs decisao assistida por Atlas;
-2. review em 30/90/180/365 dias;
-3. regret, alignment, variance e agency score.
+Superficie: `atlas ai rivals-strategy report --hours=8760 --json`.
+
+Registra decisao direta vs assistida por Atlas, revisitas 30/90/180/365 e
+scores de regret/alignment/agency. Precisa casos reais para liberar P4+.
 
 ### QL-3 — Strategic Decision domain scaffold
 
-Adicionar Domain Profile e flows `strategic_decision.*` como scaffold. Sem
-execucao automatica. Apenas plan/proposal.
+Status: implementado como dominio scaffold, com Domain Profile e flows
+`strategic_decision.*` sem execucao automatica.
 
 ### QL-4 — Co-Strategist plan-only
 
-Implementar review de decisao grande com:
+Status: iniciado com packet plan-only via `atlas ai strategic-decision review`.
 
-1. context pack historico;
-2. counterargument;
-3. values alignment;
-4. cool-down;
-5. proposal final.
+Entrega counterargument, values alignment, cool-down, agency gate e Rivals hint.
+Com `--audit`, emite DecisionReceipt dry-run e eventos no Evidence Ledger.
 
 ### QL-5 — Curator mutation classes
 

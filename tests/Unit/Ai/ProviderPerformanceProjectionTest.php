@@ -44,12 +44,12 @@ class ProviderPerformanceProjectionTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_provider_performance_projection_groups_by_provider_domain_and_task_type(): void
+    public function test_provider_performance_projection_groups_by_provider_domain_specialist_and_task_type(): void
     {
-        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'succeeded', 1.2);
-        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'failed', 2.4, 'rate_limited');
-        $this->recordProviderReturned('claude_cli', 'programming', 'review', 'succeeded', 3.0);
-        $this->recordProviderFallback('gemini_cli', 'programming', 'feature', 'claude_cli', 'auth_expired');
+        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'programming.frontend', 'succeeded', 1.2, null, 1000, 100);
+        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'programming.frontend', 'failed', 2.4, 'rate_limited', 2000, 200);
+        $this->recordProviderReturned('claude_cli', 'programming', 'review', 'programming.architecture', 'succeeded', 3.0, null, 900, 90);
+        $this->recordProviderFallback('gemini_cli', 'programming', 'feature', 'programming.frontend', 'claude_cli', 'auth_expired');
 
         $report = app(ProviderPerformanceProjection::class)->reportForWindow(now()->subHour());
 
@@ -61,24 +61,41 @@ class ProviderPerformanceProjectionTest extends TestCase
         $this->assertSame(2, $report['success_count']);
         $this->assertSame(2, $report['failure_count']);
         $this->assertSame(0.6667, $report['success_rate']);
+        $this->assertSame(3900, $report['total_cost_microusd']);
+        $this->assertSame(1300.0, $report['average_cost_microusd']);
+        $this->assertSame(3, $report['costed_event_count']);
+        $this->assertSame(1, $report['unknown_cost_count']);
+        $this->assertSame(390, $report['total_tokens']);
+        $this->assertSame(130.0, $report['average_total_tokens']);
+        $this->assertSame(['estimated' => 3, 'unknown' => 1], $report['cost_confidence_counts']);
+        $this->assertSame(['operational_estimate' => 3, 'unknown' => 1], $report['cost_mode_counts']);
         $this->assertSame(['codex_cli' => 2, 'claude_cli' => 1, 'gemini_cli' => 1], $report['provider_counts']);
+        $this->assertSame(['programming.frontend' => 3, 'programming.architecture' => 1], $report['specialist_profile_counts']);
 
         $codexFeature = collect($report['groups'])->firstWhere('provider_cli', 'codex_cli');
         $this->assertSame('programming', data_get($codexFeature, 'domain'));
+        $this->assertSame('programming.frontend', data_get($codexFeature, 'specialist_profile'));
         $this->assertSame('feature', data_get($codexFeature, 'task_type'));
         $this->assertSame(2, data_get($codexFeature, 'returned_count'));
         $this->assertSame(0.5, data_get($codexFeature, 'success_rate'));
         $this->assertSame(1.8, data_get($codexFeature, 'average_latency_seconds'));
+        $this->assertSame(3000, data_get($codexFeature, 'total_cost_microusd'));
+        $this->assertSame(1500.0, data_get($codexFeature, 'average_cost_microusd'));
+        $this->assertSame(300, data_get($codexFeature, 'total_tokens'));
+        $this->assertSame(['estimated' => 2], data_get($codexFeature, 'cost_confidence_counts'));
 
         $filtered = app(ProviderPerformanceProjection::class)->reportForWindow(now()->subHour(), filters: [
             'provider' => 'codex_cli',
             'domain' => 'programming',
+            'specialist_profile' => 'programming.frontend',
         ]);
         $this->assertSame(2, $filtered['event_count']);
         $this->assertSame(['codex_cli' => 2], $filtered['provider_counts']);
+        $this->assertSame(['programming.frontend' => 2], $filtered['specialist_profile_counts']);
+        $this->assertSame(3000, $filtered['total_cost_microusd']);
     }
 
-    private function recordProviderReturned(string $provider, string $domain, string $taskType, string $status, float $latency, ?string $failureReason = null): void
+    private function recordProviderReturned(string $provider, string $domain, string $taskType, string $specialistProfile, string $status, float $latency, ?string $failureReason = null, ?int $costMicrousd = null, ?int $totalTokens = null): void
     {
         $this->record(LedgerEventType::ProviderReturned, [
             'schema_version' => ProviderUsagePayload::SCHEMA_VERSION,
@@ -86,6 +103,7 @@ class ProviderPerformanceProjectionTest extends TestCase
             'provider_cli' => $provider,
             'domain' => $domain,
             'task_type' => $taskType,
+            'specialist_profile' => $specialistProfile,
             'flow' => 'programming.dev',
             'risk' => 'medium',
             'exit_status' => $status,
@@ -93,10 +111,19 @@ class ProviderPerformanceProjectionTest extends TestCase
             'repair_count' => $status === 'succeeded' ? 0 : 1,
             'failure_reason' => $failureReason,
             'selection_mode' => 'auto',
+            'prompt_tokens' => $totalTokens === null ? null : (int) floor($totalTokens / 2),
+            'completion_tokens' => $totalTokens === null ? null : (int) ceil($totalTokens / 2),
+            'total_tokens' => $totalTokens,
+            'estimated_tokens' => $totalTokens,
+            'token_source' => $totalTokens === null ? null : 'estimated_chars',
+            'cost_microusd' => $costMicrousd,
+            'cost_confidence' => $costMicrousd === null ? 'unknown' : 'estimated',
+            'cost_source' => $costMicrousd === null ? 'missing_cost_rate' : 'estimated_chars_rate',
+            'cost_mode' => $costMicrousd === null ? 'unknown' : 'operational_estimate',
         ]);
     }
 
-    private function recordProviderFallback(string $provider, string $domain, string $taskType, string $fallbackProvider, string $reason): void
+    private function recordProviderFallback(string $provider, string $domain, string $taskType, string $specialistProfile, string $fallbackProvider, string $reason): void
     {
         $this->record(LedgerEventType::ProviderFallback, [
             'schema_version' => ProviderUsagePayload::SCHEMA_VERSION,
@@ -104,6 +131,7 @@ class ProviderPerformanceProjectionTest extends TestCase
             'provider_cli' => $provider,
             'domain' => $domain,
             'task_type' => $taskType,
+            'specialist_profile' => $specialistProfile,
             'flow' => 'programming.dev',
             'risk' => 'medium',
             'exit_status' => 'fallback',
@@ -112,6 +140,15 @@ class ProviderPerformanceProjectionTest extends TestCase
             'failure_reason' => $reason,
             'fallback_provider' => $fallbackProvider,
             'selection_mode' => 'auto',
+            'prompt_tokens' => null,
+            'completion_tokens' => null,
+            'total_tokens' => null,
+            'estimated_tokens' => null,
+            'token_source' => null,
+            'cost_microusd' => null,
+            'cost_confidence' => 'unknown',
+            'cost_source' => 'missing_cost_rate',
+            'cost_mode' => 'unknown',
         ]);
     }
 

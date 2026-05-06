@@ -25,6 +25,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
+  - docs/engineering-knowledge-base/atlas-constelacao-surface.md
   - docs/engineering-knowledge-base/surface-domain-catalog-integration-plan.md
   - resolver-o-que-vale-a-pena/docs/atlas-ai-mobile-operating-model.md
   - resolver-o-que-vale-a-pena/docs/mobile-gateway-push-inbox-implementation.md
@@ -78,6 +79,7 @@ Mobile nao pode:
 | Push delivery | Canal de entrega, com delivery receipts e retry/defer. |
 | Discussion bootstrap | Promove um item para conversa contextual governada. |
 | Domain catalog read model | Fonte de picker/status de domain/flow. |
+| Constelacao | Surface contemplativa de serendipidade; consome endpoint governado e nunca substitui Inbox. |
 | Core reliability monitor | Watchdog para push, inbox, scheduler, jobs e degraded core. |
 
 ## Fluxos Principais

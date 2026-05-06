@@ -31,23 +31,33 @@ class AtlasAiProviderPerformanceApiTest extends TestCase
 
     public function test_provider_performance_api_returns_filtered_window_summary(): void
     {
-        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'succeeded', 1.2);
-        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'failed', 2.4, 'rate_limited');
-        $this->recordProviderReturned('claude_cli', 'programming', 'review', 'succeeded', 3.0);
+        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'programming.frontend', 'succeeded', 1.2, null, 1000, 100);
+        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'programming.frontend', 'failed', 2.4, 'rate_limited', 2000, 200);
+        $this->recordProviderReturned('claude_cli', 'programming', 'review', 'programming.architecture', 'succeeded', 3.0, null, 900, 90);
 
-        $this->getJson('/ai/provider-performance?hours=24&provider=codex_cli&domain=programming', $this->headers)
+        $response = $this->getJson('/ai/provider-performance?hours=24&provider=codex_cli&domain=programming&specialist_profile=programming.frontend', $this->headers)
             ->assertOk()
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('filters.provider_cli', 'codex_cli')
             ->assertJsonPath('filters.domain', 'programming')
+            ->assertJsonPath('filters.specialist_profile', 'programming.frontend')
             ->assertJsonPath('provider_performance.available', true)
             ->assertJsonPath('provider_performance.event_count', 2)
             ->assertJsonPath('provider_performance.success_count', 1)
             ->assertJsonPath('provider_performance.failure_count', 1)
             ->assertJsonPath('provider_performance.success_rate', 0.5)
+            ->assertJsonPath('provider_performance.total_cost_microusd', 3000)
+            ->assertJsonPath('provider_performance.average_cost_microusd', 1500)
+            ->assertJsonPath('provider_performance.total_tokens', 300)
+            ->assertJsonPath('provider_performance.average_total_tokens', 150)
+            ->assertJsonPath('provider_performance.cost_confidence_counts.estimated', 2)
             ->assertJsonPath('provider_performance.review_signal.status', 'ok')
             ->assertJsonPath('provider_performance.groups.0.provider_cli', 'codex_cli')
-            ->assertJsonPath('provider_performance.groups.0.task_type', 'feature');
+            ->assertJsonPath('provider_performance.groups.0.specialist_profile', 'programming.frontend')
+            ->assertJsonPath('provider_performance.groups.0.task_type', 'feature')
+            ->assertJsonPath('provider_performance.groups.0.average_cost_microusd', 1500);
+
+        $this->assertSame(2, $response->json('provider_performance.specialist_profile_counts')['programming.frontend'] ?? null);
     }
 
     public function test_provider_performance_api_requires_atlas_token(): void
@@ -68,7 +78,7 @@ class AtlasAiProviderPerformanceApiTest extends TestCase
             ->assertJsonPath('provider_performance.review_signal.recommended_action', 'wait_for_provider_usage_evidence');
     }
 
-    private function recordProviderReturned(string $provider, string $domain, string $taskType, string $status, float $latency, ?string $failureReason = null): void
+    private function recordProviderReturned(string $provider, string $domain, string $taskType, string $specialistProfile, string $status, float $latency, ?string $failureReason = null, ?int $costMicrousd = null, ?int $totalTokens = null): void
     {
         AtlasLedgerEvent::query()->create([
             'event_id' => (string) Str::ulid(),
@@ -89,6 +99,7 @@ class AtlasAiProviderPerformanceApiTest extends TestCase
                 'provider_cli' => $provider,
                 'domain' => $domain,
                 'task_type' => $taskType,
+                'specialist_profile' => $specialistProfile,
                 'flow' => 'programming.dev',
                 'risk' => 'medium',
                 'exit_status' => $status,
@@ -96,8 +107,17 @@ class AtlasAiProviderPerformanceApiTest extends TestCase
                 'repair_count' => $status === 'succeeded' ? 0 : 1,
                 'failure_reason' => $failureReason,
                 'selection_mode' => 'auto',
+                'prompt_tokens' => $totalTokens === null ? null : (int) floor($totalTokens / 2),
+                'completion_tokens' => $totalTokens === null ? null : (int) ceil($totalTokens / 2),
+                'total_tokens' => $totalTokens,
+                'estimated_tokens' => $totalTokens,
+                'token_source' => $totalTokens === null ? null : 'estimated_chars',
+                'cost_microusd' => $costMicrousd,
+                'cost_confidence' => $costMicrousd === null ? 'unknown' : 'estimated',
+                'cost_source' => $costMicrousd === null ? 'missing_cost_rate' : 'estimated_chars_rate',
+                'cost_mode' => $costMicrousd === null ? 'unknown' : 'operational_estimate',
             ],
-            'payload_hash' => hash('sha256', $provider.$domain.$taskType.$status.$latency),
+            'payload_hash' => hash('sha256', $provider.$domain.$taskType.$specialistProfile.$status.$latency),
             'occurred_at' => now(),
         ]);
     }

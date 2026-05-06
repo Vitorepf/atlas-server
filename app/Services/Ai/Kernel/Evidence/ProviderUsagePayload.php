@@ -6,11 +6,14 @@ use App\Models\AiJob;
 use App\Models\AiJobAttempt;
 use App\Models\AiRouterDecision;
 use App\Services\Ai\AiProviderResult;
+use App\Services\Ai\Telemetry\AiCostEstimator;
 use Illuminate\Support\Facades\Schema;
 
 class ProviderUsagePayload
 {
     public const SCHEMA_VERSION = 'atlas.provider_usage.v1';
+
+    public function __construct(private readonly AiCostEstimator $costEstimator) {}
 
     /**
      * @return array<string,mixed>
@@ -28,7 +31,7 @@ class ProviderUsagePayload
             'failure_reason' => null,
             'output_size_estimate' => null,
             'ledger_event_ref' => null,
-        ];
+        ] + $this->costPayload($job, $attempt);
     }
 
     /**
@@ -52,7 +55,7 @@ class ProviderUsagePayload
             'stderr_hash' => $result->stderr !== '' ? hash('sha256', $result->stderr) : null,
             'error_message_hash' => $result->errorMessage ? hash('sha256', $result->errorMessage) : null,
             'ledger_event_ref' => null,
-        ];
+        ] + $this->costPayload($job, $attempt, $result);
     }
 
     /**
@@ -73,7 +76,7 @@ class ProviderUsagePayload
             'fallback_reason' => $reason,
             'output_size_estimate' => $this->sizeEstimate($result->output),
             'ledger_event_ref' => null,
-        ];
+        ] + $this->costPayload($job, $attempt, $result);
     }
 
     /**
@@ -109,6 +112,17 @@ class ProviderUsagePayload
                 data_get($job->payload, 'task_request.task_type'),
                 data_get($job->payload, 'programming_message_plan.task_type'),
                 data_get($job->metadata, 'task_type'),
+                data_get($kernelContext, 'task_type'),
+            ]),
+            'specialist_profile' => $this->firstString([
+                data_get($receipt, 'metadata.task_profile.specialist_profile'),
+                data_get($receipt, 'metadata.specialist_profile'),
+                data_get($receipt, 'specialist_profile'),
+                data_get($job->payload, 'specialist_profile'),
+                data_get($job->payload, 'task_request.specialist_profile'),
+                data_get($job->payload, 'programming_message_plan.specialist_profile'),
+                data_get($job->metadata, 'specialist_profile'),
+                data_get($kernelContext, 'specialist_profile'),
             ]),
             'risk' => $this->firstString([
                 data_get($receipt, 'risk'),
@@ -224,5 +238,30 @@ class ProviderUsagePayload
             data_get($job->metadata, 'user_acceptance'),
             data_get($job->payload, 'user_acceptance'),
         ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function costPayload(AiJob $job, AiJobAttempt $attempt, ?AiProviderResult $result = null): array
+    {
+        $estimate = $this->costEstimator->estimateProviderResult(
+            $job,
+            $result,
+            $attempt->provider ?: $job->provider,
+            $attempt->model ?: $job->model,
+        );
+
+        return [
+            'prompt_tokens' => $estimate['prompt_tokens'],
+            'completion_tokens' => $estimate['completion_tokens'],
+            'total_tokens' => $estimate['total_tokens'],
+            'estimated_tokens' => $estimate['estimated_tokens'],
+            'token_source' => $estimate['token_source'],
+            'cost_microusd' => $estimate['cost_microusd'],
+            'cost_confidence' => $estimate['cost_confidence'],
+            'cost_source' => $estimate['cost_source'],
+            'cost_mode' => $estimate['cost_mode'],
+        ];
     }
 }

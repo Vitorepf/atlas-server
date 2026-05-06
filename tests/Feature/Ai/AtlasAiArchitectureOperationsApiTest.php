@@ -22,7 +22,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
             ->assertJsonPath('architecture_operations.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 10)
+            ->assertJsonPath('architecture_operations.command_count', 19)
             ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_operations')
             ->assertJsonPath('architecture_operations.commands.0.kind', 'catalog')
             ->assertJsonPath('architecture_operations.commands.0.surface', 'cli');
@@ -31,6 +31,9 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
 
         $this->assertContains('atlas ai architecture-operations --json', $commands);
         $this->assertContains('atlas ai architecture-validate', $commands);
+        $this->assertContains('atlas engineering knowledge docs-health --json', $commands);
+        $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
+        $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai decision-receipt-report --envelope=<id> --json', $commands);
         $this->assertContains('atlas ledger replay --envelope=<id> --json', $commands);

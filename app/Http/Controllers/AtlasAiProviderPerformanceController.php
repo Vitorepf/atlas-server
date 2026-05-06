@@ -18,6 +18,7 @@ class AtlasAiProviderPerformanceController extends Controller
             'domain' => ['nullable', 'string', 'max:120'],
             'flow' => ['nullable', 'string', 'max:160'],
             'task_type' => ['nullable', 'string', 'max:120'],
+            'specialist_profile' => ['nullable', 'string', 'max:160'],
             'risk' => ['nullable', 'string', 'max:80'],
             'selection_mode' => ['nullable', 'string', 'max:80'],
         ]);
@@ -28,6 +29,7 @@ class AtlasAiProviderPerformanceController extends Controller
             'domain' => ['domain'],
             'flow' => ['flow'],
             'task_type' => ['task_type'],
+            'specialist_profile' => ['specialist_profile'],
             'risk' => ['risk'],
             'selection_mode' => ['selection_mode'],
         ]);

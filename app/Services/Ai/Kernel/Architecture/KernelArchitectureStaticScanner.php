@@ -23,6 +23,8 @@ class KernelArchitectureStaticScanner
      *   ap141_ledger_projection_registry_contract:array{valid:bool,violations:array<int,string>},
      *   ap142_ledger_projection_inbox_action:array{valid:bool,violations:array<int,string>},
      *   ap143_ledger_projection_curator_action_emission:array{valid:bool,violations:array<int,string>},
+     *   ap144_rivals_review_inbox_action_contract:array{valid:bool,violations:array<int,string>},
+     *   ap145_documentation_health_curator_review:array{valid:bool,violations:array<int,string>},
      *   ap12_provider_driver_identity_bypass:array{valid:bool,violations:array<int,string>},
      *   ap14_tool_tier_hot_path:array{valid:bool,violations:array<int,string>},
      *   ap15_provider_memory_privacy:array{valid:bool,violations:array<int,string>},
@@ -208,6 +210,8 @@ class KernelArchitectureStaticScanner
         $ledgerProjectionRegistryContract = $this->scanLedgerProjectionRegistryContract();
         $ledgerProjectionInboxAction = $this->scanLedgerProjectionInboxAction();
         $ledgerProjectionCuratorActionEmission = $this->scanLedgerProjectionCuratorActionEmission();
+        $rivalsReviewInboxActionContract = $this->scanRivalsReviewInboxActionContract();
+        $documentationHealthCuratorReview = $this->scanDocumentationHealthCuratorReview();
         $toolTierHotPath = $this->scanToolTierHotPathPolicy();
         $providerMemoryPrivacy = $this->scanProviderMemoryPrivacy();
         $sloObservability = $this->scanSloObservability();
@@ -341,6 +345,8 @@ class KernelArchitectureStaticScanner
                 && $ledgerProjectionRegistryContract === []
                 && $ledgerProjectionInboxAction === []
                 && $ledgerProjectionCuratorActionEmission === []
+                && $rivalsReviewInboxActionContract === []
+                && $documentationHealthCuratorReview === []
                 && $providerDriverBypass === []
                 && $toolTierHotPath === []
                 && $providerMemoryPrivacy === []
@@ -514,6 +520,14 @@ class KernelArchitectureStaticScanner
             'ap143_ledger_projection_curator_action_emission' => [
                 'valid' => $ledgerProjectionCuratorActionEmission === [],
                 'violations' => $ledgerProjectionCuratorActionEmission,
+            ],
+            'ap144_rivals_review_inbox_action_contract' => [
+                'valid' => $rivalsReviewInboxActionContract === [],
+                'violations' => $rivalsReviewInboxActionContract,
+            ],
+            'ap145_documentation_health_curator_review' => [
+                'valid' => $documentationHealthCuratorReview === [],
+                'violations' => $documentationHealthCuratorReview,
             ],
             'ap12_provider_driver_identity_bypass' => [
                 'valid' => $providerDriverBypass === [],
@@ -1168,7 +1182,7 @@ class KernelArchitectureStaticScanner
             'commands.0.id',
             'commands.0.kind',
             'commands.0.surface',
-            'commands.7.kind',
+            'commands.9.kind',
         ] as $token) {
             if (! str_contains($unitTest, $token)) {
                 $violations[] = "tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php: AP-132 catalog metadata must be unit tested [{$token}]";
@@ -1464,6 +1478,9 @@ class KernelArchitectureStaticScanner
             "'command_count' => count(\$commands)",
             "'atlas ai architecture-operations --json'",
             "'atlas ai architecture-validate'",
+            "'atlas engineering knowledge docs-health --json'",
+            "'atlas engineering knowledge sync --prune --json'",
+            "'atlas engineering knowledge index-code --prune --json'",
             "'atlas ai inbox-action-report --hours=24 --json'",
         ] as $token) {
             if (! str_contains($catalog, $token)) {
@@ -1494,6 +1511,9 @@ class KernelArchitectureStaticScanner
             'AtlasArchitectureOperationsCatalog',
             "'arquitetura_mae'",
             'atlas ai architecture-operations --json',
+            'atlas engineering knowledge docs-health --json',
+            'atlas engineering knowledge sync --prune --json',
+            'atlas engineering knowledge index-code --prune --json',
             'atlas ai inbox-action-report --hours=24 --json',
         ] as $token) {
             if (! str_contains($unitTest, $token)) {
@@ -1506,6 +1526,9 @@ class KernelArchitectureStaticScanner
             "assertJsonPath('architecture_operations.section', 'arquitetura_mae')",
             "\$this->assertSame(count(\$commands), \$response->json('architecture_operations.command_count'))",
             'atlas ai architecture-operations --json',
+            'atlas engineering knowledge docs-health --json',
+            'atlas engineering knowledge sync --prune --json',
+            'atlas engineering knowledge index-code --prune --json',
             'atlas ai self-improvement-schedule-report --hours=24 --json',
             'atlas ledger replay --envelope=<id> --json',
         ] as $token) {
@@ -1843,6 +1866,7 @@ class KernelArchitectureStaticScanner
             'normalizedInboxActionFilters(',
             'atlas.self_improvement.inbox_action_replay_gap.v1',
             'review_patch_action_without_diff_refs',
+            'record_rivals_review_action_without_scores',
             'open_reviewable_inbox_action_evidence_proposal',
             'self-improvement:inbox-action-replay:',
         ] as $token) {
@@ -1853,9 +1877,11 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             'test_self_improvement_detects_inbox_action_replay_patch_review_gap',
+            'test_self_improvement_detects_rivals_review_action_without_scores',
             'recordInboxActionEvent(',
             'LedgerEventType::InboxActionRecorded',
             'atlas.self_improvement.inbox_action_replay_gap.v1',
+            'record_rivals_review_action_without_scores',
             'open_reviewable_inbox_action_evidence_proposal',
         ] as $token) {
             if (! str_contains($test, $token)) {
@@ -3256,6 +3282,8 @@ class KernelArchitectureStaticScanner
         $workerPath = app_path('Services/Ai/AiWorker.php');
         $strategyPath = app_path('Services/Ai/Cli/AtlasCliProviderStrategyService.php');
         $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $inboxActionsPath = app_path('Services/Ai/Mobile/InboxActionRegistry.php');
+        $replayServicePath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
         $commandPath = app_path('Console/Commands/AtlasAiProviderPerformanceCommand.php');
         $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
         $apiPath = app_path('Http/Controllers/AtlasAiProviderPerformanceController.php');
@@ -3274,6 +3302,8 @@ class KernelArchitectureStaticScanner
         $worker = File::exists($workerPath) ? File::get($workerPath) : '';
         $strategy = File::exists($strategyPath) ? File::get($strategyPath) : '';
         $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
+        $inboxActions = File::exists($inboxActionsPath) ? File::get($inboxActionsPath) : '';
+        $replayService = File::exists($replayServicePath) ? File::get($replayServicePath) : '';
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $api = File::exists($apiPath) ? File::get($apiPath) : '';
@@ -3297,9 +3327,14 @@ class KernelArchitectureStaticScanner
             "'domain'",
             "'flow'",
             "'task_type'",
+            "'specialist_profile'",
             "'risk'",
             "'router_decision_id'",
             "'selection_mode'",
+            "'total_tokens'",
+            "'cost_microusd'",
+            "'cost_confidence'",
+            "'cost_mode'",
         ] as $token) {
             if (! str_contains($payload, $token)) {
                 $violations[] = "app/Services/Ai/Kernel/Evidence/ProviderUsagePayload.php: provider usage payload must keep AP-99 normalized field [{$token}]";
@@ -3314,8 +3349,11 @@ class KernelArchitectureStaticScanner
             "'provider_cli'",
             "'domain'",
             "'task_type'",
+            "'specialist_profile'",
             "'success_rate'",
             "'average_latency_seconds'",
+            "'average_cost_microusd'",
+            "'cost_confidence_counts'",
             "'groups'",
         ] as $token) {
             if (! str_contains($projection, $token)) {
@@ -3351,10 +3389,36 @@ class KernelArchitectureStaticScanner
             'ProviderPerformanceProjection $providerPerformance',
             'providerPerformanceFindings(',
             'self-improvement:provider-performance:',
+            'self-improvement:provider-cost-rates:',
+            'configure_provider_cost_rates',
             'atlas.provider_usage.v1',
         ] as $token) {
             if (! str_contains($selfImprovement, $token)) {
                 $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: provider_performance_review must consume AP-99 projection [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'configure_provider_cost_rates' => \$this->configureProviderCostRates(\$locked, \$input)",
+            'private readonly AiProviderCostRateService $providerCostRates',
+            'private function configureProviderCostRates(AiInboxItem $item, array $input): array',
+            "'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1'",
+            '$this->providerCostRates->upsert($rateTemplate)',
+        ] as $token) {
+            if (! str_contains($inboxActions, $token)) {
+                $violations[] = "app/Services/Ai/Mobile/InboxActionRegistry.php: AP-99 provider cost-rate Inbox action must close unknown-cost findings [{$token}]";
+            }
+        }
+
+        foreach ([
+            'provider_cost_rate_action_count',
+            'provider_cost_rate_applied_count',
+            'provider_cost_rate_provider_counts',
+            'configure_provider_cost_rates_action_without_applied_rate',
+            'provider_cost_rates_configured',
+        ] as $token) {
+            if (! str_contains($replayService, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-99 provider cost-rate Inbox action must be projected in replay reports [{$token}]";
             }
         }
 
@@ -3364,6 +3428,7 @@ class KernelArchitectureStaticScanner
             '$performance->reportForWindow(',
             "'provider_performance'",
             '{--provider=',
+            '{--specialist-profile=',
             "data_get(\$report, 'review_signal.status'",
         ] as $token) {
             if (! str_contains($command, $token)) {
@@ -3447,6 +3512,8 @@ class KernelArchitectureStaticScanner
             'AtlasAiProviderPerformanceCommandTest',
             'atlas:ai:provider-performance',
             'provider_performance.event_count',
+            'provider_performance.average_cost_microusd',
+            'provider_performance.cost_confidence_counts',
             'Review signal',
             'ledger_unavailable',
         ] as $token) {
@@ -3460,6 +3527,8 @@ class KernelArchitectureStaticScanner
             'test_provider_performance_report_summarizes_normalized_provider_usage',
             'provider_performance.success_rate',
             "'provider_cli' => 'codex_cli'",
+            'test_inbox_action_report_tool_exposes_provider_cost_rate_actions',
+            'provider_cost_rate_action_count',
         ] as $token) {
             if (! str_contains($mcpTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-99 provider performance MCP report must be covered [{$token}]";
@@ -3470,6 +3539,8 @@ class KernelArchitectureStaticScanner
             'AtlasAiProviderPerformanceApiTest',
             '/ai/provider-performance?hours=24&provider=codex_cli&domain=programming',
             'provider_performance.review_signal.status',
+            'provider_performance.average_cost_microusd',
+            'provider_performance.cost_confidence_counts.estimated',
             'wait_for_provider_usage_evidence',
         ] as $token) {
             if (! str_contains($apiTest, $token)) {
@@ -3482,6 +3553,8 @@ class KernelArchitectureStaticScanner
             'ProviderUsagePayload::SCHEMA_VERSION',
             'provider_performance.provider_counts.codex_cli',
             'provider_performance.review_signal.status',
+            'test_observability_payload_exposes_provider_cost_rate_inbox_actions',
+            'inbox_actions.provider_cost_rate_action_count',
         ] as $token) {
             if (! str_contains($observabilityTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-99 provider performance Observability payload must be covered [{$token}]";
@@ -8852,8 +8925,8 @@ class KernelArchitectureStaticScanner
             'ModelSelectionContractFactory',
             "\$preflight['model_selection_contract'] = \$this->modelSelectionContract(",
             "\$devPlan['model_selection_contract'] = \$this->modelSelectionContract(",
-            'private function modelSelectionContract(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array',
-            '->forCliDev($provider, $modelSelection, $modelOverride, $fairMode)',
+            'private function modelSelectionContract(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode, array $context = []): array',
+            '->forCliDev($provider, $modelSelection, $modelOverride, $fairMode, $context)',
         ] as $token) {
             if (! str_contains($dev, $token)) {
                 $violations[] = "app/Console/Commands/AtlasCliDevCommand.php: atlas dev must expose model_selection_contract with Atlas Decide authority [{$token}]";
@@ -8894,8 +8967,8 @@ class KernelArchitectureStaticScanner
         foreach ([
             'ModelSelectionContractFactory',
             "'model_selection_contract' => \$this->modelSelectionContract(",
-            'private function modelSelectionContract(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array',
-            '->forAiChat($provider, $modelSelection, $modelOverride, $fairMode)',
+            'private function modelSelectionContract(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode, array $context = []): array',
+            '->forAiChat($provider, $modelSelection, $modelOverride, $fairMode, $context)',
             "'model_selection_contract' => data_get(\$trace->metadata, 'model_selection_contract')",
         ] as $token) {
             if (! str_contains($chat, $token)) {
@@ -8946,8 +9019,8 @@ class KernelArchitectureStaticScanner
             'final class ModelSelectionContractFactory',
             "public const AUTHORITY = 'atlas_decide'",
             'public const AVAILABLE_SELECTION_MODES = [',
-            'public function forCliDev(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array',
-            'public function forAiChat(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array',
+            'public function forCliDev(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode, array $context = []): array',
+            'public function forAiChat(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode, array $context = []): array',
             "'schema_version' => \$schemaVersion",
             "'surface' => \$surface",
             "'authority' => self::AUTHORITY",
@@ -8955,6 +9028,8 @@ class KernelArchitectureStaticScanner
             "'available_selection_modes' => self::AVAILABLE_SELECTION_MODES",
             "'operator_requested_provider' => \$provider ?: 'auto'",
             "'requested_model' => \$modelOverride",
+            "'specialist_profile' => \$specialistProfile",
+            'specialistProfile(array $context)',
         ] as $token) {
             if (! str_contains($factory, $token)) {
                 $violations[] = "app/Services/Ai/Kernel/Decision/ModelSelectionContractFactory.php: kernel must own the shared model selection contract shape [{$token}]";
@@ -8964,6 +9039,7 @@ class KernelArchitectureStaticScanner
         foreach ([
             'test_cli_dev_contract_defaults_to_auto_best_allowed_under_decide_authority',
             'test_ai_chat_contract_preserves_manual_provider_model_and_alias',
+            'test_contract_carries_specialist_profile_without_changing_decide_authority',
             'test_fair_mode_is_audited_as_manual_override_without_provider',
             "'atlas.cli_dev.model_selection_contract.v1'",
             "'atlas.ai_chat.model_selection_contract.v1'",
@@ -9777,6 +9853,226 @@ class KernelArchitectureStaticScanner
             }
             if (! str_contains($apDoc, $token)) {
                 $violations[] = "docs/ap/AP-143-ledger-projection-curator-action-emission.md: AP-143 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanRivalsReviewInboxActionContract(): array
+    {
+        $actionsPath = app_path('Services/Ai/Mobile/InboxActionRegistry.php');
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $replayPath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
+        $inboxActionTestPath = base_path('tests/Feature/Ai/InboxLedgerProjectionActionTest.php');
+        $replayTestPath = base_path('tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiInboxActionReportApiTest.php');
+        $observabilityTestPath = base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-144-rivals-review-inbox-action-contract.md');
+
+        $actions = File::exists($actionsPath) ? File::get($actionsPath) : '';
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $inboxActionTest = File::exists($inboxActionTestPath) ? File::get($inboxActionTestPath) : '';
+        $replayTest = File::exists($replayTestPath) ? File::get($replayTestPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        $violations = [];
+
+        foreach ([
+            "'record_rivals_review' => \$this->recordRivalsReview(\$locked, \$input)",
+            'private readonly AtlasRivalsStrategyReviewRecorder $rivalsStrategyReviewRecorder',
+            'private readonly AtlasRivalsStrategyReadModel $rivalsStrategy',
+            'private function recordRivalsReview(AiInboxItem $item, array $input): array',
+            "'schema_version' => 'atlas.inbox_action.rivals_review.v1'",
+            "'operator_scored' => true",
+            "'no_external_action' => true",
+            '$this->rivalsStrategyReviewRecorder->record',
+        ] as $token) {
+            if (! str_contains($actions, $token)) {
+                $violations[] = "app/Services/Ai/Mobile/InboxActionRegistry.php: AP-144 Rivals review Inbox action must record human scores safely [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'id' => 'record_rivals_review'",
+            "'payload' => [",
+            "'due_reviews' =>",
+            "'record_command_template' => 'atlas ai rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json'",
+            "'rivals_strategy_due_review'",
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-144 Curator must emit actionable Rivals review proposals [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'rivals_review_schema_version' => data_get(\$result, 'rivals_review_action.schema_version')",
+            "'rivals_review_id' => data_get(\$result, 'rivals_review_action.recorded_review_id')",
+            "'rivals_regret_score' => data_get(\$result, 'rivals_review_action.scores.regret')",
+            "'rivals_alignment_score' => data_get(\$result, 'rivals_review_action.scores.alignment')",
+            "'rivals_agency_score' => data_get(\$result, 'rivals_review_action.scores.agency')",
+            "'rivals_review_recorded_count' => \$rivalsReviewRecordedCount",
+            "'rivals_strategy_human_scores_recorded'",
+        ] as $token) {
+            if (! str_contains($replay, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-144 Rivals review action must be projected from Evidence Ledger [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_inbox_action_records_rivals_review_with_human_scores_and_ledger_evidence',
+            'record_rivals_review',
+            'atlas.inbox_action.rivals_review.v1',
+            'LedgerEventType::InboxActionRecorded',
+        ] as $token) {
+            if (! str_contains($inboxActionTest, $token)) {
+                $violations[] = "tests/Feature/Ai/InboxLedgerProjectionActionTest.php: AP-144 Inbox action execution must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_inbox_action_window_report_projects_rivals_review_scores',
+            'rivals_review_recorded_count',
+            'rivals_review_with_scores_count',
+            'rivals_strategy_human_scores_recorded',
+        ] as $token) {
+            if (! str_contains($replayTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php: AP-144 Ledger replay projection must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_command_exposes_rivals_review_scores_as_json',
+            'record_rivals_review',
+            'rivals_review_with_scores_count',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php: AP-144 CLI report must expose Rivals review scores [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_inbox_action_report_api_exposes_rivals_review_scores',
+            'record_rivals_review',
+            'rivals_review_with_scores_count',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiInboxActionReportApiTest.php: AP-144 API report must expose Rivals review scores [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_observability_payload_exposes_rivals_review_inbox_action_scores',
+            'record_rivals_review',
+            'rivals_review_with_scores_count',
+        ] as $token) {
+            if (! str_contains($observabilityTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-144 Observability must expose Rivals review scores [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_inbox_action_report_tool_exposes_rivals_review_scores',
+            'record_rivals_review',
+            'rivals_review_with_scores_count',
+        ] as $token) {
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-144 MCP report must expose Rivals review scores [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-144',
+            'Rivals Review Inbox Action Contract',
+            'record_rivals_review',
+            'atlas.inbox_action.rivals_review.v1',
+            'rivals_strategy_human_scores_recorded',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-144 Rivals review Inbox action must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-144-rivals-review-inbox-action-contract.md: AP-144 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanDocumentationHealthCuratorReview(): array
+    {
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-145-documentation-health-curator-review.md');
+        $docOsPath = base_path('docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+        $docOs = File::exists($docOsPath) ? File::get($docOsPath) : '';
+        $violations = [];
+
+        foreach ([
+            'private function documentationHealthFindings(array $filters = []): array',
+            'atlas.self_improvement.documentation_health_gap.v1',
+            'split_oversized_active_docs',
+            'documentation.oversized_docs',
+            'split_required_grandfathered',
+            'self-improvement:documentation-health:',
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-145 Documentation Health must become Curator findings [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_self_improvement_detects_oversized_active_documentation_from_architecture_validation',
+            'atlas.self_improvement.documentation_health_gap.v1',
+            'split_oversized_active_docs',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-145 Documentation Health Curator review must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-145',
+            'Documentation Health Curator Review',
+            'atlas.self_improvement.documentation_health_gap.v1',
+            'split_oversized_active_docs',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-145 Documentation Health Curator review must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-145-documentation-health-curator-review.md: AP-145 contract doc must exist [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Documentation Health Curator Review',
+            'atlas.self_improvement.documentation_health_gap.v1',
+            'split_oversized_active_docs',
+        ] as $token) {
+            if (! str_contains($docOs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md: AP-145 must be named in Documentation OS [{$token}]";
             }
         }
 

@@ -133,6 +133,10 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
             collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
         );
         $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md',
+            collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
+        );
+        $this->assertContains(
             'docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md',
             collect(data_get($payload, 'oversized_docs', []))->pluck('path')->all(),
         );

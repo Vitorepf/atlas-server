@@ -239,8 +239,9 @@ atlas ai architecture-validate --json
 ```
 
 `docs-health` e o scanner documental direto. `architecture-validate` consome
-esse scanner como gate de arquitetura, entao qualquer IA que altera docs ou
-arquitetura precisa manter a governanca verde.
+esse scanner como gate de arquitetura, e Documentation Health Curator Review
+converte `split_required` em `atlas.self_improvement.documentation_health_gap.v1`
+com `split_oversized_active_docs`.
 
 ## Definition Of Done
 

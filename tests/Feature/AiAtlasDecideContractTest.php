@@ -69,10 +69,15 @@ class AiAtlasDecideContractTest extends TestCase
         $this->assertTrue(data_get($decision->signals, 'kernel_contracts.execution_allowed'));
         $this->assertSame('atlas_app', data_get($decision->signals, 'kernel_contracts.surface.surface_id'));
         $this->assertSame('gemini_cli', data_get($decision->signals, 'kernel_contracts.provider.provider_id'));
+        $this->assertSame(88, $decision->confidence_score);
+        $this->assertSame('high', data_get($decision->signals, 'selection_explanation.confidence_band'));
+        $this->assertSame('gemini_cli', data_get($decision->signals, 'selection_explanation.selected_provider'));
+        $this->assertSame('research', data_get($decision->signals, 'selection_explanation.primary_signals.task_type'));
         $resource = (new AiDecisionResource($decision))->resolve();
         $this->assertTrue(data_get($resource, 'kernel_contracts.valid'));
         $this->assertSame('atlas_app', data_get($resource, 'kernel_contracts.surface.surface_id'));
         $this->assertSame('gemini_cli', data_get($resource, 'kernel_contracts.provider.provider_id'));
+        $this->assertSame('high', data_get($resource, 'selection_explanation.confidence_band'));
         $this->assertIsArray($decision->candidates);
         $this->assertNotEmpty($decision->candidates);
     }
@@ -136,6 +141,8 @@ class AiAtlasDecideContractTest extends TestCase
             ->assertJsonPath('decision.kernel_contracts.surface.surface_id', 'atlas_cli_dev')
             ->assertJsonPath('decision.kernel_contracts.provider.provider_id', 'codex_cli')
             ->assertJsonPath('decision.receipt_v2.metadata.kernel_contracts.surface.surface_id', 'atlas_cli_dev')
+            ->assertJsonPath('decision.selection_explanation.confidence_band', 'high')
+            ->assertJsonPath('decision.receipt_v2.provider_selection.selection_explanation.selected_provider', 'codex_cli')
             ->assertJsonPath('decision.was_overridden', false);
     }
 

@@ -6,6 +6,7 @@ use App\Models\AiJob;
 use App\Models\AiProviderCostRate;
 use App\Models\AiTrace;
 use App\Services\Ai\AiProviderModelResolver;
+use App\Services\Ai\AiProviderResult;
 use Illuminate\Support\Facades\Schema;
 
 class AiCostEstimator
@@ -26,7 +27,9 @@ class AiCostEstimator
      * every environment.
      */
     public const COST_CONFIDENCE_METERED = 'metered';
+
     public const COST_CONFIDENCE_ESTIMATED = 'estimated';
+
     public const COST_CONFIDENCE_UNKNOWN = 'unknown';
 
     /**
@@ -42,9 +45,7 @@ class AiCostEstimator
         self::LEGACY_COST_CONFIDENCE_ACTUAL,
     ];
 
-    public function __construct(private readonly AiProviderModelResolver $models)
-    {
-    }
+    public function __construct(private readonly AiProviderModelResolver $models) {}
 
     /**
      * @return array{prompt_tokens:?int,completion_tokens:?int,total_tokens:?int,estimated_tokens:?int,token_source:?string,cost_microusd:?int,cost_confidence:string,cost_source:string,cost_mode:string}
@@ -104,6 +105,63 @@ class AiCostEstimator
     }
 
     /**
+     * @return array{prompt_tokens:?int,completion_tokens:?int,total_tokens:?int,estimated_tokens:?int,token_source:?string,cost_microusd:?int,cost_confidence:string,cost_source:string,cost_mode:string}
+     */
+    public function estimateProviderResult(AiJob $job, ?AiProviderResult $result = null, ?string $providerOverride = null, ?string $modelOverride = null): array
+    {
+        $usage = $this->providerResultUsage($job, $result);
+        $promptTokens = $usage['prompt_tokens'];
+        $completionTokens = $usage['completion_tokens'];
+        $totalTokens = $usage['total_tokens'];
+        $tokenSource = $usage['source'];
+
+        $estimatedTokens = null;
+        if ($totalTokens === null) {
+            $estimatedPrompt = $this->estimateTokens((string) ($job->prompt ?: $job->input_text));
+            $estimatedCompletion = $this->estimateTokens((string) ($result?->output ?: $job->result_text));
+            $estimatedTokens = $estimatedPrompt + $estimatedCompletion;
+            $promptTokens = $estimatedPrompt;
+            $completionTokens = $estimatedCompletion;
+            $totalTokens = $estimatedTokens;
+            $tokenSource = 'estimated_chars';
+        }
+
+        $provider = $providerOverride ?: $job->provider;
+        $model = $this->models->resolve($provider, $modelOverride ?: $job->model);
+        $rate = $this->rateFor($provider, $model);
+        if (! $rate) {
+            return [
+                'prompt_tokens' => $promptTokens,
+                'completion_tokens' => $completionTokens,
+                'total_tokens' => $totalTokens,
+                'estimated_tokens' => $estimatedTokens,
+                'token_source' => $tokenSource,
+                'cost_microusd' => null,
+                'cost_confidence' => self::COST_CONFIDENCE_UNKNOWN,
+                'cost_source' => $this->costSource($provider, $tokenSource, false),
+                'cost_mode' => 'unknown',
+            ];
+        }
+
+        $cost = (int) round(
+            (($promptTokens ?? 0) / 1000) * $rate->input_microusd_per_1k
+            + (($completionTokens ?? 0) / 1000) * $rate->output_microusd_per_1k
+        );
+
+        return [
+            'prompt_tokens' => $promptTokens,
+            'completion_tokens' => $completionTokens,
+            'total_tokens' => $totalTokens,
+            'estimated_tokens' => $estimatedTokens,
+            'token_source' => $tokenSource,
+            'cost_microusd' => $cost,
+            'cost_confidence' => $this->costConfidence($provider, $estimatedTokens),
+            'cost_source' => $this->costSource($provider, $tokenSource, true),
+            'cost_mode' => $this->costMode($provider, $estimatedTokens),
+        ];
+    }
+
+    /**
      * @return array{prompt_tokens:?int,completion_tokens:?int,total_tokens:?int,source:?string}
      */
     private function actualUsage(AiTrace $trace, ?AiJob $job): array
@@ -113,6 +171,53 @@ class AiCostEstimator
             $job?->metadata ?? [],
             $job?->result_json ?? [],
             $job?->payload ?? [],
+        ];
+
+        foreach ($sources as $source) {
+            if (! is_array($source)) {
+                continue;
+            }
+
+            $prompt = $this->positiveInt(data_get($source, 'usage.prompt_tokens'))
+                ?? $this->positiveInt(data_get($source, 'token_usage.prompt_tokens'))
+                ?? $this->positiveInt(data_get($source, 'prompt_tokens'));
+            $completion = $this->positiveInt(data_get($source, 'usage.completion_tokens'))
+                ?? $this->positiveInt(data_get($source, 'token_usage.completion_tokens'))
+                ?? $this->positiveInt(data_get($source, 'completion_tokens'));
+            $total = $this->positiveInt(data_get($source, 'usage.total_tokens'))
+                ?? $this->positiveInt(data_get($source, 'token_usage.total_tokens'))
+                ?? $this->positiveInt(data_get($source, 'total_tokens'));
+
+            if ($prompt !== null || $completion !== null || $total !== null) {
+                $total ??= ($prompt ?? 0) + ($completion ?? 0);
+
+                return [
+                    'prompt_tokens' => $prompt,
+                    'completion_tokens' => $completion,
+                    'total_tokens' => $total,
+                    'source' => 'provider_usage',
+                ];
+            }
+        }
+
+        return [
+            'prompt_tokens' => null,
+            'completion_tokens' => null,
+            'total_tokens' => null,
+            'source' => null,
+        ];
+    }
+
+    /**
+     * @return array{prompt_tokens:?int,completion_tokens:?int,total_tokens:?int,source:?string}
+     */
+    private function providerResultUsage(AiJob $job, ?AiProviderResult $result): array
+    {
+        $sources = [
+            $result?->metadata ?? [],
+            $job->metadata ?? [],
+            $job->result_json ?? [],
+            $job->payload ?? [],
         ];
 
         foreach ($sources as $source) {

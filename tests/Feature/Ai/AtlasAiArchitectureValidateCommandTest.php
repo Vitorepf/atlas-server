@@ -80,6 +80,10 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
             collect(data_get($payload, 'documentation.required_docs', []))->pluck('path')->all(),
         );
         $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md',
+            collect(data_get($payload, 'documentation.required_docs', []))->pluck('path')->all(),
+        );
+        $this->assertContains(
             'docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md',
             collect(data_get($payload, 'documentation.oversized_docs', []))->pluck('path')->all(),
         );
@@ -173,6 +177,7 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertContains('ap123_self_improvement_inbox_action_replay_review', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap124_observability_inbox_action_replay', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap125_inbox_action_report_surfaces', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap145_documentation_health_curator_review', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap126_architecture_validate_post_ap98_human_output', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap127_cli_help_architecture_operations_discovery', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap128_architecture_operations_shared_catalog', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
@@ -191,6 +196,7 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertContains('ap141_ledger_projection_registry_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap142_ledger_projection_inbox_action', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap143_ledger_projection_curator_action_emission', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap144_rivals_review_inbox_action_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap1_surface_provider_bypass.violations'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap2_surface_context_bypass.violations'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap6_decision_receipt_propagation.violations'));
@@ -397,7 +403,7 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(1, data_get($payload, 'domains.domain_count'));
         $this->assertGreaterThanOrEqual(1, data_get($payload, 'domains.flow_count'));
         $this->assertGreaterThanOrEqual(3, data_get($payload, 'onboarding.ready_domains'));
-        $this->assertGreaterThanOrEqual(1, data_get($payload, 'onboarding.scaffold_domains'));
+        $this->assertSame(0, data_get($payload, 'onboarding.scaffold_domains'));
         $this->assertSame(
             data_get($payload, 'onboarding.domain_count'),
             array_sum(data_get($payload, 'onboarding.status_counts'))

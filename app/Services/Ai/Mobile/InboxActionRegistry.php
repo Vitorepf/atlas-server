@@ -7,9 +7,12 @@ use App\Models\AiMessage;
 use App\Models\AiPerformanceRecommendation;
 use App\Models\AiThread;
 use App\Models\AtlasMobileDevice;
+use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReadModel;
+use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReviewRecorder;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Evidence\LedgerProjectionWorker;
+use App\Services\Ai\Telemetry\AiProviderCostRateService;
 use App\Services\Ai\Telemetry\Engine\RecommendationLifecycleService;
 use App\Services\AuditLogService;
 use Illuminate\Support\Carbon;
@@ -36,6 +39,9 @@ class InboxActionRegistry
         private readonly DiscussionBootstrapper $discussionBootstrapper,
         private readonly AtlasEvidenceLedger $ledger,
         private readonly LedgerProjectionWorker $ledgerProjectionWorker,
+        private readonly AtlasRivalsStrategyReviewRecorder $rivalsStrategyReviewRecorder,
+        private readonly AtlasRivalsStrategyReadModel $rivalsStrategy,
+        private readonly AiProviderCostRateService $providerCostRates,
     ) {}
 
     /**
@@ -97,6 +103,8 @@ class InboxActionRegistry
                 'view_trace', 'review_patch' => $this->readOnlyResult($locked, $actionId),
                 'create_proposal' => $this->createProposal($locked),
                 'run_ledger_projection' => $this->runLedgerProjection($locked, $input),
+                'record_rivals_review' => $this->recordRivalsReview($locked, $input),
+                'configure_provider_cost_rates' => $this->configureProviderCostRates($locked, $input),
                 'ignore_30d' => $this->ignoreThirtyDays($locked),
                 'acknowledge_recommendation', 'apply_recommendation', 'reject_recommendation' => $this->transitionRecommendation($locked, $actionId, $input),
                 default => throw ValidationException::withMessages(['action' => 'Action handler nao implementado.']),
@@ -606,6 +614,175 @@ class InboxActionRegistry
             'dry_run' => $dryRun,
             'command' => 'atlas:ai:ledger-project --hours='.$hours.' --limit='.$limit.($dryRun ? ' --dry-run' : '').' --json',
             'source_health_status' => $this->string($sourceHealth['status'] ?? null),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{item:AiInboxItem,recorded_review:array<string,mixed>,rivals_strategy:array<string,mixed>,rivals_review_action:array<string,mixed>,command:string,remaining_due_review_count:int}
+     */
+    private function recordRivalsReview(AiInboxItem $item, array $input): array
+    {
+        $payload = $item->payload ?? [];
+        $dueReviews = collect($this->array(data_get($payload, 'due_reviews')))
+            ->filter(fn (mixed $review): bool => is_array($review))
+            ->values();
+
+        $reviewId = $this->string($input['review_id'] ?? null);
+        $caseId = $this->string($input['case_id'] ?? null);
+        $horizonDays = $this->positiveInt($input['horizon_days'] ?? $input['review_horizon'] ?? null);
+
+        if ($reviewId === null && $caseId === null) {
+            $selected = $dueReviews->first();
+            if (is_array($selected)) {
+                $reviewId = $this->string($selected['review_id'] ?? null);
+                $caseId = $this->string($selected['case_id'] ?? null);
+                $horizonDays = $horizonDays ?? $this->positiveInt($selected['horizon_days'] ?? null);
+            }
+        }
+
+        try {
+            $recorded = $this->rivalsStrategyReviewRecorder->record([
+                'review_id' => $reviewId,
+                'case_id' => $caseId,
+                'review_horizon' => $horizonDays,
+                'regret_score' => $input['regret_score'] ?? $input['regret'] ?? null,
+                'alignment_score' => $input['alignment_score'] ?? $input['alignment'] ?? null,
+                'agency_score' => $input['agency_score'] ?? $input['agency'] ?? null,
+                'outcome_summary' => $this->string($input['outcome_summary'] ?? $input['outcome'] ?? null),
+                'recorded_by' => 'atlas.inbox.record_rivals_review',
+            ]);
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages(['action' => $exception->getMessage()]);
+        }
+
+        $recordedReviewId = $this->string($recorded['review_id'] ?? null);
+        $remainingDueReviews = $dueReviews
+            ->reject(fn (array $review): bool => $recordedReviewId !== null && $this->string($review['review_id'] ?? null) === $recordedReviewId)
+            ->values()
+            ->all();
+
+        $payload['due_reviews'] = $remainingDueReviews;
+        $payload['rivals_review_action'] = [
+            'schema_version' => 'atlas.inbox_action.rivals_review.v1',
+            'recorded_review_id' => $recordedReviewId,
+            'case_id' => $recorded['case_id'] ?? null,
+            'horizon_days' => $recorded['horizon_days'] ?? null,
+            'scores' => $recorded['scores'] ?? [],
+            'remaining_due_review_count' => count($remainingDueReviews),
+            'operator_scored' => true,
+            'no_external_action' => true,
+            'completed_at' => now()->toJSON(),
+        ];
+
+        data_set($payload, 'rivals_strategy.due_review_count', count($remainingDueReviews));
+
+        $resolved = count($remainingDueReviews) === 0;
+        $item->update([
+            'payload' => $payload,
+            'status' => $resolved ? 'resolved' : ($item->status === 'unread' ? 'read' : $item->status),
+            'read_at' => $item->read_at ?? now(),
+            'resolved_at' => $resolved ? now() : $item->resolved_at,
+        ]);
+
+        return [
+            'item' => $item->refresh(),
+            'recorded_review' => $recorded,
+            'rivals_strategy' => $this->rivalsStrategy->report(now()->subDays(365), now()->addDays(365)),
+            'rivals_review_action' => $payload['rivals_review_action'],
+            'command' => 'atlas:ai:rivals-strategy record-review --review-id='.($recordedReviewId ?? '<review-id>').' --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
+            'remaining_due_review_count' => count($remainingDueReviews),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{item:AiInboxItem,provider_cost_rate_action:array<string,mixed>,upserted_rate:?array<string,mixed>,rate_template:array<string,mixed>,applied:bool,command:string}
+     */
+    private function configureProviderCostRates(AiInboxItem $item, array $input): array
+    {
+        $payload = $item->payload ?? [];
+        $sourceRefs = collect($this->array(data_get($payload, 'proposal_contract.source_refs')))
+            ->filter(fn (mixed $ref): bool => is_array($ref))
+            ->values();
+        $firstProviderRef = $sourceRefs->first(fn (array $ref): bool => $this->string($ref['provider_cli'] ?? null) !== null);
+
+        $provider = $this->string($input['provider'] ?? $input['provider_cli'] ?? null)
+            ?? (is_array($firstProviderRef) ? $this->string($firstProviderRef['provider_cli'] ?? null) : null);
+        $model = $this->string($input['model'] ?? null)
+            ?? (is_array($firstProviderRef) ? $this->string($firstProviderRef['model'] ?? null) : null);
+        $inputRate = $this->positiveInt($input['input_microusd_per_1k'] ?? $input['input_microusd'] ?? null);
+        $outputRate = $this->positiveInt($input['output_microusd_per_1k'] ?? $input['output_microusd'] ?? null);
+        $currency = strtoupper($this->string($input['currency'] ?? null) ?? 'USD');
+        $effectiveFrom = $this->string($input['effective_from'] ?? null);
+        $effectiveUntil = $this->string($input['effective_until'] ?? null);
+
+        if ($provider === null || $model === null) {
+            throw ValidationException::withMessages(['action' => 'Informe provider/model ou mantenha source_refs com provider_cli/model.']);
+        }
+
+        $rateTemplate = [
+            'provider' => $provider,
+            'model' => $model,
+            'input_microusd_per_1k' => $inputRate ?? '<fill_current_input_microusd_per_1k>',
+            'output_microusd_per_1k' => $outputRate ?? '<fill_current_output_microusd_per_1k>',
+            'currency' => $currency,
+            'effective_from' => $effectiveFrom ?? now()->toJSON(),
+            'effective_until' => $effectiveUntil,
+            'metadata' => [
+                'source' => 'inbox_action',
+                'inbox_item_id' => $item->id,
+                'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+            ],
+        ];
+
+        $applied = $inputRate !== null && $outputRate !== null;
+        $rate = null;
+        if ($applied) {
+            try {
+                $rate = $this->providerCostRates->upsert($rateTemplate);
+            } catch (\Throwable $exception) {
+                throw ValidationException::withMessages(['action' => $exception->getMessage()]);
+            }
+        }
+
+        $payload['provider_cost_rate_action'] = [
+            'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+            'provider' => $provider,
+            'model' => $model,
+            'applied' => $applied,
+            'rate_id' => $rate?->id,
+            'currency' => $currency,
+            'input_microusd_per_1k' => $inputRate,
+            'output_microusd_per_1k' => $outputRate,
+            'completed_at' => now()->toJSON(),
+            'no_external_action' => false,
+        ];
+
+        $item->update([
+            'payload' => $payload,
+            'status' => $applied ? 'resolved' : ($item->status === 'unread' ? 'read' : $item->status),
+            'read_at' => $item->read_at ?? now(),
+            'resolved_at' => $applied ? now() : $item->resolved_at,
+        ]);
+
+        return [
+            'item' => $item->refresh(),
+            'provider_cost_rate_action' => $payload['provider_cost_rate_action'],
+            'upserted_rate' => $rate ? [
+                'id' => $rate->id,
+                'provider' => $rate->provider,
+                'model' => $rate->model,
+                'input_microusd_per_1k' => $rate->input_microusd_per_1k,
+                'output_microusd_per_1k' => $rate->output_microusd_per_1k,
+                'currency' => $rate->currency,
+                'effective_from' => $rate->effective_from?->toJSON(),
+                'effective_until' => $rate->effective_until?->toJSON(),
+                'metadata' => $rate->metadata ?? [],
+            ] : null,
+            'rate_template' => $rateTemplate,
+            'applied' => $applied,
+            'command' => 'atlas:ai:telemetry:cost-rates --provider='.$provider.' --model='.$model.' --input-microusd=<input> --output-microusd=<output> --json',
         ];
     }
 

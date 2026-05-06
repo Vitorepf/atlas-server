@@ -55,6 +55,53 @@ class DomainProfileComplianceTest extends TestCase
         $this->assertSame('plan_only', data_get($personalDevelopment, 'flow_profile.gate_policy.autonomy_ceiling'));
     }
 
+    public function test_general_declares_controlled_answer_and_handoff_flow(): void
+    {
+        $registry = app(AtlasDomainProfileRegistry::class);
+        $profile = $registry->resolve('general.answer');
+
+        $this->assertSame('general', $profile['domain_id']);
+        $this->assertSame('general.answer', $profile['flow_id']);
+        $this->assertSame('StandardResponseOrchestrator', data_get($profile, 'domain_profile.orchestrator'));
+        $this->assertSame('answer_or_triage_only', data_get($profile, 'domain_profile.gate_policy.autonomy_ceiling'));
+        $this->assertSame('general_answer_packet_runtime', data_get($profile, 'flow_profile.execution_policy.executor_preference'));
+        $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.specialized_work_allowed'));
+        $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.tool_execution_allowed'));
+        $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.provider_override_allowed'));
+    }
+
+    public function test_health_declares_non_clinical_review_only_flows(): void
+    {
+        $registry = app(AtlasDomainProfileRegistry::class);
+
+        $domain = $registry->resolve('health.review');
+
+        $this->assertSame('health', $domain['domain_id']);
+        $this->assertSame('AtlasHealthOrchestrator', data_get($domain, 'domain_profile.orchestrator'));
+        $this->assertSame('non_clinical_review_only', data_get($domain, 'domain_profile.gate_policy.autonomy_ceiling'));
+        $this->assertFalse((bool) data_get($domain, 'domain_profile.gate_policy.diagnosis_allowed'));
+        $this->assertFalse((bool) data_get($domain, 'domain_profile.gate_policy.treatment_allowed'));
+
+        foreach ([
+            'health.review' => 'HealthReviewRuntime',
+            'health.routine_review' => 'HealthRoutineRuntime',
+            'health.recovery_review' => 'HealthRecoveryRuntime',
+            'health.safety_review' => 'HealthSafetyRuntime',
+        ] as $flowId => $runtime) {
+            $profile = $registry->resolve($flowId);
+
+            $this->assertSame('health', $profile['domain_id'], $flowId);
+            $this->assertSame($flowId, $profile['flow_id']);
+            $this->assertSame('AtlasHealthOrchestrator', data_get($profile, 'flow_profile.orchestrator'));
+            $this->assertSame($runtime, data_get($profile, 'flow_profile.runtime'));
+            $this->assertSame('health_review_packet_runtime', data_get($profile, 'flow_profile.execution_policy.executor_preference'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.diagnosis_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.treatment_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.dosage_change_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.emergency_decision_allowed'));
+        }
+    }
+
     public function test_marketing_declares_full_growth_domain_flows(): void
     {
         $registry = app(AtlasDomainProfileRegistry::class);
@@ -87,6 +134,38 @@ class DomainProfileComplianceTest extends TestCase
         }
 
         $this->assertSame('domain_forge_runtime', data_get($registry->resolve('marketing.forge'), 'flow_profile.execution_policy.executor_preference'));
+    }
+
+    public function test_strategic_decision_declares_review_only_co_strategist_flows(): void
+    {
+        $registry = app(AtlasDomainProfileRegistry::class);
+
+        $domain = $registry->resolve('strategic_decision.review');
+
+        $this->assertSame('strategic_decision', $domain['domain_id']);
+        $this->assertSame('AtlasStrategicDecisionOrchestrator', data_get($domain, 'domain_profile.orchestrator'));
+        $this->assertSame('review_only', data_get($domain, 'domain_profile.gate_policy.autonomy_ceiling'));
+        $this->assertContains('rivals_strategy_cases', data_get($domain, 'domain_profile.context_policy.sources'));
+
+        foreach ([
+            'strategic_decision.review' => 'StrategicDecisionReviewRuntime',
+            'strategic_decision.cooldown' => 'StrategicDecisionCooldownRuntime',
+            'strategic_decision.values_alignment' => 'StrategicDecisionAlignmentRuntime',
+            'strategic_decision.counterargument' => 'StrategicDecisionCounterargumentRuntime',
+            'strategic_decision.regret_tracking' => 'StrategicDecisionRegretRuntime',
+            'strategic_decision.longitudinal_pattern' => 'StrategicDecisionPatternRuntime',
+        ] as $flowId => $runtime) {
+            $profile = $registry->resolve($flowId);
+
+            $this->assertSame('strategic_decision', $profile['domain_id'], $flowId);
+            $this->assertSame($flowId, $profile['flow_id']);
+            $this->assertSame('AtlasStrategicDecisionOrchestrator', data_get($profile, 'flow_profile.orchestrator'));
+            $this->assertSame($runtime, data_get($profile, 'flow_profile.runtime'));
+            $this->assertSame('review_only', data_get($profile, 'flow_profile.gate_policy.autonomy_ceiling'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.commitment_execution_allowed'));
+            $this->assertTrue((bool) data_get($profile, 'flow_profile.execution_policy.requires_human_approval'));
+            $this->assertContains('operator_agency', data_get($profile, 'flow_profile.gate_policy.global_required'));
+        }
     }
 
     public function test_self_improvement_declares_full_evolution_domain_flows(): void
@@ -206,6 +285,191 @@ class DomainProfileComplianceTest extends TestCase
         }
 
         $this->assertTrue((bool) data_get($registry->resolve('personal_development.forge'), 'flow_profile.execution_policy.forge_requires_human_approval'));
+    }
+
+    public function test_writing_declares_governed_draft_and_review_flows(): void
+    {
+        $registry = app(AtlasDomainProfileRegistry::class);
+
+        $domain = $registry->resolve('writing.draft');
+
+        $this->assertSame('writing', $domain['domain_id']);
+        $this->assertSame('AtlasWritingOrchestrator', data_get($domain, 'domain_profile.orchestrator'));
+        $this->assertSame('draft_and_review', data_get($domain, 'domain_profile.gate_policy.autonomy_ceiling'));
+        $this->assertContains('operator_voice_samples', data_get($domain, 'domain_profile.context_policy.sources'));
+
+        foreach ([
+            'writing.draft' => 'WritingRuntime',
+            'writing.edit' => 'WritingEditRuntime',
+            'writing.voice_review' => 'WritingVoiceRuntime',
+            'writing.publish_review' => 'WritingReviewRuntime',
+        ] as $flowId => $runtime) {
+            $profile = $registry->resolve($flowId);
+
+            $this->assertSame('writing', $profile['domain_id'], $flowId);
+            $this->assertSame($flowId, $profile['flow_id']);
+            $this->assertSame('AtlasWritingOrchestrator', data_get($profile, 'flow_profile.orchestrator'));
+            $this->assertSame($runtime, data_get($profile, 'flow_profile.runtime'));
+            $this->assertSame('writing_packet_runtime', data_get($profile, 'flow_profile.execution_policy.executor_preference'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.external_publish_allowed'));
+            $this->assertContains('human_review_required', data_get($profile, 'flow_profile.gate_policy.global_required'));
+        }
+    }
+
+    public function test_learning_declares_human_learning_plan_only_flows(): void
+    {
+        $registry = app(AtlasDomainProfileRegistry::class);
+
+        $domain = $registry->resolve('learning.plan');
+
+        $this->assertSame('learning', $domain['domain_id']);
+        $this->assertSame('AtlasLearningOrchestrator', data_get($domain, 'domain_profile.orchestrator'));
+        $this->assertSame('plan_only', data_get($domain, 'domain_profile.gate_policy.autonomy_ceiling'));
+        $this->assertFalse((bool) data_get($domain, 'domain_profile.gate_policy.core_learning_plane_mutation'));
+
+        foreach ([
+            'learning.plan' => 'LearningRuntime',
+            'learning.practice' => 'LearningPracticeRuntime',
+            'learning.review' => 'LearningReviewRuntime',
+            'learning.spaced_review' => 'LearningSpacedReviewRuntime',
+        ] as $flowId => $runtime) {
+            $profile = $registry->resolve($flowId);
+
+            $this->assertSame('learning', $profile['domain_id'], $flowId);
+            $this->assertSame($flowId, $profile['flow_id']);
+            $this->assertSame('AtlasLearningOrchestrator', data_get($profile, 'flow_profile.orchestrator'));
+            $this->assertSame($runtime, data_get($profile, 'flow_profile.runtime'));
+            $this->assertSame('learning_packet_runtime', data_get($profile, 'flow_profile.execution_policy.executor_preference'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.calendar_mutation'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.task_mutation'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.core_learning_plane_mutation'));
+        }
+    }
+
+    public function test_qa_declares_cross_domain_review_only_flows(): void
+    {
+        $registry = app(AtlasDomainProfileRegistry::class);
+
+        $domain = $registry->resolve('qa.regression_review');
+
+        $this->assertSame('qa', $domain['domain_id']);
+        $this->assertSame('AtlasQaOrchestrator', data_get($domain, 'domain_profile.orchestrator'));
+        $this->assertSame('review_only', data_get($domain, 'domain_profile.gate_policy.autonomy_ceiling'));
+        $this->assertFalse((bool) data_get($domain, 'domain_profile.gate_policy.test_execution_allowed'));
+        $this->assertFalse((bool) data_get($domain, 'domain_profile.gate_policy.domain_gate_override_allowed'));
+
+        foreach ([
+            'qa.regression_review' => 'QaRegressionRuntime',
+            'qa.acceptance_review' => 'QaAcceptanceRuntime',
+            'qa.evidence_audit' => 'QaEvidenceRuntime',
+            'qa.release_readiness' => 'QaReleaseRuntime',
+        ] as $flowId => $runtime) {
+            $profile = $registry->resolve($flowId);
+
+            $this->assertSame('qa', $profile['domain_id'], $flowId);
+            $this->assertSame($flowId, $profile['flow_id']);
+            $this->assertSame('AtlasQaOrchestrator', data_get($profile, 'flow_profile.orchestrator'));
+            $this->assertSame($runtime, data_get($profile, 'flow_profile.runtime'));
+            $this->assertSame('qa_packet_runtime', data_get($profile, 'flow_profile.execution_policy.executor_preference'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.test_execution_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.deploy_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.domain_gate_override_allowed'));
+        }
+    }
+
+    public function test_security_declares_defensive_review_only_flows(): void
+    {
+        $registry = app(AtlasDomainProfileRegistry::class);
+
+        $domain = $registry->resolve('security.threat_review');
+
+        $this->assertSame('security', $domain['domain_id']);
+        $this->assertSame('AtlasSecurityOrchestrator', data_get($domain, 'domain_profile.orchestrator'));
+        $this->assertSame('defensive_review_only', data_get($domain, 'domain_profile.gate_policy.autonomy_ceiling'));
+        $this->assertFalse((bool) data_get($domain, 'domain_profile.gate_policy.exploit_execution_allowed'));
+        $this->assertFalse((bool) data_get($domain, 'domain_profile.gate_policy.secret_access_allowed'));
+
+        foreach ([
+            'security.threat_review' => 'SecurityThreatRuntime',
+            'security.privacy_review' => 'SecurityPrivacyRuntime',
+            'security.compliance_review' => 'SecurityComplianceRuntime',
+            'security.incident_review' => 'SecurityIncidentRuntime',
+        ] as $flowId => $runtime) {
+            $profile = $registry->resolve($flowId);
+
+            $this->assertSame('security', $profile['domain_id'], $flowId);
+            $this->assertSame($flowId, $profile['flow_id']);
+            $this->assertSame('AtlasSecurityOrchestrator', data_get($profile, 'flow_profile.orchestrator'));
+            $this->assertSame($runtime, data_get($profile, 'flow_profile.runtime'));
+            $this->assertSame('security_packet_runtime', data_get($profile, 'flow_profile.execution_policy.executor_preference'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.exploit_execution_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.network_scan_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.secret_access_allowed'));
+        }
+    }
+
+    public function test_operations_declares_diagnostic_only_flows(): void
+    {
+        $registry = app(AtlasDomainProfileRegistry::class);
+
+        $domain = $registry->resolve('operations.diagnostic');
+
+        $this->assertSame('operations', $domain['domain_id']);
+        $this->assertSame('AtlasOperationsOrchestrator', data_get($domain, 'domain_profile.orchestrator'));
+        $this->assertSame('diagnostic_only', data_get($domain, 'domain_profile.gate_policy.autonomy_ceiling'));
+        $this->assertFalse((bool) data_get($domain, 'domain_profile.gate_policy.deploy_allowed'));
+        $this->assertFalse((bool) data_get($domain, 'domain_profile.gate_policy.infrastructure_mutation_allowed'));
+
+        foreach ([
+            'operations.diagnostic' => 'OperationsDiagnosticRuntime',
+            'operations.runbook' => 'OperationsRunbookRuntime',
+            'operations.incident_review' => 'OperationsIncidentRuntime',
+            'operations.readiness_review' => 'OperationsReadinessRuntime',
+        ] as $flowId => $runtime) {
+            $profile = $registry->resolve($flowId);
+
+            $this->assertSame('operations', $profile['domain_id'], $flowId);
+            $this->assertSame($flowId, $profile['flow_id']);
+            $this->assertSame('AtlasOperationsOrchestrator', data_get($profile, 'flow_profile.orchestrator'));
+            $this->assertSame($runtime, data_get($profile, 'flow_profile.runtime'));
+            $this->assertSame('operations_packet_runtime', data_get($profile, 'flow_profile.execution_policy.executor_preference'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.restart_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.deploy_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.infrastructure_mutation_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.data_deletion_allowed'));
+        }
+    }
+
+    public function test_background_declares_review_only_safety_flows(): void
+    {
+        $registry = app(AtlasDomainProfileRegistry::class);
+
+        $domain = $registry->resolve('background.safe');
+
+        $this->assertSame('background', $domain['domain_id']);
+        $this->assertSame('BackgroundSafetyOrchestrator', data_get($domain, 'domain_profile.orchestrator'));
+        $this->assertSame('review_only', data_get($domain, 'domain_profile.gate_policy.autonomy_ceiling'));
+        $this->assertFalse((bool) data_get($domain, 'domain_profile.gate_policy.start_jobs_allowed'));
+        $this->assertFalse((bool) data_get($domain, 'domain_profile.gate_policy.unbounded_loop_allowed'));
+
+        foreach ([
+            'background.safe' => 'BackgroundSafetyRuntime',
+            'background.readiness_review' => 'BackgroundReadinessRuntime',
+            'background.schedule_review' => 'BackgroundScheduleRuntime',
+            'background.permission_review' => 'BackgroundPermissionRuntime',
+        ] as $flowId => $runtime) {
+            $profile = $registry->resolve($flowId);
+
+            $this->assertSame('background', $profile['domain_id'], $flowId);
+            $this->assertSame($flowId, $profile['flow_id']);
+            $this->assertSame('BackgroundSafetyOrchestrator', data_get($profile, 'flow_profile.orchestrator'));
+            $this->assertSame($runtime, data_get($profile, 'flow_profile.runtime'));
+            $this->assertSame('background_safety_packet_runtime', data_get($profile, 'flow_profile.execution_policy.executor_preference'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.start_jobs_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.schedule_mutation_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.permission_escalation_allowed'));
+            $this->assertFalse((bool) data_get($profile, 'flow_profile.execution_policy.unbounded_loop_allowed'));
+        }
     }
 
     public function test_every_active_flow_has_executable_orchestrator_contract(): void

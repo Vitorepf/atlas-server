@@ -5,7 +5,7 @@ title: Atlas AI Programming Domain
 status: active
 category: architecture
 priority: 98
-summary: Spec canonica do dominio implemented/ready Programming para dev, repair, review, refactor, QA, security, database, visual e forge.
+summary: Spec canonica do dominio implemented/ready Programming para dev, repair, review, refactor, QA, security, database, visual, forge e specialist profiles internos.
 tags:
   - atlas-ai
   - domains
@@ -23,6 +23,7 @@ decisions:
   - `atlas dev`, `atlas forge`, `atlas fix`, `atlas continue`, chat dev/review/debug, API, app e MCP devem entrar por flows `programming.*`, nao por produtos paralelos.
   - Flows de harness, QA, security, database, visual e forge devem produzir evidence suficiente para gates e replay.
   - O dominio consome Core, Super Tool Runtime, Memory/Open Brain, Code Intelligence e Evidence Ledger; nao deve duplicar essas capacidades.
+  - Especialistas tecnicos como frontend, backend-api, mobile e performance vivem como specialist profiles dentro de Programming, nao como dominios paralelos.
 maintenance:
   - Atualize este documento quando flows programming, gates, executor preference, surfaces ou orchestrator mudarem.
   - Leia junto de atlas-ai-master-architecture.md, atlas-ai-operating-system.md, engineering-blueprint.md e programming-power-tools-catalog.md antes de alterar Programming runtime.
@@ -38,6 +39,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
   - docs/engineering-knowledge-base/engineering-blueprint.md
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md
+  - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
+  - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
 ---
 
 # Atlas AI Programming Domain
@@ -161,6 +164,21 @@ Programming flows devem declarar gates proporcionais ao risco:
 `programming.visual` e `programming.forge` devem preferir executor/harness
 capaz de produzir evidence auditavel. `programming.review` pode usar executor
 simples quando o output for somente findings.
+
+## Specialist Profiles
+
+`programming.visual` existe hoje, mas nao substitui um especialista frontend
+completo. A evolucao correta e manter Programming como dominio unico e adicionar
+specialist profiles internos, começando por `programming.frontend`.
+
+Perfis alvo: `programming.frontend`, `programming.backend_api`,
+`programming.mobile`, `programming.architecture`, `programming.performance`,
+`programming.accessibility`, `programming.testing`, `programming.api_contract`
+e `programming.devops_sre`.
+
+A regra completa vive em `programming-specialist-profiles.md`. Ate existir subflow
+formal, surfaces devem enviar `specialist_profile=programming.frontend` junto de
+`flow_id=programming.visual` ou `programming.dev`, nunca criar `domain_id=frontend`.
 
 ## Repair Loop Contract
 

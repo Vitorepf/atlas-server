@@ -17,6 +17,8 @@ capabilities:
   - implementation_status_navigation
   - evolution_navigation
   - runtime_language_boundaries
+  - local_ai_performance_strategy
+  - content_intelligence_curation
   - qualitative_levels_roadmap
 decisions:
   - Toda sessao nova deve conseguir responder o que e Atlas, o que existe, o que falta e como evoluir lendo este bootstrap e os docs apontados.
@@ -29,6 +31,9 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
+  - docs/engineering-knowledge-base/atlas-native-mac-agent.md
+  - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
+  - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
   - docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/START_HERE.md
@@ -63,6 +68,9 @@ passar pelo kernel e pelos dominios, nao ficar presa em uma surface.
 | Qual doc manda em caso de conflito? | `atlas-ai-canonical-architecture-index.md` |
 | Uma ideia e core, domain ou surface? | `atlas-ai-core-vs-domain.md` |
 | Python ou Go fazem sentido? | `atlas-ai-runtime-language-boundaries.md` |
+| Swift/macOS faz sentido? | `atlas-native-mac-agent.md` |
+| Como usar 48GB RAM para IA? | `atlas-ai-local-performance-memory-strategy.md` |
+| Como curar conteudo/YouTube/fontes? | `atlas-ai-content-intelligence-curation.md` |
 | Atlas mudou de patamar? | `atlas-ai-qualitative-levels-roadmap.md` |
 | Uma feature ja existe no codigo? | `rg`, Code Intelligence e testes |
 
@@ -79,7 +87,9 @@ passar pelo kernel e pelos dominios, nao ficar presa em uma surface.
 | Self-Improvement | Dominio implemented/ready inicial com runtime, scheduler, findings e proposal inbox |
 | Marketing | Scaffold/catalog-ready; nao tratar como mestre implementado ate ter runtime, gates e benchmarks |
 | Super Tool Runtime | Infra madura: tools, recipes, policy tiers, authority, evidence e gates |
-| Language Runtimes | Laravel e o Kernel; Python e AI/Data Runtime futuro; Go e Edge/Concurrency Runtime futuro |
+| Language Runtimes | Laravel e o Kernel; Python AI/Data, Go Edge e Swift Native Mac sao runtimes especializados futuros |
+| Local AI Performance | Contrato ativo para hot context, RAG local, rerank, cache, modelos locais e precompute com 48GB RAM |
+| Content Intelligence | Contrato ativo para curadoria, source quality, YouTube global, descarte e routing de conhecimento |
 | Qualitative Levels | P1 atual com pecas de P3/P5; P4+ exige evidence, Rivals e agency gates |
 | Memory/Open Brain | Infra ativa: context packs, MCP, code intelligence, auto injection e quality scoring |
 | AtlasVault/Obsidian | Human Knowledge Surface poderosa, nao fonte operacional primaria crua |
@@ -93,8 +103,10 @@ passar pelo kernel e pelos dominios, nao ficar presa em uma surface.
 4. Declarar feature inexistente sem buscar no codigo e nos docs.
 5. Declarar feature pronta quando ela e scaffold/catalog-ready.
 6. Expandir doc gigante quando o correto e dividir em spec menor.
-7. Criar Python/Go como cerebro paralelo fora do Laravel Kernel.
+7. Criar Python/Go/Swift como cerebro paralelo fora do Laravel Kernel.
 8. Implementar co-estrategista, ambiente ou self-mutation sem Rivals e agency gate.
+9. Usar tela, microfone, Keychain, Touch ID ou Accessibility sem opt-in, policy, receipt e evidence.
+10. Promover conteudo bruto, YouTube, RSS, scraping ou nota humana para memoria sem curadoria, privacy, source refs e review.
 
 ## Regra De Verificacao Antes De Opinar
 

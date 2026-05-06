@@ -17,7 +17,7 @@ final class ModelSelectionContractFactory
      * @param  array<string,mixed>|null  $modelSelection
      * @return array<string,mixed>
      */
-    public function forCliDev(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array
+    public function forCliDev(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode, array $context = []): array
     {
         return $this->make(
             schemaVersion: 'atlas.cli_dev.model_selection_contract.v1',
@@ -26,6 +26,7 @@ final class ModelSelectionContractFactory
             modelSelection: $modelSelection,
             modelOverride: $modelOverride,
             fairMode: $fairMode,
+            context: $context,
         );
     }
 
@@ -33,7 +34,7 @@ final class ModelSelectionContractFactory
      * @param  array<string,mixed>|null  $modelSelection
      * @return array<string,mixed>
      */
-    public function forAiChat(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array
+    public function forAiChat(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode, array $context = []): array
     {
         return $this->make(
             schemaVersion: 'atlas.ai_chat.model_selection_contract.v1',
@@ -42,6 +43,7 @@ final class ModelSelectionContractFactory
             modelSelection: $modelSelection,
             modelOverride: $modelOverride,
             fairMode: $fairMode,
+            context: $context,
         );
     }
 
@@ -49,9 +51,10 @@ final class ModelSelectionContractFactory
      * @param  array<string,mixed>|null  $modelSelection
      * @return array<string,mixed>
      */
-    private function make(string $schemaVersion, string $surface, ?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array
+    private function make(string $schemaVersion, string $surface, ?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode, array $context): array
     {
         $manual = $provider !== null || $modelSelection !== null || $modelOverride !== null || $fairMode;
+        $specialistProfile = $this->specialistProfile($context);
 
         return [
             'schema_version' => $schemaVersion,
@@ -63,7 +66,57 @@ final class ModelSelectionContractFactory
             'requested_model' => $modelOverride,
             'requested_model_alias' => is_string($modelSelection['alias'] ?? null) ? (string) $modelSelection['alias'] : null,
             'requested_model_source' => is_string($modelSelection['source'] ?? null) ? (string) $modelSelection['source'] : null,
+            'domain' => $this->scalar($context['domain'] ?? null),
+            'flow' => $this->scalar($context['flow'] ?? null),
+            'specialist_profile' => $specialistProfile,
+            'specialist_profile_source' => $specialistProfile === null ? null : $this->specialistProfileSource($context),
             'fair_mode' => $fairMode,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function specialistProfile(array $context): ?string
+    {
+        $explicit = $this->scalar($context['specialist_profile'] ?? null);
+        if ($explicit !== null) {
+            return $explicit;
+        }
+
+        $flow = $this->scalar($context['flow'] ?? null);
+        if ($flow === 'programming.visual' || $flow === 'programming.frontend') {
+            return 'programming.frontend';
+        }
+
+        $task = strtolower((string) ($context['task'] ?? ''));
+        foreach (['frontend', 'ui', 'layout', 'screen', 'tela', 'component', 'react', 'expo', 'mobile visual', 'design system'] as $needle) {
+            if (str_contains($task, $needle)) {
+                return 'programming.frontend';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function specialistProfileSource(array $context): string
+    {
+        if ($this->scalar($context['specialist_profile'] ?? null) !== null) {
+            return 'explicit_context';
+        }
+
+        if ($this->scalar($context['flow'] ?? null) !== null) {
+            return 'flow_or_task_inference';
+        }
+
+        return 'task_inference';
+    }
+
+    private function scalar(mixed $value): ?string
+    {
+        return is_scalar($value) && trim((string) $value) !== '' ? trim((string) $value) : null;
     }
 }

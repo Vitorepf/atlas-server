@@ -195,6 +195,13 @@ Documentacao operacional unica:
 - `docs/atlas-cli-5x-claude-code-plan.md`
 - `docs/atlas-cli-5x-codex-implementation-prompt.md`
 - `docs/atlas-cli-5x-codex-safety-context-prompt.md`
+- `docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md`
+- `docs/engineering-knowledge-base/atlas-native-mac-agent.md`
+- `docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md`
+- `docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md`
+- `docs/engineering-knowledge-base/atlas-ai-business-contexts.md`
+- `docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md`
+- `docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md`
 
 O CI obrigatorio do Atlas CLI fica em `.github/workflows/atlas-cli.yml` e roda testes, `git diff --check`, `atlas final --strict` e o gate estrutural de release usando stubs versionados em `scripts/ci`.
 

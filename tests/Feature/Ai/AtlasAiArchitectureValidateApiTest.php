@@ -136,6 +136,7 @@ class AtlasAiArchitectureValidateApiTest extends TestCase
         $this->assertContains('ap131_self_improvement_architecture_operations_review', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap132_architecture_operations_metadata_contract', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap133_architecture_operations_filter_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap145_documentation_health_curator_review', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap134_decision_receipt_hash_runtime_guard', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap135_decision_receipt_determinism_test', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap136_decision_receipt_chain_replay', $response->json('kernel.static_scan.summary.valid_keys'));
@@ -146,6 +147,7 @@ class AtlasAiArchitectureValidateApiTest extends TestCase
         $this->assertContains('ap141_ledger_projection_registry_contract', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap142_ledger_projection_inbox_action', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap143_ledger_projection_curator_action_emission', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap144_rivals_review_inbox_action_contract', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertSame([], $response->json('kernel.static_scan.summary.failed_keys'));
         $this->assertSame([], $response->json('kernel.static_scan.ap35_surface_adapter_parity_map_coverage.unmapped_adapters'));
     }

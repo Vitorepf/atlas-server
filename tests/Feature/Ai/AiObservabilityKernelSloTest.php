@@ -123,6 +123,9 @@ class AiObservabilityKernelSloTest extends TestCase
         $commands = array_column($response->json('architecture_operations.commands'), 'command');
 
         $this->assertSame(count($commands), $response->json('architecture_operations.command_count'));
+        $this->assertContains('atlas engineering knowledge docs-health --json', $commands);
+        $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
+        $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
         $this->assertContains('atlas ai provider-performance --hours=24 --json', $commands);
         $this->assertContains('atlas ai self-improvement-schedule-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', $commands);
@@ -393,6 +396,150 @@ class AiObservabilityKernelSloTest extends TestCase
         $this->assertSame(['operator_cli' => 1], $response->json('inbox_actions.actor_type_counts'));
         $this->assertSame(['review_observability_patch' => 1], $response->json('inbox_actions.recommended_action_counts'));
         $this->assertContains('review_patch_action_without_diff_refs', $response->json('inbox_actions.review_signal.reasons'));
+    }
+
+    public function test_observability_payload_exposes_rivals_review_inbox_action_scores(): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => '01HOBSERVABILITYRIVALSREVIEW1',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_observability',
+            'operator_id' => 'operator_cli',
+            'envelope_id' => 'inbox_item:observability-rivals-review',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'observability-rivals-review',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::InboxActionRecorded->value,
+            'emitter_stage' => 'atlas.inbox',
+            'emitter_version' => 'atlas.inbox_action.v1',
+            'payload' => [
+                'schema_version' => 'atlas.inbox_action.v1',
+                'action' => 'record_rivals_review',
+                'inbox_item' => [
+                    'id' => 'observability-rivals-review',
+                    'type' => 'proposal',
+                    'category' => 'self_improvement',
+                    'severity' => 'medium',
+                    'status' => 'resolved',
+                    'source_type' => 'atlas_self_improvement',
+                    'source_id' => 'finding-rivals-review',
+                    'dedupe_key' => 'dedupe-rivals-review',
+                ],
+                'actor' => [
+                    'type' => 'operator_cli',
+                    'id' => null,
+                ],
+                'result' => [
+                    'payload' => [
+                        'action' => 'record_rivals_review',
+                        'diff_refs' => [],
+                    ],
+                    'rivals_review_action' => [
+                        'schema_version' => 'atlas.inbox_action.rivals_review.v1',
+                        'recorded_review_id' => 'review-observability-rivals',
+                        'case_id' => 'case-observability-rivals',
+                        'horizon_days' => 30,
+                        'scores' => ['regret' => 5, 'alignment' => 95, 'agency' => 90],
+                        'remaining_due_review_count' => 0,
+                    ],
+                ],
+                'review_signal' => [
+                    'status' => 'ok',
+                    'severity' => 'none',
+                    'recommended_action' => 'record_due_rivals_strategy_reviews',
+                ],
+                'recommended_action' => 'record_due_rivals_strategy_reviews',
+            ],
+            'payload_hash' => hash('sha256', 'observability-rivals-review'),
+            'occurred_at' => now(),
+        ]);
+
+        $response = $this->getJson('/ai/observability?hours=24', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('inbox_actions.available', true)
+            ->assertJsonPath('inbox_actions.rivals_review_recorded_count', 1)
+            ->assertJsonPath('inbox_actions.rivals_review_with_scores_count', 1)
+            ->assertJsonPath('inbox_actions.review_signal.status', 'ok')
+            ->assertJsonPath('inbox_actions.review_signal.recommended_action', 'none')
+            ->assertJsonPath('inbox_actions.recent_events.0.action', 'record_rivals_review')
+            ->assertJsonPath('inbox_actions.recent_events.0.rivals_review_id', 'review-observability-rivals')
+            ->assertJsonPath('inbox_actions.recent_events.0.rivals_agency_score', 90);
+
+        $this->assertContains('rivals_strategy_human_scores_recorded', $response->json('inbox_actions.review_signal.reasons'));
+    }
+
+    public function test_observability_payload_exposes_provider_cost_rate_inbox_actions(): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => '01HOBSERVABILITYCOSTRATE001',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_observability',
+            'operator_id' => 'operator_cli',
+            'envelope_id' => 'inbox_item:observability-provider-cost-rate',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'observability-provider-cost-rate',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::InboxActionRecorded->value,
+            'emitter_stage' => 'atlas.inbox',
+            'emitter_version' => 'atlas.inbox_action.v1',
+            'payload' => [
+                'schema_version' => 'atlas.inbox_action.v1',
+                'action' => 'configure_provider_cost_rates',
+                'inbox_item' => [
+                    'id' => 'observability-provider-cost-rate',
+                    'type' => 'proposal',
+                    'category' => 'self_improvement',
+                    'severity' => 'medium',
+                    'status' => 'resolved',
+                    'source_type' => 'atlas_self_improvement',
+                    'source_id' => 'finding-provider-cost-rate',
+                    'dedupe_key' => 'dedupe-provider-cost-rate',
+                ],
+                'actor' => [
+                    'type' => 'operator_cli',
+                    'id' => null,
+                ],
+                'result' => [
+                    'payload' => [
+                        'action' => 'configure_provider_cost_rates',
+                        'diff_refs' => [],
+                    ],
+                    'provider_cost_rate_action' => [
+                        'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                        'provider' => 'claude_cli',
+                        'model' => 'opus',
+                        'input_microusd_per_1k' => 300,
+                        'output_microusd_per_1k' => 1500,
+                        'currency' => 'USD',
+                        'applied' => true,
+                    ],
+                ],
+                'review_signal' => [
+                    'status' => 'ok',
+                    'severity' => 'none',
+                    'recommended_action' => 'configure_provider_cost_rates',
+                ],
+                'recommended_action' => 'configure_provider_cost_rates',
+            ],
+            'payload_hash' => hash('sha256', 'observability-provider-cost-rate'),
+            'occurred_at' => now(),
+        ]);
+
+        $response = $this->getJson('/ai/observability?hours=24', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('inbox_actions.available', true)
+            ->assertJsonPath('inbox_actions.provider_cost_rate_action_count', 1)
+            ->assertJsonPath('inbox_actions.provider_cost_rate_applied_count', 1)
+            ->assertJsonPath('inbox_actions.review_signal.status', 'ok')
+            ->assertJsonPath('inbox_actions.review_signal.recommended_action', 'none')
+            ->assertJsonPath('inbox_actions.recent_events.0.action', 'configure_provider_cost_rates')
+            ->assertJsonPath('inbox_actions.recent_events.0.provider_cost_rate_provider', 'claude_cli')
+            ->assertJsonPath('inbox_actions.recent_events.0.provider_cost_rate_model', 'opus')
+            ->assertJsonPath('inbox_actions.recent_events.0.provider_cost_rate_output_microusd', 1500);
+
+        $this->assertContains('provider_cost_rates_configured', $response->json('inbox_actions.review_signal.reasons'));
     }
 
     public function test_observability_payload_includes_self_improvement_schedule(): void

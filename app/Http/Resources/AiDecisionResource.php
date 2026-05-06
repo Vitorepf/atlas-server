@@ -28,6 +28,7 @@ class AiDecisionResource extends JsonResource
             'requested_provider' => $this->requested_provider,
             'was_overridden' => (bool) $this->was_overridden,
             'confidence_score' => $this->confidence_score,
+            'selection_explanation' => Metadata::forResponse(data_get($this->signals, 'selection_explanation')),
             'kernel_contracts' => Metadata::forResponse(data_get($this->signals, 'kernel_contracts')),
             'signals' => Metadata::forResponse($this->signals),
             'candidates' => Metadata::listForResponse($this->candidates),

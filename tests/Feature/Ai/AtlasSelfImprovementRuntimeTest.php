@@ -8,6 +8,8 @@ use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
+use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyCaseRegistrar;
+use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReviewRecorder;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -33,6 +35,8 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         Schema::dropIfExists('atlas_open_brain_access_logs');
         Schema::dropIfExists('atlas_initiative_runs');
         Schema::dropIfExists('atlas_ledger_events');
+        Schema::dropIfExists('atlas_strategy_rivals_reviews');
+        Schema::dropIfExists('atlas_strategy_rivals_cases');
 
         parent::tearDown();
     }
@@ -203,6 +207,140 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         ]);
     }
 
+    public function test_provider_performance_review_emits_reviewable_policy_patch_candidate(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::ProviderReturned, [
+            'schema_version' => 'atlas.provider_usage.v1',
+            'provider_cli' => 'codex_cli',
+            'model_name_if_available' => 'gpt-5.5',
+            'domain' => 'programming',
+            'flow' => 'programming.frontend',
+            'task_type' => 'programming',
+            'specialist_profile' => 'programming.frontend',
+            'risk' => 'high',
+            'phase' => 'returned',
+            'exit_status' => 'failed',
+            'failure_reason' => 'visual_regression',
+            'selection_mode' => 'auto_best_allowed',
+            'latency_seconds' => 91.2,
+            'repair_count' => 2,
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'provider_perf_env_1',
+            'correlation_id' => 'provider_perf_env_1',
+            'emitter_stage' => 'ai.worker',
+            'emitter_version' => 'test',
+        ]);
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::ProviderFallback, [
+            'schema_version' => 'atlas.provider_usage.v1',
+            'provider_cli' => 'codex_cli',
+            'model_name_if_available' => 'gpt-5.5',
+            'domain' => 'programming',
+            'flow' => 'programming.frontend',
+            'task_type' => 'programming',
+            'specialist_profile' => 'programming.frontend',
+            'phase' => 'fallback',
+            'exit_status' => 'fallback',
+            'failure_reason' => 'provider_timeout',
+            'fallback_provider' => 'claude_cli',
+            'selection_mode' => 'auto_best_allowed',
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'provider_perf_env_2',
+            'correlation_id' => 'provider_perf_env_2',
+            'emitter_stage' => 'ai.worker',
+            'emitter_version' => 'test',
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'provider_performance_review',
+            emit: false,
+            hours: 24,
+            limit: 5,
+            filters: [
+                'domain' => 'programming',
+                'specialist_profile' => 'programming.frontend',
+            ],
+        );
+
+        $finding = collect($result['findings'])->firstWhere('title', 'Revisar matriz empirica de providers');
+
+        $this->assertIsArray($finding);
+        $this->assertSame('atlas.self_improvement.provider_performance.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('open_reviewable_provider_policy_patch', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('proposal_only', data_get($finding, 'metadata.policy_patch_candidate.status'));
+        $this->assertSame('atlas_decide_model_selection_policy', data_get($finding, 'metadata.policy_patch_candidate.target'));
+        $this->assertSame('programming.frontend', data_get($finding, 'source_refs.0.specialist_profile'));
+        $this->assertSame(['programming.frontend' => 2], data_get($finding, 'metadata.specialist_profile_counts'));
+        $this->assertSame(2, data_get($finding, 'metadata.unknown_cost_count'));
+        $this->assertSame(['unknown' => 2], data_get($finding, 'metadata.cost_confidence_counts'));
+        $this->assertSame('run_provider_benchmark', data_get($finding, 'metadata.available_actions.0.id'));
+        $this->assertSame('draft_model_selection_policy_patch', data_get($finding, 'metadata.available_actions.1.id'));
+        $this->assertSame('configure_provider_cost_rates', data_get($finding, 'metadata.available_actions.2.id'));
+        $this->assertSame('run_provider_benchmark', data_get($finding, 'available_actions.0.id'));
+    }
+
+    public function test_provider_performance_review_emits_cost_rate_finding_when_quality_is_ok_but_cost_is_unknown(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::ProviderReturned, [
+            'schema_version' => 'atlas.provider_usage.v1',
+            'provider_cli' => 'codex_cli',
+            'model_name_if_available' => 'gpt-5.5',
+            'domain' => 'programming',
+            'flow' => 'programming.frontend',
+            'task_type' => 'programming',
+            'specialist_profile' => 'programming.frontend',
+            'risk' => 'medium',
+            'phase' => 'returned',
+            'exit_status' => 'succeeded',
+            'failure_reason' => null,
+            'selection_mode' => 'auto_best_allowed',
+            'latency_seconds' => 8.1,
+            'repair_count' => 0,
+            'total_tokens' => 800,
+            'estimated_tokens' => 800,
+            'token_source' => 'estimated_chars',
+            'cost_microusd' => null,
+            'cost_confidence' => 'unknown',
+            'cost_source' => 'missing_cost_rate',
+            'cost_mode' => 'unknown',
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'provider_cost_env_1',
+            'correlation_id' => 'provider_cost_env_1',
+            'emitter_stage' => 'ai.worker',
+            'emitter_version' => 'test',
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'provider_performance_review',
+            emit: false,
+            hours: 24,
+            limit: 5,
+            filters: [
+                'domain' => 'programming',
+                'specialist_profile' => 'programming.frontend',
+            ],
+        );
+
+        $policyFinding = collect($result['findings'])->firstWhere('title', 'Revisar matriz empirica de providers');
+        $costFinding = collect($result['findings'])->firstWhere('title', 'Configurar rates de custo dos providers');
+
+        $this->assertNull($policyFinding);
+        $this->assertIsArray($costFinding);
+        $this->assertSame('atlas.self_improvement.provider_cost_rates.v1', data_get($costFinding, 'metadata.schema_version'));
+        $this->assertSame('configure_provider_cost_rates', data_get($costFinding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame(1, data_get($costFinding, 'metadata.unknown_cost_count'));
+        $this->assertSame(['unknown' => 1], data_get($costFinding, 'metadata.cost_confidence_counts'));
+        $this->assertSame('configure_provider_cost_rates', data_get($costFinding, 'available_actions.0.id'));
+        $this->assertSame('atlas.provider_cost_rates.proposal.v1', data_get($costFinding, 'payload.provider_cost_rates.schema_version'));
+        $this->assertSame('codex_cli', data_get($costFinding, 'source_refs.0.provider_cli'));
+        $this->assertSame('missing_cost_rate', data_get($costFinding, 'source_refs.0.cost_source'));
+    }
+
     public function test_self_improvement_detects_kernel_slo_drift_from_replay_service(): void
     {
         app(AtlasEvidenceLedger::class)->record(LedgerEventType::SloObserved, [
@@ -284,6 +422,119 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame(['codex_cli' => 1], data_get($finding, 'metadata.dimensions.provider'));
         $this->assertSame('env_slo_breach', data_get($finding, 'source_refs.0.envelope_id'));
         $this->assertSame('atlas_cli_dev', data_get($finding, 'source_refs.0.dimensions.surface_id'));
+    }
+
+    public function test_self_improvement_detects_rivals_strategy_cases_without_scores(): void
+    {
+        app(AtlasRivalsStrategyCaseRegistrar::class)->register([
+            'title' => 'Escolher direcao do Atlas',
+            'baseline_choice' => 'Decisao direta',
+            'atlas_assisted_choice' => 'Revisao estrategica plan-only',
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'domain_learning_review',
+            emit: false,
+            hours: 24,
+            limit: 20,
+        );
+
+        $finding = collect($result['findings'])->firstWhere(
+            'dedupe_key',
+            'self-improvement:rivals-strategy:'.sha1('due-reviews:1'),
+        );
+
+        $this->assertIsArray($finding);
+        $this->assertSame('Registrar revisitas pendentes do Rivals Strategy', $finding['title']);
+        $this->assertSame('atlas.self_improvement.rivals_strategy.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('record_due_rivals_strategy_reviews', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame(1, data_get($finding, 'metadata.case_count'));
+        $this->assertSame(0, data_get($finding, 'metadata.scored_review_count'));
+        $this->assertSame(1, data_get($finding, 'metadata.due_review_count'));
+        $this->assertSame('rivals_strategy_due_review', data_get($finding, 'source_refs.0.type'));
+        $this->assertStringContainsString('record-review', data_get($finding, 'source_refs.0.record_command'));
+        $this->assertSame('record_rivals_review', data_get($finding, 'available_actions.0.id'));
+        $this->assertSame(1, data_get($finding, 'payload.rivals_strategy.due_review_count'));
+        $this->assertStringContainsString('record-review', data_get($finding, 'payload.due_reviews.0.record_command'));
+    }
+
+    public function test_self_improvement_emits_rivals_due_review_payload_to_inbox(): void
+    {
+        app(AtlasRivalsStrategyCaseRegistrar::class)->register([
+            'title' => 'Escolher direcao do Atlas',
+            'baseline_choice' => 'Decisao direta',
+            'atlas_assisted_choice' => 'Revisao estrategica plan-only',
+        ]);
+
+        $inboxItem = new AiInboxItem;
+        $inboxItem->id = '00000000-0000-0000-0000-000000000321';
+        $capturedPayload = null;
+
+        $this->mock(ProposalInboxEmitter::class, function ($mock) use ($inboxItem, &$capturedPayload): void {
+            $mock->shouldReceive('emit')
+                ->andReturnUsing(function (array $payload) use ($inboxItem, &$capturedPayload): AiInboxItem {
+                    if (($payload['dedupe_key'] ?? null) === 'self-improvement:rivals-strategy:'.sha1('due-reviews:1')) {
+                        $capturedPayload = $payload;
+                    }
+
+                    return $inboxItem;
+                });
+        });
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'domain_learning_review',
+            emit: true,
+            hours: 24,
+            limit: 20,
+        );
+
+        $learningEvent = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'self_improvement_run:'.$result['run_id'])
+            ->where('event_type', LedgerEventType::LearningProposed->value)
+            ->get()
+            ->first(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'finding.dedupe_key') === 'self-improvement:rivals-strategy:'.sha1('due-reviews:1'));
+
+        $this->assertIsArray($capturedPayload);
+        $this->assertSame('record_rivals_review', data_get($capturedPayload, 'available_actions.0.id'));
+        $this->assertSame(1, data_get($capturedPayload, 'payload.rivals_strategy.due_review_count'));
+        $this->assertStringContainsString('record-review', data_get($capturedPayload, 'payload.due_reviews.0.record_command'));
+        $this->assertTrue((bool) data_get($learningEvent?->payload, 'emitted_to_inbox'));
+        $this->assertSame($inboxItem->id, data_get($learningEvent?->payload, 'emitted_inbox_item_id'));
+    }
+
+    public function test_self_improvement_blocks_p4_when_rivals_agency_score_is_low(): void
+    {
+        $registration = app(AtlasRivalsStrategyCaseRegistrar::class)->register([
+            'title' => 'Escolher direcao do Atlas',
+            'baseline_choice' => 'Decisao direta',
+            'atlas_assisted_choice' => 'Revisao estrategica plan-only',
+        ]);
+        app(AtlasRivalsStrategyReviewRecorder::class)->record([
+            'case_id' => $registration['case_id'],
+            'horizon_days' => 30,
+            'regret_score' => 8,
+            'alignment_score' => 90,
+            'agency_score' => 55,
+            'outcome_summary' => 'Resultado bom, mas o operador sentiu baixa agencia.',
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'domain_learning_review',
+            emit: false,
+            hours: 24,
+            limit: 20,
+        );
+
+        $finding = collect($result['findings'])->firstWhere(
+            'dedupe_key',
+            'self-improvement:rivals-strategy:'.sha1('agency-low:55'),
+        );
+
+        $this->assertIsArray($finding);
+        $this->assertSame('Bloquear claims P4 por agency score baixo', $finding['title']);
+        $this->assertSame(55.0, data_get($finding, 'metadata.average_agency_score'));
+        $this->assertSame('high', data_get($finding, 'metadata.review_signal.severity'));
+        $this->assertSame('pause_p4_claims_and_review_operator_agency', data_get($finding, 'metadata.review_signal.recommended_action'));
     }
 
     public function test_self_improvement_detects_repair_loop_patterns_from_replay_service(): void
@@ -501,7 +752,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('atlas.ai_chat.kernel_pipeline_guard', data_get($finding, 'source_refs.0.emitter_stage'));
     }
 
-    public function test_self_improvement_detects_domain_onboarding_scaffolds_from_catalog(): void
+    public function test_self_improvement_domain_onboarding_filter_accepts_absent_scaffolds(): void
     {
         $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
             flow: 'domain_learning_review',
@@ -517,12 +768,8 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
 
         $this->assertSame('self_improvement.domain_learning_review', $result['flow']);
         $this->assertSame(['onboarding_status' => 'scaffold'], $result['filters']);
-        $this->assertIsArray($finding);
-        $this->assertSame('Priorizar dominios scaffold no roadmap de habilidades', $finding['title']);
-        $this->assertGreaterThanOrEqual(1, data_get($finding, 'metadata.scaffold_domains'));
-        $this->assertSame(['scaffold' => data_get($finding, 'metadata.domain_count')], data_get($finding, 'metadata.onboarding_status_counts'));
-        $this->assertSame('scaffold', data_get($finding, 'source_refs.0.onboarding_status'));
-        $this->assertContains('maturity_gate', data_get($finding, 'source_refs.0.missing_phases'));
+        $this->assertNull($finding);
+        $this->assertSame(0, collect($result['findings'])->where('title', 'Priorizar dominios scaffold no roadmap de habilidades')->count());
     }
 
     public function test_self_improvement_detects_open_brain_retrieval_required_source_gaps(): void
@@ -560,7 +807,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
             flow: 'domain_learning_review',
             emit: false,
             hours: 24,
-            limit: 5,
+            limit: 20,
         );
 
         $finding = collect($result['findings'])->firstWhere(
@@ -637,7 +884,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
             flow: 'domain_learning_review',
             emit: true,
             hours: 24,
-            limit: 5,
+            limit: 20,
         );
 
         $finding = collect($result['findings'])->first(
@@ -805,6 +1052,84 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame(300, data_get($finding, 'source_refs.0.lag_seconds'));
     }
 
+    public function test_self_improvement_detects_oversized_active_documentation_from_architecture_validation(): void
+    {
+        $this->mock(AtlasAiArchitectureValidationService::class, function ($mock): void {
+            $mock->shouldReceive('payload')->once()->andReturn([
+                'schema_version' => 1,
+                'status' => 'ok',
+                'kernel' => [
+                    'valid' => true,
+                    'ledger_projections' => [
+                        'drift' => ['available' => true, 'status' => 'ok', 'attention_count' => 0],
+                    ],
+                    'static_scan' => [
+                        'valid' => true,
+                        'summary' => [
+                            'total_count' => 136,
+                            'passed_count' => 136,
+                            'failed_count' => 0,
+                            'failed_keys' => [],
+                            'violation_count' => 0,
+                        ],
+                    ],
+                ],
+                'documentation' => [
+                    'valid' => true,
+                    'status' => 'ok',
+                    'summary' => [
+                        'doc_count' => 64,
+                        'oversized_count' => 2,
+                        'required_missing_count' => 0,
+                        'frontmatter_violation_count' => 0,
+                    ],
+                    'oversized_docs' => [
+                        [
+                            'path' => 'docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md',
+                            'line_count' => 4020,
+                            'limit' => 300,
+                            'status' => 'split_required',
+                            'recommended_action' => 'split this active doc into focused specs before adding new responsibilities',
+                        ],
+                        [
+                            'path' => 'docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md',
+                            'line_count' => 3599,
+                            'limit' => 300,
+                            'status' => 'split_required_grandfathered',
+                            'recommended_action' => 'split Kernel APs into focused contract specs before adding new sections',
+                        ],
+                    ],
+                    'violations' => [],
+                ],
+                'capabilities' => ['valid' => true],
+                'domains' => ['valid' => true],
+                'orchestrators' => ['valid' => true],
+                'onboarding' => [],
+                'validated_at' => '2026-05-06T05:00:00Z',
+            ]);
+        });
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'docs_drift_review',
+            emit: false,
+            hours: 24,
+            limit: 5,
+        );
+
+        $finding = collect($result['findings'])->firstWhere(
+            'dedupe_key',
+            'self-improvement:documentation-health:'.sha1('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md:1')
+        );
+
+        $this->assertIsArray($finding);
+        $this->assertSame('Dividir documentacao ativa acima do limite de contexto', $finding['title']);
+        $this->assertSame('atlas.self_improvement.documentation_health_gap.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame(2, data_get($finding, 'metadata.oversized_count'));
+        $this->assertSame(1, data_get($finding, 'metadata.split_required_count'));
+        $this->assertSame('split_oversized_active_docs', data_get($finding, 'payload.recommended_action'));
+        $this->assertSame('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md', data_get($finding, 'source_refs.0.id'));
+    }
+
     public function test_self_improvement_emits_ledger_projection_drift_proposal_with_assisted_action(): void
     {
         $this->mock(AtlasAiArchitectureValidationService::class, function ($mock): void {
@@ -949,7 +1274,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
 
         $finding = collect($result['findings'])->firstWhere(
             'dedupe_key',
-            'self-improvement:architecture-operations:'.sha1('arquitetura_mae:atlas ai architecture-operations --json,atlas ai slo --hours=24 --json,atlas ai kernel-pipeline-report --hours=24 --json,atlas ai repair-report --hours=24 --json,atlas ai provider-performance --hours=24 --json,atlas ai decision-receipt-report --envelope=<id> --json,atlas ledger replay --envelope=<id> --json,atlas ai ledger-project --limit=500 --json,atlas ai self-improvement-schedule-report --hours=24 --json,atlas ai inbox-action-report --hours=24 --json:1:1')
+            'self-improvement:architecture-operations:'.sha1('arquitetura_mae:atlas ai architecture-operations --json,atlas engineering knowledge docs-health --json,atlas engineering knowledge sync --prune --json,atlas engineering knowledge index-code --prune --json,atlas ai slo --hours=24 --json,atlas ai kernel-pipeline-report --hours=24 --json,atlas ai repair-report --hours=24 --json,atlas ai provider-performance --hours=24 --json,atlas ai qualitative-levels --hours=720 --json,atlas ai rivals-strategy report --hours=8760 --json,atlas ai rivals-strategy due-reviews --due-days=30 --json,atlas ai strategic-decision review --json,atlas ai decision-receipt-report --envelope=<id> --json,atlas ledger replay --envelope=<id> --json,atlas ai ledger-project --limit=500 --json,atlas ai self-improvement-schedule-report --hours=24 --json,atlas ai inbox-action-report --hours=24 --json:1:1')
         );
 
         $this->assertSame('self_improvement.weekly_architecture_audit', $result['flow']);
@@ -961,7 +1286,14 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame(1, data_get($finding, 'metadata.actual_command_count'));
         $this->assertFalse((bool) data_get($finding, 'metadata.count_mismatch'));
         $this->assertContains('atlas ai architecture-operations --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas engineering knowledge docs-health --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas engineering knowledge sync --prune --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas engineering knowledge index-code --prune --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai decision-receipt-report --envelope=<id> --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai qualitative-levels --hours=720 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai rivals-strategy report --hours=8760 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai rivals-strategy due-reviews --due-days=30 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai strategic-decision review --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ledger replay --envelope=<id> --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai ledger-project --limit=500 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
@@ -1171,6 +1503,42 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame(['action' => 'review_patch'], data_get($finding, 'metadata.filters'));
     }
 
+    public function test_self_improvement_detects_rivals_review_action_without_scores(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXRIVALSNOSCORE0001',
+            inboxItemId: 'inbox-rivals-no-score-1',
+            action: 'record_rivals_review',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'medium',
+            recommendedAction: 'record_due_rivals_strategy_reviews',
+        );
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'self_improvement.weekly_architecture_audit',
+            emit: false,
+            hours: 24,
+            limit: 10,
+            filters: ['action' => 'record_rivals_review'],
+        );
+
+        $finding = collect($result['findings'])
+            ->firstWhere('dedupe_key', 'self-improvement:inbox-action-replay:'.sha1('24:record_rivals_review_action_without_scores'));
+
+        $this->assertIsArray($finding);
+        $this->assertSame('Corrigir revisao do Rivals Strategy sem scores humanos', $finding['title']);
+        $this->assertSame('atlas.self_improvement.inbox_action_replay_gap.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('record_rivals_review_action_without_scores', data_get($finding, 'metadata.gap_type'));
+        $this->assertSame(1, data_get($finding, 'metadata.rivals_review_recorded_count'));
+        $this->assertSame(0, data_get($finding, 'metadata.rivals_review_with_scores_count'));
+        $this->assertContains('record_rivals_review_action_without_scores', data_get($finding, 'metadata.review_signal.reasons'));
+        $this->assertSame('record_rivals_review', data_get($finding, 'source_refs.0.action'));
+        $this->assertSame('record_due_rivals_strategy_reviews', data_get($finding, 'source_refs.0.recommended_action'));
+        $this->assertNull(data_get($finding, 'source_refs.0.rivals_agency_score'));
+        $this->assertSame(['action' => 'record_rivals_review'], data_get($finding, 'metadata.filters'));
+    }
+
     public function test_self_improvement_detects_decision_receipt_replay_hash_gap(): void
     {
         $this->recordDecisionReceiptEvent(
@@ -1322,9 +1690,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
             fn (array $finding): bool => str_starts_with((string) ($finding['dedupe_key'] ?? ''), 'self-improvement:domain-onboarding:')
         );
 
-        $this->assertIsArray($finding);
-        $this->assertSame('Priorizar dominios scaffold no roadmap de habilidades', $finding['title']);
-        $this->assertSame('scaffold', data_get($finding, 'source_refs.0.onboarding_status'));
+        $this->assertNull($finding);
     }
 
     public function test_self_improvement_command_accepts_slo_dimension_filters(): void
@@ -1715,6 +2081,8 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
             $table->timestamp('accessed_at')->nullable()->index();
             $table->timestamps();
         });
+
+        (require database_path('migrations/2026_05_06_120000_create_atlas_strategy_rivals_tables.php'))->up();
     }
 
     /**

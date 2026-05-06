@@ -100,6 +100,9 @@ class DecisionReceiptIssuer
             'fallbacks' => $this->stringList($selection['fallbacks'] ?? []),
             'selection_mode' => $this->validModelSelectionMode($selection['selection_mode'] ?? 'auto_best_allowed'),
             'selection_reason' => $this->string($selection['selection_reason'] ?? ''),
+            'selection_explanation' => is_array($selection['selection_explanation'] ?? null) ? $selection['selection_explanation'] : null,
+            'confidence_score' => is_numeric($selection['confidence_score'] ?? null) ? (int) $selection['confidence_score'] : null,
+            'confidence_band' => $this->optionalString($selection['confidence_band'] ?? null),
             'manual_override' => is_array($selection['manual_override'] ?? null) ? $selection['manual_override'] : null,
         ];
 

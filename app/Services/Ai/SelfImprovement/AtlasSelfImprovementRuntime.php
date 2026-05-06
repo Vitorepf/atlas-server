@@ -7,6 +7,7 @@ use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
+use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReadModel;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
@@ -40,6 +41,7 @@ class AtlasSelfImprovementRuntime
         private readonly AtlasSelfImprovementScheduleService $schedule,
         private readonly AtlasSelfImprovementInput $input,
         private readonly ProviderPerformanceProjection $providerPerformance,
+        private readonly AtlasRivalsStrategyReadModel $rivalsStrategy,
     ) {}
 
     /**
@@ -165,12 +167,14 @@ class AtlasSelfImprovementRuntime
             'self_improvement.weekly_architecture_audit',
             'self_improvement.domain_learning_review' => [
                 ...$this->architectureValidationFindings($filters),
+                ...$this->documentationHealthFindings($filters),
                 ...$this->ledgerProjectionDriftFindings($filters),
                 ...$this->architectureOperationsFindings($filters),
                 ...$this->selfImprovementScheduleFindings($filters),
                 ...$this->selfImprovementScheduleReplayFindings($hours, $filters),
                 ...$this->inboxActionReplayFindings($hours, $filters),
                 ...$this->decisionReceiptReplayFindings($events, $filters),
+                ...$this->rivalsStrategyFindings($hours, $filters),
                 ...$this->openBrainRetrievalFindings($hours, $filters),
                 ...$this->domainOnboardingFindings($filters),
                 ...$this->sloDriftFindings($events, $filters),
@@ -193,11 +197,13 @@ class AtlasSelfImprovementRuntime
             ],
             default => [
                 ...$this->architectureValidationFindings($filters),
+                ...$this->documentationHealthFindings($filters),
                 ...$this->ledgerProjectionDriftFindings($filters),
                 ...$this->architectureOperationsFindings($filters),
                 ...$this->selfImprovementScheduleReplayFindings($hours, $filters),
                 ...$this->inboxActionReplayFindings($hours, $filters),
                 ...$this->decisionReceiptReplayFindings($events, $filters),
+                ...$this->rivalsStrategyFindings($hours, $filters),
                 ...$this->openBrainRetrievalFindings($hours, $filters),
                 ...$this->domainOnboardingFindings($filters),
                 ...$this->sloDriftFindings($events, $filters),
@@ -365,9 +371,10 @@ class AtlasSelfImprovementRuntime
         $findings = [];
         $fallbackCount = (int) ($report['fallback_count'] ?? 0);
         $failureCount = (int) ($report['failure_count'] ?? 0);
+        $unknownCostCount = (int) ($report['unknown_cost_count'] ?? 0);
         $successRate = $report['success_rate'];
 
-        if ($fallbackCount > 0 || $failureCount > 0 || (is_float($successRate) && $successRate < 0.8)) {
+        if ($fallbackCount > 0 || $failureCount > 0 || (is_numeric($successRate) && (float) $successRate < 0.8)) {
             $findings[] = [
                 'title' => 'Revisar matriz empirica de providers',
                 'category' => 'self_improvement',
@@ -377,6 +384,14 @@ class AtlasSelfImprovementRuntime
                 'worth_it' => 'Vale porque melhora qualidade e desempenho sem depender de opiniao fixa sobre Claude, Codex ou Gemini.',
                 'best_solution_rationale' => 'A projection usa provider usage normalizado no Evidence Ledger, preservando receipt, router decision e outcome no mesmo rastro auditavel.',
                 'alternatives' => ['Manter observacao ate haver mais amostras.', 'Executar benchmark pareado antes de promover mudanca de roteamento.'],
+                'available_actions' => [
+                    ['id' => 'run_provider_benchmark', 'label' => 'Rodar benchmark', 'style' => 'secondary'],
+                    ['id' => 'draft_model_selection_policy_patch', 'label' => 'Rascunhar policy patch', 'style' => 'primary'],
+                    ['id' => 'configure_provider_cost_rates', 'label' => 'Configurar rates', 'style' => 'secondary'],
+                    ['id' => 'review_patch', 'label' => 'Revisar evidencia', 'style' => 'secondary'],
+                    ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
+                    ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
+                ],
                 'source_refs' => collect((array) ($report['recent_events'] ?? []))
                     ->take(5)
                     ->map(fn (array $event): array => [
@@ -384,8 +399,12 @@ class AtlasSelfImprovementRuntime
                         'id' => $event['event_id'] ?? null,
                         'envelope_id' => $event['envelope_id'] ?? null,
                         'provider_cli' => $event['provider_cli'] ?? null,
+                        'model' => $event['model'] ?? null,
                         'domain' => $event['domain'] ?? null,
+                        'flow' => $event['flow'] ?? null,
                         'task_type' => $event['task_type'] ?? null,
+                        'specialist_profile' => $event['specialist_profile'] ?? null,
+                        'selection_mode' => $event['selection_mode'] ?? null,
                         'exit_status' => $event['exit_status'] ?? null,
                         'failure_reason' => $event['failure_reason'] ?? null,
                     ])
@@ -402,13 +421,120 @@ class AtlasSelfImprovementRuntime
                     'success_rate' => $successRate,
                     'average_latency_seconds' => $report['average_latency_seconds'] ?? null,
                     'average_repair_count' => $report['average_repair_count'] ?? null,
+                    'total_tokens' => $report['total_tokens'] ?? 0,
+                    'average_total_tokens' => $report['average_total_tokens'] ?? null,
+                    'total_cost_microusd' => $report['total_cost_microusd'] ?? 0,
+                    'average_cost_microusd' => $report['average_cost_microusd'] ?? null,
+                    'costed_event_count' => $report['costed_event_count'] ?? 0,
+                    'unknown_cost_count' => $unknownCostCount,
+                    'cost_confidence_counts' => $report['cost_confidence_counts'] ?? [],
+                    'cost_mode_counts' => $report['cost_mode_counts'] ?? [],
                     'provider_counts' => $report['provider_counts'] ?? [],
                     'domain_counts' => $report['domain_counts'] ?? [],
                     'task_type_counts' => $report['task_type_counts'] ?? [],
+                    'specialist_profile_counts' => $report['specialist_profile_counts'] ?? [],
                     'failure_reason_counts' => $report['failure_reason_counts'] ?? [],
                     'selection_mode_counts' => $report['selection_mode_counts'] ?? [],
                     'groups' => $report['groups'] ?? [],
                     'filters' => $report['filters'] ?? [],
+                    'schema_version' => 'atlas.self_improvement.provider_performance.v1',
+                    'review_signal' => [
+                        'status' => 'warning',
+                        'severity' => $fallbackCount > 0 ? 'high' : 'medium',
+                        'recommended_action' => 'open_reviewable_provider_policy_patch',
+                    ],
+                    'policy_patch_candidate' => [
+                        'status' => 'proposal_only',
+                        'target' => 'atlas_decide_model_selection_policy',
+                        'operation' => 'adjust_provider_preference_or_require_benchmark',
+                        'dimensions' => ['provider', 'model', 'domain', 'flow', 'task_type', 'specialist_profile'],
+                        'requires_human_review' => true,
+                    ],
+                    'available_actions' => [
+                        [
+                            'id' => 'run_provider_benchmark',
+                            'label' => 'Run provider benchmark',
+                            'mode' => 'assisted',
+                        ],
+                        [
+                            'id' => 'draft_model_selection_policy_patch',
+                            'label' => 'Draft model selection policy patch',
+                            'mode' => 'proposal_only',
+                        ],
+                        [
+                            'id' => 'configure_provider_cost_rates',
+                            'label' => 'Configure provider cost rates',
+                            'mode' => 'assisted',
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        if ($unknownCostCount > 0) {
+            $findings[] = [
+                'title' => 'Configurar rates de custo dos providers',
+                'category' => 'self_improvement',
+                'finding' => "AP-99 encontrou {$unknownCostCount} evento(s) com custo desconhecido na janela analisada.",
+                'problem' => 'Sem rates de custo, o Dynamic Compute Market consegue comparar qualidade e latencia, mas nao consegue otimizar custo de forma honesta.',
+                'solution' => 'Configurar ai_provider_cost_rates para provider/modelos usados e manter cost_confidence, cost_source e cost_mode auditaveis no Provider Usage Event.',
+                'worth_it' => 'Vale porque fecha o triangulo qualidade + latencia + custo sem permitir que o Atlas invente numeros.',
+                'best_solution_rationale' => 'O custo deve nascer no contrato AP-99 e ser consumido por Decide, Curator, CLI, API e MCP, evitando planilhas ou heuristicas paralelas.',
+                'alternatives' => ['Continuar em modo shadow usando apenas qualidade e latencia.', 'Rodar benchmark controlado com custo manual antes de ativar budgets automaticos.'],
+                'available_actions' => [
+                    ['id' => 'configure_provider_cost_rates', 'label' => 'Configurar rates', 'style' => 'primary'],
+                    ['id' => 'review_patch', 'label' => 'Revisar evidencia', 'style' => 'secondary'],
+                    ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
+                    ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
+                ],
+                'payload' => [
+                    'provider_cost_rates' => [
+                        'schema_version' => 'atlas.provider_cost_rates.proposal.v1',
+                        'unknown_cost_count' => $unknownCostCount,
+                        'cost_confidence_counts' => $report['cost_confidence_counts'] ?? [],
+                        'cost_mode_counts' => $report['cost_mode_counts'] ?? [],
+                    ],
+                ],
+                'source_refs' => collect((array) ($report['recent_events'] ?? []))
+                    ->where('cost_confidence', 'unknown')
+                    ->take(5)
+                    ->map(fn (array $event): array => [
+                        'type' => 'ledger_event',
+                        'id' => $event['event_id'] ?? null,
+                        'envelope_id' => $event['envelope_id'] ?? null,
+                        'provider_cli' => $event['provider_cli'] ?? null,
+                        'model' => $event['model'] ?? null,
+                        'domain' => $event['domain'] ?? null,
+                        'flow' => $event['flow'] ?? null,
+                        'task_type' => $event['task_type'] ?? null,
+                        'specialist_profile' => $event['specialist_profile'] ?? null,
+                        'cost_source' => $event['cost_source'] ?? null,
+                        'cost_mode' => $event['cost_mode'] ?? null,
+                    ])
+                    ->values()
+                    ->all(),
+                'confidence' => 0.82,
+                'dedupe_key' => 'self-improvement:provider-cost-rates:'.sha1(json_encode($report['cost_confidence_counts'] ?? [], JSON_THROW_ON_ERROR).':'.$unknownCostCount),
+                'metadata' => [
+                    'schema_version' => 'atlas.self_improvement.provider_cost_rates.v1',
+                    'unknown_cost_count' => $unknownCostCount,
+                    'costed_event_count' => $report['costed_event_count'] ?? 0,
+                    'cost_confidence_counts' => $report['cost_confidence_counts'] ?? [],
+                    'cost_mode_counts' => $report['cost_mode_counts'] ?? [],
+                    'token_source_counts' => $report['token_source_counts'] ?? [],
+                    'filters' => $report['filters'] ?? [],
+                    'review_signal' => [
+                        'status' => 'warning',
+                        'severity' => 'medium',
+                        'recommended_action' => 'configure_provider_cost_rates',
+                    ],
+                    'available_actions' => [
+                        [
+                            'id' => 'configure_provider_cost_rates',
+                            'label' => 'Configure provider cost rates',
+                            'mode' => 'assisted',
+                        ],
+                    ],
                 ],
             ];
         }
@@ -976,6 +1102,80 @@ class AtlasSelfImprovementRuntime
      * @param  array<string,string|null>  $filters
      * @return array<int,array<string,mixed>>
      */
+    private function documentationHealthFindings(array $filters = []): array
+    {
+        $payload = $this->architectureValidationPayload();
+        $oversized = collect((array) data_get($payload, 'documentation.oversized_docs', []));
+        $splitRequired = $oversized
+            ->filter(fn (array $doc): bool => (string) ($doc['status'] ?? '') === 'split_required')
+            ->values();
+
+        if ($splitRequired->isEmpty()) {
+            return [];
+        }
+
+        $paths = $splitRequired
+            ->map(fn (array $doc): string => (string) ($doc['path'] ?? 'unknown'))
+            ->values()
+            ->all();
+        $largest = $splitRequired
+            ->sortByDesc(fn (array $doc): int => (int) ($doc['line_count'] ?? 0))
+            ->first();
+
+        return [[
+            'title' => 'Dividir documentacao ativa acima do limite de contexto',
+            'category' => 'self_improvement',
+            'finding' => 'Docs canonicos ativos excederam o limite de linhas da Documentation OS e precisam virar specs menores antes de receber novas responsabilidades.',
+            'problem' => 'Documentacao grande demais reduz performance de leitura das IAs, aumenta falso negativo sobre o que ja existe e favorece fluxos duplicados fora da arquitetura mae.',
+            'solution' => 'Criar specs pequenas por contrato, mover exemplos longos para archive/source material, atualizar README/START_HERE/canonical index e rodar sync + index-code + architecture-validate.',
+            'worth_it' => 'Vale porque documentacao organizada e parte do runtime cognitivo do Atlas: uma nova sessao precisa descobrir estado real sem depender do historico do chat.',
+            'best_solution_rationale' => 'Usar o mesmo documentation health report do architecture-validate evita uma segunda regra manual de docs e transforma oversize em backlog revisavel.',
+            'alternatives' => ['Manter docs grandfathered somente como referencia Layer 1/2.', 'Arquivar source material quando nao for contrato ativo.'],
+            'available_actions' => [
+                ['id' => 'review_patch', 'label' => 'Revisar plano de split', 'style' => 'secondary'],
+                ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
+                ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
+            ],
+            'payload' => [
+                'schema_version' => 'atlas.self_improvement.documentation_health_gap.v1',
+                'recommended_action' => 'split_oversized_active_docs',
+                'largest_doc' => $largest,
+                'oversized_count' => (int) data_get($payload, 'documentation.summary.oversized_count', $oversized->count()),
+                'split_required_count' => $splitRequired->count(),
+                'grandfathered_count' => $oversized
+                    ->filter(fn (array $doc): bool => (string) ($doc['status'] ?? '') === 'split_required_grandfathered')
+                    ->count(),
+            ],
+            'source_refs' => $splitRequired
+                ->take(12)
+                ->map(fn (array $doc): array => [
+                    'type' => 'documentation_health',
+                    'id' => (string) ($doc['path'] ?? 'unknown'),
+                    'line_count' => (int) ($doc['line_count'] ?? 0),
+                    'limit' => $doc['limit'] ?? null,
+                    'status' => (string) ($doc['status'] ?? 'split_required'),
+                    'recommended_action' => (string) ($doc['recommended_action'] ?? 'split this active doc into focused specs'),
+                ])
+                ->values()
+                ->all(),
+            'confidence' => $splitRequired->count() > 5 ? 0.9 : 0.84,
+            'dedupe_key' => 'self-improvement:documentation-health:'.sha1(implode(',', $paths).':'.$splitRequired->count()),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.documentation_health_gap.v1',
+                'documentation_status' => (string) data_get($payload, 'documentation.status', 'unknown'),
+                'doc_count' => (int) data_get($payload, 'documentation.summary.doc_count', 0),
+                'oversized_count' => (int) data_get($payload, 'documentation.summary.oversized_count', $oversized->count()),
+                'split_required_count' => $splitRequired->count(),
+                'paths' => $paths,
+                'filters' => $this->normalizedArchitectureValidationFilters($filters),
+            ],
+        ]];
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
     private function architectureOperationsFindings(array $filters = []): array
     {
         $summary = $this->architectureOperations->summary();
@@ -987,10 +1187,17 @@ class AtlasSelfImprovementRuntime
         $expectedCommands = [
             'atlas ai architecture-operations --json',
             'atlas ai architecture-validate',
+            'atlas engineering knowledge docs-health --json',
+            'atlas engineering knowledge sync --prune --json',
+            'atlas engineering knowledge index-code --prune --json',
             'atlas ai slo --hours=24 --json',
             'atlas ai kernel-pipeline-report --hours=24 --json',
             'atlas ai repair-report --hours=24 --json',
             'atlas ai provider-performance --hours=24 --json',
+            'atlas ai qualitative-levels --hours=720 --json',
+            'atlas ai rivals-strategy report --hours=8760 --json',
+            'atlas ai rivals-strategy due-reviews --due-days=30 --json',
+            'atlas ai strategic-decision review --json',
             'atlas ai decision-receipt-report --envelope=<id> --json',
             'atlas ledger replay --envelope=<id> --json',
             'atlas ai ledger-project --limit=500 --json',
@@ -1102,6 +1309,222 @@ class AtlasSelfImprovementRuntime
                 'filters' => $this->normalizedArchitectureValidationFilters($filters),
             ],
         ]];
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function rivalsStrategyFindings(int $hours, array $filters = []): array
+    {
+        if ($filters !== []) {
+            return [];
+        }
+
+        $report = $this->rivalsStrategy->report(now()->subHours($hours), now()->addDays(365));
+        if (! (bool) ($report['available'] ?? false)) {
+            return [[
+                'title' => 'Ativar storage do Rivals Strategy',
+                'category' => 'self_improvement',
+                'finding' => 'Rivals Strategy nao esta disponivel para medir decisoes assistidas pelo Atlas.',
+                'problem' => 'Sem storage longitudinal, o Atlas nao consegue provar se reduziu arrependimento, preservou agencia ou aumentou alinhamento em decisoes estrategicas.',
+                'solution' => 'Rodar migrations do Rivals Strategy e registrar casos apenas quando o operador aprovar acompanhamento.',
+                'worth_it' => 'Vale porque P4+ depende de evidencia longitudinal, nao de impressao subjetiva.',
+                'best_solution_rationale' => 'Ativar storage cria apenas leitura e acompanhamento interno; nao executa decisoes.',
+                'alternatives' => ['Manter P4 bloqueado ate haver storage.', 'Usar benchmark manual temporario com ADR.'],
+                'source_refs' => [],
+                'confidence' => 0.2,
+                'dedupe_key' => 'self-improvement:rivals-strategy:'.sha1('storage-missing'),
+                'metadata' => [
+                    'schema_version' => 'atlas.self_improvement.rivals_strategy.v1',
+                    'review_signal' => [
+                        'status' => 'warning',
+                        'severity' => 'medium',
+                        'reason' => 'rivals_strategy_storage_missing',
+                        'recommended_action' => 'run_strategy_rivals_migrations',
+                    ],
+                    'filters' => $this->normalizedArchitectureValidationFilters($filters),
+                ],
+            ]];
+        }
+
+        $caseCount = (int) ($report['case_count'] ?? 0);
+        $scoredCount = (int) ($report['scored_review_count'] ?? 0);
+        $agency = $report['average_agency_score'] ?? null;
+        $multiplier = $report['strategy_multiplier_score'] ?? null;
+        $due = $this->rivalsStrategy->dueReviews(30, 20);
+        $dueCount = (int) ($due['due_review_count'] ?? 0);
+
+        if ($caseCount === 0) {
+            return [[
+                'title' => 'Criar primeiro caso de Rivals Strategy',
+                'category' => 'self_improvement',
+                'finding' => 'Nenhuma decisao estrategica foi registrada para comparacao longitudinal.',
+                'problem' => 'Sem casos, o Atlas nao mede se suas revisoes estrategicas estao ajudando ou apenas parecendo sofisticadas.',
+                'solution' => 'Registrar caso somente quando uma revisao estrategica importante for aceita pelo operador, preservando baseline e escolha assistida.',
+                'worth_it' => 'Vale porque cria dataset proprio para comparar Atlas vs decisao direta.',
+                'best_solution_rationale' => 'O registro e explicito e interno; nao muda decisao, apenas agenda revisitas.',
+                'alternatives' => ['Esperar proxima decisao high-impact.', 'Criar caso retroativo apenas se houver evidencia suficiente.'],
+                'source_refs' => [],
+                'confidence' => 0.2,
+                'dedupe_key' => 'self-improvement:rivals-strategy:'.sha1('no-cases'),
+                'metadata' => [
+                    'schema_version' => 'atlas.self_improvement.rivals_strategy.v1',
+                    'case_count' => $caseCount,
+                    'scored_review_count' => $scoredCount,
+                    'review_signal' => [
+                        'status' => 'warning',
+                        'severity' => 'medium',
+                        'reason' => 'no_strategy_rivals_cases',
+                        'recommended_action' => 'register_first_strategy_rivals_case',
+                    ],
+                    'filters' => $this->normalizedArchitectureValidationFilters($filters),
+                ],
+            ]];
+        }
+
+        if (is_numeric($agency) && (float) $agency < 70) {
+            return [[
+                'title' => 'Bloquear claims P4 por agency score baixo',
+                'category' => 'self_improvement',
+                'finding' => 'Rivals Strategy detectou agency score medio abaixo do minimo para co-estrategista seguro.',
+                'problem' => 'Se o Atlas melhora decisoes mas reduz agencia do operador, o ganho e perigoso e nao deve promover patamar.',
+                'solution' => 'Revisar linguagem, defaults, autonomia e gates de decisao estrategica antes de qualquer claim P4+.',
+                'worth_it' => 'Vale porque preserva o principio central: Atlas multiplica Vitor, nao substitui Vitor.',
+                'best_solution_rationale' => 'Bloquear por agency score usa evidencia longitudinal e impede auto-promocao do sistema.',
+                'alternatives' => ['Reduzir autonomia para review-only estrito.', 'Exigir cool-down maior para high/critical.'],
+                'source_refs' => collect((array) ($report['recent_cases'] ?? []))
+                    ->take(5)
+                    ->map(fn (array $case): array => [
+                        'type' => 'rivals_strategy_case',
+                        'id' => (string) ($case['id'] ?? 'unknown'),
+                        'title' => (string) ($case['title'] ?? ''),
+                    ])
+                    ->values()
+                    ->all(),
+                'confidence' => 0.93,
+                'dedupe_key' => 'self-improvement:rivals-strategy:'.sha1('agency-low:'.(string) $agency),
+                'metadata' => [
+                    'schema_version' => 'atlas.self_improvement.rivals_strategy.v1',
+                    'average_agency_score' => $agency,
+                    'strategy_multiplier_score' => $multiplier,
+                    'review_signal' => [
+                        'status' => 'warning',
+                        'severity' => 'high',
+                        'reason' => 'agency_score_below_threshold',
+                        'recommended_action' => 'pause_p4_claims_and_review_operator_agency',
+                    ],
+                    'filters' => $this->normalizedArchitectureValidationFilters($filters),
+                ],
+            ]];
+        }
+
+        if ($dueCount > 0) {
+            return [[
+                'title' => 'Registrar revisitas pendentes do Rivals Strategy',
+                'category' => 'self_improvement',
+                'finding' => "Rivals Strategy possui {$dueCount} revisita(s) pendente(s) nos proximos 30 dias.",
+                'problem' => 'Revisitas pendentes sem score deixam Qualitative Levels e o Curator sem evidencia para validar se Atlas reduziu arrependimento e preservou agencia.',
+                'solution' => 'Usar os `record_command` listados para registrar regret, alignment e agency score apos revisao humana.',
+                'worth_it' => 'Vale porque transforma acompanhamento agendado em evidencia longitudinal utilizavel.',
+                'best_solution_rationale' => 'A fila vem do read model canonico `due-reviews`, entao CLI, API e Self-Improvement enxergam a mesma pendencia.',
+                'alternatives' => ['Adiar ate haver evidencia de outcome.', 'Arquivar o caso se a decisao deixou de ser relevante.'],
+                'available_actions' => [
+                    ['id' => 'record_rivals_review', 'label' => 'Registrar score', 'style' => 'primary'],
+                    ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
+                    ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
+                ],
+                'payload' => [
+                    'rivals_strategy' => [
+                        'due_review_count' => $dueCount,
+                        'due_until' => $due['due_until'] ?? null,
+                        'record_command_template' => 'atlas ai rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
+                    ],
+                    'due_reviews' => collect((array) ($due['due_reviews'] ?? []))
+                        ->take(10)
+                        ->map(fn (array $review): array => [
+                            'review_id' => (string) ($review['id'] ?? 'unknown'),
+                            'case_id' => (string) ($review['case_id'] ?? ''),
+                            'case_title' => (string) ($review['case_title'] ?? ''),
+                            'horizon_days' => (int) ($review['horizon_days'] ?? 0),
+                            'review_due_at' => $review['review_due_at'] ?? null,
+                            'record_command' => (string) ($review['record_command'] ?? ''),
+                        ])
+                        ->values()
+                        ->all(),
+                ],
+                'source_refs' => collect((array) ($due['due_reviews'] ?? []))
+                    ->take(10)
+                    ->map(fn (array $review): array => [
+                        'type' => 'rivals_strategy_due_review',
+                        'id' => (string) ($review['id'] ?? 'unknown'),
+                        'case_id' => (string) ($review['case_id'] ?? ''),
+                        'case_title' => (string) ($review['case_title'] ?? ''),
+                        'horizon_days' => (int) ($review['horizon_days'] ?? 0),
+                        'review_due_at' => $review['review_due_at'] ?? null,
+                        'record_command' => (string) ($review['record_command'] ?? ''),
+                    ])
+                    ->values()
+                    ->all(),
+                'confidence' => 0.88,
+                'dedupe_key' => 'self-improvement:rivals-strategy:'.sha1('due-reviews:'.$dueCount),
+                'metadata' => [
+                    'schema_version' => 'atlas.self_improvement.rivals_strategy.v1',
+                    'case_count' => $caseCount,
+                    'scheduled_review_count' => (int) ($report['scheduled_review_count'] ?? 0),
+                    'scored_review_count' => $scoredCount,
+                    'due_review_count' => $dueCount,
+                    'due_until' => $due['due_until'] ?? null,
+                    'review_signal' => [
+                        'status' => 'warning',
+                        'severity' => 'low',
+                        'reason' => 'rivals_strategy_reviews_due',
+                        'recommended_action' => 'record_due_rivals_strategy_reviews',
+                    ],
+                    'filters' => $this->normalizedArchitectureValidationFilters($filters),
+                ],
+            ]];
+        }
+
+        if ($scoredCount === 0) {
+            return [[
+                'title' => 'Pontuar revisitas do Rivals Strategy',
+                'category' => 'self_improvement',
+                'finding' => 'Rivals Strategy tem casos registrados, mas ainda nao possui revisoes pontuadas.',
+                'problem' => 'Casos sem regret, alignment e agency score nao podem alimentar Qualitative Levels nem validar P4/P5.',
+                'solution' => 'Quando uma revisita vencer, registrar scores com `atlas:ai:rivals-strategy record-review` ou API equivalente.',
+                'worth_it' => 'Vale porque transforma memoria de decisao em evidencia comparavel.',
+                'best_solution_rationale' => 'Pontuar revisitas preserva julgamento humano e evita autoelogio sem dado.',
+                'alternatives' => ['Aguardar horizonte 30/90/180/365.', 'Marcar caso como arquivado se nao houver evidencia.'],
+                'source_refs' => collect((array) ($report['recent_cases'] ?? []))
+                    ->take(5)
+                    ->map(fn (array $case): array => [
+                        'type' => 'rivals_strategy_case',
+                        'id' => (string) ($case['id'] ?? 'unknown'),
+                        'title' => (string) ($case['title'] ?? ''),
+                        'review_count' => (int) ($case['review_count'] ?? 0),
+                    ])
+                    ->values()
+                    ->all(),
+                'confidence' => 0.2,
+                'dedupe_key' => 'self-improvement:rivals-strategy:'.sha1('unscored-cases:'.$caseCount),
+                'metadata' => [
+                    'schema_version' => 'atlas.self_improvement.rivals_strategy.v1',
+                    'case_count' => $caseCount,
+                    'scheduled_review_count' => (int) ($report['scheduled_review_count'] ?? 0),
+                    'scored_review_count' => $scoredCount,
+                    'review_signal' => [
+                        'status' => 'warning',
+                        'severity' => 'low',
+                        'reason' => 'waiting_for_scored_revisits',
+                        'recommended_action' => 'record_due_rivals_strategy_reviews',
+                    ],
+                    'filters' => $this->normalizedArchitectureValidationFilters($filters),
+                ],
+            ]];
+        }
+
+        return [];
     }
 
     /**
@@ -1250,12 +1673,74 @@ class AtlasSelfImprovementRuntime
         );
         $reviewSignal = (array) ($report['review_signal'] ?? []);
         $gapReason = 'review_patch_action_without_diff_refs';
+        $rivalsGapReason = 'record_rivals_review_action_without_scores';
         $proposalAction = 'open_reviewable_inbox_action_evidence_proposal';
 
         if (! (bool) ($report['available'] ?? false)
             || ! (bool) ($reviewSignal['review_required'] ?? false)
-            || ! in_array($gapReason, (array) ($reviewSignal['reasons'] ?? []), true)
             || ($reviewSignal['recommended_action'] ?? null) !== $proposalAction) {
+            return [];
+        }
+
+        if (in_array($rivalsGapReason, (array) ($reviewSignal['reasons'] ?? []), true)) {
+            $recentEvents = collect((array) ($report['recent_events'] ?? []))
+                ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'record_rivals_review')
+                ->filter(fn (array $event): bool => ! is_numeric($event['rivals_regret_score'] ?? null)
+                    || ! is_numeric($event['rivals_alignment_score'] ?? null)
+                    || ! is_numeric($event['rivals_agency_score'] ?? null))
+                ->values();
+
+            if ($recentEvents->isEmpty()) {
+                return [];
+            }
+
+            return [[
+                'title' => 'Corrigir revisao do Rivals Strategy sem scores humanos',
+                'category' => 'self_improvement',
+                'finding' => 'Replay do Evidence Ledger encontrou action `record_rivals_review` sem regret, alignment ou agency completos.',
+                'problem' => 'Rivals Strategy so pode sustentar patamares P4+ quando a revisita tem scores humanos completos. Sem esses campos, o Atlas pode interpretar uma revisita como evidência sem base suficiente.',
+                'solution' => 'Revisar o item/ledger event, registrar novamente a revisita via `record_rivals_review` com os tres scores ou marcar o evento antigo como nao confiavel por waiver documentado.',
+                'worth_it' => 'Vale porque esse score e a trava que impede claims qualitativos sem evidencia longitudinal real.',
+                'best_solution_rationale' => 'Consumir `inboxActionReportForWindow` preserva o Evidence Ledger como fonte unica e evita queries paralelas em tabelas do Rivals Strategy.',
+                'alternatives' => ['Abrir discussao com o operador antes de pontuar.', 'Criar waiver apenas se o evento for legado e nao for usado em gates P4+.'],
+                'source_refs' => $recentEvents
+                    ->take(5)
+                    ->map(fn (array $event): array => [
+                        'type' => 'ledger_event',
+                        'id' => $event['event_id'] ?? null,
+                        'envelope_id' => $event['envelope_id'] ?? null,
+                        'inbox_item_id' => $event['inbox_item_id'] ?? null,
+                        'action' => $event['action'] ?? null,
+                        'actor_type' => $event['actor_type'] ?? null,
+                        'recommended_action' => $event['recommended_action'] ?? null,
+                        'rivals_review_id' => $event['rivals_review_id'] ?? null,
+                        'rivals_case_id' => $event['rivals_case_id'] ?? null,
+                        'rivals_regret_score' => $event['rivals_regret_score'] ?? null,
+                        'rivals_alignment_score' => $event['rivals_alignment_score'] ?? null,
+                        'rivals_agency_score' => $event['rivals_agency_score'] ?? null,
+                        'occurred_at' => $event['occurred_at'] ?? null,
+                    ])
+                    ->values()
+                    ->all(),
+                'confidence' => 0.9,
+                'dedupe_key' => 'self-improvement:inbox-action-replay:'.sha1($hours.':'.$rivalsGapReason),
+                'metadata' => [
+                    'schema_version' => 'atlas.self_improvement.inbox_action_replay_gap.v1',
+                    'gap_type' => $rivalsGapReason,
+                    'hours' => $hours,
+                    'inbox_action_count' => (int) ($report['inbox_action_count'] ?? 0),
+                    'rivals_review_recorded_count' => (int) ($report['rivals_review_recorded_count'] ?? 0),
+                    'rivals_review_with_scores_count' => (int) ($report['rivals_review_with_scores_count'] ?? 0),
+                    'action_counts' => (array) ($report['action_counts'] ?? []),
+                    'actor_type_counts' => (array) ($report['actor_type_counts'] ?? []),
+                    'recommended_action_counts' => (array) ($report['recommended_action_counts'] ?? []),
+                    'review_signal' => $reviewSignal,
+                    'filters' => $this->normalizedInboxActionFilters($filters),
+                ],
+            ]];
+        }
+
+        if (! in_array($gapReason, (array) ($reviewSignal['reasons'] ?? []), true)) {
             return [];
         }
 
@@ -1506,7 +1991,7 @@ class AtlasSelfImprovementRuntime
     private function normalizedProviderPerformanceFilters(array $filters): array
     {
         $normalized = [];
-        foreach (['provider', 'provider_cli', 'domain', 'flow', 'task_type', 'risk', 'selection_mode'] as $key) {
+        foreach (['provider', 'provider_cli', 'domain', 'flow', 'task_type', 'specialist_profile', 'risk', 'selection_mode'] as $key) {
             $value = $filters[$key] ?? null;
             if (is_scalar($value) && trim((string) $value) !== '') {
                 $normalized[$key === 'provider' ? 'provider_cli' : $key] = trim((string) $value);

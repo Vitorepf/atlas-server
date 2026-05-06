@@ -273,17 +273,17 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
             'jsonrpc' => '2.0', 'id' => 73, 'method' => 'tools/call',
             'params' => [
                 'name' => 'atlas_domain_catalog',
-                'arguments' => ['onboarding_status' => 'scaffold'],
+                'arguments' => ['onboarding_status' => 'ready'],
             ],
         ]);
 
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
-        $this->assertSame('scaffold', data_get($structured, 'filters.onboarding_status'));
+        $this->assertSame('ready', data_get($structured, 'filters.onboarding_status'));
         $this->assertGreaterThanOrEqual(1, data_get($structured, 'summary.domains'));
 
         foreach ($structured['domains'] as $domain) {
-            $this->assertSame('scaffold', data_get($domain, 'onboarding.status'));
+            $this->assertSame('ready', data_get($domain, 'onboarding.status'));
         }
     }
 
@@ -401,6 +401,9 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $commands = data_get($structured, 'architecture_operations.commands');
 
         $this->assertSame(count($commands), data_get($structured, 'architecture_operations.command_count'));
+        $this->assertContains('atlas engineering knowledge docs-health --json', array_column($commands, 'command'));
+        $this->assertContains('atlas engineering knowledge sync --prune --json', array_column($commands, 'command'));
+        $this->assertContains('atlas engineering knowledge index-code --prune --json', array_column($commands, 'command'));
         $this->assertContains('atlas ledger replay --envelope=<id> --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', array_column($commands, 'command'));
     }
@@ -900,6 +903,103 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('mcp-inbox-action-1', data_get($structured, 'inbox_actions.recent_events.0.inbox_item_id'));
     }
 
+    public function test_inbox_action_report_tool_exposes_rivals_review_scores(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        $this->recordInboxActionForMcp(
+            inboxItemId: 'mcp-rivals-review-1',
+            action: 'record_rivals_review',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'medium',
+            recommendedAction: 'record_due_rivals_strategy_reviews',
+            diffRefs: [],
+            rivalsReviewAction: [
+                'schema_version' => 'atlas.inbox_action.rivals_review.v1',
+                'recorded_review_id' => 'review-mcp-rivals',
+                'case_id' => 'case-mcp-rivals',
+                'horizon_days' => 30,
+                'scores' => ['regret' => 4, 'alignment' => 96, 'agency' => 92],
+                'remaining_due_review_count' => 0,
+            ],
+        );
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 84,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_inbox_action_report',
+                'arguments' => ['hours' => 24, 'action' => 'record_rivals_review'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_inbox_action_report', $structured['tool']);
+        $this->assertSame(['action' => 'record_rivals_review'], $structured['filters']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame(1, data_get($structured, 'inbox_actions.rivals_review_recorded_count'));
+        $this->assertSame(1, data_get($structured, 'inbox_actions.rivals_review_with_scores_count'));
+        $this->assertSame('ok', data_get($structured, 'inbox_actions.review_signal.status'));
+        $this->assertSame('none', data_get($structured, 'inbox_actions.review_signal.recommended_action'));
+        $this->assertSame('review-mcp-rivals', data_get($structured, 'inbox_actions.recent_events.0.rivals_review_id'));
+        $this->assertSame(92, data_get($structured, 'inbox_actions.recent_events.0.rivals_agency_score'));
+    }
+
+    public function test_inbox_action_report_tool_exposes_provider_cost_rate_actions(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        $this->recordInboxActionForMcp(
+            inboxItemId: 'mcp-provider-cost-rate-1',
+            action: 'configure_provider_cost_rates',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'medium',
+            recommendedAction: 'configure_provider_cost_rates',
+            diffRefs: [],
+            rivalsReviewAction: [],
+            providerCostRateAction: [
+                'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.2',
+                'input_microusd_per_1k' => 120,
+                'output_microusd_per_1k' => 480,
+                'currency' => 'USD',
+                'applied' => true,
+            ],
+        );
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 85,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_inbox_action_report',
+                'arguments' => ['hours' => 24, 'action' => 'configure_provider_cost_rates'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_inbox_action_report', $structured['tool']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame(1, data_get($structured, 'inbox_actions.provider_cost_rate_action_count'));
+        $this->assertSame(1, data_get($structured, 'inbox_actions.provider_cost_rate_applied_count'));
+        $this->assertSame('ok', data_get($structured, 'inbox_actions.review_signal.status'));
+        $this->assertSame('codex_cli', data_get($structured, 'inbox_actions.recent_events.0.provider_cost_rate_provider'));
+        $this->assertSame('gpt-5.2', data_get($structured, 'inbox_actions.recent_events.0.provider_cost_rate_model'));
+        $this->assertSame(480, data_get($structured, 'inbox_actions.recent_events.0.provider_cost_rate_output_microusd'));
+    }
+
     public function test_replay_report_tools_preserve_review_signal_when_ledger_is_unavailable(): void
     {
         Schema::dropIfExists('atlas_ledger_events');
@@ -1206,6 +1306,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         string $severity,
         string $recommendedAction,
         array $diffRefs = [],
+        array $rivalsReviewAction = [],
+        array $providerCostRateAction = [],
     ): void {
         AtlasLedgerEvent::query()->create([
             'event_id' => (string) Str::ulid(),
@@ -1242,6 +1344,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
                         'action' => $action,
                         'diff_refs' => $diffRefs,
                     ],
+                    'rivals_review_action' => $rivalsReviewAction,
+                    'provider_cost_rate_action' => $providerCostRateAction,
                 ],
                 'review_signal' => [
                     'status' => 'ok',

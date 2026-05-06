@@ -5,7 +5,7 @@ title: Atlas AI Runtime Language Boundaries
 status: active
 category: architecture
 priority: 100
-summary: Contrato canonico que separa o papel de Laravel, Python e Go no Atlas AI para impedir microservicos paralelos, decisao fora do Kernel e duplicacao de runtime.
+summary: Contrato canonico que separa o papel de Laravel, Python, Go e Swift no Atlas AI para impedir microservicos paralelos, decisao fora do Kernel e duplicacao de runtime.
 tags:
   - atlas-ai
   - runtime
@@ -13,19 +13,23 @@ tags:
   - laravel
   - python
   - go
+  - swift
 capabilities:
   - runtime_language_boundaries
   - python_ai_data_runtime
   - go_edge_runtime
+  - swift_native_mac_runtime
   - laravel_kernel
+  - local_ai_performance_strategy
 decisions:
   - Laravel/PHP e o Kernel/Maestro canonico do Atlas AI.
   - Python pode existir como runtime especializado de IA, dados, RAG, ML, multimodal e analytics.
   - Go pode existir como runtime especializado de edge, rede, ingestao, concorrencia, streaming e agentes leves.
-  - Python e Go nunca decidem dominio, modelo, autonomia, policy, repair, gate ou learning sem Decision Receipt emitido pelo Kernel.
+  - Swift pode existir como Atlas Native Mac Agent para APIs Apple, seguranca local, contexto ambiental e automacao assistida.
+  - Python, Go e Swift nunca decidem dominio, modelo, autonomia, policy, repair, gate ou learning sem Decision Receipt emitido pelo Kernel.
 maintenance:
   - Manter abaixo de 260 linhas.
-  - Atualizar antes de criar qualquer servico Python, Go, worker externo, bridge, daemon ou runtime multi-linguagem.
+  - Atualizar antes de criar qualquer servico Python, Go, Swift, worker externo, bridge, daemon ou runtime multi-linguagem.
   - Rodar docs-health e architecture-validate depois de alterar.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
@@ -34,18 +38,20 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-evolution-roadmap.md
   - docs/engineering-knowledge-base/atlas-ai-autonomy-power-backlog.md
   - docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md
+  - docs/engineering-knowledge-base/atlas-native-mac-agent.md
+  - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
 ---
 
 # Atlas AI Runtime Language Boundaries
 
-Este documento define o papel de Laravel, Python e Go no Atlas AI.
+Este documento define o papel de Laravel, Python, Go e Swift no Atlas AI.
 
 Ele existe para impedir que uma IA crie microservico paralelo, replique decisao
 do Kernel ou transforme linguagem em novo cerebro.
 
 ## Regra Mae
 
-Laravel decide e governa. Python e Go executam capacidades especializadas.
+Laravel decide e governa. Python, Go e Swift executam capacidades especializadas.
 
 ```text
 Surface -> Laravel Kernel -> Decision Receipt -> Runtime especializado
@@ -74,8 +80,8 @@ Responsabilidades canonicas:
 9. executar gates, repair policy, learning e proposal inbox;
 10. expor UI, API, CLI, observability e governance.
 
-Laravel e a fonte de verdade operacional. Ele pode chamar Python ou Go, mas nao
-terceiriza soberania.
+Laravel e a fonte de verdade operacional. Ele pode chamar Python, Go ou Swift,
+mas nao terceiriza soberania.
 
 ## Papel Do Python
 
@@ -104,6 +110,9 @@ Nao use Python para:
 Status inicial recomendado: `scaffold/future` ate existir contrato de payload,
 worker, health, replay e testes.
 
+Uso de 48GB RAM, RAG local, rerank, cache, modelos locais e precomputacao vive
+em `atlas-ai-local-performance-memory-strategy.md`.
+
 ## Papel Do Go
 
 Go e o Edge/Concurrency Runtime.
@@ -129,6 +138,16 @@ Nao use Go para:
 Status inicial recomendado: `future/scaffold` ate existir necessidade real de
 alto volume, streaming, agent local ou rede persistente.
 
+## Papel Do Swift
+
+Swift e o Native Mac Runtime. Use para Keychain, Touch ID, notificacoes nativas,
+Menu Bar, FSEvents, Accessibility opt-in, ScreenCaptureKit manual, Core
+Spotlight e Core ML leve. O contrato detalhado vive em
+`atlas-native-mac-agent.md`.
+
+Nao use Swift para Kernel, API, provider routing, Graph RAG, analytics pesado,
+decisao de dominio/modelo ou automacao destrutiva sem approval.
+
 ## Matriz De Decisao
 
 | Necessidade | Linguagem dona | Motivo |
@@ -143,6 +162,8 @@ alto volume, streaming, agent local ou rede persistente.
 | Webhook/click/postback em massa | Go | concorrencia e baixa latencia |
 | Daemon local leve | Go | binario pequeno e estavel |
 | Streaming/backpressure | Go | rede e I/O concorrente |
+| Touch ID, Keychain e notificacoes nativas | Swift | APIs Apple nativas |
+| FSEvents, Accessibility e ScreenCaptureKit | Swift | contexto local opt-in |
 
 ## Contrato De Comunicacao
 
@@ -153,7 +174,7 @@ Todo runtime externo deve receber um payload assinado pelo Kernel:
   "schema_version": "atlas.runtime.invoke.v1",
   "envelope_id": "uuid",
   "decision_receipt_hash": "sha256",
-  "runtime": "python_ai_data|go_edge",
+  "runtime": "python_ai_data|go_edge|swift_native_mac",
   "domain_id": "programming|finance|marketing|...",
   "flow_id": "domain.flow",
   "input": {},
@@ -186,13 +207,14 @@ Laravel valida a resposta, grava evidence, roda gates e decide proximo passo.
 | Worker de fila | tarefas assincronas com retry | medio prazo |
 | FastAPI local | serviço persistente de RAG/ML | quando houver hot path real |
 | Go daemon | ingestao/edge sempre ligado | quando houver volume real |
+| Swift app/helper | APIs Apple, approvals e contexto local | com AP e opt-in |
 | Microservicos separados | escala ou isolamento forte | somente com AP proprio |
 
 Comecar simples. Promover apenas quando evidence provar necessidade.
 
 ## Evidence Obrigatoria
 
-Todo runtime Python ou Go deve registrar:
+Todo runtime Python, Go ou Swift deve registrar:
 
 1. `RUNTIME_INVOKED`;
 2. `RUNTIME_RETURNED` ou `RUNTIME_FAILED`;
@@ -205,8 +227,8 @@ Sem evidence, o runtime nao existe operacionalmente.
 
 ## Anti-Duplicacao
 
-Se Python ou Go precisar de capability que ja existe no Kernel, ele deve chamar
-o Kernel ou receber capability token. Nao copiar:
+Se Python, Go ou Swift precisar de capability que ja existe no Kernel, ele deve
+chamar o Kernel ou receber capability token. Nao copiar:
 
 1. policy engine;
 2. provider selection;
@@ -219,7 +241,7 @@ o Kernel ou receber capability token. Nao copiar:
 
 ## Definition Of Done
 
-Antes de implementar runtime Python ou Go:
+Antes de implementar runtime Python, Go ou Swift:
 
 1. criar ou atualizar spec curta;
 2. definir runtime owner e status;

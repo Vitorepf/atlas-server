@@ -21,6 +21,7 @@ capabilities:
   - real_world_feedback_loop
   - multimodal_context
   - cross_domain_learning
+  - scenario_simulation_harness
 decisions:
   - Este backlog e governado, nao compromisso de implementacao imediata.
   - Toda autonomia nova deve passar por Operation Envelope, Policy/Profile, Decision Receipt, Evidence Ledger, Quality Gates e Inbox approval quando houver risco real.
@@ -28,8 +29,9 @@ decisions:
   - AP-99 / Provider Performance e a base antes de Dynamic Compute Market e arbitragem de IA.
   - Tool Synthesis deve comecar como proposta revisavel, nao instalacao automatica.
   - Multimodal continuo exige privacy review, redaction, provider-safe gates e opt-in por fonte.
+  - Scenario Simulation Harness deve tratar simulacoes como hipoteses calibraveis contra resultado real, nao previsoes absolutas.
 maintenance:
-  - Manter este doc abaixo de 220 linhas para performance de retrieval.
+  - Manter este doc abaixo de 240 linhas para performance de retrieval.
   - Promover itens para APs, ADRs ou Domain Specs apenas quando houver owner, acceptance criteria e safety boundary.
   - Atualizar este doc quando um item entrar em implementacao ativa ou for rejeitado.
 related_paths:
@@ -39,6 +41,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-evolution-roadmap.md
   - docs/engineering-knowledge-base/atlas-ai-evolution-phase-0-audit.md
   - docs/engineering-knowledge-base/atlas-ai-governed-backlog.md
+  - docs/engineering-knowledge-base/atlas-ai-scenario-simulation-harness.md
   - docs/engineering-knowledge-base/super-tool-runtime-core.md
   - docs/engineering-knowledge-base/domains/self-improvement.md
 ---
@@ -94,8 +97,9 @@ Operation Envelope
 | 2 | Tool Synthesis | candidate_high | Atlas detecta falta de tool e propoe ferramenta nova testada | Super Tool Runtime registry + sandbox + security gate |
 | 3 | Zero-Click Shadow Mode | candidate_high | Atlas observa anomalias e cria propostas antes do usuario pedir | Observers read-only + Inbox approval + no mutation |
 | 4 | Real-World Feedback Loop | candidate_medium_high | Atlas implanta, mede e melhora campanhas/codigo com dados reais | Domain gates, rollback, budget e approval |
-| 5 | Contexto Multimodal Continuo | candidate_medium | Atlas entende tela/audio/reunioes com contexto rico | Opt-in, privacy, redaction, provider-safe storage |
-| 6 | Cross-Domain Heuristic Transfer | candidate_long | Atlas reaplica heuristicas entre dominios diferentes | Memory quality, taxonomy e evidence forte por dominio |
+| 5 | Scenario Simulation Harness | candidate_medium_high | Atlas ensaia cenarios multiagente e calibra contra resultado real | GraphRAG, outcome tracking, calibration metrics |
+| 6 | Contexto Multimodal Continuo | candidate_medium | Atlas entende tela/audio/reunioes com contexto rico | Opt-in, privacy, redaction, provider-safe storage |
+| 7 | Cross-Domain Heuristic Transfer | candidate_long | Atlas reaplica heuristicas entre dominios diferentes | Memory quality, taxonomy e evidence forte por dominio |
 
 ## 1. Dynamic Compute Market
 
@@ -156,7 +160,23 @@ Dominios-alvo:
 - dashboards/read models primeiro;
 - desligar perdas ou aplicar mudancas somente com approval.
 
-## 5. Contexto Multimodal Continuo
+## 5. Scenario Simulation Harness
+
+Atlas cria mundos simulados para decisoes onde reacao coletiva importa.
+
+Inspiracao: MiroFish/OASIS. Implementacao Atlas: harness proprio com seed pack,
+GraphRAG, personas, multi-run, report, Evidence Ledger e calibracao posterior
+contra resultado real. O contrato canonico vive em
+`atlas-ai-scenario-simulation-harness.md`.
+
+- Marketing: campanha, preco, oferta, criativo e narrativa;
+- Strategic Decision: stakeholders, coalizoes, risco reputacional;
+- Finance: review-only de narrativas/cenarios, sem execucao;
+- Self-Improvement: impacto de mudancas do Atlas em proposal-only.
+
+Gate: sem outcome tracking plan, a simulacao e apenas exploration.
+
+## 6. Contexto Multimodal Continuo
 
 Atlas Input evolui de prompt voluntario para contexto sensorial opt-in.
 
@@ -175,7 +195,7 @@ Regras:
 - retention curta por default;
 - AtlasVault pode receber resumo humano, nao raw dump sensivel.
 
-## 6. Cross-Domain Heuristic Transfer
+## 7. Cross-Domain Heuristic Transfer
 
 Atlas aprende um padrao em um dominio e sugere aplicacao em outro.
 
@@ -207,5 +227,6 @@ Um item so sai deste backlog quando tiver:
 2. Tool Synthesis proposal-only.
 3. Zero-Click Shadow Observers read-only.
 4. Real-World Feedback Loop por dominio.
-5. Contexto multimodal continuo com privacy gates.
-6. Cross-Domain Heuristic Transfer com evidence suficiente.
+5. Scenario Simulation Harness com outcome calibration.
+6. Contexto multimodal continuo com privacy gates.
+7. Cross-Domain Heuristic Transfer com evidence suficiente.

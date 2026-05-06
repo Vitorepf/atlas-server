@@ -14,6 +14,9 @@ capabilities:
   - session_bootstrap
   - documentation_operating_system
   - runtime_language_boundaries
+  - native_mac_agent
+  - local_ai_performance_strategy
+  - content_intelligence_curation
   - qualitative_levels_roadmap
   - canonical_architecture_index
   - atlas_ai_master_architecture
@@ -53,9 +56,13 @@ capabilities:
 decisions:
   - Atlas AI Session Bootstrap e o primeiro pacote curto para novas sessoes responderem o que e Atlas, o que existe, o que falta e como evoluir.
   - Atlas AI Documentation Operating System define limites de tamanho, ownership, anti-hallucination, promocao e sync/index para documentacao de alta performance.
-  - Atlas AI Runtime Language Boundaries separa Laravel Kernel, Python AI/Data Runtime e Go Edge/Concurrency Runtime.
+  - Atlas AI Runtime Language Boundaries separa Laravel Kernel, Python AI/Data Runtime, Go Edge/Concurrency Runtime e Swift Native Mac Runtime.
+  - Atlas Native Mac Agent define Swift/macOS como camada nativa local para Keychain, Touch ID, notificacoes, FSEvents, Menu Bar e contexto opt-in, sem virar Kernel.
+  - Atlas AI Local Performance Memory Strategy define como usar 48GB RAM para hot context, RAG local, rerank, cache, modelos locais e precompute sem criar cerebro paralelo.
+  - Atlas AI Content Intelligence And Knowledge Curation define como capturar, filtrar, descartar, rotear e promover conteudo sem poluir memoria ou dominios.
   - Atlas AI Qualitative Levels Roadmap formaliza os patamares P1-P7 e a fila governada para co-estrategista, Rivals Strategy e Curator evolutivo.
   - Atlas AI Canonical Architecture Index define a hierarquia oficial entre Constitution, Kernel, Master Architecture, Topology e Domain Specs.
+  - Atlas AI Flow Visual Map define a imagem/diagrama canonico do pipeline, separando Business Context, Domain, Profile, Runtime, Evidence, AtlasVault e Learning.
   - Atlas AI Master Architecture e a raiz enterprise para autoridade operacional, contratos canonicos, planes, dominios, runtimes, evidence, learning e estrategia contra Claude Code.
   - Atlas AI Vision, Pipeline e Core Vs Domain sao os tres documentos fundadores curtos da arquitetura-mae.
   - Atlas AI Resolver Corpus Audit classifica a pasta resolver-o-que-vale-a-pena e promove specs P0 para a arquitetura canonica.
@@ -74,9 +81,14 @@ decisions:
 maintenance:
   - Leia atlas-ai-session-bootstrap.md no inicio de qualquer sessao nova.
   - Leia atlas-ai-documentation-operating-system.md antes de criar, dividir, promover, arquivar ou expandir docs canonicos.
-  - Leia atlas-ai-runtime-language-boundaries.md antes de propor Python, Go, microservico, worker externo, daemon ou runtime multi-linguagem.
+  - Leia atlas-ai-runtime-language-boundaries.md, atlas-native-mac-agent.md, atlas-ai-local-performance-memory-strategy.md, atlas-ai-content-intelligence-curation.md e atlas-ai-scenario-simulation-harness.md antes de propor Python, Go, Swift, microservico, worker externo, daemon, RAG local, cache, modelos locais, uso dos 48GB RAM, YouTube ingestion, feeds, scraping, curadoria de fontes, swarm ou simulacao multiagente.
+  - Leia atlas-ai-business-contexts.md antes de tratar Blackink, empresas futuras, product domains, app mobile routing domain, captura empresarial ou privacidade de empresa em producao.
+  - Leia atlas-ai-agent-behavior-contract.md antes de alterar prompts de agentes, provider identity fragments, Programming Domain, Review Mode, worker prompts ou gates contra overengineering/diff lateral.
+  - Leia atlas-ai-model-selection-strategy.md antes de alterar Atlas Decide, selecao de provider/modelo, AP-99, Dynamic Compute Market ou especialistas de Programming que influenciam modelo.
+  - Leia domains/programming-frontend-superpower.md antes de alterar frontend/design harness, skills de UI, visual QA, Playwright frontend ou avaliacao de Huashu/Claude Designer.
   - Leia atlas-ai-qualitative-levels-roadmap.md antes de propor co-estrategista, patamar cognitivo, ambiente, Curator auto-mutavel ou memoria longitudinal.
   - Leia atlas-ai-canonical-architecture-index.md antes de escolher qual documento arquitetural tem autoridade.
+  - Leia atlas-ai-flow-visual-map.md antes de redesenhar fluxo, criar slide/diagrama ou explicar camadas do Atlas para humano/IA.
   - Leia atlas-ai-master-architecture.md antes de alterar autoridade macro, Policy/Profile, Decide, Domain Orchestrator, Runtime, Evidence, Learning ou estrategia contra Claude Code.
   - Leia atlas-ai-vision.md, atlas-ai-pipeline.md e atlas-ai-core-vs-domain.md antes de reorganizar fluxos macro.
   - Leia atlas-ai-resolver-corpus-audit.md antes de alterar Atlas Decide, Policy/Profile, Programming Orchestrator, Forge ou Super Tool Runtime.
@@ -95,8 +107,18 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
+  - docs/engineering-knowledge-base/atlas-native-mac-agent.md
+  - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
+  - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
+  - docs/engineering-knowledge-base/atlas-ai-scenario-simulation-harness.md
+  - docs/engineering-knowledge-base/atlas-constelacao-surface.md
+  - docs/engineering-knowledge-base/atlas-ai-business-contexts.md
+  - docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md
+  - docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md
+  - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
   - docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
+  - docs/engineering-knowledge-base/atlas-ai-flow-visual-map.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/kernel/failure-domain-taxonomy.md
@@ -201,7 +223,16 @@ detalhe de modulo com docs/testes.
 |---|---|
 | `atlas-ai-session-bootstrap.md` | Pacote curto para uma nova sessao entender o que e Atlas, o que existe, o que falta e como evoluir sem ler conversa antiga |
 | `atlas-ai-documentation-operating-system.md` | Contrato de documentacao de alta performance: limites de tamanho, status, ownership, anti-hallucination, promocao e sync/index |
-| `atlas-ai-runtime-language-boundaries.md` | Contrato de fronteira entre Laravel Kernel, Python AI/Data Runtime e Go Edge/Concurrency Runtime |
+| `atlas-ai-runtime-language-boundaries.md` | Contrato de fronteira entre Laravel Kernel, Python AI/Data Runtime, Go Edge/Concurrency Runtime e Swift Native Mac Runtime |
+| `atlas-native-mac-agent.md` | Contrato canonico para Swift/macOS: Keychain, Touch ID, notificacoes, FSEvents, Menu Bar, Accessibility e ScreenCaptureKit opt-in |
+| `atlas-ai-local-performance-memory-strategy.md` | Contrato canonico para usar 48GB RAM em hot context, RAG local, rerank, cache, modelos locais, KV cache e precompute |
+| `atlas-ai-content-intelligence-curation.md` | Contrato canonico para curadoria de conteudo, YouTube global, source quality, descarte, roteamento e promocao de conhecimento |
+| `atlas-ai-scenario-simulation-harness.md` | Contrato alvo para simulacao multiagente, seed pack, graph/personas, outcome tracking e calibracao contra resultado real |
+| `atlas-constelacao-surface.md` | Encaixe canonico da tela Constelacao: surface contemplativa, motor de serendipidade, dependencias de embeddings e roadmap v1+ |
+| `atlas-ai-business-contexts.md` | Contrato canonico que separa Blackink e futuras empresas dos Atlas AI Domains e define product/business context |
+| `atlas-ai-agent-behavior-contract.md` | Contrato governado para transformar principios tipo Karpathy em comportamento verificavel de agentes, providers, Programming e Quality Gates |
+| `atlas-ai-model-selection-strategy.md` | Contrato canonico de Atlas Decide para escolher provider/modelo por tarefa, flow, specialist profile, AP-99, custo, latencia e policy |
+| `domains/programming-frontend-superpower.md` | Contrato alvo para frontend/design harness, asset protocol, visual gates, Huashu evaluation e AP-99 frontend |
 | `atlas-ai-qualitative-levels-roadmap.md` | Roadmap canonico curto dos patamares P1-P7, co-estrategista, Rivals Strategy e fila QL governada |
 | `START_HERE.md` | Ponto de entrada para humanos e IAs |
 | `atlas-ai-canonical-architecture-index.md` | Indice oficial da hierarquia entre Constitution, Kernel, Master Architecture, Topology e Domain Specs |
@@ -214,9 +245,18 @@ detalhe de modulo com docs/testes.
 | `atlas-ai-core-vs-domain.md` | Regra de decisao entre Core, Domain e Surface |
 | `domains/README.md` | Indice local das Domain Specs e status implemented/ready vs scaffold |
 | `domains/programming.md` | Spec canonica do dominio implemented/ready Programming |
+| `domains/programming-specialist-profiles.md` | Estrutura alvo de especialistas internos de Programming: frontend, backend-api, mobile, architecture, performance, accessibility e outros |
 | `domains/self-improvement.md` | Spec canonica do dominio implemented/ready Self-Improvement |
 | `domains/finance.md` | Spec canonica do dominio implemented/ready Finance |
 | `domains/personal-development.md` | Spec canonica do dominio implemented/ready Personal Development |
+| `domains/writing.md` | Spec canonica do dominio implemented/ready Writing: draft, edit, voice review e publish review sem auto-publicacao |
+| `domains/learning.md` | Spec canonica do dominio implemented/ready Learning: aprendizado humano, pratica deliberada e spaced review sem alterar o Core Learning Plane |
+| `domains/qa.md` | Spec canonica do dominio implemented/ready QA: revisao transversal, evidence audit e release readiness sem executar testes nem burlar gates |
+| `domains/security.md` | Spec canonica do dominio implemented/ready Security: revisao defensiva, privacy, compliance e incident review sem exploit/scan/segredos |
+| `domains/operations.md` | Spec canonica do dominio implemented/ready Operations: diagnostico, runbook, incidente e readiness sem deploy/restart/infra mutation |
+| `domains/background.md` | Spec canonica do dominio implemented/ready Background Safety: revisao de jobs recorrentes, schedules, permissoes e stop conditions sem iniciar jobs |
+| `domains/general.md` | Spec canonica do dominio implemented/ready General: resposta simples e triagem governada sem substituir dominios especializados |
+| `domains/health.md` | Spec canonica do dominio implemented/ready Health: review nao clinico de bem-estar e seguranca sem diagnostico ou tratamento |
 | `atlas-ai-resolver-corpus-audit.md` | Auditoria da pasta `resolver-o-que-vale-a-pena`: o que vira canonico, referencia, futuro ou arquivo historico |
 | `legacy-documentation-cleanup-report.md` | Inventario e registro de limpeza de docs legados, duplicados, humanos, arquivados e pendentes de promocao |
 | `legacy-documentation-cleanup-plan.md` | Plano seguro para futuras ondas de promocao, redirect, arquivo e delete candidate |
@@ -227,7 +267,7 @@ detalhe de modulo com docs/testes.
 | `atlas-ai-cli-multimodal.md` | Contrato canonico para input multimodal no CLI, paste de imagem, anexos clicaveis e fallbacks por terminal |
 | `atlas-ai-skill-system.md` | Contrato canonico para skills provider-neutral, lifecycle, evals, governance e traceability |
 | `atlas-ai-runtime-packets.md` | Mapa canonico dos packets legados para envelopes, receipts, ledger, tool events, permissions, memory deltas e router decisions |
-| `atlas-local-agent-surface.md` | Contrato canonico para Mac Agent/local automation como surface, readiness e background jobs |
+| `atlas-local-agent-surface.md` | Contrato canonico para Mac Agent/local automation como surface, readiness e background jobs, separado do Native Mac Agent Swift |
 | `atlas-ai-governed-backlog.md` | Contrato para preservar backlog legado sem transformar notas pessoais ou ideias cruas em runtime/roadmap automatico |
 | `atlas-ai-architecture-audit.md` | Analise rigorosa de consolidacao dos docs: capacidades existentes, duplicacoes, lacunas e ordem recomendada para reorganizar o Atlas AI |
 | `atlas-ai-evolution-roadmap.md` | Roadmap de evolucao do Atlas AI: Agentic RAG, Self-Reflection Gate, memoria episodica, Provider Strategy Matrix, Graph/Vector/Evidence routing e fases 0-4 |

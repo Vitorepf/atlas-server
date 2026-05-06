@@ -29,14 +29,15 @@ class AtlasAiProviderPerformanceCommandTest extends TestCase
 
     public function test_command_summarizes_provider_performance_as_json(): void
     {
-        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'succeeded', 1.2);
-        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'failed', 2.4, 'rate_limited');
-        $this->recordProviderReturned('claude_cli', 'programming', 'review', 'succeeded', 3.0);
+        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'programming.frontend', 'succeeded', 1.2, null, 1000, 100);
+        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'programming.frontend', 'failed', 2.4, 'rate_limited', 2000, 200);
+        $this->recordProviderReturned('claude_cli', 'programming', 'review', 'programming.architecture', 'succeeded', 3.0, null, 900, 90);
 
         $exit = Artisan::call('atlas:ai:provider-performance', [
             '--hours' => 24,
             '--provider' => 'codex_cli',
             '--domain' => 'programming',
+            '--specialist-profile' => 'programming.frontend',
             '--json' => true,
         ]);
         $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
@@ -46,6 +47,7 @@ class AtlasAiProviderPerformanceCommandTest extends TestCase
         $this->assertSame([
             'provider_cli' => 'codex_cli',
             'domain' => 'programming',
+            'specialist_profile' => 'programming.frontend',
         ], $payload['filters']);
         $this->assertSame($payload['filters'], data_get($payload, 'provider_performance.filters'));
         $this->assertSame(2, data_get($payload, 'provider_performance.event_count'));
@@ -53,14 +55,22 @@ class AtlasAiProviderPerformanceCommandTest extends TestCase
         $this->assertSame(1, data_get($payload, 'provider_performance.success_count'));
         $this->assertSame(1, data_get($payload, 'provider_performance.failure_count'));
         $this->assertSame(0.5, data_get($payload, 'provider_performance.success_rate'));
+        $this->assertSame(3000, data_get($payload, 'provider_performance.total_cost_microusd'));
+        $this->assertSame(1500, data_get($payload, 'provider_performance.average_cost_microusd'));
+        $this->assertSame(300, data_get($payload, 'provider_performance.total_tokens'));
+        $this->assertSame(150, data_get($payload, 'provider_performance.average_total_tokens'));
+        $this->assertSame(['estimated' => 2], data_get($payload, 'provider_performance.cost_confidence_counts'));
         $this->assertSame(['codex_cli' => 2], data_get($payload, 'provider_performance.provider_counts'));
+        $this->assertSame(['programming.frontend' => 2], data_get($payload, 'provider_performance.specialist_profile_counts'));
         $this->assertSame('codex_cli', data_get($payload, 'provider_performance.groups.0.provider_cli'));
+        $this->assertSame('programming.frontend', data_get($payload, 'provider_performance.groups.0.specialist_profile'));
         $this->assertSame('feature', data_get($payload, 'provider_performance.groups.0.task_type'));
+        $this->assertSame(1500, data_get($payload, 'provider_performance.groups.0.average_cost_microusd'));
     }
 
     public function test_command_human_output_includes_group_rows(): void
     {
-        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'succeeded', 1.2);
+        $this->recordProviderReturned('codex_cli', 'programming', 'feature', 'programming.frontend', 'succeeded', 1.2);
 
         $exit = Artisan::call('atlas:ai:provider-performance', [
             '--hours' => 24,
@@ -70,10 +80,13 @@ class AtlasAiProviderPerformanceCommandTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertStringContainsString('Atlas Provider Performance', $output);
         $this->assertStringContainsString('Success rate', $output);
+        $this->assertStringContainsString('Avg cost microusd', $output);
+        $this->assertStringContainsString('Avg tokens', $output);
         $this->assertStringContainsString('Review signal', $output);
         $this->assertStringContainsString('Recommended action', $output);
         $this->assertStringContainsString('codex_cli', $output);
         $this->assertStringContainsString('programming', $output);
+        $this->assertStringContainsString('programming.frontend', $output);
     }
 
     public function test_command_reports_unavailable_when_ledger_table_is_missing(): void
@@ -91,7 +104,7 @@ class AtlasAiProviderPerformanceCommandTest extends TestCase
         $this->assertSame(0, data_get($payload, 'provider_performance.event_count'));
     }
 
-    private function recordProviderReturned(string $provider, string $domain, string $taskType, string $status, float $latency, ?string $failureReason = null): void
+    private function recordProviderReturned(string $provider, string $domain, string $taskType, string $specialistProfile, string $status, float $latency, ?string $failureReason = null, ?int $costMicrousd = null, ?int $totalTokens = null): void
     {
         AtlasLedgerEvent::query()->create([
             'event_id' => (string) Str::ulid(),
@@ -112,6 +125,7 @@ class AtlasAiProviderPerformanceCommandTest extends TestCase
                 'provider_cli' => $provider,
                 'domain' => $domain,
                 'task_type' => $taskType,
+                'specialist_profile' => $specialistProfile,
                 'flow' => 'programming.dev',
                 'risk' => 'medium',
                 'exit_status' => $status,
@@ -119,8 +133,17 @@ class AtlasAiProviderPerformanceCommandTest extends TestCase
                 'repair_count' => $status === 'succeeded' ? 0 : 1,
                 'failure_reason' => $failureReason,
                 'selection_mode' => 'auto',
+                'prompt_tokens' => $totalTokens === null ? null : (int) floor($totalTokens / 2),
+                'completion_tokens' => $totalTokens === null ? null : (int) ceil($totalTokens / 2),
+                'total_tokens' => $totalTokens,
+                'estimated_tokens' => $totalTokens,
+                'token_source' => $totalTokens === null ? null : 'estimated_chars',
+                'cost_microusd' => $costMicrousd,
+                'cost_confidence' => $costMicrousd === null ? 'unknown' : 'estimated',
+                'cost_source' => $costMicrousd === null ? 'missing_cost_rate' : 'estimated_chars_rate',
+                'cost_mode' => $costMicrousd === null ? 'unknown' : 'operational_estimate',
             ],
-            'payload_hash' => hash('sha256', $provider.$domain.$taskType.$status.$latency),
+            'payload_hash' => hash('sha256', $provider.$domain.$taskType.$specialistProfile.$status.$latency),
             'occurred_at' => now(),
         ]);
     }

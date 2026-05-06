@@ -2058,7 +2058,7 @@ Cada anti-padrao tem teste arquitetural correspondente.
 | AP-125 | Operador nao tem surface dedicada para auditar actions humanas do Inbox | `atlas:ai:inbox-action-report` e `/ai/inbox-actions/report` devem expor `inboxActionReportForWindow` com filtros canonicos, status `ledger_unavailable` e review signal `wait_for_inbox_action_evidence` |
 | AP-126 | Output humano do architecture validate pode esconder violacoes novas | `AtlasAiArchitectureValidateCommand::renderPostAp98StaticScanViolations` deve imprimir qualquer violacao `ap99+` com label `kernel.static.<key>`, mantendo JSON e terminal com a mesma forca operacional |
 | AP-127 | Operador nao descobre os comandos da arquitetura mae no help principal | `atlas:cli:help` deve expor secao `arquitetura_mae` com `architecture-operations`, `architecture-validate`, `slo`, `kernel-pipeline-report`, `repair-report`, `provider-performance`, `self-improvement-schedule-report` e `inbox-action-report` |
-| AP-128 | Catalogo de operacoes da arquitetura mae pode duplicar entre CLI/App | `AtlasArchitectureOperationsCatalog` deve ser a fonte unica da secao `arquitetura_mae`, consumida por `atlas:cli:help` e `/ai/observability` em `architecture_operations` |
+| AP-128 | Catalogo de operacoes da arquitetura mae pode duplicar entre CLI/App | `AtlasArchitectureOperationsCatalog` deve ser a fonte unica da secao `arquitetura_mae`, consumida por `atlas:cli:help` e `/ai/observability` em `architecture_operations`, incluindo `docs-health`, `sync --prune` e `index-code --prune` como operacoes canonicas de governanca documental |
 | AP-129 | Agentes nao descobrem catalogo de operacoes da arquitetura mae sem CLI/App | Open Brain MCP deve expor `atlas_architecture_operations` read-only, consumindo `AtlasArchitectureOperationsCatalog::summary()`, entrando no inventory `atlas_capabilities` e publicando `ap129_architecture_operations_mcp_tool` |
 | AP-130 | Catalogo operacional aparece apenas embutido em outras surfaces | `atlas:ai:architecture-operations` e `/ai/architecture/operations` devem expor diretamente `AtlasArchitectureOperationsCatalog::summary()`, com teste CLI/API e scanner `ap130_architecture_operations_direct_surfaces` |
 | AP-131 | Curator nao percebe drift no catalogo operacional da arquitetura mae | `AtlasSelfImprovementRuntime::architectureOperationsFindings` deve consumir `AtlasArchitectureOperationsCatalog::summary()` no `weekly_architecture_audit`, detectar comandos criticos ausentes/contagem divergente e propor `restore_architecture_operations_catalog` |
@@ -2074,6 +2074,39 @@ Cada anti-padrao tem teste arquitetural correspondente.
 | AP-141 | Projecoes derivaveis do Evidence Ledger estavam apenas em prosa | `LedgerProjectionRegistry` deve declarar `ai_traces`, `atlas_engineering_runs` e `atlas_tool_runs` com model, tabela, source events, identity keys e colunas requeridas; `architecture-validate` expoe `kernel.ledger_projections`; scanner `ap141_ledger_projection_registry_contract` garante permanencia |
 | AP-142 | Health de projection apontava intervencao mas nao tinha action assistida | `InboxActionRegistry` deve expor `run_ledger_projection` gated por `available_actions`, executar `LedgerProjectionWorker` com dry-run/janela/limite, gravar `atlas.inbox_action.ledger_projection.v1`, resolver somente quando aplicar backfill real e registrar `INBOX_ACTION_RECORDED`; scanner `ap142_ledger_projection_inbox_action` garante permanencia |
 | AP-143 | Curator abria proposta de projection drift mas sem botao acionavel | `AtlasSelfImprovementRuntime::ledgerProjectionDriftFindings` deve emitir proposta com `available_actions[]=run_ledger_projection` e payload `projection_health`/`ledger_projection`; `ProposalInboxEmitter` deve preservar actions/payload customizados; scanner `ap143_ledger_projection_curator_action_emission` garante permanencia |
+| AP-144 | Revisitas do Rivals Strategy chegavam no Inbox, mas nao fechavam loop com score humano | `AtlasSelfImprovementRuntime::rivalsStrategyFindings` deve emitir `available_actions[]=record_rivals_review` com `due_reviews[]`; `InboxActionRegistry` deve registrar scores humanos via `AtlasRivalsStrategyReviewRecorder`, atualizar payload/status, gravar `atlas.inbox_action.rivals_review.v1` e `INBOX_ACTION_RECORDED`; `AtlasLedgerReplayService::inboxActionReportForWindow` deve projetar review id, case id, horizonte e scores para CLI/API/MCP/Observability; testes `InboxLedgerProjectionActionTest::test_inbox_action_records_rivals_review_with_human_scores_and_ledger_evidence` e `LedgerReplayServiceTest::test_inbox_action_window_report_projects_rivals_review_scores` garantem permanencia |
+| AP-145 | Docs ativos grandes demais apareciam no validador, mas nao viravam backlog operacional | `AtlasSelfImprovementRuntime::documentationHealthFindings` deve consumir `documentation.oversized_docs`, ignorar `split_required_grandfathered` como finding primario, gerar `atlas.self_improvement.documentation_health_gap.v1`, recomendar `split_oversized_active_docs` e preservar path/linhas/limite/source refs; scanner `ap145_documentation_health_curator_review` garante permanencia |
+| AP-146 | Findings de custo desconhecido podiam ser resolvidos no Inbox, mas ficar opacos no replay | `configure_provider_cost_rates` deve gravar `atlas.inbox_action.provider_cost_rates.v1`; `AtlasLedgerReplayService::inboxActionReportForWindow` deve projetar `provider_cost_rate_action_count`, `provider_cost_rate_applied_count`, provider/modelo/rates aplicados e reasons `provider_cost_rates_configured` ou `configure_provider_cost_rates_action_without_applied_rate`; CLI/API/MCP/Observability herdam o read model e o scanner AP-99 garante permanencia |
+
+### AP-144 — Rivals Review Inbox Action Contract
+
+`record_rivals_review` e a unica action de Inbox autorizada a fechar uma
+revisita do Rivals Strategy. Ela registra scores humanos, nunca executa decisao
+externa e grava `atlas.inbox_action.rivals_review.v1` no payload do item e no
+evento `INBOX_ACTION_RECORDED`. O replay publica
+`rivals_strategy_human_scores_recorded` quando os tres scores existem.
+
+### AP-146 — Provider Cost Rate Inbox Replay Contract
+
+`configure_provider_cost_rates` e a action assistida que transforma findings de
+custo desconhecido em rates versionados. Ela nao calcula preco, nao consulta
+internet e nao muda o provider/modelo escolhido; apenas aplica valores
+informados pelo operador em `ai_provider_cost_rates` e grava evidencia
+`INBOX_ACTION_RECORDED`.
+
+O replay precisa mostrar se o ciclo fechou de verdade. Quando `applied=true`, o
+read model publica `provider_cost_rates_configured`; quando foi apenas preview,
+publica `configure_provider_cost_rates_action_without_applied_rate` e mantem a
+recomendacao `configure_provider_cost_rates`. Esse contrato evita que a
+curadoria aponte gaps de custo sem que outra IA consiga enxergar se o humano ja
+fechou a pendencia.
+
+### AP-145 — Documentation Health Curator Review
+
+`documentationHealthFindings` transforma oversize ativo da Documentation OS em
+proposal revisavel. O schema `atlas.self_improvement.documentation_health_gap.v1`
+mantem `split_oversized_active_docs`, source refs por doc e separa docs
+`split_required` de `split_required_grandfathered`.
 
 Cada AP e merge-blocking. CI roda todos.
 
@@ -2410,9 +2443,11 @@ Status atual: implementado em AP-123. `AtlasSelfImprovementRuntime` agora chama
 metodo consome `inboxActionReportForWindow` e, quando o review signal aponta
 `review_patch_action_without_diff_refs`, gera finding revisavel com schema
 `atlas.self_improvement.inbox_action_replay_gap.v1` e recommended action
-`open_reviewable_inbox_action_evidence_proposal`. Isso fecha a volta
-`review_patch -> INBOX_ACTION_RECORDED -> replay -> Curator`, sem criar scanner
-paralelo de Inbox.
+`open_reviewable_inbox_action_evidence_proposal`. O mesmo caminho cobre
+`record_rivals_review_action_without_scores`, bloqueando revisitas do Rivals
+Strategy sem scores humanos completos. Isso fecha a volta
+`review_patch`/`record_rivals_review -> INBOX_ACTION_RECORDED -> replay ->
+Curator`, sem criar scanner paralelo de Inbox.
 
 ### Fase 1Z — Observability Inbox Action Replay
 

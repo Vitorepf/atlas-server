@@ -19,6 +19,7 @@ decisions:
   - Core contem capacidades horizontais compartilhadas.
   - Domains contem semantica, criterios e harnesses especificos.
   - Surfaces nao sao lugar de capacidade reutilizavel.
+  - Empresas/produtos como Blackink sao Business Contexts/Product Domains, nao Atlas AI Domains por padrao.
   - Profiles sao contratos operacionais de dominio/fluxo, nao presets de modelo.
   - Super Tool Runtime pertence ao Core; dominios consomem suas evidencias e definem criterios.
 maintenance:
@@ -27,6 +28,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-vision.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
+  - docs/engineering-knowledge-base/atlas-ai-business-contexts.md
   - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
   - docs/engineering-knowledge-base/atlas-ai-resolver-corpus-audit.md
 ---
@@ -91,6 +93,12 @@ intent `repair`, dependendo de risco.
 ## Domain
 
 Domain adiciona semantica especializada.
+
+Empresas, produtos e fontes de renda do Vitor nao sao domains cognitivos por
+padrao. `blackink` deve ser tratado como Business Context/Product Domain, enquanto
+`programming`, `marketing`, `finance`, `operations` e `strategic_decision`
+descrevem a capacidade usada para trabalhar sobre esse contexto. A regra completa
+vive em `atlas-ai-business-contexts.md`.
 
 Status operacional atual:
 

@@ -21,7 +21,10 @@ use App\Console\Commands\AtlasAiDomainsCommand;
 use App\Console\Commands\AtlasAiLedgerCommand;
 use App\Console\Commands\AtlasAiLedgerProjectionCommand;
 use App\Console\Commands\AtlasAiProviderPerformanceCommand;
+use App\Console\Commands\AtlasAiQualitativeLevelsCommand;
+use App\Console\Commands\AtlasAiRivalsStrategyCommand;
 use App\Console\Commands\AtlasAiSelfImproveCommand;
+use App\Console\Commands\AtlasAiStrategicDecisionCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
 use App\Console\Commands\AtlasCliCheckpointCommand;
 use App\Console\Commands\AtlasCliCompareCommand;
@@ -130,7 +133,10 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiLedgerCommand::class,
         AtlasAiLedgerProjectionCommand::class,
         AtlasAiProviderPerformanceCommand::class,
+        AtlasAiQualitativeLevelsCommand::class,
+        AtlasAiRivalsStrategyCommand::class,
         AtlasAiSelfImproveCommand::class,
+        AtlasAiStrategicDecisionCommand::class,
         AtlasCliBootstrapCommand::class,
         AtlasCliCheckpointCommand::class,
         AtlasCliCompareCommand::class,

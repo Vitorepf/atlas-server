@@ -162,6 +162,10 @@ class AtlasCliDevCommand extends Command
             modelSelection: $modelSelection,
             modelOverride: $modelOverride,
             fairMode: $fairMode,
+            context: [
+                'domain' => 'programming',
+                'task' => $task,
+            ],
         );
         if ($fairMode) {
             $preflight['fair_mode'] = $fairClaude->metadata();
@@ -203,6 +207,11 @@ class AtlasCliDevCommand extends Command
             modelSelection: $modelSelection,
             modelOverride: $modelOverride,
             fairMode: $fairMode,
+            context: [
+                'domain' => 'programming',
+                'flow' => data_get($sessionPlan, 'flow'),
+                'task' => $task,
+            ],
         );
         if ($fairMode) {
             $devPlan['fair_mode'] = $fairClaude->metadata();
@@ -987,9 +996,9 @@ class AtlasCliDevCommand extends Command
      * @param  array<string,mixed>|null  $modelSelection
      * @return array<string,mixed>
      */
-    private function modelSelectionContract(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array
+    private function modelSelectionContract(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode, array $context = []): array
     {
-        return app(ModelSelectionContractFactory::class)->forCliDev($provider, $modelSelection, $modelOverride, $fairMode);
+        return app(ModelSelectionContractFactory::class)->forCliDev($provider, $modelSelection, $modelOverride, $fairMode, $context);
     }
 
     /**

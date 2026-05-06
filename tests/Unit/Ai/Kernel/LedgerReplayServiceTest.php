@@ -687,6 +687,138 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertSame('inbox-action-filter-1', $report['recent_events'][0]['inbox_item_id']);
     }
 
+    public function test_inbox_action_window_report_projects_rivals_review_scores(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONRIVALS00001',
+            inboxItemId: 'inbox-rivals-review-1',
+            action: 'record_rivals_review',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'medium',
+            recommendedAction: 'record_due_rivals_strategy_reviews',
+            rivalsReviewAction: [
+                'schema_version' => 'atlas.inbox_action.rivals_review.v1',
+                'recorded_review_id' => 'review-rivals-1',
+                'case_id' => 'case-rivals-1',
+                'horizon_days' => 30,
+                'scores' => [
+                    'regret' => 9,
+                    'alignment' => 92,
+                    'agency' => 88,
+                ],
+                'remaining_due_review_count' => 0,
+            ],
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->inboxActionReportForWindow(
+            now()->subHour(),
+            now()->addMinute(),
+            ['action' => 'record_rivals_review'],
+        );
+
+        $this->assertTrue($report['available']);
+        $this->assertSame(1, $report['inbox_action_count']);
+        $this->assertSame(1, $report['rivals_review_recorded_count']);
+        $this->assertSame(1, $report['rivals_review_with_scores_count']);
+        $this->assertSame(['record_rivals_review' => 1], $report['action_counts']);
+        $this->assertSame(['record_due_rivals_strategy_reviews' => 1], $report['recommended_action_counts']);
+        $this->assertSame('ok', data_get($report, 'review_signal.status'));
+        $this->assertSame('none', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('rivals_strategy_human_scores_recorded', data_get($report, 'review_signal.reasons'));
+        $this->assertSame('atlas.inbox_action.rivals_review.v1', data_get($report, 'recent_events.0.rivals_review_schema_version'));
+        $this->assertSame('review-rivals-1', data_get($report, 'recent_events.0.rivals_review_id'));
+        $this->assertSame(9, data_get($report, 'recent_events.0.rivals_regret_score'));
+        $this->assertSame(92, data_get($report, 'recent_events.0.rivals_alignment_score'));
+        $this->assertSame(88, data_get($report, 'recent_events.0.rivals_agency_score'));
+    }
+
+    public function test_inbox_action_window_report_projects_provider_cost_rate_actions(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONCOSTRATE001',
+            inboxItemId: 'inbox-provider-cost-rate-1',
+            action: 'configure_provider_cost_rates',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'medium',
+            recommendedAction: 'configure_provider_cost_rates',
+            providerCostRateAction: [
+                'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.2',
+                'input_microusd_per_1k' => 120,
+                'output_microusd_per_1k' => 480,
+                'currency' => 'USD',
+                'effective_from' => '2026-05-06T00:00:00Z',
+                'effective_until' => null,
+                'applied' => true,
+            ],
+            upsertedRate: [
+                'id' => 77,
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.2',
+            ],
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->inboxActionReportForWindow(
+            now()->subHour(),
+            now()->addMinute(),
+            ['action' => 'configure_provider_cost_rates'],
+        );
+
+        $this->assertTrue($report['available']);
+        $this->assertSame(1, $report['inbox_action_count']);
+        $this->assertSame(1, $report['provider_cost_rate_action_count']);
+        $this->assertSame(1, $report['provider_cost_rate_applied_count']);
+        $this->assertSame(['codex_cli' => 1], $report['provider_cost_rate_provider_counts']);
+        $this->assertSame(['codex_cli:gpt-5.2' => 1], $report['provider_cost_rate_model_counts']);
+        $this->assertSame('ok', data_get($report, 'review_signal.status'));
+        $this->assertSame('none', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('provider_cost_rates_configured', data_get($report, 'review_signal.reasons'));
+        $this->assertSame('atlas.inbox_action.provider_cost_rates.v1', data_get($report, 'recent_events.0.provider_cost_rate_schema_version'));
+        $this->assertSame('codex_cli', data_get($report, 'recent_events.0.provider_cost_rate_provider'));
+        $this->assertSame('gpt-5.2', data_get($report, 'recent_events.0.provider_cost_rate_model'));
+        $this->assertSame(120, data_get($report, 'recent_events.0.provider_cost_rate_input_microusd'));
+        $this->assertSame(480, data_get($report, 'recent_events.0.provider_cost_rate_output_microusd'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.provider_cost_rate_applied'));
+        $this->assertSame(77, data_get($report, 'recent_events.0.provider_cost_rate_id'));
+    }
+
+    public function test_inbox_action_window_report_warns_when_provider_cost_rate_action_is_only_previewed(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONCOSTRATE002',
+            inboxItemId: 'inbox-provider-cost-rate-preview',
+            action: 'configure_provider_cost_rates',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'medium',
+            recommendedAction: 'configure_provider_cost_rates',
+            providerCostRateAction: [
+                'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                'provider' => 'claude_cli',
+                'model' => 'opus',
+                'input_microusd_per_1k' => null,
+                'output_microusd_per_1k' => null,
+                'currency' => 'USD',
+                'applied' => false,
+            ],
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->inboxActionReportForWindow(
+            now()->subHour(),
+            now()->addMinute(),
+            ['action' => 'configure_provider_cost_rates'],
+        );
+
+        $this->assertSame(1, $report['provider_cost_rate_action_count']);
+        $this->assertSame(0, $report['provider_cost_rate_applied_count']);
+        $this->assertSame('warning', data_get($report, 'review_signal.status'));
+        $this->assertSame('configure_provider_cost_rates', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('configure_provider_cost_rates_action_without_applied_rate', data_get($report, 'review_signal.reasons'));
+    }
+
     /**
      * @param  array<string,mixed>  $payloadOverrides
      * @return array<string,mixed>
@@ -934,6 +1066,9 @@ class LedgerReplayServiceTest extends TestCase
         string $severity,
         string $recommendedAction,
         array $diffRefs = [],
+        array $rivalsReviewAction = [],
+        array $providerCostRateAction = [],
+        array $upsertedRate = [],
         mixed $occurredAt = null,
     ): void {
         AtlasLedgerEvent::query()->create([
@@ -972,6 +1107,9 @@ class LedgerReplayServiceTest extends TestCase
                         'action' => $action,
                         'diff_refs' => $diffRefs,
                     ],
+                    'rivals_review_action' => $rivalsReviewAction,
+                    'provider_cost_rate_action' => $providerCostRateAction,
+                    'upserted_rate' => $upsertedRate,
                 ],
                 'proposal_contract' => [
                     'review_signal' => [

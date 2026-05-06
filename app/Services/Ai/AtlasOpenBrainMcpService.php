@@ -348,7 +348,7 @@ class AtlasOpenBrainMcpService
             [
                 'name' => 'atlas_provider_performance_report',
                 'title' => 'Atlas Provider Performance Report',
-                'description' => 'Retorna projection read-only dos eventos PROVIDER_RETURNED/PROVIDER_FALLBACK para auditar performance empirica por provider, dominio, flow e task_type.',
+                'description' => 'Retorna projection read-only dos eventos PROVIDER_RETURNED/PROVIDER_FALLBACK para auditar performance empirica por provider, dominio, flow, task_type e specialist_profile.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -358,6 +358,7 @@ class AtlasOpenBrainMcpService
                         'domain' => ['type' => 'string', 'description' => 'Filtra por domain.'],
                         'flow' => ['type' => 'string', 'description' => 'Filtra por flow.'],
                         'task_type' => ['type' => 'string', 'description' => 'Filtra por task_type.'],
+                        'specialist_profile' => ['type' => 'string', 'description' => 'Filtra por specialist_profile.'],
                         'risk' => ['type' => 'string', 'description' => 'Filtra por risk.'],
                         'selection_mode' => ['type' => 'string', 'description' => 'Filtra por auto/manual_override.'],
                     ],
@@ -1229,6 +1230,7 @@ class AtlasOpenBrainMcpService
             'domain',
             'flow',
             'task_type',
+            'specialist_profile',
             'risk',
             'selection_mode',
         ]);

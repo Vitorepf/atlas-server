@@ -71,7 +71,7 @@ Campos ja expostos para surfaces:
 
 1. App routing domain list hardcoded:
    - `ROUTING_DOMAIN_OPTIONS` usa `auto`, `atlas`, `vault-curador`, `saude`, `blackink`, `financas`.
-   - Isso pertence ao dominio de captura/produto, nao ao Atlas AI domain catalog.
+   - Isso pertence a Business Context/Product Domain, nao ao Atlas AI domain catalog.
    - Risco: usuario escolhe "programacao", mas a payload ainda carrega `domain: atlas` em vez de `domain_id: programming`.
 
 2. App routing mode/task model hardcoded:
@@ -231,7 +231,7 @@ Fase futura pequena:
 
 3. Routing sheet catalog-aware:
    - Trocar `ROUTING_DOMAIN_OPTIONS` por opcoes derivadas do catalogo para AI routing.
-   - Manter domains de captura (`blackink`, `saude`, `financas`) no fluxo de captura, nao no AI domain picker.
+   - Manter Business Contexts/Product Domains (`blackink`, `saude`, `financas`) no fluxo de captura/contexto, nao no AI domain picker.
 
 4. API interaction metadata:
    - Concluido no controller de interaction antes do gateway.
@@ -255,7 +255,7 @@ Fase futura pequena:
 
 ## Riscos
 
-- Confusao entre product domains (`blackink`, `saude`, `financas`) e AI domains (`programming`, `marketing`, `self_improvement`). O plano separa captura/produto de routing AI.
+- Confusao entre Business Contexts/Product Domains (`blackink`, `saude`, `financas`) e AI domains (`programming`, `marketing`, `self_improvement`). O plano separa contexto de negocio/captura de routing AI.
 - Misturar provider e executor preference. Provider e escolha de modelo; executor preference e estrategia operacional do flow.
 - Expor scaffold domains como se fossem prontos. O picker principal deve priorizar `onboarding.status=ready`.
 - Dar autonomia alta no mobile sem confirmacao. Mobile deve tratar `danger` como elevacao explicita.

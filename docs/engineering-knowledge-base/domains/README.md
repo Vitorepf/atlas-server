@@ -16,8 +16,7 @@ capabilities:
   - domain_status_governance
 decisions:
   - Domain specs nesta pasta documentam comportamento especifico de dominio; contratos kernel continuam em atlas-ai-kernel-architecture.md.
-  - Apenas programming, finance, personal_development e self_improvement sao implemented/ready atualmente.
-  - Marketing e demais scaffolds nao devem ser tratados como ready ate existirem runtime/orchestrator proprios e passarem onboarding.
+  - Programming, finance, personal_development, self_improvement, strategic_decision, marketing, research, writing, learning, qa, security, operations, background, general e health sao implemented/ready atualmente.
 maintenance:
   - Atualize este indice quando um dominio mudar de scaffold para implemented/ready ou quando uma spec nova for promovida.
   - Nao crie spec ready para scaffold sem atualizar canonical index, master architecture e onboarding status.
@@ -26,6 +25,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
+  - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
+  - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
 ---
 
 # Atlas AI Domain Specs Index
@@ -44,35 +45,36 @@ Master Architecture:
 
 | Domain | Spec | Status | Observacao |
 |---|---|---|---|
-| `programming` | `programming.md` | implemented/ready | Dev, repair, review, refactor, QA, security, database, visual e forge. |
+| `programming` | `programming.md` + `programming-specialist-profiles.md` + `programming-frontend-superpower.md` | implemented/ready | Dev, repair, review, refactor, QA, security, database, visual, forge e specialist profiles internos. |
 | `finance` | `finance.md` | implemented/ready | Analysis/review-only; sem ordens, broker execution, rebalanceamento ou transferencia. |
 | `personal_development` | `personal-development.md` | implemented/ready | Privado, non-clinical, plan-only e sem mutacao automatica de calendario/tarefas. |
 | `self_improvement` | `self-improvement.md` | implemented/ready | Auditoria, docs drift, capability gaps, benchmark review, memory quality, provider performance e proposals. |
+| `strategic_decision` | `strategic-decision.md` | implemented/ready | Co-estrategia review-only com cool-down, valores, contraargumento, Decision Receipt dry-run, Rivals Strategy e revisit tracking. |
+| `marketing` | `atlas-ai-master-architecture.md` | implemented/ready | Draft-and-review para estratégia, campanha, criativos, copy, experimentos e analytics; nunca publica nem gasta mídia sem aprovação explícita. |
+| `research` | `atlas-ai-content-intelligence-curation.md` | implemented/ready | Pesquisa source-grounded com citações, incerteza, contradiction check e promoção de memória apenas por proposta revisável. |
+| `writing` | `writing.md` | implemented/ready | Rascunho, edicao, voice review e publish review com pacote auditavel, sem auto-publicacao. |
+| `learning` | `learning.md` | implemented/ready | Aprendizado humano, pratica deliberada, review e spaced review; nao altera Learning Plane do Core. |
+| `qa` | `qa.md` | implemented/ready | Revisao transversal, acceptance review, evidence audit e release readiness; nao executa testes nem sobrepoe gates. |
+| `security` | `security.md` | implemented/ready | Revisao defensiva, privacidade, compliance e incidente; nao executa exploit, scan, segredo ou acao operacional autonoma. |
+| `operations` | `operations.md` | implemented/ready | Diagnostico operacional, runbook, incidente e readiness; nao faz deploy, restart, infra mutation ou delecao. |
+| `background` | `background.md` | implemented/ready | Revisao de tarefas recorrentes, schedule, permissoes e stop conditions; nao inicia jobs nem muda schedules. |
+| `general` | `general.md` | implemented/ready | Resposta simples e triagem governada; nao substitui dominios especializados nem burla Decide. |
+| `health` | `health.md` | implemented/ready | Review nao clinico de bem-estar, rotina, recuperacao e seguranca; nao diagnostica nem prescreve. |
 
 ## Scaffold/Catalog-Ready
 
 Estes dominios podem aparecer no catalogo para onboarding incremental, mas nao
 devem ser expostos como implemented/ready:
 
-| Domain | Status | Regra |
-|---|---|---|
-| `marketing` | scaffold/catalog-ready | Possui catalogo alvo com 15 flows; precisa runtime/orchestrator proprio antes de virar ready. |
-| `research` | scaffold/catalog-ready | Manter como catalogo/planejamento ate existir runtime proprio. |
-| `health` | scaffold/catalog-ready | Safety-critical; exige contrato separado, privacy e review humano antes de ready. |
-| `learning` | scaffold/catalog-ready | Nao confundir com learning loop interno do Core. |
-| `writing` | scaffold/catalog-ready | Nao promover sem policy de output, memory e surface. |
-| `qa` | scaffold/catalog-ready | Hoje QA operacional de codigo vive em `programming.qa`. |
-| `security` | scaffold/catalog-ready | Hoje security operacional de codigo vive em `programming.security`; dominio dedicado exige contrato proprio. |
-| `operations` | scaffold/catalog-ready | Usar apenas como routing/catalogo ate runtime proprio. |
-| `background` | scaffold/catalog-ready | Nao expor como autonomia pronta sem gates e scheduler contract. |
-| `general` | scaffold/catalog-ready | Evitar virar fallback sem policy; usar catalogo apenas como entrada controlada. |
+Nao ha scaffold ativo no catalogo principal depois desta fase. Novos dominios
+devem entrar como scaffold/catalog-ready somente com fronteira, owner e
+promotion gate explicitos.
 
 ## Future Dedicated Domains
 
 | Conceito | Estado | Regra |
 |---|---|---|
 | Curator dedicado | futuro | Hoje a curadoria operacional implementada vive em `self_improvement`; separar somente quando houver fronteira clara de produto/governanca. |
-| Marketing ready | futuro | Promover apenas quando tiver orchestrator, runtime, gates, safety, surfaces e onboarding `ready 9/9`. |
 
 ## Promotion Gate
 

@@ -1153,6 +1153,24 @@ class AtlasLedgerReplayService
             'result_action' => data_get($result, 'payload.action'),
             'diff_ref_count' => count((array) data_get($result, 'payload.diff_refs', [])),
             'file_ref_count' => count((array) data_get($result, 'payload.file_refs', [])),
+            'rivals_review_schema_version' => data_get($result, 'rivals_review_action.schema_version'),
+            'rivals_review_id' => data_get($result, 'rivals_review_action.recorded_review_id'),
+            'rivals_case_id' => data_get($result, 'rivals_review_action.case_id'),
+            'rivals_horizon_days' => data_get($result, 'rivals_review_action.horizon_days'),
+            'rivals_regret_score' => data_get($result, 'rivals_review_action.scores.regret'),
+            'rivals_alignment_score' => data_get($result, 'rivals_review_action.scores.alignment'),
+            'rivals_agency_score' => data_get($result, 'rivals_review_action.scores.agency'),
+            'rivals_remaining_due_review_count' => data_get($result, 'rivals_review_action.remaining_due_review_count'),
+            'provider_cost_rate_schema_version' => data_get($result, 'provider_cost_rate_action.schema_version'),
+            'provider_cost_rate_provider' => data_get($result, 'provider_cost_rate_action.provider'),
+            'provider_cost_rate_model' => data_get($result, 'provider_cost_rate_action.model'),
+            'provider_cost_rate_input_microusd' => data_get($result, 'provider_cost_rate_action.input_microusd_per_1k'),
+            'provider_cost_rate_output_microusd' => data_get($result, 'provider_cost_rate_action.output_microusd_per_1k'),
+            'provider_cost_rate_currency' => data_get($result, 'provider_cost_rate_action.currency'),
+            'provider_cost_rate_effective_from' => data_get($result, 'provider_cost_rate_action.effective_from'),
+            'provider_cost_rate_effective_until' => data_get($result, 'provider_cost_rate_action.effective_until'),
+            'provider_cost_rate_applied' => data_get($result, 'provider_cost_rate_action.applied'),
+            'provider_cost_rate_id' => data_get($result, 'upserted_rate.id'),
         ];
     }
 
@@ -1168,7 +1186,31 @@ class AtlasLedgerReplayService
         $withDiffRefsCount = $events
             ->filter(fn (array $event): bool => (int) ($event['diff_ref_count'] ?? 0) > 0)
             ->count();
-        $reviewSignal = $this->inboxActionReviewSignal($events, $reviewedPatchCount, $withDiffRefsCount);
+        $rivalsReviewRecordedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'record_rivals_review')
+            ->count();
+        $rivalsReviewWithScoresCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'record_rivals_review')
+            ->filter(fn (array $event): bool => is_numeric($event['rivals_regret_score'] ?? null)
+                && is_numeric($event['rivals_alignment_score'] ?? null)
+                && is_numeric($event['rivals_agency_score'] ?? null))
+            ->count();
+        $providerCostRateActionCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'configure_provider_cost_rates')
+            ->count();
+        $providerCostRateAppliedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'configure_provider_cost_rates')
+            ->filter(fn (array $event): bool => (bool) ($event['provider_cost_rate_applied'] ?? false))
+            ->count();
+        $reviewSignal = $this->inboxActionReviewSignal(
+            $events,
+            $reviewedPatchCount,
+            $withDiffRefsCount,
+            $rivalsReviewRecordedCount,
+            $rivalsReviewWithScoresCount,
+            $providerCostRateActionCount,
+            $providerCostRateAppliedCount,
+        );
 
         return [
             'inbox_action_count' => $events->count(),
@@ -1179,6 +1221,18 @@ class AtlasLedgerReplayService
             'recommended_action_counts' => $events->pluck('recommended_action')->filter()->countBy()->all(),
             'reviewed_patch_count' => $reviewedPatchCount,
             'with_diff_refs_count' => $withDiffRefsCount,
+            'rivals_review_recorded_count' => $rivalsReviewRecordedCount,
+            'rivals_review_with_scores_count' => $rivalsReviewWithScoresCount,
+            'provider_cost_rate_action_count' => $providerCostRateActionCount,
+            'provider_cost_rate_applied_count' => $providerCostRateAppliedCount,
+            'provider_cost_rate_provider_counts' => $events->pluck('provider_cost_rate_provider')->filter()->countBy()->all(),
+            'provider_cost_rate_model_counts' => $events
+                ->map(fn (array $event): ?string => ($event['provider_cost_rate_provider'] ?? null) && ($event['provider_cost_rate_model'] ?? null)
+                    ? $event['provider_cost_rate_provider'].':'.$event['provider_cost_rate_model']
+                    : null)
+                ->filter()
+                ->countBy()
+                ->all(),
             'review_signal' => $reviewSignal,
             'events' => $events->all(),
         ];
@@ -1188,8 +1242,15 @@ class AtlasLedgerReplayService
      * @param  Collection<int,array<string,mixed>>  $events
      * @return array{status:string,severity:string,review_required:bool,reasons:array<int,string>,recommended_action:string}
      */
-    private function inboxActionReviewSignal(Collection $events, int $reviewedPatchCount, int $withDiffRefsCount): array
-    {
+    private function inboxActionReviewSignal(
+        Collection $events,
+        int $reviewedPatchCount,
+        int $withDiffRefsCount,
+        int $rivalsReviewRecordedCount,
+        int $rivalsReviewWithScoresCount,
+        int $providerCostRateActionCount,
+        int $providerCostRateAppliedCount,
+    ): array {
         if ($events->isEmpty()) {
             return [
                 'status' => 'unknown',
@@ -1197,6 +1258,46 @@ class AtlasLedgerReplayService
                 'review_required' => false,
                 'reasons' => ['no_inbox_action_events_in_window'],
                 'recommended_action' => 'wait_for_inbox_action_evidence',
+            ];
+        }
+
+        if ($rivalsReviewRecordedCount > 0 && $rivalsReviewWithScoresCount === $rivalsReviewRecordedCount) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['rivals_strategy_human_scores_recorded'],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        if ($rivalsReviewRecordedCount > 0) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['record_rivals_review_action_without_scores'],
+                'recommended_action' => 'open_reviewable_inbox_action_evidence_proposal',
+            ];
+        }
+
+        if ($providerCostRateActionCount > 0 && $providerCostRateAppliedCount === $providerCostRateActionCount) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['provider_cost_rates_configured'],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        if ($providerCostRateActionCount > 0) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['configure_provider_cost_rates_action_without_applied_rate'],
+                'recommended_action' => 'configure_provider_cost_rates',
             ];
         }
 

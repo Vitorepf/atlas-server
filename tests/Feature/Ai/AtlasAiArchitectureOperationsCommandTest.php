@@ -18,13 +18,16 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($payload, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($payload, 'architecture_operations.section'));
-        $this->assertSame(11, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(19, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $commands = array_column(data_get($payload, 'architecture_operations.commands'), 'command');
 
         $this->assertContains('atlas ai architecture-operations --json', $commands);
         $this->assertContains('atlas ai architecture-validate', $commands);
+        $this->assertContains('atlas engineering knowledge docs-health --json', $commands);
+        $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
+        $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai decision-receipt-report --envelope=<id> --json', $commands);
         $this->assertContains('atlas ledger replay --envelope=<id> --json', $commands);
@@ -42,6 +45,9 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertStringContainsString('Atlas AI Architecture Operations', $output);
         $this->assertStringContainsString('atlas ai architecture-operations --json', $output);
+        $this->assertStringContainsString('atlas engineering knowledge docs-health --json', $output);
+        $this->assertStringContainsString('atlas engineering knowledge sync --prune --json', $output);
+        $this->assertStringContainsString('atlas engineering knowledge index-code --prune --json', $output);
         $this->assertStringContainsString('atlas ai provider-performance --hours=24 --json', $output);
         $this->assertStringContainsString('atlas ai decision-receipt-report --envelope=<id> --json', $output);
         $this->assertStringContainsString('atlas ledger replay --envelope=<id> --json', $output);

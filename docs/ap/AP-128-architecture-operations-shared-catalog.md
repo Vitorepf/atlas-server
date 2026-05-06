@@ -12,9 +12,10 @@ Observability, MCP, or future control-plane surfaces.
   `arquitetura_mae` command list.
 - `atlas:cli:help` must consume `sectionKey()` and `commands()`.
 - `/ai/observability` must expose `architecture_operations` from `summary()`.
-- The catalog must include the seven core operational commands:
-  architecture validation, SLO, kernel pipeline, repair, provider performance,
-  self-improvement schedule replay, and Inbox action report.
+- The catalog must include the core operational commands: architecture
+  validation, documentation health, KB sync, Code Intelligence index, SLO,
+  kernel pipeline, repair, provider performance, self-improvement schedule
+  replay, and Inbox action report.
 - The contract is enforced by static scan key
   `ap128_architecture_operations_shared_catalog`.
 

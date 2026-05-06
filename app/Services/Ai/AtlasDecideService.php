@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
+use App\Services\Ai\Kernel\Decision\DynamicComputeMarketAdvisor;
 use App\Services\Ai\Kernel\Envelope\EffectiveProfile;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -26,6 +27,7 @@ class AtlasDecideService
         private readonly AtlasAiPolicyService $policies,
         private readonly OperationEnvelopeFactory $envelopes,
         private readonly DecisionReceiptIssuer $receipts,
+        private readonly DynamicComputeMarketAdvisor $computeMarket,
         private readonly AtlasEvidenceLedger $ledger,
         private readonly SurfaceAdapterRegistry $surfaceAdapters,
         private readonly ProviderDriverRegistry $providerDrivers,
@@ -165,6 +167,17 @@ class AtlasDecideService
         $plan = $this->decisionPlan($options, $selectedProvider, $selectedModel);
         $runtimeGraph = $plan['execution_graph'];
         $decisionId = (string) Str::orderedUuid();
+        $selectionExplanation = $this->providerSelectionExplanation(
+            options: $options,
+            policy: $policy,
+            plan: $plan,
+            candidateProvider: $candidateProvider,
+            selectedProvider: $selectedProvider,
+            selectedModel: $selectedModel,
+            selectionMode: $selectionMode,
+            fallbackReason: $fallbackReason,
+            manualProvider: $manualProvider,
+        );
         $kernelContracts = $this->kernelContractReceipts(
             options: $options,
             policy: $policy,
@@ -183,6 +196,7 @@ class AtlasDecideService
             fallbackReason: $fallbackReason,
             manualProvider: $manualProvider,
             kernelContracts: $kernelContracts,
+            selectionExplanation: $selectionExplanation,
         );
         $this->recordDecisionReceipt($receiptV2, $options);
 
@@ -208,6 +222,9 @@ class AtlasDecideService
                 'fallback_provider' => $fallbackReason ? $selectedProvider : null,
                 'fallback_reason' => $fallbackReason,
                 'selection_reason' => $this->decisionReasonWithFallback($options, $candidateProvider, $selectedProvider, $fallbackReason),
+                'selection_explanation' => $selectionExplanation,
+                'confidence_score' => $selectionExplanation['confidence_score'],
+                'confidence_band' => $selectionExplanation['confidence_band'],
                 'was_overridden' => $manualProvider !== null,
                 'operator_requested_provider' => data_get($options, 'payload.operator_requested_provider') ?: 'auto',
                 'requested_provider' => $manualProvider,
@@ -426,6 +443,7 @@ class AtlasDecideService
         ?string $fallbackReason,
         ?string $manualProvider,
         array $kernelContracts,
+        array $selectionExplanation,
     ): array {
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
         $domain = (string) ($policy['domain'] ?? data_get($policy, 'profile_context.domain') ?? 'general');
@@ -483,6 +501,9 @@ class AtlasDecideService
                 'fallbacks' => array_values(array_filter((array) ($policy['fallback_order'] ?? []))),
                 'selection_mode' => $selectionMode,
                 'selection_reason' => $this->decisionReasonWithFallback($options, (string) data_get($plan, 'execution_graph.nodes.0.provider', $selectedProvider), $selectedProvider, $fallbackReason),
+                'selection_explanation' => $selectionExplanation,
+                'confidence_score' => $selectionExplanation['confidence_score'],
+                'confidence_band' => $selectionExplanation['confidence_band'],
                 'manual_override' => $manualOverride,
             ],
             'budgets' => [
@@ -692,6 +713,173 @@ class AtlasDecideService
 
     /**
      * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $policy
+     * @param  array<string,mixed>  $plan
+     * @return array<string,mixed>
+     */
+    private function providerSelectionExplanation(
+        array $options,
+        array $policy,
+        array $plan,
+        string $candidateProvider,
+        string $selectedProvider,
+        ?string $selectedModel,
+        string $selectionMode,
+        ?string $fallbackReason,
+        ?string $manualProvider,
+    ): array {
+        $taskProfile = is_array($plan['task_profile'] ?? null) ? $plan['task_profile'] : [];
+        $specialistProfile = $this->specialistProfileSignal($options, $taskProfile);
+        $confidenceScore = $this->selectionConfidenceScore(
+            options: $options,
+            selectedProvider: $selectedProvider,
+            manualProvider: $manualProvider,
+            taskProfile: $taskProfile,
+            fallbackReason: $fallbackReason,
+        );
+        $evidenceLevel = match (true) {
+            $manualProvider !== null => 'manual_override',
+            $fallbackReason !== null => 'policy_fallback',
+            default => 'policy_heuristic_pending_ap99',
+        };
+
+        return [
+            'schema_version' => 1,
+            'authority' => 'atlas_decide',
+            'selected_provider' => $selectedProvider,
+            'selected_model' => $selectedModel ?: 'selected-by-decide',
+            'candidate_provider' => $candidateProvider,
+            'selection_mode' => $selectionMode,
+            'confidence_score' => $confidenceScore,
+            'confidence_band' => $this->confidenceBand($confidenceScore, $manualProvider),
+            'evidence_level' => $evidenceLevel,
+            'reason' => $this->decisionReasonWithFallback($options, $candidateProvider, $selectedProvider, $fallbackReason),
+            'primary_signals' => $this->selectionPrimarySignals($options, $taskProfile),
+            'policy_limits' => [
+                'profile_id' => $policy['profile_id'] ?? null,
+                'default_model_policy' => $policy['default_model_policy'] ?? null,
+                'selection_mode' => $selectionMode,
+                'candidate_auto_allowed' => $this->policies->providerAllowsAuto($policy, $candidateProvider),
+                'selected_budget_allowed' => $selectedProvider === self::COUNCIL_PROVIDER || $this->policies->budgetAllows($policy, $selectedProvider),
+                'required_gates' => array_values((array) ($policy['required_gates'] ?? [])),
+            ],
+            'compute_market' => $this->computeMarket->advise(
+                selectedProvider: $selectedProvider,
+                selectedModel: $selectedModel,
+                policy: $policy,
+                taskProfile: $taskProfile,
+                specialistProfile: $specialistProfile,
+            ),
+            'fallback' => [
+                'used' => $fallbackReason !== null,
+                'reason' => $fallbackReason,
+                'candidate_provider' => $candidateProvider,
+                'selected_provider' => $selectedProvider,
+            ],
+            'ap99' => [
+                'status' => 'pending_runtime_evidence',
+                'required_dimensions' => ['provider', 'model', 'domain', 'flow', 'task_type', 'specialist_profile'],
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $taskProfile
+     */
+    private function selectionConfidenceScore(
+        array $options,
+        string $selectedProvider,
+        ?string $manualProvider,
+        array $taskProfile,
+        ?string $fallbackReason,
+    ): int {
+        if ($manualProvider !== null) {
+            return 100;
+        }
+
+        if ($fallbackReason !== null) {
+            return 72;
+        }
+
+        if ($selectedProvider === 'gemini_cli' && (
+            in_array($taskProfile['context_pressure'] ?? null, ['long', 'multimodal'], true)
+            || ($taskProfile['requires_multimodal_reasoning'] ?? false) === true
+            || ($taskProfile['requires_source_grounding'] ?? false) === true
+        )) {
+            return 88;
+        }
+
+        if ($selectedProvider === 'codex_cli' && (
+            ($taskProfile['requires_code_execution'] ?? false) === true
+            || in_array(data_get($options, 'payload.atlas_workflow_mode'), ['dev', 'debug', 'execute', 'quality_repair'], true)
+        )) {
+            return 86;
+        }
+
+        return 74;
+    }
+
+    private function confidenceBand(int $score, ?string $manualProvider): string
+    {
+        if ($manualProvider !== null) {
+            return 'manual';
+        }
+
+        return match (true) {
+            $score >= 85 => 'high',
+            $score >= 70 => 'medium',
+            default => 'low',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $taskProfile
+     * @return array<string,mixed>
+     */
+    private function selectionPrimarySignals(array $options, array $taskProfile): array
+    {
+        return [
+            'task_type' => $taskProfile['task_type'] ?? null,
+            'risk_level' => $taskProfile['risk_level'] ?? null,
+            'complexity' => $taskProfile['complexity'] ?? null,
+            'context_pressure' => $taskProfile['context_pressure'] ?? null,
+            'requires_code_execution' => (bool) ($taskProfile['requires_code_execution'] ?? false),
+            'requires_source_grounding' => (bool) ($taskProfile['requires_source_grounding'] ?? false),
+            'requires_multimodal_reasoning' => (bool) ($taskProfile['requires_multimodal_reasoning'] ?? false),
+            'quality_gate' => $taskProfile['quality_gate'] ?? null,
+            'route_mode' => $taskProfile['route_mode'] ?? null,
+            'specialist_profile' => $this->specialistProfileSignal($options, $taskProfile),
+            'operator_requested_provider' => data_get($options, 'payload.operator_requested_provider') ?: 'auto',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $taskProfile
+     */
+    private function specialistProfileSignal(array $options, array $taskProfile): ?string
+    {
+        $candidates = [
+            data_get($taskProfile, 'specialist_profile'),
+            data_get($options, 'payload.specialist_profile'),
+            data_get($options, 'payload.model_selection_contract.specialist_profile'),
+            data_get($options, 'payload.programming_message_plan.specialist_profile'),
+            data_get($options, 'payload.task_request.specialist_profile'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                return trim($candidate);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
      * @return array<string,mixed>
      */
     public function receiptForTrace(array $options, string $selectedProvider, ?string $model = null): array
@@ -718,6 +906,9 @@ class AtlasDecideService
             'requested_provider' => $providerSelection['requested_provider'] ?? null,
             'was_overridden' => (bool) ($providerSelection['was_overridden'] ?? false),
             'reason' => $providerSelection['selection_reason'] ?? $this->decisionReason($options, $selectedProvider),
+            'selection_explanation' => $providerSelection['selection_explanation'] ?? null,
+            'confidence_score' => $providerSelection['confidence_score'] ?? data_get($decision, 'receipt_v2.provider_selection.confidence_score'),
+            'confidence_band' => $providerSelection['confidence_band'] ?? data_get($decision, 'receipt_v2.provider_selection.confidence_band'),
             'signals' => $this->signals($options),
             'task_profile' => $decision['task_profile'] ?? [],
             'context_strategy' => $decision['context_strategy'] ?? null,

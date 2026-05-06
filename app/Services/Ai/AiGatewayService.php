@@ -11,8 +11,8 @@ use App\Models\AiSession;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\Capture;
-use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\ValueObjects\AiThreadResolution;
 use App\Services\AuditLogService;
 use App\Services\CapturePrivacyService;
@@ -384,11 +384,11 @@ class AiGatewayService
                     'task_request' => $prompt->taskRequest,
                     'context_pack' => $prompt->contextPack,
                     'open_brain_injection' => $prompt->openBrainInjection,
-                        'execution_plan' => $prompt->executionPlan,
-                        'skills_activated' => $prompt->activatedSkills,
-                        'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
-                        ...$this->programmingMetadata($options),
-                        'decision_receipt' => $decisionReceipt,
+                    'execution_plan' => $prompt->executionPlan,
+                    'skills_activated' => $prompt->activatedSkills,
+                    'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
+                    ...$this->programmingMetadata($options),
+                    'decision_receipt' => $decisionReceipt,
                 ],
             ]);
 
@@ -636,7 +636,9 @@ class AiGatewayService
             'task_request' => $prompt->taskRequest,
             'execution_plan' => $prompt->executionPlan,
             'kernel_contracts' => is_array($kernelContracts) ? $kernelContracts : null,
+            'selection_explanation' => is_array($receipt['selection_explanation'] ?? null) ? $receipt['selection_explanation'] : null,
         ];
+        $confidenceScore = data_get($receipt, 'confidence_score');
 
         AiDecision::query()->updateOrCreate([
             'trace_id' => $trace->id,
@@ -658,7 +660,7 @@ class AiGatewayService
             'operator_requested_provider' => (string) ($receipt['operator_requested_provider'] ?? 'auto'),
             'requested_provider' => $manualProvider,
             'was_overridden' => $manualProvider !== null,
-            'confidence_score' => $this->confidenceScore($options, $provider),
+            'confidence_score' => is_numeric($confidenceScore) ? (int) $confidenceScore : $this->confidenceScore($options, $provider),
             'signals' => $signals,
             'candidates' => $this->decisionCandidates($options, $provider),
             'constraints' => $this->decisionConstraints($options, $provider),

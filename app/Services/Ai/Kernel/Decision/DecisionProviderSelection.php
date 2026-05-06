@@ -12,6 +12,7 @@ final readonly class DecisionProviderSelection implements ArrayAccess
     /**
      * @param  array<int,string>  $fallbacks
      * @param  array<string,mixed>|null  $manualOverride
+     * @param  array<string,mixed>|null  $selectionExplanation
      */
     public function __construct(
         public string $primary,
@@ -19,6 +20,9 @@ final readonly class DecisionProviderSelection implements ArrayAccess
         public array $fallbacks,
         public string $selectionMode,
         public string $selectionReason,
+        public ?array $selectionExplanation = null,
+        public ?int $confidenceScore = null,
+        public ?string $confidenceBand = null,
         public ?array $manualOverride = null,
     ) {}
 
@@ -42,6 +46,9 @@ final readonly class DecisionProviderSelection implements ArrayAccess
             fallbacks: array_values(array_unique($fallbacks)),
             selectionMode: $mode,
             selectionReason: trim((string) ($payload['selection_reason'] ?? '')),
+            selectionExplanation: is_array($payload['selection_explanation'] ?? null) ? $payload['selection_explanation'] : null,
+            confidenceScore: is_numeric($payload['confidence_score'] ?? null) ? (int) $payload['confidence_score'] : null,
+            confidenceBand: trim((string) ($payload['confidence_band'] ?? '')) ?: null,
             manualOverride: is_array($payload['manual_override'] ?? null) ? $payload['manual_override'] : null,
         );
     }
@@ -57,6 +64,9 @@ final readonly class DecisionProviderSelection implements ArrayAccess
             'fallbacks' => $this->fallbacks,
             'selection_mode' => $this->selectionMode,
             'selection_reason' => $this->selectionReason,
+            'selection_explanation' => $this->selectionExplanation,
+            'confidence_score' => $this->confidenceScore,
+            'confidence_band' => $this->confidenceBand,
             'manual_override' => $this->manualOverride,
         ];
     }

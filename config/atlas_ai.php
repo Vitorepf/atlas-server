@@ -7,6 +7,7 @@ use App\Services\Ai\Domain\AtlasOperationsOrchestrator;
 use App\Services\Ai\Domain\AtlasQaOrchestrator;
 use App\Services\Ai\Domain\AtlasResearchOrchestrator;
 use App\Services\Ai\Domain\AtlasSecurityOrchestrator;
+use App\Services\Ai\Domain\AtlasStrategicDecisionOrchestrator;
 use App\Services\Ai\Domain\AtlasWritingOrchestrator;
 use App\Services\Ai\Domain\BackgroundSafetyOrchestrator;
 use App\Services\Ai\Domain\StandardResponseOrchestrator;
@@ -295,13 +296,13 @@ return [
     'domain_orchestrators' => [
         'StandardResponseOrchestrator' => [
             'class' => StandardResponseOrchestrator::class,
-            'maturity' => 'scaffold',
+            'maturity' => 'implemented',
             'domains' => ['general'],
             'flows' => ['general.answer'],
         ],
         'AtlasResearchOrchestrator' => [
             'class' => AtlasResearchOrchestrator::class,
-            'maturity' => 'scaffold',
+            'maturity' => 'implemented',
             'domains' => ['research'],
             'flows' => ['research.quick', 'research.super'],
         ],
@@ -357,43 +358,43 @@ return [
         ],
         'AtlasHealthOrchestrator' => [
             'class' => AtlasHealthOrchestrator::class,
-            'maturity' => 'scaffold',
+            'maturity' => 'implemented',
             'domains' => ['health'],
-            'flows' => ['health.review'],
+            'flows' => ['health.review', 'health.routine_review', 'health.recovery_review', 'health.safety_review'],
         ],
         'AtlasLearningOrchestrator' => [
             'class' => AtlasLearningOrchestrator::class,
-            'maturity' => 'scaffold',
+            'maturity' => 'implemented',
             'domains' => ['learning'],
-            'flows' => ['learning.plan'],
+            'flows' => ['learning.plan', 'learning.practice', 'learning.review', 'learning.spaced_review'],
         ],
         'AtlasWritingOrchestrator' => [
             'class' => AtlasWritingOrchestrator::class,
-            'maturity' => 'scaffold',
+            'maturity' => 'implemented',
             'domains' => ['writing'],
-            'flows' => ['writing.draft'],
+            'flows' => ['writing.draft', 'writing.edit', 'writing.voice_review', 'writing.publish_review'],
         ],
         'AtlasQaOrchestrator' => [
             'class' => AtlasQaOrchestrator::class,
-            'maturity' => 'scaffold',
+            'maturity' => 'implemented',
             'domains' => ['qa'],
-            'flows' => ['qa.regression_review'],
+            'flows' => ['qa.regression_review', 'qa.acceptance_review', 'qa.evidence_audit', 'qa.release_readiness'],
         ],
         'AtlasSecurityOrchestrator' => [
             'class' => AtlasSecurityOrchestrator::class,
-            'maturity' => 'scaffold',
+            'maturity' => 'implemented',
             'domains' => ['security'],
-            'flows' => ['security.threat_review'],
+            'flows' => ['security.threat_review', 'security.privacy_review', 'security.compliance_review', 'security.incident_review'],
         ],
         'AtlasOperationsOrchestrator' => [
             'class' => AtlasOperationsOrchestrator::class,
-            'maturity' => 'scaffold',
+            'maturity' => 'implemented',
             'domains' => ['operations'],
-            'flows' => ['operations.diagnostic'],
+            'flows' => ['operations.diagnostic', 'operations.runbook', 'operations.incident_review', 'operations.readiness_review'],
         ],
         'AtlasMarketingOrchestrator' => [
             'class' => AtlasMarketingOrchestrator::class,
-            'maturity' => 'scaffold',
+            'maturity' => 'implemented',
             'domains' => ['marketing'],
             'flows' => [
                 'marketing.strategy',
@@ -411,6 +412,19 @@ return [
                 'marketing.analytics',
                 'marketing.brand_review',
                 'marketing.forge',
+            ],
+        ],
+        'AtlasStrategicDecisionOrchestrator' => [
+            'class' => AtlasStrategicDecisionOrchestrator::class,
+            'maturity' => 'implemented',
+            'domains' => ['strategic_decision'],
+            'flows' => [
+                'strategic_decision.review',
+                'strategic_decision.cooldown',
+                'strategic_decision.values_alignment',
+                'strategic_decision.counterargument',
+                'strategic_decision.regret_tracking',
+                'strategic_decision.longitudinal_pattern',
             ],
         ],
         'AtlasSelfImprovementOrchestrator' => [
@@ -434,9 +448,9 @@ return [
         ],
         'BackgroundSafetyOrchestrator' => [
             'class' => BackgroundSafetyOrchestrator::class,
-            'maturity' => 'scaffold',
+            'maturity' => 'implemented',
             'domains' => ['background'],
-            'flows' => ['background.safe'],
+            'flows' => ['background.safe', 'background.readiness_review', 'background.schedule_review', 'background.permission_review'],
         ],
     ],
 

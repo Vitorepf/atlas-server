@@ -673,11 +673,13 @@ Implicações:
 
 - **Idade:** 23 anos.
 - **Condição:** TDAH funcional, com variabilidade alta de estado cognitivo entre dias e dentro do dia.
+- **Perfil intelectual:** polímata declarado — busca ativa de conhecimento profundo em domínios heterogêneos (lutas, finanças, programação, business, música, IA, marketing, academia, fisiologia, ciências), com prazer cognitivo manifesto em hyperfocus rotativo entre nichos. Linhagem histórica explícita: Leonardo da Vinci, Goethe, Pascal, Helmholtz, von Neumann. Termos técnicos contemporâneos: *multipotentialite* (Wapnick), *scanner* (Sher), polímata renascentista. **Não é defeito, é wiring.**
 - **Padrão de execução:** rápida, decisão decisiva, intuição estética alta.
 - **Resistência a hedge:** preferência por recomendação fundamentada, não menu de opções.
 - **Capacidade de cortar opções:** alta. Identifica e descarta caminhos errados rapidamente.
 - **Tendência de risco:** scope creep ocasional em momentos de impulso.
 - **Modo de aprendizado:** dual — aprende fazendo *e* aprende articulando.
+- **Sinal existencial diagnóstico:** *"a coisa mais triste é não ter mais nada de interessante para aprender"* — frase que indica perfil polímata genuíno, não consumo informacional ansioso. Atlas opera contra essa tristeza estrutural.
 
 ### 4.2 Perfil Profissional
 
@@ -710,6 +712,7 @@ Implicações:
 | Trait do operador | Implicação no design |
 |---|---|
 | TDAH funcional | Atlas absorve variabilidade sem confrontar a cada momento. |
+| **Perfil polímata** | **Atlas tem responsabilidade ativa de identificar conexões cross-domain entre nichos (cross-pollination engine), não apenas organizar capturas dentro de cada domínio. Função core, não decoração — ver §4.7.** |
 | Captura sub-10s | Resposta direta ao perfil cognitivo. |
 | Identidade dual | Reflete os dois modos do operador (funcional + contemplativo). |
 | Estética premium | Reflete alinhamento real com identidade pessoal. |
@@ -718,6 +721,8 @@ Implicações:
 | Confronto ativo desejado | Calibrado para não cansar. Intensidade conforme estado fisiológico. |
 | Risco de scope creep | Lei 7 (Confronto Informacional) protege. |
 | Risco de hyperfocus + abandono | Modos de Assistência Calibráveis (Cap. 13) e Modo Livre (Cap. 21) protegem. |
+| **Hyperfocus polímata produtivo** | **Atlas reconhece padrão como signature do operador — rotação entre nichos profundos é feature, não bug. Sistema captura toda a profundidade do nicho atual sem exigir continuidade artificial entre rotações.** |
+| **Tristeza estrutural por saciedade** | **Atlas tem dever ativo de surfacing cross-domain — gerar novas perguntas a partir da combinação de conhecimentos já capturados, mantendo perpetuamente novo material interessante derivável do próprio dataset do operador.** |
 
 ### 4.6 Cláusula sobre TDAH e Offloading
 
@@ -728,6 +733,61 @@ Atlas reconhece essa nuance:
 - **Captura sub-10s é especialmente valiosa para o operador.** Reduz custo cognitivo de manter ideia em memória de trabalho enquanto a contexto exige outra coisa.
 - **Articulação forçada (Lei 9) precisa ser calibrada.** Pressão constante de articulação pode ser contraproducente em estados de hyperfocus produtivo. Sistema permite captura rápida com articulação adiada para revisão posterior.
 - **Modo Livre é especialmente importante.** Operador com TDAH precisa de janelas de zero pressão sistêmica.
+
+### 4.7 Cláusula sobre Polimatia e Cross-Pollination
+
+> *Esta cláusula é constitucional. Eleva cross-pollination cognitiva ao status de função core do Atlas, equiparada à captura sub-10s e à articulação forçada.*
+
+O operador é polímata declarado. Não é traço acessório nem hobby intelectual: é o **sistema operacional cognitivo primário** com o qual Atlas precisa dialogar. Linhagem histórica: Leonardo (Codex Atlanticus), Goethe (Farbenlehre + literatura + estadismo), Pascal, Helmholtz, von Neumann. Terminologia contemporânea: multipotentialite (Wapnick, TED 2015), scanner (Sher), polímata renascentista. A literatura confirma o padrão como wiring funcional, não disfunção.
+
+#### 4.7.1 Comportamento empírico do operador
+
+- **Hyperfocus rotativo entre nichos heterogêneos** (lutas → finanças → programação → music theory → fisiologia respiratória → IA → academia → marketing — listagem do próprio operador).
+- **Prazer cognitivo manifesto** em descer ao fundo de um nicho específico até saciar.
+- **Tristeza estrutural** quando esgota o material interessante de um nicho — frase diagnóstica do operador: *"a coisa mais triste é não ter mais nada de interessante para aprender"*.
+- **Curiosidade transitiva natural** — um nicho aberto sempre puxa outro adjacente; raramente um único domínio sustenta atenção isolada.
+
+#### 4.7.2 O Risco e a Oportunidade
+
+**Risco do polímata sem ferramenta:** profundidade dispersa em nichos que nunca conversam entre si. Conhecimento de fisiologia respiratória nunca informa intuição sobre algoritmos de busca, embora ambos compartilhem topologia de fluxo otimizado em redes restritas. Sem sistema, o cérebro polímata captura mas não cross-poliniza — resultado: erudição sem síntese, biblioteca sem catálogo.
+
+**Oportunidade que SÓ Atlas pode entregar:** cross-pollination automatizada entre domínios capturados, surfacing conexões inesperadas que o cérebro humano sozinho não veria. Esta é a **função core polímata** — função sem a qual Atlas se torna um Notion mais bonito, e com a qual se torna instrumento de pensamento sem precedente.
+
+#### 4.7.3 Função Core: Cross-Pollination Engine
+
+Atlas reconhece **cross-pollination cognitiva** como função core, equiparada à captura sub-10s e à articulação forçada. Mecanismos obrigatórios:
+
+- **Detecção semântica cross-domain.** Sistema indexa todas as capturas com embeddings e detecta afinidade semântica oculta entre capturas de domínios formalmente distintos. *"Sua captura de hoje sobre receita recorrente em BlackInk ressoa com 3 capturas de março sobre modelos de assinatura em monastérios medievais — quer ver o cluster?"*
+- **Surfacing proativo de conexões.** Atlas não espera o operador perguntar. Quando padrão emerge, sistema sussurra: *"você tem 23 capturas em fisiologia respiratória + 5 capturas em algoritmos de busca — ambas tratam de fluxo otimizado em rede restrita. ensaio cross-domain disponível para rascunho."*
+- **Question-web emergente.** Cada captura é re-interpretada como pergunta implícita. Atlas mostra perguntas em aberto, perguntas respondidas, perguntas que viraram outras perguntas — externalização da rede de curiosidade do operador.
+- **Sketch capture (futuro).** Leonardo não viveria sem desenhar. Atlas reconhece sketch como modalidade de captura de primeira classe (futuro roadmap), com tratamento equiparado a texto e áudio.
+- **Interdisciplinary writing surfaces.** Sistema oferece periodicamente: *"você tem material para um ensaio de 800 palavras conectando lutas + finanças. quer rascunho?"* — operador vira autor sem ser editor; síntese emerge do próprio dataset.
+
+#### 4.7.4 Princípio Anti-Saciedade
+
+Atlas tem **dever constitucional ativo de manter o operador perpetuamente diante de material interessante derivável do próprio dataset capturado**. A tristeza estrutural por saciedade é evento que Atlas trabalha contra.
+
+Mecanismos:
+- Surfacing periódico de capturas antigas em luz nova (recombinação cross-domain).
+- Sugestão proativa de papers/recursos seminais em nichos detectados como hyperfocus atual.
+- Pergunta-Norte rotativa: *"o que você ainda não pensou sobre X que valeria pensar?"* — Atlas gera prompts metacognitivos que abrem novos sub-nichos a partir do nicho atual.
+
+#### 4.7.5 Articulação com Outras Cláusulas
+
+Esta cláusula opera em sinergia, não em conflito, com:
+- **§4.6 (TDAH e Offloading):** captura sub-10s preserva volátil de cada nicho; cross-pollination opera sobre o acumulado.
+- **Lei 6 (Dataset Sagrado):** cada captura é input para cross-pollination futura — nunca apaga.
+- **Lei 9 (Cognição Aumentada):** Atlas amplifica curiosidade polímata, não a substitui — operador permanece autor de cada conexão final.
+- **Lei 10 (Curadoria de Input):** quanto mais nichos curados pelo operador, mais matéria-prima para cross-pollination Atlas.
+
+#### 4.7.6 Critério de Falha
+
+Atlas falha catastroficamente nesta dimensão se:
+- Operador relata sentir-se em **saciedade** com material disponível no Atlas (não há mais nada a aprender derivado do dataset). Atlas deveria gerar perpetuamente novas perguntas a partir do material acumulado.
+- Capturas de nichos diferentes permanecem **silenciosamente isoladas** sem nunca emergir como conexão cross-domain — sintoma de cross-pollination engine inativo ou superficial.
+- Operador recorre a fontes externas (Twitter, papers aleatórios, conteúdo passivo) por **carência cognitiva** que o próprio dataset acumulado já poderia satisfazer se devidamente recombinado pela IA.
+
+Falha aqui = Atlas tornou-se Notion bonito, traiu missão polímata.
 
 ---
 

@@ -22,11 +22,26 @@ class AtlasAiDomainsCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(17, data_get($payload, 'summary.flows'));
         $this->assertGreaterThanOrEqual(2, data_get($payload, 'summary.implemented_orchestrators'));
         $this->assertGreaterThanOrEqual(1, data_get($payload, 'summary.ready_domains'));
-        $this->assertGreaterThanOrEqual(1, data_get($payload, 'summary.scaffold_domains'));
+        $this->assertGreaterThanOrEqual(0, data_get($payload, 'summary.scaffold_domains'));
         $this->assertSame(
             data_get($payload, 'summary.domains'),
             array_sum(data_get($payload, 'summary.onboarding_status_counts'))
         );
+
+        $general = collect($payload['domains'])->firstWhere('id', 'general');
+
+        $this->assertSame('general.answer', data_get($general, 'default_flow'));
+        $this->assertSame('ready', data_get($general, 'onboarding.status'));
+        $this->assertSame('implemented', data_get($general, 'orchestrator_maturity'));
+        $this->assertSame(1, data_get($general, 'flow_count'));
+        $this->assertSame([], data_get($general, 'onboarding.missing_phases'));
+
+        $health = collect($payload['domains'])->firstWhere('id', 'health');
+
+        $this->assertSame('ready', data_get($health, 'onboarding.status'));
+        $this->assertSame('implemented', data_get($health, 'orchestrator_maturity'));
+        $this->assertSame(4, data_get($health, 'flow_count'));
+        $this->assertSame([], data_get($health, 'onboarding.missing_phases'));
 
         $programming = collect($payload['domains'])->firstWhere('id', 'programming');
 
@@ -49,10 +64,18 @@ class AtlasAiDomainsCommandTest extends TestCase
 
         $marketing = collect($payload['domains'])->firstWhere('id', 'marketing');
 
-        $this->assertSame('scaffold', data_get($marketing, 'onboarding.status'));
-        $this->assertSame('scaffold', data_get($marketing, 'orchestrator_maturity'));
+        $this->assertSame('ready', data_get($marketing, 'onboarding.status'));
+        $this->assertSame('implemented', data_get($marketing, 'orchestrator_maturity'));
         $this->assertSame(15, data_get($marketing, 'flow_count'));
-        $this->assertContains('maturity_gate', data_get($marketing, 'onboarding.missing_phases'));
+        $this->assertSame([], data_get($marketing, 'onboarding.missing_phases'));
+
+        $strategicDecision = collect($payload['domains'])->firstWhere('id', 'strategic_decision');
+
+        $this->assertSame('strategic_decision.review', data_get($strategicDecision, 'default_flow'));
+        $this->assertSame('ready', data_get($strategicDecision, 'onboarding.status'));
+        $this->assertSame('implemented', data_get($strategicDecision, 'orchestrator_maturity'));
+        $this->assertSame(6, data_get($strategicDecision, 'flow_count'));
+        $this->assertSame([], data_get($strategicDecision, 'onboarding.missing_phases'));
 
         $finance = collect($payload['domains'])->firstWhere('id', 'finance');
 
@@ -67,6 +90,55 @@ class AtlasAiDomainsCommandTest extends TestCase
         $this->assertSame(9, data_get($personalDevelopment, 'onboarding.completed_count'));
         $this->assertSame(10, data_get($personalDevelopment, 'flow_count'));
         $this->assertSame([], data_get($personalDevelopment, 'onboarding.missing_phases'));
+
+        $research = collect($payload['domains'])->firstWhere('id', 'research');
+
+        $this->assertSame('ready', data_get($research, 'onboarding.status'));
+        $this->assertSame('implemented', data_get($research, 'orchestrator_maturity'));
+        $this->assertSame(2, data_get($research, 'flow_count'));
+        $this->assertSame([], data_get($research, 'onboarding.missing_phases'));
+
+        $writing = collect($payload['domains'])->firstWhere('id', 'writing');
+
+        $this->assertSame('ready', data_get($writing, 'onboarding.status'));
+        $this->assertSame('implemented', data_get($writing, 'orchestrator_maturity'));
+        $this->assertSame(4, data_get($writing, 'flow_count'));
+        $this->assertSame([], data_get($writing, 'onboarding.missing_phases'));
+
+        $learning = collect($payload['domains'])->firstWhere('id', 'learning');
+
+        $this->assertSame('ready', data_get($learning, 'onboarding.status'));
+        $this->assertSame('implemented', data_get($learning, 'orchestrator_maturity'));
+        $this->assertSame(4, data_get($learning, 'flow_count'));
+        $this->assertSame([], data_get($learning, 'onboarding.missing_phases'));
+
+        $qa = collect($payload['domains'])->firstWhere('id', 'qa');
+
+        $this->assertSame('ready', data_get($qa, 'onboarding.status'));
+        $this->assertSame('implemented', data_get($qa, 'orchestrator_maturity'));
+        $this->assertSame(4, data_get($qa, 'flow_count'));
+        $this->assertSame([], data_get($qa, 'onboarding.missing_phases'));
+
+        $security = collect($payload['domains'])->firstWhere('id', 'security');
+
+        $this->assertSame('ready', data_get($security, 'onboarding.status'));
+        $this->assertSame('implemented', data_get($security, 'orchestrator_maturity'));
+        $this->assertSame(4, data_get($security, 'flow_count'));
+        $this->assertSame([], data_get($security, 'onboarding.missing_phases'));
+
+        $operations = collect($payload['domains'])->firstWhere('id', 'operations');
+
+        $this->assertSame('ready', data_get($operations, 'onboarding.status'));
+        $this->assertSame('implemented', data_get($operations, 'orchestrator_maturity'));
+        $this->assertSame(4, data_get($operations, 'flow_count'));
+        $this->assertSame([], data_get($operations, 'onboarding.missing_phases'));
+
+        $background = collect($payload['domains'])->firstWhere('id', 'background');
+
+        $this->assertSame('ready', data_get($background, 'onboarding.status'));
+        $this->assertSame('implemented', data_get($background, 'orchestrator_maturity'));
+        $this->assertSame(4, data_get($background, 'flow_count'));
+        $this->assertSame([], data_get($background, 'onboarding.missing_phases'));
     }
 
     public function test_domains_command_filters_flow_contract(): void
@@ -118,9 +190,12 @@ class AtlasAiDomainsCommandTest extends TestCase
 
         $this->assertSame(0, $exit);
         $this->assertSame('scaffold', data_get($payload, 'filters.onboarding_status'));
-        $this->assertGreaterThanOrEqual(1, data_get($payload, 'summary.domains'));
+        $this->assertGreaterThanOrEqual(0, data_get($payload, 'summary.domains'));
         $this->assertSame(data_get($payload, 'summary.domains'), data_get($payload, 'summary.scaffold_domains'));
-        $this->assertSame(['scaffold' => data_get($payload, 'summary.domains')], data_get($payload, 'summary.onboarding_status_counts'));
+        $this->assertSame(
+            data_get($payload, 'summary.domains') > 0 ? ['scaffold' => data_get($payload, 'summary.domains')] : [],
+            data_get($payload, 'summary.onboarding_status_counts')
+        );
 
         foreach ($payload['domains'] as $domain) {
             $this->assertSame('scaffold', data_get($domain, 'onboarding.status'));

@@ -242,6 +242,9 @@ class AiChatProviderChoiceTest extends TestCase
         $this->assertSame('auto_best_allowed', data_get($job?->payload, 'model_selection_contract.selection_mode'));
         $this->assertSame(['auto_best_allowed', 'auto_best_available', 'manual_override'], data_get($job?->payload, 'model_selection_contract.available_selection_modes'));
         $this->assertSame('auto', data_get($job?->payload, 'model_selection_contract.operator_requested_provider'));
+        $this->assertSame('programming', data_get($job?->payload, 'model_selection_contract.domain'));
+        $this->assertSame('programming.repair', data_get($job?->payload, 'model_selection_contract.flow'));
+        $this->assertNull(data_get($job?->payload, 'model_selection_contract.specialist_profile'));
         $this->assertSame(data_get($job?->payload, 'model_selection_contract'), data_get($payload, 'model_selection_contract'));
         $this->assertSame(data_get($job?->payload, 'dev_execution_plan.kernel_pipeline'), data_get($job?->payload, 'kernel_pipeline'));
         $this->assertSame('AtlasProgrammingOrchestrator', data_get($job?->payload, 'programming_message_plan.orchestrator'));

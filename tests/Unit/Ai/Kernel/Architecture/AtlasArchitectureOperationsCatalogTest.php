@@ -15,15 +15,23 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('arquitetura_mae', $catalog->sectionKey());
         $this->assertSame('atlas.architecture_operations.v1', $summary['schema_version']);
         $this->assertSame('arquitetura_mae', $summary['section']);
-        $this->assertSame(11, $summary['command_count']);
+        $this->assertSame(19, $summary['command_count']);
         $this->assertSame($catalog->commands(), $summary['commands']);
         $this->assertSame([
             'architecture_operations',
             'architecture_validate',
+            'documentation_health',
+            'knowledge_sync',
+            'code_intelligence_index',
             'kernel_slo_report',
             'kernel_pipeline_report',
             'repair_report',
             'provider_performance_report',
+            'qualitative_levels_report',
+            'rivals_strategy_report',
+            'rivals_strategy_due_reviews',
+            'rivals_strategy_record_review',
+            'strategic_decision_review',
             'decision_receipt_report',
             'ledger_replay',
             'ledger_projection_worker',
@@ -35,10 +43,18 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
 
         $this->assertContains('atlas ai architecture-operations --json', $commands);
         $this->assertContains('atlas ai architecture-validate', $commands);
+        $this->assertContains('atlas engineering knowledge docs-health --json', $commands);
+        $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
+        $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
         $this->assertContains('atlas ai slo --hours=24 --json', $commands);
         $this->assertContains('atlas ai kernel-pipeline-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai repair-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai provider-performance --hours=24 --json', $commands);
+        $this->assertContains('atlas ai qualitative-levels --hours=720 --json', $commands);
+        $this->assertContains('atlas ai rivals-strategy report --hours=8760 --json', $commands);
+        $this->assertContains('atlas ai rivals-strategy due-reviews --due-days=30 --json', $commands);
+        $this->assertContains('atlas ai rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json', $commands);
+        $this->assertContains('atlas ai strategic-decision review --json', $commands);
         $this->assertContains('atlas ai decision-receipt-report --envelope=<id> --json', $commands);
         $this->assertContains('atlas ledger replay --envelope=<id> --json', $commands);
         $this->assertContains('atlas ai ledger-project --limit=500 --json', $commands);
@@ -48,10 +64,20 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('catalog', data_get($summary, 'commands.0.kind'));
         $this->assertSame('cli', data_get($summary, 'commands.0.surface'));
         $this->assertSame('json', data_get($summary, 'commands.0.output'));
-        $this->assertSame('evidence_report', data_get($summary, 'commands.7.kind'));
-        $this->assertSame('maintenance', data_get($summary, 'commands.8.kind'));
-        $this->assertSame('evidence_report', data_get($summary, 'commands.9.kind'));
-        $this->assertSame('evidence_report', data_get($summary, 'commands.10.kind'));
+        $this->assertSame('validation', data_get($summary, 'commands.1.kind'));
+        $this->assertSame('validation', data_get($summary, 'commands.2.kind'));
+        $this->assertSame('maintenance', data_get($summary, 'commands.3.kind'));
+        $this->assertSame('maintenance', data_get($summary, 'commands.4.kind'));
+        $this->assertSame('maturity_report', data_get($summary, 'commands.9.kind'));
+        $this->assertSame('maturity_report', data_get($summary, 'commands.10.kind'));
+        $this->assertSame('review_queue', data_get($summary, 'commands.11.kind'));
+        $this->assertSame('review_action', data_get($summary, 'commands.12.kind'));
+        $this->assertSame('planning_surface', data_get($summary, 'commands.13.kind'));
+        $this->assertSame('evidence_report', data_get($summary, 'commands.14.kind'));
+        $this->assertSame('evidence_report', data_get($summary, 'commands.15.kind'));
+        $this->assertSame('maintenance', data_get($summary, 'commands.16.kind'));
+        $this->assertSame('evidence_report', data_get($summary, 'commands.17.kind'));
+        $this->assertSame('evidence_report', data_get($summary, 'commands.18.kind'));
     }
 
     public function test_catalog_filters_architecture_operations_by_id_and_kind(): void
@@ -66,6 +92,14 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame(['provider_performance_report'], $byId['operation_ids']);
         $this->assertSame('atlas ai provider-performance --hours=24 --json', data_get($byId, 'commands.0.command'));
 
+        $byValidation = $catalog->summary(['kind' => 'validation']);
+        $this->assertSame(2, $byValidation['command_count']);
+        $this->assertSame(['architecture_validate', 'documentation_health'], $byValidation['operation_ids']);
+
+        $byMaintenance = $catalog->summary(['kind' => 'maintenance']);
+        $this->assertSame(3, $byMaintenance['command_count']);
+        $this->assertSame(['knowledge_sync', 'code_intelligence_index', 'ledger_projection_worker'], $byMaintenance['operation_ids']);
+
         $this->assertSame(['kind' => 'evidence_report'], $byKind['filters']);
         $this->assertSame(8, $byKind['command_count']);
         $this->assertNotContains('architecture_operations', $byKind['operation_ids']);
@@ -73,5 +107,24 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('decision_receipt_report', $byKind['operation_ids']);
         $this->assertContains('ledger_replay', $byKind['operation_ids']);
         $this->assertContains('inbox_action_report', $byKind['operation_ids']);
+
+        $byPlanning = $catalog->summary(['kind' => 'planning_surface']);
+        $this->assertSame(1, $byPlanning['command_count']);
+        $this->assertSame(['strategic_decision_review'], $byPlanning['operation_ids']);
+        $this->assertSame('atlas ai strategic-decision review --json', data_get($byPlanning, 'commands.0.command'));
+
+        $byMaturity = $catalog->summary(['kind' => 'maturity_report']);
+        $this->assertSame(2, $byMaturity['command_count']);
+        $this->assertSame(['qualitative_levels_report', 'rivals_strategy_report'], $byMaturity['operation_ids']);
+        $this->assertSame('atlas ai qualitative-levels --hours=720 --json', data_get($byMaturity, 'commands.0.command'));
+        $this->assertSame('atlas ai rivals-strategy report --hours=8760 --json', data_get($byMaturity, 'commands.1.command'));
+
+        $byReviewQueue = $catalog->summary(['kind' => 'review_queue']);
+        $this->assertSame(1, $byReviewQueue['command_count']);
+        $this->assertSame(['rivals_strategy_due_reviews'], $byReviewQueue['operation_ids']);
+
+        $byReviewAction = $catalog->summary(['kind' => 'review_action']);
+        $this->assertSame(1, $byReviewAction['command_count']);
+        $this->assertSame(['rivals_strategy_record_review'], $byReviewAction['operation_ids']);
     }
 }
