@@ -65,6 +65,8 @@ related_paths:
   - docs/engineering-knowledge-base/domains/health.md
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-resolver-corpus-audit.md
+  - docs/ap/AP-146-provider-cost-rate-inbox-replay.md
+  - docs/ap/AP-147-dynamic-compute-market-shadow-surface.md
 ---
 # Atlas AI Canonical Architecture Index
 Indice oficial que impede documentos diferentes de disputarem autoridade arquitetural.
@@ -126,7 +128,7 @@ Layer 4 - Domain Specs
 | Content Intelligence, curadoria, YouTube, source quality e roteamento de conhecimento | `atlas-ai-content-intelligence-curation.md` |
 | Business Contexts, Blackink, empresas futuras e product domains | `atlas-ai-business-contexts.md` |
 | Agent behavior, suposicoes, simplicidade, diff cirurgico e verificacao | `atlas-ai-agent-behavior-contract.md` |
-| Model selection, Atlas Decide, AP-99 e provider performance | `atlas-ai-model-selection-strategy.md` + `atlas-ai-telemetry-evidence-performance.md` |
+| Model selection, Atlas Decide, AP-99, provider performance e cost governance | `atlas-ai-model-selection-strategy.md` + `atlas-ai-telemetry-evidence-performance.md` + `docs/ap/AP-146-provider-cost-rate-inbox-replay.md` + `docs/ap/AP-147-dynamic-compute-market-shadow-surface.md` |
 | Scenario simulation, MiroFish/OASIS patterns e outcome calibration | `atlas-ai-scenario-simulation-harness.md` + `atlas-ai-autonomy-power-backlog.md` |
 | Mobile surface, mobile gateway, push e inbox | `atlas-ai-mobile-surface-gateway.md` + `atlas-ai-operating-system.md` |
 | Constelacao / Motor de Serendipidade mobile | `atlas-constelacao-surface.md` + source material constitucional em `atlas-vault-backup/00-constituicao/constelacao-*.md` |
@@ -147,7 +149,6 @@ Layer 4 - Domain Specs
 | Triagem do corpus resolver | `atlas-ai-resolver-corpus-audit.md` |
 
 ## Regra De Resolucao De Conflito
-
 Quando dois documentos parecerem conflitar:
 
 1. Se for contrato executavel, o Kernel vence.
@@ -158,7 +159,6 @@ Quando dois documentos parecerem conflitar:
    ou arquiva.
 
 ## Estado Atual
-
 | Layer | Estado |
 |---|---|
 | Layer 0 | Ativo em forma enxuta: `atlas-ai-layer-0-glossary.md` governa identidade/glossario provider-safe; documentos constitucionais longos permanecem source material/human_vault_only |
@@ -167,7 +167,9 @@ Quando dois documentos parecerem conflitar:
 | Layer 3 | Ativo: vision, pipeline, core-vs-domain, operating-system, resolver audit |
 | Layer 4 | Parcial: `programming`, `finance`, `personal_development`, `self_improvement`, `strategic_decision`, `marketing`, `research`, `writing`, `learning`, `qa`, `security`, `operations`, `background`, `general` e `health` sao implemented/ready. |
 
-## Proxima Implementacao Obrigatoria
+## Proximos Blocos Enterprise
+AP-146 e contrato operacional do ciclo AP-99/model selection/cost governance:
+o replay prova se `configure_provider_cost_rates` aplicou rates humanos ou ficou em preview. Novos APs entram como specs curtas em `docs/ap/`, linkados por `START_HERE`, este indice e doc dono, sem duplicar texto longo em docs mae.
 1. Capability Registry executavel. Status: iniciado com `AtlasCapabilityRegistry`, `CapabilityComplianceTest` e `atlas:ai:architecture-validate`.
 2. Operation Envelope tipada. Status: implementado como contrato/factory inicial com `OperationEnvelopeFactory`, emissao `ENVELOPE_CREATED` e unit tests.
 3. Decision Receipt v2. Status: implementado como receipt tipado via `DecisionReceiptIssuer`, com `dryRun`, `signedBy` e integracao em `AtlasDecideService`.

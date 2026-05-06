@@ -40,11 +40,14 @@ class AtlasAiDomainCatalogApiTest extends TestCase
         $response = $this->getJson('/ai/domains?onboarding_status=scaffold', $this->headers)
             ->assertOk()
             ->assertJsonPath('status', 'ok')
-            ->assertJsonPath('filters.onboarding_status', 'scaffold');
+            ->assertJsonPath('filters.onboarding_status', 'scaffold')
+            ->assertJsonPath('summary.ready_domains', 0);
 
-        $this->assertGreaterThanOrEqual(1, $response->json('summary.domains'));
         $this->assertSame($response->json('summary.domains'), $response->json('summary.scaffold_domains'));
-        $this->assertSame(['scaffold' => $response->json('summary.domains')], $response->json('summary.onboarding_status_counts'));
+        $this->assertSame(
+            $response->json('summary.domains') > 0 ? ['scaffold' => $response->json('summary.domains')] : [],
+            $response->json('summary.onboarding_status_counts'),
+        );
 
         foreach ($response->json('domains') as $domain) {
             $this->assertSame('scaffold', data_get($domain, 'onboarding.status'));

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\AiJob;
+use App\Models\AiTrace;
 use App\Models\AtlasEngineeringBenchmarkCase;
 use App\Models\AtlasEngineeringBenchmarkResult;
 use App\Models\AtlasEngineeringBenchmarkRun;
@@ -17,8 +19,6 @@ use App\Models\AtlasEngineeringTestRun;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasTask;
 use App\Models\AtlasToolRun;
-use App\Models\AiJob;
-use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiPrompt;
 use App\Services\Ai\AiPromptBuilder;
@@ -32,6 +32,7 @@ use App\Services\Engineering\EngineeringHarnessRunnerService;
 use App\Services\Engineering\EngineeringPatchArtifactService;
 use App\Services\Engineering\EngineeringReviewFindingService;
 use App\Services\Engineering\EngineeringRunScoringService;
+use App\Services\Engineering\EngineeringTestMatrixInput;
 use App\Services\Engineering\EngineeringWorkspaceService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Arr;
@@ -53,6 +54,7 @@ class EngineeringHarnessRunnerTest extends TestCase
         parent::setUp();
 
         config()->set('atlas.token', 'test-token-with-enough-length-123');
+        $this->resetMutableAtlasConfig();
         $this->createTables();
         $this->workspace = $this->createWorkspace();
         config()->set('atlas.ai.tool_permissions.allowed_roots', [dirname($this->workspace)]);
@@ -4446,6 +4448,31 @@ class EngineeringHarnessRunnerTest extends TestCase
         }
 
         rescue(fn () => File::deleteDirectory($directory), report: false);
+    }
+
+    private function resetMutableAtlasConfig(): void
+    {
+        config()->set('atlas.ai.default_provider', 'claude_cli');
+        config()->set('atlas.ai.providers.claude_cli.model', null);
+        config()->set('atlas.ai.providers.claude_cli.model_label', 'Claude CLI default');
+        config()->set('atlas.ai.providers.claude_cli.model_identity', 'claude_cli_default');
+        config()->set('atlas.ai.providers.claude_cli.premium_model', 'claude-opus-4-7');
+        config()->set('atlas.ai.providers.claude_cli.premium_model_label', 'Claude Opus 4.7');
+        config()->set('atlas.ai.providers.claude_cli.allow_auto', true);
+        config()->set('atlas.ai.providers.claude_cli.allow_manual', true);
+        config()->set('atlas.ai.providers.codex_cli.model', null);
+        config()->set('atlas.ai.providers.codex_cli.model_label', 'Codex CLI default');
+        config()->set('atlas.ai.providers.codex_cli.model_identity', 'codex_cli_default');
+        config()->set('atlas.ai.providers.codex_cli.premium_model', 'gpt-5.5');
+        config()->set('atlas.ai.providers.codex_cli.premium_model_label', 'GPT-5.5');
+        config()->set('atlas.ai.providers.codex_cli.allow_auto', false);
+        config()->set('atlas.ai.providers.codex_cli.allow_manual', true);
+        config()->set('atlas.ai.providers.gemini_cli.allow_auto', false);
+        config()->set('atlas.ai.providers.gemini_cli.allow_manual', true);
+        config()->set('atlas.engineering.visual_e2e.artifact_max_files', EngineeringTestMatrixInput::DEFAULT_VISUAL_ARTIFACT_MAX_FILES);
+        config()->set('atlas.engineering.visual_e2e.artifact_max_bytes', EngineeringTestMatrixInput::DEFAULT_VISUAL_ARTIFACT_MAX_BYTES);
+        config()->set('atlas.engineering.quality_scan.artifact_max_files', EngineeringTestMatrixInput::DEFAULT_QUALITY_ARTIFACT_MAX_FILES);
+        config()->set('atlas.engineering.quality_scan.artifact_max_bytes', EngineeringTestMatrixInput::DEFAULT_QUALITY_ARTIFACT_MAX_BYTES);
     }
 
     private function createWorkspace(): string

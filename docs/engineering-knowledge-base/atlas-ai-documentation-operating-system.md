@@ -193,7 +193,8 @@ Ideias novas seguem este funil:
 
 1. `source_material`: conversa, vault, backlog, EVOLUCAO_ATLAS, proposta de agente.
 2. `triage`: vale core, domain, surface, runtime, evidence, learning ou archive?
-3. `canonical_spec`: doc curto com autoridade, status e DoD.
+3. `canonical_spec`: doc curto com autoridade, status, DoD e links nos indices certos
+   (`START_HERE`, canonical index e doc dono/AP equivalente), sem colar texto longo de AP em docs mae.
 4. `implementation`: codigo, migration, config, tests, scanner e commands.
 5. `evidence`: ledger, reports, health, docs links e code index.
 6. `sync`: Postgres KB e Code Intelligence atualizados.

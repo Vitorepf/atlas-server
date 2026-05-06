@@ -2057,8 +2057,8 @@ Cada anti-padrao tem teste arquitetural correspondente.
 | AP-124 | App/observability nao ve actions humanas do Inbox no mesmo payload operacional | `/ai/observability` deve expor `inbox_actions` vindo de `inboxActionReportForWindow`, incluindo review signal `open_reviewable_inbox_action_evidence_proposal` |
 | AP-125 | Operador nao tem surface dedicada para auditar actions humanas do Inbox | `atlas:ai:inbox-action-report` e `/ai/inbox-actions/report` devem expor `inboxActionReportForWindow` com filtros canonicos, status `ledger_unavailable` e review signal `wait_for_inbox_action_evidence` |
 | AP-126 | Output humano do architecture validate pode esconder violacoes novas | `AtlasAiArchitectureValidateCommand::renderPostAp98StaticScanViolations` deve imprimir qualquer violacao `ap99+` com label `kernel.static.<key>`, mantendo JSON e terminal com a mesma forca operacional |
-| AP-127 | Operador nao descobre os comandos da arquitetura mae no help principal | `atlas:cli:help` deve expor secao `arquitetura_mae` com `architecture-operations`, `architecture-validate`, `slo`, `kernel-pipeline-report`, `repair-report`, `provider-performance`, `self-improvement-schedule-report` e `inbox-action-report` |
-| AP-128 | Catalogo de operacoes da arquitetura mae pode duplicar entre CLI/App | `AtlasArchitectureOperationsCatalog` deve ser a fonte unica da secao `arquitetura_mae`, consumida por `atlas:cli:help` e `/ai/observability` em `architecture_operations`, incluindo `docs-health`, `sync --prune` e `index-code --prune` como operacoes canonicas de governanca documental |
+| AP-127 | Operador nao descobre os comandos da arquitetura mae no help principal | `atlas:cli:help` deve expor secao `arquitetura_mae` com `architecture-operations`, `architecture-validate`, `slo`, `kernel-pipeline-report`, `repair-report`, `provider-performance`, `dynamic-compute-market`, `telemetry cost-rates --missing`, `telemetry cost-rates --provider/...`, `self-improvement-schedule-report` e `inbox-action-report` |
+| AP-128 | Catalogo de operacoes da arquitetura mae pode duplicar entre CLI/App | `AtlasArchitectureOperationsCatalog` deve ser a fonte unica da secao `arquitetura_mae`, consumida por `atlas:cli:help` e `/ai/observability` em `architecture_operations`, incluindo `docs-health`, `sync --prune`, `index-code --prune`, Dynamic Compute Market report, provider cost-rate gaps e provider cost-rate upsert como operacoes canonicas de governanca documental/model selection |
 | AP-129 | Agentes nao descobrem catalogo de operacoes da arquitetura mae sem CLI/App | Open Brain MCP deve expor `atlas_architecture_operations` read-only, consumindo `AtlasArchitectureOperationsCatalog::summary()`, entrando no inventory `atlas_capabilities` e publicando `ap129_architecture_operations_mcp_tool` |
 | AP-130 | Catalogo operacional aparece apenas embutido em outras surfaces | `atlas:ai:architecture-operations` e `/ai/architecture/operations` devem expor diretamente `AtlasArchitectureOperationsCatalog::summary()`, com teste CLI/API e scanner `ap130_architecture_operations_direct_surfaces` |
 | AP-131 | Curator nao percebe drift no catalogo operacional da arquitetura mae | `AtlasSelfImprovementRuntime::architectureOperationsFindings` deve consumir `AtlasArchitectureOperationsCatalog::summary()` no `weekly_architecture_audit`, detectar comandos criticos ausentes/contagem divergente e propor `restore_architecture_operations_catalog` |
@@ -2077,6 +2077,7 @@ Cada anti-padrao tem teste arquitetural correspondente.
 | AP-144 | Revisitas do Rivals Strategy chegavam no Inbox, mas nao fechavam loop com score humano | `AtlasSelfImprovementRuntime::rivalsStrategyFindings` deve emitir `available_actions[]=record_rivals_review` com `due_reviews[]`; `InboxActionRegistry` deve registrar scores humanos via `AtlasRivalsStrategyReviewRecorder`, atualizar payload/status, gravar `atlas.inbox_action.rivals_review.v1` e `INBOX_ACTION_RECORDED`; `AtlasLedgerReplayService::inboxActionReportForWindow` deve projetar review id, case id, horizonte e scores para CLI/API/MCP/Observability; testes `InboxLedgerProjectionActionTest::test_inbox_action_records_rivals_review_with_human_scores_and_ledger_evidence` e `LedgerReplayServiceTest::test_inbox_action_window_report_projects_rivals_review_scores` garantem permanencia |
 | AP-145 | Docs ativos grandes demais apareciam no validador, mas nao viravam backlog operacional | `AtlasSelfImprovementRuntime::documentationHealthFindings` deve consumir `documentation.oversized_docs`, ignorar `split_required_grandfathered` como finding primario, gerar `atlas.self_improvement.documentation_health_gap.v1`, recomendar `split_oversized_active_docs` e preservar path/linhas/limite/source refs; scanner `ap145_documentation_health_curator_review` garante permanencia |
 | AP-146 | Findings de custo desconhecido podiam ser resolvidos no Inbox, mas ficar opacos no replay | `configure_provider_cost_rates` deve gravar `atlas.inbox_action.provider_cost_rates.v1`; `AtlasLedgerReplayService::inboxActionReportForWindow` deve projetar `provider_cost_rate_action_count`, `provider_cost_rate_applied_count`, provider/modelo/rates aplicados e reasons `provider_cost_rates_configured` ou `configure_provider_cost_rates_action_without_applied_rate`; CLI/API/MCP/Observability herdam o read model e o scanner AP-99 garante permanencia |
+| AP-147 | Dynamic Compute Market existia no receipt, mas nao como report operacional direto | `DynamicComputeMarketReportService` deve expor `atlas.dynamic_compute_market_report.v1` em modo `report_only`; CLI `atlas:ai:dynamic-compute-market`, API `/ai/dynamic-compute-market` e `AtlasArchitectureOperationsCatalog` devem publicar conselho shadow com `read_only_no_routing_change` e `routing_control.changes_provider=false`; scanner AP-99 garante permanencia |
 
 ### AP-144 — Rivals Review Inbox Action Contract
 
@@ -2094,12 +2095,40 @@ internet e nao muda o provider/modelo escolhido; apenas aplica valores
 informados pelo operador em `ai_provider_cost_rates` e grava evidencia
 `INBOX_ACTION_RECORDED`.
 
+O operador e qualquer IA devem descobrir o caminho operacional pelo catalogo
+canonico `AtlasArchitectureOperationsCatalog`: primeiro
+`atlas ai telemetry cost-rates --missing --hours=168 --json` para listar lacunas
+de provider/model e depois
+`atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json`
+para registrar o rate humano. Esses comandos sao surface de governanca; eles nao
+substituem `Atlas Decide` e nao roteiam provider.
+
 O replay precisa mostrar se o ciclo fechou de verdade. Quando `applied=true`, o
 read model publica `provider_cost_rates_configured`; quando foi apenas preview,
 publica `configure_provider_cost_rates_action_without_applied_rate` e mantem a
 recomendacao `configure_provider_cost_rates`. Esse contrato evita que a
 curadoria aponte gaps de custo sem que outra IA consiga enxergar se o humano ja
 fechou a pendencia.
+
+### AP-147 — Dynamic Compute Market Report
+
+`DynamicComputeMarketReportService` e a surface operacional de leitura para o
+Dynamic Compute Market. Ele chama o mesmo `DynamicComputeMarketAdvisor` usado
+por Atlas Decide, mas publica apenas `atlas.dynamic_compute_market_report.v1`
+com `mode=report_only` e `authority=read_only_no_routing_change`.
+
+O comando `atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json`
+e a API `/ai/dynamic-compute-market?provider=<provider>` permitem auditar
+qualidade, custo, latencia, risco, candidate benchmark e next action sem emitir
+execucao, sem trocar provider e sem bypassar Decision Receipt.
+
+O MCP read-only `atlas_dynamic_compute_market_report` expõe o mesmo contrato
+para agentes. O Curator consome o advisor dentro de
+`self_improvement.provider_performance_review` e emite
+`atlas.self_improvement.dynamic_compute_market.v1` somente como proposta
+revisavel de benchmark. Mesmo nesse caso, `routing_control.changes_provider`
+permanece `false`; qualquer troca futura exige `policy_patch` e
+`decision_receipt`.
 
 ### AP-145 — Documentation Health Curator Review
 

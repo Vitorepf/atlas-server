@@ -88,13 +88,23 @@ class EngineeringQualityScanService
             'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
         ];
 
-        File::put($artifactRoot.'/scan.json', json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->writeScanManifest($artifactRoot, $payload);
         $this->recordToolRuntimeEvidence($workspace, $artifactRoot, $payload, [
             'run_context_type' => $runContextType,
             'run_context_id' => $runContextId,
         ]);
+        $this->writeScanManifest($artifactRoot, $payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function writeScanManifest(string $artifactRoot, array $payload): void
+    {
+        File::ensureDirectoryExists($artifactRoot);
+        File::put($artifactRoot.'/scan.json', json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     private function profile(string $profile): string

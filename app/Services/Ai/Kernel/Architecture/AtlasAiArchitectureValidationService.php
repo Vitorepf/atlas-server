@@ -212,6 +212,7 @@ class AtlasAiArchitectureValidationService
             'ap143_ledger_projection_curator_action_emission' => $staticScanReport['ap143_ledger_projection_curator_action_emission'],
             'ap144_rivals_review_inbox_action_contract' => $staticScanReport['ap144_rivals_review_inbox_action_contract'],
             'ap145_documentation_health_curator_review' => $staticScanReport['ap145_documentation_health_curator_review'],
+            'ap146_provider_cost_rate_inbox_replay' => $staticScanReport['ap146_provider_cost_rate_inbox_replay'],
             'ap12_provider_driver_identity_bypass' => $staticScanReport['ap12_provider_driver_identity_bypass'],
             'ap14_tool_tier_hot_path' => $staticScanReport['ap14_tool_tier_hot_path'],
             'ap15_provider_memory_privacy' => $staticScanReport['ap15_provider_memory_privacy'],

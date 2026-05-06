@@ -142,6 +142,56 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
         );
     }
 
+    public function test_canonical_docs_link_ap146_provider_cost_rate_replay_contract(): void
+    {
+        $startHere = File::get(base_path('docs/engineering-knowledge-base/START_HERE.md'));
+        $canonicalIndex = File::get(base_path('docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md'));
+        $documentationOs = File::get(base_path('docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md'));
+        $ap146 = File::get(base_path('docs/ap/AP-146-provider-cost-rate-inbox-replay.md'));
+
+        $this->assertStringContainsString('docs/ap/AP-146-provider-cost-rate-inbox-replay.md', $startHere);
+        $this->assertStringContainsString('Provider Cost Rate Inbox Replay', $startHere);
+        $this->assertStringContainsString('AP-99/model selection/cost governance', $startHere);
+
+        $this->assertStringContainsString('docs/ap/AP-146-provider-cost-rate-inbox-replay.md', $canonicalIndex);
+        $this->assertStringContainsString('contrato operacional do ciclo AP-99/model selection/cost governance', $canonicalIndex);
+        $this->assertStringContainsString('configure_provider_cost_rates', $canonicalIndex);
+
+        $this->assertStringContainsString('links nos indices certos', $documentationOs);
+        $this->assertStringContainsString('sem colar texto longo de AP em docs mae', $documentationOs);
+
+        $this->assertStringContainsString('AP-99/model selection/cost governance', $ap146);
+        $this->assertStringContainsString('model selection nao inventa preco', $ap146);
+    }
+
+    public function test_canonical_docs_link_ap147_dynamic_compute_market_shadow_contract(): void
+    {
+        $startHere = File::get(base_path('docs/engineering-knowledge-base/START_HERE.md'));
+        $canonicalIndex = File::get(base_path('docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md'));
+        $modelSelection = File::get(base_path('docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md'));
+        $kernelArchitecture = File::get(base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md'));
+        $ap147 = File::get(base_path('docs/ap/AP-147-dynamic-compute-market-shadow-surface.md'));
+
+        $this->assertStringContainsString('docs/ap/AP-147-dynamic-compute-market-shadow-surface.md', $startHere);
+        $this->assertStringContainsString('Dynamic Compute Market, arbitragem shadow, benchmark candidate ou report read-only de provider', $startHere);
+
+        $this->assertStringContainsString('docs/ap/AP-147-dynamic-compute-market-shadow-surface.md', $canonicalIndex);
+        $this->assertStringContainsString('Model selection, Atlas Decide, AP-99, provider performance e cost governance', $canonicalIndex);
+
+        $this->assertStringContainsString('Dynamic Compute Market Report', $modelSelection);
+        $this->assertStringContainsString('atlas.dynamic_compute_market_report.v1', $modelSelection);
+        $this->assertStringContainsString('read_only_no_routing_change', $modelSelection);
+
+        $this->assertStringContainsString('AP-147', $kernelArchitecture);
+        $this->assertStringContainsString('routing_control.changes_provider=false', $kernelArchitecture);
+
+        $this->assertStringContainsString('implemented-shadow-contract', $ap147);
+        $this->assertStringContainsString('routing_control.changes_provider=false', $ap147);
+        $this->assertStringContainsString('atlas_dynamic_compute_market_report', $ap147);
+        $this->assertStringContainsString('AtlasAiDynamicComputeMarketApiTest', $ap147);
+        $this->assertStringContainsString('AtlasOpenBrainMcpServiceTest::test_dynamic_compute_market_report_preserves_review_signal_when_ledger_is_unavailable', $ap147);
+    }
+
     public function test_engineering_context_pack_includes_knowledge_refs(): void
     {
         app(EngineeringKnowledgeBaseService::class)->sync();

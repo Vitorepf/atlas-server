@@ -116,6 +116,8 @@ related_paths:
   - docs/atlas-cli-fair-claude-benchmark.md
   - docs/atlas-cli-final-product.md
   - docs/atlas-cli-release-checklist.md
+  - docs/ap/AP-146-provider-cost-rate-inbox-replay.md
+  - docs/ap/AP-147-dynamic-compute-market-shadow-surface.md
   - atlas-app/app/open-brain.tsx
 ---
 
@@ -139,7 +141,9 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
 1. `atlas-ai-content-intelligence-curation.md` quando envolver YouTube, RSS, scraping, source quality, blacklist ou promocao de conteudo
 1. `atlas-ai-business-contexts.md` quando envolver Blackink, empresa futura, product domain, business context ou app mobile routing domain
 1. `atlas-ai-agent-behavior-contract.md` quando envolver comportamento de agente, prompts de provider, programação, review, overengineering, diff lateral ou verificacao
-1. `atlas-ai-model-selection-strategy.md` quando envolver melhor modelo por tarefa, Atlas Decide, AP-99, provider performance, override manual ou specialist profiles
+1. `atlas-ai-model-selection-strategy.md` quando envolver melhor modelo por tarefa, Atlas Decide, AP-99, provider performance, cost governance, override manual ou specialist profiles
+1. `docs/ap/AP-146-provider-cost-rate-inbox-replay.md` quando envolver Provider Cost Rate Inbox Replay, `configure_provider_cost_rates` ou fechamento de custo unknown pelo replay
+1. `docs/ap/AP-147-dynamic-compute-market-shadow-surface.md` quando envolver Dynamic Compute Market, arbitragem shadow, benchmark candidate ou report read-only de provider
 1. `atlas-ai-qualitative-levels-roadmap.md` quando envolver outro patamar, co-estrategista ou memoria longitudinal
 1. este `START_HERE.md`
 1. o documento dono do assunto especifico
@@ -229,6 +233,16 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
 1. `atlas-ai-model-selection-strategy.md`
    Regra de autoridade para escolher provider/modelo por tarefa, domain, flow,
    specialist profile, AP-99, custo, latencia, qualidade e policy.
+
+1. `docs/ap/AP-146-provider-cost-rate-inbox-replay.md`
+   Contrato operacional do ciclo AP-99/model selection/cost governance:
+   Curator aponta custo unknown, Inbox recebe rates humanos e replay prova se
+   `configure_provider_cost_rates` fechou a pendencia ou ficou apenas em preview.
+
+1. `docs/ap/AP-147-dynamic-compute-market-shadow-surface.md`
+   Contrato da surface shadow do Dynamic Compute Market: CLI/API report-only,
+   `read_only_no_routing_change`, benchmark candidate e proibicao de troca de
+   provider fora de policy patch + Decision Receipt.
 
 1. `atlas-ai-scenario-simulation-harness.md`
    Contrato alvo para simulacao multiagente inspirada por MiroFish/OASIS:

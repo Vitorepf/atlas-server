@@ -160,6 +160,168 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
         $this->assertStringContainsString('Review severity', $output);
         $this->assertStringContainsString('Recommended action', $output);
         $this->assertStringContainsString('open_reviewable_inbox_action_evidence_proposal', $output);
+        $this->assertStringNotContainsString('Provider cost-rate actions', $output);
+    }
+
+    public function test_command_human_output_includes_provider_cost_rate_summary_when_configured(): void
+    {
+        $this->recordInboxAction(
+            '01HINBOXACTIONCMDHUMANCOST01',
+            'cmd-inbox-human-cost-rate',
+            'configure_provider_cost_rates',
+            'operator_cli',
+            'configure_provider_cost_rates',
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.2',
+                'input_microusd_per_1k' => 120,
+                'output_microusd_per_1k' => 480,
+                'currency' => 'USD',
+                'effective_from' => '2026-05-01',
+                'effective_until' => '2026-06-01',
+                'applied' => true,
+            ],
+            ['id' => 'rate-codex-cli-gpt-52'],
+        );
+
+        $exit = Artisan::call('atlas:ai:inbox-action-report', [
+            '--hours' => 24,
+            '--action' => 'configure_provider_cost_rates',
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Provider cost-rate actions', $output);
+        $this->assertStringContainsString('Applied cost-rate actions', $output);
+        $this->assertStringContainsString('Pending cost-rate actions', $output);
+        $this->assertStringContainsString('Cost-rate completion', $output);
+        $this->assertStringContainsString('1/1 applied', $output);
+        $this->assertStringContainsString('Provider counts', $output);
+        $this->assertStringContainsString('Model counts', $output);
+        $this->assertStringContainsString('Provider cost-rate events', $output);
+        $this->assertStringContainsString('rate id', $output);
+        $this->assertStringContainsString('rate-codex-cli-gpt-52', $output);
+        $this->assertStringContainsString('codex_cli', $output);
+        $this->assertStringContainsString('codex_cli:gpt-5.2', $output);
+        $this->assertMatchesRegularExpression('/\|\s+yes\s+\|/', $output);
+        $this->assertStringContainsString('120', $output);
+        $this->assertStringContainsString('480', $output);
+        $this->assertStringContainsString('USD', $output);
+        $this->assertStringContainsString('effective from', $output);
+        $this->assertStringContainsString('effective until', $output);
+        $this->assertStringContainsString('2026-05-01', $output);
+        $this->assertStringContainsString('2026-06-01', $output);
+        $this->assertStringContainsString('Review signal', $output);
+        $this->assertStringContainsString('Recommended action', $output);
+        $this->assertStringContainsString('Cost-rate review signal', $output);
+        $this->assertStringContainsString('Cost-rate review severity', $output);
+        $this->assertStringContainsString('Cost-rate review required', $output);
+        $this->assertStringContainsString('Cost-rate recommended action', $output);
+        $this->assertStringContainsString('Cost-rate review reasons', $output);
+        $this->assertStringContainsString('provider_cost_rates_configured', $output);
+    }
+
+    public function test_command_human_output_flags_provider_cost_rate_preview_without_applied_rate(): void
+    {
+        $this->recordInboxAction(
+            '01HINBOXACTIONCMDHUMANCOST02',
+            'cmd-inbox-human-cost-rate-preview',
+            'configure_provider_cost_rates',
+            'operator_cli',
+            'configure_provider_cost_rates',
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.2',
+                'currency' => 'USD',
+                'applied' => false,
+            ],
+        );
+
+        $exit = Artisan::call('atlas:ai:inbox-action-report', [
+            '--hours' => 24,
+            '--action' => 'configure_provider_cost_rates',
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Provider Cost Rates', $output);
+        $this->assertStringContainsString('needs review', $output);
+        $this->assertStringContainsString('Provider cost-rate actions', $output);
+        $this->assertStringContainsString('Applied cost-rate actions', $output);
+        $this->assertStringContainsString('Pending cost-rate actions', $output);
+        $this->assertStringContainsString('Cost-rate completion', $output);
+        $this->assertStringContainsString('0/1 applied', $output);
+        $this->assertStringContainsString('Provider cost-rate events', $output);
+        $this->assertStringContainsString('codex_cli', $output);
+        $this->assertStringContainsString('codex_cli:gpt-5.2', $output);
+        $this->assertMatchesRegularExpression('/\|\s+no\s+\|/', $output);
+        $this->assertStringContainsString('configure_provider_cost_rates_action_without_applied_rate', $output);
+        $this->assertStringContainsString('Cost-rate review severity', $output);
+        $this->assertStringContainsString('Cost-rate review required', $output);
+        $this->assertStringContainsString('Cost-rate recommended action', $output);
+        $this->assertStringContainsString('configure_provider_cost_rates', $output);
+    }
+
+    public function test_command_human_output_summarizes_mixed_provider_cost_rate_completion(): void
+    {
+        $this->recordInboxAction(
+            '01HINBOXACTIONCMDHUMANCOST03',
+            'cmd-inbox-human-cost-rate-applied',
+            'configure_provider_cost_rates',
+            'operator_cli',
+            'configure_provider_cost_rates',
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.2',
+                'input_microusd_per_1k' => 120,
+                'output_microusd_per_1k' => 480,
+                'currency' => 'USD',
+                'applied' => true,
+            ],
+        );
+        $this->recordInboxAction(
+            '01HINBOXACTIONCMDHUMANCOST04',
+            'cmd-inbox-human-cost-rate-pending',
+            'configure_provider_cost_rates',
+            'operator_cli',
+            'configure_provider_cost_rates',
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.3',
+                'currency' => 'USD',
+                'applied' => false,
+            ],
+        );
+
+        $exit = Artisan::call('atlas:ai:inbox-action-report', [
+            '--hours' => 24,
+            '--action' => 'configure_provider_cost_rates',
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('needs review', $output);
+        $this->assertStringContainsString('Cost-rate completion', $output);
+        $this->assertStringContainsString('1/2 applied', $output);
+        $this->assertStringContainsString('Provider cost-rate actions', $output);
+        $this->assertStringContainsString('Applied cost-rate actions', $output);
+        $this->assertStringContainsString('Pending cost-rate actions', $output);
+        $this->assertStringContainsString('Cost-rate review required', $output);
+        $this->assertStringContainsString('codex_cli:gpt-5.2', $output);
+        $this->assertStringContainsString('codex_cli:gpt-5.3', $output);
+        $this->assertStringContainsString('configure_provider_cost_rates_action_without_applied_rate', $output);
     }
 
     public function test_command_reports_unavailable_when_ledger_table_is_missing(): void
@@ -190,6 +352,7 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
         array $diffRefs,
         array $rivalsReviewAction = [],
         array $providerCostRateAction = [],
+        array $upsertedRate = [],
     ): void {
         AtlasLedgerEvent::query()->create([
             'event_id' => $eventId,
@@ -225,6 +388,7 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
                     ],
                     'rivals_review_action' => $rivalsReviewAction,
                     'provider_cost_rate_action' => $providerCostRateAction,
+                    'upserted_rate' => $upsertedRate,
                 ],
                 'recommended_action' => $recommendedAction,
                 'review_signal' => [

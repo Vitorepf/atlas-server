@@ -18,6 +18,7 @@ use App\Console\Commands\AiWorkCommand;
 use App\Console\Commands\AtlasAiArchitectureValidateCommand;
 use App\Console\Commands\AtlasAiDecideCommand;
 use App\Console\Commands\AtlasAiDomainsCommand;
+use App\Console\Commands\AtlasAiDynamicComputeMarketCommand;
 use App\Console\Commands\AtlasAiLedgerCommand;
 use App\Console\Commands\AtlasAiLedgerProjectionCommand;
 use App\Console\Commands\AtlasAiProviderPerformanceCommand;
@@ -130,6 +131,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiArchitectureValidateCommand::class,
         AtlasAiDecideCommand::class,
         AtlasAiDomainsCommand::class,
+        AtlasAiDynamicComputeMarketCommand::class,
         AtlasAiLedgerCommand::class,
         AtlasAiLedgerProjectionCommand::class,
         AtlasAiProviderPerformanceCommand::class,

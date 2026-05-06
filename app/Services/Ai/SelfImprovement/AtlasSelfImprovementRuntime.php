@@ -8,6 +8,7 @@ use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReadModel;
+use App\Services\Ai\Kernel\Decision\DynamicComputeMarketAdvisor;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
@@ -41,6 +42,7 @@ class AtlasSelfImprovementRuntime
         private readonly AtlasSelfImprovementScheduleService $schedule,
         private readonly AtlasSelfImprovementInput $input,
         private readonly ProviderPerformanceProjection $providerPerformance,
+        private readonly DynamicComputeMarketAdvisor $dynamicComputeMarket,
         private readonly AtlasRivalsStrategyReadModel $rivalsStrategy,
     ) {}
 
@@ -539,7 +541,128 @@ class AtlasSelfImprovementRuntime
             ];
         }
 
+        $findings = [
+            ...$findings,
+            ...$this->dynamicComputeMarketFindings($report, $filters),
+        ];
+
         return $findings;
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function dynamicComputeMarketFindings(array $report, array $filters = []): array
+    {
+        $normalizedFilters = $this->normalizedProviderPerformanceFilters($filters);
+
+        return collect((array) ($report['groups'] ?? []))
+            ->filter(fn (mixed $group): bool => is_array($group))
+            ->filter(fn (array $group): bool => (string) ($group['provider_cli'] ?? 'unknown') !== 'unknown')
+            ->take(8)
+            ->map(function (array $group) use ($normalizedFilters): ?array {
+                $provider = (string) ($group['provider_cli'] ?? '');
+                $domain = $this->knownProviderDimension($group['domain'] ?? null);
+                $taskType = $this->knownProviderDimension($group['task_type'] ?? null);
+                $specialistProfile = $this->knownProviderDimension($group['specialist_profile'] ?? null);
+                $flow = $normalizedFilters['flow'] ?? null;
+
+                $market = $this->dynamicComputeMarket->advise(
+                    selectedProvider: $provider,
+                    selectedModel: null,
+                    policy: array_filter([
+                        'domain' => $domain,
+                        'flow' => $flow,
+                        'profile_id' => $flow,
+                        'profile_context' => array_filter([
+                            'domain' => $domain,
+                            'flow' => $flow,
+                        ], fn (?string $value): bool => $value !== null),
+                    ], fn (mixed $value): bool => $value !== null && $value !== []),
+                    taskProfile: array_filter([
+                        'task_type' => $taskType,
+                    ], fn (?string $value): bool => $value !== null),
+                    specialistProfile: $specialistProfile,
+                );
+
+                if (($market['recommendation'] ?? null) !== 'benchmark_lower_latency_alternative') {
+                    return null;
+                }
+
+                $candidate = $market['benchmark_candidate'] ?? null;
+                if (! is_array($candidate)) {
+                    return null;
+                }
+
+                return [
+                    'title' => 'Benchmark revisavel do Dynamic Compute Market',
+                    'category' => 'self_improvement',
+                    'finding' => "Dynamic Compute Market encontrou alternativa potencial para {$provider} em ".($domain ?? 'domain desconhecido').'.',
+                    'problem' => 'AP-99 sugere que outro provider pode entregar latencia, custo ou qualidade melhor para a mesma familia de tarefa, mas trocar rota automaticamente violaria a autoridade do Atlas Decide.',
+                    'solution' => 'Rodar benchmark controlado pareado e, se confirmado, abrir policy patch revisavel para Atlas Decide. Nenhuma rota deve mudar sem receipt novo.',
+                    'worth_it' => 'Vale porque transforma telemetria real em melhoria de provider sem cair em achismo, override silencioso ou preferencia fixa por modelo.',
+                    'best_solution_rationale' => 'O Curator fica proposal-only: ele usa AP-99 para detectar oportunidade, mas deixa benchmark, policy e Decision Receipt como gates obrigatorios.',
+                    'alternatives' => ['Continuar observando ate aumentar amostra.', 'Configurar cost rates antes se a melhoria aparente depender de custo.', 'Manter provider atual se a diferenca nao sobreviver ao benchmark.'],
+                    'available_actions' => [
+                        ['id' => 'run_provider_benchmark', 'label' => 'Rodar benchmark', 'style' => 'primary'],
+                        ['id' => 'draft_model_selection_policy_patch', 'label' => 'Rascunhar policy patch', 'style' => 'secondary'],
+                        ['id' => 'review_patch', 'label' => 'Revisar evidencia', 'style' => 'secondary'],
+                        ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
+                        ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
+                    ],
+                    'source_refs' => [[
+                        'type' => 'dynamic_compute_market',
+                        'provider_cli' => $provider,
+                        'candidate_provider' => $candidate['provider'] ?? null,
+                        'domain' => $domain,
+                        'flow' => $flow,
+                        'task_type' => $taskType,
+                        'specialist_profile' => $specialistProfile,
+                        'recommendation' => $market['recommendation'] ?? null,
+                        'recommended_next_action' => $market['recommended_next_action'] ?? null,
+                    ]],
+                    'confidence' => ($candidate['sample_status'] ?? null) === 'sufficient' ? 0.84 : 0.7,
+                    'dedupe_key' => 'self-improvement:dynamic-compute-market:'.sha1(json_encode([
+                        'provider' => $provider,
+                        'candidate' => $candidate['provider'] ?? null,
+                        'domain' => $domain,
+                        'flow' => $flow,
+                        'task_type' => $taskType,
+                        'specialist_profile' => $specialistProfile,
+                    ], JSON_THROW_ON_ERROR)),
+                    'metadata' => [
+                        'schema_version' => 'atlas.self_improvement.dynamic_compute_market.v1',
+                        'mode' => 'proposal_only',
+                        'review_signal' => [
+                            'status' => 'warning',
+                            'severity' => ($candidate['sample_status'] ?? null) === 'sufficient' ? 'medium' : 'low',
+                            'recommended_action' => 'run_controlled_provider_benchmark_before_policy_change',
+                        ],
+                        'dynamic_compute_market' => $market,
+                        'candidate' => $candidate,
+                        'routing_control' => [
+                            'changes_provider' => false,
+                            'routing_authority' => 'atlas_decide',
+                            'provider_change_requires' => ['policy_patch', 'decision_receipt'],
+                        ],
+                        'policy_patch_candidate' => [
+                            'status' => 'proposal_only',
+                            'target' => 'atlas_decide_model_selection_policy',
+                            'operation' => 'benchmark_then_adjust_provider_preference',
+                            'requires_human_review' => true,
+                        ],
+                        'available_actions' => [
+                            ['id' => 'run_provider_benchmark', 'label' => 'Run provider benchmark', 'mode' => 'assisted'],
+                            ['id' => 'draft_model_selection_policy_patch', 'label' => 'Draft model selection policy patch', 'mode' => 'proposal_only'],
+                        ],
+                    ],
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**
@@ -1194,6 +1317,9 @@ class AtlasSelfImprovementRuntime
             'atlas ai kernel-pipeline-report --hours=24 --json',
             'atlas ai repair-report --hours=24 --json',
             'atlas ai provider-performance --hours=24 --json',
+            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'atlas ai telemetry cost-rates --missing --hours=168 --json',
+            'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
             'atlas ai qualitative-levels --hours=720 --json',
             'atlas ai rivals-strategy report --hours=8760 --json',
             'atlas ai rivals-strategy due-reviews --due-days=30 --json',
@@ -1674,11 +1800,77 @@ class AtlasSelfImprovementRuntime
         $reviewSignal = (array) ($report['review_signal'] ?? []);
         $gapReason = 'review_patch_action_without_diff_refs';
         $rivalsGapReason = 'record_rivals_review_action_without_scores';
+        $providerCostRateGapReason = 'configure_provider_cost_rates_action_without_applied_rate';
         $proposalAction = 'open_reviewable_inbox_action_evidence_proposal';
 
         if (! (bool) ($report['available'] ?? false)
-            || ! (bool) ($reviewSignal['review_required'] ?? false)
-            || ($reviewSignal['recommended_action'] ?? null) !== $proposalAction) {
+            || ! (bool) ($reviewSignal['review_required'] ?? false)) {
+            return [];
+        }
+
+        if (in_array($providerCostRateGapReason, (array) ($reviewSignal['reasons'] ?? []), true)) {
+            $recentEvents = collect((array) ($report['recent_events'] ?? []))
+                ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'configure_provider_cost_rates')
+                ->filter(fn (array $event): bool => ! (bool) ($event['provider_cost_rate_applied'] ?? false))
+                ->values();
+
+            if ($recentEvents->isEmpty()) {
+                return [];
+            }
+
+            return [[
+                'title' => 'Completar rates de custo dos providers no Inbox',
+                'category' => 'self_improvement',
+                'finding' => 'Replay do Evidence Ledger encontrou `configure_provider_cost_rates` em preview/template sem rate aplicado.',
+                'problem' => 'Enquanto o rate nao e aplicado, findings de custo desconhecido continuam sem fechamento auditavel e o AP-99 nao consegue comparar providers com custo real.',
+                'solution' => 'Reabrir a action `configure_provider_cost_rates` no Inbox e informar input/output microusd para o provider/model indicado. O Curator apenas recomenda; nenhum rate e aplicado automaticamente.',
+                'worth_it' => 'Vale porque fecha o ciclo humano de custo: Self-Improvement aponta o gap, Inbox coleta a decisao humana, Evidence Ledger prova se o rate entrou de fato.',
+                'best_solution_rationale' => 'Consumir `inboxActionReportForWindow` preserva o Evidence Ledger como fonte unica e evita consulta paralela a tabelas de rates ou payloads crus do Inbox.',
+                'alternatives' => ['Manter como preview ate o operador confirmar os precos.', 'Abrir benchmark de custo separado se o provider/model ainda nao tiver preco confiavel.'],
+                'available_actions' => [
+                    ['id' => 'configure_provider_cost_rates', 'label' => 'Configurar rates', 'style' => 'primary'],
+                ],
+                'source_refs' => $recentEvents
+                    ->take(5)
+                    ->map(fn (array $event): array => $this->providerCostRateReplaySourceRef($event))
+                    ->values()
+                    ->all(),
+                'confidence' => 0.91,
+                'dedupe_key' => 'self-improvement:inbox-action-replay:'.sha1($hours.':'.$providerCostRateGapReason),
+                'metadata' => [
+                    'schema_version' => 'atlas.self_improvement.inbox_action_replay_gap.v1',
+                    'gap_type' => $providerCostRateGapReason,
+                    'hours' => $hours,
+                    'inbox_action_count' => (int) ($report['inbox_action_count'] ?? 0),
+                    'provider_cost_rate_action_count' => (int) ($report['provider_cost_rate_action_count'] ?? 0),
+                    'provider_cost_rate_applied_count' => (int) ($report['provider_cost_rate_applied_count'] ?? 0),
+                    'provider_cost_rate_provider_counts' => (array) ($report['provider_cost_rate_provider_counts'] ?? []),
+                    'provider_cost_rate_model_counts' => (array) ($report['provider_cost_rate_model_counts'] ?? []),
+                    'action_counts' => (array) ($report['action_counts'] ?? []),
+                    'actor_type_counts' => (array) ($report['actor_type_counts'] ?? []),
+                    'recommended_action_counts' => (array) ($report['recommended_action_counts'] ?? []),
+                    'review_signal' => $reviewSignal,
+                    'available_actions' => [
+                        ['id' => 'configure_provider_cost_rates', 'label' => 'Configurar rates', 'style' => 'primary'],
+                    ],
+                    'filters' => $this->normalizedInboxActionFilters($filters),
+                ],
+                'payload' => [
+                    'provider_cost_rates' => [
+                        'schema_version' => 'atlas.provider_cost_rates.curator_completion_request.v1',
+                        'recommended_action' => 'configure_provider_cost_rates',
+                        'missing_applied_rate_count' => $recentEvents->count(),
+                        'events' => $recentEvents
+                            ->take(5)
+                            ->map(fn (array $event): array => $this->providerCostRateReplayPayloadEvent($event))
+                            ->values()
+                            ->all(),
+                    ],
+                ],
+            ]];
+        }
+
+        if (($reviewSignal['recommended_action'] ?? null) !== $proposalAction) {
             return [];
         }
 
@@ -1792,6 +1984,56 @@ class AtlasSelfImprovementRuntime
                 'filters' => $this->normalizedInboxActionFilters($filters),
             ],
         ]];
+    }
+
+    /**
+     * @param  array<string,mixed>  $event
+     * @return array<string,mixed>
+     */
+    private function providerCostRateReplaySourceRef(array $event): array
+    {
+        return [
+            'type' => 'ledger_event',
+            'id' => $event['event_id'] ?? null,
+            'event_id' => $event['event_id'] ?? null,
+            'envelope_id' => $event['envelope_id'] ?? null,
+            'inbox_item_id' => $event['inbox_item_id'] ?? null,
+            'action' => $event['action'] ?? null,
+            'provider' => $event['provider_cost_rate_provider'] ?? null,
+            'model' => $event['provider_cost_rate_model'] ?? null,
+            'applied' => (bool) ($event['provider_cost_rate_applied'] ?? false),
+            'input_microusd' => $event['provider_cost_rate_input_microusd'] ?? null,
+            'output_microusd' => $event['provider_cost_rate_output_microusd'] ?? null,
+            'input_microusd_per_1k' => $event['provider_cost_rate_input_microusd'] ?? null,
+            'output_microusd_per_1k' => $event['provider_cost_rate_output_microusd'] ?? null,
+            'currency' => $event['provider_cost_rate_currency'] ?? null,
+            'effective_from' => $event['provider_cost_rate_effective_from'] ?? null,
+            'effective_until' => $event['provider_cost_rate_effective_until'] ?? null,
+            'rate_id' => $event['provider_cost_rate_id'] ?? null,
+            'occurred_at' => $event['occurred_at'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $event
+     * @return array<string,mixed>
+     */
+    private function providerCostRateReplayPayloadEvent(array $event): array
+    {
+        return [
+            'event_id' => $event['event_id'] ?? null,
+            'inbox_item_id' => $event['inbox_item_id'] ?? null,
+            'provider' => $event['provider_cost_rate_provider'] ?? null,
+            'model' => $event['provider_cost_rate_model'] ?? null,
+            'applied' => (bool) ($event['provider_cost_rate_applied'] ?? false),
+            'input_microusd_per_1k' => $event['provider_cost_rate_input_microusd'] ?? null,
+            'output_microusd_per_1k' => $event['provider_cost_rate_output_microusd'] ?? null,
+            'currency' => $event['provider_cost_rate_currency'] ?? null,
+            'effective_from' => $event['provider_cost_rate_effective_from'] ?? null,
+            'effective_until' => $event['provider_cost_rate_effective_until'] ?? null,
+            'rate_id' => $event['provider_cost_rate_id'] ?? null,
+            'occurred_at' => $event['occurred_at'] ?? null,
+        ];
     }
 
     /**
@@ -1999,6 +2241,17 @@ class AtlasSelfImprovementRuntime
         }
 
         return $normalized;
+    }
+
+    private function knownProviderDimension(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' || $value === 'unknown' ? null : $value;
     }
 
     /**

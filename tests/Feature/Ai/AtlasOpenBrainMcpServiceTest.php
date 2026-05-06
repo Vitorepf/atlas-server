@@ -208,8 +208,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After AP-137: 16 + 5 new tools + domain/architecture/operations/schedule/kernel/provider/inbox/receipt/projection reports = 33.
-        $this->assertCount(33, $structured['tools']);
+        // After AP-147: 16 + 5 new tools + domain/architecture/operations/schedule/kernel/provider/market/inbox/receipt/projection reports = 34.
+        $this->assertCount(34, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_domain_catalog', array_column($structured['tools'], 'name'));
@@ -222,6 +222,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('atlas_repair_loop_report', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_inbox_action_report', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_provider_performance_report', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_dynamic_compute_market_report', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_ledger_projection_health', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_decision_receipt_report', array_column($structured['tools'], 'name'));
     }
@@ -404,6 +405,9 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('atlas engineering knowledge docs-health --json', array_column($commands, 'command'));
         $this->assertContains('atlas engineering knowledge sync --prune --json', array_column($commands, 'command'));
         $this->assertContains('atlas engineering knowledge index-code --prune --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', array_column($commands, 'command'));
         $this->assertContains('atlas ledger replay --envelope=<id> --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', array_column($commands, 'command'));
     }
@@ -426,6 +430,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertTrue($structured['ok']);
         $this->assertSame(['kind' => 'evidence_report'], data_get($structured, 'architecture_operations.filters'));
         $this->assertContains('provider_performance_report', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('dynamic_compute_market_report', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('provider_cost_rates_missing', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('decision_receipt_report', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('ledger_replay', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertNotContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
@@ -1177,6 +1183,73 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame(0.5, data_get($structured, 'provider_performance.success_rate'));
         $this->assertSame('codex_cli', data_get($structured, 'provider_performance.groups.0.provider_cli'));
         $this->assertSame('feature', data_get($structured, 'provider_performance.groups.0.task_type'));
+    }
+
+    public function test_dynamic_compute_market_report_exposes_read_only_shadow_advice(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->recordProviderReturnedForMcp('codex_cli', 'programming', 'feature', 'succeeded', 160.0);
+            $this->recordProviderReturnedForMcp('claude_cli', 'programming', 'feature', 'succeeded', 42.0);
+        }
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 194,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_dynamic_compute_market_report',
+                'arguments' => [
+                    'provider' => 'codex_cli',
+                    'domain' => 'programming',
+                    'flow' => 'programming.dev',
+                    'task_type' => 'feature',
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_dynamic_compute_market_report', $structured['tool']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame('atlas.dynamic_compute_market_report.v1', data_get($structured, 'schema_version'));
+        $this->assertSame('read_only_no_routing_change', data_get($structured, 'authority'));
+        $this->assertSame('codex_cli', data_get($structured, 'input.provider'));
+        $this->assertSame('benchmark_lower_latency_alternative', data_get($structured, 'dynamic_compute_market.recommendation'));
+        $this->assertSame('run_controlled_provider_benchmark_before_policy_change', data_get($structured, 'dynamic_compute_market.recommended_next_action'));
+        $this->assertFalse((bool) data_get($structured, 'dynamic_compute_market.routing_control.changes_provider'));
+        $this->assertSame('claude_cli', data_get($structured, 'dynamic_compute_market.benchmark_candidate.provider'));
+    }
+
+    public function test_dynamic_compute_market_report_preserves_review_signal_when_ledger_is_unavailable(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 195,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_dynamic_compute_market_report',
+                'arguments' => ['provider' => 'codex_cli'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('atlas_dynamic_compute_market_report', $structured['tool']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame('ledger_unavailable', data_get($structured, 'status'));
+        $this->assertSame('collect_ap99_evidence', data_get($structured, 'dynamic_compute_market.recommendation'));
+        $this->assertSame('collect_ap99_evidence_before_policy_change', data_get($structured, 'dynamic_compute_market.recommended_next_action'));
+        $this->assertFalse((bool) data_get($structured, 'dynamic_compute_market.routing_control.changes_provider'));
+        $this->assertFalse((bool) data_get($structured, 'dynamic_compute_market.ap99.available'));
     }
 
     public function test_decision_receipt_report_replays_receipt_chain_for_envelope(): void

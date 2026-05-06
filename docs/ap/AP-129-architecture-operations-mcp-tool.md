@@ -14,6 +14,10 @@ sessoes auxiliares de implementacao e revisao.
   `atlas_architecture_operations`.
 - A tool deve consumir `AtlasArchitectureOperationsCatalog::summary()` sem
   duplicar comandos.
+- Operacoes novas de governanca, como `provider_cost_rates_missing` e
+  `provider_cost_rates_upsert`, e operacoes de auditoria como
+  `dynamic_compute_market_report`, devem aparecer no MCP automaticamente por
+  esse catalogo compartilhado.
 - O payload deve retornar `ok=true`, `tool=atlas_architecture_operations`,
   `architecture_operations` e `writes=false`.
 - `atlas_capabilities` deve listar a tool para capability negotiation.

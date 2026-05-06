@@ -30,6 +30,17 @@ class AiTelemetryCostRatesCommand extends Command
     public function handle(AiProviderCostRateService $rates): int
     {
         if (! Schema::hasTable('ai_provider_cost_rates')) {
+            if ((bool) $this->option('json')) {
+                $this->line(json_encode([
+                    'ok' => false,
+                    'error' => [
+                        'message' => 'ai_provider_cost_rates table is missing. Run php artisan migrate.',
+                    ],
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+                return self::FAILURE;
+            }
+
             $this->error('ai_provider_cost_rates table is missing. Run php artisan migrate.');
 
             return self::FAILURE;
@@ -41,47 +52,52 @@ class AiTelemetryCostRatesCommand extends Command
         $missingRates = null;
         $templatePath = null;
 
-        if ((bool) $this->option('sync-config')) {
-            $synced = $rates->syncConfiguredRates();
-        }
+        try {
+            if ((bool) $this->option('sync-config')) {
+                $synced = $rates->syncConfiguredRates();
+            }
 
-        if ($this->option('import')) {
-            $rows = $rates->ratesFromJson(File::get($this->pathOption('import')));
-            $imported = $rates->upsertMany($rows, 'cli_import');
-        }
+            if ($this->option('import')) {
+                $rows = $rates->ratesFromJson(File::get($this->pathOption('import')));
+                $imported = $rates->upsertMany($rows, 'cli_import');
+            }
 
-        if ($this->option('provider') || $this->option('model') || $this->option('input-microusd') || $this->option('output-microusd')) {
-            $upserted = $rates->upsert([
-                'provider' => $this->option('provider'),
-                'model' => $this->option('model'),
-                'input_microusd_per_1k' => $this->option('input-microusd'),
-                'output_microusd_per_1k' => $this->option('output-microusd'),
-                'currency' => $this->option('currency'),
-                'effective_from' => $this->option('effective-from'),
-                'effective_until' => $this->option('effective-until'),
-                'metadata' => [
-                    'source' => 'cli',
-                ],
-            ]);
-        }
+            if ($this->option('provider') || $this->option('model') || $this->option('input-microusd') || $this->option('output-microusd')) {
+                $upserted = $rates->upsert([
+                    'provider' => $this->option('provider'),
+                    'model' => $this->option('model'),
+                    'input_microusd_per_1k' => $this->option('input-microusd'),
+                    'output_microusd_per_1k' => $this->option('output-microusd'),
+                    'currency' => $this->option('currency'),
+                    'effective_from' => $this->option('effective-from'),
+                    'effective_until' => $this->option('effective-until'),
+                    'metadata' => [
+                        'source' => 'cli',
+                    ],
+                ]);
+            }
 
-        if ((bool) $this->option('missing') || $this->option('write-template')) {
-            $missingRates = $rates->missingRates(
-                now()->subHours(max(1, (int) $this->option('hours'))),
-                now(),
-                200,
-            );
-        }
+            if ((bool) $this->option('missing') || $this->option('write-template')) {
+                $missingRates = $rates->missingRates(
+                    now()->subHours(max(1, (int) $this->option('hours'))),
+                    now(),
+                    200,
+                );
+            }
 
-        if ($this->option('write-template')) {
-            $templatePath = $this->pathOption('write-template');
-            File::ensureDirectoryExists(dirname($templatePath));
-            File::put($templatePath, json_encode($this->templatePayload($missingRates ?? []), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+            if ($this->option('write-template')) {
+                $templatePath = $this->pathOption('write-template');
+                File::ensureDirectoryExists(dirname($templatePath));
+                File::put($templatePath, json_encode($this->templatePayload($missingRates ?? []), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+            }
+        } catch (\Throwable $exception) {
+            return $this->renderError($exception);
         }
 
         $activeRates = $rates->queryActive()->limit(200)->get();
+        $exitCode = $imported && $imported['errors'] !== [] ? self::FAILURE : self::SUCCESS;
         $payload = [
-            'ok' => true,
+            'ok' => $exitCode === self::SUCCESS,
             'synced' => $synced,
             'imported' => $imported ? [
                 'upserted' => count($imported['upserted']),
@@ -92,7 +108,6 @@ class AiTelemetryCostRatesCommand extends Command
             'template_path' => $templatePath,
             'active_rates' => AiProviderCostRateResource::collection($activeRates)->resolve(),
         ];
-        $exitCode = $imported && $imported['errors'] !== [] ? self::FAILURE : self::SUCCESS;
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -143,12 +158,13 @@ class AiTelemetryCostRatesCommand extends Command
         }
 
         $this->table(
-            ['provider', 'model', 'input uUSD/1K', 'output uUSD/1K', 'effective from'],
+            ['provider', 'model', 'input uUSD/1K', 'output uUSD/1K', 'currency', 'effective from'],
             $activeRates->map(fn ($rate): array => [
                 $rate->provider,
                 $rate->model,
                 $rate->input_microusd_per_1k,
                 $rate->output_microusd_per_1k,
+                $rate->currency,
                 $rate->effective_from?->toJSON(),
             ])->all(),
         );
@@ -164,6 +180,28 @@ class AiTelemetryCostRatesCommand extends Command
         }
 
         return str_starts_with($path, '/') ? $path : base_path($path);
+    }
+
+    private function renderError(\Throwable $exception): int
+    {
+        $message = $exception instanceof \InvalidArgumentException
+            ? $exception->getMessage()
+            : 'Unable to process cost rates: '.$exception->getMessage();
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode([
+                'ok' => false,
+                'error' => [
+                    'message' => $message,
+                ],
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $this->error('Invalid cost rate input: '.$message);
+
+        return self::FAILURE;
     }
 
     /**

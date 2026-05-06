@@ -711,8 +711,8 @@ class InboxActionRegistry
             ?? (is_array($firstProviderRef) ? $this->string($firstProviderRef['provider_cli'] ?? null) : null);
         $model = $this->string($input['model'] ?? null)
             ?? (is_array($firstProviderRef) ? $this->string($firstProviderRef['model'] ?? null) : null);
-        $inputRate = $this->positiveInt($input['input_microusd_per_1k'] ?? $input['input_microusd'] ?? null);
-        $outputRate = $this->positiveInt($input['output_microusd_per_1k'] ?? $input['output_microusd'] ?? null);
+        $inputRate = $this->nonNegativeInt($input['input_microusd_per_1k'] ?? $input['input_microusd'] ?? null);
+        $outputRate = $this->nonNegativeInt($input['output_microusd_per_1k'] ?? $input['output_microusd'] ?? null);
         $currency = strtoupper($this->string($input['currency'] ?? null) ?? 'USD');
         $effectiveFrom = $this->string($input['effective_from'] ?? null);
         $effectiveUntil = $this->string($input['effective_until'] ?? null);
@@ -756,7 +756,7 @@ class InboxActionRegistry
             'input_microusd_per_1k' => $inputRate,
             'output_microusd_per_1k' => $outputRate,
             'completed_at' => now()->toJSON(),
-            'no_external_action' => false,
+            'no_external_action' => true,
         ];
 
         $item->update([
@@ -997,6 +997,24 @@ class InboxActionRegistry
         $value = (int) $value;
 
         return $value > 0 ? $value : null;
+    }
+
+    private function nonNegativeInt(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value >= 0 ? $value : null;
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        if ($value === '' || ! preg_match('/^\d+$/', $value)) {
+            return null;
+        }
+
+        return (int) $value;
     }
 
     private function booleanValue(mixed $value): bool

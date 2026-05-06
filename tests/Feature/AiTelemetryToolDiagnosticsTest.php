@@ -6,6 +6,7 @@ use App\Models\AiJob;
 use App\Models\AiProviderCostRate;
 use App\Models\AiToolEvent;
 use App\Models\AiTrace;
+use App\Services\Ai\Telemetry\AiProviderCostRateService;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregatorVersions;
 use Illuminate\Database\Schema\Blueprint;
@@ -78,6 +79,21 @@ class AiTelemetryToolDiagnosticsTest extends TestCase
             $summary->metadata['aggregator_version'],
             'The version marker lets the statistical layer discriminate schemas in trend windows.'
         );
+    }
+
+    public function test_cost_rate_service_rejects_invalid_effective_window(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('effective_until must not be before effective_from.');
+
+        app(AiProviderCostRateService::class)->upsert([
+            'provider' => 'claude_cli',
+            'model' => 'tool-diagnostics-invalid-window',
+            'input_microusd_per_1k' => 0,
+            'output_microusd_per_1k' => 0,
+            'effective_from' => '2026-05-06T12:00:00Z',
+            'effective_until' => '2026-05-06T11:00:00Z',
+        ]);
     }
 
     public function test_per_tool_diagnostics_count_failures_and_denials_correctly(): void

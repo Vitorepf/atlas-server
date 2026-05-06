@@ -10,10 +10,11 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 
 class AiProviderCostRateService
 {
+    private const MAX_MICROUSD_PER_1K = 4294967295;
+
     /**
      * @param  array<string,mixed>  $data
      */
@@ -25,12 +26,17 @@ class AiProviderCostRateService
 
         $provider = $this->requiredString($data['provider'] ?? null, 80, 'provider');
         $model = $this->requiredString($data['model'] ?? null, 120, 'model');
-        $effectiveFrom = $this->date($data['effective_from'] ?? null) ?? now()->toImmutable();
+        $effectiveFrom = $this->date($data['effective_from'] ?? null, 'effective_from') ?? now()->toImmutable();
+        $effectiveUntil = $this->date($data['effective_until'] ?? null, 'effective_until');
+        if ($effectiveUntil !== null && $effectiveUntil->lt($effectiveFrom)) {
+            throw new \InvalidArgumentException('effective_until must not be before effective_from.');
+        }
+
         $payload = [
             'input_microusd_per_1k' => $this->nonNegativeInt($data['input_microusd_per_1k'] ?? null, 'input_microusd_per_1k'),
             'output_microusd_per_1k' => $this->nonNegativeInt($data['output_microusd_per_1k'] ?? null, 'output_microusd_per_1k'),
             'currency' => $this->currency($data['currency'] ?? 'USD'),
-            'effective_until' => $this->date($data['effective_until'] ?? null),
+            'effective_until' => $effectiveUntil,
             'metadata' => AtlasSecurity::redactArray(is_array($data['metadata'] ?? null) ? $data['metadata'] : []),
         ];
 
@@ -57,13 +63,16 @@ class AiProviderCostRateService
 
     public function syncConfiguredRates(): int
     {
-        $count = 0;
-        foreach ($this->configuredRates() as $rate) {
-            $this->upsert($this->withMetadataSource($rate, 'config'));
-            $count++;
+        $result = $this->upsertMany($this->configuredRates(), 'config');
+        if ($result['errors'] !== []) {
+            throw new \InvalidArgumentException(
+                'Configured cost rates contain invalid rows: '.collect($result['errors'])
+                    ->map(fn (array $error): string => "row {$error['index']}: {$error['message']}")
+                    ->implode('; ')
+            );
         }
 
-        return $count;
+        return count($result['upserted']);
     }
 
     /**
@@ -96,7 +105,7 @@ class AiProviderCostRateService
     }
 
     /**
-     * @return array<int,array<string,mixed>>
+     * @return array<int,mixed>
      */
     public function ratesFromJson(string $json): array
     {
@@ -110,7 +119,7 @@ class AiProviderCostRateService
             throw new \InvalidArgumentException('JSON must be an array of rates or an object with a rates array.');
         }
 
-        return array_values(array_filter($rates, 'is_array'));
+        return array_values($rates);
     }
 
     /**
@@ -204,13 +213,13 @@ class AiProviderCostRateService
     }
 
     /**
-     * @return array<int,array<string,mixed>>
+     * @return array<int,mixed>
      */
     private function configuredRates(): array
     {
         $rates = config('atlas.ai_metrics.cost_rates', []);
 
-        return is_array($rates) ? array_values(array_filter($rates, 'is_array')) : [];
+        return is_array($rates) ? array_values($rates) : [];
     }
 
     /**
@@ -256,26 +265,79 @@ class AiProviderCostRateService
             throw new \InvalidArgumentException("{$field} is required.");
         }
 
-        return Str::limit($value, $limit, '');
+        if (strlen($value) > $limit) {
+            throw new \InvalidArgumentException("{$field} must be {$limit} characters or fewer.");
+        }
+
+        return $value;
     }
 
     private function currency(mixed $value): string
     {
-        $value = is_string($value) || is_numeric($value) ? strtoupper(trim((string) $value)) : 'USD';
+        if ($value === null) {
+            return 'USD';
+        }
 
-        return preg_match('/^[A-Z]{3,8}$/', $value) ? $value : 'USD';
+        if (! is_string($value)) {
+            throw new \InvalidArgumentException('currency must be a 3 to 8 character code.');
+        }
+
+        $value = strtoupper(trim($value));
+        if ($value === '') {
+            return 'USD';
+        }
+
+        if (! preg_match('/^[A-Z]{3,8}$/', $value)) {
+            throw new \InvalidArgumentException('currency must be a 3 to 8 character code.');
+        }
+
+        return $value;
     }
 
     private function nonNegativeInt(mixed $value, string $field): int
     {
-        if (! is_numeric($value)) {
+        if (is_int($value)) {
+            $normalized = (string) $value;
+        } elseif (is_string($value)) {
+            $normalized = trim($value);
+        } elseif (is_float($value)) {
+            if ($value < 0) {
+                throw new \InvalidArgumentException("{$field} must be greater than or equal to 0.");
+            }
+
+            throw new \InvalidArgumentException("{$field} must be an integer.");
+        } elseif ($value === null) {
+            throw new \InvalidArgumentException("{$field} is required.");
+        } else {
+            throw new \InvalidArgumentException("{$field} must be an integer.");
+        }
+
+        if ($normalized === '') {
             throw new \InvalidArgumentException("{$field} is required.");
         }
 
-        return max(0, (int) $value);
+        if (str_starts_with($normalized, '-')) {
+            throw new \InvalidArgumentException("{$field} must be greater than or equal to 0.");
+        }
+
+        if (! preg_match('/^\d+$/', $normalized)) {
+            throw new \InvalidArgumentException("{$field} must be an integer.");
+        }
+
+        $normalized = ltrim($normalized, '0');
+        if ($normalized === '') {
+            return 0;
+        }
+
+        $max = (string) self::MAX_MICROUSD_PER_1K;
+        if (strlen($normalized) > strlen($max) || (strlen($normalized) === strlen($max) && strcmp($normalized, $max) > 0)) {
+            throw new \InvalidArgumentException("{$field} must be less than or equal to ".self::MAX_MICROUSD_PER_1K.'.');
+        }
+
+        return (int) $normalized;
     }
 
-    private function date(mixed $value): ?CarbonImmutable
+    private function date(mixed $value, string $field): ?CarbonImmutable
     {
         if ($value instanceof \DateTimeInterface) {
             return CarbonImmutable::instance($value);
@@ -285,6 +347,10 @@ class AiProviderCostRateService
             return null;
         }
 
-        return CarbonImmutable::parse($value);
+        try {
+            return CarbonImmutable::parse($value);
+        } catch (\Throwable) {
+            throw new \InvalidArgumentException("{$field} must be a valid datetime.");
+        }
     }
 }

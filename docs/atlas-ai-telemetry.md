@@ -114,6 +114,8 @@ php artisan atlas:ai:telemetry:cost-rates --sync-config --json
 
 ## Configuracao de custo
 
+Cost rates sao governados: o Atlas nunca consulta provider nem infere preco sozinho. Um operador humano deve revisar a fonte comercial vigente, preencher explicitamente `input_microusd_per_1k` e `output_microusd_per_1k`, em micro-USD por 1K tokens, e importar/upsertar o rate com uma janela de vigencia auditavel. O comando e as APIs tratam `provider/model obrigatorios`, rejeitam nomes vazios ou maiores que o limite armazenavel, valores negativos, valores fracionarios, valores fora do intervalo unsigned integer, datas invalidas, e `effective_until` anterior a `effective_from`. `currency` usa `USD` por padrao quando omitida ou vazia; valores fornecidos precisam ser codigos string de 3 a 8 letras e sao persistidos no rate para auditoria. Imports em lote e sync de config retornam erros por indice de linha para facilitar revisao humana antes de novo import/sync.
+
 Nao ha preco hardcoded no codigo porque preco de provider/model muda. Use:
 
 ```env

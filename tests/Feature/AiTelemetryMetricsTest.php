@@ -11,9 +11,11 @@ use App\Models\AiTelemetryEvent;
 use App\Models\AiTrace;
 use App\Models\AiTraceMetricSummary;
 use App\Services\Ai\AiProviderModelResolver;
+use App\Services\Ai\Telemetry\AiProviderCostRateService;
 use App\Services\Ai\Telemetry\AiTelemetryWindowInput;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -149,7 +151,8 @@ class AiTelemetryMetricsTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('rate.provider', 'claude_cli')
             ->assertJsonPath('rate.model', 'api-test-model')
-            ->assertJsonPath('rate.input_microusd_per_1k', 1234);
+            ->assertJsonPath('rate.input_microusd_per_1k', 1234)
+            ->assertJsonPath('rate.currency', 'USD');
 
         $this->artisan('atlas:ai:telemetry:cost-rates', [
             '--provider' => 'codex_cli',
@@ -164,6 +167,317 @@ class AiTelemetryMetricsTest extends TestCase
             'model' => 'cli-test-model',
             'input_microusd_per_1k' => 2000,
             'output_microusd_per_1k' => 3000,
+        ]);
+    }
+
+    public function test_cost_rate_upsert_rejects_negative_input_and_output_rates(): void
+    {
+        $rates = app(AiProviderCostRateService::class);
+
+        foreach (['input_microusd_per_1k', 'output_microusd_per_1k'] as $field) {
+            try {
+                $rates->upsert([
+                    'provider' => 'claude_cli',
+                    'model' => 'invalid-negative-'.$field,
+                    'input_microusd_per_1k' => $field === 'input_microusd_per_1k' ? -1 : 0,
+                    'output_microusd_per_1k' => $field === 'output_microusd_per_1k' ? -1 : 0,
+                ]);
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertSame("{$field} must be greater than or equal to 0.", $exception->getMessage());
+
+                continue;
+            }
+
+            $this->fail("Expected {$field} validation to reject a negative cost rate.");
+        }
+    }
+
+    public function test_cost_rate_upsert_rejects_non_integer_and_out_of_range_rates(): void
+    {
+        $rates = app(AiProviderCostRateService::class);
+
+        foreach ([
+            ['value' => '1.5', 'message' => 'input_microusd_per_1k must be an integer.'],
+            ['value' => '4294967296', 'message' => 'input_microusd_per_1k must be less than or equal to 4294967295.'],
+        ] as $case) {
+            try {
+                $rates->upsert([
+                    'provider' => 'claude_cli',
+                    'model' => 'invalid-integer-'.$case['value'],
+                    'input_microusd_per_1k' => $case['value'],
+                    'output_microusd_per_1k' => 0,
+                ]);
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertSame($case['message'], $exception->getMessage());
+
+                continue;
+            }
+
+            $this->fail('Expected integer cost rate validation to reject '.$case['value'].'.');
+        }
+    }
+
+    public function test_cost_rate_upsert_rejects_empty_provider_and_model(): void
+    {
+        $rates = app(AiProviderCostRateService::class);
+
+        foreach (['provider' => '', 'model' => ''] as $field => $value) {
+            try {
+                $rates->upsert([
+                    'provider' => $field === 'provider' ? $value : 'claude_cli',
+                    'model' => $field === 'model' ? $value : 'test-model',
+                    'input_microusd_per_1k' => 0,
+                    'output_microusd_per_1k' => 0,
+                ]);
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertSame("{$field} is required.", $exception->getMessage());
+
+                continue;
+            }
+
+            $this->fail("Expected {$field} validation to reject an empty value.");
+        }
+    }
+
+    public function test_cost_rate_upsert_rejects_provider_and_model_that_exceed_storage_limits(): void
+    {
+        $rates = app(AiProviderCostRateService::class);
+
+        foreach ([
+            ['field' => 'provider', 'value' => str_repeat('p', 81), 'message' => 'provider must be 80 characters or fewer.'],
+            ['field' => 'model', 'value' => str_repeat('m', 121), 'message' => 'model must be 120 characters or fewer.'],
+        ] as $case) {
+            try {
+                $rates->upsert([
+                    'provider' => $case['field'] === 'provider' ? $case['value'] : 'claude_cli',
+                    'model' => $case['field'] === 'model' ? $case['value'] : 'test-model',
+                    'input_microusd_per_1k' => 0,
+                    'output_microusd_per_1k' => 0,
+                ]);
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertSame($case['message'], $exception->getMessage());
+
+                continue;
+            }
+
+            $this->fail("Expected {$case['field']} validation to reject an oversized value.");
+        }
+    }
+
+    public function test_cost_rate_upsert_defaults_empty_currency_but_rejects_invalid_currency(): void
+    {
+        $rates = app(AiProviderCostRateService::class);
+
+        $rate = $rates->upsert([
+            'provider' => 'claude_cli',
+            'model' => 'empty-currency-model',
+            'input_microusd_per_1k' => 0,
+            'output_microusd_per_1k' => 0,
+            'currency' => '',
+        ]);
+
+        $this->assertSame('USD', $rate->currency);
+
+        foreach ([false, 'US', 'US-DOLLAR'] as $currency) {
+            try {
+                $rates->upsert([
+                    'provider' => 'claude_cli',
+                    'model' => 'invalid-currency-'.(is_string($currency) ? $currency : 'bool'),
+                    'input_microusd_per_1k' => 0,
+                    'output_microusd_per_1k' => 0,
+                    'currency' => $currency,
+                ]);
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertSame('currency must be a 3 to 8 character code.', $exception->getMessage());
+
+                continue;
+            }
+
+            $this->fail('Expected currency validation to reject invalid currency input.');
+        }
+    }
+
+    public function test_cost_rate_upsert_rejects_effective_until_before_effective_from(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('effective_until must not be before effective_from.');
+
+        app(AiProviderCostRateService::class)->upsert([
+            'provider' => 'claude_cli',
+            'model' => 'invalid-window-model',
+            'input_microusd_per_1k' => 0,
+            'output_microusd_per_1k' => 0,
+            'effective_from' => '2026-05-06T12:00:00Z',
+            'effective_until' => '2026-05-06T11:59:59Z',
+        ]);
+    }
+
+    public function test_cost_rate_upsert_rejects_invalid_effective_datetimes_with_field_names(): void
+    {
+        $rates = app(AiProviderCostRateService::class);
+
+        foreach ([
+            ['field' => 'effective_from', 'value' => 'not-a-date'],
+            ['field' => 'effective_until', 'value' => 'not-a-date'],
+        ] as $case) {
+            try {
+                $rates->upsert([
+                    'provider' => 'claude_cli',
+                    'model' => 'invalid-date-'.$case['field'],
+                    'input_microusd_per_1k' => 0,
+                    'output_microusd_per_1k' => 0,
+                    $case['field'] => $case['value'],
+                ]);
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertSame("{$case['field']} must be a valid datetime.", $exception->getMessage());
+
+                continue;
+            }
+
+            $this->fail("Expected {$case['field']} validation to reject an invalid datetime.");
+        }
+    }
+
+    public function test_cost_rate_command_reports_invalid_input_as_json_and_human_error(): void
+    {
+        $jsonExitCode = Artisan::call('atlas:ai:telemetry:cost-rates', [
+            '--provider' => 'claude_cli',
+            '--input-microusd' => 0,
+            '--output-microusd' => 0,
+            '--json' => true,
+        ]);
+        $jsonOutput = Artisan::output();
+
+        $this->assertSame(1, $jsonExitCode);
+        $this->assertStringContainsString('"ok": false', $jsonOutput);
+        $this->assertStringContainsString('model is required.', $jsonOutput);
+
+        $humanExitCode = Artisan::call('atlas:ai:telemetry:cost-rates', [
+            '--model' => 'human-invalid-model',
+            '--input-microusd' => 0,
+            '--output-microusd' => 0,
+        ]);
+        $humanOutput = Artisan::output();
+
+        $this->assertSame(1, $humanExitCode);
+        $this->assertStringContainsString('Invalid cost rate input: provider is required.', $humanOutput);
+
+        $dateExitCode = Artisan::call('atlas:ai:telemetry:cost-rates', [
+            '--provider' => 'claude_cli',
+            '--model' => 'invalid-date-model',
+            '--input-microusd' => 0,
+            '--output-microusd' => 0,
+            '--effective-from' => 'not-a-date',
+            '--json' => true,
+        ]);
+        $dateOutput = Artisan::output();
+
+        $this->assertSame(1, $dateExitCode);
+        $this->assertStringContainsString('effective_from must be a valid datetime.', $dateOutput);
+    }
+
+    public function test_cost_rate_import_reports_indexed_validation_errors(): void
+    {
+        $importPath = storage_path('framework/testing/atlas-ai-cost-rates-invalid-'.Str::uuid().'.json');
+        File::put($importPath, json_encode([
+            'rates' => [
+                [
+                    'provider' => 'claude_cli',
+                    'model' => 'valid-import-model',
+                    'input_microusd_per_1k' => 0,
+                    'output_microusd_per_1k' => 0,
+                    'currency' => 'EUR',
+                    'effective_from' => now()->subMinute()->toJSON(),
+                ],
+                null,
+                [
+                    'provider' => 'claude_cli',
+                    'model' => 'invalid-negative-import-model',
+                    'input_microusd_per_1k' => -1,
+                    'output_microusd_per_1k' => 0,
+                    'effective_from' => now()->subMinute()->toJSON(),
+                ],
+                [
+                    'provider' => 'claude_cli',
+                    'model' => 'invalid-float-import-model',
+                    'input_microusd_per_1k' => 1.5,
+                    'output_microusd_per_1k' => 0,
+                    'effective_from' => now()->subMinute()->toJSON(),
+                ],
+            ],
+        ]));
+
+        $exitCode = Artisan::call('atlas:ai:telemetry:cost-rates', [
+            '--import' => $importPath,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertFalse($payload['ok']);
+        $this->assertSame(1, $payload['imported']['upserted']);
+        $this->assertSame(1, $payload['imported']['errors'][0]['index']);
+        $this->assertSame('Rate row must be an object.', $payload['imported']['errors'][0]['message']);
+        $this->assertSame(2, $payload['imported']['errors'][1]['index']);
+        $this->assertSame('input_microusd_per_1k must be greater than or equal to 0.', $payload['imported']['errors'][1]['message']);
+        $this->assertSame(3, $payload['imported']['errors'][2]['index']);
+        $this->assertSame('input_microusd_per_1k must be an integer.', $payload['imported']['errors'][2]['message']);
+
+        $this->assertDatabaseHas('ai_provider_cost_rates', [
+            'provider' => 'claude_cli',
+            'model' => 'valid-import-model',
+            'currency' => 'EUR',
+        ]);
+        $this->assertDatabaseMissing('ai_provider_cost_rates', [
+            'provider' => 'claude_cli',
+            'model' => 'invalid-negative-import-model',
+        ]);
+        $this->assertDatabaseMissing('ai_provider_cost_rates', [
+            'provider' => 'claude_cli',
+            'model' => 'invalid-float-import-model',
+        ]);
+    }
+
+    public function test_cost_rate_sync_config_reports_indexed_validation_errors(): void
+    {
+        config()->set('atlas.ai_metrics.cost_rates', [
+            [
+                'provider' => 'claude_cli',
+                'model' => 'valid-config-model',
+                'input_microusd_per_1k' => 0,
+                'output_microusd_per_1k' => 0,
+                'effective_from' => now()->subMinute()->toJSON(),
+            ],
+            null,
+            [
+                'provider' => 'claude_cli',
+                'model' => 'invalid-config-model',
+                'input_microusd_per_1k' => 0,
+                'output_microusd_per_1k' => 1.5,
+                'effective_from' => now()->subMinute()->toJSON(),
+            ],
+        ]);
+
+        $exitCode = Artisan::call('atlas:ai:telemetry:cost-rates', [
+            '--sync-config' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertFalse($payload['ok']);
+        $this->assertSame(
+            'Configured cost rates contain invalid rows: row 1: Rate row must be an object.; row 2: output_microusd_per_1k must be an integer.',
+            $payload['error']['message'],
+        );
+
+        $this->assertDatabaseHas('ai_provider_cost_rates', [
+            'provider' => 'claude_cli',
+            'model' => 'valid-config-model',
+        ]);
+        $this->assertDatabaseMissing('ai_provider_cost_rates', [
+            'provider' => 'claude_cli',
+            'model' => 'invalid-config-model',
         ]);
     }
 

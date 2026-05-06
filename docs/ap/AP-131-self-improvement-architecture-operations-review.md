@@ -15,6 +15,11 @@ runtime, mas piorar sua descobribilidade operacional.
   `architectureOperationsFindings`.
 - A auditoria deve detectar secao incorreta, `command_count` divergente ou
   comandos criticos ausentes.
+- Os comandos criticos incluem as operacoes de governanca de cost-rate usadas
+  por AP-99/AP-146:
+  - `atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json`
+  - `atlas ai telemetry cost-rates --missing --hours=168 --json`
+  - `atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json`
 - Findings devem usar schema
   `atlas.self_improvement.architecture_operations.v1`.
 - O recommended action canonico deve ser

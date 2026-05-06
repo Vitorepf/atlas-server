@@ -245,6 +245,63 @@ class InboxLedgerProjectionActionTest extends TestCase
         $this->assertSame('configure_provider_cost_rates', data_get($ledgerEvent->payload, 'recommended_action'));
     }
 
+    public function test_inbox_action_accepts_zero_provider_cost_rates_without_external_lookup(): void
+    {
+        $item = $this->providerCostRateInboxItem();
+
+        $result = app(InboxActionRegistry::class)->handle(
+            $item,
+            'configure_provider_cost_rates',
+            [
+                'input_microusd_per_1k' => '0',
+                'output_microusd_per_1k' => 0,
+                'currency' => 'USD',
+            ],
+            'test-configure-provider-zero-cost-rates-'.$item->id,
+        );
+
+        $this->assertTrue($result['ok']);
+        $this->assertTrue((bool) data_get($result, 'result.applied'));
+        $this->assertSame(0, data_get($result, 'result.provider_cost_rate_action.input_microusd_per_1k'));
+        $this->assertSame(0, data_get($result, 'result.provider_cost_rate_action.output_microusd_per_1k'));
+        $this->assertTrue((bool) data_get($result, 'result.provider_cost_rate_action.no_external_action'));
+
+        $this->assertDatabaseHas('ai_provider_cost_rates', [
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_microusd_per_1k' => 0,
+            'output_microusd_per_1k' => 0,
+            'currency' => 'USD',
+        ]);
+    }
+
+    public function test_inbox_action_rejects_negative_provider_cost_rates_as_preview_only(): void
+    {
+        $item = $this->providerCostRateInboxItem();
+
+        $result = app(InboxActionRegistry::class)->handle(
+            $item,
+            'configure_provider_cost_rates',
+            [
+                'input_microusd_per_1k' => '-1',
+                'output_microusd_per_1k' => -10,
+                'currency' => 'USD',
+            ],
+            'test-reject-negative-provider-cost-rates-'.$item->id,
+        );
+
+        $this->assertTrue($result['ok']);
+        $this->assertFalse((bool) data_get($result, 'result.applied'));
+        $this->assertNull(data_get($result, 'result.provider_cost_rate_action.input_microusd_per_1k'));
+        $this->assertNull(data_get($result, 'result.provider_cost_rate_action.output_microusd_per_1k'));
+        $this->assertTrue((bool) data_get($result, 'result.provider_cost_rate_action.no_external_action'));
+
+        $item->refresh();
+        $this->assertSame('read', $item->status);
+        $this->assertNull($item->resolved_at);
+        $this->assertSame(0, AiProviderCostRate::query()->count());
+    }
+
     public function test_inbox_action_previews_provider_cost_rate_template_without_resolving_item(): void
     {
         $item = $this->providerCostRateInboxItem();

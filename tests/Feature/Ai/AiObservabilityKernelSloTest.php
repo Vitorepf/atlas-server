@@ -127,6 +127,8 @@ class AiObservabilityKernelSloTest extends TestCase
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
         $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
         $this->assertContains('atlas ai provider-performance --hours=24 --json', $commands);
+        $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $commands);
+        $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', $commands);
         $this->assertContains('atlas ai self-improvement-schedule-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', $commands);
         $this->assertContains('atlas ledger replay --envelope=<id> --json', $commands);

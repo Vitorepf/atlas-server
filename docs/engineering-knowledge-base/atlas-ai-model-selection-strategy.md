@@ -196,6 +196,55 @@ specialist_profile, anexa `compute_market` ao `selection_explanation` e recomend
 advisor ainda nao troca provider sozinho; ele informa Decide, receipt, API e
 Curator.
 
+O Dynamic Compute Market e auditavel e recommendation-only: ele pode apontar que
+uma rota parece melhor ou pior, mas qualquer troca automatica continua exigindo
+policy/receipt emitidos por Atlas Decide. A explicacao do `compute_market`
+mantem o schema existente e adiciona bases estruturadas para auditoria
+enterprise: `quality_basis`, `latency_basis`, `cost_basis`,
+`missing_cost_status`, `sample_size`, `confidence.risk` e
+`recommended_next_action`, alem de `recommendation_reason` canonico e
+`decision_factors`. Esses fatores expõem os sinais booleanos e a precedencia
+usada pelo advisor: coletar AP-99, revisar qualidade/policy, benchmark por alta
+latencia, configurar custo, benchmark por candidato de mercado e, por fim,
+manter rota. Quando uma alternativa aparenta menor latencia ou menor custo com
+amostra insuficiente, a recomendacao correta e benchmark controlado, nao troca
+silenciosa de provider. Quando a qualidade esta boa mas o custo do selecionado
+e desconhecido, a acao vem antes da otimizacao: configurar rates do provider.
+
+Para evitar ambiguidade operacional, `compute_market.routing_control` declara
+`changes_provider=false`, preserva provider/modelo selecionados e lista
+`policy_patch` + `decision_receipt` como requisitos para qualquer mudanca de
+rota futura. `market_basis` expoe apenas a base agregada AP-99 usada para
+comparar candidatos em shadow, sem virar autoridade paralela.
+
+### Dynamic Compute Market Report
+
+`atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json`
+e `/ai/dynamic-compute-market?provider=<provider>` expõem o mesmo advisor em
+modo `report_only`. O MCP read-only `atlas_dynamic_compute_market_report` expõe
+o mesmo contrato para agentes. Esse report serve para operador, App e sessoes de
+IA auditarem custo/qualidade/latencia antes de qualquer patch de policy. O
+schema `atlas.dynamic_compute_market_report.v1` declara
+`authority=read_only_no_routing_change`, preserva
+`routing_control.changes_provider=false` e retorna o bloco
+`dynamic_compute_market` exatamente como o Decide anexaria ao receipt.
+
+Quando ha mais de uma alternativa promissora, o advisor normaliza candidatos
+com `improvement_basis` (`latency`, `cost`) e prefere amostra suficiente antes
+de numeros pontuais melhores. Entre candidatos com amostra suficiente, qualidade
+comparavel mais alta vence antes de latencia/custo. Essa regra reduz falso
+positivo de mercado e mantem benchmark como ponte obrigatoria entre observacao
+AP-99 e policy.
+
+`self_improvement.provider_performance_review` usa o mesmo advisor para abrir
+finding proposal-only quando AP-99 aponta candidato melhor. O payload
+`atlas.self_improvement.dynamic_compute_market.v1` recomenda
+`run_controlled_provider_benchmark_before_policy_change`, preserva
+`routing_control.changes_provider=false` e exige `policy_patch` +
+`decision_receipt`. Isso fecha o ciclo: Decide anexa explicacao, CLI/API/MCP
+exibem report read-only e Curator transforma oportunidade recorrente em
+trabalho revisavel sem criar roteador paralelo.
+
 AP-99 agora carrega tokens e custo por chamada quando houver rate configurado:
 `total_tokens`, `average_total_tokens`, `total_cost_microusd`,
 `average_cost_microusd`, `cost_confidence_counts` e `cost_mode_counts`. Quando

@@ -10,6 +10,7 @@ use App\Models\AtlasTaskEvent;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
+use App\Services\Ai\Kernel\Decision\DynamicComputeMarketReportService;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
@@ -43,6 +44,7 @@ class AtlasOpenBrainMcpService
         private readonly AtlasSelfImprovementScheduleService $selfImprovementSchedule,
         private readonly AtlasLedgerReplayService $ledgerReplay,
         private readonly ProviderPerformanceProjection $providerPerformance,
+        private readonly DynamicComputeMarketReportService $dynamicComputeMarketReports,
         private readonly LedgerProjectionRegistry $ledgerProjectionRegistry,
         private readonly KernelReplayReportInput $replayInput,
         private readonly OpenBrainMcpInput $mcpInput,
@@ -366,6 +368,24 @@ class AtlasOpenBrainMcpService
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
             [
+                'name' => 'atlas_dynamic_compute_market_report',
+                'title' => 'Atlas Dynamic Compute Market Report',
+                'description' => 'Explica recomendacao shadow de provider/modelo usando AP-99 sem executar tarefa, trocar provider ou bypassar DecisionReceipt.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'provider' => ['type' => 'string', 'description' => 'Provider selecionado para avaliar, por exemplo codex_cli.'],
+                        'model' => ['type' => 'string', 'description' => 'Modelo selecionado, quando conhecido.'],
+                        'domain' => ['type' => 'string', 'description' => 'Domain da rota avaliada.'],
+                        'flow' => ['type' => 'string', 'description' => 'Flow da rota avaliada.'],
+                        'task_type' => ['type' => 'string', 'description' => 'Tipo de tarefa.'],
+                        'specialist_profile' => ['type' => 'string', 'description' => 'Specialist profile, por exemplo programming.frontend.'],
+                    ],
+                    'required' => ['provider'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
                 'name' => 'atlas_ledger_projection_health',
                 'title' => 'Atlas Ledger Projection Health',
                 'description' => 'Retorna health read-only das projections derivadas do Evidence Ledger para ai_traces, atlas_engineering_runs e atlas_tool_runs, incluindo scheduler, lag e review_signal.',
@@ -666,6 +686,7 @@ class AtlasOpenBrainMcpService
                 'atlas_repair_loop_report' => $this->toolResponse($id, $this->repairLoopReport($arguments)),
                 'atlas_inbox_action_report' => $this->toolResponse($id, $this->inboxActionReport($arguments)),
                 'atlas_provider_performance_report' => $this->toolResponse($id, $this->providerPerformanceReport($arguments)),
+                'atlas_dynamic_compute_market_report' => $this->toolResponse($id, $this->dynamicComputeMarketReport($arguments)),
                 'atlas_ledger_projection_health' => $this->toolResponse($id, $this->ledgerProjectionHealth($arguments)),
                 'atlas_decision_receipt_report' => $this->toolResponse($id, $this->decisionReceiptReport($arguments)),
                 'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
@@ -1247,6 +1268,29 @@ class AtlasOpenBrainMcpService
             'hours' => $hours,
             'filters' => $filters,
             'provider_performance' => $report,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function dynamicComputeMarketReport(array $arguments): array
+    {
+        $payload = $this->dynamicComputeMarketReports->report($this->onlyScalarFilters($arguments, [
+            'provider',
+            'model',
+            'domain',
+            'flow',
+            'task_type',
+            'specialist_profile',
+        ]));
+
+        return [
+            'ok' => ($payload['status'] ?? null) === 'ok',
+            'tool' => 'atlas_dynamic_compute_market_report',
+            ...$payload,
             'writes' => false,
         ];
     }

@@ -32,6 +32,9 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
 
     protected function tearDown(): void
     {
+        $this->app->forgetInstance(AtlasArchitectureOperationsCatalog::class);
+        $this->app->forgetInstance(AtlasSelfImprovementRuntime::class);
+
         Schema::dropIfExists('atlas_open_brain_access_logs');
         Schema::dropIfExists('atlas_initiative_runs');
         Schema::dropIfExists('atlas_ledger_events');
@@ -339,6 +342,90 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('atlas.provider_cost_rates.proposal.v1', data_get($costFinding, 'payload.provider_cost_rates.schema_version'));
         $this->assertSame('codex_cli', data_get($costFinding, 'source_refs.0.provider_cli'));
         $this->assertSame('missing_cost_rate', data_get($costFinding, 'source_refs.0.cost_source'));
+    }
+
+    public function test_provider_performance_review_emits_dynamic_compute_market_benchmark_proposal(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            app(AtlasEvidenceLedger::class)->record(LedgerEventType::ProviderReturned, [
+                'schema_version' => 'atlas.provider_usage.v1',
+                'provider_cli' => 'codex_cli',
+                'model_name_if_available' => 'gpt-5.5',
+                'domain' => 'programming',
+                'flow' => 'programming.frontend',
+                'task_type' => 'programming',
+                'specialist_profile' => 'programming.frontend',
+                'phase' => 'returned',
+                'exit_status' => 'succeeded',
+                'selection_mode' => 'auto_best_allowed',
+                'latency_seconds' => 155.0,
+                'repair_count' => 0,
+                'total_tokens' => 1200,
+                'cost_microusd' => 80,
+                'cost_confidence' => 'exact',
+                'cost_source' => 'configured_rate',
+                'cost_mode' => 'configured',
+            ], [
+                'tenant_id' => 'default',
+                'operator_id' => 'system',
+                'envelope_id' => 'dynamic_market_codex_'.$i,
+                'correlation_id' => 'dynamic_market_codex_'.$i,
+                'emitter_stage' => 'ai.worker',
+                'emitter_version' => 'test',
+            ]);
+
+            app(AtlasEvidenceLedger::class)->record(LedgerEventType::ProviderReturned, [
+                'schema_version' => 'atlas.provider_usage.v1',
+                'provider_cli' => 'claude_cli',
+                'model_name_if_available' => 'opus-test',
+                'domain' => 'programming',
+                'flow' => 'programming.frontend',
+                'task_type' => 'programming',
+                'specialist_profile' => 'programming.frontend',
+                'phase' => 'returned',
+                'exit_status' => 'succeeded',
+                'selection_mode' => 'auto_best_allowed',
+                'latency_seconds' => 42.0,
+                'repair_count' => 0,
+                'total_tokens' => 1100,
+                'cost_microusd' => 70,
+                'cost_confidence' => 'exact',
+                'cost_source' => 'configured_rate',
+                'cost_mode' => 'configured',
+            ], [
+                'tenant_id' => 'default',
+                'operator_id' => 'system',
+                'envelope_id' => 'dynamic_market_claude_'.$i,
+                'correlation_id' => 'dynamic_market_claude_'.$i,
+                'emitter_stage' => 'ai.worker',
+                'emitter_version' => 'test',
+            ]);
+        }
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'provider_performance_review',
+            emit: false,
+            hours: 24,
+            limit: 5,
+            filters: [
+                'domain' => 'programming',
+                'specialist_profile' => 'programming.frontend',
+            ],
+        );
+
+        $finding = collect($result['findings'])->firstWhere('title', 'Benchmark revisavel do Dynamic Compute Market');
+
+        $this->assertIsArray($finding);
+        $this->assertSame('atlas.self_improvement.dynamic_compute_market.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('proposal_only', data_get($finding, 'metadata.mode'));
+        $this->assertSame('run_controlled_provider_benchmark_before_policy_change', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('benchmark_lower_latency_alternative', data_get($finding, 'metadata.dynamic_compute_market.recommendation'));
+        $this->assertSame('claude_cli', data_get($finding, 'metadata.candidate.provider'));
+        $this->assertSame('sufficient', data_get($finding, 'metadata.candidate.sample_status'));
+        $this->assertFalse((bool) data_get($finding, 'metadata.routing_control.changes_provider'));
+        $this->assertSame(['policy_patch', 'decision_receipt'], data_get($finding, 'metadata.routing_control.provider_change_requires'));
+        $this->assertSame('run_provider_benchmark', data_get($finding, 'available_actions.0.id'));
+        $this->assertSame('draft_model_selection_policy_patch', data_get($finding, 'metadata.available_actions.1.id'));
     }
 
     public function test_self_improvement_detects_kernel_slo_drift_from_replay_service(): void
@@ -1274,7 +1361,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
 
         $finding = collect($result['findings'])->firstWhere(
             'dedupe_key',
-            'self-improvement:architecture-operations:'.sha1('arquitetura_mae:atlas ai architecture-operations --json,atlas engineering knowledge docs-health --json,atlas engineering knowledge sync --prune --json,atlas engineering knowledge index-code --prune --json,atlas ai slo --hours=24 --json,atlas ai kernel-pipeline-report --hours=24 --json,atlas ai repair-report --hours=24 --json,atlas ai provider-performance --hours=24 --json,atlas ai qualitative-levels --hours=720 --json,atlas ai rivals-strategy report --hours=8760 --json,atlas ai rivals-strategy due-reviews --due-days=30 --json,atlas ai strategic-decision review --json,atlas ai decision-receipt-report --envelope=<id> --json,atlas ledger replay --envelope=<id> --json,atlas ai ledger-project --limit=500 --json,atlas ai self-improvement-schedule-report --hours=24 --json,atlas ai inbox-action-report --hours=24 --json:1:1')
+            'self-improvement:architecture-operations:'.sha1('arquitetura_mae:atlas ai architecture-operations --json,atlas engineering knowledge docs-health --json,atlas engineering knowledge sync --prune --json,atlas engineering knowledge index-code --prune --json,atlas ai slo --hours=24 --json,atlas ai kernel-pipeline-report --hours=24 --json,atlas ai repair-report --hours=24 --json,atlas ai provider-performance --hours=24 --json,atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json,atlas ai telemetry cost-rates --missing --hours=168 --json,atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json,atlas ai qualitative-levels --hours=720 --json,atlas ai rivals-strategy report --hours=8760 --json,atlas ai rivals-strategy due-reviews --due-days=30 --json,atlas ai strategic-decision review --json,atlas ai decision-receipt-report --envelope=<id> --json,atlas ledger replay --envelope=<id> --json,atlas ai ledger-project --limit=500 --json,atlas ai self-improvement-schedule-report --hours=24 --json,atlas ai inbox-action-report --hours=24 --json:1:1')
         );
 
         $this->assertSame('self_improvement.weekly_architecture_audit', $result['flow']);
@@ -1290,6 +1377,9 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertContains('atlas engineering knowledge sync --prune --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas engineering knowledge index-code --prune --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai decision-receipt-report --envelope=<id> --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai qualitative-levels --hours=720 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai rivals-strategy report --hours=8760 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai rivals-strategy due-reviews --due-days=30 --json', data_get($finding, 'metadata.missing_commands'));
@@ -1537,6 +1627,114 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('record_due_rivals_strategy_reviews', data_get($finding, 'source_refs.0.recommended_action'));
         $this->assertNull(data_get($finding, 'source_refs.0.rivals_agency_score'));
         $this->assertSame(['action' => 'record_rivals_review'], data_get($finding, 'metadata.filters'));
+    }
+
+    public function test_self_improvement_detects_provider_cost_rate_action_without_applied_rate(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXCOSTRATEPREVIEW001',
+            inboxItemId: 'inbox-cost-rate-preview-1',
+            action: 'configure_provider_cost_rates',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'medium',
+            recommendedAction: 'configure_provider_cost_rates',
+            resultPayload: [
+                'provider_cost_rate_action' => [
+                    'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                    'provider' => 'codex_cli',
+                    'model' => 'gpt-5.5',
+                    'currency' => 'USD',
+                    'input_microusd_per_1k' => null,
+                    'output_microusd_per_1k' => null,
+                    'effective_from' => '2026-05-01T00:00:00+00:00',
+                    'effective_until' => null,
+                    'applied' => false,
+                ],
+            ],
+        );
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'self_improvement.weekly_architecture_audit',
+            emit: false,
+            hours: 24,
+            limit: 10,
+            filters: ['action' => 'configure_provider_cost_rates'],
+        );
+
+        $finding = collect($result['findings'])
+            ->firstWhere('dedupe_key', 'self-improvement:inbox-action-replay:'.sha1('24:configure_provider_cost_rates_action_without_applied_rate'));
+
+        $this->assertIsArray($finding);
+        $this->assertSame('Completar rates de custo dos providers no Inbox', $finding['title']);
+        $this->assertSame('atlas.self_improvement.inbox_action_replay_gap.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('configure_provider_cost_rates_action_without_applied_rate', data_get($finding, 'metadata.gap_type'));
+        $this->assertSame(1, data_get($finding, 'metadata.provider_cost_rate_action_count'));
+        $this->assertSame(0, data_get($finding, 'metadata.provider_cost_rate_applied_count'));
+        $this->assertContains('configure_provider_cost_rates_action_without_applied_rate', data_get($finding, 'metadata.review_signal.reasons'));
+        $this->assertSame('configure_provider_cost_rates', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('configure_provider_cost_rates', data_get($finding, 'available_actions.0.id'));
+        $this->assertSame('configure_provider_cost_rates', data_get($finding, 'metadata.available_actions.0.id'));
+        $this->assertSame('atlas.provider_cost_rates.curator_completion_request.v1', data_get($finding, 'payload.provider_cost_rates.schema_version'));
+        $this->assertSame('configure_provider_cost_rates', data_get($finding, 'payload.provider_cost_rates.recommended_action'));
+        $this->assertSame('01HINBOXCOSTRATEPREVIEW001', data_get($finding, 'source_refs.0.event_id'));
+        $this->assertSame('inbox-cost-rate-preview-1', data_get($finding, 'source_refs.0.inbox_item_id'));
+        $this->assertSame('codex_cli', data_get($finding, 'source_refs.0.provider'));
+        $this->assertSame('gpt-5.5', data_get($finding, 'source_refs.0.model'));
+        $this->assertFalse((bool) data_get($finding, 'source_refs.0.applied'));
+        $this->assertNull(data_get($finding, 'source_refs.0.input_microusd'));
+        $this->assertNull(data_get($finding, 'source_refs.0.output_microusd'));
+        $this->assertNull(data_get($finding, 'source_refs.0.input_microusd_per_1k'));
+        $this->assertNull(data_get($finding, 'source_refs.0.output_microusd_per_1k'));
+        $this->assertSame('USD', data_get($finding, 'source_refs.0.currency'));
+        $this->assertSame('2026-05-01T00:00:00+00:00', data_get($finding, 'source_refs.0.effective_from'));
+        $this->assertNull(data_get($finding, 'source_refs.0.effective_until'));
+        $this->assertNull(data_get($finding, 'source_refs.0.rate_id'));
+        $this->assertNotNull(data_get($finding, 'source_refs.0.occurred_at'));
+        $this->assertSame('USD', data_get($finding, 'payload.provider_cost_rates.events.0.currency'));
+        $this->assertSame('2026-05-01T00:00:00+00:00', data_get($finding, 'payload.provider_cost_rates.events.0.effective_from'));
+        $this->assertNull(data_get($finding, 'payload.provider_cost_rates.events.0.rate_id'));
+        $this->assertSame(['action' => 'configure_provider_cost_rates'], data_get($finding, 'metadata.filters'));
+    }
+
+    public function test_self_improvement_does_not_flag_provider_cost_rate_action_when_rate_was_applied(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXCOSTRATEAPPLIED001',
+            inboxItemId: 'inbox-cost-rate-applied-1',
+            action: 'configure_provider_cost_rates',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'medium',
+            recommendedAction: 'configure_provider_cost_rates',
+            resultPayload: [
+                'provider_cost_rate_action' => [
+                    'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                    'provider' => 'codex_cli',
+                    'model' => 'gpt-5.5',
+                    'currency' => 'USD',
+                    'input_microusd_per_1k' => 1250,
+                    'output_microusd_per_1k' => 10000,
+                    'applied' => true,
+                ],
+                'upserted_rate' => [
+                    'id' => 'rate-codex-gpt-55',
+                ],
+            ],
+        );
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'self_improvement.weekly_architecture_audit',
+            emit: false,
+            hours: 24,
+            limit: 10,
+            filters: ['action' => 'configure_provider_cost_rates'],
+        );
+
+        $finding = collect($result['findings'])
+            ->firstWhere('dedupe_key', 'self-improvement:inbox-action-replay:'.sha1('24:configure_provider_cost_rates_action_without_applied_rate'));
+
+        $this->assertNull($finding);
     }
 
     public function test_self_improvement_detects_decision_receipt_replay_hash_gap(): void
@@ -2230,6 +2428,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         string $category,
         string $severity,
         string $recommendedAction,
+        array $resultPayload = [],
     ): void {
         AtlasLedgerEvent::query()->create([
             'event_id' => $eventId,
@@ -2266,7 +2465,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
                         'action' => $action,
                         'diff_refs' => [],
                     ],
-                ],
+                ] + $resultPayload,
                 'review_signal' => [
                     'status' => 'warning',
                     'severity' => $severity,

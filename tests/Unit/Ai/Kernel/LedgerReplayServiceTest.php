@@ -819,6 +819,56 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertContains('configure_provider_cost_rates_action_without_applied_rate', data_get($report, 'review_signal.reasons'));
     }
 
+    public function test_inbox_action_window_report_keeps_provider_cost_rate_warning_in_mixed_windows(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONMIXEDRIVALS01',
+            inboxItemId: 'inbox-mixed-rivals-review',
+            action: 'record_rivals_review',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'medium',
+            recommendedAction: 'record_due_rivals_strategy_reviews',
+            rivalsReviewAction: [
+                'schema_version' => 'atlas.inbox_action.rivals_review.v1',
+                'recorded_review_id' => 'review-mixed-rivals',
+                'case_id' => 'case-mixed-rivals',
+                'scores' => [
+                    'regret' => 4,
+                    'alignment' => 95,
+                    'agency' => 90,
+                ],
+            ],
+        );
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONMIXEDCOST001',
+            inboxItemId: 'inbox-mixed-provider-cost-rate-preview',
+            action: 'configure_provider_cost_rates',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'medium',
+            recommendedAction: 'configure_provider_cost_rates',
+            providerCostRateAction: [
+                'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'input_microusd_per_1k' => null,
+                'output_microusd_per_1k' => null,
+                'currency' => 'USD',
+                'applied' => false,
+            ],
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->inboxActionReportForWindow(now()->subHour(), now()->addMinute());
+
+        $this->assertSame(1, $report['rivals_review_with_scores_count']);
+        $this->assertSame(1, $report['provider_cost_rate_action_count']);
+        $this->assertSame(0, $report['provider_cost_rate_applied_count']);
+        $this->assertSame('warning', data_get($report, 'review_signal.status'));
+        $this->assertSame('configure_provider_cost_rates', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('configure_provider_cost_rates_action_without_applied_rate', data_get($report, 'review_signal.reasons'));
+    }
+
     /**
      * @param  array<string,mixed>  $payloadOverrides
      * @return array<string,mixed>

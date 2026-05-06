@@ -25,6 +25,7 @@ class KernelArchitectureStaticScanner
      *   ap143_ledger_projection_curator_action_emission:array{valid:bool,violations:array<int,string>},
      *   ap144_rivals_review_inbox_action_contract:array{valid:bool,violations:array<int,string>},
      *   ap145_documentation_health_curator_review:array{valid:bool,violations:array<int,string>},
+     *   ap146_provider_cost_rate_inbox_replay:array{valid:bool,violations:array<int,string>},
      *   ap12_provider_driver_identity_bypass:array{valid:bool,violations:array<int,string>},
      *   ap14_tool_tier_hot_path:array{valid:bool,violations:array<int,string>},
      *   ap15_provider_memory_privacy:array{valid:bool,violations:array<int,string>},
@@ -212,6 +213,7 @@ class KernelArchitectureStaticScanner
         $ledgerProjectionCuratorActionEmission = $this->scanLedgerProjectionCuratorActionEmission();
         $rivalsReviewInboxActionContract = $this->scanRivalsReviewInboxActionContract();
         $documentationHealthCuratorReview = $this->scanDocumentationHealthCuratorReview();
+        $providerCostRateInboxReplay = $this->scanProviderCostRateInboxReplay();
         $toolTierHotPath = $this->scanToolTierHotPathPolicy();
         $providerMemoryPrivacy = $this->scanProviderMemoryPrivacy();
         $sloObservability = $this->scanSloObservability();
@@ -347,6 +349,7 @@ class KernelArchitectureStaticScanner
                 && $ledgerProjectionCuratorActionEmission === []
                 && $rivalsReviewInboxActionContract === []
                 && $documentationHealthCuratorReview === []
+                && $providerCostRateInboxReplay === []
                 && $providerDriverBypass === []
                 && $toolTierHotPath === []
                 && $providerMemoryPrivacy === []
@@ -528,6 +531,10 @@ class KernelArchitectureStaticScanner
             'ap145_documentation_health_curator_review' => [
                 'valid' => $documentationHealthCuratorReview === [],
                 'violations' => $documentationHealthCuratorReview,
+            ],
+            'ap146_provider_cost_rate_inbox_replay' => [
+                'valid' => $providerCostRateInboxReplay === [],
+                'violations' => $providerCostRateInboxReplay,
             ],
             'ap12_provider_driver_identity_bypass' => [
                 'valid' => $providerDriverBypass === [],
@@ -1259,6 +1266,9 @@ class KernelArchitectureStaticScanner
             'atlas.self_improvement.architecture_operations.v1',
             'restore_architecture_operations_catalog',
             'missing_architecture_operation',
+            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'atlas ai telemetry cost-rates --missing --hours=168 --json',
+            'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
         ] as $token) {
             if (! str_contains($runtime, $token)) {
                 $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-131 Self-Improvement must review Architecture Operations catalog drift [{$token}]";
@@ -1271,6 +1281,9 @@ class KernelArchitectureStaticScanner
             'atlas.self_improvement.architecture_operations.v1',
             'restore_architecture_operations_catalog',
             'missing_architecture_operation',
+            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'atlas ai telemetry cost-rates --missing --hours=168 --json',
+            'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
         ] as $token) {
             if (! str_contains($test, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-131 Self-Improvement architecture operations review must be covered [{$token}]";
@@ -1423,6 +1436,8 @@ class KernelArchitectureStaticScanner
             'atlas_architecture_operations',
             'architecture_operations.section',
             'architecture_operations.command_count',
+            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'atlas ai telemetry cost-rates --missing --hours=168 --json',
             'atlas ai inbox-action-report --hours=24 --json',
         ] as $token) {
             if (! str_contains($test, $token)) {
@@ -1481,6 +1496,9 @@ class KernelArchitectureStaticScanner
             "'atlas engineering knowledge docs-health --json'",
             "'atlas engineering knowledge sync --prune --json'",
             "'atlas engineering knowledge index-code --prune --json'",
+            "'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json'",
+            "'atlas ai telemetry cost-rates --missing --hours=168 --json'",
+            "'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json'",
             "'atlas ai inbox-action-report --hours=24 --json'",
         ] as $token) {
             if (! str_contains($catalog, $token)) {
@@ -1514,6 +1532,9 @@ class KernelArchitectureStaticScanner
             'atlas engineering knowledge docs-health --json',
             'atlas engineering knowledge sync --prune --json',
             'atlas engineering knowledge index-code --prune --json',
+            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'atlas ai telemetry cost-rates --missing --hours=168 --json',
+            'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
             'atlas ai inbox-action-report --hours=24 --json',
         ] as $token) {
             if (! str_contains($unitTest, $token)) {
@@ -1531,6 +1552,7 @@ class KernelArchitectureStaticScanner
             'atlas engineering knowledge index-code --prune --json',
             'atlas ai self-improvement-schedule-report --hours=24 --json',
             'atlas ledger replay --envelope=<id> --json',
+            'atlas ai telemetry cost-rates --missing --hours=168 --json',
         ] as $token) {
             if (! str_contains($observabilityTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-128 Observability architecture operations catalog must be covered [{$token}]";
@@ -1590,6 +1612,7 @@ class KernelArchitectureStaticScanner
             "'command' => 'atlas ai kernel-pipeline-report --hours=24 --json'",
             "'command' => 'atlas ai repair-report --hours=24 --json'",
             "'command' => 'atlas ai provider-performance --hours=24 --json'",
+            "'command' => 'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json'",
             "'command' => 'atlas ai self-improvement-schedule-report --hours=24 --json'",
             "'command' => 'atlas ai inbox-action-report --hours=24 --json'",
         ] as $token) {
@@ -1606,6 +1629,7 @@ class KernelArchitectureStaticScanner
             'atlas ai kernel-pipeline-report --hours=24 --json',
             'atlas ai repair-report --hours=24 --json',
             'atlas ai provider-performance --hours=24 --json',
+            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
             'atlas ai self-improvement-schedule-report --hours=24 --json',
             'atlas ai inbox-action-report --hours=24 --json',
         ] as $token) {
@@ -3281,8 +3305,14 @@ class KernelArchitectureStaticScanner
         $projectionPath = app_path('Services/Ai/Kernel/Evidence/ProviderPerformanceProjection.php');
         $workerPath = app_path('Services/Ai/AiWorker.php');
         $strategyPath = app_path('Services/Ai/Cli/AtlasCliProviderStrategyService.php');
+        $dynamicComputeMarketPath = app_path('Services/Ai/Kernel/Decision/DynamicComputeMarketAdvisor.php');
+        $dynamicComputeMarketReportPath = app_path('Services/Ai/Kernel/Decision/DynamicComputeMarketReportService.php');
+        $dynamicComputeMarketCommandPath = app_path('Console/Commands/AtlasAiDynamicComputeMarketCommand.php');
+        $dynamicComputeMarketApiPath = app_path('Http/Controllers/AtlasAiDynamicComputeMarketController.php');
         $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
         $inboxActionsPath = app_path('Services/Ai/Mobile/InboxActionRegistry.php');
+        $costRateServicePath = app_path('Services/Ai/Telemetry/AiProviderCostRateService.php');
+        $costRateCommandPath = app_path('Console/Commands/AiTelemetryCostRatesCommand.php');
         $replayServicePath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
         $commandPath = app_path('Console/Commands/AtlasAiProviderPerformanceCommand.php');
         $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
@@ -3295,14 +3325,28 @@ class KernelArchitectureStaticScanner
         $commandTestPath = base_path('tests/Feature/Ai/AtlasAiProviderPerformanceCommandTest.php');
         $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
         $apiTestPath = base_path('tests/Feature/Ai/AtlasAiProviderPerformanceApiTest.php');
+        $dynamicComputeMarketCommandTestPath = base_path('tests/Feature/Ai/AtlasAiDynamicComputeMarketCommandTest.php');
+        $dynamicComputeMarketApiTestPath = base_path('tests/Feature/Ai/AtlasAiDynamicComputeMarketApiTest.php');
         $observabilityTestPath = base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php');
+        $decideReceiptTestPath = base_path('tests/Unit/Ai/AtlasDecideReceiptIntegrationTest.php');
+        $telemetryMetricsTestPath = base_path('tests/Feature/AiTelemetryMetricsTest.php');
+        $telemetryDiagnosticsTestPath = base_path('tests/Feature/AiTelemetryToolDiagnosticsTest.php');
+        $telemetryDocPath = base_path('docs/atlas-ai-telemetry.md');
+        $modelSelectionDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md');
+        $dynamicComputeMarketApPath = base_path('docs/ap/AP-147-dynamic-compute-market-shadow-surface.md');
 
         $payload = File::exists($payloadPath) ? File::get($payloadPath) : '';
         $projection = File::exists($projectionPath) ? File::get($projectionPath) : '';
         $worker = File::exists($workerPath) ? File::get($workerPath) : '';
         $strategy = File::exists($strategyPath) ? File::get($strategyPath) : '';
+        $dynamicComputeMarket = File::exists($dynamicComputeMarketPath) ? File::get($dynamicComputeMarketPath) : '';
+        $dynamicComputeMarketReport = File::exists($dynamicComputeMarketReportPath) ? File::get($dynamicComputeMarketReportPath) : '';
+        $dynamicComputeMarketCommand = File::exists($dynamicComputeMarketCommandPath) ? File::get($dynamicComputeMarketCommandPath) : '';
+        $dynamicComputeMarketApi = File::exists($dynamicComputeMarketApiPath) ? File::get($dynamicComputeMarketApiPath) : '';
         $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
         $inboxActions = File::exists($inboxActionsPath) ? File::get($inboxActionsPath) : '';
+        $costRateService = File::exists($costRateServicePath) ? File::get($costRateServicePath) : '';
+        $costRateCommand = File::exists($costRateCommandPath) ? File::get($costRateCommandPath) : '';
         $replayService = File::exists($replayServicePath) ? File::get($replayServicePath) : '';
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
@@ -3315,7 +3359,15 @@ class KernelArchitectureStaticScanner
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $dynamicComputeMarketCommandTest = File::exists($dynamicComputeMarketCommandTestPath) ? File::get($dynamicComputeMarketCommandTestPath) : '';
+        $dynamicComputeMarketApiTest = File::exists($dynamicComputeMarketApiTestPath) ? File::get($dynamicComputeMarketApiTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
+        $decideReceiptTest = File::exists($decideReceiptTestPath) ? File::get($decideReceiptTestPath) : '';
+        $telemetryMetricsTest = File::exists($telemetryMetricsTestPath) ? File::get($telemetryMetricsTestPath) : '';
+        $telemetryDiagnosticsTest = File::exists($telemetryDiagnosticsTestPath) ? File::get($telemetryDiagnosticsTestPath) : '';
+        $telemetryDoc = File::exists($telemetryDocPath) ? File::get($telemetryDocPath) : '';
+        $modelSelectionDoc = File::exists($modelSelectionDocPath) ? File::get($modelSelectionDocPath) : '';
+        $dynamicComputeMarketAp = File::exists($dynamicComputeMarketApPath) ? File::get($dynamicComputeMarketApPath) : '';
 
         foreach ([
             'class ProviderUsagePayload',
@@ -3386,10 +3438,76 @@ class KernelArchitectureStaticScanner
         }
 
         foreach ([
+            'class DynamicComputeMarketAdvisor',
             'ProviderPerformanceProjection $providerPerformance',
+            "'mode' => 'shadow_advisory'",
+            "'authority' => 'advisory_only_atlas_decide_remains_authority'",
+            "'routing_control'",
+            "'changes_provider' => false",
+            "'quality_basis'",
+            "'latency_basis'",
+            "'cost_basis'",
+            "'missing_cost_status'",
+            "'sample_size'",
+            "'recommended_next_action'",
+            "'recommendation_reason'",
+            "'benchmark_candidate'",
+            'run_controlled_provider_benchmark_before_policy_change',
+        ] as $token) {
+            if (! str_contains($dynamicComputeMarket, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Decision/DynamicComputeMarketAdvisor.php: Dynamic Compute Market must stay advisory, explainable, and non-routing [{$token}]";
+            }
+        }
+
+        foreach ([
+            'class DynamicComputeMarketReportService',
+            'DynamicComputeMarketAdvisor $advisor',
+            "'schema_version' => 'atlas.dynamic_compute_market_report.v1'",
+            "'mode' => 'report_only'",
+            "'authority' => 'read_only_no_routing_change'",
+            "'dynamic_compute_market' => \$market",
+            'private function requiredScalar',
+        ] as $token) {
+            if (! str_contains($dynamicComputeMarketReport, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Decision/DynamicComputeMarketReportService.php: Dynamic Compute Market report service must stay read-only and advisor-backed [{$token}]";
+            }
+        }
+
+        foreach ([
+            "protected \$signature = 'atlas:ai:dynamic-compute-market",
+            'DynamicComputeMarketReportService $reports',
+            "'status' => 'invalid_input'",
+            'Atlas Dynamic Compute Market',
+            'Changes provider',
+        ] as $token) {
+            if (! str_contains($dynamicComputeMarketCommand, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiDynamicComputeMarketCommand.php: Dynamic Compute Market CLI must expose governed read-only advice [{$token}]";
+            }
+        }
+
+        foreach ([
+            'class AtlasAiDynamicComputeMarketController',
+            'DynamicComputeMarketReportService $reports',
+            "'provider' => ['required', 'string', 'max:120']",
+            '$reports->report($data)',
+            "=== 'ok' ? 200 : 503",
+        ] as $token) {
+            if (! str_contains($dynamicComputeMarketApi, $token)) {
+                $violations[] = "app/Http/Controllers/AtlasAiDynamicComputeMarketController.php: Dynamic Compute Market API must expose authenticated read-only report contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'ProviderPerformanceProjection $providerPerformance',
+            'DynamicComputeMarketAdvisor $dynamicComputeMarket',
             'providerPerformanceFindings(',
+            'dynamicComputeMarketFindings(',
+            'atlas.self_improvement.dynamic_compute_market.v1',
+            'Benchmark revisavel do Dynamic Compute Market',
+            'run_controlled_provider_benchmark_before_policy_change',
             'self-improvement:provider-performance:',
             'self-improvement:provider-cost-rates:',
+            'self-improvement:dynamic-compute-market:',
             'configure_provider_cost_rates',
             'atlas.provider_usage.v1',
         ] as $token) {
@@ -3407,6 +3525,32 @@ class KernelArchitectureStaticScanner
         ] as $token) {
             if (! str_contains($inboxActions, $token)) {
                 $violations[] = "app/Services/Ai/Mobile/InboxActionRegistry.php: AP-99 provider cost-rate Inbox action must close unknown-cost findings [{$token}]";
+            }
+        }
+
+        foreach ([
+            'private function requiredString',
+            'private function nonNegativeInt',
+            'private function currency',
+            'effective_until must not be before effective_from.',
+            '{$field} must be greater than or equal to 0.',
+            'currency must be a 3 to 8 character code.',
+        ] as $token) {
+            if (! str_contains($costRateService, $token)) {
+                $violations[] = "app/Services/Ai/Telemetry/AiProviderCostRateService.php: AP-99 cost rates must reject invalid provider/model/rate windows before contaminating AP-99 [{$token}]";
+            }
+        }
+
+        foreach ([
+            'private function renderError',
+            "'ok' => false",
+            'Invalid cost rate input:',
+            "'currency'",
+            "'input uUSD/1K'",
+            "'output uUSD/1K'",
+        ] as $token) {
+            if (! str_contains($costRateCommand, $token)) {
+                $violations[] = "app/Console/Commands/AiTelemetryCostRatesCommand.php: AP-99 cost-rate CLI must report governed validation failures [{$token}]";
             }
         }
 
@@ -3438,6 +3582,7 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             'AtlasAiProviderPerformanceCommand::class',
+            'AtlasAiDynamicComputeMarketCommand::class',
         ] as $token) {
             if (! str_contains($bootstrap, $token)) {
                 $violations[] = "bootstrap/app.php: AP-99 provider performance CLI command must be registered [{$token}]";
@@ -3450,6 +3595,10 @@ class KernelArchitectureStaticScanner
             "'atlas_provider_performance_report' => \$this->toolResponse(\$id, \$this->providerPerformanceReport(\$arguments))",
             'providerPerformanceReport(array $arguments)',
             '$this->providerPerformance->reportForWindow(',
+            "'name' => 'atlas_dynamic_compute_market_report'",
+            "'atlas_dynamic_compute_market_report' => \$this->toolResponse(\$id, \$this->dynamicComputeMarketReport(\$arguments))",
+            'dynamicComputeMarketReport(array $arguments)',
+            'DynamicComputeMarketReportService $dynamicComputeMarketReports',
         ] as $token) {
             if (! str_contains($mcp, $token)) {
                 $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-99 provider performance must be available as a read-only MCP report [{$token}]";
@@ -3472,6 +3621,8 @@ class KernelArchitectureStaticScanner
         foreach ([
             'AtlasAiProviderPerformanceController::class',
             "'/ai/provider-performance'",
+            'AtlasAiDynamicComputeMarketController::class',
+            "'/ai/dynamic-compute-market'",
         ] as $token) {
             if (! str_contains($routes, $token)) {
                 $violations[] = "routes/api.php: AP-99 provider performance API route must be registered [{$token}]";
@@ -3529,6 +3680,10 @@ class KernelArchitectureStaticScanner
             "'provider_cli' => 'codex_cli'",
             'test_inbox_action_report_tool_exposes_provider_cost_rate_actions',
             'provider_cost_rate_action_count',
+            'atlas_dynamic_compute_market_report',
+            'test_dynamic_compute_market_report_exposes_read_only_shadow_advice',
+            'test_dynamic_compute_market_report_preserves_review_signal_when_ledger_is_unavailable',
+            'ledger_unavailable',
         ] as $token) {
             if (! str_contains($mcpTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-99 provider performance MCP report must be covered [{$token}]";
@@ -3549,6 +3704,36 @@ class KernelArchitectureStaticScanner
         }
 
         foreach ([
+            'AtlasAiDynamicComputeMarketCommandTest',
+            'atlas:ai:dynamic-compute-market',
+            'atlas.dynamic_compute_market_report.v1',
+            'read_only_no_routing_change',
+            'dynamic_compute_market.routing_control.changes_provider',
+            'provider is required.',
+            'test_command_reports_unavailable_without_ap99_ledger_projection',
+            'ledger_unavailable',
+        ] as $token) {
+            if (! str_contains($dynamicComputeMarketCommandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiDynamicComputeMarketCommandTest.php: Dynamic Compute Market CLI surface must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasAiDynamicComputeMarketApiTest',
+            '/ai/dynamic-compute-market?provider=codex_cli',
+            'atlas.dynamic_compute_market_report.v1',
+            'read_only_no_routing_change',
+            'dynamic_compute_market.routing_control.changes_provider',
+            'test_api_requires_atlas_token',
+            'test_api_reports_unavailable_without_ap99_ledger_projection',
+            'ledger_unavailable',
+        ] as $token) {
+            if (! str_contains($dynamicComputeMarketApiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiDynamicComputeMarketApiTest.php: Dynamic Compute Market API surface must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
             'test_observability_payload_includes_provider_performance_summary',
             'ProviderUsagePayload::SCHEMA_VERSION',
             'provider_performance.provider_counts.codex_cli',
@@ -3558,6 +3743,90 @@ class KernelArchitectureStaticScanner
         ] as $token) {
             if (! str_contains($observabilityTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-99 provider performance Observability payload must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_cost_rate_upsert_rejects_negative_input_and_output_rates',
+            'test_cost_rate_upsert_rejects_empty_provider_and_model',
+            'test_cost_rate_upsert_rejects_effective_until_before_effective_from',
+            'test_cost_rate_command_reports_invalid_input_as_json_and_human_error',
+            'test_cost_rate_import_reports_indexed_validation_errors',
+        ] as $token) {
+            if (! str_contains($telemetryMetricsTest, $token)) {
+                $violations[] = "tests/Feature/AiTelemetryMetricsTest.php: AP-99 cost-rate governance must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_cost_rate_service_rejects_invalid_effective_window',
+            'effective_until must not be before effective_from.',
+        ] as $token) {
+            if (! str_contains($telemetryDiagnosticsTest, $token)) {
+                $violations[] = "tests/Feature/AiTelemetryToolDiagnosticsTest.php: AP-99 cost-rate diagnostics must cover invalid windows [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Cost rates sao governados',
+            'provider/model obrigatorios',
+            'micro-USD por 1K tokens',
+            'effective_until',
+        ] as $token) {
+            if (! str_contains($telemetryDoc, $token)) {
+                $violations[] = "docs/atlas-ai-telemetry.md: AP-99 cost-rate governance must be documented [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_dynamic_compute_market_uses_ap99_provider_performance_inside_decision_receipt',
+            'test_dynamic_compute_market_requests_cost_rates_when_quality_is_ok_but_cost_is_unknown',
+            'test_dynamic_compute_market_recommends_benchmark_when_better_alternative_has_insufficient_sample',
+            'test_dynamic_compute_market_keeps_selected_provider_when_evidence_is_stable',
+            'test_dynamic_compute_market_prefers_sufficient_sample_benchmark_candidate',
+            'test_dynamic_compute_market_prefers_higher_quality_when_candidate_samples_are_sufficient',
+            'recommended_next_action',
+            'recommendation_reason',
+            'explanation.quality_basis',
+            'explanation.latency_basis',
+            'explanation.cost_basis',
+            'routing_control.changes_provider',
+        ] as $token) {
+            if (! str_contains($decideReceiptTest, $token)) {
+                $violations[] = "tests/Unit/Ai/AtlasDecideReceiptIntegrationTest.php: Dynamic Compute Market receipt explainability must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'DynamicComputeMarketAdvisor',
+            'Dynamic Compute Market Report',
+            'quality_basis',
+            'latency_basis',
+            'cost_basis',
+            'recommended_next_action',
+            'recommendation_reason',
+            'benchmark controlado',
+        ] as $token) {
+            if (! str_contains($modelSelectionDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md: Dynamic Compute Market explainability must be documented [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-147',
+            'implemented-shadow-contract',
+            'atlas.dynamic_compute_market_report.v1',
+            'read_only_no_routing_change',
+            'routing_control.changes_provider=false',
+            'atlas_dynamic_compute_market_report',
+            'AtlasAiDynamicComputeMarketCommandTest',
+            'AtlasAiDynamicComputeMarketApiTest',
+            'AtlasOpenBrainMcpServiceTest::test_dynamic_compute_market_report_exposes_read_only_shadow_advice',
+            'AtlasOpenBrainMcpServiceTest::test_dynamic_compute_market_report_preserves_review_signal_when_ledger_is_unavailable',
+            'AtlasSelfImprovementRuntimeTest::test_provider_performance_review_emits_dynamic_compute_market_benchmark_proposal',
+        ] as $token) {
+            if (! str_contains($dynamicComputeMarketAp, $token)) {
+                $violations[] = "docs/ap/AP-147-dynamic-compute-market-shadow-surface.md: Dynamic Compute Market shadow surface contract must be documented [{$token}]";
             }
         }
 
@@ -10073,6 +10342,177 @@ class KernelArchitectureStaticScanner
         ] as $token) {
             if (! str_contains($docOs, $token)) {
                 $violations[] = "docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md: AP-145 must be named in Documentation OS [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanProviderCostRateInboxReplay(): array
+    {
+        $inboxActionsPath = app_path('Services/Ai/Mobile/InboxActionRegistry.php');
+        $replayPath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
+        $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $commandPath = app_path('Console/Commands/AtlasAiInboxActionReportCommand.php');
+        $ledgerReplayTestPath = base_path('tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php');
+        $inboxActionTestPath = base_path('tests/Feature/Ai/InboxLedgerProjectionActionTest.php');
+        $selfImprovementTestPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $observabilityTestPath = base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-146-provider-cost-rate-inbox-replay.md');
+
+        $inboxActions = File::exists($inboxActionsPath) ? File::get($inboxActionsPath) : '';
+        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $ledgerReplayTest = File::exists($ledgerReplayTestPath) ? File::get($ledgerReplayTestPath) : '';
+        $inboxActionTest = File::exists($inboxActionTestPath) ? File::get($inboxActionTestPath) : '';
+        $selfImprovementTest = File::exists($selfImprovementTestPath) ? File::get($selfImprovementTestPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+        $violations = [];
+
+        foreach ([
+            "'configure_provider_cost_rates' => \$this->configureProviderCostRates(\$locked, \$input)",
+            'private readonly AiProviderCostRateService $providerCostRates',
+            'private function configureProviderCostRates(AiInboxItem $item, array $input): array',
+            "'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1'",
+            '$this->providerCostRates->upsert($rateTemplate)',
+            'recordInboxActionLedgerEvent($fresh, $actionId, $serializedResult, $actor, $idempotencyKey)',
+        ] as $token) {
+            if (! str_contains($inboxActions, $token)) {
+                $violations[] = "app/Services/Ai/Mobile/InboxActionRegistry.php: AP-146 provider cost-rate Inbox action must record applied/previewed rates [{$token}]";
+            }
+        }
+
+        foreach ([
+            'provider_cost_rate_action_count',
+            'provider_cost_rate_applied_count',
+            'provider_cost_rate_provider_counts',
+            'provider_cost_rate_model_counts',
+            'provider_cost_rate_schema_version',
+            'provider_cost_rate_input_microusd',
+            'provider_cost_rate_output_microusd',
+            'provider_cost_rate_applied',
+            'provider_cost_rates_configured',
+            'configure_provider_cost_rates_action_without_applied_rate',
+        ] as $token) {
+            if (! str_contains($replay, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-146 provider cost-rate action must be projected by inbox replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            'configure_provider_cost_rates_action_without_applied_rate',
+            'Completar rates de custo dos providers no Inbox',
+            'atlas.provider_cost_rates.curator_completion_request.v1',
+            "'available_actions' => [",
+            "'id' => 'configure_provider_cost_rates'",
+            "'gap_type' => \$providerCostRateGapReason",
+        ] as $token) {
+            if (! str_contains($selfImprovement, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-146 Curator must reopen previewed provider cost-rate actions [{$token}]";
+            }
+        }
+
+        foreach ([
+            'renderProviderCostRateSummary',
+            'Provider cost-rate actions',
+            'Applied cost-rate actions',
+            'provider_cost_rate_provider_counts',
+            'provider_cost_rate_model_counts',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiInboxActionReportCommand.php: AP-146 human CLI report must expose provider cost-rate summary [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_inbox_action_window_report_projects_provider_cost_rate_actions',
+            'test_inbox_action_window_report_warns_when_provider_cost_rate_action_is_only_previewed',
+            'provider_cost_rate_action_count',
+            'provider_cost_rates_configured',
+            'configure_provider_cost_rates_action_without_applied_rate',
+        ] as $token) {
+            if (! str_contains($ledgerReplayTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php: AP-146 replay projection must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_inbox_action_configures_provider_cost_rates_with_human_supplied_rates_and_ledger_evidence',
+            'test_inbox_action_previews_provider_cost_rate_template_without_resolving_item',
+            'atlas.inbox_action.provider_cost_rates.v1',
+            'configure_provider_cost_rates',
+        ] as $token) {
+            if (! str_contains($inboxActionTest, $token)) {
+                $violations[] = "tests/Feature/Ai/InboxLedgerProjectionActionTest.php: AP-146 Inbox action execution must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_self_improvement_detects_provider_cost_rate_action_without_applied_rate',
+            'test_self_improvement_does_not_flag_provider_cost_rate_action_when_rate_was_applied',
+            'atlas.provider_cost_rates.curator_completion_request.v1',
+            'configure_provider_cost_rates_action_without_applied_rate',
+        ] as $token) {
+            if (! str_contains($selfImprovementTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-146 Self-Improvement replay gap must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_command_human_output_includes_provider_cost_rate_summary_when_configured',
+            'Provider cost-rate actions',
+            'Applied cost-rate actions',
+            'codex_cli:gpt-5.2',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php: AP-146 human CLI summary must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_inbox_action_report_tool_exposes_provider_cost_rate_actions',
+            'provider_cost_rate_action_count',
+            'configure_provider_cost_rates',
+        ] as $token) {
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-146 MCP report must expose provider cost-rate actions [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_observability_payload_exposes_provider_cost_rate_inbox_actions',
+            'inbox_actions.provider_cost_rate_action_count',
+            'provider_cost_rate_applied_count',
+        ] as $token) {
+            if (! str_contains($observabilityTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-146 Observability must expose provider cost-rate replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-146',
+            'Provider Cost Rate Inbox Replay Contract',
+            'configure_provider_cost_rates',
+            'atlas.inbox_action.provider_cost_rates.v1',
+            'provider_cost_rates_configured',
+            'configure_provider_cost_rates_action_without_applied_rate',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-146 Provider Cost Rate Inbox Replay must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-146-provider-cost-rate-inbox-replay.md: AP-146 contract doc must exist [{$token}]";
             }
         }
 

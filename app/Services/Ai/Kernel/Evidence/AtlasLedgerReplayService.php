@@ -1261,6 +1261,36 @@ class AtlasLedgerReplayService
             ];
         }
 
+        if ($rivalsReviewRecordedCount > 0 && $rivalsReviewWithScoresCount < $rivalsReviewRecordedCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['record_rivals_review_action_without_scores'],
+                'recommended_action' => 'open_reviewable_inbox_action_evidence_proposal',
+            ];
+        }
+
+        if ($providerCostRateActionCount > 0 && $providerCostRateAppliedCount < $providerCostRateActionCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['configure_provider_cost_rates_action_without_applied_rate'],
+                'recommended_action' => 'configure_provider_cost_rates',
+            ];
+        }
+
+        if ($reviewedPatchCount > 0 && $withDiffRefsCount === 0) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_patch_action_without_diff_refs'],
+                'recommended_action' => 'open_reviewable_inbox_action_evidence_proposal',
+            ];
+        }
+
         if ($rivalsReviewRecordedCount > 0 && $rivalsReviewWithScoresCount === $rivalsReviewRecordedCount) {
             return [
                 'status' => 'ok',
@@ -1268,16 +1298,6 @@ class AtlasLedgerReplayService
                 'review_required' => false,
                 'reasons' => ['rivals_strategy_human_scores_recorded'],
                 'recommended_action' => 'none',
-            ];
-        }
-
-        if ($rivalsReviewRecordedCount > 0) {
-            return [
-                'status' => 'warning',
-                'severity' => 'medium',
-                'review_required' => true,
-                'reasons' => ['record_rivals_review_action_without_scores'],
-                'recommended_action' => 'open_reviewable_inbox_action_evidence_proposal',
             ];
         }
 
@@ -1291,16 +1311,6 @@ class AtlasLedgerReplayService
             ];
         }
 
-        if ($providerCostRateActionCount > 0) {
-            return [
-                'status' => 'warning',
-                'severity' => 'medium',
-                'review_required' => true,
-                'reasons' => ['configure_provider_cost_rates_action_without_applied_rate'],
-                'recommended_action' => 'configure_provider_cost_rates',
-            ];
-        }
-
         if ($reviewedPatchCount > 0 && $withDiffRefsCount > 0) {
             return [
                 'status' => 'ok',
@@ -1308,16 +1318,6 @@ class AtlasLedgerReplayService
                 'review_required' => false,
                 'reasons' => ['human_review_action_with_patch_context_recorded'],
                 'recommended_action' => 'none',
-            ];
-        }
-
-        if ($reviewedPatchCount > 0) {
-            return [
-                'status' => 'warning',
-                'severity' => 'medium',
-                'review_required' => true,
-                'reasons' => ['review_patch_action_without_diff_refs'],
-                'recommended_action' => 'open_reviewable_inbox_action_evidence_proposal',
             ];
         }
 

@@ -15,6 +15,7 @@ use App\Http\Controllers\AtlasAiArchitectureOperationsController;
 use App\Http\Controllers\AtlasAiArchitectureValidateController;
 use App\Http\Controllers\AtlasAiDecisionReceiptReportController;
 use App\Http\Controllers\AtlasAiDomainCatalogController;
+use App\Http\Controllers\AtlasAiDynamicComputeMarketController;
 use App\Http\Controllers\AtlasAiInboxActionReportController;
 use App\Http\Controllers\AtlasAiKernelPipelineReportController;
 use App\Http\Controllers\AtlasAiLedgerController;
@@ -315,6 +316,7 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::patch('/ai/policies/domains/{domain}', [AtlasAiPolicyController::class, 'updateDomain']);
     Route::patch('/ai/policies/flows/{flow}', [AtlasAiPolicyController::class, 'updateFlow']);
     Route::get('/ai/domains', AtlasAiDomainCatalogController::class);
+    Route::get('/ai/dynamic-compute-market', AtlasAiDynamicComputeMarketController::class);
     Route::get('/ai/architecture/validate', AtlasAiArchitectureValidateController::class);
     Route::get('/ai/architecture/operations', AtlasAiArchitectureOperationsController::class);
     Route::get('/ai/decision-receipts/report', AtlasAiDecisionReceiptReportController::class);
