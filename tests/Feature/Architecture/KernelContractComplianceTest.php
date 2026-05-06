@@ -106,6 +106,9 @@ class KernelContractComplianceTest extends TestCase
         $this->assertSame(SurfaceCapability::all(), array_values(array_unique(SurfaceCapability::all())));
         $this->assertTrue(SurfaceCapability::isKnown(SurfaceCapability::TEXT));
         $this->assertTrue(SurfaceCapability::isKnown(SurfaceCapability::DOMAIN_FLOW_SELECTION));
+        $this->assertTrue(SurfaceCapability::isKnown(SurfaceCapability::MEMORY_RECALL));
+        $this->assertTrue(SurfaceCapability::isKnown(SurfaceCapability::CONTEXT_COMPOSE));
+        $this->assertTrue(SurfaceCapability::isKnown(SurfaceCapability::TOOLS_RUNTIME));
 
         $this->assertGreaterThanOrEqual(20, count(SurfaceHintKey::all()));
         $this->assertSame(SurfaceHintKey::all(), array_values(array_unique(SurfaceHintKey::all())));
@@ -156,8 +159,11 @@ class KernelContractComplianceTest extends TestCase
         $surfaceReport = app(SurfaceAdapterRegistry::class)->complianceReport();
 
         $this->assertTrue($surfaceReport['ok'], implode("\n", $surfaceReport['errors']));
-        $this->assertGreaterThanOrEqual(5, $surfaceReport['count']);
+        $this->assertGreaterThanOrEqual(8, $surfaceReport['count']);
         $this->assertContains('atlas_cli_dev', $surfaceReport['surfaces']);
+        $this->assertContains('atlas_worker', $surfaceReport['surfaces']);
+        $this->assertContains('atlas_mcp_readonly', $surfaceReport['surfaces']);
+        $this->assertContains('atlas_vault', $surfaceReport['surfaces']);
     }
 
     public function test_surface_layer_cannot_bypass_kernel_with_provider_calls(): void

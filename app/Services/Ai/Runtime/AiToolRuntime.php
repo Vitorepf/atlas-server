@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Runtime;
 
 use App\Models\AiToolEvent;
+use App\Services\Ai\Context\RetrievalRankInput;
 use App\Services\Ai\Search\SessionSearchService;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
@@ -39,6 +40,7 @@ class AiToolRuntime
         private readonly WorkspaceProfiler $profiler,
         private readonly SessionSearchService $sessionSearch,
         private readonly AtlasTestCommandResolver $testCommands,
+        private readonly RetrievalRankInput $retrievalRankInput,
     ) {}
 
     public function execute(ToolInvocation $invocation): ToolResult
@@ -389,7 +391,7 @@ class AiToolRuntime
             $workspace = $resolvedWorkspace;
         }
 
-        $topN = max(1, min(10, (int) $invocation->argument('top_n', 3)));
+        $topN = $this->retrievalRankInput->sessionTopN($invocation->argument('top_n'));
         $summarize = (bool) $invocation->argument('summarize', false);
         $results = $this->sessionSearch->search($workspace, $query, $topN, $summarize);
         $payload = [

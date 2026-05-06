@@ -138,6 +138,7 @@ class AtlasDecideService
     {
         $policy = $this->policies->effectiveProfile($options);
         $manualProvider = $this->manualOverrideProvider($options);
+        $selectionMode = $manualProvider !== null ? 'manual_override' : $this->automaticModelSelectionMode($policy);
         $candidateProvider = $this->candidateProvider($options, (string) ($policy['default_provider'] ?? 'claude_cli'));
         $automatic = $this->isAutomaticInvocation($options);
         $programmingLike = $this->isProgrammingTask($options);
@@ -201,6 +202,9 @@ class AtlasDecideService
                 'selected_provider' => $selectedProvider,
                 'selected_model' => $selectedModel,
                 'selected_model_source' => data_get($options, 'payload.requested_model_source') ?: 'policy_or_runtime',
+                'selection_mode' => $selectionMode,
+                'model_selection_authority' => 'atlas_decide',
+                'available_selection_modes' => ['auto_best_allowed', 'auto_best_available', 'manual_override'],
                 'fallback_provider' => $fallbackReason ? $selectedProvider : null,
                 'fallback_reason' => $fallbackReason,
                 'selection_reason' => $this->decisionReasonWithFallback($options, $candidateProvider, $selectedProvider, $fallbackReason),
@@ -705,6 +709,9 @@ class AtlasDecideService
             'candidate_provider' => $providerSelection['candidate_provider'] ?? null,
             'selected_provider' => $selectedProvider,
             'selected_model' => $model,
+            'selection_mode' => $providerSelection['selection_mode'] ?? data_get($decision, 'receipt_v2.provider_selection.selection_mode'),
+            'model_selection_authority' => $providerSelection['model_selection_authority'] ?? 'atlas_decide',
+            'available_selection_modes' => $providerSelection['available_selection_modes'] ?? ['auto_best_allowed', 'auto_best_available', 'manual_override'],
             'fallback_provider' => $providerSelection['fallback_provider'] ?? null,
             'fallback_reason' => $providerSelection['fallback_reason'] ?? null,
             'operator_requested_provider' => $providerSelection['operator_requested_provider'] ?? 'auto',

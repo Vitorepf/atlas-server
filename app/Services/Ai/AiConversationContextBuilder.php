@@ -7,10 +7,13 @@ use App\Models\AiMessage;
 use App\Models\AiProviderHandoff;
 use App\Models\AiSessionState;
 use App\Models\AiThread;
+use App\Services\Ai\Context\ConversationContextInput;
 use Illuminate\Support\Str;
 
 class AiConversationContextBuilder
 {
+    public function __construct(private readonly ConversationContextInput $input) {}
+
     public function build(array $options): array
     {
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
@@ -207,11 +210,11 @@ class AiConversationContextBuilder
 
     private function recentTurnLimit(): int
     {
-        return min(40, max(2, (int) config('atlas.ai.context_recent_turn_limit', 12)));
+        return $this->input->recentTurnLimit();
     }
 
     private function payloadTurnLimit(): int
     {
-        return min(20, max(1, (int) config('atlas.ai.context_payload_turn_limit', 8)));
+        return $this->input->payloadTurnLimit();
     }
 }

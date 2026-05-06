@@ -18,6 +18,9 @@ final class AtlasApiInteractionSurfaceAdapter extends BaseSurfaceAdapter
             SurfaceCapability::ATTACHMENTS,
             SurfaceCapability::THREAD_CONTEXT,
             SurfaceCapability::DOMAIN_FLOW_SELECTION,
+            SurfaceCapability::MEMORY_RECALL,
+            SurfaceCapability::CONTEXT_COMPOSE,
+            SurfaceCapability::TOOLS_RUNTIME,
         ];
     }
 

@@ -23,8 +23,15 @@ use App\Services\Ai\Cli\AtlasTerminalTheme;
 use App\Services\Ai\Cli\IntentPermissionResolver;
 use App\Services\Ai\Cli\IntentResolution;
 use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Kernel\Decision\ModelSelectionContractFactory;
+use App\Services\Ai\Kernel\Pipeline\KernelPipelineAuditService;
+use App\Services\Ai\Kernel\Pipeline\KernelPipelineDevPlanBuilder;
+use App\Services\Ai\Kernel\Pipeline\KernelPipelinePlanGuard;
+use App\Services\Ai\Kernel\Pipeline\KernelPipelinePlanViolation;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;
+use App\Services\Ai\Programming\ProgrammingIterationPolicy;
+use App\Services\Ai\Programming\ProgrammingSurfaceContractFactory;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Support\AtlasPhpBinary;
@@ -132,6 +139,27 @@ class AiChatCommand extends Command
     ): int {
         $workspace = $this->workspace();
         $declaredDevPlan = $this->devExecutionPlanOption();
+        if ($declaredDevPlan !== null && is_array(data_get($declaredDevPlan, 'kernel_pipeline'))) {
+            try {
+                $pipelinePlan = (array) data_get($declaredDevPlan, 'kernel_pipeline');
+                $contract = is_array(data_get($declaredDevPlan, 'kernel_pipeline_contract'))
+                    ? (array) data_get($declaredDevPlan, 'kernel_pipeline_contract')
+                    : null;
+                app(KernelPipelinePlanGuard::class)->assertValidPlanAndContract($pipelinePlan, $contract);
+            } catch (KernelPipelinePlanViolation $violation) {
+                app(KernelPipelineAuditService::class)->recordRejectedPlan(
+                    (array) data_get($declaredDevPlan, 'kernel_pipeline'),
+                    $violation->errors,
+                    $this->kernelPipelineLedgerContext(
+                        (array) data_get($declaredDevPlan, 'kernel_pipeline'),
+                        $workspace,
+                        is_array(data_get($declaredDevPlan, 'kernel_pipeline_contract')) ? (array) data_get($declaredDevPlan, 'kernel_pipeline_contract') : null,
+                    ),
+                );
+
+                return $this->kernelPipelineViolation($violation);
+            }
+        }
         $fairFlags = $fairClaude->normalizeFlags($this->fairClaudeFlags($declaredDevPlan));
         $fairMode = (bool) ($fairFlags['fair_mode'] ?? false);
         $explicitProvider = $this->providerKey($this->option('conselho') ? 'conselho' : ($this->option('provider') ?: $this->option('ai') ?: null));
@@ -720,6 +748,12 @@ class AiChatCommand extends Command
             'atlas_workflow_mode' => $mode,
             'workspace' => $workspace,
             'decision_mode' => $provider ? 'manual_override' : 'atlas_decide',
+            'model_selection_contract' => $this->modelSelectionContract(
+                provider: $provider,
+                modelSelection: $modelSelection,
+                modelOverride: $modelOverride,
+                fairMode: $fairModeMetadata !== null,
+            ),
             'operator_requested_provider' => $provider ?: 'auto',
             'requested_provider' => $provider,
             'requested_model' => $modelOverride,
@@ -754,6 +788,9 @@ class AiChatCommand extends Command
 
         if ($devPlan !== null) {
             $payload['dev_execution_plan'] = $devPlan;
+            if (is_array(data_get($devPlan, 'kernel_pipeline'))) {
+                $payload['kernel_pipeline'] = data_get($devPlan, 'kernel_pipeline');
+            }
         }
         $programmingMessagePlan = $this->programmingMessagePlan($workspace, $mode, $input, $provider, $modelOverride, $devPlan, $aiPolicyOverride);
         if ($programmingMessagePlan !== null) {
@@ -762,6 +799,7 @@ class AiChatCommand extends Command
             $payload['programming_message_plan'] = $programmingMessagePlan;
             $payload['programming_intent'] = data_get($programmingMessagePlan, 'operator_intent');
             $payload['programming_dispatch'] = $this->programmingDispatchContract($programmingMessagePlan);
+            $payload['programming_chat_contract'] = app(ProgrammingSurfaceContractFactory::class)->chatDev($devPlan, $programmingMessagePlan, $payload['programming_dispatch']);
             $payload['programming_repair'] = app(AtlasProgrammingOrchestrator::class)->repairExecutionContract($programmingMessagePlan);
             $payload['programming_profile_context'] = data_get($programmingMessagePlan, 'policy_profile.profile_context');
             $payload['programming_execution_policy'] = data_get($programmingMessagePlan, 'policy_profile.execution_policy');
@@ -1105,6 +1143,8 @@ class AiChatCommand extends Command
                 'model' => $trace->model,
                 'model_label' => data_get($trace->metadata, 'model_label'),
                 'model_tier' => data_get($trace->metadata, 'model_tier'),
+                'model_selection_contract' => data_get($trace->metadata, 'model_selection_contract')
+                    ?? data_get($trace->job?->payload, 'model_selection_contract'),
                 'agent' => $trace->agent_slug,
                 'skills_activated' => (array) data_get($trace->metadata, 'skills_activated', []),
                 'open_brain_injection' => data_get($trace->metadata, 'open_brain_injection'),
@@ -3781,6 +3821,15 @@ class AiChatCommand extends Command
         return $model !== '' ? $model : null;
     }
 
+    /**
+     * @param  array<string,mixed>|null  $modelSelection
+     * @return array<string,mixed>
+     */
+    private function modelSelectionContract(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array
+    {
+        return app(ModelSelectionContractFactory::class)->forAiChat($provider, $modelSelection, $modelOverride, $fairMode);
+    }
+
     private function modelSelectionLabel(array $modelSelection): string
     {
         $model = (string) ($modelSelection['model'] ?? '');
@@ -4021,6 +4070,7 @@ class AiChatCommand extends Command
         $profile = data_get($programmingMessagePlan, 'programming_profile') === 'forge' ? 'forge' : 'dev';
         $overrides = (array) data_get($payload, 'dev_execution_plan.operator_options.harness_overrides', []);
         $executionProfile = (array) data_get($programmingMessagePlan, 'execution_profile', []);
+        $complete = (bool) ($executionProfile['complete'] ?? ($profile === 'forge'));
 
         return [
             'profile' => $profile,
@@ -4030,10 +4080,14 @@ class AiChatCommand extends Command
             'provider' => $provider,
             'model' => $model,
             'permission' => $permissionMode,
-            'complete' => (bool) ($executionProfile['complete'] ?? ($profile === 'forge')),
+            'complete' => $complete,
             'auto_test' => (bool) ($executionProfile['auto_test'] ?? ($profile === 'forge')),
             'critical' => $profile === 'forge',
-            'max_attempts' => (int) ($executionProfile['max_iterations'] ?? ($profile === 'forge' ? 5 : 1)),
+            'max_attempts' => ProgrammingIterationPolicy::forExecutionPolicy(
+                $executionProfile['max_iterations'] ?? null,
+                $complete,
+                $profile === 'forge',
+            ),
             'no_provider' => (bool) $this->option('no-run'),
             'test_command' => is_string($overrides['test_command'] ?? null) ? $overrides['test_command'] : null,
             'sandbox' => is_string($overrides['sandbox'] ?? null) ? $overrides['sandbox'] : null,
@@ -4389,7 +4443,7 @@ class AiChatCommand extends Command
     ): ?array {
         $declared = $this->devExecutionPlanOption();
         if ($declared !== null) {
-            return $declared;
+            return $this->withKernelPipelinePlan($declared, $workspace, $input, 'declared_dev_plan');
         }
 
         if ($mode !== 'dev') {
@@ -4409,7 +4463,105 @@ class AiChatCommand extends Command
         data_set($plan, 'operator_options.input_mode', 'chat_dev_auto_plan');
         data_set($plan, 'operator_options.generated_by', 'AiChatCommand');
 
-        return $plan;
+        return $this->withKernelPipelinePlan($plan, $workspace, $input, 'chat_dev_auto_plan');
+    }
+
+    /**
+     * @param  array<string,mixed>  $devPlan
+     * @return array<string,mixed>
+     */
+    private function withKernelPipelinePlan(array $devPlan, string $workspace, string $input, string $inputMode): array
+    {
+        if (is_array(data_get($devPlan, 'kernel_pipeline'))) {
+            $pipelinePlan = (array) data_get($devPlan, 'kernel_pipeline');
+            $contract = is_array(data_get($devPlan, 'kernel_pipeline_contract'))
+                ? (array) data_get($devPlan, 'kernel_pipeline_contract')
+                : null;
+            app(KernelPipelinePlanGuard::class)->assertValidPlanAndContract($pipelinePlan, $contract);
+            app(KernelPipelineAuditService::class)->recordAcceptedPlan(
+                $pipelinePlan,
+                $this->kernelPipelineLedgerContext($pipelinePlan, $workspace, $contract),
+            );
+
+            return $devPlan;
+        }
+
+        $profile = $this->programmingProfileFromDevPlan($devPlan);
+        $intent = $this->programmingIntent($input, $profile, $devPlan);
+        $flow = $profile === 'forge'
+            ? 'programming.forge'
+            : (((string) ($intent['kind'] ?? '') === 'repair') ? 'programming.repair' : 'programming.dev');
+        $runtime = data_get($devPlan, 'programming_session_plan.executor_decision.executor')
+            ?: data_get($devPlan, 'executor_decision.executor')
+            ?: ($profile === 'forge' ? 'engineering_harness' : 'dev_repair_executor');
+        $devPlan = app(KernelPipelineDevPlanBuilder::class)->attachProgrammingPlan(
+            devPlan: $devPlan,
+            text: $input,
+            workspace: $workspace,
+            surfaceId: 'atlas_ai_chat',
+            command: 'atlas:ai:chat',
+            inputMode: $inputMode,
+            programmingProfile: $profile,
+            flow: $flow,
+            taskKind: (string) ($intent['kind'] ?? 'implementation'),
+            runtime: (string) $runtime,
+        );
+        app(KernelPipelineAuditService::class)->recordAcceptedPlan(
+            (array) data_get($devPlan, 'kernel_pipeline'),
+            $this->kernelPipelineLedgerContext(
+                (array) data_get($devPlan, 'kernel_pipeline'),
+                $workspace,
+                is_array(data_get($devPlan, 'kernel_pipeline_contract')) ? (array) data_get($devPlan, 'kernel_pipeline_contract') : null,
+            ),
+        );
+
+        return $devPlan;
+    }
+
+    /**
+     * @param  array<string,mixed>  $pipelinePlan
+     * @return array<string,mixed>
+     */
+    private function kernelPipelineLedgerContext(array $pipelinePlan, string $workspace, ?array $surfaceContract = null): array
+    {
+        $pipelineId = is_string($pipelinePlan['pipeline_id'] ?? null) && trim((string) $pipelinePlan['pipeline_id']) !== ''
+            ? (string) $pipelinePlan['pipeline_id']
+            : 'kernel_pipeline_unknown';
+
+        return [
+            'tenant_id' => data_get($pipelinePlan, 'input.tenant_id', 'default'),
+            'operator_id' => data_get($pipelinePlan, 'input.operator_id', 'system'),
+            'envelope_id' => 'kernel_pipeline:'.$pipelineId,
+            'correlation_id' => $pipelineId,
+            'emitter_stage' => 'atlas.ai_chat.kernel_pipeline_guard',
+            'emitter_version' => 'atlas.ai_chat.kernel_pipeline_guard.v1',
+            'workspace' => $workspace,
+            'surface_contract' => $surfaceContract,
+        ];
+    }
+
+    private function kernelPipelineViolation(KernelPipelinePlanViolation $violation): int
+    {
+        $payload = AtlasSecurity::redactArray([
+            'ok' => false,
+            'phase' => 'preflight',
+            'error' => 'atlas_kernel_pipeline_contract_violation',
+            'message' => $violation->getMessage(),
+            'violations' => $violation->errors,
+        ]);
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $this->error((string) $payload['message']);
+        foreach ($payload['violations'] as $message) {
+            $this->line('- '.(string) $message);
+        }
+
+        return self::FAILURE;
     }
 
     /**
@@ -4440,7 +4592,13 @@ class AiChatCommand extends Command
                 'interactive' => true,
                 'complete' => (bool) ($executionProfile['complete'] ?? ($profile === 'forge')),
                 'auto_test' => (bool) ($executionProfile['auto_test'] ?? ($profile === 'forge')),
-                'max_iterations' => (int) ($executionProfile['max_iterations'] ?? ($profile === 'forge' ? 5 : 3)),
+                'max_iterations' => $profile === 'forge'
+                    ? ProgrammingIterationPolicy::DEFAULT_FORGE_ITERATIONS
+                    : ProgrammingIterationPolicy::forExecutionPolicy(
+                        $executionProfile['max_iterations'] ?? null,
+                        (bool) ($executionProfile['complete'] ?? false),
+                        false,
+                    ),
                 'parent_plan_id' => is_string($devPlan['plan_id'] ?? null) ? $devPlan['plan_id'] : null,
                 'ai_policy_override' => $aiPolicyOverride,
                 'force_harness' => (bool) ($intent['force_harness'] ?? false),

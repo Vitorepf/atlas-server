@@ -18,6 +18,9 @@ final class AtlasCliChatSurfaceAdapter extends BaseSurfaceAdapter
             SurfaceCapability::FILES,
             SurfaceCapability::IMAGE_PASTE,
             SurfaceCapability::CONVERSATION_CONTEXT,
+            SurfaceCapability::MEMORY_RECALL,
+            SurfaceCapability::CONTEXT_COMPOSE,
+            SurfaceCapability::TOOLS_RUNTIME,
         ];
     }
 }

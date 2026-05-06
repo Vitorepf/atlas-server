@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
+use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
 
 class AtlasAiRepairReportCommand extends Command
@@ -17,10 +18,10 @@ class AtlasAiRepairReportCommand extends Command
 
     protected $description = 'Summarize Atlas AI Repair Loop evidence for a recent time window.';
 
-    public function handle(AtlasLedgerReplayService $replay): int
+    public function handle(AtlasLedgerReplayService $replay, KernelReplayReportInput $input): int
     {
-        $hours = max(1, min(720, (int) $this->option('hours')));
-        $filters = $this->filters();
+        $hours = $input->hours($this->option('hours'));
+        $filters = $this->filters($input);
         $report = $replay->repairReportForWindow(now()->subHours($hours), filters: $filters);
         $payload = [
             'status' => ($report['available'] ?? false) ? 'ok' : 'ledger_unavailable',
@@ -35,28 +36,14 @@ class AtlasAiRepairReportCommand extends Command
     /**
      * @return array<string,string>
      */
-    private function filters(): array
+    private function filters(KernelReplayReportInput $input): array
     {
-        $filters = [];
-
-        foreach ([
-            'status' => 'status',
-            'strategy' => 'strategy',
-            'failure-domain' => 'failure_domain',
-            'emitter-stage' => 'emitter_stage',
-        ] as $option => $key) {
-            $value = $this->option($option);
-            if (! is_scalar($value)) {
-                continue;
-            }
-
-            $value = trim((string) $value);
-            if ($value !== '') {
-                $filters[$key] = $value;
-            }
-        }
-
-        return $filters;
+        return $input->aliasedScalarFilters($this->options(), [
+            'status' => ['status'],
+            'strategy' => ['strategy'],
+            'failure_domain' => ['failure-domain'],
+            'emitter_stage' => ['emitter-stage'],
+        ]);
     }
 
     /**
@@ -81,6 +68,9 @@ class AtlasAiRepairReportCommand extends Command
         $this->components->twoColumnDetail('Latest status', (string) ($repair['latest_status'] ?? '-'));
         $this->components->twoColumnDetail('Latest strategy', (string) ($repair['latest_strategy'] ?? '-'));
         $this->components->twoColumnDetail('Needs human review', ($repair['requires_human_review'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Review signal', (string) data_get($repair, 'review_signal.status', 'unknown'));
+        $this->components->twoColumnDetail('Review severity', (string) data_get($repair, 'review_signal.severity', 'unknown'));
+        $this->components->twoColumnDetail('Recommended action', (string) data_get($repair, 'review_signal.recommended_action', 'none'));
 
         $strategyRows = collect((array) ($repair['strategy_counts'] ?? []))
             ->map(fn (int $count, string $strategy): array => [$strategy, $count])

@@ -33,6 +33,8 @@ capabilities:
   - multi_tenancy_foundation
   - identity_persistence_contract
 decisions:
+  - A Tese do Multiplicador / Canal Unico (Layer -1, ver atlas-ai-thesis-multiplier-channel.md) e ponto fixo acima do Kernel. Cada contrato kernel (Envelope, Receipt, Ledger, ProviderDriver, SurfaceAdapter) existe para sustentar o multiplicador empirico, nao por elegancia arquitetural per se.
+  - Atlas Rivals consome contratos do Kernel (Envelope replay-able, Decision Receipt deterministica, Evidence Ledger event-sourced) para medir multiplicador empirico. Sem esses contratos, Rivals nao pode existir; sem Rivals, a tese nao pode ser validada.
   - Atlas AI tem um Kernel formal. Topology nao basta; sem kernel tipado, doutrina nao e enforcable.
   - Toda requisicao Atlas AI e modelada como Operation Envelope tipada, imutavel por estagio, append-only.
   - Decision Receipt v2 e event-sourced, hashable, chainable e replayavel; preview = mesmo codigo com dry_run=true.
@@ -586,17 +588,92 @@ A implementacao `ScaffoldAtlasKernelPipeline` roda apenas em modo scaffold/dry-r
 - pode ser inspecionado por `atlas:ai:pipeline --json`; com `--execute`, retorna
   resultados scaffold por stage, evidence refs e trace refs sem executar
   provider nem runtime real.
+- `atlas:ai:pipeline --execute` tambem grava `KERNEL_PIPELINE_ACCEPTED` no
+  Evidence Ledger por `KernelPipelineAuditService`, com
+  `emitter_stage=atlas.ai_pipeline.scaffold`. O modo `plan` continua sem
+  escrita, para nao poluir auditoria com mera inspecao; a execucao scaffold,
+  por outro lado, vira evento replayavel e aparece nos reports de Kernel
+  Pipeline.
 - tambem esta exposto por `POST /ai/pipeline` com `atlas.token`, para App,
   dashboard, mobile e Curator inspecionarem a mesma ponte sem duplicar logica.
   A API aceita `text`, `surface_id`, `operator_id`, `hints`, `metadata` e
-  `execute`; sempre forca `dry_run=true`.
+  `execute`; sempre forca `dry_run=true`. Quando `execute=true`, a API segue o
+  mesmo `KernelPipelineAuditService` da CLI e devolve `ledger_event` com
+  `event_id`, `event_type`, `envelope_id` e `payload_hash`.
+- `atlas:cli:dev` agora anexa um `kernel_pipeline` compacto em todo
+  `dev_execution_plan`, tanto no cockpit interativo quanto no one-shot com
+  prompt. O binding fixa `surface=atlas_cli_dev`, `flow=programming.dev` ou
+  `programming.forge`, `input_mode=interactive|one_shot`, stage order,
+  `canonical_flow_hash`, slot manifest e guards de execucao. Essa montagem e
+  feita por `KernelPipelineDevPlanBuilder`, nao pela surface; isso impede que
+  `atlas dev` e `atlas:ai:chat --dev` mantenham shapes paralelos do mesmo
+  contrato. Isso nao migra a execucao real ainda, mas remove a diferenca
+  arquitetural invisivel entre `atlas dev` e `atlas dev "prompt"`: ambos
+  carregam o mesmo contrato de pipeline antes de chamar `atlas:ai:chat`.
+- `atlas:ai:chat --dev` preserva o `kernel_pipeline` recebido via
+  `--dev-plan` e, quando recebe plano legado sem esse campo, completa o plano
+  com binding `surface=atlas_ai_chat` usando o mesmo
+  `KernelPipelineDevPlanBuilder`. Assim chamadas diretas ao chat em modo dev e
+  chamadas vindas de `atlas:cli:dev` ficam auditaveis pelo mesmo contrato sem
+  exigir runtime migration imediata.
+- `KernelPipelinePlanGuard` valida contratos recebidos de surfaces antes de
+  enfileirar job: schema, mode/status scaffold, `canonical_flow_hash`,
+  `stage_order`, `stage_count`, surface/input mode allowlisted e guards que
+  mantem `provider_execution_allowed=false` e `runtime_execution_allowed=false`.
+  As allowlists de surfaces Programming (`atlas_cli_dev`, `atlas_ai_chat`),
+  commands (`atlas:cli:dev`, `atlas:ai:chat`), flows (`programming.dev`,
+  `programming.forge`, `programming.repair`) e input modes (`interactive`,
+  `one_shot`, `declared_dev_plan`, `chat_dev_auto_plan`) vivem em
+  `KernelPipelineContract`, nao dentro do guard. O builder valida o proprio
+  plano gerado com `KernelPipelinePlanGuard` antes de entregar para a surface,
+  falhando fechado se algum binding sair do contrato. O shape de
+  `kernel_pipeline_contract` vem de `KernelPipelineContract::requiredSurfaceContract()`;
+  o guard valida plano e contrato juntos por `assertValidPlanAndContract()`.
+  Isso impede que uma surface envie um `kernel_pipeline` formalmente valido com
+  metadado de contrato adulterado, origem desconhecida ou bloqueios de execucao
+  desligados. Um `--dev-plan` adulterado falha fechado em preflight com
+  `atlas_kernel_pipeline_contract_violation`.
+- `AtlasEvidenceLedger` grava `KERNEL_PIPELINE_ACCEPTED` e
+  `KERNEL_PIPELINE_REJECTED` com payload seguro: hashes, stage order, guards,
+  surface binding, surface contract source e routing, sem prompt bruto.
+  `KernelPipelineAuditService` e o ponto unico usado por `atlas:ai:pipeline`,
+  `POST /ai/pipeline` e `atlas:ai:chat --dev` para registrar planos
+  aceitos/rejeitados; surfaces nao chamam o ledger diretamente para esse
+  contrato. `AtlasLedgerReplayService` projeta esses eventos por envelope
+  (`kernelPipelineReportForEnvelope()`) e por janela
+  (`kernelPipelineReportForWindow()`), agregando accepted/rejected, surface,
+  contract source, emitter stage, flow, input mode, violations e eventos recentes. O operador pode
+  consultar `atlas:ai:ledger <envelope> --kernel --json`,
+  `GET /ai/ledger/{envelope}?kernel=1`,
+  `atlas:ai:kernel-pipeline-report --hours=24 --contract-source=KernelPipelineDevPlanBuilder --json`
+  ou `GET /ai/kernel-pipeline/report?hours=24&contract_source=KernelPipelineDevPlanBuilder`.
+  O dashboard
+  `GET /ai/observability` inclui `kernel_pipeline` junto de `kernel_slo` e
+  `kernel_repair`. Assim drift de surface e adulteracao de contrato ficam
+  visiveis no mesmo plano operacional do Atlas AI, tanto por envelope quanto
+  por janela.
+- `AiWorker` agora tem uma fronteira runtime conservadora via
+  `KernelPipelineRuntimeGuard`: qualquer job que carregue `dev_execution_plan`
+  ou `kernel_pipeline` precisa validar o mesmo plano+contrato antes de abrir
+  provider. Contrato ausente, hash/stage order adulterado ou metadado de
+  surface invalido bloqueia a tentativa com
+  `kernel_pipeline_contract_violation`, registra
+  `KERNEL_PIPELINE_REJECTED` por `KernelPipelineAuditService` e evita resolver
+  provider. Contrato valido registra `KERNEL_PIPELINE_ACCEPTED` com
+  `emitter_stage=atlas.ai_worker.kernel_pipeline_runtime_guard` antes do
+  provider ser aberto, para diferenciar aceite de preflight e aceite real do
+  Data Plane. O plano auditavel e o contexto de ledger (`tenant_id`,
+  `operator_id`, `trace_id`, emitter e `surface_contract`) sao normalizados por
+  `KernelPipelineRuntimeGuard`, nao montados manualmente no worker. Isso ainda
+  nao migra a execucao real para o Kernel Pipeline; ele fecha a porta para fluxo
+  dev/forge legado entrar no Data Plane sem contrato auditavel.
 - o Repair Loop segue a mesma regra operacional: `atlas:ai:repair --json` e
   `POST /ai/repair` expoem plano/tentativa scaffold, sempre com `dry_run=true`
   nas surfaces CLI/API, sem executar provider, tool, harness ou patch real.
 
 Esse scaffold e uma ponte de contrato. Ele permite testar ordem, slots,
-compliance e auditabilidade antes de migrar `atlas dev`, `atlas forge`,
-`atlas:ai:chat`, API ou worker para o pipeline real.
+compliance e auditabilidade antes de migrar a execucao real de `atlas dev`,
+`atlas forge`, `atlas:ai:chat`, API ou worker para o pipeline real.
 
 ---
 
@@ -781,6 +858,7 @@ final class LedgerEvent
 {
     public string $event_id;                // ULID
     public string $envelope_id;
+    public ?string $trace_id;               // UUID ai_traces.id ou ULID operacional
     public ?string $causation_id;           // event que causou este
     public string $correlation_id;          // grupo logico
     public DateTimeImmutable $occurred_at;
@@ -853,6 +931,11 @@ Adicionar event type novo exige migration aditiva. Nunca remover sem deprecation
 | `atlas_memory_entry_usages` | projecao para Memory Audit |
 
 Reconstruir projecao = reler eventos. Tabelas operacionais podem ser truncadas e regeneradas.
+
+`trace_id` no ledger e string, nao UUID estrito. Quando existe `ai_traces.id`,
+ele pode carregar UUID; quando o Kernel cria envelope/receipt antes de uma
+trace operacional, ele carrega ULID. Isso evita que preview, Decide, Kernel
+Pipeline ou Curator dependam de uma tabela projetada para registrar evento.
 
 ---
 
@@ -945,6 +1028,64 @@ class CapabilityComplianceTest extends TestCase
 ```
 
 Resultado: o paste-image so em `atlas ask` deixa de ser possivel. Quem mergir `atlas dev` sem suporte a image paste, sem `not_supported.reason` valido, quebra o test arquitetural.
+
+Implementacao atual:
+
+- `AtlasCapabilityRegistry::complianceReport()` valida manifests, surfaces
+  obrigatorias, `not_supported.reason`, cobertura completa de surfaces e
+  existencia dos testes declarados. Cada capability precisa classificar cada
+  surface conhecida como `required`, `optional` ou `not_supported`; surface sem
+  postura explicita quebra `capabilities.valid`.
+- `SurfaceCapabilityParityService` cruza as capabilities horizontais de input,
+  memoria, contexto, tools e Human Knowledge com os adapters operacionais (`atlas_cli_dev`,
+  `atlas_cli_chat`, `atlas_cli_forge`, `atlas_app`,
+  `atlas_api_interaction`, `atlas_worker`, `atlas_mcp_readonly`,
+  `atlas_vault`).
+- `atlas:ai:architecture-validate --json` publica
+  `capabilities.surface_adapter_parity`, com contagem de checks, erros e skips.
+  O estado esperado atual e `errors=[]` e `skipped=[]`; qualquer skip agora
+  torna `capabilities.valid=false`, `kernel.static_scan.valid=false`,
+  `kernel.valid=false` e o comando falha.
+- O mesmo contrato tambem aparece como
+  `kernel.static_scan.ap33_surface_capability_parity`, mantendo a familia AP
+  completa no payload central de arquitetura.
+- A cobertura completa aparece como
+  `kernel.static_scan.ap34_capability_surface_coverage`; isso impede que uma
+  capability nova deixe AtlasVault, MCP, Worker, App, API ou CLI em zona cinza.
+- O mapa operacional de adapters aparece como
+  `kernel.static_scan.ap35_surface_adapter_parity_map_coverage`; isso impede que
+  um novo `SurfaceAdapter` registrado fique fora do Capability Registry por falta
+  de mapeamento.
+- O validador tambem publica `kernel.static_scan.summary`, derivado das chaves
+  AP efetivamente expostas: `total_count`, `passed_count`, `failed_count`,
+  `valid_keys`, `failed_keys` e `violation_count`. App, CI, dashboard e Curator
+  devem consumir esse resumo para health geral, em vez de reimplementar a lista
+  de APs em cada surface.
+- O mesmo payload do CLI e exposto por `GET /ai/architecture/validate`
+  autenticado por `atlas.token`. CLI e API consomem
+  `AtlasAiArchitectureValidationService`, entao App, dashboard, automacao e
+  Curator veem o mesmo `kernel.static_scan.summary` sem shellar comando e sem
+  duplicar montagem de payload.
+- A paridade entre service, CLI e API e bloqueio arquitetural proprio: o teste
+  de API compara o endpoint contra `AtlasAiArchitectureValidationService` para
+  campos operacionais estaveis, enquanto o CLI continua travando o mesmo summary.
+  Essa e a fonte unica do contrato de validacao; surfaces podem renderizar, mas
+  nao recompor o payload.
+- `GET /ai/observability` tambem publica `architecture_validation`, um resumo
+  compacto de arquitetura para dashboard/Curator: status, kernel/static scan
+  summary, capabilities, domains, orchestrators e onboarding. Os read models de
+  SLO/repair/pipeline sao capturados antes desse resumo para que a propria
+  validacao arquitetural nao polua a janela de observability.
+- Open Brain/MCP tambem expoe `atlas_architecture_validate`, read-only, usando o
+  mesmo `AtlasAiArchitectureValidationService`. Isso permite que agentes e o
+  Curator consultem health arquitetural sem shell, sem endpoint HTTP e sem
+  remontar regras.
+- `atlas_vault` e o adapter formal da Human Knowledge Surface: suporta texto,
+  arquivos markdown/notas e projections gerenciadas, mas nao declara
+  `memory_recall`, `context_compose` ou `tools_runtime`. Assim Obsidian fica
+  poderoso como workspace humano sem virar fonte operacional crua.
+- `CapabilityComplianceTest` tem caso negativo provando que uma capability
+  declarada no registry, mas ausente do adapter real, falha o build.
 
 ### 9.3 Capability Token
 
@@ -1216,6 +1357,11 @@ Surface pode declarar preferencias de domain/flow, mas nao vira autoridade de ca
 - `supported_domain_ids` e `supported_flow_ids`, quando declarados, limitam a exposicao da surface; escolhas canonicas fora desses limites retornam `surface_domain_not_supported` ou `surface_flow_not_supported`.
 - O read model de selecao inclui `surface_hints.supported_capabilities` para renderizacao e diagnostico; capabilities de surface nao concedem autoridade para provider, memoria ou runtime.
 - Aliases legados de surface devem ser canonizados antes da selecao: `atlas_cli` para `atlas_cli_dev` e `atlas_api` para `atlas_api_interaction`.
+- Aliases humanos de CLI tambem sao canonicos no registry: `atlas ask`,
+  `atlas chat` e `atlas_cli_ask` apontam para `atlas_cli_chat`;
+  `atlas dev`, `atlas fix`, `atlas continue`, `atlas_cli_fix` e
+  `atlas_cli_continue` apontam para `atlas_cli_dev`; `atlas forge` aponta
+  para `atlas_cli_forge`. Alias nunca cria surface nova nem autoridade nova.
 - `flow_id` ou `domain_id` explicito invalido retorna `status=unresolved` com `error.code`, sem fallback silencioso.
 - Fallback seguro e permitido apenas quando a selecao veio de UX implicita e o catalogo tem `general.answer`.
 - Surface continua proibida de escolher provider, montar contexto/memoria ou chamar runtime diretamente.
@@ -1788,7 +1934,7 @@ Cada anti-padrao tem teste arquitetural correspondente.
 | AP-1 | Surface chama provider direto | `KernelArchitectureStaticScanner` em `atlas:ai:architecture-validate` |
 | AP-2 | Surface monta context proprio | `KernelArchitectureStaticScanner` em `atlas:ai:architecture-validate` |
 | AP-3 | Comando decide provider | Static scan de selecao de provider em comandos sem ir via `AtlasDecide` |
-| AP-4 | Capability presa a surface | `CapabilityComplianceTest` |
+| AP-4 | Capability presa a surface | `CapabilityComplianceTest` + `SurfaceCapabilityParityService` cruzando Capability Registry com adapters reais de surface |
 | AP-5 | Domain reimplementa Memory | Static scan de classes que mantem cache/store de memoria fora de `AtlasMemory` |
 | AP-6 | Decision sem receipt | `KernelArchitectureStaticScanner` em `atlas:ai:architecture-validate` + testes de gateway/scout verificando receipt valido em trace, payload e metadata |
 | AP-7 | Policy hardcoded | Static scan de `if (provider === 'X')` em codigo fora de `ProviderRegistry` |
@@ -1802,6 +1948,77 @@ Cada anti-padrao tem teste arquitetural correspondente.
 | AP-15 | Memory secret entrando em provider | `AtlasMemoryPrivacyService::providerDecision` recalcula privacy class e blocklist antes de provider projection/Open Brain; `KernelArchitectureStaticScanner` verifica filtros provider-safe, redacao e ledger de bloqueio |
 | AP-16 | SLO declarado mas nao medido | `KernelSloProbe` mede estagios, `AtlasEvidenceLedger::recordSloObservation` persiste `SLO_OBSERVED`; `KernelArchitectureStaticScanner` publica AP-16 |
 | AP-17 | Pipeline Kernel chama provider/runtime real antes da migracao | `AtlasKernelPipeline` e `ScaffoldAtlasKernelPipeline` declaram stages, slots, plano, evidence/trace placeholders e `provider_execution_allowed=false`; `KernelArchitectureStaticScanner` verifica contrato e ausencia de bypass para providers/gateway/worker |
+| AP-18 | Repair Loop paralelo fora do kernel | `KernelArchitectureStaticScanner` verifica `AtlasRepairOrchestrator`, `RepairRequestFactory`, comando/API de repair dry-run e bridges em `AiWorker`, Programming e Harness |
+| AP-19 | MCP/Open Brain perde paridade com Domain Catalog | `atlas_domain_catalog` deve expor `onboarding_status`, validar `ready`/`executable_incomplete`/`scaffold`, testar schema/filtro/erro e manter docs sincronizadas |
+| AP-20 | `atlas fix` vira produto paralelo | `AtlasCliFixCommand` deve continuar fino, chamando `atlas:cli:dev` via `repairDevArguments`, com `--plan-only` auditavel e teste provando `programming.repair` no Kernel Pipeline |
+| AP-21 | `atlas continue` retoma por caminho paralelo | `AtlasCliContinueCommand` deve continuar fino, chamando `resumeDevCommand`, expondo `resume_contract` com `canonical_surface=atlas_cli_dev` e preservando plan/profile/model/intent/Open Brain ao retomar via `atlas:cli:dev` |
+| AP-22 | `atlas forge` vira produto paralelo ao Programming | `AtlasCliDevCommand --forge` deve continuar emitindo `forge_contract`, usar surface `atlas_cli_forge`, flow `programming.forge`, runtime `engineering_harness`, `AtlasProgrammingOrchestrator`, Kernel Pipeline e Engineering Harness |
+| AP-23 | `atlas chat --dev` vira programacao paralela | `AiChatCommand --dev` deve continuar emitindo `programming_chat_contract`, preservar `kernel_pipeline`, apontar para `AtlasProgrammingOrchestrator` e provar flow/runtime/surface do Kernel Pipeline em testes de auto-plan e dev-plan legado |
+| AP-24 | Alias humano vira surface/produto novo | `SurfaceAdapterRegistry` deve canonizar `atlas ask/chat` para `atlas_cli_chat`, `atlas dev/fix/continue` para `atlas_cli_dev`, `atlas forge` para `atlas_cli_forge`, publicar aliases no compliance report e validar que todo alias aponta para adapter existente |
+| AP-25 | Modelo/provider escolhido fora do Decide | `AtlasDecideService` deve publicar `provider_selection.selection_mode`, `model_selection_authority=atlas_decide` e os modos `auto_best_allowed`, `auto_best_available`, `manual_override` no contrato operacional e no receipt v2 |
+| AP-26 | `atlas dev` aplica provider/modelo sem contrato de decisao | `AtlasCliDevCommand` deve publicar `model_selection_contract` no preflight e no `dev_execution_plan`, com autoridade `atlas_decide`, modos fechados e override manual auditavel |
+| AP-27 | `atlas chat --dev` aplica provider/modelo sem contrato de decisao | `AiChatCommand` deve publicar `model_selection_contract` no payload do job, com surface `atlas_ai_chat`, autoridade `atlas_decide`, modos fechados e override manual auditavel |
+| AP-28 | Shape de selecao de modelo duplicado em surfaces | `ModelSelectionContractFactory` deve viver no Kernel/Decision, expor factories para `atlas_cli_dev` e `atlas_ai_chat`, manter modos fechados e impedir schema inline em comandos de surface |
+| AP-29 | Shape do Forge contract duplicado em command | `ProgrammingSurfaceContractFactory` deve viver em Programming, gerar `forge_contract` com surface `atlas_cli_forge`, flow `programming.forge`, runtime `engineering_harness` e impedir schema inline no command |
+| AP-30 | Shape do chat programming contract duplicado em command | `ProgrammingSurfaceContractFactory` deve gerar `programming_chat_contract` para `atlas_ai_chat`, preservando flow, executor, dispatch e Kernel Pipeline sem schema inline em `AiChatCommand` |
+| AP-31 | Shape do resume contract duplicado em command | `ProgrammingSurfaceContractFactory` deve gerar `resume_contract` para `atlas_cli_continue`, preservando origem, `canonical_surface=atlas_cli_dev`, `target_surface=atlas_cli_dev`, plano, intent, modelo e Open Brain sem schema inline em `AtlasCliContinueCommand` |
+| AP-32 | Shape do fix contract ausente ou duplicado fora de Programming | `ProgrammingSurfaceContractFactory` deve gerar `fix_contract` para `atlas_cli_fix`, preservando origem, `canonical_surface=atlas_cli_dev`, flow `programming.repair`, runtime `dev_repair_executor` e impedindo que `atlas fix` vire fluxo paralelo |
+| AP-33 | Capability horizontal declarada mas adapter operacional nao suporta | `SurfaceCapabilityParityService` deve validar que capabilities de input, memoria, contexto, tools e Human Knowledge possuem equivalentes em `SurfaceCapability` para CLI/App/API/Worker/MCP read-only/AtlasVault, sem skips silenciosos |
+| AP-34 | Capability sem postura para alguma surface | `AtlasCapabilityRegistry` deve exigir que toda capability classifique cada surface conhecida como `required`, `optional` ou `not_supported` com motivo, e `atlas:ai:architecture-validate` publica `ap34_capability_surface_coverage` |
+| AP-35 | Surface adapter operacional fora do mapa de capabilities | `SurfaceCapabilityParityService` deve exigir que todo adapter registrado em `SurfaceAdapterRegistry` apareca no mapa de paridade e publicar `ap35_surface_adapter_parity_map_coverage` |
+| AP-36 | Health do Kernel Pipeline vira heuristica paralela | `AtlasLedgerReplayService` deve publicar `health` deterministico no read model, e Ledger CLI, report dedicado, Observability e Self-Improvement devem consumir esse mesmo campo |
+| AP-37 | Architecture validate preso ao CLI ou com payload duplicado | `AtlasAiArchitectureValidationService` deve ser a fonte unica do payload, com CLI e `GET /ai/architecture/validate` consumindo o mesmo contrato e testes de auth/summary |
+| AP-38 | Observability sem health arquitetural ou poluindo ledger ao validar | `AiObservabilityController` deve expor `architecture_validation` compacto via service compartilhado e capturar SLO/repair/pipeline antes da validacao arquitetural |
+| AP-39 | CLI/API/Curator divergem no contrato de validacao arquitetural | `AtlasAiArchitectureValidationService` deve ser fonte unica; teste de API compara endpoint contra service, teste de CLI trava o summary e docs canonicas declaram a fonte unica |
+| AP-40 | Open Brain/Curator nao consegue consultar health arquitetural sem CLI/API | `atlas_architecture_validate` deve existir como tool MCP read-only, consumir `AtlasAiArchitectureValidationService`, provar summary em teste e declarar `writes=false` |
+| AP-41 | Self-Improvement ignora regressao de architecture validation | `AtlasSelfImprovementRuntime` deve consumir `AtlasAiArchitectureValidationService` em `weekly_architecture_audit`/review default e transformar AP quebrado em finding/proposal revisavel, nunca em autoalteracao critica |
+| AP-42 | Architecture audit existe mas fica fora do ciclo recorrente | `AtlasSelfImprovementScheduleService` e `ATLAS_AI_SELF_IMPROVEMENT_FLOWS` default devem incluir `weekly_architecture_audit`; CLI/API/Observability/testes devem mostrar 4 comandos recorrentes |
+| AP-43 | Flow semanal roda como job diario por falta de cadencia | `AtlasSelfImprovementScheduleService` deve declarar `cadence`/`week_day` por flow, marcar `weekly_architecture_audit` como weekly e `bootstrap/app.php` deve usar `weeklyOn` para jobs semanais |
+| AP-44 | Curator/UI inferem proxima execucao por fora do contrato | Cada comando recorrente de `AtlasSelfImprovementScheduleService` deve expor per-command `next_run_at`, respeitar cadencia daily/weekly e manter `plan_hash` estavel ao ignorar `next_run_at` no hash |
+| AP-45 | Open Brain/Curator nao consegue ler schedule sem API/CLI | MCP deve expor `atlas_self_improvement_schedule` read-only, com detalhes `health`/`plan`/`commands`, `writes=false`, inventory em `atlas_capabilities` e testes de sucesso/erro |
+| AP-46 | Curator nao percebe que sua propria agenda esta quebrada | `AtlasSelfImprovementRuntime` deve consumir `AtlasSelfImprovementScheduleService::scheduleHealth()` no audit semanal e transformar schedule health warning/disabled/skipped em finding/proposal revisavel |
+| AP-47 | Schedule health do Curator nao vira evidencia replayavel | Todo run de `AtlasSelfImprovementRuntime` deve registrar `SELF_IMPROVEMENT_SCHEDULE_OBSERVED` com snapshot compacto de schedule health, `plan_hash`, cadencia e scheduler registration |
+| AP-48 | Evidencia de schedule nao tem read model operacional | `AtlasLedgerReplayService` deve publicar schedule replay para `SELF_IMPROVEMENT_SCHEDULE_OBSERVED`, e Observability deve expor `self_improvement_schedule_replay` com status, counts, warnings e eventos recentes |
+| AP-49 | Schedule replay fica escondido dentro de Observability | CLI `atlas:ai:self-improvement-schedule-report` e API `GET /ai/self-improvement/schedule/report` devem expor o mesmo read model de schedule replay, com auth, teste de indisponibilidade e payload JSON |
+| AP-50 | Open Brain nao consegue auditar schedule replay sem HTTP | MCP deve expor `atlas_self_improvement_schedule_report` read-only, consumindo `AtlasLedgerReplayService::selfImprovementScheduleReportForWindow()` e publicando o mesmo read model provider-safe |
+| AP-51 | Curator observa schedule atual mas ignora drift historico | `AtlasSelfImprovementRuntime` deve consumir o schedule replay read model em audits recorrentes e transformar schedule replay drift em finding/proposal revisavel, sem autoalterar comportamento critico |
+| AP-52 | Cada superficie interpreta replay warning do seu jeito | `AtlasLedgerReplayService` deve publicar `schedule replay review_signal` canonico e o Curator deve consumir esse sinal em vez de recalcular politica de review localmente |
+| AP-53 | `review_signal` existe no replay mas some em superficies | CLI, API, Observability e MCP devem manter `review_signal surface parity`, expondo/testando status, severity e recommended_action do schedule replay |
+| AP-54 | Kernel Pipeline health exige interpretacao manual por superficie | `AtlasLedgerReplayService` deve publicar `kernel pipeline review_signal` canonico; CLI, API, Observability e Self-Improvement devem expor/propagar status, severity e recommended_action |
+| AP-55 | Repair Loop exige heuristica local para saber acao de review | `AtlasLedgerReplayService` deve publicar `repair loop review_signal` canonico; CLI, Ledger, API, Observability e Self-Improvement devem expor/propagar status, severity e recommended_action |
+| AP-56 | SLO drift exige interpretacao local em CLI/API/Curator | `AtlasLedgerReplayService` deve publicar `slo review_signal` canonico; CLI, API, Observability e Self-Improvement devem expor/propagar status, severity, reasons e recommended_action |
+| AP-57 | Open Brain nao consegue auditar SLO sem HTTP/CLI | MCP deve expor `atlas_kernel_slo_report` read-only, consumindo `AtlasLedgerReplayService::sloReportForWindow()` com filtros de dimensao e preservando `review_signal` |
+| AP-58 | Open Brain nao consegue auditar Kernel Pipeline sem HTTP/CLI | MCP deve expor `atlas_kernel_pipeline_report` read-only, consumindo `AtlasLedgerReplayService::kernelPipelineReportForWindow()` com filtros e preservando health/review_signal |
+| AP-59 | Open Brain nao consegue auditar Repair Loop sem HTTP/CLI | MCP deve expor `atlas_repair_loop_report` read-only, consumindo `AtlasLedgerReplayService::repairReportForWindow()` com filtros e preservando `review_signal` |
+| AP-60 | Repair Loop perde contrato quando ledger esta indisponivel | `repairReportForWindow()` deve usar o mesmo resumo canonico no caminho unavailable, preservando `repair loop unavailable review_signal` em CLI/API |
+| AP-61 | SLO perde contrato canonico quando ledger esta indisponivel | `sloReportForWindow()` deve usar `sloObservationSummary()` no caminho unavailable, preservando `slo unavailable review_signal` em CLI/API |
+| AP-62 | Open Brain perde `review_signal` quando replay MCP fica indisponivel | Todas as tools MCP de replay (`atlas_self_improvement_schedule_report`, `atlas_kernel_slo_report`, `atlas_kernel_pipeline_report`, `atlas_repair_loop_report`) devem retornar `ok=false`, `writes=false` e `mcp replay unavailable review_signal` canonico |
+| AP-63 | Schedule replay muda de shape quando ledger esta indisponivel | `selfImprovementScheduleReportForWindow()` deve manter `schedule replay unavailable shape parity`: preservar `review_signal`, devolver `recent_events=[]` e nunca expor `events` bruto no payload publico |
+| AP-64 | Tools MCP de replay normalizam janela de tempo de formas diferentes | `AtlasOpenBrainMcpService` deve manter `mcp replay window contract` por um unico normalizador de `hours`, com clamp 1..720, fallback 24 e teste cobrindo schedule/SLO/pipeline/repair |
+| AP-65 | Tools MCP de replay filtram dimensoes com regras locais | `AtlasOpenBrainMcpService` deve manter `mcp replay filter contract`: SLO, pipeline e repair usam o mesmo normalizador escalar, com trim, descarte de vazio/nao escalar e teste cobrindo os tres read models |
+| AP-66 | CLI/API/MCP normalizam replay input por caminhos diferentes | `KernelReplayReportInput` deve ser o `replay report input contract` compartilhado por MCP, CLI e API, centralizando `hours`, filtros escalares e aliases de superficie |
+| AP-67 | Observability normaliza janela de replay fora do contrato compartilhado | `AiObservabilityController` deve usar `KernelReplayReportInput` como `observability replay input contract`, mantendo a janela default de 24h coberta em teste |
+| AP-68 | APIs de replay duplicam literal do limite de janela | Controllers de replay devem manter `replay report validation limit contract`, usando `KernelReplayReportInput::MAX_WINDOW_HOURS` em validacao HTTP em vez de repetir `720` |
+| AP-69 | Self-Improvement usa limites autonomos como magic numbers | `AtlasSelfImprovementRuntime` deve manter `self-improvement runtime window contract` com constantes explicitas para janela default, janela autonoma maxima e limite maximo de findings |
+| AP-70 | Schedule do Self-Improvement duplica limites do runtime | `AtlasSelfImprovementScheduleService` deve manter `self-improvement schedule window contract`, reutilizando constantes do runtime para gerar comandos recorrentes |
+| AP-71 | Orquestrador do Self-Improvement duplica limites do runtime | `AtlasSelfImprovementOrchestrator` deve manter `self-improvement orchestrator window contract`, reutilizando as mesmas constantes do runtime para gerar planos de flow |
+| AP-72 | Telemetria normaliza janela temporal por controller/command | `AiTelemetryWindowInput` deve manter `telemetry window input contract` para APIs e comandos de telemetria, centralizando default, limite maximo e janela default de missing cost rates |
+| AP-73 | Policy/Profile duplica janela de budget do runtime | `AtlasAiRuntimeSettings` deve manter `runtime budget window contract`, centralizando default e limite maximo de `budget.window_hours` para settings, budget payload e EffectivePolicy |
+| AP-74 | Replay de envelope no Evidence Ledger limita eventos de formas diferentes | `KernelLedgerEnvelopeInput` deve manter `ledger envelope input contract`, centralizando default e limite maximo para `atlas:ai:ledger` e `GET /ai/ledger/{envelope}` |
+| AP-75 | CLI/API do Evidence Ledger montam payload de replay em paralelo | `KernelLedgerEnvelopeReportService` deve manter `ledger envelope report contract`, projetando eventos, filtros, SLO, Repair e Kernel Pipeline para CLI e API por uma unica fonte |
+| AP-76 | APIs de Telemetry listam recursos com limites duplicados | `AiTelemetryWindowInput` deve manter `telemetry list limit contract`, centralizando defaults e tetos para summaries, cost rates, missing cost rates e outcomes |
+| AP-77 | Fluxos Programming/Dev/Forge normalizam iteracoes em pontos diferentes | `ProgrammingIterationPolicy` deve manter `programming iteration policy contract`, centralizando minimo, maximo e guardas de dev, complete, forge e repair para CLI, policy, orchestrator e worker |
+| AP-78 | Ferramentas MCP/Open Brain normalizam limites com numeros magicos | `OpenBrainMcpInput` deve manter `open brain mcp input contract`, centralizando limites de code search, docs lookup, recent changes, decision query, module symbols e context-for |
+| AP-79 | Memoria/Obsidian/Vault normaliza limites em servicos paralelos | `MemoryQueryInput` deve manter `memory query input contract`, centralizando limites de registry, verbatim, governance, privacy, promotion, review queue, quality history e relations para que AtlasVault/Open Brain continuem Core e nao logica solta por surface |
+| AP-80 | Provider Projection Audit normaliza janelas e purge localmente | `ProviderProjectionAuditInput` deve manter `provider projection audit input contract`, centralizando limite de busca, janela de resumo e retencao de purge do audit que protege memoria antes de chegar aos providers |
+| AP-81 | Conversation Context decide janela de turnos dentro do builder | `ConversationContextInput` deve manter `conversation context input contract`, centralizando limites de turnos recentes e turnos vindos do payload para a etapa `context.compose` |
+| AP-82 | Session Search e runtime duplicam `top_n` de retrieval | `RetrievalRankInput` deve manter `retrieval rank input contract`, centralizando `top_n` de session search em service, prompt builder e runtime tool para que contexto recuperado tenha ranking consistente |
+| AP-83 | AtlasVault CLI normaliza limite dentro da surface humana | `AtlasVaultCommandInput` deve manter `atlas vault command input contract`, centralizando limites de sync e conflicts para que `atlas_vault` permaneça adapter governado da Human Knowledge Surface |
+| AP-84 | Hybrid Memory Recall calcula limites e budgets dentro do service | `MemoryRecallInput` deve manter `memory recall input contract`, centralizando limite final, candidatos por fonte, budget de caracteres, tamanho por item e excerpt de registry para registry, verbatim, semantic e context composer |
+| AP-85 | Context Pack Builder calcula limites de memoria dentro do builder | `ContextPackMemoryInput` deve manter `context pack memory input contract`, centralizando limites de registry, verbatim recall, budget por recall e excerpt para que `context.compose` nao tenha policy numerica local |
+| AP-86 | Context Pack Builder calcula limites de semantic notes dentro do builder | `SemanticContextInput` deve manter `semantic context input contract`, centralizando limite de notas semanticas e tamanho de excerpt para que vault/KB entrem no `context.compose` por contrato comum |
+| AP-87 | Provider Projection calcula limites de linhas/memoria dentro do service | `ProviderProjectionInput` deve manter `provider projection input contract`, centralizando `max_lines`, `memory_limit` e tamanho por memoria para que a projecao provider-safe seja governada por contrato |
+| AP-88 | Test Command Resolver valida memoria do comando dentro do resolver | `TestCommandInput` deve manter `test command input contract`, centralizando `test_memory_limit` para que Quality/Runtime executem testes com limite seguro e auditavel |
 
 Cada AP e merge-blocking. CI roda todos.
 
@@ -1901,7 +2118,8 @@ Proximos incrementos:
 
 Status atual: implementado como base append-only com `atlas_ledger_events`,
 `AtlasEvidenceLedger`, taxonomia inicial e `ENVELOPE_CREATED` emitido pela
-`OperationEnvelopeFactory`. Decide emite `DECISION_ISSUED`.
+`OperationEnvelopeFactory`. Decide emite `DECISION_ISSUED`. A coluna
+`trace_id` do ledger aceita UUID de `ai_traces` ou ULID operacional do Kernel.
 
 Proximos incrementos:
 
@@ -1917,13 +2135,47 @@ pipeline, reads/writes por stage, plano auditavel, placeholders de evidence e
 trace, e compliance report. Ele nao executa provider, runtime real, worker,
 gateway ou adapters concretos.
 
+`atlas:cli:dev` ja consome esse contrato como `kernel_pipeline` dentro do
+`dev_execution_plan` para o modo interativo e para o modo one-shot. Esse passo
+e deliberadamente scaffold-safe: o plano e auditavel e comum, mas
+`provider_execution_allowed=false` e `runtime_execution_allowed=false` continuam
+impedindo que a ponte chame provider, harness ou worker por fora dos caminhos
+legados protegidos.
+
+`atlas:ai:chat --dev` tambem preserva ou completa esse contrato. Planos novos
+vindos de `atlas:cli:dev` mantem `surface=atlas_cli_dev`; planos legados ou
+gerados automaticamente pelo chat recebem `surface=atlas_ai_chat` e
+`input_mode=declared_dev_plan|chat_dev_auto_plan`, mantendo a mesma ordem
+canonica do kernel e os mesmos guards scaffold.
+
+O recebimento de contrato agora e fail-closed: `KernelPipelinePlanGuard` rejeita
+schema, stage order, hash canonico, flags de execucao ou
+`kernel_pipeline_contract` adulterado antes do enqueue. O contrato de surface
+deve declarar `required=true`, origem allowlisted pelo kernel, surface sem poder
+de decisao e bloqueios ativos para provider/runtime ate a migracao real. Esse
+guard e propositalmente pequeno e conservador; ele protege a ponte scaffold
+enquanto a execucao real ainda vive nos caminhos legados.
+
+Aceite e rejeicao tambem viram Evidence Ledger:
+
+- `KERNEL_PIPELINE_ACCEPTED` quando um plano scaffold passa pelo guard;
+- `KERNEL_PIPELINE_REJECTED` quando uma surface envia contrato adulterado.
+
+Os eventos sao emitidos por `AtlasEvidenceLedger` com
+`emitter_stage=atlas.ai_chat.kernel_pipeline_guard` na fronteira do chat. O
+payload guarda apenas hashes, stage order, guards, surface binding e routing
+seguro; nunca copia prompt bruto.
+
 Proximos incrementos:
 
 - Conectar `OperationEnvelopeFactory`, `DecisionReceiptIssuer` e
   `AtlasEvidenceLedger` ao pipeline real por adapters, mantendo compatibilidade.
-- Criar adapters finos para surfaces existentes em PRs separados.
-- Migrar `atlas dev`/`forge`/`chat` apenas depois de testes de paridade,
-  observabilidade e rollback.
+- Projetar `KERNEL_PIPELINE_ACCEPTED/REJECTED` no replay/report do ledger para
+  dashboards de drift por surface, flow e input mode.
+- Criar adapters finos para API/App/Mobile sem duplicar decisao dentro da
+  surface.
+- Migrar execucao real de `atlas dev`/`forge`/`chat` apenas depois de testes de
+  paridade, observabilidade e rollback.
 
 ### Fase 4 — Capability Registry Executavel (3-5 dias)
 
@@ -2031,26 +2283,36 @@ counts, latest status/strategy, flag `requires_human_review` e eventos recentes
 com `causation_id`, `decision_hash` e `result_hash`. Isso da ao operador,
 Curator e Self-Improvement uma leitura canonica de repair sem consultar payload
 raw nem recriar logica por surface. A mesma camada publica
+`kernelPipelineReportForEnvelope()`: `atlas:ai:ledger <envelope> --kernel
+--json` e `GET /ai/ledger/{envelope}?kernel=1` transformam
+`KERNEL_PIPELINE_ACCEPTED`/`KERNEL_PIPELINE_REJECTED` em resumo de contrato
+`atlas.run` por envelope, incluindo accepted/rejected count, status, surface,
+flow, input mode, violations e eventos recentes. Esse report mostra se uma
+surface entrou no pipeline canonico ou tentou adulterar schema/hash/guards
+antes de qualquer provider ou runtime executar. A mesma camada publica
 `sloReportForWindow()` para agregacao por janela: envelope count, status
 counts, success/failure, resumo por stage, dimensoes agregadas e
 `recent_breaches`. Cada observacao SLO pode carregar dimensoes canonicas
 provider-safe (`domain`, `flow`, `surface_id`, `provider`, `model`, `runtime`,
 `tool_id`), permitindo dashboards por dominio/surface/provider/model sem ler
 payloads privados nem transformar tabela operacional em fonte de verdade. O
-payload `GET /ai/observability` agora inclui `kernel_slo`, `kernel_repair` e
-`self_improvement_schedule`,
+payload `GET /ai/observability` agora inclui `kernel_slo`, `kernel_repair`,
+`kernel_pipeline` e `self_improvement_schedule`,
 permitindo dashboard e Self-Improvement/Curator enxergarem drift por janela e
-padroes de repair sem reimplementar queries. `self_improvement_schedule` vem de
+padroes de repair/pipeline sem reimplementar queries. `self_improvement_schedule` vem de
 `AtlasSelfImprovementScheduleService` e publica enabled/time/flows/commands,
 `configured_flows`, `invalid_flows`, `defaulted`, `timezone`, `next_run_at` e
-`health` do ciclo recorrente efetivo, incluindo o default `nightly_review` +
-`repair_loop_review`. O payload tambem publica `plan_hash` com algoritmo
-`sha256`, calculado sobre a configuracao efetiva e health issues, mas sem
-depender de `next_run_at`, permitindo detectar drift entre CLI, API,
-observability e cron sem confundir mudanca natural de data. O scheduler real em
-`bootstrap/app.php` consome `scheduledCommands()` e aplica explicitamente
-`dailyAt(time)` + `timezone(timezone)` do mesmo contrato somente quando
-`schedulable=true`. Schedule desligado, horario invalido ou timezone invalida
+`health` do ciclo recorrente efetivo, incluindo o default `nightly_review`,
+`weekly_architecture_audit`, `repair_loop_review` e `kernel_pipeline_review`.
+Cada command tambem declara `cadence` e `week_day`: daily para reviews noturnos,
+repair e pipeline; weekly para architecture audit. O payload publica
+`cadence_counts` e `plan_hash` com algoritmo `sha256`, calculado sobre a
+configuracao efetiva e health issues, mas sem depender de `next_run_at`,
+permitindo detectar drift entre CLI, API, observability e cron sem confundir
+mudanca natural de data. O scheduler real em `bootstrap/app.php` consome
+`scheduledCommands()` e aplica explicitamente `dailyAt(time)` para jobs diarios,
+`weeklyOn(week_day, time)` para jobs semanais e `timezone(timezone)` do mesmo
+contrato somente quando `schedulable=true`. Schedule desligado, horario invalido ou timezone invalida
 permanece auditavel em plano/health, mas nao vira registro real no cron. O bloco
 `scheduler_registration` explicita `registered_command_count` e
 `skipped_reason` para dashboards e CI distinguirem plano auditavel de registro
@@ -2080,6 +2342,22 @@ CLI e API, por exemplo `atlas:ai:repair-report --strategy=human_review --json`
 ou `GET /ai/repair/report?strategy=human_review&failure_domain=compliance.violation`.
 Isso permite que Curator, dashboard e operador isolem padroes de repair sem
 reconsultar payload raw nem criar queries paralelas.
+`kernel_pipeline` vem de `kernelPipelineReportForWindow()` e agrega eventos de
+contrato por janela: accepted/rejected, envelope count, surface, emitter stage,
+flow, input mode, violations, latest status, `has_rejections` e `health`. O
+health e deterministico: sem eventos vira `unknown`, zero rejeicoes vira `ok`,
+qualquer rejeicao ate o threshold de breach vira `warning`, e rejeicao acima de
+5% vira `breach`, com `rejection_rate`, thresholds, reasons e
+`review_required`. Esse resumo e a visao operacional para descobrir se
+`atlas dev`, `atlas forge`, `atlas:ai:chat` ou uma API futura estao tentando
+operar fora da arquitetura-mae antes de migrar o runtime real. A consulta
+dedicada por janela e
+`atlas:ai:kernel-pipeline-report --hours=24 --json`, com filtros por
+`status`, `surface`, `flow`, `input-mode` e `emitter-stage`; a API equivalente
+e `GET /ai/kernel-pipeline/report?hours=24&surface=atlas_ai_chat`. O operador
+tambem pode auditar por envelope com
+`atlas:ai:ledger <envelope> --kernel --json` ou
+`GET /ai/ledger/{envelope}?kernel=1`.
 `GET /ai/slo` publica a mesma projecao como API operacional autenticada, com
 filtros por `domain`, `flow`, `surface_id`/`surface`, `provider`, `model`,
 `runtime` e `tool_id`/`tool`. Isso cria uma interface unica para dashboard,
@@ -2093,15 +2371,39 @@ provider performance para gerar proposals revisaveis de SLO drift, mantendo
 autonomia baixa: detectar e propor, nunca alterar target/runtime automaticamente.
 O mesmo runtime agora consome `repairReportForWindow()` para abrir findings
 revisaveis quando o Repair Loop acumula `human_review`, bloqueios/exhaustion ou
-estrategias repetidas. Isso fecha o ciclo: repair gera ledger, replay projeta,
-observability mostra e Self-Improvement transforma padrao em proposta sem
-autoaplicar mudanca critica. Para operacao direcionada, o flow dedicado
+estrategias repetidas, e consome `kernelPipelineReportForWindow()` para abrir
+findings revisaveis quando o contrato `atlas.run` acumula rejeicoes,
+violations, input modes problematicos ou drift de surface. Isso fecha o ciclo:
+repair/pipeline gera ledger, replay projeta, observability mostra e
+Self-Improvement transforma padrao em proposta sem autoaplicar mudanca critica.
+O runtime tambem consome `AtlasAiDomainCatalogService` diretamente nos flows de
+arquitetura/domain learning/capability scan/default, gerando findings quando o
+catalogo possui dominios `scaffold` ou `executable_incomplete`. O filtro
+`--onboarding-status` chega ao plano e ao runtime como `onboarding_status`,
+permitindo que Curator revise apenas habilidades ainda incompletas sem misturar
+isso com SLO, repair ou kernel pipeline. O static scanner de
+`atlas:ai:architecture-validate` tambem verifica que Self-Improvement continua
+consumindo Repair Loop, Kernel Pipeline e Domain Catalog onboarding evidence;
+se `domainOnboardingFindings()`, `onboarding_status` ou os source refs
+`domain_catalog` forem removidos, o contrato de arquitetura falha.
+Para operacao direcionada, o flow dedicado
 `self_improvement.repair_loop_review` consome apenas evidencia de Repair Loop e
 aceita os mesmos filtros (`repair status`, `strategy`, `failure_domain`,
 `emitter_stage`), preservando-os em `runtime.filters` e
 `finding.metadata.filters`. `tool_runtime_review` pode agregar esse mesmo sinal,
 mas a curadoria de repair tem executor proprio (`repair_loop_review_runtime`)
 para evitar heuristicas paralelas ou mistura acidental com gates/tools.
+O flow dedicado `self_improvement.kernel_pipeline_review` consome apenas
+evidencia de Kernel Pipeline e aceita filtros por `kernel status`, `surface`,
+`flow`, `input_mode` e `emitter_stage`, preservando-os em
+`runtime.filters`/`finding.metadata.filters`. Isso permite que rejeicoes de
+surface em `atlas dev`, `atlas forge`, `atlas:ai:chat` ou APIs futuras virem
+proposals revisaveis antes da migracao do runtime real.
+O flow `self_improvement.domain_learning_review` agora tambem e a rota natural
+para proposals de onboarding de dominios: ele preserva `domain`, `flow` e
+`onboarding_status` em `runtime.filters`, referencia dominios como
+`source_refs.type=domain_catalog`, e inclui fases faltantes e proximas acoes no
+finding.
 
 Proximos incrementos:
 
@@ -2244,10 +2546,10 @@ Para cada area do codigo atual, indica como ela se torna parte do kernel.
 | `AtlasCapabilityRegistry` | Primeira implementacao executavel do Capability Registry baseada em `config/atlas_ai.php` |
 | `AtlasDomainManifestValidator` | Primeira implementacao executavel do Domain Manifest/Profile compliance |
 | `AtlasDomainOrchestrator` + `AtlasDomainOrchestratorRegistry` | SDK minimo de dominios: nomes curtos de manifest resolvem para classes PHP reais, maturidade e suporte declarado por domain/flow |
-| `AtlasAiDomainCatalogService` | Service compartilhado que monta o inventario validado de domains/flows/orchestrators para CLI e API sem duplicacao |
+| `AtlasAiDomainCatalogService` | Service compartilhado que monta o inventario validado de domains/flows/orchestrators para CLI e API sem duplicacao; agrega `onboarding_status_counts` e permite filtrar dominios por `ready`, `executable_incomplete` ou `scaffold` |
 | `AtlasDomainOnboardingScorecard` | Scorecard de onboarding por dominio com 9 fases: charter, profile, context, orchestrator, runtime, gates, learning, surface e maturity_gate; Programming, Self-Improvement, Finance e Personal Development estao implemented/ready; Marketing e os demais dominios listados permanecem scaffold/catalog-ready ate existir runtime/orchestrator proprio |
-| `atlas:ai:architecture-validate` | Verificacao operacional dos contratos executaveis de Capability Registry, Domain Orchestrator Registry e Domain/Profile Registry |
-| `atlas:ai:domains` + `GET /ai/domains` | Inventario operacional de domains, flows e orchestrators; expoe maturidade, runtime, autonomia, executor preference, onboarding scorecard e validacao em JSON/humano |
+| `atlas:ai:architecture-validate` | Verificacao operacional dos contratos executaveis de Capability Registry, Domain Orchestrator Registry, Domain/Profile Registry e static APs; publica `kernel.static_scan.summary` para CI/dashboard/Curator consumirem contagem, chaves validas, chaves falhas e violacoes sem duplicar manifesto |
+| `atlas:ai:domains` + `GET /ai/domains` + `atlas_domain_catalog` MCP | Inventario operacional de domains, flows e orchestrators; expoe maturidade, runtime, autonomia, executor preference, onboarding scorecard, contadores ready/scaffold/incomplete, filtro `--onboarding-status`/`onboarding_status` e validacao em JSON/humano; `GET /ai/observability` tambem projeta o resumo `domain_catalog` |
 | `programming.*` flow profiles | Programming declarado no registry com dev, repair, review, refactor, qa, security, database, visual e forge; todos os flows declaram context policy, memory/learning policy, gate policy e surfaces |
 | `marketing.*` flow profiles | Marketing declarado como scaffold/catalog-ready com 15 flows canonicos alvo; nao e implemented/ready ate existir runtime/orchestrator proprio |
 | `finance.*` flow profiles | Finance declarado no registry com 10 flows enterprise analysis-only, gates de compliance/source/risk, memoria provider-safe, tool policy read-only e bloqueio de qualquer execucao de mercado |
@@ -2256,7 +2558,7 @@ Para cada area do codigo atual, indica como ela se torna parte do kernel.
 | `AiWorker` + `atlas:ai:ledger` | Primeira ponte runtime/provider/gate/repair para o ledger: execution started, provider called/returned, gate evaluated/passed/blocked, repair initiated/completed, terminal operation events e replay por envelope |
 | `EngineeringHarnessRunnerService` | Ponte do Engineering Harness para o ledger: execution started, context composed, provider returned e terminal operation event por engineering run |
 | `AtlasToolEvidenceStore` / `AtlasToolGateService` | Ponte do Super Tool Runtime para o ledger: tool evidence recorded e gate events por envelope/contexto |
-| `AtlasSelfImprovementOrchestrator` + `AtlasSelfImprovementRuntime` + `AtlasSelfImprovementScheduleService` + `atlas:ai:self-improve` + `GET /ai/self-improvement/schedule` | Primeira implementacao ready do Curator/Self-Improvement sobre o ledger: resolve profile do dominio, emite plano para 11 flows especializados, suporta `--list-flows`, `--schedule-plan` e `--plan-only`, executa reviews por flow, registra initiative run, learning proposals e proposals seguras opcionais; declara context, gates, learning e surfaces scheduler/CLI/API/app com agendamento multi-flow. O default recorrente agenda `nightly_review` e `repair_loop_review` |
+| `AtlasSelfImprovementOrchestrator` + `AtlasSelfImprovementRuntime` + `AtlasSelfImprovementScheduleService` + `atlas:ai:self-improve` + `GET /ai/self-improvement/schedule` | Primeira implementacao ready do Curator/Self-Improvement sobre o ledger: resolve profile do dominio, emite plano para 12 flows especializados, suporta `--list-flows`, `--schedule-plan` e `--plan-only`, executa reviews por flow, registra initiative run, learning proposals e proposals seguras opcionais; declara context, gates, learning e surfaces scheduler/CLI/API/app com agendamento multi-flow. O default recorrente agenda `nightly_review`, `weekly_architecture_audit`, `repair_loop_review` e `kernel_pipeline_review`, com cadence daily/weekly explicita |
 | `AtlasAiPolicyService` | Implementacao do Policy Engine declarativo; inclui guard rails de kernel para `programming.repair` -> `dev_repair_executor` e flows Programming de harness -> `engineering_harness` |
 | `AiGatewayService` | Adapter entre kernel e camada legacy de jobs |
 | `AtlasOpenBrainContextInjectionService` | Implementacao concreta de `Atlas.Context` mode auto/required/off |
@@ -2465,6 +2767,186 @@ Invariantes:
   `kernel_repair_decision` em resultados de Forge/Harness bloqueados, parciais
   ou falhos, grava a decisao no Evidence Ledger como `REPAIR_INITIATED`, e nao
   executa reparo por fora do kernel.
+- `atlas:ai:architecture-validate --json` inclui AP19
+  `mcp_domain_catalog_parity`, que falha se a tool MCP/Open Brain
+  `atlas_domain_catalog` deixar de expor e validar `onboarding_status` como
+  CLI/API/observability.
+- `atlas:ai:architecture-validate --json` inclui AP20
+  `cli_fix_dev_repair_alias`, que falha se `atlas fix` deixar de ser um
+  alias fino para `atlas dev --repair`, perder `--plan-only`, ou deixar de ter
+  teste provando `programming.repair` no Kernel Pipeline.
+- `atlas:ai:architecture-validate --json` inclui AP21
+  `cli_continue_dev_resume_alias`, que falha se `atlas continue` deixar de
+  retomar por `AtlasProgrammingSurfaceCommandBuilder::resumeDevCommand()`,
+  perder `resume_contract`, ou deixar de preservar `dev_execution_plan`,
+  `programming_session_plan`, profile, model, intent e Open Brain ao chamar
+  `atlas:cli:dev`.
+- `atlas:ai:architecture-validate --json` inclui AP22
+  `cli_forge_programming_harness_contract`, que falha se `atlas forge` deixar
+  de ser `atlas:cli:dev --forge`, perder `forge_contract`, ou deixar de provar
+  `programming.forge` + `engineering_harness` + `AtlasProgrammingOrchestrator`
+  no Kernel Pipeline e no harness.
+- `atlas:ai:architecture-validate --json` inclui AP23
+  `chat_dev_programming_contract`, que falha se `atlas chat --dev` deixar de
+  emitir `programming_chat_contract`, perder `AtlasProgrammingOrchestrator`,
+  perder o binding com `kernel_pipeline`, ou deixar de provar planos gerados
+  automaticamente e planos legados declarados em testes.
+- `atlas:ai:architecture-validate --json` inclui AP24
+  `surface_alias_canonicalization`, que falha se aliases humanos de CLI
+  deixarem de ser canonizados para adapters existentes ou se o compliance
+  report deixar de publicar o mapa de aliases.
+- `atlas:ai:architecture-validate --json` inclui AP25
+  `decide_model_selection_contract`, que falha se `AtlasDecideService` deixar
+  de expor explicitamente o modo de selecao de modelo/provider, a autoridade
+  `atlas_decide` ou o vocabulario fechado `auto_best_allowed`,
+  `auto_best_available` e `manual_override`.
+- `atlas:ai:architecture-validate --json` inclui AP26
+  `cli_dev_model_selection_contract`, que falha se `atlas dev` deixar de
+  publicar `model_selection_contract` no preflight e no `dev_execution_plan`,
+  ou se override manual de provider/modelo deixar de ficar auditavel sob
+  autoridade `atlas_decide`.
+- `atlas:ai:architecture-validate --json` inclui AP27
+  `chat_model_selection_contract`, que falha se `atlas:ai:chat --dev` deixar
+  de publicar o mesmo contrato de autoridade de modelo no payload do job, ou
+  se auto e manual override deixarem de ser testados.
+- `atlas:ai:architecture-validate --json` inclui AP28
+  `kernel_model_selection_contract_factory`, que falha se o shape de
+  `model_selection_contract` voltar a ser duplicado dentro das surfaces em vez
+  de nascer em `ModelSelectionContractFactory`.
+- `atlas:ai:architecture-validate --json` inclui AP29
+  `programming_surface_contract_factory`, que falha se o shape de
+  `forge_contract` voltar a nascer dentro de `AtlasCliDevCommand` em vez de
+  `ProgrammingSurfaceContractFactory`.
+- `atlas:ai:architecture-validate --json` inclui AP30
+  `chat_programming_contract_factory`, que falha se o shape de
+  `programming_chat_contract` voltar a nascer dentro de `AiChatCommand` em vez
+  de `ProgrammingSurfaceContractFactory`.
+- `atlas:ai:architecture-validate --json` inclui AP31
+  `continue_resume_contract_factory`, que falha se o shape de
+  `resume_contract` voltar a nascer dentro de `AtlasCliContinueCommand` em vez
+  de `ProgrammingSurfaceContractFactory`.
+- `atlas:ai:architecture-validate --json` inclui AP32
+  `fix_contract_factory`, que falha se `atlas fix` deixar de preservar
+  `atlas_cli_fix` como origem auditavel e `atlas_cli_dev` como surface canonica
+  do repair no `dev_execution_plan`.
+- `atlas:ai:architecture-validate --json` inclui AP33
+  `surface_capability_parity`, que falha se o Capability Registry declarar uma
+  capacidade horizontal que o adapter operacional nao sustenta.
+- `atlas:ai:architecture-validate --json` inclui AP34
+  `capability_surface_coverage`, que falha se alguma capability nao classificar
+  uma surface conhecida como `required`, `optional` ou `not_supported`.
+- `atlas:ai:architecture-validate --json` inclui AP35
+  `surface_adapter_parity_map_coverage`, que falha se um adapter registrado
+  ficar fora da matriz operacional de capabilities.
+- `atlas:ai:architecture-validate --json` inclui AP36
+  `kernel_pipeline_health_read_model`, que falha se o health do Kernel
+  Pipeline deixar de nascer no replay service ou deixar de aparecer em Ledger
+  CLI, report dedicado, Observability e Self-Improvement.
+- `atlas:ai:architecture-validate --json` inclui AP37
+  `architecture_validation_surface`, que falha se o payload de validacao
+  arquitetural sair do service compartilhado ou se a API
+  `GET /ai/architecture/validate`/testes/rota/auth deixarem de existir.
+- `atlas:ai:architecture-validate --json` inclui AP38
+  `architecture_validation_observability`, que falha se Observability deixar de
+  expor `architecture_validation` compacto ou voltar a calcular arquitetura
+  antes dos read models de SLO/repair/pipeline.
+- `atlas:ai:architecture-validate --json` inclui AP39
+  `architecture_validation_contract_parity`, que falha se API/CLI deixarem de
+  provar paridade com o service compartilhado ou se a documentacao remover a
+  regra de fonte unica.
+- `atlas:ai:architecture-validate --json` inclui AP40
+  `architecture_validation_mcp_tool`, que falha se Open Brain/MCP perder a tool
+  `atlas_architecture_validate` ou deixar de consumir o service compartilhado.
+- `atlas:ai:architecture-validate --json` inclui AP41
+  `self_improvement_architecture_validation_review`, que falha se
+  Self-Improvement deixar de transformar falhas de architecture validation em
+  findings/proposals revisaveis.
+- `atlas:ai:architecture-validate --json` inclui AP42
+  `self_improvement_architecture_audit_schedule`, que falha se
+  `weekly_architecture_audit` sair do agendamento default ou das surfaces que
+  exibem o plano recorrente.
+- `atlas:ai:architecture-validate --json` inclui AP43
+  `self_improvement_flow_cadence_contract`, que falha se a cadencia por flow
+  deixar de ser explicita ou se `weekly_architecture_audit` voltar a ser
+  registrado como job diario.
+- `atlas:ai:architecture-validate --json` inclui AP44
+  `self_improvement_command_next_run_contract`, que falha se os comandos
+  recorrentes deixarem de publicar per-command `next_run_at`, se a proxima
+  execucao semanal ignorar `week_day` ou se `next_run_at` voltar a contaminar
+  o `plan_hash`.
+- `atlas:ai:architecture-validate --json` inclui AP45
+  `self_improvement_schedule_mcp_tool`, que falha se o Open Brain perder a
+  tool read-only `atlas_self_improvement_schedule` ou se ela deixar de expor
+  `health`, `plan` e `commands` como contrato provider-safe.
+- `atlas:ai:architecture-validate --json` inclui AP46
+  `self_improvement_schedule_health_review`, que falha se o Curator deixar de
+  revisar o proprio schedule health recorrente e transformar warning/disabled
+  em proposal revisavel.
+- `atlas:ai:architecture-validate --json` inclui AP47
+  `self_improvement_schedule_health_ledger_event`, que falha se o run do
+  Curator deixar de registrar `SELF_IMPROVEMENT_SCHEDULE_OBSERVED` com snapshot
+  compacto e replayavel do schedule health.
+- `atlas:ai:architecture-validate --json` inclui AP48
+  `self_improvement_schedule_replay_read_model`, que falha se o Evidence
+  Ledger perder o read model de schedule replay ou se Observability deixar de
+  publicar `self_improvement_schedule_replay`.
+- `atlas:ai:architecture-validate --json` inclui AP49
+  `self_improvement_schedule_replay_surfaces`, que falha se a CLI
+  `atlas:ai:self-improvement-schedule-report` ou a API
+  `GET /ai/self-improvement/schedule/report` deixarem de expor o mesmo read
+  model.
+- `atlas:ai:architecture-validate --json` inclui AP50
+  `self_improvement_schedule_replay_mcp_tool`, que falha se o Open Brain/MCP
+  perder a tool read-only `atlas_self_improvement_schedule_report` ou deixar de
+  consumir o read model do Evidence Ledger.
+- `atlas:ai:architecture-validate --json` inclui AP51
+  `self_improvement_schedule_replay_review`, que falha se o Curator deixar de
+  consumir o schedule replay em audits recorrentes e detectar `schedule replay drift`
+  como finding/proposal revisavel.
+- `atlas:ai:architecture-validate --json` inclui AP52
+  `self_improvement_schedule_replay_review_signal`, que falha se o replay
+  perder o `schedule replay review_signal` canonico ou se o Curator deixar de
+  consumir esse sinal para decidir review/proposal.
+- `atlas:ai:architecture-validate --json` inclui AP53
+  `self_improvement_schedule_replay_review_signal_surfaces`, que falha se CLI,
+  API, Observability ou MCP deixarem de expor/testar `review_signal surface parity`
+  para status, severity e recommended_action.
+- `atlas:ai:architecture-validate --json` inclui AP54
+  `kernel_pipeline_review_signal`, que falha se o Kernel Pipeline replay perder
+  `review_signal` canonico ou se CLI/API/Observability/Self-Improvement deixarem
+  de expor ou propagar status, severity e recommended_action.
+- `atlas:ai:architecture-validate --json` inclui AP55
+  `repair_loop_review_signal`, que falha se o Repair Loop replay perder
+  `review_signal` canonico ou se CLI/Ledger/API/Observability/Self-Improvement
+  deixarem de expor ou propagar status, severity e recommended_action.
+- `atlas:ai:architecture-validate --json` inclui AP56
+  `slo_review_signal`, que falha se o SLO replay perder `review_signal`
+  canonico ou se CLI/API/Observability/Self-Improvement deixarem de expor ou
+  propagar status, severity, reasons e recommended_action.
+- `atlas:ai:architecture-validate --json` inclui AP57
+  `slo_mcp_tool`, que falha se o Open Brain perder a tool read-only
+  `atlas_kernel_slo_report` ou deixar de expor o read model de SLO com filtros
+  e `review_signal`.
+- `atlas:ai:architecture-validate --json` inclui AP58
+  `kernel_pipeline_mcp_tool`, que falha se o Open Brain perder a tool read-only
+  `atlas_kernel_pipeline_report` ou deixar de expor o read model de Kernel
+  Pipeline com filtros, health e `review_signal`.
+- `atlas:ai:architecture-validate --json` inclui AP59
+  `repair_loop_mcp_tool`, que falha se o Open Brain perder a tool read-only
+  `atlas_repair_loop_report` ou deixar de expor o read model de Repair Loop
+  com filtros e `review_signal`.
+- `atlas:ai:architecture-validate --json` inclui AP60
+  `repair_loop_unavailable_review_signal`, que falha se o caminho
+  `ledger_unavailable` do Repair Loop perder o `review_signal` canonico
+  `wait_for_repair_loop_evidence` em CLI/API.
+- `atlas:ai:architecture-validate --json` inclui AP61
+  `slo_unavailable_review_signal`, que falha se o caminho `ledger_unavailable`
+  de SLO perder o resumo canonico ou o `review_signal`
+  `wait_for_slo_evidence` em CLI/API.
+- `atlas:ai:architecture-validate --json` inclui AP62
+  `mcp_replay_unavailable_review_signal`, que falha se qualquer tool MCP de
+  replay perder `ok=false`, `writes=false` ou o `review_signal` canonico quando
+  o ledger estiver indisponivel.
 
 Integracao futura:
 

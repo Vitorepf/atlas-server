@@ -12,6 +12,8 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Failure\FailureClassification;
 use App\Services\Ai\Kernel\Failure\FailureDomain;
+use App\Services\Ai\Kernel\Pipeline\KernelPipelineAuditService;
+use App\Services\Ai\Kernel\Pipeline\KernelPipelineRuntimeGuard;
 use App\Services\Ai\Kernel\Repair\AtlasRepairOrchestrator;
 use App\Services\Ai\Kernel\Repair\RepairDecision;
 use App\Services\Ai\Kernel\Repair\RepairRequestFactory;
@@ -19,6 +21,7 @@ use App\Services\Ai\Kernel\Repair\RepairStrategy;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Mobile\JobResultInboxEmitter;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
+use App\Services\Ai\Programming\ProgrammingIterationPolicy;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use App\Services\AuditLogService;
@@ -57,6 +60,8 @@ class AiWorker
         private readonly MacAgentService $macAgent,
         private readonly AtlasEvidenceLedger $ledger,
         private readonly DecisionReceiptRuntimeGuard $decisionReceipts,
+        private readonly KernelPipelineRuntimeGuard $kernelPipelines,
+        private readonly KernelPipelineAuditService $kernelPipelineAudit,
         private readonly KernelSloProbe $slo,
         private readonly AtlasRepairOrchestrator $repairOrchestrator,
         private readonly RepairRequestFactory $repairRequests,
@@ -123,6 +128,33 @@ class AiWorker
                 ],
             ), $workerId);
         }
+        if ($kernelPipelineViolation = $this->kernelPipelines->violationForJob($job)) {
+            $attempt = $this->createAttempt($job, $workerId, $providerKey);
+            $this->kernelPipelineAudit->recordRejectedPlan(
+                $this->kernelPipelines->auditablePlanForJob($job, $kernelPipelineViolation),
+                (array) data_get($kernelPipelineViolation, 'violations', []),
+                $this->kernelPipelines->auditContextForJob($job),
+            );
+            $this->emitStreamEvent($job, $attempt, 'policy', 'kernel_pipeline_contract_blocked', (string) $kernelPipelineViolation['message'], [
+                'kernel_pipeline_contract_enforcement' => $kernelPipelineViolation,
+            ], null, $onStream);
+
+            return $this->completeAttempt($job, $attempt, new AiProviderResult(
+                ok: false,
+                output: '',
+                command: [],
+                exitCode: null,
+                durationMs: 0,
+                stdout: '',
+                stderr: '',
+                errorCode: 'kernel_pipeline_contract_violation',
+                errorMessage: (string) $kernelPipelineViolation['message'],
+                metadata: [
+                    'kernel_pipeline_contract_enforcement' => $kernelPipelineViolation,
+                ],
+            ), $workerId);
+        }
+        $this->recordAcceptedKernelPipelineRuntimeContract($job);
         $provider = $this->providers->get($providerKey);
         $permission = $this->permissions->authorizeJob($job, $providerKey);
 
@@ -248,6 +280,19 @@ class AiWorker
         $result = $this->withPermissionMetadata($result, $permission);
 
         return $this->completeAttempt($job, $attempt, $result, $workerId);
+    }
+
+    private function recordAcceptedKernelPipelineRuntimeContract(AiJob $job): void
+    {
+        $pipelinePlan = $this->kernelPipelines->pipelinePlanForJob($job);
+        if ($pipelinePlan === null) {
+            return;
+        }
+
+        $this->kernelPipelineAudit->recordAcceptedPlan(
+            $pipelinePlan,
+            $this->kernelPipelines->auditContextForJob($job),
+        );
     }
 
     private function claimJob(string $workerId, ?string $providerOverride, ?string $traceId = null): ?AiJob
@@ -705,7 +750,9 @@ class AiWorker
             return $this->handleNativeProgrammingRepairUnmeasured($job, $attempt, $result, $responseHash, $workerId);
         }, array_merge($this->sloContextForJob($job, $attempt, $workerId), [
             'current_iteration' => max(1, (int) ($repair['current_iteration'] ?? 1)),
-            'max_iterations' => max(1, min(10, (int) ($repair['max_iterations'] ?? data_get($job->payload, 'programming_message_plan.execution_profile.max_iterations', 1)))),
+            'max_iterations' => ProgrammingIterationPolicy::forRepairPolicy(
+                $repair['max_iterations'] ?? data_get($job->payload, 'programming_message_plan.execution_profile.max_iterations', 1),
+            ),
             'complete_mode' => (bool) ($repair['complete_mode'] ?? data_get($job->payload, 'programming_message_plan.execution_profile.complete', false)),
             'workspace_present' => $this->programmingRepairWorkspace($job) !== null,
         ]));
@@ -735,7 +782,9 @@ class AiWorker
         );
         $qualityStatus = (string) ($quality['status'] ?? 'unknown');
         $currentIteration = max(1, (int) ($repair['current_iteration'] ?? 1));
-        $maxIterations = max(1, min(10, (int) ($repair['max_iterations'] ?? data_get($messagePlan, 'execution_profile.max_iterations', 1))));
+        $maxIterations = ProgrammingIterationPolicy::forRepairPolicy(
+            $repair['max_iterations'] ?? data_get($messagePlan, 'execution_profile.max_iterations', 1),
+        );
         $this->recordLedgerEvent(LedgerEventType::GateEvaluated, $job, $attempt, $this->programmingRepairLedgerPayload($quality, [
             'run_tests' => $runTests,
             'complete_mode' => $completeMode,

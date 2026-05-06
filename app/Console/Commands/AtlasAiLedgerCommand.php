@@ -2,9 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
+use App\Services\Ai\Kernel\Evidence\KernelLedgerEnvelopeReportService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasAiLedgerCommand extends Command
 {
@@ -13,11 +12,12 @@ class AtlasAiLedgerCommand extends Command
         {--limit=100 : Maximum number of events to render}
         {--slo : Include SLO observation summary for the envelope}
         {--repair : Include Repair Loop summary for the envelope}
+        {--kernel : Include Kernel Pipeline contract summary for the envelope}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Replay Atlas AI kernel evidence events for one operation envelope.';
 
-    public function handle(AtlasLedgerReplayService $replay): int
+    public function handle(KernelLedgerEnvelopeReportService $reports): int
     {
         $envelopeId = trim((string) $this->argument('envelope'));
         if ($envelopeId === '') {
@@ -26,43 +26,13 @@ class AtlasAiLedgerCommand extends Command
             return self::FAILURE;
         }
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
-            $payload = [
-                'envelope_id' => $envelopeId,
-                'status' => 'ledger_table_missing',
-                'events' => [],
-            ];
-
-            return $this->render($payload);
-        }
-
-        $limit = max(1, (int) $this->option('limit'));
-        $events = array_slice($replay->eventsForEnvelope($envelopeId), 0, $limit);
-        $payload = [
-            'envelope_id' => $envelopeId,
-            'status' => $events === [] ? 'not_found' : 'ok',
-            'event_count' => count($events),
-            'events' => array_map(fn (array $event): array => [
-                'event_id' => $event['event_id'] ?? null,
-                'event_type' => $event['event_type'] ?? null,
-                'tenant_id' => $event['tenant_id'] ?? null,
-                'operator_id' => $event['operator_id'] ?? null,
-                'receipt_id' => $event['receipt_id'] ?? null,
-                'trace_id' => $event['trace_id'] ?? null,
-                'correlation_id' => $event['correlation_id'] ?? null,
-                'causation_id' => $event['causation_id'] ?? null,
-                'emitter_stage' => $event['emitter_stage'] ?? null,
-                'payload_hash' => $event['payload_hash'] ?? null,
-                'occurred_at' => $event['occurred_at'] ?? null,
-                'payload' => $event['payload'] ?? [],
-            ], $events),
-        ];
-        if ((bool) $this->option('slo')) {
-            $payload['slo'] = $replay->sloReportForEnvelope($envelopeId);
-        }
-        if ((bool) $this->option('repair')) {
-            $payload['repair'] = $replay->repairReportForEnvelope($envelopeId);
-        }
+        $payload = $reports->report(
+            envelopeId: $envelopeId,
+            limit: $this->option('limit'),
+            includeSlo: (bool) $this->option('slo'),
+            includeRepair: (bool) $this->option('repair'),
+            includeKernel: (bool) $this->option('kernel'),
+        );
 
         return $this->render($payload);
     }
@@ -92,6 +62,16 @@ class AtlasAiLedgerCommand extends Command
             $this->components->twoColumnDetail('Repair events', (string) ($repair['repair_event_count'] ?? 0));
             $this->components->twoColumnDetail('Repair latest status', (string) ($repair['latest_status'] ?? '-'));
             $this->components->twoColumnDetail('Repair latest strategy', (string) ($repair['latest_strategy'] ?? '-'));
+            $this->components->twoColumnDetail('Repair review signal', (string) data_get($repair, 'review_signal.status', 'unknown'));
+            $this->components->twoColumnDetail('Repair review severity', (string) data_get($repair, 'review_signal.severity', 'unknown'));
+        }
+        if (is_array($payload['kernel_pipeline'] ?? null)) {
+            $kernel = $payload['kernel_pipeline'];
+            $this->components->twoColumnDetail('Kernel pipeline events', (string) ($kernel['kernel_pipeline_event_count'] ?? 0));
+            $this->components->twoColumnDetail('Kernel accepted', (string) ($kernel['accepted_count'] ?? 0));
+            $this->components->twoColumnDetail('Kernel rejected', (string) ($kernel['rejected_count'] ?? 0));
+            $this->components->twoColumnDetail('Kernel health', (string) data_get($kernel, 'health.status', 'unknown'));
+            $this->components->twoColumnDetail('Kernel rejection rate', (string) data_get($kernel, 'health.rejection_rate', 0));
         }
 
         $rows = collect((array) ($payload['events'] ?? []))
@@ -140,6 +120,24 @@ class AtlasAiLedgerCommand extends Command
 
             if ($repairRows !== []) {
                 $this->table(['event', 'status', 'strategy', 'failure', 'executed', 'occurred at'], $repairRows);
+            }
+        }
+
+        if (is_array($payload['kernel_pipeline'] ?? null) && is_array(data_get($payload, 'kernel_pipeline.events'))) {
+            $kernelRows = collect((array) data_get($payload, 'kernel_pipeline.events'))
+                ->map(fn (array $event): array => [
+                    $event['event_type'] ?? '-',
+                    $event['status'] ?? '-',
+                    $event['surface_id'] ?? '-',
+                    $event['flow'] ?? '-',
+                    $event['input_mode'] ?? '-',
+                    count((array) ($event['violations'] ?? [])),
+                    $event['occurred_at'] ?? '-',
+                ])
+                ->all();
+
+            if ($kernelRows !== []) {
+                $this->table(['event', 'status', 'surface', 'flow', 'input', 'violations', 'occurred at'], $kernelRows);
             }
         }
 

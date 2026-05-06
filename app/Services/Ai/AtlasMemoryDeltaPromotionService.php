@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -15,6 +16,7 @@ class AtlasMemoryDeltaPromotionService
 {
     public function __construct(
         private readonly AtlasMemoryRegistryService $registry,
+        private readonly MemoryQueryInput $input,
     ) {}
 
     /**
@@ -65,7 +67,7 @@ class AtlasMemoryDeltaPromotionService
 
         return $query
             ->latest('updated_at')
-            ->limit(max(1, min(200, (int) ($filters['limit'] ?? 50))))
+            ->limit($this->input->promotionLimit($filters['limit'] ?? null))
             ->get()
             ->map(fn (AiMemoryDelta $delta): AtlasMemoryEntry => $this->promote($delta, $filters));
     }

@@ -41,7 +41,10 @@ class AtlasAiRepairReportApiTest extends TestCase
             ->assertJsonPath('kernel_repair.initiated_count', 1)
             ->assertJsonPath('kernel_repair.completed_count', 1)
             ->assertJsonPath('kernel_repair.latest_status', 'repair_allowed')
-            ->assertJsonPath('kernel_repair.latest_strategy', 'rerun_harness');
+            ->assertJsonPath('kernel_repair.latest_strategy', 'rerun_harness')
+            ->assertJsonPath('kernel_repair.review_signal.status', 'warning')
+            ->assertJsonPath('kernel_repair.review_signal.severity', 'low')
+            ->assertJsonPath('kernel_repair.review_signal.recommended_action', 'open_reviewable_repair_loop_pattern_proposal');
 
         $this->assertSame(['rerun_harness' => 2], $response->json('kernel_repair.strategy_counts'));
     }
@@ -60,7 +63,10 @@ class AtlasAiRepairReportApiTest extends TestCase
             ->assertJsonPath('kernel_repair.repair_event_count', 1)
             ->assertJsonPath('kernel_repair.envelope_count', 1)
             ->assertJsonPath('kernel_repair.latest_status', 'needs_human_review')
-            ->assertJsonPath('kernel_repair.latest_strategy', 'human_review');
+            ->assertJsonPath('kernel_repair.latest_strategy', 'human_review')
+            ->assertJsonPath('kernel_repair.review_signal.status', 'warning')
+            ->assertJsonPath('kernel_repair.review_signal.severity', 'medium')
+            ->assertJsonPath('kernel_repair.review_signal.recommended_action', 'open_reviewable_repair_loop_human_review_proposal');
 
         $this->assertSame(['human_review' => 1], $response->json('kernel_repair.strategy_counts'));
         $this->assertSame('env_repair_api_filter_b', $response->json('kernel_repair.recent_events.0.envelope_id'));
@@ -79,7 +85,9 @@ class AtlasAiRepairReportApiTest extends TestCase
         $this->getJson('/ai/repair/report', $this->headers)
             ->assertStatus(503)
             ->assertJsonPath('status', 'ledger_unavailable')
-            ->assertJsonPath('kernel_repair.available', false);
+            ->assertJsonPath('kernel_repair.available', false)
+            ->assertJsonPath('kernel_repair.review_signal.status', 'unknown')
+            ->assertJsonPath('kernel_repair.review_signal.recommended_action', 'wait_for_repair_loop_evidence');
     }
 
     /**

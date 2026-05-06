@@ -44,6 +44,9 @@ class AtlasAiRepairReportCommandTest extends TestCase
         $this->assertSame('needs_human_review', data_get($payload, 'kernel_repair.latest_status'));
         $this->assertSame('human_review', data_get($payload, 'kernel_repair.latest_strategy'));
         $this->assertTrue((bool) data_get($payload, 'kernel_repair.requires_human_review'));
+        $this->assertSame('warning', data_get($payload, 'kernel_repair.review_signal.status'));
+        $this->assertSame('medium', data_get($payload, 'kernel_repair.review_signal.severity'));
+        $this->assertSame('open_reviewable_repair_loop_human_review_proposal', data_get($payload, 'kernel_repair.review_signal.recommended_action'));
         $this->assertSame(['rerun_harness' => 1, 'human_review' => 1], data_get($payload, 'kernel_repair.strategy_counts'));
     }
 
@@ -68,7 +71,24 @@ class AtlasAiRepairReportCommandTest extends TestCase
         $this->assertSame($payload['filters'], data_get($payload, 'kernel_repair.filters'));
         $this->assertSame(1, data_get($payload, 'kernel_repair.repair_event_count'));
         $this->assertSame(['human_review' => 1], data_get($payload, 'kernel_repair.strategy_counts'));
+        $this->assertSame('warning', data_get($payload, 'kernel_repair.review_signal.status'));
         $this->assertSame('env_repair_cmd_filter_b', data_get($payload, 'kernel_repair.recent_events.0.envelope_id'));
+    }
+
+    public function test_command_human_output_includes_repair_review_signal(): void
+    {
+        $this->recordRepair('01HREPAIRREPORTCMDHUMAN01', 'env_repair_cmd_human', LedgerEventType::RepairInitiated, 'needs_human_review', 'human_review', ['failure_domain_requires_human_review']);
+
+        $exit = Artisan::call('atlas:ai:repair-report', [
+            '--hours' => 24,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Review signal', $output);
+        $this->assertStringContainsString('Review severity', $output);
+        $this->assertStringContainsString('Recommended action', $output);
+        $this->assertStringContainsString('open_reviewable_repair_loop_human_review_proposal', $output);
     }
 
     public function test_command_reports_unavailable_when_ledger_table_is_missing(): void
@@ -83,6 +103,8 @@ class AtlasAiRepairReportCommandTest extends TestCase
         $this->assertSame(1, $exit);
         $this->assertSame('ledger_unavailable', $payload['status']);
         $this->assertFalse((bool) data_get($payload, 'kernel_repair.available'));
+        $this->assertSame('unknown', data_get($payload, 'kernel_repair.review_signal.status'));
+        $this->assertSame('wait_for_repair_loop_evidence', data_get($payload, 'kernel_repair.review_signal.recommended_action'));
     }
 
     /**

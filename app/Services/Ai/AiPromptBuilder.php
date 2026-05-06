@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\Attachments\AiAttachmentIndexService;
+use App\Services\Ai\Context\RetrievalRankInput;
 use App\Services\Ai\Search\SessionSearchService;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
@@ -24,6 +25,7 @@ class AiPromptBuilder
         private readonly SessionSearchService $sessionSearch,
         private readonly ?AiAttachmentIndexService $attachmentIndex = null,
         private readonly ?AtlasOpenBrainContextInjectionService $openBrainInjection = null,
+        private readonly ?RetrievalRankInput $retrievalRankInput = null,
     ) {}
 
     public function build(string $input, array $options = []): AiPrompt
@@ -787,7 +789,8 @@ TXT;
             return '';
         }
 
-        $topN = max(1, min(5, (int) data_get($config, 'top_n', 3)));
+        $topN = ($this->retrievalRankInput ?? app(RetrievalRankInput::class))
+            ->promptSessionTopN(data_get($config, 'top_n'));
 
         try {
             $results = $this->sessionSearch->search($workspace, $query, $topN, summarize: true);

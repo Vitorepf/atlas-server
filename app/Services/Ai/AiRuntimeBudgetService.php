@@ -17,7 +17,7 @@ class AiRuntimeBudgetService
     public function payload(): array
     {
         $budget = $this->settings->effective()['budget'] ?? [];
-        $windowHours = (int) ($budget['window_hours'] ?? 24);
+        $windowHours = (int) ($budget['window_hours'] ?? AtlasAiRuntimeSettings::DEFAULT_BUDGET_WINDOW_HOURS);
         $providers = [];
 
         foreach ($this->providerKeys() as $provider) {
@@ -58,7 +58,7 @@ class AiRuntimeBudgetService
             return;
         }
 
-        $windowHours = (int) ($budget['window_hours'] ?? 24);
+        $windowHours = (int) ($budget['window_hours'] ?? AtlasAiRuntimeSettings::DEFAULT_BUDGET_WINDOW_HOURS);
         $usage = $this->usage($provider, null, $windowHours);
         $max = $this->limitFor($budget, $provider, 'max_visible_tokens');
         if ($max === null || $usage['visible_tokens'] < $max) {

@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasVerbatimMemory;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -12,13 +13,15 @@ use Illuminate\Support\Str;
 
 class AtlasMemoryReviewQueueService
 {
+    public function __construct(private readonly MemoryQueryInput $input) {}
+
     /**
      * @param  array<string,mixed>  $filters
      * @return array<string,mixed>
      */
     public function queue(array $filters = [], int $limit = 50): array
     {
-        $limit = max(1, min(200, $limit));
+        $limit = $this->input->reviewQueueLimit($limit);
         $areas = $this->areas($filters);
         $items = collect();
 

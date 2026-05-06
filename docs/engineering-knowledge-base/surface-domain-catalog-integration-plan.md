@@ -87,7 +87,7 @@ Campos ja expostos para surfaces:
 - `atlas_cli_dev` mapeia tarefas de programacao para `programming.dev`, `programming.review` e `programming.repair`; `atlas_cli_forge` prefere `programming.forge` para tarefas `forge`, `heavy`, `build` e `plan`.
 - `atlas:ai:domains` ganhou preview opt-in com `--select`, `--surface`, `--mode`, `--task` e `--routing-domain`.
 - `POST /ai/interactions` agora enriquece payloads de surface com `domain_catalog_selection`, `domain_id`, `flow_id`, `surface_id`, safety e executor preference quando o payload traz sinais de roteamento.
-- MCP/Open Brain ganhou tool read-only `atlas_domain_catalog`, com filtros `domain`, `flow` e `maturity`.
+- MCP/Open Brain ganhou tool read-only `atlas_domain_catalog`, com filtros `domain`, `flow`, `maturity` e `onboarding_status`.
 - App ganhou types/fetcher para `GET /ai/domains` e adapter `selectAtlasAiDomainFlow`, sem alterar UI.
 - Testes cobrem API catalog, API interaction, CLI, architecture validate, adapter PHP, adapter TS e MCP.
 

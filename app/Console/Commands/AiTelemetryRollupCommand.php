@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
+use App\Services\Ai\Telemetry\AiTelemetryWindowInput;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
@@ -16,7 +17,7 @@ class AiTelemetryRollupCommand extends Command
 
     protected $description = 'Recompute Atlas trace metric summaries and print the current telemetry scorecard.';
 
-    public function handle(AiTraceMetricAggregator $aggregator, AiTelemetryScorecardService $scorecards): int
+    public function handle(AiTraceMetricAggregator $aggregator, AiTelemetryScorecardService $scorecards, AiTelemetryWindowInput $telemetryWindow): int
     {
         if (! Schema::hasTable('ai_trace_metric_summaries')) {
             $this->error('ai_trace_metric_summaries table is missing. Run php artisan migrate.');
@@ -25,7 +26,7 @@ class AiTelemetryRollupCommand extends Command
         }
 
         $traceId = $this->option('trace');
-        $hours = max(1, min(720, (int) $this->option('hours')));
+        $hours = $telemetryWindow->hours($this->option('hours'));
         $since = now()->subHours($hours);
         $recomputed = 0;
 

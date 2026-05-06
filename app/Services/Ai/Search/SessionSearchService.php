@@ -4,6 +4,7 @@ namespace App\Services\Ai\Search;
 
 use App\Models\AiMessage;
 use App\Models\AiThread;
+use App\Services\Ai\Context\RetrievalRankInput;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,8 @@ use Illuminate\Support\Str;
 class SessionSearchService
 {
     private const EXCERPT_LIMIT = 30000;
+
+    public function __construct(private readonly RetrievalRankInput $input) {}
 
     /**
      * @return array<int,SearchResult>
@@ -24,7 +27,7 @@ class SessionSearchService
             return [];
         }
 
-        $topN = max(1, min(10, $topN));
+        $topN = $this->input->sessionTopN($topN);
         $results = DB::getDriverName() === 'pgsql'
             ? $this->postgresSearch($workspace, $query, $topN)
             : $this->fallbackSearch($workspace, $query, $topN);

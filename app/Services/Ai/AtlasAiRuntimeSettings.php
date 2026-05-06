@@ -9,6 +9,10 @@ class AtlasAiRuntimeSettings
 {
     public const KEY = 'default';
 
+    public const DEFAULT_BUDGET_WINDOW_HOURS = 24;
+
+    public const MAX_BUDGET_WINDOW_HOURS = 168;
+
     private const GEMINI_MODEL = 'gemini-3.1-pro-preview';
 
     /**
@@ -209,7 +213,7 @@ class AtlasAiRuntimeSettings
         }
 
         if (array_key_exists('window_hours', $patch)) {
-            $budget['window_hours'] = min(168, max(1, (int) $patch['window_hours']));
+            $budget['window_hours'] = $this->normalizeBudgetWindowHours($patch['window_hours']);
         }
 
         foreach (['max_visible_tokens', 'warn_visible_tokens'] as $key) {
@@ -249,13 +253,22 @@ class AtlasAiRuntimeSettings
         return [
             'enabled' => $this->boolValue($merged['enabled'] ?? false),
             'mode' => in_array($merged['mode'] ?? 'block', ['monitor', 'block'], true) ? $merged['mode'] : 'block',
-            'window_hours' => min(168, max(1, (int) ($merged['window_hours'] ?? 24))),
+            'window_hours' => $this->normalizeBudgetWindowHours($merged['window_hours'] ?? self::DEFAULT_BUDGET_WINDOW_HOURS),
             'max_visible_tokens' => $this->positiveIntOrNull($merged['max_visible_tokens'] ?? null),
             'warn_visible_tokens' => $this->positiveIntOrNull($merged['warn_visible_tokens'] ?? null),
             'providers' => collect($this->providerKeys())
                 ->mapWithKeys(fn (string $provider): array => [$provider => $this->providerBudgetConfig($merged, $provider)])
                 ->all(),
         ];
+    }
+
+    public function normalizeBudgetWindowHours(mixed $value): int
+    {
+        if (! is_numeric($value)) {
+            $value = self::DEFAULT_BUDGET_WINDOW_HOURS;
+        }
+
+        return max(1, min(self::MAX_BUDGET_WINDOW_HOURS, (int) $value));
     }
 
     /**

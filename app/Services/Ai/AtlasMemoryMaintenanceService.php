@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 
@@ -15,6 +16,7 @@ class AtlasMemoryMaintenanceService
         private readonly AtlasProviderProjectionService $projection,
         private readonly AtlasProviderProjectionAuditService $audits,
         private readonly AtlasOpenBrainMcpService $mcp,
+        private readonly MemoryQueryInput $input,
     ) {}
 
     /**
@@ -30,7 +32,7 @@ class AtlasMemoryMaintenanceService
         $prune = (bool) ($options['prune'] ?? true);
         $promoteLearnings = (bool) ($options['promote_learnings'] ?? true);
         $autoPromoteCandidates = (bool) ($options['auto_promote_candidates'] ?? false);
-        $promotionLimit = max(1, min(200, (int) ($options['promotion_limit'] ?? 50)));
+        $promotionLimit = $this->input->promotionLimit($options['promotion_limit'] ?? null);
         $promotionMinConfidence = max(0.0, min(1.0, (float) ($options['promotion_min_confidence'] ?? 0.86)));
         $recordQualitySnapshot = (bool) ($options['record_quality_snapshot'] ?? true);
         $applyProjection = (bool) ($options['apply_projection'] ?? false);

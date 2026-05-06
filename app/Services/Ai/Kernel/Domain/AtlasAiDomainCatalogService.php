@@ -14,7 +14,7 @@ class AtlasAiDomainCatalogService
     ) {}
 
     /**
-     * @param  array{domain?:string|null,flow?:string|null,maturity?:string|null}  $filters
+     * @param  array{domain?:string|null,flow?:string|null,maturity?:string|null,onboarding_status?:string|null}  $filters
      * @return array<string,mixed>
      */
     public function inspect(array $filters = []): array
@@ -23,6 +23,7 @@ class AtlasAiDomainCatalogService
         $domainFilter = trim((string) ($filters['domain'] ?? ''));
         $flowFilter = trim((string) ($filters['flow'] ?? ''));
         $maturityFilter = trim((string) ($filters['maturity'] ?? ''));
+        $onboardingStatusFilter = trim((string) ($filters['onboarding_status'] ?? ''));
 
         $validation = $this->validator->validateCatalog($catalog);
         $orchestratorReport = $this->orchestrators->complianceReport();
@@ -65,6 +66,25 @@ class AtlasAiDomainCatalogService
             ->map(fn (array $definition): array => $this->orchestratorPayload($definition))
             ->values();
 
+        $domainRows = $domains
+            ->map(fn (array $domain): array => $this->domainPayload($domain, $flows->all(), $orchestratorIndex->all()))
+            ->when($onboardingStatusFilter !== '', fn ($items) => $items->filter(
+                fn (array $domain): bool => (string) data_get($domain, 'onboarding.status') === $onboardingStatusFilter
+            ))
+            ->values();
+
+        $visibleDomainIds = $domainRows
+            ->pluck('id')
+            ->filter(fn (mixed $domainId): bool => is_string($domainId) && $domainId !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        $flowRows = $flows
+            ->filter(fn (array $flow): bool => in_array((string) ($flow['domain_id'] ?? ''), $visibleDomainIds, true))
+            ->map(fn (array $flow): array => $this->flowPayload($flow, $orchestratorIndex->all()))
+            ->values();
+
         return [
             'schema_version' => 1,
             'status' => $validation['ok'] && $orchestratorReport['ok'] ? 'ok' : 'failed',
@@ -73,25 +93,26 @@ class AtlasAiDomainCatalogService
                 'domain' => $domainFilter !== '' ? $domainFilter : null,
                 'flow' => $flowFilter !== '' ? $flowFilter : null,
                 'maturity' => $maturityFilter !== '' ? $maturityFilter : null,
+                'onboarding_status' => $onboardingStatusFilter !== '' ? $onboardingStatusFilter : null,
             ],
             'summary' => [
-                'domains' => $domains->count(),
-                'flows' => $flows->count(),
+                'domains' => $domainRows->count(),
+                'flows' => $flowRows->count(),
                 'orchestrators' => $orchestratorRows->count(),
                 'implemented_orchestrators' => $orchestratorRows->where('maturity', 'implemented')->count(),
                 'scaffold_orchestrators' => $orchestratorRows->where('maturity', 'scaffold')->count(),
                 'planned_orchestrators' => $orchestratorRows->where('maturity', 'planned')->count(),
-                'ready_domains' => $domains
-                    ->map(fn (array $domain): array => $this->domainOnboarding($domain, $flows->all(), $orchestratorIndex->all()))
-                    ->where('status', 'ready')
-                    ->count(),
-                'executable_incomplete_domains' => $domains
-                    ->map(fn (array $domain): array => $this->domainOnboarding($domain, $flows->all(), $orchestratorIndex->all()))
-                    ->where('status', 'executable_incomplete')
-                    ->count(),
+                'ready_domains' => $domainRows->where('onboarding.status', 'ready')->count(),
+                'executable_incomplete_domains' => $domainRows->where('onboarding.status', 'executable_incomplete')->count(),
+                'scaffold_domains' => $domainRows->where('onboarding.status', 'scaffold')->count(),
+                'onboarding_status_counts' => $domainRows
+                    ->map(fn (array $domain): string => (string) data_get($domain, 'onboarding.status', 'unknown'))
+                    ->filter()
+                    ->countBy()
+                    ->all(),
             ],
-            'domains' => $domains->map(fn (array $domain): array => $this->domainPayload($domain, $flows->all(), $orchestratorIndex->all()))->values()->all(),
-            'flows' => $flows->map(fn (array $flow): array => $this->flowPayload($flow, $orchestratorIndex->all()))->values()->all(),
+            'domains' => $domainRows->all(),
+            'flows' => $flowRows->all(),
             'orchestrators' => $orchestratorRows->all(),
             'validation' => [
                 'valid' => $validation['ok'] && $orchestratorReport['ok'],

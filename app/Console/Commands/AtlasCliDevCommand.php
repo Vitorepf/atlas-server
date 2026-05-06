@@ -9,8 +9,12 @@ use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliModelCatalogService;
 use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Kernel\Decision\ModelSelectionContractFactory;
+use App\Services\Ai\Kernel\Pipeline\KernelPipelineDevPlanBuilder;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;
+use App\Services\Ai\Programming\ProgrammingIterationPolicy;
+use App\Services\Ai\Programming\ProgrammingSurfaceContractFactory;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Engineering\EngineeringBlueprintService;
 use App\Services\Engineering\EngineeringBlueprintSnapshotService;
@@ -52,6 +56,7 @@ class AtlasCliDevCommand extends Command
         {--plan-only : Run preflight and print execution plan without calling provider}
         {--forge : Use the maximum-power programming profile behind atlas forge}
         {--repair : Mark this dev run as an explicit repair/fix intent}
+        {--surface-origin= : Internal surface alias origin for thin wrapper commands}
         {--max-iterations=3 : Maximum repair iterations for the default complete dev loop}
         {--resume= : Resume a previous dev execution plan id when present in traces}
         {--no-open-brain : Disable automatic Open Brain context injection for this dev run}
@@ -152,6 +157,12 @@ class AtlasCliDevCommand extends Command
         if ($modelSelection !== null) {
             $preflight['selected_model'] = $this->compactModelSelection($modelSelection);
         }
+        $preflight['model_selection_contract'] = $this->modelSelectionContract(
+            provider: $provider,
+            modelSelection: $modelSelection,
+            modelOverride: $modelOverride,
+            fairMode: $fairMode,
+        );
         if ($fairMode) {
             $preflight['fair_mode'] = $fairClaude->metadata();
         }
@@ -187,6 +198,12 @@ class AtlasCliDevCommand extends Command
         if ($modelSelection !== null) {
             $devPlan['selected_model'] = $this->compactModelSelection($modelSelection);
         }
+        $devPlan['model_selection_contract'] = $this->modelSelectionContract(
+            provider: $provider,
+            modelSelection: $modelSelection,
+            modelOverride: $modelOverride,
+            fairMode: $fairMode,
+        );
         if ($fairMode) {
             $devPlan['fair_mode'] = $fairClaude->metadata();
         }
@@ -222,6 +239,13 @@ class AtlasCliDevCommand extends Command
             'image_count' => count((array) $this->option('image')) + ((bool) $this->option('clipboard-image') ? 1 : 0),
             'auto_image' => ! (bool) $this->option('no-auto-image'),
         ];
+        if ($this->surfaceOrigin() === 'atlas_cli_fix') {
+            $devPlan['operator_options']['surface_origin'] = 'atlas_cli_fix';
+            $devPlan['fix_contract'] = app(ProgrammingSurfaceContractFactory::class)->fix(
+                operatorOptions: $devPlan['operator_options'],
+                command: $this->fixContractCommand(),
+            );
+        }
         if ($aiPolicyOverride !== []) {
             $devPlan['operator_options']['ai_policy_override'] = $aiPolicyOverride;
             $devPlan['ai_policy_override'] = $aiPolicyOverride;
@@ -248,6 +272,13 @@ class AtlasCliDevCommand extends Command
             $devPlan['plan_id'] = (string) $this->option('resume');
             $devPlan['resumed_at'] = now()->toJSON();
         }
+        $devPlan = $this->attachKernelPipelinePlan(
+            devPlan: $devPlan,
+            task: $task,
+            workspace: $workspace,
+            programmingProfile: $programmingProfile,
+            inputMode: 'one_shot',
+        );
         $providerPrompt = $workflow->promptWithEngineeringContract($task, $engineeringContract, $engineeringBlueprint);
         if ($fairMode) {
             $devPlan['fair_mode_prompt_contract'] = $workflow->fairClaudePromptContractMetadata($engineeringContract);
@@ -340,6 +371,7 @@ class AtlasCliDevCommand extends Command
                     'phase' => 'forge_harness',
                     'workflow' => $preflight,
                     'dev_execution_plan' => $devPlan,
+                    'forge_contract' => app(ProgrammingSurfaceContractFactory::class)->forge($devPlan, $result),
                     'programming_result' => $result,
                 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
             } else {
@@ -416,6 +448,13 @@ class AtlasCliDevCommand extends Command
         ]);
         if (is_array($sessionPlan)) {
             data_set($sessionPlan, 'operator_options.input_mode', $task === null ? 'interactive' : 'one_shot');
+            $sessionPlan = $this->attachKernelPipelinePlan(
+                devPlan: $sessionPlan,
+                task: $task ?? 'atlas dev interactive cockpit',
+                workspace: $workspace,
+                programmingProfile: $programmingProfile,
+                inputMode: $task === null ? 'interactive' : 'one_shot',
+            );
         }
         $command = [
             AtlasPhpBinary::path(),
@@ -526,6 +565,43 @@ class AtlasCliDevCommand extends Command
         }
 
         return $command;
+    }
+
+    /**
+     * @param  array<string,mixed>  $devPlan
+     * @return array<string,mixed>
+     */
+    private function attachKernelPipelinePlan(
+        array $devPlan,
+        string $task,
+        string $workspace,
+        string $programmingProfile,
+        string $inputMode,
+    ): array {
+        if (is_array($devPlan['kernel_pipeline'] ?? null)) {
+            return $devPlan;
+        }
+
+        $flow = $programmingProfile === 'forge'
+            ? 'programming.forge'
+            : ((bool) $this->option('repair') ? 'programming.repair' : 'programming.dev');
+        $runtime = data_get($devPlan, 'programming_session_plan.executor_decision.executor')
+            ?: data_get($devPlan, 'executor_decision.executor')
+            ?: ($programmingProfile === 'forge' ? 'engineering_harness' : 'dev_repair_executor');
+
+        return app(KernelPipelineDevPlanBuilder::class)->attachProgrammingPlan(
+            devPlan: $devPlan,
+            text: $task,
+            workspace: $workspace,
+            surfaceId: $programmingProfile === 'forge' ? 'atlas_cli_forge' : 'atlas_cli_dev',
+            command: 'atlas:cli:dev',
+            inputMode: $inputMode,
+            programmingProfile: $programmingProfile,
+            flow: $flow,
+            taskKind: (bool) $this->option('repair') ? 'repair' : 'implementation',
+            runtime: (string) $runtime,
+            inputType: $inputMode === 'interactive' ? 'interactive_session' : 'text',
+        );
     }
 
     /**
@@ -908,6 +984,15 @@ class AtlasCliDevCommand extends Command
     }
 
     /**
+     * @param  array<string,mixed>|null  $modelSelection
+     * @return array<string,mixed>
+     */
+    private function modelSelectionContract(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array
+    {
+        return app(ModelSelectionContractFactory::class)->forCliDev($provider, $modelSelection, $modelOverride, $fairMode);
+    }
+
+    /**
      * @param  array<string,mixed>  $selection
      */
     private function modelSelectionNote(array $selection): string
@@ -984,9 +1069,44 @@ class AtlasCliDevCommand extends Command
 
     private function maxIterations(string $programmingProfile = 'dev'): int
     {
-        $requested = max(1, min(10, (int) $this->option('max-iterations')));
+        return ProgrammingIterationPolicy::forProfile($this->option('max-iterations'), $programmingProfile);
+    }
 
-        return $programmingProfile === 'forge' ? max(5, $requested) : $requested;
+    private function surfaceOrigin(): ?string
+    {
+        $origin = $this->option('surface-origin');
+
+        if (! is_scalar($origin)) {
+            return null;
+        }
+
+        $origin = trim((string) $origin);
+
+        return in_array($origin, ['atlas_cli_fix'], true) ? $origin : null;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function fixContractCommand(): array
+    {
+        $command = [
+            'atlas:cli:dev',
+            '--surface-origin=atlas_cli_fix',
+        ];
+
+        foreach ([
+            'repair' => '--repair',
+            'allow-write' => '--allow-write',
+            'auto-test' => '--auto-test',
+            'plan-only' => '--plan-only',
+        ] as $option => $flag) {
+            if ((bool) $this->option($option)) {
+                $command[] = $flag;
+            }
+        }
+
+        return $command;
     }
 
     /**

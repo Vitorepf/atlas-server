@@ -7,7 +7,7 @@ use Carbon\CarbonImmutable;
 class AtlasSelfImprovementScheduleService
 {
     /**
-     * @return array{schema_version:int,status:string,plan_hash:string,plan_hash_algorithm:string,enabled:bool,schedulable:bool,scheduler_registration:array{status:string,registered_command_count:int,skipped_reason:?string},time:string,timezone:string,next_run_at:?string,configured_flows:array<int,string>,invalid_flows:array<int,string>,defaulted:bool,flows:array<int,string>,commands:array<int,array{flow:string,command:string,time:string}>,count:int,emit:bool,health:array{status:string,issues:array<int,string>,actions:array<int,string>}}
+     * @return array{schema_version:int,status:string,plan_hash:string,plan_hash_algorithm:string,enabled:bool,schedulable:bool,scheduler_registration:array{status:string,registered_command_count:int,skipped_reason:?string},time:string,timezone:string,next_run_at:?string,configured_flows:array<int,string>,invalid_flows:array<int,string>,defaulted:bool,flows:array<int,string>,commands:array<int,array{flow:string,command:string,time:string,cadence:string,week_day:?int,next_run_at:?string}>,count:int,cadence_counts:array<string,int>,emit:bool,health:array{status:string,issues:array<int,string>,actions:array<int,string>}}
      */
     public function schedulePlan(): array
     {
@@ -44,6 +44,14 @@ class AtlasSelfImprovementScheduleService
                 'flow' => $flow,
                 'command' => $this->commandForFlow($flow),
                 'time' => $time,
+                'cadence' => $this->cadenceForFlow($flow),
+                'week_day' => $this->weekDayForFlow($flow),
+                'next_run_at' => $this->nextRunAtForCommand(
+                    time: $time,
+                    timezone: $timezone,
+                    cadence: $this->cadenceForFlow($flow),
+                    weekDay: $this->weekDayForFlow($flow),
+                ),
             ])
             ->values()
             ->all();
@@ -61,6 +69,7 @@ class AtlasSelfImprovementScheduleService
             'flows' => $flows,
             'commands' => $commands,
             'count' => count($commands),
+            'cadence_counts' => $this->cadenceCounts($commands),
             'emit' => (bool) config('atlas_ai.self_improvement.emit', false),
         ];
 
@@ -74,7 +83,7 @@ class AtlasSelfImprovementScheduleService
     }
 
     /**
-     * @return array<int,array{flow:string,command:string,time:string,timezone:string,plan_hash:string}>
+     * @return array<int,array{flow:string,command:string,time:string,timezone:string,plan_hash:string,cadence:string,week_day:?int,next_run_at:?string}>
      */
     public function scheduledCommands(): array
     {
@@ -91,13 +100,16 @@ class AtlasSelfImprovementScheduleService
                 'time' => $command['time'],
                 'timezone' => $plan['timezone'],
                 'plan_hash' => $plan['plan_hash'],
+                'cadence' => $command['cadence'],
+                'week_day' => $command['week_day'],
+                'next_run_at' => $command['next_run_at'],
             ])
             ->values()
             ->all();
     }
 
     /**
-     * @return array{schema_version:int,status:string,plan_hash:string,plan_hash_algorithm:string,enabled:bool,schedulable:bool,scheduler_registration:array{status:string,registered_command_count:int,skipped_reason:?string},time:string,timezone:string,next_run_at:?string,health:array{status:string,issues:array<int,string>,actions:array<int,string>},flow_count:int,invalid_flow_count:int,defaulted:bool,emit:bool}
+     * @return array{schema_version:int,status:string,plan_hash:string,plan_hash_algorithm:string,enabled:bool,schedulable:bool,scheduler_registration:array{status:string,registered_command_count:int,skipped_reason:?string},time:string,timezone:string,next_run_at:?string,health:array{status:string,issues:array<int,string>,actions:array<int,string>},flow_count:int,cadence_counts:array<string,int>,invalid_flow_count:int,defaulted:bool,emit:bool}
      */
     public function scheduleHealth(): array
     {
@@ -116,6 +128,7 @@ class AtlasSelfImprovementScheduleService
             'next_run_at' => $plan['next_run_at'],
             'health' => $plan['health'],
             'flow_count' => $plan['count'],
+            'cadence_counts' => $plan['cadence_counts'],
             'invalid_flow_count' => count($plan['invalid_flows']),
             'defaulted' => $plan['defaulted'],
             'emit' => $plan['emit'],
@@ -129,7 +142,9 @@ class AtlasSelfImprovementScheduleService
     {
         return [
             'nightly_review',
+            'weekly_architecture_audit',
             'repair_loop_review',
+            'kernel_pipeline_review',
         ];
     }
 
@@ -185,14 +200,41 @@ class AtlasSelfImprovementScheduleService
         return $command;
     }
 
+    private function cadenceForFlow(string $flow): string
+    {
+        return $flow === 'weekly_architecture_audit' ? 'weekly' : 'daily';
+    }
+
+    private function weekDayForFlow(string $flow): ?int
+    {
+        return $this->cadenceForFlow($flow) === 'weekly' ? 1 : null;
+    }
+
+    /**
+     * @param  array<int,array{cadence:string}>  $commands
+     * @return array<string,int>
+     */
+    private function cadenceCounts(array $commands): array
+    {
+        return collect($commands)
+            ->countBy(fn (array $command): string => $command['cadence'])
+            ->all();
+    }
+
     private function hours(): int
     {
-        return max(1, min(168, (int) config('atlas_ai.self_improvement.hours', 24)));
+        return max(1, min(
+            AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS,
+            (int) config('atlas_ai.self_improvement.hours', AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS),
+        ));
     }
 
     private function limit(): int
     {
-        return max(1, min(20, (int) config('atlas_ai.self_improvement.limit', 5)));
+        return max(1, min(
+            AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN,
+            (int) config('atlas_ai.self_improvement.limit', 5),
+        ));
     }
 
     /**
@@ -245,8 +287,9 @@ class AtlasSelfImprovementScheduleService
             'invalid_flows' => $plan['invalid_flows'] ?? [],
             'defaulted' => $plan['defaulted'] ?? false,
             'flows' => $plan['flows'] ?? [],
-            'commands' => $plan['commands'] ?? [],
+            'commands' => $this->hashableCommands((array) ($plan['commands'] ?? [])),
             'count' => $plan['count'] ?? 0,
+            'cadence_counts' => $plan['cadence_counts'] ?? [],
             'emit' => $plan['emit'] ?? false,
             'health' => [
                 'status' => data_get($plan, 'health.status'),
@@ -272,6 +315,19 @@ class AtlasSelfImprovementScheduleService
         return $value;
     }
 
+    /**
+     * @param  array<int,array<string,mixed>>  $commands
+     * @return array<int,array<string,mixed>>
+     */
+    private function hashableCommands(array $commands): array
+    {
+        return array_map(static function (array $command): array {
+            unset($command['next_run_at']);
+
+            return $command;
+        }, $commands);
+    }
+
     private function time(): string
     {
         return trim((string) config('atlas_ai.self_improvement.time', '02:00'));
@@ -294,6 +350,11 @@ class AtlasSelfImprovementScheduleService
 
     private function nextRunAt(string $time, string $timezone): ?string
     {
+        return $this->nextRunAtForCommand($time, $timezone, 'daily', null);
+    }
+
+    private function nextRunAtForCommand(string $time, string $timezone, string $cadence, ?int $weekDay): ?string
+    {
         if (! $this->isValidTime($time) || ! $this->isValidTimezone($timezone)) {
             return null;
         }
@@ -301,6 +362,16 @@ class AtlasSelfImprovementScheduleService
         [$hour, $minute] = array_map('intval', explode(':', $time));
         $now = CarbonImmutable::now($timezone);
         $next = $now->setTime($hour, $minute);
+
+        if ($cadence === 'weekly') {
+            $targetWeekDay = max(0, min(6, (int) ($weekDay ?? 1)));
+
+            while ((int) $next->dayOfWeek !== $targetWeekDay || $next->lessThanOrEqualTo($now)) {
+                $next = $next->addDay();
+            }
+
+            return $next->toJSON();
+        }
 
         if ($next->lessThanOrEqualTo($now)) {
             $next = $next->addDay();
@@ -345,7 +416,7 @@ class AtlasSelfImprovementScheduleService
 
         if ($plan['count'] < 1) {
             $issues[] = 'self_improvement_schedule_empty';
-            $actions[] = 'Restore the default nightly_review and repair_loop_review schedule.';
+            $actions[] = 'Restore the default nightly_review, weekly_architecture_audit, repair_loop_review, and kernel_pipeline_review schedule.';
         }
 
         if ($issues === []) {

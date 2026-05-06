@@ -9,6 +9,8 @@ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Failure\FailureClassification;
 use App\Services\Ai\Kernel\Failure\FailureDomain;
+use App\Services\Ai\Kernel\Pipeline\KernelPipelineContract;
+use App\Services\Ai\Kernel\Pipeline\KernelPipelineStage;
 use App\Services\Ai\Kernel\Repair\AtlasRepairOrchestrator;
 use App\Services\Ai\Kernel\Repair\RepairRequestFactory;
 use App\Services\Ai\Kernel\Slo\KernelSloTargets;
@@ -161,6 +163,58 @@ class EvidenceLedgerTest extends TestCase
         $this->assertSame('client-ap14', $event->correlation_id);
         $this->assertSame('programming.tools.execution_tier_hot_path_blocked', data_get($event->payload, 'violation_code'));
         $this->assertSame('T2', data_get($event->payload, 'receipt.requested_execution_tier'));
+    }
+
+    public function test_records_kernel_pipeline_accepted_without_raw_prompt(): void
+    {
+        $event = app(AtlasEvidenceLedger::class)->recordKernelPipelineAccepted($this->kernelPipelinePlan(), [
+            'tenant_id' => 'tenant-kernel',
+            'operator_id' => 'operator-kernel',
+            'surface_contract' => [
+                'required' => true,
+                'source' => 'KernelPipelineDevPlanBuilder',
+                'surface_must_not_decide' => true,
+                'provider_execution_blocked_until_runtime_migration' => true,
+                'runtime_execution_blocked_until_runtime_migration' => true,
+            ],
+        ]);
+
+        $this->assertInstanceOf(AtlasLedgerEvent::class, $event);
+        $this->assertSame(LedgerEventType::KernelPipelineAccepted->value, $event->event_type);
+        $this->assertSame('atlas.kernel_pipeline_guard', $event->emitter_stage);
+        $this->assertSame('tenant-kernel', $event->tenant_id);
+        $this->assertSame('operator-kernel', $event->operator_id);
+        $this->assertSame('kernel_pipeline:pipe_test_01', $event->envelope_id);
+        $this->assertSame('pipe_test_01', $event->correlation_id);
+        $this->assertSame('accepted', data_get($event->payload, 'status'));
+        $this->assertSame([], data_get($event->payload, 'violations'));
+        $this->assertSame('atlas.kernel.pipeline.scaffold.v1', data_get($event->payload, 'pipeline.schema_version'));
+        $this->assertSame('programming.dev', data_get($event->payload, 'routing.flow'));
+        $this->assertSame('KernelPipelineDevPlanBuilder', data_get($event->payload, 'surface_contract.source'));
+        $this->assertTrue(data_get($event->payload, 'surface_contract.surface_must_not_decide'));
+        $this->assertSame('hash-only', data_get($event->payload, 'input.primary_text_hash'));
+        $this->assertArrayNotHasKey('primary_text', data_get($event->payload, 'input'));
+    }
+
+    public function test_records_kernel_pipeline_rejected_with_violations(): void
+    {
+        $plan = $this->kernelPipelinePlan();
+        $plan['canonical_flow_hash'] = 'tampered';
+
+        $event = app(AtlasEvidenceLedger::class)->recordKernelPipelineRejected($plan, [
+            'kernel_pipeline.canonical_flow_hash does not match the canonical kernel flow.',
+        ], [
+            'tenant_id' => 'tenant-kernel',
+            'operator_id' => 'operator-kernel',
+            'emitter_stage' => 'atlas.ai_chat.kernel_pipeline_guard',
+        ]);
+
+        $this->assertInstanceOf(AtlasLedgerEvent::class, $event);
+        $this->assertSame(LedgerEventType::KernelPipelineRejected->value, $event->event_type);
+        $this->assertSame('atlas.ai_chat.kernel_pipeline_guard', $event->emitter_stage);
+        $this->assertSame('rejected', data_get($event->payload, 'status'));
+        $this->assertSame(['kernel_pipeline.canonical_flow_hash does not match the canonical kernel flow.'], data_get($event->payload, 'violations'));
+        $this->assertSame('tampered', data_get($event->payload, 'pipeline.canonical_flow_hash'));
     }
 
     public function test_records_provider_memory_privacy_block_without_content(): void
@@ -324,6 +378,50 @@ class EvidenceLedgerTest extends TestCase
             'inputs_hash' => hash('sha256', 'input'),
             'receipt_hash' => hash('sha256', 'receipt'),
             'chain_hash' => hash('sha256', 'chain'),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function kernelPipelinePlan(): array
+    {
+        return [
+            'pipeline_id' => 'pipe_test_01',
+            'schema_version' => KernelPipelineContract::SCHEMA_VERSION,
+            'mode' => KernelPipelineContract::MODE,
+            'status' => KernelPipelineContract::STATUS,
+            'canonical_flow_hash' => KernelPipelineContract::canonicalFlowHash(),
+            'stage_order' => KernelPipelineStage::orderedValues(),
+            'stage_count' => count(KernelPipelineStage::orderedValues()),
+            'provider_execution_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'execution_guards' => [
+                'dry_run_effective' => true,
+                'provider_execution_allowed' => false,
+                'runtime_execution_allowed' => false,
+                'surface_runtime_migration_allowed' => false,
+            ],
+            'input' => [
+                'surface_id' => 'atlas_ai_chat',
+                'tenant_id' => 'tenant-input',
+                'operator_id' => 'operator-input',
+                'primary_text_hash' => 'hash-only',
+                'input_fingerprint' => 'fingerprint-only',
+                'hints_hash' => 'hints-only',
+                'metadata_keys' => ['workspace'],
+                'safe_hints' => [
+                    'domain' => 'programming',
+                    'flow' => 'programming.dev',
+                    'mode' => 'dev',
+                    'runtime' => 'dev_repair_executor',
+                ],
+            ],
+            'surface_binding' => [
+                'surface' => 'atlas_ai_chat',
+                'command' => 'atlas:ai:chat',
+                'input_mode' => 'declared_dev_plan',
+            ],
         ];
     }
 

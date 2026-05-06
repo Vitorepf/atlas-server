@@ -95,6 +95,15 @@ revisao para facilitar leitura e curadoria.
 | `CLAUDE.md` / `AGENTS.md` | Projections para providers | Nao |
 | Obsidian / AtlasVault | Leitura humana, rascunhos, pesquisa, notas e espelho gerenciado | Nao |
 
+No kernel Atlas AI, Obsidian/AtlasVault tambem possui adapter formal:
+`atlas_vault`. Esse adapter torna a Human Knowledge Surface visivel para
+`SurfaceAdapterRegistry`, Capability Registry e
+`atlas:ai:architecture-validate`, com capabilities de texto, arquivos,
+workspace humano e projection gerenciada. Ele deliberadamente nao declara
+`memory_recall`, `context_compose` nem `tools_runtime`; a promocao para Open
+Brain continua passando por import, classificacao, redacao, provider-safety,
+dedupe, evidencia e revisao.
+
 ## O Que Obsidian Deve Ser
 
 Obsidian deve ser usado para:
@@ -675,6 +684,11 @@ linha, limitado a 1000 caracteres e gravado em `metadata.resolution_reason` e
 no evidence do audit event. `reason` nao muda semantica de resolucao nem
 autoriza overwrite. Item inexistente em `resolve` tambem retorna `404` com
 payload JSON `{ok:false,error}`.
+
+O limite operacional da CLI deve passar pelo `atlas vault command input contract`
+(`AtlasVaultCommandInput`). Esse contrato centraliza limites de `sync` e
+`conflicts`, evitando que a Human Knowledge Surface defina janelas proprias fora
+do kernel AP-83.
 
 Validacao executada:
 

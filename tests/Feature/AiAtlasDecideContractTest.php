@@ -359,6 +359,12 @@ class AiAtlasDecideContractTest extends TestCase
         $this->assertSame('atlas_decide', data_get($payload, 'decision.decision_mode'));
         $this->assertSame('gemini_cli', data_get($payload, 'decision.selected_provider'));
         $this->assertSame('gemini-3.1-pro-preview', data_get($payload, 'decision.selected_model'));
+        $this->assertSame('auto_best_allowed', data_get($payload, 'decision.selection_mode'));
+        $this->assertSame('atlas_decide', data_get($payload, 'decision.model_selection_authority'));
+        $this->assertSame(
+            ['auto_best_allowed', 'auto_best_available', 'manual_override'],
+            data_get($payload, 'decision.available_selection_modes'),
+        );
     }
 
     public function test_cli_decide_outputs_domain_catalog_selection_preview(): void
@@ -379,7 +385,7 @@ class AiAtlasDecideContractTest extends TestCase
         $this->assertSame(0, $exitCode);
         $payload = json_decode(Artisan::output(), true);
         $this->assertSame('ok', data_get($payload, 'decision.domain_catalog_selection.status'));
-        $this->assertSame('atlas_cli', data_get($payload, 'decision.domain_catalog_selection.surface_id'));
+        $this->assertSame('atlas_cli_dev', data_get($payload, 'decision.domain_catalog_selection.surface_id'));
         $this->assertSame('explicit_flow', data_get($payload, 'decision.domain_catalog_selection.selection_source'));
         $this->assertSame('programming', data_get($payload, 'decision.domain_catalog_selection.domain.id'));
         $this->assertSame('ready', data_get($payload, 'decision.domain_catalog_selection.domain.onboarding_status'));

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Cli\AtlasCliSessionService;
 use App\Services\Ai\Cli\DevProgressReporter;
 use App\Services\Ai\Programming\AtlasProgrammingSurfaceCommandBuilder;
+use App\Services\Ai\Programming\ProgrammingSurfaceContractFactory;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -64,6 +65,12 @@ class AtlasCliContinueCommand extends Command
                 'reason' => $resume['reason'],
                 'programming_profile' => $resume['programming_profile'] ?? null,
                 'command' => AtlasSecurity::commandLineForDisplay($command),
+                'resume_contract' => app(ProgrammingSurfaceContractFactory::class)->resume(
+                    resume: $resume,
+                    operatorOptions: $operatorOptions,
+                    command: $command,
+                    openBrain: $this->openBrainOptions($operatorOptions),
+                ),
                 'dry_run' => (bool) $this->option('dry-run'),
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 

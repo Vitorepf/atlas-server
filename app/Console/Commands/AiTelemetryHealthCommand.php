@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Telemetry\AiTelemetryHealthService;
+use App\Services\Ai\Telemetry\AiTelemetryWindowInput;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
@@ -18,7 +19,7 @@ class AiTelemetryHealthCommand extends Command
 
     protected $description = 'Evaluate Atlas telemetry health and optionally emit an operational insight.';
 
-    public function handle(AiTelemetryHealthService $health, AiTraceMetricAggregator $aggregator): int
+    public function handle(AiTelemetryHealthService $health, AiTraceMetricAggregator $aggregator, AiTelemetryWindowInput $telemetryWindow): int
     {
         if (! Schema::hasTable('ai_trace_metric_summaries')) {
             $this->error('ai_trace_metric_summaries table is missing. Run php artisan migrate.');
@@ -26,7 +27,7 @@ class AiTelemetryHealthCommand extends Command
             return self::FAILURE;
         }
 
-        $hours = max(1, min(720, (int) $this->option('hours')));
+        $hours = $telemetryWindow->hours($this->option('hours'));
         $since = now()->subHours($hours);
         $recomputed = null;
 

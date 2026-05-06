@@ -16,6 +16,7 @@ capabilities:
   - documentation_governance
   - architecture_layering
 decisions:
+  - Atlas AI Thesis (Multiplier/Channel) e o ponto fixo constitucional acima de toda arquitetura. Toda decisao e auditada contra ela.
   - Atlas AI Master Architecture e a camada Layer 2 de produto, planes, dominios, roadmap e estrategia.
   - Atlas AI Kernel Architecture e a camada Layer 1 de contratos executaveis, envelope, receipt, ledger, manifests, SDKs, tests e SLOs.
   - AtlasVault/Obsidian pertence a Human Knowledge Surface / Personal Knowledge Workspace: workspace humano de escrita, leitura, pesquisa, revisao, navegacao e espelho gerenciado, nao fonte operacional crua.
@@ -25,6 +26,7 @@ maintenance:
   - Atualizar quando um novo layer, domain spec ou documento constitucional for promovido.
   - Usar este documento como primeira leitura operacional antes de escolher qual spec seguir.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md
@@ -61,6 +63,10 @@ fronteira clara.
 ## Hierarquia Canonica
 
 ```text
+Layer -1 - Tese Central (PONTO FIXO ACIMA DE TUDO)
+  atlas-ai-thesis-multiplier-channel.md
+  Multiplicador + Canal Unico + Antifragilidade. Imutavel. Toda decisao auditada aqui.
+
 Layer 0 - Constitution / Human Knowledge
   identidade, leis, glossary, master prompt, AtlasVault humano e principios permanentes
 
@@ -77,6 +83,11 @@ Layer 4 - Domain Specs
   Programming, Finance, Personal Development, Self-Improvement, Marketing scaffold,
   Curator dedicado futuro
 ```
+
+**Regra de hierarquia**: quando houver conflito entre layers, **Layer -1 vence
+sempre**. A tese de multiplicador/canal unico nao e modificavel por decisao
+de Master Architecture, Kernel ou Domain Spec — todas elas devem se conformar
+a ela.
 
 ## Autoridade Por Assunto
 
@@ -139,8 +150,8 @@ Quando dois documentos parecerem conflitar:
 1. Capability Registry executavel. Status: iniciado com `AtlasCapabilityRegistry`, `CapabilityComplianceTest` e `atlas:ai:architecture-validate`.
 2. Operation Envelope tipada. Status: implementado como contrato/factory inicial com `OperationEnvelopeFactory`, emissao `ENVELOPE_CREATED` e unit tests.
 3. Decision Receipt v2. Status: implementado como receipt tipado via `DecisionReceiptIssuer`, com `dryRun`, `signedBy` e integracao em `AtlasDecideService`.
-4. Domain Manifest + validator. Status: iniciado com `AtlasDomainManifestValidator`, `DomainProfileComplianceTest`, `atlas:ai:architecture-validate`, `AtlasAiDomainCatalogService`, `AtlasDomainOnboardingScorecard`, `atlas:ai:domains`, `GET /ai/domains`; `programming`, `self_improvement`, `finance` e `personal_development` estao implemented/ready, e `marketing`, `research`, `health`, `learning`, `writing`, `qa`, `security`, `operations`, `background` e `general` aparecem como scaffolds auditaveis.
+4. Domain Manifest + validator. Status: iniciado com `AtlasDomainManifestValidator`, `DomainProfileComplianceTest`, `atlas:ai:architecture-validate`, `AtlasAiDomainCatalogService`, `AtlasDomainOnboardingScorecard`, `atlas:ai:domains`, `GET /ai/domains` e filtro operacional de onboarding status; `programming`, `self_improvement`, `finance` e `personal_development` estao implemented/ready, e `marketing`, `research`, `health`, `learning`, `writing`, `qa`, `security`, `operations`, `background` e `general` aparecem como scaffolds auditaveis.
 5. Evidence Ledger. Status: iniciado com `atlas_ledger_events`, `AtlasEvidenceLedger`, `LedgerEventType`, emissao `ENVELOPE_CREATED` pela `OperationEnvelopeFactory`, emissao `DECISION_ISSUED` pelo Decide, eventos de runtime/provider no `AiWorker`, eventos de gate/repair no repair nativo, eventos do Engineering Harness, eventos do Super Tool Runtime e replay via `atlas:ai:ledger`.
-6. Self-Improvement jobs. Status: iniciado com `AtlasSelfImprovementOrchestrator`, `AtlasSelfImprovementRuntime`, `AtlasSelfImprovementScheduleService`, comando `atlas:ai:self-improve --flow=...`, `--list-flows`, `--plan-only`, `AtlasInitiativeRun`, 11 flow profiles, plano de dominio/flow, leitura do Evidence Ledger, emissao de `LEARNING_PROPOSED` e agendamento multi-flow por `ATLAS_AI_SELF_IMPROVEMENT_FLOWS`. O default recorrente executa `nightly_review` e `repair_loop_review`.
+6. Self-Improvement jobs. Status: iniciado com `AtlasSelfImprovementOrchestrator`, `AtlasSelfImprovementRuntime`, `AtlasSelfImprovementScheduleService`, comando `atlas:ai:self-improve --flow=...`, `--list-flows`, `--plan-only`, `AtlasInitiativeRun`, 12 flow profiles, plano de dominio/flow, leitura do Evidence Ledger, read models de SLO/Repair/Kernel Pipeline, emissao de `LEARNING_PROPOSED` e agendamento multi-flow por `ATLAS_AI_SELF_IMPROVEMENT_FLOWS`. O default recorrente executa `nightly_review`, `weekly_architecture_audit`, `repair_loop_review` e `kernel_pipeline_review`, com cadencia daily/weekly explicita.
 
 Cada etapa deve entregar codigo, teste e doc.

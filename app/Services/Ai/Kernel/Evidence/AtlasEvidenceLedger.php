@@ -136,6 +136,126 @@ class AtlasEvidenceLedger
     }
 
     /**
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $context
+     */
+    public function recordKernelPipelineAccepted(array $plan, array $context = []): ?AtlasLedgerEvent
+    {
+        return $this->recordKernelPipelineContract(
+            type: LedgerEventType::KernelPipelineAccepted,
+            plan: $plan,
+            status: 'accepted',
+            violations: [],
+            context: $context,
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @param  array<int,string>  $violations
+     * @param  array<string,mixed>  $context
+     */
+    public function recordKernelPipelineRejected(array $plan, array $violations, array $context = []): ?AtlasLedgerEvent
+    {
+        return $this->recordKernelPipelineContract(
+            type: LedgerEventType::KernelPipelineRejected,
+            plan: $plan,
+            status: 'rejected',
+            violations: $violations,
+            context: $context,
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @param  array<int,string>  $violations
+     * @param  array<string,mixed>  $context
+     */
+    private function recordKernelPipelineContract(
+        LedgerEventType $type,
+        array $plan,
+        string $status,
+        array $violations,
+        array $context = [],
+    ): ?AtlasLedgerEvent {
+        $pipelineId = $this->string($plan['pipeline_id'] ?? data_get($context, 'pipeline_id', 'kernel_pipeline_unknown'), 120);
+        $surfaceId = $this->nullableString(data_get($plan, 'input.surface_id') ?? data_get($plan, 'surface_binding.surface'), 120);
+        $flow = $this->nullableString(data_get($plan, 'input.safe_hints.flow') ?? data_get($plan, 'surface_binding.flow'), 120);
+        $stageOrder = $this->kernelPipelineStageOrder($plan);
+
+        return $this->record($type, [
+            'status' => $status,
+            'violations' => array_values(array_map('strval', $violations)),
+            'pipeline' => [
+                'pipeline_id' => $pipelineId,
+                'schema_version' => $plan['schema_version'] ?? null,
+                'mode' => $plan['mode'] ?? null,
+                'status' => $plan['status'] ?? null,
+                'canonical_flow_hash' => $plan['canonical_flow_hash'] ?? null,
+                'stage_order' => $stageOrder,
+                'stage_count' => $plan['stage_count'] ?? count($stageOrder),
+                'provider_execution_allowed' => (bool) ($plan['provider_execution_allowed'] ?? false),
+                'runtime_execution_allowed' => (bool) ($plan['runtime_execution_allowed'] ?? false),
+                'execution_guards' => is_array($plan['execution_guards'] ?? null) ? $plan['execution_guards'] : [],
+            ],
+            'surface' => [
+                'surface_id' => $surfaceId,
+                'binding_surface' => data_get($plan, 'surface_binding.surface'),
+                'command' => data_get($plan, 'surface_binding.command'),
+                'input_mode' => data_get($plan, 'surface_binding.input_mode'),
+            ],
+            'surface_contract' => [
+                'required' => (bool) data_get($context, 'surface_contract.required', false),
+                'source' => $this->nullableString(data_get($context, 'surface_contract.source'), 120),
+                'surface_must_not_decide' => (bool) data_get($context, 'surface_contract.surface_must_not_decide', false),
+                'provider_execution_blocked_until_runtime_migration' => (bool) data_get($context, 'surface_contract.provider_execution_blocked_until_runtime_migration', false),
+                'runtime_execution_blocked_until_runtime_migration' => (bool) data_get($context, 'surface_contract.runtime_execution_blocked_until_runtime_migration', false),
+            ],
+            'routing' => [
+                'domain' => data_get($plan, 'input.safe_hints.domain'),
+                'flow' => $flow,
+                'mode' => data_get($plan, 'input.safe_hints.mode'),
+                'runtime' => data_get($plan, 'input.safe_hints.runtime'),
+            ],
+            'input' => [
+                'primary_text_hash' => data_get($plan, 'input.primary_text_hash'),
+                'input_fingerprint' => data_get($plan, 'input.input_fingerprint'),
+                'hints_hash' => data_get($plan, 'input.hints_hash'),
+                'metadata_keys' => data_get($plan, 'input.metadata_keys', []),
+            ],
+        ], [
+            'tenant_id' => $context['tenant_id'] ?? data_get($plan, 'input.tenant_id', 'default'),
+            'operator_id' => $context['operator_id'] ?? data_get($plan, 'input.operator_id', 'system'),
+            'envelope_id' => $context['envelope_id'] ?? 'kernel_pipeline:'.$pipelineId,
+            'receipt_id' => $context['receipt_id'] ?? null,
+            'trace_id' => $context['trace_id'] ?? null,
+            'correlation_id' => $context['correlation_id'] ?? $pipelineId,
+            'causation_id' => $context['causation_id'] ?? null,
+            'emitter_stage' => $context['emitter_stage'] ?? 'atlas.kernel_pipeline_guard',
+            'emitter_version' => $context['emitter_version'] ?? 'atlas.kernel_pipeline_guard.v1',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @return array<int,string>
+     */
+    private function kernelPipelineStageOrder(array $plan): array
+    {
+        if (is_array($plan['stage_order'] ?? null)) {
+            return array_values(array_filter(array_map(
+                fn (mixed $stage): ?string => is_scalar($stage) ? trim((string) $stage) : null,
+                $plan['stage_order'],
+            )));
+        }
+
+        return array_values(array_filter(array_map(
+            fn (mixed $stage): ?string => is_scalar(data_get($stage, 'stage')) ? trim((string) data_get($stage, 'stage')) : null,
+            (array) ($plan['stages'] ?? $plan['stage_results'] ?? []),
+        )));
+    }
+
+    /**
      * @param  Throwable|array<string,mixed>|string  $failure
      * @param  array<string,mixed>  $context
      * @return array{classification:array<string,mixed>,handling:array<string,mixed>,event:?AtlasLedgerEvent}

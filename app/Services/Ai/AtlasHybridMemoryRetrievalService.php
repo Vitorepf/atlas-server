@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
+use App\Services\Ai\Memory\MemoryRecallInput;
 use App\Services\Semantic\SemanticSearchService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -19,6 +20,7 @@ class AtlasHybridMemoryRetrievalService
         private readonly AtlasMemoryPrivacyService $privacy,
         private readonly AtlasMemorySourcePrivacyPolicy $sourcePrivacy,
         private readonly AtlasMemoryContextComposer $composer,
+        private readonly MemoryRecallInput $input,
     ) {}
 
     /**
@@ -30,10 +32,10 @@ class AtlasHybridMemoryRetrievalService
     public function recall(string $query = '', array $context = [], array $filters = [], array $options = []): array
     {
         $query = trim($query);
-        $limit = $this->intOption($options, 'limit', (int) config('atlas.ai.memory_recall_limit', 10), 1, 50);
-        $registryLimit = $this->intOption($options, 'registry_limit', max($limit * 3, 12), 0, 100);
-        $verbatimLimit = $this->intOption($options, 'verbatim_limit', max($limit, 4), 0, 50);
-        $semanticLimit = $this->intOption($options, 'semantic_limit', max($limit, 5), 0, 50);
+        $limit = $this->input->recallLimit($options['limit'] ?? null);
+        $registryLimit = $this->input->registryCandidateLimit($options['registry_limit'] ?? null, $limit);
+        $verbatimLimit = $this->input->verbatimCandidateLimit($options['verbatim_limit'] ?? null, $limit);
+        $semanticLimit = $this->input->semanticCandidateLimit($options['semantic_limit'] ?? null, $limit);
 
         $registry = $this->registryItems($query, $context, $filters, $registryLimit, (bool) ($options['include_registry'] ?? true));
         $verbatim = $this->verbatimItems($query, $context, $filters, $verbatimLimit, (bool) ($options['include_verbatim'] ?? true));
@@ -41,8 +43,8 @@ class AtlasHybridMemoryRetrievalService
 
         $recall = $this->composer->compose($registry, $verbatim, $semantic, [
             'memory_recall_limit' => $limit,
-            'memory_recall_budget_chars' => $this->intOption($options, 'budget_chars', (int) config('atlas.ai.memory_recall_budget_chars', 2400), 120, 12000),
-            'memory_recall_item_chars' => $this->intOption($options, 'item_chars', (int) config('atlas.ai.memory_recall_item_chars', 360), 80, 3000),
+            'memory_recall_budget_chars' => $this->input->budgetChars($options['budget_chars'] ?? null),
+            'memory_recall_item_chars' => $this->input->itemChars($options['item_chars'] ?? null),
         ]);
 
         return [
@@ -87,7 +89,7 @@ class AtlasHybridMemoryRetrievalService
                 'scope_id' => $entry->scope_id,
                 'title' => $this->privacy->providerTitle($entry),
                 'summary' => $this->privacy->providerSummary($entry),
-                'body' => Str::limit($this->privacy->providerBody($entry), (int) config('atlas.ai.memory_registry_excerpt_chars', 900), '...'),
+                'body' => Str::limit($this->privacy->providerBody($entry), $this->input->registryExcerptChars(), '...'),
                 'importance' => $entry->importance,
                 'priority' => $entry->priority,
                 'confidence' => $entry->confidence,
@@ -128,7 +130,7 @@ class AtlasHybridMemoryRetrievalService
                 'scope_id' => $memory->scope_id,
                 'title' => $memory->title,
                 'summary' => $memory->summary,
-                'snippet' => Str::limit((string) $memory->redacted_text, (int) config('atlas.ai.verbatim_recall_item_chars', 600), '...'),
+                'snippet' => Str::limit((string) $memory->redacted_text, $this->input->itemChars(), '...'),
                 'source_type' => $memory->source_type,
                 'source_id' => $memory->source_id,
                 'recorded_at' => $memory->recorded_at?->toJSON(),
@@ -282,11 +284,4 @@ class AtlasHybridMemoryRetrievalService
         ], fn (mixed $value): bool => $value !== null && $value !== '');
     }
 
-    /**
-     * @param  array<string,mixed>  $options
-     */
-    private function intOption(array $options, string $key, int $default, int $min, int $max): int
-    {
-        return max($min, min($max, (int) ($options[$key] ?? $default)));
-    }
 }

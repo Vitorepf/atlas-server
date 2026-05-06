@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Schema;
 
 class AtlasMemoryPrivacyService
 {
+    public function __construct(private readonly MemoryQueryInput $input) {}
+
     /**
      * @param  array<string,mixed>  $payload
      * @param  array<string,mixed>  $source
@@ -83,7 +86,7 @@ class AtlasMemoryPrivacyService
         }
 
         $entries = $this->queryEntries($filters)
-            ->limit(max(1, min(500, $limit)))
+            ->limit($this->input->governanceScanLimit($limit))
             ->get();
         $rows = $entries->map(function (AtlasMemoryEntry $entry) use ($dryRun): array {
             $before = $this->privacyPayload($entry);

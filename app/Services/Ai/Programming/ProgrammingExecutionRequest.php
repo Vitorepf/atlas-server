@@ -96,6 +96,7 @@ class ProgrammingExecutionRequest
     public function harnessOptions(): array
     {
         $profile = $this->profile();
+        $complete = (bool) ($this->data['complete'] ?? $profile === 'forge');
 
         return [
             'workspace' => $this->workspace(),
@@ -105,13 +106,17 @@ class ProgrammingExecutionRequest
             'permission' => (string) ($this->data['permission'] ?? ($profile === 'forge' ? 'danger' : 'auto')),
             'sandbox' => (string) ($this->data['sandbox'] ?? ($profile === 'forge' ? 'worktree' : 'workspace')),
             'provider_runtime' => (string) ($this->data['provider_runtime'] ?? 'host'),
-            'max_attempts' => max(1, min(10, (int) ($this->data['max_attempts'] ?? ($profile === 'forge' ? 5 : 1)))),
+            'max_attempts' => ProgrammingIterationPolicy::forExecutionPolicy(
+                $this->data['max_attempts'] ?? null,
+                $complete,
+                $profile === 'forge',
+            ),
             'test_command' => is_string($this->data['test_command'] ?? null) ? $this->data['test_command'] : null,
             'visual_e2e' => (string) ($this->data['visual_e2e'] ?? ($profile === 'forge' ? 'auto' : 'off')),
             'quality_scan' => (string) ($this->data['quality_scan'] ?? ($profile === 'forge' ? 'auto' : 'off')),
             'quality_profile' => (string) ($this->data['quality_profile'] ?? 'auto'),
             'harness_policy' => (string) ($this->data['harness_policy'] ?? ($profile === 'forge' ? 'strict' : 'auto')),
-            'complete' => (bool) ($this->data['complete'] ?? $profile === 'forge'),
+            'complete' => $complete,
             'auto_test' => (bool) ($this->data['auto_test'] ?? $profile === 'forge'),
             'critical' => (bool) ($this->data['critical'] ?? $profile === 'forge'),
             'dry_run' => (bool) ($this->data['dry_run'] ?? false),

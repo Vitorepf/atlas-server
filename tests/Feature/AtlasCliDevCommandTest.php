@@ -65,6 +65,12 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertContains('dev-quality-gate', $payload['activated_skills']);
         $this->assertContains('--skill=dev-quality-gate', $payload['chat_command']);
         $this->assertSame('dev_repair_executor', data_get($payload, 'dev_execution_plan.programming_session_plan.executor_decision.executor'));
+        $this->assertSame('atlas.cli_dev.model_selection_contract.v1', data_get($payload, 'workflow.model_selection_contract.schema_version'));
+        $this->assertSame('atlas_decide', data_get($payload, 'workflow.model_selection_contract.authority'));
+        $this->assertSame('manual_override', data_get($payload, 'workflow.model_selection_contract.selection_mode'));
+        $this->assertSame('codex_cli', data_get($payload, 'workflow.model_selection_contract.operator_requested_provider'));
+        $this->assertSame(['auto_best_allowed', 'auto_best_available', 'manual_override'], data_get($payload, 'workflow.model_selection_contract.available_selection_modes'));
+        $this->assertSame(data_get($payload, 'workflow.model_selection_contract'), data_get($payload, 'dev_execution_plan.model_selection_contract'));
         $this->assertSame('dev_repair_executor', data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.execution_policy.executor_preference'));
         $this->assertSame(3, data_get($payload, 'dev_execution_plan.programming_session_plan.execution_profile.max_iterations'));
         $this->assertSame('AtlasRepairOrchestrator', data_get($payload, 'dev_execution_plan.programming_session_plan.repair_execution_contract.kernel_repair_contract.orchestrator'));
@@ -72,6 +78,12 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertContains('collect_evidence', data_get($payload, 'dev_execution_plan.programming_session_plan.repair_execution_contract.allowed_strategies'));
         $this->assertSame('passed', data_get($payload, 'dev_execution_plan.quality_gate_policy.required_final_status'));
         $this->assertSame('plan_validate_execute', data_get($payload, 'dev_execution_plan.quality_gate_policy.procedure'));
+        $this->assertSame('atlas.kernel.pipeline.scaffold.v1', data_get($payload, 'dev_execution_plan.kernel_pipeline.schema_version'));
+        $this->assertSame('atlas_cli_dev', data_get($payload, 'dev_execution_plan.kernel_pipeline.input.surface_id'));
+        $this->assertSame('programming.dev', data_get($payload, 'dev_execution_plan.kernel_pipeline.input.safe_hints.flow'));
+        $this->assertSame('one_shot', data_get($payload, 'dev_execution_plan.kernel_pipeline.surface_binding.input_mode'));
+        $this->assertFalse(data_get($payload, 'dev_execution_plan.kernel_pipeline.provider_execution_allowed'));
+        $this->assertTrue(data_get($payload, 'dev_execution_plan.kernel_pipeline_contract.required'));
     }
 
     public function test_plan_only_forge_uses_programming_orchestrator_max_profile(): void
@@ -100,6 +112,11 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertTrue(data_get($payload, 'dev_execution_plan.operator_options.auto_test'));
         $this->assertTrue(data_get($payload, 'dev_execution_plan.operator_options.complete'));
         $this->assertSame('required', data_get($payload, 'dev_execution_plan.operator_options.open_brain.mode'));
+        $this->assertSame('atlas_cli_forge', data_get($payload, 'dev_execution_plan.kernel_pipeline.input.surface_id'));
+        $this->assertSame('atlas_cli_forge', data_get($payload, 'dev_execution_plan.kernel_pipeline.surface_binding.surface'));
+        $this->assertSame('programming.forge', data_get($payload, 'dev_execution_plan.kernel_pipeline.input.safe_hints.flow'));
+        $this->assertSame('forge', data_get($payload, 'dev_execution_plan.kernel_pipeline.surface_binding.programming_profile'));
+        $this->assertSame('engineering_harness', data_get($payload, 'dev_execution_plan.kernel_pipeline.input.safe_hints.runtime'));
         $this->assertContains('--auto-test', $payload['chat_command']);
         $this->assertContains('--require-open-brain', $payload['chat_command']);
     }
@@ -120,6 +137,12 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertSame('codex_cli', data_get($payload, 'dev_execution_plan.ai_policy_override.default_provider'));
         $this->assertSame('gpt-5.5', data_get($payload, 'dev_execution_plan.ai_policy_override.providers.codex_cli.model'));
         $this->assertSame(['gpt-5.5'], data_get($payload, 'dev_execution_plan.ai_policy_override.allowed_models.codex_cli'));
+        $this->assertSame('manual_override', data_get($payload, 'workflow.model_selection_contract.selection_mode'));
+        $this->assertSame('atlas_decide', data_get($payload, 'workflow.model_selection_contract.authority'));
+        $this->assertSame('codex_cli', data_get($payload, 'workflow.model_selection_contract.operator_requested_provider'));
+        $this->assertSame('gpt-5.5', data_get($payload, 'workflow.model_selection_contract.requested_model'));
+        $this->assertSame('codex-premium', data_get($payload, 'workflow.model_selection_contract.requested_model_alias'));
+        $this->assertSame(data_get($payload, 'workflow.model_selection_contract'), data_get($payload, 'dev_execution_plan.model_selection_contract'));
         $this->assertSame('codex_cli', data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.effective_policy.runtime_policy.default_provider'));
         $this->assertSame(['gpt-5.5'], data_get($payload, 'dev_execution_plan.programming_session_plan.policy_profile.effective_policy.runtime_policy.allowed_models.codex_cli'));
         $this->assertContains('--provider=codex_cli', $payload['chat_command']);
@@ -438,6 +461,12 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertContains('--provider=codex_cli', $command);
         $this->assertContains('--permission=danger', $command);
         $this->assertContains('--dangerously-allow-all', $command);
+
+        $plan = $this->devPlanFromCommand($command);
+        $this->assertSame('atlas.kernel.pipeline.scaffold.v1', data_get($plan, 'kernel_pipeline.schema_version'));
+        $this->assertSame('interactive', data_get($plan, 'kernel_pipeline.surface_binding.input_mode'));
+        $this->assertSame('programming.dev', data_get($plan, 'kernel_pipeline.input.safe_hints.flow'));
+        $this->assertFalse(data_get($plan, 'kernel_pipeline.provider_execution_allowed'));
     }
 
     public function test_interactive_dev_forwards_model_override(): void
@@ -468,6 +497,10 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertContains('--no-skill-prompt', $command);
         $this->assertContains('--provider=codex_cli', $command);
         $this->assertSame('one_shot', data_get($plan, 'operator_options.input_mode'));
+        $this->assertSame('atlas.kernel.pipeline.scaffold.v1', data_get($plan, 'kernel_pipeline.schema_version'));
+        $this->assertSame('one_shot', data_get($plan, 'kernel_pipeline.surface_binding.input_mode'));
+        $this->assertSame('programming.dev', data_get($plan, 'kernel_pipeline.input.safe_hints.flow'));
+        $this->assertSame('atlas_cli_dev', data_get($plan, 'kernel_pipeline.input.surface_id'));
     }
 
     public function test_prompt_dev_forwards_execution_flags_to_chat_command(): void

@@ -43,6 +43,9 @@ class AtlasAiSloApiTest extends TestCase
             ->assertJsonPath('kernel_slo.observation_count', 1)
             ->assertJsonPath('kernel_slo.envelope_count', 1)
             ->assertJsonPath('kernel_slo.worst_status', 'warning')
+            ->assertJsonPath('kernel_slo.review_signal.status', 'warning')
+            ->assertJsonPath('kernel_slo.review_signal.severity', 'medium')
+            ->assertJsonPath('kernel_slo.review_signal.recommended_action', 'open_reviewable_slo_drift_proposal')
             ->assertJsonPath('kernel_slo.dimensions.domain.programming', 1)
             ->assertJsonPath('kernel_slo.dimensions.provider.codex_cli', 1);
 
@@ -63,7 +66,9 @@ class AtlasAiSloApiTest extends TestCase
         $this->getJson('/ai/slo', $this->headers)
             ->assertStatus(503)
             ->assertJsonPath('status', 'ledger_unavailable')
-            ->assertJsonPath('kernel_slo.available', false);
+            ->assertJsonPath('kernel_slo.available', false)
+            ->assertJsonPath('kernel_slo.review_signal.status', 'unknown')
+            ->assertJsonPath('kernel_slo.review_signal.recommended_action', 'wait_for_slo_evidence');
     }
 
     private function recordSlo(

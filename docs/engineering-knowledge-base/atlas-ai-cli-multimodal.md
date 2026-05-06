@@ -102,6 +102,12 @@ requires:
 Esse manifesto declara capacidade; a implementacao concreta continua na surface
 CLI e nos services de attachment.
 
+`SurfaceCapabilityParityService` valida esse contrato contra os adapters reais:
+`atlas_cli` precisa estar coberto por `atlas_cli_dev`, `atlas_cli_chat` e
+`atlas_cli_forge`; app/API podem satisfazer a capability por upload/anexo
+normalizado. Assim, uma evolucao multimodal nao pode ficar presa so em `ask` ou
+so em `dev` sem quebrar a validacao arquitetural.
+
 ## Source Material
 
 - `docs/paste-image-setup.md`

@@ -2,10 +2,13 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Memory\MemoryRecallInput;
 use Illuminate\Support\Str;
 
 class AtlasMemoryContextComposer
 {
+    public function __construct(private readonly MemoryRecallInput $input) {}
+
     /**
      * @param  array<int,array<string,mixed>>  $registry
      * @param  array<int,array<string,mixed>>  $verbatim
@@ -15,11 +18,11 @@ class AtlasMemoryContextComposer
      */
     public function compose(array $registry, array $verbatim, array $semantic, array $options = []): array
     {
-        $limit = (int) ($options['memory_recall_limit'] ?? config('atlas.ai.memory_recall_limit', 10));
-        $budget = (int) ($options['memory_recall_budget_chars'] ?? config('atlas.ai.memory_recall_budget_chars', 2400));
-        $itemChars = (int) ($options['memory_recall_item_chars'] ?? config('atlas.ai.memory_recall_item_chars', 360));
+        $limit = $this->input->recallLimit($options['memory_recall_limit'] ?? null);
+        $budget = $this->input->budgetChars($options['memory_recall_budget_chars'] ?? null);
+        $itemChars = $this->input->itemChars($options['memory_recall_item_chars'] ?? null);
 
-        if ($limit <= 0 || $budget <= 0 || $itemChars <= 0) {
+        if ($budget <= 0 || $itemChars <= 0) {
             return [];
         }
 

@@ -17,6 +17,8 @@ enum LedgerEventType: string
     case DecisionIssued = 'DECISION_ISSUED';
     case DecisionConsumed = 'DECISION_CONSUMED';
     case DecisionExpired = 'DECISION_EXPIRED';
+    case KernelPipelineAccepted = 'KERNEL_PIPELINE_ACCEPTED';
+    case KernelPipelineRejected = 'KERNEL_PIPELINE_REJECTED';
     case OrchestratorSelected = 'ORCHESTRATOR_SELECTED';
     case ExecutionStarted = 'EXECUTION_STARTED';
     case ProviderCalled = 'PROVIDER_CALLED';
@@ -36,6 +38,7 @@ enum LedgerEventType: string
     case EscalationRequested = 'ESCALATION_REQUESTED';
     case EvidencePacked = 'EVIDENCE_PACKED';
     case LearningProposed = 'LEARNING_PROPOSED';
+    case SelfImprovementScheduleObserved = 'SELF_IMPROVEMENT_SCHEDULE_OBSERVED';
     case MemoryDeltaAccepted = 'MEMORY_DELTA_ACCEPTED';
     case SloObserved = 'SLO_OBSERVED';
     case OperationCompleted = 'OPERATION_COMPLETED';

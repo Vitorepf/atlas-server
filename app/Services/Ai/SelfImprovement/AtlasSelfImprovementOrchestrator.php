@@ -19,6 +19,7 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
         'self_improvement.memory_quality_review',
         'self_improvement.tool_runtime_review',
         'self_improvement.repair_loop_review',
+        'self_improvement.kernel_pipeline_review',
         'self_improvement.domain_learning_review',
         'self_improvement.docs_drift_review',
         'self_improvement.provider_performance_review',
@@ -47,8 +48,14 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
     {
         $flow = $this->normalizeFlow($flow);
         $profile = $this->profiles->resolve($flow);
-        $hours = max(1, min(168, (int) ($options['hours'] ?? config('atlas_ai.self_improvement.hours', 24))));
-        $limit = max(1, min(20, (int) ($options['limit'] ?? config('atlas_ai.self_improvement.limit', 5))));
+        $hours = max(1, min(
+            AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS,
+            (int) ($options['hours'] ?? config('atlas_ai.self_improvement.hours', AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS)),
+        ));
+        $limit = max(1, min(
+            AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN,
+            (int) ($options['limit'] ?? config('atlas_ai.self_improvement.limit', 5)),
+        ));
         $emit = array_key_exists('emit', $options)
             ? (bool) $options['emit']
             : (bool) config('atlas_ai.self_improvement.emit', false);
@@ -208,10 +215,12 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
             'model' => ['model'],
             'runtime' => ['runtime'],
             'tool_id' => ['tool_id', 'tool'],
-            'status' => ['status', 'repair_status'],
+            'status' => ['status', 'repair_status', 'kernel_status'],
             'strategy' => ['strategy', 'repair_strategy'],
             'failure_domain' => ['failure_domain'],
             'emitter_stage' => ['emitter_stage', 'repair_emitter_stage'],
+            'input_mode' => ['input_mode', 'kernel_input_mode'],
+            'onboarding_status' => ['onboarding_status'],
         ];
 
         foreach ($aliases as $dimension => $keys) {
@@ -227,7 +236,7 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
         return collect($filters)
             ->filter(fn (mixed $value): bool => is_scalar($value) && trim((string) $value) !== '')
             ->map(fn (mixed $value): string => trim((string) $value))
-            ->only(['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id', 'status', 'strategy', 'failure_domain', 'emitter_stage'])
+            ->only(['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id', 'status', 'strategy', 'failure_domain', 'emitter_stage', 'input_mode', 'onboarding_status'])
             ->all();
     }
 }

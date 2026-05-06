@@ -6,6 +6,7 @@ use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasProject;
 use App\Models\AtlasTask;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -15,9 +16,12 @@ class AtlasMemoryRegistryService
 {
     private AtlasMemoryPrivacyService $privacy;
 
-    public function __construct(?AtlasMemoryPrivacyService $privacy = null)
+    private MemoryQueryInput $input;
+
+    public function __construct(?AtlasMemoryPrivacyService $privacy = null, ?MemoryQueryInput $input = null)
     {
         $this->privacy = $privacy ?? app(AtlasMemoryPrivacyService::class);
+        $this->input = $input ?? app(MemoryQueryInput::class);
     }
 
     /**
@@ -474,6 +478,6 @@ class AtlasMemoryRegistryService
 
     private function limit(int $limit): int
     {
-        return max(1, min(200, $limit));
+        return $this->input->registryLimit($limit);
     }
 }

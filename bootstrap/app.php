@@ -267,8 +267,15 @@ return Application::configure(basePath: dirname(__DIR__))
 
         if (config('atlas_ai.self_improvement.enabled', false)) {
             foreach (app(AtlasSelfImprovementScheduleService::class)->scheduledCommands() as $selfImprovementCommand) {
-                $schedule->command($selfImprovementCommand['command'])
-                    ->dailyAt($selfImprovementCommand['time'])
+                $scheduledEvent = $schedule->command($selfImprovementCommand['command']);
+
+                if (($selfImprovementCommand['cadence'] ?? 'daily') === 'weekly') {
+                    $scheduledEvent->weeklyOn((int) ($selfImprovementCommand['week_day'] ?? 1), $selfImprovementCommand['time']);
+                } else {
+                    $scheduledEvent->dailyAt($selfImprovementCommand['time']);
+                }
+
+                $scheduledEvent
                     ->timezone($selfImprovementCommand['timezone'])
                     ->withoutOverlapping();
             }

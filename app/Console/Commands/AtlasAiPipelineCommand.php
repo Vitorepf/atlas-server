@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Kernel\Pipeline\KernelPipelineAuditService;
 use App\Services\Ai\Kernel\Pipeline\PipelineInput;
 use App\Services\Ai\Kernel\Pipeline\ScaffoldAtlasKernelPipeline;
 use Illuminate\Console\Command;
@@ -19,7 +20,7 @@ class AtlasAiPipelineCommand extends Command
 
     protected $description = 'Inspect the Atlas AI kernel pipeline scaffold without executing providers or runtime.';
 
-    public function handle(ScaffoldAtlasKernelPipeline $pipeline): int
+    public function handle(ScaffoldAtlasKernelPipeline $pipeline, KernelPipelineAuditService $audit): int
     {
         $input = PipelineInput::fromArray([
             'text' => (string) ($this->argument('text') ?: 'atlas kernel pipeline inspection'),
@@ -30,18 +31,24 @@ class AtlasAiPipelineCommand extends Command
             'dry_run' => true,
         ]);
 
-        $payload = (bool) $this->option('execute')
-            ? [
+        if ((bool) $this->option('execute')) {
+            $result = $pipeline->execute($input);
+            $ledgerEvent = $audit->recordScaffoldExecution($result);
+
+            $payload = [
                 'schema_version' => 1,
                 'status' => 'executed_scaffold',
-                'pipeline' => $pipeline->execute($input)->toArray(),
-            ]
-            : [
+                'pipeline' => $result->toArray(),
+                'ledger_event' => $audit->eventPayload($ledgerEvent),
+            ];
+        } else {
+            $payload = [
                 'schema_version' => 1,
                 'status' => 'planned_scaffold',
                 'pipeline' => $pipeline->plan($input),
                 'compliance' => $pipeline->complianceReport(),
             ];
+        }
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -57,6 +64,7 @@ class AtlasAiPipelineCommand extends Command
         $this->components->twoColumnDetail('Dry run', data_get($pipelinePayload, 'dry_run', true) ? 'yes' : 'no');
         $this->components->twoColumnDetail('Provider execution', data_get($pipelinePayload, 'provider_execution_attempted', false) ? 'attempted' : 'disabled');
         $this->components->twoColumnDetail('Compliance', ($compliance['ok'] ?? false) ? 'ok' : 'failed');
+        $this->components->twoColumnDetail('Ledger event', (string) data_get($payload, 'ledger_event.event_id', 'not recorded'));
 
         $stages = (array) (data_get($pipelinePayload, 'stages') ?: data_get($pipelinePayload, 'stage_results') ?: []);
         if ($stages !== []) {

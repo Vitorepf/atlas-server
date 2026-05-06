@@ -5,6 +5,7 @@ namespace App\Services\Ai\Cli;
 use App\Models\AiTrace;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Programming\ProgrammingIterationPolicy;
 use App\Support\AtlasPhpBinary;
 use Illuminate\Support\Str;
 
@@ -125,7 +126,7 @@ class AtlasCliDevWorkflowService
             'steps' => [],
             'iterations' => [
                 'current' => 0,
-                'max' => max(1, min(10, $maxIterations)),
+                'max' => ProgrammingIterationPolicy::normalize($maxIterations),
                 'reason_if_stopped' => null,
             ],
             'checkpoints' => [],
@@ -175,7 +176,7 @@ class AtlasCliDevWorkflowService
     {
         $policy = [
             'complete_mode' => $complete,
-            'max_iterations' => max(1, min(10, $maxIterations)),
+            'max_iterations' => ProgrammingIterationPolicy::normalize($maxIterations),
             'required_final_status' => ($complete || $fairMode) ? 'passed' : 'not_failed',
             'auto_skills' => array_values(array_intersect($skills, ['dev-quality-gate'])),
             'procedure' => 'plan_validate_execute',

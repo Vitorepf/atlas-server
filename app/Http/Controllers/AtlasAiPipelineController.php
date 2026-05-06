@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Ai\Kernel\Pipeline\KernelPipelineAuditService;
 use App\Services\Ai\Kernel\Pipeline\PipelineInput;
 use App\Services\Ai\Kernel\Pipeline\ScaffoldAtlasKernelPipeline;
 use Illuminate\Http\JsonResponse;
@@ -9,7 +10,7 @@ use Illuminate\Http\Request;
 
 class AtlasAiPipelineController extends Controller
 {
-    public function __invoke(Request $request, ScaffoldAtlasKernelPipeline $pipeline): JsonResponse
+    public function __invoke(Request $request, ScaffoldAtlasKernelPipeline $pipeline, KernelPipelineAuditService $audit): JsonResponse
     {
         $data = $request->validate([
             'text' => ['nullable', 'string', 'max:20000'],
@@ -36,18 +37,24 @@ class AtlasAiPipelineController extends Controller
             'dry_run' => true,
         ]);
 
-        $payload = (bool) ($data['execute'] ?? false)
-            ? [
+        if ((bool) ($data['execute'] ?? false)) {
+            $result = $pipeline->execute($input);
+            $ledgerEvent = $audit->recordScaffoldExecution($result);
+
+            $payload = [
                 'schema_version' => 1,
                 'status' => 'executed_scaffold',
-                'pipeline' => $pipeline->execute($input)->toArray(),
-            ]
-            : [
+                'pipeline' => $result->toArray(),
+                'ledger_event' => $audit->eventPayload($ledgerEvent),
+            ];
+        } else {
+            $payload = [
                 'schema_version' => 1,
                 'status' => 'planned_scaffold',
                 'pipeline' => $pipeline->plan($input),
                 'compliance' => $pipeline->complianceReport(),
             ];
+        }
 
         return response()->json($payload);
     }

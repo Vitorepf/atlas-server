@@ -25,6 +25,7 @@ class AtlasProgrammingSurfaceCommandBuilder
         int $maxIterations = 3,
         bool $autoTest = false,
         bool $allowWrite = false,
+        bool $planOnly = false,
         bool $json = false,
     ): array {
         return array_filter([
@@ -32,10 +33,12 @@ class AtlasProgrammingSurfaceCommandBuilder
             '--workspace' => $workspace,
             '--provider' => $provider,
             '--permission' => 'write',
+            '--surface-origin' => 'atlas_cli_fix',
             '--repair' => true,
             '--allow-write' => $allowWrite,
             '--auto-test' => $autoTest,
-            '--max-iterations' => (string) max(1, min(10, $maxIterations)),
+            '--max-iterations' => (string) ProgrammingIterationPolicy::normalize($maxIterations),
+            '--plan-only' => $planOnly,
             '--json' => $json,
         ], fn (mixed $value): bool => $value !== null && $value !== false && $value !== '');
     }

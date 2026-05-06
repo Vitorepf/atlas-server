@@ -76,4 +76,23 @@ class AtlasAiRuntimeSettingsTest extends TestCase
         $this->assertSame('codex_cli', $effective['default_provider']);
         $this->assertTrue((bool) data_get($effective, 'providers.codex_cli.allow_auto'));
     }
+
+    public function test_budget_window_hours_uses_explicit_policy_contract(): void
+    {
+        $settings = app(AtlasAiRuntimeSettings::class);
+
+        $tooLarge = $settings->update([
+            'budget' => ['window_hours' => 999],
+        ], 'test');
+
+        $this->assertSame(
+            AtlasAiRuntimeSettings::MAX_BUDGET_WINDOW_HOURS,
+            data_get($tooLarge, 'budget.window_hours'),
+        );
+        $this->assertSame(1, $settings->normalizeBudgetWindowHours(-5));
+        $this->assertSame(
+            AtlasAiRuntimeSettings::DEFAULT_BUDGET_WINDOW_HOURS,
+            $settings->normalizeBudgetWindowHours('bad'),
+        );
+    }
 }

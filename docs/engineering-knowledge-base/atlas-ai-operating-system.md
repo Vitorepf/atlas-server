@@ -114,12 +114,50 @@ Comandos e telas sao apenas entradas:
 | Superficie | Deve fazer |
 |---|---|
 | `atlas dev` | Entrar no Atlas AI Programming em modo cockpit/programacao. |
-| `atlas forge` | Entrar no Atlas AI Programming em intensidade harness/forge. |
-| `atlas fix` | Ser alias ou atalho para repair dentro de Atlas AI Programming. |
-| `atlas continue` | Retomar o mesmo fluxo com thread, memoria e estado. |
+| `atlas forge` | Entrar no Atlas AI Programming como `programming.forge`, com `forge_contract`, Engineering Harness e evidencia obrigatoria. |
+| `atlas fix` | Ser alias fino para `atlas dev --repair`, com `fix_contract`, `--plan-only` auditavel e flow `programming.repair`. |
+| `atlas continue` | Retomar o mesmo fluxo por `atlas:cli:dev`, preservando thread, memoria, profile, intent, modelo e Open Brain em `resume_contract`. |
 | `atlas ask/chat` | Entrar no Atlas AI Core para conversa, pesquisa ou tarefa geral. |
 | App | Usar os mesmos fluxos via API, sem regras paralelas. |
 | Worker | Executar decisoes ja tomadas pelo pipeline, sem reinventar politica. |
+
+O `SurfaceAdapterRegistry` canoniza aliases humanos antes de qualquer selecao:
+`atlas ask/chat` entram por `atlas_cli_chat`; `atlas dev/fix/continue` entram
+por `atlas_cli_dev`; `atlas forge` entra por `atlas_cli_forge`; `atlas_api`
+entra por `atlas_api_interaction`. Alias e conveniencia de UX, nao produto
+paralelo.
+
+Quando Forge usa a implementacao interna de `atlas:cli:dev`, o Kernel Pipeline
+ainda preserva `surface_id=atlas_cli_forge`. O executor pode ser compartilhado;
+a identidade da entrada nao pode ser apagada.
+O `forge_contract` nasce em `ProgrammingSurfaceContractFactory`, nao no command,
+porque ele e contrato do dominio Programming com a surface Forge.
+O `programming_chat_contract` tambem nasce nessa factory, mantendo chat dev,
+dispatch e Kernel Pipeline sob o mesmo contrato de Programming.
+O `fix_contract` nasce nessa factory tambem: `atlas fix` preserva
+`surface=atlas_cli_fix` como origem auditavel, mas declara
+`canonical_surface=atlas_cli_dev`, flow `programming.repair` e runtime
+`dev_repair_executor`.
+
+`atlas continue` preserva `surface=atlas_cli_continue` apenas como origem de
+UX, mas o `resume_contract` declara `canonical_surface=atlas_cli_dev` e
+`target_surface=atlas_cli_dev`. Esse contrato tambem nasce em
+`ProgrammingSurfaceContractFactory`, nao no command, para que retomar um fluxo
+nunca crie runtime paralelo nem shape proprio fora do dominio Programming.
+
+`atlas dev` tambem publica `model_selection_contract` no preflight e no
+`dev_execution_plan`: a autoridade continua sendo `atlas_decide`, o modo fica
+em `auto_best_allowed`, `auto_best_available` ou `manual_override`, e qualquer
+provider/modelo passado pelo operador vira override auditavel.
+
+`atlas:ai:chat --dev` publica o mesmo tipo de contrato no payload do job com
+surface `atlas_ai_chat`. Assim, interativo, one-shot e chat de programacao
+mantem a mesma autoridade de selecao: a surface pode receber preferencia do
+operador, mas nao decide modelo por conta propria.
+
+O shape desse contrato pertence ao Kernel/Decision em
+`ModelSelectionContractFactory`. Surfaces nao devem duplicar schema, modos ou
+autoridade; elas apenas pedem o contrato compartilhado para sua surface.
 
 Se uma capacidade e boa para mais de uma superficie, ela deve viver em uma
 camada comum.
@@ -145,6 +183,14 @@ Exemplos:
 
 Profile nao e modelo. Profile pode escolher modelo, tools, gates e autonomia,
 mas um provider/modelo nunca deve definir o fluxo.
+
+O contrato operacional desses profiles e exposto por `atlas:ai:domains`,
+`GET /ai/domains` e pela tool MCP/Open Brain `atlas_domain_catalog`. O catalogo
+inclui scorecard de onboarding por dominio, contadores
+`ready`/`scaffold`/`executable_incomplete` e filtro
+`--onboarding-status`/`onboarding_status`; dominio novo entra primeiro como
+scaffold auditavel e so vira pronto quando passa nas fases de charter, profile,
+context, orchestrator, runtime, gates, learning, surface e maturity gate.
 
 ## Pipeline Canonico
 
@@ -237,6 +283,77 @@ Diferença:
 - `atlas dev`: cockpit principal e entrada diaria.
 - `atlas forge`: intensidade harness/enterprise para tarefas maiores.
 - `atlas fix`: atalho de repair dentro do mesmo pipeline.
+
+Status implementado: `atlas:cli:dev` anexa um `kernel_pipeline` comum ao
+`dev_execution_plan` no cockpit interativo e no one-shot com prompt. A diferenca
+entre os dois modos passa a ser apenas `input_mode=interactive|one_shot` e a
+forma de captura do input; ambos carregam o mesmo stage order, flow
+`programming.dev`/`programming.forge`, slot manifest e guards de execucao antes
+de chegar ao `atlas:ai:chat`. Esse contrato compacto e montado por
+`KernelPipelineDevPlanBuilder`, nao por cada surface separadamente. A execucao
+real ainda fica nos caminhos legados protegidos ate a migracao do runtime, com
+`provider_execution_allowed=false` e `runtime_execution_allowed=false` no
+contrato do kernel.
+
+`atlas:ai:chat --dev` tambem preserva esse contrato. Quando recebe um
+`--dev-plan` legado sem `kernel_pipeline`, ele anexa um plano scaffold seguro
+com `surface=atlas_ai_chat` usando o mesmo builder; quando recebe o plano novo
+do `atlas:cli:dev`, ele mantem o binding original. Isso impede que a fronteira
+CLI -> chat volte a criar dois fluxos invisiveis.
+O payload do chat tambem carrega `programming_chat_contract`, que liga
+explicitamente a surface `atlas_ai_chat` ao `AtlasProgrammingOrchestrator`, ao
+`programming_flow`, ao executor escolhido e ao `kernel_pipeline` aceito pelo
+guard.
+
+Essa fronteira tambem e validada por `KernelPipelinePlanGuard`: se uma surface
+ou sessao antiga enviar stage order, hash canonico, schema ou flags de execucao
+adulteradas, o chat falha fechado em preflight com
+`atlas_kernel_pipeline_contract_violation` e nao cria job. O contrato e
+auditavel, mas ainda scaffold-safe ate a migracao do runtime real. As allowlists
+de surfaces, commands, flows e input modes ficam em `KernelPipelineContract`; o
+shape obrigatorio de `kernel_pipeline_contract` tambem vem desse contrato. O
+builder valida o plano e o contrato que acabou de criar antes de devolver para a
+surface. Quando um plano declarado ja vem com `kernel_pipeline`, o chat chama
+`assertValidPlanAndContract()` e rejeita tambem contrato ausente, origem nao
+allowlisted ou metadados que tentem devolver decisao/execucao para a surface.
+
+O guard grava `KERNEL_PIPELINE_ACCEPTED` e `KERNEL_PIPELINE_REJECTED` no
+Evidence Ledger via `KernelPipelineAuditService` quando a tabela esta
+disponivel. Isso permite auditar quais surfaces estao usando o contrato
+corretamente e detectar drift sem depender de log textual, sem duplicar a
+logica em CLI/API. O payload guarda hashes, binding de surface, origem do
+`kernel_pipeline_contract` e bloqueios de execucao, mas nao guarda prompt bruto.
+
+`atlas:ai:pipeline` e `POST /ai/pipeline` tambem participam dessa auditoria:
+modo `plan` e apenas inspecao, mas `--execute`/`execute=true` grava
+`KERNEL_PIPELINE_ACCEPTED` via `KernelPipelineAuditService`, com
+`emitter_stage=atlas.ai_pipeline.scaffold`, e retorna `ledger_event` no payload.
+Assim ate a ponte scaffold do `atlas.run` fica replayavel sem abrir provider ou
+runtime real, e a logica de auditoria nao fica duplicada entre CLI e API.
+
+No Data Plane, `AiWorker` tambem aplica `KernelPipelineRuntimeGuard` antes de
+resolver provider. Se um job de programacao carrega `dev_execution_plan` ou
+`kernel_pipeline`, o worker valida plano e `kernel_pipeline_contract` juntos; se
+o contrato estiver ausente/adulterado, a tentativa falha com
+`kernel_pipeline_contract_violation`, emite stream event de policy e registra
+`KERNEL_PIPELINE_REJECTED` no Evidence Ledger. Quando o contrato e valido, o
+worker registra `KERNEL_PIPELINE_ACCEPTED` com
+`emitter_stage=atlas.ai_worker.kernel_pipeline_runtime_guard` antes de abrir o
+provider. O proprio `KernelPipelineRuntimeGuard` normaliza o plano auditavel e
+o contexto de ledger para o worker nao duplicar semantica de evidencia. Isso
+fecha o caminho legado sem forcar ainda a migracao completa do runtime.
+
+Esses eventos tambem ja possuem read model operacional. `atlas:ai:ledger
+<envelope> --kernel --json` e `GET /ai/ledger/{envelope}?kernel=1` mostram se
+o contrato foi aceito ou rejeitado por envelope, com surface, flow, input mode e
+violacoes. `atlas:ai:kernel-pipeline-report --hours=24 --json` e
+`GET /ai/kernel-pipeline/report?hours=24` mostram o mesmo contrato por janela,
+com filtros por status, surface, flow, input mode e emitter stage. `GET
+/ai/observability` inclui `kernel_pipeline` agregando accepted/rejected,
+surfaces, emitter stages, flows, input modes, violations e eventos recentes. Isso transforma o
+contrato `atlas.run` em sinal visivel para operador, dashboard, Curator e
+Self-Improvement, em vez de deixar a arquitetura-mae escondida dentro do payload
+do job.
 
 ### Atlas AI Personal Development
 
@@ -369,6 +486,10 @@ Responsabilidades:
 - escolher provider/modelo;
 - escolher o melhor modelo permitido para a tarefa por padrao;
 - registrar override manual de provider/modelo quando o operador pedir;
+- publicar `provider_selection.selection_mode` com vocabulario fechado:
+  `auto_best_allowed`, `auto_best_available` ou `manual_override`;
+- publicar `model_selection_authority=atlas_decide`, deixando claro que
+  comando, surface, provider e tool nao sao autoridade de modelo;
 - estimar risco e complexidade;
 - aplicar politica de dominio;
 - decidir executor;
@@ -436,6 +557,72 @@ Nao deve:
 - cada superficie declara o que suporta via registry;
 - teste deve falhar quando uma capability horizontal aparece em uma superficie
   e fica ausente nas outras sem justificativa.
+
+Status implementado: `SurfaceCapabilityParityService` cruza o Capability
+Registry com `SurfaceAdapterRegistry`. Capabilities de input, memoria, contexto,
+tools e Human Knowledge precisam aparecer nas surfaces operacionais equivalentes
+(`atlas_cli_dev/chat/forge`, app, API, worker, MCP read-only e AtlasVault) via
+`SurfaceCapability`; se o registry disser que uma surface suporta algo que o
+adapter real nao sustenta, ou se faltar regra de paridade, `atlas:ai:architecture-validate`
+falha. O estado esperado e paridade valida com `skipped=[]`; skip nao e warning,
+e quebra de contrato. O payload tambem expoe esse contrato como
+`kernel.static_scan.ap33_surface_capability_parity`, para que a familia de
+anti-patterns AP fique completa no validador central.
+
+Status adicional: `AtlasCapabilityRegistry` agora exige cobertura completa de
+surface por capability. Toda capability precisa declarar cada surface conhecida
+como `required`, `optional` ou `not_supported` com motivo; omissao ou classificacao
+duplicada falha o build e aparece em
+`kernel.static_scan.ap34_capability_surface_coverage`. `atlas_vault` e surface
+formal, mas nao recebe `memory_recall`, `context_compose` nem `tools_runtime`;
+ele e workspace humano governado e projection gerenciada, nao fonte operacional
+crua.
+
+Status adicional: `SurfaceCapabilityParityService` agora tambem exige cobertura
+do outro lado da matriz. Todo adapter registrado em `SurfaceAdapterRegistry`
+precisa aparecer no mapa operacional de paridade; adapter novo sem mapeamento
+falha o build e aparece em
+`kernel.static_scan.ap35_surface_adapter_parity_map_coverage`.
+
+Status adicional: o read model do Kernel Pipeline agora publica `health`
+canonico no replay service: status, taxa de rejeicao, thresholds, reasons e
+`review_required`. Ledger CLI, `atlas:ai:kernel-pipeline-report`,
+Observability e Self-Improvement consomem esse mesmo campo; se alguem recriar
+heuristica paralela ou esconder o health, o validador falha em
+`kernel.static_scan.ap36_kernel_pipeline_health_read_model`.
+
+Status adicional: `atlas:ai:architecture-validate --json` publica
+`kernel.static_scan.summary` com total de APs, quantos passaram, quantos
+falharam, chaves validas, chaves falhas e total de violacoes. Esse resumo e o
+contrato para App, CI, dashboard e Curator mostrarem health arquitetural sem
+copiar manualmente a lista de APs.
+
+Status adicional: a validacao arquitetural agora tem service compartilhado e
+API propria. `AtlasAiArchitectureValidationService` monta o payload unico;
+`atlas:ai:architecture-validate` apenas renderiza e
+`GET /ai/architecture/validate` expoe o mesmo contrato para App, dashboard,
+automacoes e Curator. O static scanner protege isso como
+`kernel.static_scan.ap37_architecture_validation_surface`.
+
+Status adicional: Observability agora publica `architecture_validation`, um
+resumo compacto do mesmo contrato arquitetural para App/dashboard/Curator. Os
+read models de SLO, Repair e Kernel Pipeline sao calculados antes da validacao
+arquitetural para que a propria auditoria nao polua a janela operacional. O
+static scanner protege isso como
+`kernel.static_scan.ap38_architecture_validation_observability`.
+
+Status adicional: a paridade do contrato tambem virou AP dedicado. O
+`AtlasAiArchitectureValidationService` e a fonte unica do payload; API e CLI
+devem provar em teste que renderizam o mesmo contrato estavel, e nao uma copia
+manual. O static scanner protege isso como
+`kernel.static_scan.ap39_architecture_validation_contract_parity`.
+
+Status adicional: Open Brain/MCP agora tambem tem a tool read-only
+`atlas_architecture_validate`. Ela consulta o mesmo
+`AtlasAiArchitectureValidationService`, publica summary ou payload completo e
+declara `writes=false`, dando ao Curator e a outras IAs um caminho provider-safe
+para auditar a arquitetura sem shellar CLI. O static scanner protege isso como
+`kernel.static_scan.ap40_architecture_validation_mcp_tool`.
 
 ### Fase 4 - Evidence Packet Unico
 

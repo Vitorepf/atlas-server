@@ -199,11 +199,17 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After phase 7: 16 + 5 new tools + atlas_domain_catalog = 22.
-        $this->assertCount(22, $structured['tools']);
+        // After phase 7: 16 + 5 new tools + domain/architecture/schedule/kernel reports = 28.
+        $this->assertCount(28, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_domain_catalog', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_architecture_validate', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_self_improvement_schedule', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_self_improvement_schedule_report', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_kernel_slo_report', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_kernel_pipeline_report', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_repair_loop_report', array_column($structured['tools'], 'name'));
     }
 
     public function test_domain_catalog_tool_exposes_ready_domain_flow_contracts(): void
@@ -228,6 +234,45 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('dev_repair_executor', data_get($structured, 'flows.0.executor_preference'));
     }
 
+    public function test_domain_catalog_tool_schema_exposes_onboarding_status_filter(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 72, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_capabilities', 'arguments' => []],
+        ]);
+
+        $tools = $response['result']['structuredContent']['tools'];
+        $domainCatalog = collect($tools)->firstWhere('name', 'atlas_domain_catalog');
+
+        $this->assertIsArray($domainCatalog);
+        $this->assertSame(
+            'string',
+            data_get($domainCatalog, 'inputSchema.properties.onboarding_status.type')
+        );
+    }
+
+    public function test_domain_catalog_tool_filters_by_onboarding_status(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 73, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_domain_catalog',
+                'arguments' => ['onboarding_status' => 'scaffold'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('scaffold', data_get($structured, 'filters.onboarding_status'));
+        $this->assertGreaterThanOrEqual(1, data_get($structured, 'summary.domains'));
+
+        foreach ($structured['domains'] as $domain) {
+            $this->assertSame('scaffold', data_get($domain, 'onboarding.status'));
+        }
+    }
+
     public function test_domain_catalog_tool_rejects_invalid_maturity_filter(): void
     {
         $service = $this->app->make(AtlasOpenBrainMcpService::class);
@@ -242,6 +287,517 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertFalse($structured['ok']);
         $this->assertSame('invalid_maturity', $structured['error']);
+    }
+
+    public function test_domain_catalog_tool_rejects_invalid_onboarding_status_filter(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 74, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_domain_catalog',
+                'arguments' => ['onboarding_status' => 'half-ready'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('invalid_onboarding_status', $structured['error']);
+        $this->assertSame(['ready', 'executable_incomplete', 'scaffold'], $structured['allowed_onboarding_status']);
+    }
+
+    public function test_architecture_validate_tool_exposes_shared_contract_summary(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 75,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_architecture_validate',
+                'arguments' => ['detail' => 'summary'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_architecture_validate', $structured['tool']);
+        $this->assertSame('summary', $structured['detail']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame('ok', data_get($structured, 'architecture_validation.status'));
+        $this->assertTrue(data_get($structured, 'architecture_validation.kernel.valid'));
+        $this->assertTrue(data_get($structured, 'architecture_validation.kernel.static_scan.valid'));
+        $this->assertSame(0, data_get($structured, 'architecture_validation.kernel.static_scan.summary.failed_count'));
+        $this->assertSame(0, data_get($structured, 'architecture_validation.kernel.static_scan.summary.violation_count'));
+        $this->assertContains(
+            'ap39_architecture_validation_contract_parity',
+            data_get($structured, 'architecture_validation.kernel.static_scan.summary.valid_keys')
+        );
+        $this->assertGreaterThanOrEqual(1, data_get($structured, 'architecture_validation.onboarding.ready_domains'));
+    }
+
+    public function test_architecture_validate_tool_rejects_invalid_detail(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 76,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_architecture_validate',
+                'arguments' => ['detail' => 'everything-ish'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('atlas_architecture_validate', $structured['tool']);
+        $this->assertSame('invalid_detail', $structured['error']);
+        $this->assertSame(['summary', 'full'], $structured['allowed_detail']);
+    }
+
+    public function test_self_improvement_schedule_tool_exposes_recurring_health(): void
+    {
+        config()->set('app.timezone', 'America/Sao_Paulo');
+        config()->set('atlas_ai.self_improvement.enabled', true);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.time', '02:00');
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 77,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_self_improvement_schedule',
+                'arguments' => ['detail' => 'commands'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_self_improvement_schedule', $structured['tool']);
+        $this->assertSame('commands', $structured['detail']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame('registered', data_get($structured, 'schedule.scheduler_registration.status'));
+        $this->assertSame(4, data_get($structured, 'schedule.count'));
+        $this->assertSame(['daily' => 3, 'weekly' => 1], data_get($structured, 'schedule.cadence_counts'));
+        $this->assertSame('weekly_architecture_audit', data_get($structured, 'schedule.commands.1.flow'));
+        $this->assertSame('weekly', data_get($structured, 'schedule.commands.1.cadence'));
+        $this->assertSame(1, data_get($structured, 'schedule.commands.1.week_day'));
+        $this->assertNotNull(data_get($structured, 'schedule.commands.1.next_run_at'));
+    }
+
+    public function test_self_improvement_schedule_tool_rejects_invalid_detail(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 78,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_self_improvement_schedule',
+                'arguments' => ['detail' => 'tomorrowish'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('atlas_self_improvement_schedule', $structured['tool']);
+        $this->assertSame('invalid_detail', $structured['error']);
+        $this->assertSame(['health', 'plan', 'commands'], $structured['allowed_detail']);
+    }
+
+    public function test_self_improvement_schedule_report_tool_exposes_replay_read_model(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        \App\Models\AtlasLedgerEvent::query()->create([
+            'event_id' => '01HMCPSELFIMPROVESCHED0001',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_mcp',
+            'operator_id' => 'operator_mcp',
+            'envelope_id' => 'self_improvement_run:mcp_warning',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'self_improvement_run:mcp_warning',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::SelfImprovementScheduleObserved->value,
+            'emitter_stage' => 'atlas.self_improvement',
+            'emitter_version' => 'self-improvement-runtime-v1',
+            'payload' => [
+                'flow' => 'self_improvement.weekly_architecture_audit',
+                'schedule_health' => [
+                    'health_status' => 'warning',
+                    'issues' => ['invalid_self_improvement_flows_configured'],
+                    'enabled' => true,
+                    'schedulable' => true,
+                    'scheduler_registration' => [
+                        'status' => 'registered',
+                        'registered_command_count' => 1,
+                        'skipped_reason' => null,
+                    ],
+                    'flow_count' => 1,
+                    'cadence_counts' => ['daily' => 1],
+                    'invalid_flow_count' => 1,
+                    'defaulted' => false,
+                    'emit' => false,
+                    'plan_hash' => 'mcp-schedule-plan-hash',
+                    'plan_hash_algorithm' => 'sha256',
+                    'time' => '02:00',
+                    'timezone' => 'America/Sao_Paulo',
+                    'next_run_at' => '2026-05-05T05:00:00.000000Z',
+                ],
+            ],
+            'payload_hash' => hash('sha256', '01HMCPSELFIMPROVESCHED0001'),
+            'occurred_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 79,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_self_improvement_schedule_report',
+                'arguments' => ['hours' => 24],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_self_improvement_schedule_report', $structured['tool']);
+        $this->assertSame(24, $structured['hours']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame(1, data_get($structured, 'self_improvement_schedule_replay.schedule_observation_count'));
+        $this->assertSame(['warning' => 1], data_get($structured, 'self_improvement_schedule_replay.health_status_counts'));
+        $this->assertSame('mcp-schedule-plan-hash', data_get($structured, 'self_improvement_schedule_replay.latest_plan_hash'));
+        $this->assertTrue((bool) data_get($structured, 'self_improvement_schedule_replay.review_required'));
+        $this->assertSame('warning', data_get($structured, 'self_improvement_schedule_replay.review_signal.status'));
+        $this->assertSame('medium', data_get($structured, 'self_improvement_schedule_replay.review_signal.severity'));
+        $this->assertSame('open_reviewable_self_improvement_schedule_proposal', data_get($structured, 'self_improvement_schedule_replay.review_signal.recommended_action'));
+    }
+
+    public function test_kernel_slo_report_tool_exposes_replay_read_model(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        \App\Models\AtlasLedgerEvent::query()->create([
+            'event_id' => '01HMCPKERNELSLO000000000001',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_mcp',
+            'operator_id' => 'operator_mcp',
+            'envelope_id' => 'env_mcp_slo',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'env_mcp_slo',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::SloObserved->value,
+            'emitter_stage' => 'atlas.slo',
+            'emitter_version' => 'atlas.slo.v1',
+            'payload' => [
+                'stage' => 'runtime.execute',
+                'status' => 'breach',
+                'severity' => 'high',
+                'violations' => ['stage_failed'],
+                'dimensions' => [
+                    'domain' => 'programming',
+                    'surface_id' => 'atlas_cli_dev',
+                    'provider' => 'codex_cli',
+                    'model' => 'gpt-5.2',
+                ],
+                'slo' => [
+                    'stage' => 'runtime.execute',
+                    'duration_ms' => 450000,
+                    'success' => false,
+                    'status' => 'breach',
+                    'severity' => 'high',
+                    'violations' => ['stage_failed'],
+                ],
+            ],
+            'payload_hash' => hash('sha256', '01HMCPKERNELSLO000000000001'),
+            'occurred_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 80,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_kernel_slo_report',
+                'arguments' => ['hours' => 24, 'domain' => 'programming', 'provider' => 'codex_cli'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_kernel_slo_report', $structured['tool']);
+        $this->assertSame(24, $structured['hours']);
+        $this->assertSame(['domain' => 'programming', 'provider' => 'codex_cli'], $structured['filters']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame(1, data_get($structured, 'kernel_slo.observation_count'));
+        $this->assertSame('breach', data_get($structured, 'kernel_slo.review_signal.status'));
+        $this->assertSame('high', data_get($structured, 'kernel_slo.review_signal.severity'));
+        $this->assertSame('open_reviewable_slo_regression_proposal', data_get($structured, 'kernel_slo.review_signal.recommended_action'));
+        $this->assertSame(['stage_failed'], $structured['kernel_slo']['stages']['runtime.execute']['violations']);
+    }
+
+    public function test_kernel_pipeline_report_tool_exposes_replay_read_model(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        \App\Models\AtlasLedgerEvent::query()->create([
+            'event_id' => '01HMCPKERNELPIPE000000000001',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_mcp',
+            'operator_id' => 'operator_mcp',
+            'envelope_id' => 'env_mcp_pipeline',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'env_mcp_pipeline',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::KernelPipelineRejected->value,
+            'emitter_stage' => 'atlas.ai_chat.kernel_pipeline_guard',
+            'emitter_version' => 'atlas.kernel.pipeline.v1',
+            'payload' => [
+                'status' => 'rejected',
+                'violations' => ['kernel_pipeline_contract.required must be true.'],
+                'pipeline' => [
+                    'pipeline_id' => 'pipe_mcp',
+                    'schema_version' => 'atlas.kernel_pipeline.v1',
+                    'mode' => 'programming',
+                    'stage_count' => 10,
+                    'canonical_flow_hash' => 'hash_mcp',
+                    'provider_execution_allowed' => false,
+                    'runtime_execution_allowed' => false,
+                ],
+                'surface' => [
+                    'surface_id' => 'atlas_cli_dev',
+                    'binding_surface' => 'atlas_dev',
+                    'command' => 'atlas dev',
+                    'input_mode' => 'prompt',
+                ],
+                'surface_contract' => [
+                    'required' => true,
+                    'source' => 'KernelPipelineDevPlanBuilder',
+                    'surface_must_not_decide' => true,
+                ],
+                'routing' => [
+                    'domain' => 'programming',
+                    'flow' => 'programming.dev',
+                    'runtime' => 'programming.dev',
+                ],
+            ],
+            'payload_hash' => hash('sha256', '01HMCPKERNELPIPE000000000001'),
+            'occurred_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 81,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_kernel_pipeline_report',
+                'arguments' => ['hours' => 24, 'status' => 'rejected', 'surface_id' => 'atlas_cli_dev'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_kernel_pipeline_report', $structured['tool']);
+        $this->assertSame(['status' => 'rejected', 'surface_id' => 'atlas_cli_dev'], $structured['filters']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame(1, data_get($structured, 'kernel_pipeline.kernel_pipeline_event_count'));
+        $this->assertSame('breach', data_get($structured, 'kernel_pipeline.review_signal.status'));
+        $this->assertSame('high', data_get($structured, 'kernel_pipeline.review_signal.severity'));
+        $this->assertSame('open_reviewable_kernel_pipeline_contract_proposal', data_get($structured, 'kernel_pipeline.review_signal.recommended_action'));
+    }
+
+    public function test_repair_loop_report_tool_exposes_replay_read_model(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        \App\Models\AtlasLedgerEvent::query()->create([
+            'event_id' => '01HMCPREPAIRLOOP0000000001',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_mcp',
+            'operator_id' => 'operator_mcp',
+            'envelope_id' => 'env_mcp_repair',
+            'receipt_id' => 'receipt_mcp_repair',
+            'trace_id' => null,
+            'correlation_id' => 'env_mcp_repair',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::RepairInitiated->value,
+            'emitter_stage' => 'atlas.repair',
+            'emitter_version' => 'atlas.repair.v1',
+            'payload' => [
+                'failure_classification' => [
+                    'failure_domain' => 'compliance.violation',
+                ],
+                'decision' => [
+                    'status' => 'needs_human_review',
+                    'strategy' => 'human_review',
+                    'next_attempt' => 1,
+                    'reasons' => ['failure_domain_requires_human_review'],
+                ],
+                'repair_executed' => false,
+                'decision_hash' => 'repair-mcp-decision',
+            ],
+            'payload_hash' => hash('sha256', '01HMCPREPAIRLOOP0000000001'),
+            'occurred_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 82,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_repair_loop_report',
+                'arguments' => ['hours' => 24, 'strategy' => 'human_review'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_repair_loop_report', $structured['tool']);
+        $this->assertSame(['strategy' => 'human_review'], $structured['filters']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame(1, data_get($structured, 'kernel_repair.repair_event_count'));
+        $this->assertSame('warning', data_get($structured, 'kernel_repair.review_signal.status'));
+        $this->assertSame('medium', data_get($structured, 'kernel_repair.review_signal.severity'));
+        $this->assertSame('open_reviewable_repair_loop_human_review_proposal', data_get($structured, 'kernel_repair.review_signal.recommended_action'));
+    }
+
+    public function test_replay_report_tools_preserve_review_signal_when_ledger_is_unavailable(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $cases = [
+            'atlas_self_improvement_schedule_report' => [
+                'path' => 'self_improvement_schedule_replay.review_signal',
+                'action' => 'wait_for_next_self_improvement_cycle',
+            ],
+            'atlas_kernel_slo_report' => [
+                'path' => 'kernel_slo.review_signal',
+                'action' => 'wait_for_slo_evidence',
+            ],
+            'atlas_kernel_pipeline_report' => [
+                'path' => 'kernel_pipeline.review_signal',
+                'action' => 'wait_for_kernel_pipeline_evidence',
+            ],
+            'atlas_repair_loop_report' => [
+                'path' => 'kernel_repair.review_signal',
+                'action' => 'wait_for_repair_loop_evidence',
+            ],
+        ];
+
+        foreach ($cases as $tool => $expectation) {
+            $response = $service->handleJsonRpc([
+                'jsonrpc' => '2.0',
+                'id' => 'unavailable-'.$tool,
+                'method' => 'tools/call',
+                'params' => [
+                    'name' => $tool,
+                    'arguments' => ['hours' => 24],
+                ],
+            ]);
+            $structured = $response['result']['structuredContent'];
+
+            $this->assertFalse($structured['ok'], $tool);
+            $this->assertSame($tool, $structured['tool']);
+            $this->assertFalse($structured['writes']);
+            $this->assertSame('unknown', data_get($structured, $expectation['path'].'.status'), $tool);
+            $this->assertSame($expectation['action'], data_get($structured, $expectation['path'].'.recommended_action'), $tool);
+        }
+    }
+
+    public function test_replay_report_tools_use_canonical_mcp_hours_window(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+
+        foreach ([
+            ['tool' => 'atlas_self_improvement_schedule_report', 'input' => -5, 'expected' => 1],
+            ['tool' => 'atlas_kernel_slo_report', 'input' => 9999, 'expected' => 720],
+            ['tool' => 'atlas_kernel_pipeline_report', 'input' => ['bad'], 'expected' => 24],
+            ['tool' => 'atlas_repair_loop_report', 'input' => '12', 'expected' => 12],
+        ] as $case) {
+            $response = $service->handleJsonRpc([
+                'jsonrpc' => '2.0',
+                'id' => 92,
+                'method' => 'tools/call',
+                'params' => [
+                    'name' => $case['tool'],
+                    'arguments' => ['hours' => $case['input']],
+                ],
+            ]);
+
+            $structured = $response['result']['structuredContent'];
+
+            $this->assertSame($case['tool'], $structured['tool']);
+            $this->assertSame($case['expected'], $structured['hours']);
+            $this->assertFalse($structured['writes']);
+        }
+    }
+
+    public function test_replay_report_tools_use_canonical_scalar_filter_contract(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+
+        foreach ([
+            [
+                'tool' => 'atlas_kernel_slo_report',
+                'arguments' => ['domain' => ' programming ', 'flow' => '', 'provider' => ['bad'], 'tool_id' => 'phpstan'],
+                'expected' => ['domain' => 'programming', 'tool_id' => 'phpstan'],
+            ],
+            [
+                'tool' => 'atlas_kernel_pipeline_report',
+                'arguments' => ['status' => ' rejected ', 'surface_id' => '', 'flow' => ['bad'], 'emitter_stage' => 'atlas.test'],
+                'expected' => ['status' => 'rejected', 'emitter_stage' => 'atlas.test'],
+            ],
+            [
+                'tool' => 'atlas_repair_loop_report',
+                'arguments' => ['status' => ' completed ', 'strategy' => false, 'failure_domain' => '', 'emitter_stage' => ['bad']],
+                'expected' => ['status' => 'completed'],
+            ],
+        ] as $case) {
+            $response = $service->handleJsonRpc([
+                'jsonrpc' => '2.0',
+                'id' => 93,
+                'method' => 'tools/call',
+                'params' => [
+                    'name' => $case['tool'],
+                    'arguments' => $case['arguments'],
+                ],
+            ]);
+
+            $structured = $response['result']['structuredContent'];
+
+            $this->assertSame($case['tool'], $structured['tool']);
+            $this->assertSame($case['expected'], $structured['filters']);
+            $this->assertFalse($structured['writes']);
+        }
     }
 
     public function test_workspace_info_returns_metadata_for_atlas_tracked_workspace(): void

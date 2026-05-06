@@ -18,10 +18,13 @@ decisions:
   - Atlas AI e a inteligencia unica do produto.
   - Comandos, telas, APIs e workers sao superficies, nao donos de fluxo.
   - Capacidades horizontais pertencem ao Core e devem ser herdadas pelas superficies.
+  - Atlas e canal multiplicador soberano sobre providers — nao competidor (ver atlas-ai-thesis-multiplier-channel.md).
+  - Atlas precisa ser canal UNICO; uso direto de provider quebra o ciclo Evidence -> Curator -> Multiplicador.
 maintenance:
   - Manter este documento curto; detalhes vivem nos docs especializados.
   - Atualizar quando o conceito raiz de Atlas AI mudar.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
   - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
@@ -34,6 +37,25 @@ Atlas AI e a inteligencia unica do Atlas.
 Ele nao e `atlas ask`, `atlas dev`, `atlas forge`, `atlas decide`, uma tela do
 app ou um provider. Esses elementos sao portas de entrada, motores ou surfaces.
 O produto real e a inteligencia que orquestra tudo.
+
+## Tese Central
+
+Atlas e **canal multiplicador soberano** sobre providers de IA. Nao compete
+com Claude/GPT/Gemini — usa todos. Cada melhoria de provider alimenta Atlas;
+nunca ameaca. Antifragil por construcao.
+
+Output_Atlas = Output_Provider × Multiplicador_Ecossistema
+
+A tese exige duas propriedades inseparaveis:
+
+1. **Multiplicador**: cada feature do Atlas amplifica output bruto de provider
+2. **Canal unico**: Atlas precisa ser a UNICA via de interacao com IA do
+   Vitor. Uso direto de provider quebra o ciclo virtuoso e estagna o
+   multiplicador
+
+Ver [atlas-ai-thesis-multiplier-channel.md](atlas-ai-thesis-multiplier-channel.md)
+para detalhamento completo. Esta tese e ponto fixo do Atlas; toda decisao
+arquitetural e auditada contra ela.
 
 ## Estrutura Mae
 

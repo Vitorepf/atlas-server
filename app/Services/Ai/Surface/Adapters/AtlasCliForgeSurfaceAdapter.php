@@ -20,6 +20,9 @@ final class AtlasCliForgeSurfaceAdapter extends BaseSurfaceAdapter
             SurfaceCapability::WORKSPACE_CONTEXT,
             SurfaceCapability::DOMAIN_FLOW_SELECTION,
             SurfaceCapability::ARTIFACT_RENDERING,
+            SurfaceCapability::MEMORY_RECALL,
+            SurfaceCapability::CONTEXT_COMPOSE,
+            SurfaceCapability::TOOLS_RUNTIME,
         ];
     }
 

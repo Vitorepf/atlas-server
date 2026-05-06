@@ -12,6 +12,7 @@ class AtlasAiDomainsCommand extends Command
         {--domain= : Filter by domain id}
         {--flow= : Filter by flow id}
         {--maturity= : Filter orchestrators by maturity: implemented, scaffold, planned}
+        {--onboarding-status= : Filter domains by onboarding status: ready, executable_incomplete, scaffold}
         {--select : Preview the canonical domain/flow selection for a surface UX route}
         {--surface=atlas_cli : Surface id used by --select, for example atlas_cli, atlas_app, atlas_api or atlas_mcp_readonly}
         {--mode=general : UX mode used by --select: general, operational or programming}
@@ -27,6 +28,7 @@ class AtlasAiDomainsCommand extends Command
             'domain' => $this->option('domain'),
             'flow' => $this->option('flow'),
             'maturity' => $this->option('maturity'),
+            'onboarding_status' => $this->option('onboarding-status'),
         ]);
 
         if ((bool) $this->option('select')) {
@@ -51,6 +53,12 @@ class AtlasAiDomainsCommand extends Command
         $this->components->twoColumnDetail('Domains', (string) $payload['summary']['domains']);
         $this->components->twoColumnDetail('Flows', (string) $payload['summary']['flows']);
         $this->components->twoColumnDetail('Orchestrators', $payload['summary']['orchestrators'].' ('.$payload['summary']['implemented_orchestrators'].' implemented)');
+        $this->components->twoColumnDetail(
+            'Onboarding',
+            'ready '.$payload['summary']['ready_domains']
+                .' / scaffold '.$payload['summary']['scaffold_domains']
+                .' / incomplete '.$payload['summary']['executable_incomplete_domains']
+        );
 
         if (isset($payload['surface_selection']) && is_array($payload['surface_selection'])) {
             $selection = $payload['surface_selection'];

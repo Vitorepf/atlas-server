@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -29,6 +30,7 @@ class AtlasMemoryLearningPromotionService
     public function __construct(
         private readonly AtlasMemoryDeltaPromotionService $promoter,
         private readonly KernelSloProbe $slo,
+        private readonly MemoryQueryInput $input,
     ) {}
 
     /**
@@ -74,7 +76,7 @@ class AtlasMemoryLearningPromotionService
         }
 
         $dryRun = (bool) ($options['dry_run'] ?? false);
-        $limit = max(1, min(200, (int) ($options['limit'] ?? 50)));
+        $limit = $this->input->promotionLimit($options['limit'] ?? null);
         $autoPromoteCandidates = (bool) ($options['auto_promote_candidates'] ?? false);
         $minConfidence = max(0.0, min(1.0, (float) ($options['min_confidence'] ?? 0.86)));
         $workspace = $this->workspace($options['workspace'] ?? null);

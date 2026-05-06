@@ -16,6 +16,7 @@ class AtlasProgrammingSurfaceCommandBuilderTest extends TestCase
             maxIterations: 12,
             autoTest: true,
             allowWrite: true,
+            planOnly: true,
             json: true,
         );
 
@@ -27,6 +28,7 @@ class AtlasProgrammingSurfaceCommandBuilderTest extends TestCase
         $this->assertSame('10', $arguments['--max-iterations']);
         $this->assertTrue($arguments['--auto-test']);
         $this->assertTrue($arguments['--allow-write']);
+        $this->assertTrue($arguments['--plan-only']);
         $this->assertTrue($arguments['--json']);
     }
 

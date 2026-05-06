@@ -2675,6 +2675,9 @@ Objetivo entregue: fechar a camada de recuperacao hibrida entre Memory Registry,
 Capacidades entregues:
 
 - novo `AtlasHybridMemoryRetrievalService` combina registry, verbatim e semantic search;
+- o `memory recall input contract` (`MemoryRecallInput`, AP-84) centraliza limite final, candidatos por fonte, budget de caracteres, tamanho por item e excerpt de registry para `AtlasHybridMemoryRetrievalService` e `AtlasMemoryContextComposer`;
+- o `context pack memory input contract` (`ContextPackMemoryInput`, AP-85) centraliza limites de registry, verbatim recall, budget por recall e excerpt usados pelo `AiContextPackBuilder`, evitando que `context.compose` carregue policy numerica local;
+- o `semantic context input contract` (`SemanticContextInput`, AP-86) centraliza limite de semantic notes e tamanho de excerpt para que AtlasVault/KB entrem nos context packs por contrato compartilhado;
 - novo endpoint `POST /ai/memory/recall`;
 - novo comando `atlas:memory:recall` e aliases `atlas memory recall` / `atlas memory:recall`;
 - ranking considera prioridade, importancia, confianca, escopo, tipo e sinal lexical da query;
@@ -2797,6 +2800,9 @@ Capacidades entregues:
 - tool `atlas_memory_recall` para buscar memoria provider-safe por query/contexto;
 - tool `atlas_open_brain_context_pack` para exportar context pack auditado via surface `mcp`;
 - tool `atlas_memory_maintenance_status` para health check read-only de Memory Registry, Knowledge Base, Code Intelligence e Provider Projection;
+- tool `atlas_architecture_validate` para expor, via Open Brain/MCP, o health
+  canonico da arquitetura mãe a partir de `AtlasAiArchitectureValidationService`,
+  com `detail=summary|full` e `writes=false`;
 - novo comando `atlas:memory:maintain` para automatizar a rotina local de sync docs, index-code, provider projection status/apply opcional e health MCP;
 - aliases `atlas mcp`, `atlas open-brain mcp`, `atlas brain mcp`, `atlas open-brain:mcp` e `atlas brain:mcp`;
 - aliases `atlas memory maintain`, `atlas memory maintenance`, `atlas memory:maintain` e `atlas memory:maintenance`;
@@ -2806,6 +2812,22 @@ Capacidades entregues:
 Arquivos criados/integrados nesta fase:
 
 - `atlas-server/app/Services/Ai/AtlasOpenBrainMcpService.php`
+- `atlas_kernel_slo_report` expõe o read model canonico de SLO do Evidence
+  Ledger via Open Brain/MCP, com `hours`, filtros de dimensao e
+  `review_signal` provider-safe. AP57 garante que agentes e Curator consigam
+  auditar drift operacional sem depender de HTTP/CLI.
+- `atlas_kernel_pipeline_report` expõe o read model canonico de Kernel Pipeline
+  via Open Brain/MCP, com filtros por status/surface/flow/input mode/contract
+  source/emitter stage, health e `review_signal`. AP58 impede que auditoria de
+  contrato de pipeline dependa apenas de HTTP/CLI.
+- `atlas_repair_loop_report` expõe o read model canonico de Repair Loop via
+  Open Brain/MCP, com filtros por status/strategy/failure_domain/emitter stage e
+  `review_signal`. AP59 impede que agentes ou Curator recriem heuristicas fora
+  do Evidence Ledger.
+- AP62 garante `mcp replay unavailable review_signal`: quando o Evidence Ledger
+  estiver indisponivel, as quatro tools MCP de replay retornam `ok=false`,
+  `writes=false` e o `recommended_action` canonico de espera, sem perder o
+  contrato provider-safe.
 - `atlas-server/app/Services/Ai/AtlasMemoryMaintenanceService.php`
 - `atlas-server/app/Console/Commands/AtlasOpenBrainMcpCommand.php`
 - `atlas-server/app/Console/Commands/AtlasMemoryMaintenanceCommand.php`

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Semantic\AtlasVaultCommandInput;
 use App\Services\Semantic\AtlasVaultManagedNoteService;
 use App\Services\Semantic\AtlasVaultSyncService;
 use Illuminate\Console\Command;
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class AtlasVaultCommand extends Command
 {
+    private AtlasVaultCommandInput $vaultInput;
+
     protected $signature = 'atlas:vault
         {action : status, note, import, export-semantic, sync, conflicts, item or resolve}
         {--type= : Atlas entity type for note}
@@ -36,8 +39,9 @@ class AtlasVaultCommand extends Command
 
     protected $description = 'Inspect AtlasVault and create or update managed vault notes safely.';
 
-    public function handle(AtlasVaultManagedNoteService $notes, AtlasVaultSyncService $sync): int
+    public function handle(AtlasVaultManagedNoteService $notes, AtlasVaultSyncService $sync, AtlasVaultCommandInput $input): int
     {
+        $this->vaultInput = $input;
         $action = (string) $this->argument('action');
 
         try {
@@ -50,7 +54,7 @@ class AtlasVaultCommand extends Command
                 'import' => $this->handleImport($sync),
                 'export-semantic' => $this->handleExportSemantic($sync),
                 'sync' => $this->handleSync($sync),
-                'conflicts' => $sync->conflicts($this->intOption('limit', 100), $this->conflictFilters()),
+                'conflicts' => $sync->conflicts($this->conflictLimitOption(), $this->conflictFilters()),
                 'item' => $this->handleItem($sync),
                 'resolve' => $this->handleResolve($sync),
                 default => ['ok' => false, 'error' => "Unsupported action: {$action}"],
@@ -105,7 +109,7 @@ class AtlasVaultCommand extends Command
     {
         [$dryRun, $write] = $this->executionMode('sync');
 
-        return $sync->sync($write, $this->intOption('limit', 200));
+        return $sync->sync($write, $this->syncLimitOption());
     }
 
     /**
@@ -211,14 +215,14 @@ class AtlasVaultCommand extends Command
         throw new \InvalidArgumentException("Invalid boolean option --{$key}: ".(string) $value);
     }
 
-    private function intOption(string $key, int $default): int
+    private function syncLimitOption(): int
     {
-        $value = $this->option($key);
-        if (! is_numeric($value)) {
-            return $default;
-        }
+        return $this->vaultInput->syncLimit($this->option('limit'));
+    }
 
-        return max(1, min(1000, (int) $value));
+    private function conflictLimitOption(): int
+    {
+        return $this->vaultInput->conflictLimit($this->option('limit'));
     }
 
     /**

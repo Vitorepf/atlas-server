@@ -19,6 +19,9 @@ final class AtlasCliDevSurfaceAdapter extends BaseSurfaceAdapter
             SurfaceCapability::IMAGE_PASTE,
             SurfaceCapability::WORKSPACE_CONTEXT,
             SurfaceCapability::DOMAIN_FLOW_SELECTION,
+            SurfaceCapability::MEMORY_RECALL,
+            SurfaceCapability::CONTEXT_COMPOSE,
+            SurfaceCapability::TOOLS_RUNTIME,
         ];
     }
 

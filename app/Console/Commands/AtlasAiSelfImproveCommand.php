@@ -23,6 +23,10 @@ class AtlasAiSelfImproveCommand extends Command
         {--repair-strategy= : Filter Repair Loop findings by repair strategy}
         {--failure-domain= : Filter Repair Loop findings by failure domain}
         {--repair-emitter-stage= : Filter Repair Loop findings by ledger emitter stage}
+        {--kernel-status= : Filter Kernel Pipeline findings by contract status}
+        {--kernel-input-mode= : Filter Kernel Pipeline findings by input mode}
+        {--kernel-emitter-stage= : Filter Kernel Pipeline findings by ledger emitter stage}
+        {--onboarding-status= : Filter Domain Onboarding findings by status: ready, executable_incomplete, scaffold}
         {--emit : Emit safe review proposals to the Inbox}
         {--plan-only : Print the execution plan without running the runtime}
         {--list-flows : List supported self-improvement flows}
@@ -124,6 +128,10 @@ class AtlasAiSelfImproveCommand extends Command
             'repair-strategy' => 'strategy',
             'failure-domain' => 'failure_domain',
             'repair-emitter-stage' => 'emitter_stage',
+            'kernel-status' => 'status',
+            'kernel-input-mode' => 'input_mode',
+            'kernel-emitter-stage' => 'emitter_stage',
+            'onboarding-status' => 'onboarding_status',
         ];
         $filters = [];
 

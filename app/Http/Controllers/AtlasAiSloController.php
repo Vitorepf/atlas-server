@@ -3,15 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
+use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AtlasAiSloController extends Controller
 {
-    public function __invoke(Request $request, AtlasLedgerReplayService $replay): JsonResponse
+    public function __invoke(Request $request, AtlasLedgerReplayService $replay, KernelReplayReportInput $input): JsonResponse
     {
         $data = $request->validate([
-            'hours' => ['nullable', 'integer', 'between:1,720'],
+            'hours' => ['nullable', 'integer', 'between:1,'.KernelReplayReportInput::MAX_WINDOW_HOURS],
             'domain' => ['nullable', 'string', 'max:120'],
             'flow' => ['nullable', 'string', 'max:120'],
             'surface_id' => ['nullable', 'string', 'max:120'],
@@ -23,8 +24,16 @@ class AtlasAiSloController extends Controller
             'tool' => ['nullable', 'string', 'max:120'],
         ]);
 
-        $hours = (int) ($data['hours'] ?? 24);
-        $filters = $this->filters($data);
+        $hours = $input->hours($data['hours'] ?? null);
+        $filters = $input->aliasedScalarFilters($data, [
+            'domain' => ['domain'],
+            'flow' => ['flow'],
+            'surface_id' => ['surface_id', 'surface'],
+            'provider' => ['provider'],
+            'model' => ['model'],
+            'runtime' => ['runtime'],
+            'tool_id' => ['tool_id', 'tool'],
+        ]);
         $report = $replay->sloReportForWindow(now()->subHours($hours), null, $filters);
 
         return response()->json([
@@ -35,33 +44,4 @@ class AtlasAiSloController extends Controller
         ], ($report['available'] ?? false) ? 200 : 503);
     }
 
-    /**
-     * @param  array<string,mixed>  $data
-     * @return array<string,string>
-     */
-    private function filters(array $data): array
-    {
-        $aliases = [
-            'domain' => ['domain'],
-            'flow' => ['flow'],
-            'surface_id' => ['surface_id', 'surface'],
-            'provider' => ['provider'],
-            'model' => ['model'],
-            'runtime' => ['runtime'],
-            'tool_id' => ['tool_id', 'tool'],
-        ];
-        $filters = [];
-
-        foreach ($aliases as $dimension => $keys) {
-            foreach ($keys as $key) {
-                $value = $data[$key] ?? null;
-                if (is_scalar($value) && trim((string) $value) !== '') {
-                    $filters[$dimension] = trim((string) $value);
-                    break;
-                }
-            }
-        }
-
-        return $filters;
-    }
 }

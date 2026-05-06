@@ -5,8 +5,13 @@ namespace App\Services\Ai;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Models\AtlasVerbatimMemory;
+use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
+use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
+use App\Services\Ai\Kernel\Mcp\OpenBrainMcpInput;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Facades\Schema;
@@ -25,6 +30,11 @@ class AtlasOpenBrainMcpService
         private readonly EngineeringKnowledgeBaseService $knowledge,
         private readonly EngineeringCodeIntelligenceService $code,
         private readonly AtlasAiDomainCatalogService $domainCatalog,
+        private readonly AtlasAiArchitectureValidationService $architectureValidation,
+        private readonly AtlasSelfImprovementScheduleService $selfImprovementSchedule,
+        private readonly AtlasLedgerReplayService $ledgerReplay,
+        private readonly KernelReplayReportInput $replayInput,
+        private readonly OpenBrainMcpInput $mcpInput,
         private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
@@ -198,6 +208,96 @@ class AtlasOpenBrainMcpService
                         'domain' => ['type' => 'string', 'description' => 'Filtra por domain id, por exemplo programming ou marketing.'],
                         'flow' => ['type' => 'string', 'description' => 'Filtra por flow id, por exemplo programming.repair.'],
                         'maturity' => ['type' => 'string', 'description' => 'Filtra orchestrators por maturity: implemented, scaffold ou planned.'],
+                        'onboarding_status' => ['type' => 'string', 'description' => 'Filtra dominios por onboarding status: ready, executable_incomplete ou scaffold.'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_architecture_validate',
+                'title' => 'Atlas Architecture Validate',
+                'description' => 'Retorna health arquitetural canonico do Atlas AI a partir do mesmo contrato usado por CLI, API e Observability. Read-only e provider-safe.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'detail' => ['type' => 'string', 'description' => 'summary ou full. Default: summary.'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_self_improvement_schedule',
+                'title' => 'Atlas Self-Improvement Schedule',
+                'description' => 'Retorna o plano recorrente e health do Self-Improvement/Curator, incluindo cadencia, next_run_at por comando, plan_hash e scheduler_registration. Read-only.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'detail' => ['type' => 'string', 'description' => 'health, plan ou commands. Default: health.'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_self_improvement_schedule_report',
+                'title' => 'Atlas Self-Improvement Schedule Report',
+                'description' => 'Retorna replay/read model das observacoes SELF_IMPROVEMENT_SCHEDULE_OBSERVED no Evidence Ledger. Use para auditar historico da agenda do Curator.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'hours' => ['type' => 'integer', 'description' => 'Janela de replay em horas. Default 24, max 720.'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_kernel_slo_report',
+                'title' => 'Atlas Kernel SLO Report',
+                'description' => 'Retorna replay/read model das observacoes SLO_OBSERVED no Evidence Ledger, incluindo review_signal canonico. Use para auditar drift operacional sem depender de HTTP/CLI.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'hours' => ['type' => 'integer', 'description' => 'Janela de replay em horas. Default 24, max 720.'],
+                        'domain' => ['type' => 'string', 'description' => 'Filtra por dimensao domain.'],
+                        'flow' => ['type' => 'string', 'description' => 'Filtra por dimensao flow.'],
+                        'surface_id' => ['type' => 'string', 'description' => 'Filtra por dimensao surface_id.'],
+                        'provider' => ['type' => 'string', 'description' => 'Filtra por dimensao provider.'],
+                        'model' => ['type' => 'string', 'description' => 'Filtra por dimensao model.'],
+                        'runtime' => ['type' => 'string', 'description' => 'Filtra por dimensao runtime.'],
+                        'tool_id' => ['type' => 'string', 'description' => 'Filtra por dimensao tool_id.'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_kernel_pipeline_report',
+                'title' => 'Atlas Kernel Pipeline Report',
+                'description' => 'Retorna replay/read model dos eventos KERNEL_PIPELINE_ACCEPTED/REJECTED no Evidence Ledger, incluindo health e review_signal canonicos.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'hours' => ['type' => 'integer', 'description' => 'Janela de replay em horas. Default 24, max 720.'],
+                        'status' => ['type' => 'string', 'description' => 'Filtra por status accepted/rejected.'],
+                        'surface_id' => ['type' => 'string', 'description' => 'Filtra por surface id.'],
+                        'flow' => ['type' => 'string', 'description' => 'Filtra por flow.'],
+                        'input_mode' => ['type' => 'string', 'description' => 'Filtra por input mode.'],
+                        'surface_contract_source' => ['type' => 'string', 'description' => 'Filtra por fonte do surface contract.'],
+                        'emitter_stage' => ['type' => 'string', 'description' => 'Filtra por emitter stage.'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_repair_loop_report',
+                'title' => 'Atlas Repair Loop Report',
+                'description' => 'Retorna replay/read model dos eventos REPAIR_INITIATED/COMPLETED no Evidence Ledger, incluindo review_signal canonico.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'hours' => ['type' => 'integer', 'description' => 'Janela de replay em horas. Default 24, max 720.'],
+                        'status' => ['type' => 'string', 'description' => 'Filtra por status da decisao de repair.'],
+                        'strategy' => ['type' => 'string', 'description' => 'Filtra por estrategia de repair.'],
+                        'failure_domain' => ['type' => 'string', 'description' => 'Filtra por failure domain.'],
+                        'emitter_stage' => ['type' => 'string', 'description' => 'Filtra por emitter stage.'],
                     ],
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
@@ -468,6 +568,12 @@ class AtlasOpenBrainMcpService
                 'atlas_docs_lookup' => $this->toolResponse($id, $this->docsLookup($arguments)),
                 'atlas_capabilities' => $this->toolResponse($id, $this->capabilities()),
                 'atlas_domain_catalog' => $this->toolResponse($id, $this->domainCatalog($arguments)),
+                'atlas_architecture_validate' => $this->toolResponse($id, $this->architectureValidate($arguments)),
+                'atlas_self_improvement_schedule' => $this->toolResponse($id, $this->selfImprovementSchedule($arguments)),
+                'atlas_self_improvement_schedule_report' => $this->toolResponse($id, $this->selfImprovementScheduleReport($arguments)),
+                'atlas_kernel_slo_report' => $this->toolResponse($id, $this->kernelSloReport($arguments)),
+                'atlas_kernel_pipeline_report' => $this->toolResponse($id, $this->kernelPipelineReport($arguments)),
+                'atlas_repair_loop_report' => $this->toolResponse($id, $this->repairLoopReport($arguments)),
                 'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
                 'atlas_recent_changes' => $this->toolResponse($id, $this->recentChanges($arguments)),
                 'atlas_decision_query' => $this->toolResponse($id, $this->decisionQuery($arguments)),
@@ -677,7 +783,7 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_code_find_relevant', 'error' => 'query_required'];
         }
 
-        $limit = min(100, max(1, (int) ($arguments['limit'] ?? 20)));
+        $limit = $this->mcpInput->codeLimit($arguments['limit'] ?? null);
         $filters = array_filter([
             'q' => $query,
             'symbol_type' => $this->string($arguments['symbol_type'] ?? null),
@@ -710,7 +816,7 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_docs_lookup', 'error' => 'query_required'];
         }
 
-        $limit = min(50, max(1, (int) ($arguments['limit'] ?? 10)));
+        $limit = $this->mcpInput->docsLimit($arguments['limit'] ?? null);
         $filters = array_filter([
             'q' => $query,
             'category' => $this->string($arguments['category'] ?? null),
@@ -746,10 +852,21 @@ class AtlasOpenBrainMcpService
             ];
         }
 
+        $onboardingStatus = $this->string($arguments['onboarding_status'] ?? null);
+        if ($onboardingStatus !== null && ! in_array($onboardingStatus, ['ready', 'executable_incomplete', 'scaffold'], true)) {
+            return [
+                'ok' => false,
+                'tool' => 'atlas_domain_catalog',
+                'error' => 'invalid_onboarding_status',
+                'allowed_onboarding_status' => ['ready', 'executable_incomplete', 'scaffold'],
+            ];
+        }
+
         $catalog = $this->domainCatalog->inspect([
             'domain' => $this->string($arguments['domain'] ?? null),
             'flow' => $this->string($arguments['flow'] ?? null),
             'maturity' => $maturity,
+            'onboarding_status' => $onboardingStatus,
         ]);
 
         return [
@@ -757,6 +874,222 @@ class AtlasOpenBrainMcpService
             'tool' => 'atlas_domain_catalog',
             ...$catalog,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function architectureValidate(array $arguments): array
+    {
+        $detail = $this->string($arguments['detail'] ?? null) ?: 'summary';
+        if (! in_array($detail, ['summary', 'full'], true)) {
+            return [
+                'ok' => false,
+                'tool' => 'atlas_architecture_validate',
+                'error' => 'invalid_detail',
+                'allowed_detail' => ['summary', 'full'],
+            ];
+        }
+
+        $payload = $this->architectureValidation->payload();
+        $summary = [
+            'status' => $payload['status'],
+            'schema_version' => $payload['schema_version'],
+            'validated_at' => $payload['validated_at'],
+            'kernel' => [
+                'valid' => data_get($payload, 'kernel.valid'),
+                'static_scan' => [
+                    'valid' => data_get($payload, 'kernel.static_scan.valid'),
+                    'summary' => data_get($payload, 'kernel.static_scan.summary', []),
+                ],
+            ],
+            'capabilities' => [
+                'valid' => data_get($payload, 'capabilities.valid'),
+                'count' => data_get($payload, 'capabilities.count'),
+                'surface_count' => data_get($payload, 'capabilities.surface_count'),
+            ],
+            'domains' => [
+                'valid' => data_get($payload, 'domains.valid'),
+                'domain_count' => data_get($payload, 'domains.domain_count'),
+                'flow_count' => data_get($payload, 'domains.flow_count'),
+            ],
+            'orchestrators' => [
+                'valid' => data_get($payload, 'orchestrators.valid'),
+                'count' => data_get($payload, 'orchestrators.count'),
+            ],
+            'onboarding' => $payload['onboarding'],
+        ];
+
+        return [
+            'ok' => $payload['status'] === 'ok',
+            'tool' => 'atlas_architecture_validate',
+            'detail' => $detail,
+            'architecture_validation' => $detail === 'full' ? $payload : $summary,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function selfImprovementSchedule(array $arguments): array
+    {
+        $detail = $this->string($arguments['detail'] ?? null) ?: 'health';
+        if (! in_array($detail, ['health', 'plan', 'commands'], true)) {
+            return [
+                'ok' => false,
+                'tool' => 'atlas_self_improvement_schedule',
+                'error' => 'invalid_detail',
+                'allowed_detail' => ['health', 'plan', 'commands'],
+            ];
+        }
+
+        $plan = $this->selfImprovementSchedule->schedulePlan();
+        $health = $this->selfImprovementSchedule->scheduleHealth();
+        $scheduledCommands = $this->selfImprovementSchedule->scheduledCommands();
+
+        return [
+            'ok' => $health['health']['status'] !== 'warning',
+            'tool' => 'atlas_self_improvement_schedule',
+            'detail' => $detail,
+            'schedule' => match ($detail) {
+                'plan' => $plan,
+                'commands' => [
+                    'schema_version' => $plan['schema_version'],
+                    'status' => $plan['status'],
+                    'enabled' => $plan['enabled'],
+                    'schedulable' => $plan['schedulable'],
+                    'scheduler_registration' => $plan['scheduler_registration'],
+                    'timezone' => $plan['timezone'],
+                    'plan_hash' => $plan['plan_hash'],
+                    'plan_hash_algorithm' => $plan['plan_hash_algorithm'],
+                    'commands' => $scheduledCommands,
+                    'count' => count($scheduledCommands),
+                    'cadence_counts' => $plan['cadence_counts'],
+                ],
+                default => $health,
+            },
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function selfImprovementScheduleReport(array $arguments): array
+    {
+        $hours = $this->reportWindowHours($arguments);
+        $report = $this->ledgerReplay->selfImprovementScheduleReportForWindow(now()->subHours($hours));
+
+        return [
+            'ok' => (bool) ($report['available'] ?? false),
+            'tool' => 'atlas_self_improvement_schedule_report',
+            'hours' => $hours,
+            'self_improvement_schedule_replay' => $report,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function kernelSloReport(array $arguments): array
+    {
+        $hours = $this->reportWindowHours($arguments);
+        $filters = $this->kernelSloFilters($arguments);
+        $report = $this->ledgerReplay->sloReportForWindow(now()->subHours($hours), null, $filters);
+
+        return [
+            'ok' => (bool) ($report['available'] ?? false),
+            'tool' => 'atlas_kernel_slo_report',
+            'hours' => $hours,
+            'filters' => $filters,
+            'kernel_slo' => $report,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function kernelPipelineReport(array $arguments): array
+    {
+        $hours = $this->reportWindowHours($arguments);
+        $filters = $this->onlyScalarFilters($arguments, [
+            'status',
+            'surface_id',
+            'flow',
+            'input_mode',
+            'surface_contract_source',
+            'emitter_stage',
+        ]);
+        $report = $this->ledgerReplay->kernelPipelineReportForWindow(now()->subHours($hours), null, $filters);
+
+        return [
+            'ok' => (bool) ($report['available'] ?? false),
+            'tool' => 'atlas_kernel_pipeline_report',
+            'hours' => $hours,
+            'filters' => $filters,
+            'kernel_pipeline' => $report,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function repairLoopReport(array $arguments): array
+    {
+        $hours = $this->reportWindowHours($arguments);
+        $filters = $this->onlyScalarFilters($arguments, [
+            'status',
+            'strategy',
+            'failure_domain',
+            'emitter_stage',
+        ]);
+        $report = $this->ledgerReplay->repairReportForWindow(now()->subHours($hours), null, $filters);
+
+        return [
+            'ok' => (bool) ($report['available'] ?? false),
+            'tool' => 'atlas_repair_loop_report',
+            'hours' => $hours,
+            'filters' => $filters,
+            'kernel_repair' => $report,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     */
+    private function reportWindowHours(array $arguments): int
+    {
+        return $this->replayInput->hours($arguments['hours'] ?? null);
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,string>
+     */
+    private function kernelSloFilters(array $arguments): array
+    {
+        return $this->onlyScalarFilters($arguments, ['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id']);
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @param  array<int,string>  $allowed
+     * @return array<string,string>
+     */
+    private function onlyScalarFilters(array $arguments, array $allowed): array
+    {
+        return $this->replayInput->scalarFilters($arguments, $allowed);
     }
 
     /**
@@ -842,7 +1175,7 @@ class AtlasOpenBrainMcpService
         }
 
         $since = $this->string($arguments['since'] ?? null) ?: '7 days ago';
-        $limit = min(200, max(1, (int) ($arguments['limit'] ?? 50)));
+        $limit = $this->mcpInput->recentChangesLimit($arguments['limit'] ?? null);
 
         $process = new \Symfony\Component\Process\Process(
             ['git', 'log', '--name-only', '--pretty=format:', '--since=' . $since],
@@ -903,7 +1236,7 @@ class AtlasOpenBrainMcpService
             $filters['scope_type'] = $scope;
         }
 
-        $options = ['limit' => min(20, max(1, (int) ($arguments['limit'] ?? 5)))];
+        $options = ['limit' => $this->mcpInput->decisionLimit($arguments['limit'] ?? null)];
 
         $recall = $this->recall->recall($query, $context, $filters, $options);
 
@@ -1259,7 +1592,7 @@ class AtlasOpenBrainMcpService
         // code->module() already returns ['module' => ..., 'symbols' => ..., 'doc_links' => ...]
         // Respect include_symbols and symbols_limit parameters
         $includeSymbols = (bool) ($arguments['include_symbols'] ?? true);
-        $symbolsLimit = min(200, max(1, (int) ($arguments['symbols_limit'] ?? 50)));
+        $symbolsLimit = $this->mcpInput->symbolsLimit($arguments['symbols_limit'] ?? null);
 
         $payload = [
             'ok' => true,
@@ -1288,7 +1621,7 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_route_info', 'error' => 'path_required'];
         }
 
-        $limit = min(100, max(1, (int) ($arguments['limit'] ?? 20)));
+        $limit = $this->mcpInput->codeLimit($arguments['limit'] ?? null);
         $result = $this->code->symbols(['q' => $path, 'symbol_type' => 'route'], $limit);
         $routes = $result['symbols'] ?? [];
 
@@ -1313,7 +1646,7 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_test_for', 'error' => 'target_required'];
         }
 
-        $limit = min(100, max(1, (int) ($arguments['limit'] ?? 20)));
+        $limit = $this->mcpInput->codeLimit($arguments['limit'] ?? null);
         $result = $this->code->symbols(['q' => $target, 'symbol_type' => 'test_method'], $limit);
         $tests = $result['symbols'] ?? [];
 
@@ -1341,9 +1674,9 @@ class AtlasOpenBrainMcpService
         $workspace = $this->workspace($arguments['workspace'] ?? null);
         $context = $workspace !== null ? ['workspace' => $workspace] : [];
 
-        $memoryLimit = min(20, max(1, (int) ($arguments['memory_limit'] ?? 5)));
-        $codeLimit = min(50, max(1, (int) ($arguments['code_limit'] ?? 10)));
-        $docsLimit = min(20, max(1, (int) ($arguments['docs_limit'] ?? 5)));
+        $memoryLimit = $this->mcpInput->contextMemoryLimit($arguments['memory_limit'] ?? null);
+        $codeLimit = $this->mcpInput->contextCodeLimit($arguments['code_limit'] ?? null);
+        $docsLimit = $this->mcpInput->contextDocsLimit($arguments['docs_limit'] ?? null);
 
         $memory = $this->recall->recall($task, $context, [], ['limit' => $memoryLimit]);
         $code = $this->code->symbols(['q' => $task], $codeLimit);

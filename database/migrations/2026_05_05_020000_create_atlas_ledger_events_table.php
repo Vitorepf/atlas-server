@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('operator_id', 120)->index();
             $table->string('envelope_id', 80)->index();
             $table->string('receipt_id', 80)->nullable()->index();
-            $table->uuid('trace_id')->nullable()->index();
+            $table->string('trace_id', 80)->nullable()->index();
             $table->string('correlation_id', 120)->index();
             $table->string('causation_id', 80)->nullable()->index();
             $table->string('event_type', 80)->index();

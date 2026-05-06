@@ -63,16 +63,18 @@ class AtlasCapabilityRegistry
     }
 
     /**
-     * @return array{valid:bool,errors:array<int,string>,warnings:array<int,string>}
+     * @return array{valid:bool,errors:array<int,string>,warnings:array<int,string>,surface_coverage:array{valid:bool,errors:array<int,string>}}
      */
     public function complianceReport(): array
     {
         $errors = [];
         $warnings = [];
+        $surfaceCoverageErrors = [];
         $surfaces = $this->surfaceConfig();
 
         foreach ($this->all() as $capability) {
             $this->validateManifestShape($capability, $errors);
+            $this->validateSurfaceCoverage($capability, array_keys($surfaces), $errors, $surfaceCoverageErrors);
 
             foreach ($capability->requiredSurfaces as $surfaceId) {
                 if (! array_key_exists($surfaceId, $surfaces)) {
@@ -87,6 +89,10 @@ class AtlasCapabilityRegistry
             }
 
             foreach ($capability->notSupported as $entry) {
+                if (! array_key_exists($entry['surface'], $surfaces)) {
+                    $errors[] = "Capability {$capability->id} not_supported references unknown surface {$entry['surface']}.";
+                }
+
                 if (($entry['reason'] ?? '') === '') {
                     $errors[] = "Capability {$capability->id} not_supported entry for {$entry['surface']} must include a reason.";
                 }
@@ -125,6 +131,10 @@ class AtlasCapabilityRegistry
             'valid' => $errors === [],
             'errors' => array_values(array_unique($errors)),
             'warnings' => array_values(array_unique($warnings)),
+            'surface_coverage' => [
+                'valid' => $surfaceCoverageErrors === [],
+                'errors' => array_values(array_unique($surfaceCoverageErrors)),
+            ],
         ];
     }
 
@@ -140,6 +150,42 @@ class AtlasCapabilityRegistry
         foreach (['id' => $capability->id, 'version' => $capability->version, 'title' => $capability->title, 'owner' => $capability->owner] as $field => $value) {
             if ($value === '') {
                 $errors[] = "Capability {$capability->id} is missing required field {$field}.";
+            }
+        }
+    }
+
+    /**
+     * @param  array<int,string>  $surfaceIds
+     * @param  array<int,string>  $errors
+     * @param  array<int,string>  $surfaceCoverageErrors
+     */
+    private function validateSurfaceCoverage(CapabilityManifest $capability, array $surfaceIds, array &$errors, array &$surfaceCoverageErrors): void
+    {
+        $notSupportedSurfaces = array_values(array_unique(array_map(
+            fn (array $entry): string => $entry['surface'],
+            $capability->notSupported,
+        )));
+
+        $required = array_flip($capability->requiredSurfaces);
+        $optional = array_flip($capability->optionalSurfaces);
+        $notSupported = array_flip($notSupportedSurfaces);
+
+        foreach ($surfaceIds as $surfaceId) {
+            $classifications = 0;
+            $classifications += isset($required[$surfaceId]) ? 1 : 0;
+            $classifications += isset($optional[$surfaceId]) ? 1 : 0;
+            $classifications += isset($notSupported[$surfaceId]) ? 1 : 0;
+
+            if ($classifications === 0) {
+                $message = "Capability {$capability->id} must classify surface {$surfaceId} as required, optional, or not_supported.";
+                $errors[] = $message;
+                $surfaceCoverageErrors[] = $message;
+            }
+
+            if ($classifications > 1) {
+                $message = "Capability {$capability->id} classifies surface {$surfaceId} more than once.";
+                $errors[] = $message;
+                $surfaceCoverageErrors[] = $message;
             }
         }
     }

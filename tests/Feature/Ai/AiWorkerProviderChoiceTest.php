@@ -15,6 +15,8 @@ use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\AiWorker;
 use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Kernel\Pipeline\KernelPipelineContract;
+use App\Services\Ai\Kernel\Pipeline\KernelPipelineStage;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -559,6 +561,155 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertSame('gate_contract_requires_evidence_without_provider_evidence_path', data_get($attempt?->metadata, 'policy_contract_enforcement.blocked_reason'));
     }
 
+    public function test_worker_blocks_invalid_kernel_pipeline_contract_before_provider_execution(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'execute com kernel pipeline adulterado',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'execute com kernel pipeline adulterado',
+            'prompt' => 'prompt',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'payload' => [
+                'dev_execution_plan' => [
+                    'plan_id' => 'runtime-kernel-invalid',
+                    'kernel_pipeline' => [
+                        ...$this->validRuntimeKernelPipelinePlan(),
+                        'canonical_flow_hash' => 'tampered',
+                    ],
+                    'kernel_pipeline_contract' => KernelPipelineContract::requiredSurfaceContract('KernelPipelineDevPlanBuilder'),
+                ],
+            ],
+        ]);
+
+        $manager = $this->createMock(AiProviderManager::class);
+        $manager->expects($this->never())->method('get');
+        $this->app->instance(AiProviderManager::class, $manager);
+
+        app(AiWorker::class)->runNext(workerId: 'worker-kernel-pipeline');
+
+        $job->refresh();
+        $this->assertSame('failed', $job->status);
+        $this->assertSame('kernel_pipeline_contract_violation', $job->error_code);
+        $this->assertSame('kernel_pipeline_contract_violation', $job->attemptHistory()->first()?->error_code);
+        $this->assertSame('KernelPipelineRuntimeGuard', data_get($job->metadata, 'kernel_pipeline_contract_enforcement.source'));
+        $this->assertContains(
+            'kernel_pipeline.canonical_flow_hash does not match the canonical kernel flow.',
+            data_get($job->metadata, 'kernel_pipeline_contract_enforcement.violations'),
+        );
+        $this->assertDatabaseHas('atlas_ledger_events', [
+            'event_type' => LedgerEventType::KernelPipelineRejected->value,
+            'emitter_stage' => 'atlas.ai_worker.kernel_pipeline_runtime_guard',
+        ]);
+    }
+
+    public function test_worker_blocks_dev_execution_plan_missing_kernel_pipeline_before_provider_execution(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'execute plano dev legado sem kernel pipeline',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'execute plano dev legado sem kernel pipeline',
+            'prompt' => 'prompt',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'payload' => [
+                'dev_execution_plan' => [
+                    'plan_id' => 'runtime-kernel-missing',
+                ],
+            ],
+        ]);
+
+        $manager = $this->createMock(AiProviderManager::class);
+        $manager->expects($this->never())->method('get');
+        $this->app->instance(AiProviderManager::class, $manager);
+
+        app(AiWorker::class)->runNext(workerId: 'worker-kernel-pipeline');
+
+        $job->refresh();
+        $this->assertSame('failed', $job->status);
+        $this->assertSame('kernel_pipeline_contract_violation', $job->error_code);
+        $this->assertContains(
+            'kernel_pipeline must be present before programming provider execution.',
+            data_get($job->metadata, 'kernel_pipeline_contract_enforcement.violations'),
+        );
+    }
+
+    public function test_worker_records_accepted_kernel_pipeline_contract_before_provider_execution(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'execute com kernel pipeline valido',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'execute com kernel pipeline valido',
+            'prompt' => 'prompt',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'payload' => [
+                'dev_execution_plan' => [
+                    'plan_id' => 'runtime-kernel-valid',
+                    'kernel_pipeline' => $this->validRuntimeKernelPipelinePlan(),
+                    'kernel_pipeline_contract' => KernelPipelineContract::requiredSurfaceContract('KernelPipelineDevPlanBuilder'),
+                ],
+            ],
+        ]);
+
+        $this->mockProviderManagerWith(new AiProviderResult(
+            ok: true,
+            output: 'ok',
+            command: ['codex'],
+            exitCode: 0,
+            durationMs: 100,
+            stdout: 'ok',
+            stderr: '',
+        ));
+
+        app(AiWorker::class)->runNext(workerId: 'worker-kernel-pipeline');
+
+        $job->refresh();
+        $this->assertSame('succeeded', $job->status);
+        $event = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::KernelPipelineAccepted->value)
+            ->where('emitter_stage', 'atlas.ai_worker.kernel_pipeline_runtime_guard')
+            ->first();
+
+        $this->assertNotNull($event);
+        $this->assertSame('accepted', data_get($event?->payload, 'status'));
+        $this->assertSame('KernelPipelineDevPlanBuilder', data_get($event?->payload, 'surface_contract.source'));
+        $this->assertSame('programming.dev', data_get($event?->payload, 'routing.flow'));
+    }
+
     public function test_programming_provider_execution_forces_read_permission_for_read_only_tool_contract(): void
     {
         $trace = AiTrace::create([
@@ -879,6 +1030,41 @@ class AiWorkerProviderChoiceTest extends TestCase
             $table->timestamp('occurred_at')->nullable();
             $table->timestamp('created_at')->nullable();
         });
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function validRuntimeKernelPipelinePlan(): array
+    {
+        return [
+            'schema_version' => KernelPipelineContract::SCHEMA_VERSION,
+            'pipeline_id' => 'pipe_runtime_worker',
+            'mode' => KernelPipelineContract::MODE,
+            'status' => KernelPipelineContract::STATUS,
+            'canonical_flow_hash' => KernelPipelineContract::canonicalFlowHash(),
+            'stage_order' => KernelPipelineStage::orderedValues(),
+            'stage_count' => count(KernelPipelineStage::orderedValues()),
+            'provider_execution_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'execution_guards' => [
+                'dry_run_effective' => true,
+                'provider_execution_allowed' => false,
+                'runtime_execution_allowed' => false,
+                'surface_runtime_migration_allowed' => false,
+            ],
+            'input' => [
+                'surface_id' => 'atlas_ai_chat',
+                'safe_hints' => [
+                    'flow' => 'programming.dev',
+                ],
+            ],
+            'surface_binding' => [
+                'surface' => 'atlas_ai_chat',
+                'command' => 'atlas:ai:chat',
+                'input_mode' => 'declared_dev_plan',
+            ],
+        ];
     }
 
     private function dropAiWorkerRuntimeTables(): void

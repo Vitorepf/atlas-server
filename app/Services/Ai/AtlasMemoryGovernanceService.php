@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasMemoryEntryUsage;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -16,6 +17,8 @@ class AtlasMemoryGovernanceService
     private const POSITIVE_FEEDBACK = ['useful'];
 
     private const NEGATIVE_FEEDBACK = ['not_useful', 'wrong_context', 'stale', 'too_much', 'corrected'];
+
+    public function __construct(private readonly MemoryQueryInput $input) {}
 
     /**
      * @return array<string,mixed>
@@ -80,7 +83,7 @@ class AtlasMemoryGovernanceService
         }
 
         $entries = $this->queryEntries($filters)
-            ->limit(max(1, min(500, $limit)))
+            ->limit($this->input->governanceScanLimit($limit))
             ->get();
 
         $entries->each(fn (AtlasMemoryEntry $entry): bool => $this->refreshContentHash($entry, $dryRun));
@@ -148,7 +151,7 @@ class AtlasMemoryGovernanceService
 
         return $query
             ->latest('updated_at')
-            ->limit(max(1, min(200, $limit)))
+            ->limit($this->input->relationLimit($limit))
             ->get();
     }
 

@@ -26,7 +26,11 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         $profile = $profile === 'forge' ? 'forge' : 'dev';
         $workspace = realpath($workspace) ?: $workspace;
         $complete = $profile === 'forge' || (bool) ($options['complete'] ?? false);
-        $maxIterations = max($profile === 'forge' ? 5 : 3, (int) ($options['max_iterations'] ?? 0));
+        $maxIterations = ProgrammingIterationPolicy::forExecutionPolicy(
+            $options['max_iterations'] ?? null,
+            $complete,
+            $profile === 'forge',
+        );
         $programmingFlow = $this->programmingFlow($profile, $options);
         $payload = [
             'app_surface' => 'atlas_cli',
@@ -73,7 +77,10 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         $policyProfile = (array) data_get($decision->toArray(), 'policy_profile', $this->policies->effectiveProfile($decisionOptions));
         $executionPolicy = (array) data_get($policyProfile, 'execution_policy', []);
         $policyContracts = $this->policyContracts($policyProfile);
-        $policyMaxIterations = max(1, min(10, (int) data_get($executionPolicy, 'max_iterations', $maxIterations)));
+        $policyMaxIterations = ProgrammingIterationPolicy::forRepairPolicy(
+            data_get($executionPolicy, 'max_iterations', $maxIterations),
+            $maxIterations,
+        );
         $policyAutoTest = (bool) data_get($executionPolicy, 'auto_test', $profile === 'forge' || (bool) ($options['auto_test'] ?? false));
 
         $plan = [
@@ -272,7 +279,10 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             ?: data_get($programmingMessagePlan, 'policy_profile.policy_contracts')
             ?: data_get($programmingMessagePlan, 'policy_profile.effective_policy.operational_contracts')
             ?: []);
-        $maxIterations = max(1, min(10, (int) data_get($policy, 'max_iterations', $executionProfile['max_iterations'] ?? 1)));
+        $maxIterations = ProgrammingIterationPolicy::forRepairPolicy(
+            data_get($policy, 'max_iterations', $executionProfile['max_iterations'] ?? 1),
+            (int) ($executionProfile['max_iterations'] ?? 1),
+        );
         $complete = (bool) ($executionProfile['complete'] ?? false);
         $executor = (string) data_get($programmingMessagePlan, 'executor_decision.executor', 'simple_provider_execution');
 

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\Kernel\Evidence\KernelLedgerEnvelopeInput;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -102,6 +103,57 @@ class AtlasAiLedgerApiTest extends TestCase
             ->assertJsonPath('repair.events.1.causation_id', 'decision-hash-api');
 
         $this->assertSame(['retry_provider' => 2], $response->json('repair.strategy_counts'));
+    }
+
+    public function test_ledger_api_uses_canonical_event_limit_contract(): void
+    {
+        foreach (range(1, 3) as $index) {
+            $this->recordEvent('01HLEDGERAPILIMIT0000000'.$index, 'env_api_limit', LedgerEventType::ExecutionStarted, [
+                'index' => $index,
+            ]);
+        }
+
+        $this->getJson('/ai/ledger/env_api_limit?limit='.KernelLedgerEnvelopeInput::MAX_EVENT_LIMIT, $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'ok')
+            ->assertJsonPath('filters.limit', KernelLedgerEnvelopeInput::MAX_EVENT_LIMIT)
+            ->assertJsonPath('event_count', 3);
+    }
+
+    public function test_ledger_api_can_include_kernel_pipeline_summary(): void
+    {
+        $this->recordEvent('01HLEDGERAPIKERNEL00000001', 'env_api_kernel', LedgerEventType::KernelPipelineAccepted, [
+            'status' => 'accepted',
+            'violations' => [],
+            'pipeline' => [
+                'pipeline_id' => 'pipe_api_kernel',
+                'schema_version' => 'atlas.kernel.pipeline.scaffold.v1',
+                'stage_count' => 14,
+                'provider_execution_allowed' => false,
+                'runtime_execution_allowed' => false,
+            ],
+            'surface' => [
+                'surface_id' => 'atlas_cli_dev',
+                'input_mode' => 'one_shot',
+            ],
+            'routing' => [
+                'domain' => 'programming',
+                'flow' => 'programming.dev',
+            ],
+        ]);
+
+        $this->getJson('/ai/ledger/env_api_kernel?kernel=1&limit=10', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'ok')
+            ->assertJsonPath('filters.kernel', true)
+            ->assertJsonPath('kernel_pipeline.kernel_pipeline_event_count', 1)
+            ->assertJsonPath('kernel_pipeline.accepted_count', 1)
+            ->assertJsonPath('kernel_pipeline.rejected_count', 0)
+            ->assertJsonPath('kernel_pipeline.has_rejections', false)
+            ->assertJsonPath('kernel_pipeline.health.status', 'ok')
+            ->assertJsonPath('kernel_pipeline.health.rejection_rate', 0)
+            ->assertJsonPath('kernel_pipeline.health.review_required', false)
+            ->assertJsonPath('kernel_pipeline.events.0.flow', 'programming.dev');
     }
 
     public function test_ledger_api_requires_atlas_token(): void

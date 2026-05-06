@@ -6,6 +6,7 @@ use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementOrchestrator;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementRuntime;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -62,6 +63,24 @@ class AtlasSelfImprovementOrchestratorTest extends TestCase
         $this->assertSame('proposal_only', data_get($plan, 'domain_profile.gate_policy.autonomy_ceiling'));
     }
 
+    public function test_flow_plan_reuses_runtime_window_and_limit_contract(): void
+    {
+        $plan = app(AtlasSelfImprovementOrchestrator::class)->flowPlan('nightly_review', [
+            'hours' => 999,
+            'limit' => 999,
+            'emit' => false,
+        ]);
+
+        $this->assertSame(
+            AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS,
+            data_get($plan, 'options.hours'),
+        );
+        $this->assertSame(
+            AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN,
+            data_get($plan, 'options.limit'),
+        );
+    }
+
     public function test_repair_loop_review_plan_uses_dedicated_executor_contract(): void
     {
         $plan = app(AtlasSelfImprovementOrchestrator::class)->flowPlan('repair_loop_review', [
@@ -76,6 +95,26 @@ class AtlasSelfImprovementOrchestratorTest extends TestCase
         $this->assertSame([
             'strategy' => 'human_review',
             'failure_domain' => 'compliance.violation',
+        ], data_get($plan, 'options.filters'));
+        $this->assertTrue((bool) data_get($plan, 'execution_policy.proposal_only'));
+    }
+
+    public function test_kernel_pipeline_review_plan_uses_dedicated_executor_contract(): void
+    {
+        $plan = app(AtlasSelfImprovementOrchestrator::class)->flowPlan('kernel_pipeline_review', [
+            'hours' => 24,
+            'limit' => 5,
+            'kernel_status' => 'rejected',
+            'surface' => 'atlas_ai_chat',
+            'kernel_input_mode' => 'declared_dev_plan',
+        ]);
+
+        $this->assertSame('self_improvement.kernel_pipeline_review', $plan['flow']);
+        $this->assertSame('kernel_pipeline_review_runtime', data_get($plan, 'execution_policy.executor_preference'));
+        $this->assertSame([
+            'surface_id' => 'atlas_ai_chat',
+            'status' => 'rejected',
+            'input_mode' => 'declared_dev_plan',
         ], data_get($plan, 'options.filters'));
         $this->assertTrue((bool) data_get($plan, 'execution_policy.proposal_only'));
     }

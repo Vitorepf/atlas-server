@@ -6,6 +6,8 @@ use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
+use App\Services\Ai\Context\ContextPackMemoryInput;
+use App\Services\Ai\Context\SemanticContextInput;
 use App\Services\Ai\Security\PromptInjectionScanner;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\ValueObjects\AiContextPack;
@@ -25,12 +27,16 @@ class AiContextPackBuilder
         ?AtlasVerbatimMemoryService $verbatimMemory = null,
         ?AtlasMemoryContextComposer $memoryComposer = null,
         ?KernelSloProbe $slo = null,
+        ?ContextPackMemoryInput $memoryInput = null,
+        ?SemanticContextInput $semanticInput = null,
     ) {
         $this->memoryPrivacy = $memoryPrivacy ?? app(AtlasMemoryPrivacyService::class);
         $this->sourcePrivacy = $sourcePrivacy ?? app(AtlasMemorySourcePrivacyPolicy::class);
         $this->verbatimMemory = $verbatimMemory ?? app(AtlasVerbatimMemoryService::class);
         $this->memoryComposer = $memoryComposer ?? app(AtlasMemoryContextComposer::class);
         $this->slo = $slo ?? app(KernelSloProbe::class);
+        $this->memoryInput = $memoryInput ?? app(ContextPackMemoryInput::class);
+        $this->semanticInput = $semanticInput ?? app(SemanticContextInput::class);
     }
 
     private AtlasMemoryPrivacyService $memoryPrivacy;
@@ -42,6 +48,10 @@ class AiContextPackBuilder
     private AtlasMemoryContextComposer $memoryComposer;
 
     private KernelSloProbe $slo;
+
+    private ContextPackMemoryInput $memoryInput;
+
+    private SemanticContextInput $semanticInput;
 
     public function build(string $input, AiTaskRequest $task, array $options = []): AiContextPack
     {
@@ -194,7 +204,7 @@ class AiContextPackBuilder
             return collect();
         }
 
-        $limit = (int) ($options['memory_registry_limit'] ?? config('atlas.ai.memory_registry_limit', 8));
+        $limit = $this->memoryInput->memoryRegistryLimit($options['memory_registry_limit'] ?? null);
         if ($limit <= 0) {
             return collect();
         }
@@ -219,7 +229,7 @@ class AiContextPackBuilder
             return collect();
         }
 
-        $limit = (int) ($options['verbatim_recall_limit'] ?? config('atlas.ai.verbatim_recall_limit', 4));
+        $limit = $this->memoryInput->verbatimRecallLimit($options['verbatim_recall_limit'] ?? null);
         if ($limit <= 0) {
             return collect();
         }
@@ -248,7 +258,7 @@ class AiContextPackBuilder
             'scope_id' => $entry->scope_id,
             'title' => $this->memoryPrivacy->providerTitle($entry),
             'summary' => $this->memoryPrivacy->providerSummary($entry),
-            'body' => Str::limit($this->memoryPrivacy->providerBody($entry), (int) config('atlas.ai.memory_registry_excerpt_chars', 900), '...'),
+            'body' => Str::limit($this->memoryPrivacy->providerBody($entry), $this->memoryInput->memoryRegistryExcerptChars(), '...'),
             'importance' => $entry->importance,
             'priority' => $entry->priority,
             'confidence' => $entry->confidence,
@@ -264,8 +274,8 @@ class AiContextPackBuilder
 
     private function verbatimMemoryItems($memories, array $options): array
     {
-        $budget = (int) ($options['verbatim_recall_budget_chars'] ?? config('atlas.ai.verbatim_recall_budget_chars', 1600));
-        $itemChars = (int) ($options['verbatim_recall_item_chars'] ?? config('atlas.ai.verbatim_recall_item_chars', 600));
+        $budget = $this->memoryInput->verbatimRecallBudgetChars($options['verbatim_recall_budget_chars'] ?? null);
+        $itemChars = $this->memoryInput->verbatimRecallItemChars($options['verbatim_recall_item_chars'] ?? null);
 
         if ($budget <= 0 || $itemChars <= 0) {
             return [];
@@ -364,7 +374,7 @@ class AiContextPackBuilder
             return collect();
         }
 
-        $limit = (int) ($options['context_note_limit'] ?? config('atlas.ai.context_note_limit', 5));
+        $limit = $this->semanticInput->contextNoteLimit($options['context_note_limit'] ?? null);
         if ($limit <= 0) {
             return collect();
         }
@@ -374,7 +384,7 @@ class AiContextPackBuilder
 
     private function semanticMemory($notes): array
     {
-        $excerptChars = (int) config('atlas.ai.context_excerpt_chars', 1200);
+        $excerptChars = $this->semanticInput->contextExcerptChars();
 
         return $notes->map(fn (SemanticNote $note): array => $this->semanticMemoryItem($note, $excerptChars))->values()->all();
     }

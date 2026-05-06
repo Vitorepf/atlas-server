@@ -23,6 +23,7 @@ class AtlasAiDomainCatalogApiTest extends TestCase
             ->assertJsonPath('filters.flow', 'programming.repair')
             ->assertJsonPath('summary.domains', 1)
             ->assertJsonPath('summary.flows', 1)
+            ->assertJsonPath('summary.ready_domains', 1)
             ->assertJsonPath('domains.0.id', 'programming')
             ->assertJsonPath('domains.0.onboarding.status', 'ready')
             ->assertJsonPath('domains.0.onboarding.completed_count', 9)
@@ -34,11 +35,34 @@ class AtlasAiDomainCatalogApiTest extends TestCase
         $this->assertContains('maturity_gate', $response->json('domains.0.onboarding.completed_phases'));
     }
 
+    public function test_domain_catalog_api_can_filter_by_onboarding_status(): void
+    {
+        $response = $this->getJson('/ai/domains?onboarding_status=scaffold', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'ok')
+            ->assertJsonPath('filters.onboarding_status', 'scaffold');
+
+        $this->assertGreaterThanOrEqual(1, $response->json('summary.domains'));
+        $this->assertSame($response->json('summary.domains'), $response->json('summary.scaffold_domains'));
+        $this->assertSame(['scaffold' => $response->json('summary.domains')], $response->json('summary.onboarding_status_counts'));
+
+        foreach ($response->json('domains') as $domain) {
+            $this->assertSame('scaffold', data_get($domain, 'onboarding.status'));
+        }
+    }
+
     public function test_domain_catalog_api_rejects_unknown_maturity_filter(): void
     {
         $this->getJson('/ai/domains?maturity=experimental', $this->headers)
             ->assertStatus(422)
             ->assertJsonValidationErrors(['maturity']);
+    }
+
+    public function test_domain_catalog_api_rejects_unknown_onboarding_status_filter(): void
+    {
+        $this->getJson('/ai/domains?onboarding_status=experimental', $this->headers)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['onboarding_status']);
     }
 
     public function test_domain_catalog_api_requires_atlas_token(): void

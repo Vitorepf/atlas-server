@@ -42,7 +42,7 @@ class AtlasAiSelfImprovementScheduleApiTest extends TestCase
     public function test_self_improvement_schedule_api_returns_recurring_plan(): void
     {
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'repair_loop_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
         config()->set('atlas_ai.self_improvement.time', '02:00');
         config()->set('atlas_ai.self_improvement.hours', 24);
         config()->set('atlas_ai.self_improvement.limit', 5);
@@ -56,18 +56,30 @@ class AtlasAiSelfImprovementScheduleApiTest extends TestCase
             ->assertJsonPath('enabled', true)
             ->assertJsonPath('schedulable', true)
             ->assertJsonPath('scheduler_registration.status', 'registered')
-            ->assertJsonPath('scheduler_registration.registered_command_count', 2)
+            ->assertJsonPath('scheduler_registration.registered_command_count', 4)
+            ->assertJsonPath('cadence_counts.daily', 3)
+            ->assertJsonPath('cadence_counts.weekly', 1)
             ->assertJsonPath('time', '02:00')
             ->assertJsonPath('timezone', config('app.timezone'))
-            ->assertJsonPath('count', 2)
+            ->assertJsonPath('count', 4)
             ->assertJsonPath('configured_flows.0', 'nightly_review')
-            ->assertJsonPath('configured_flows.1', 'repair_loop_review')
+            ->assertJsonPath('configured_flows.1', 'weekly_architecture_audit')
+            ->assertJsonPath('configured_flows.2', 'repair_loop_review')
+            ->assertJsonPath('configured_flows.3', 'kernel_pipeline_review')
             ->assertJsonPath('invalid_flows', [])
             ->assertJsonPath('defaulted', false)
             ->assertJsonPath('health.status', 'healthy')
             ->assertJsonPath('flows.0', 'nightly_review')
-            ->assertJsonPath('flows.1', 'repair_loop_review')
-            ->assertJsonPath('commands.1.command', 'atlas:ai:self-improve --flow=repair_loop_review --hours=24 --limit=5 --json')
+            ->assertJsonPath('flows.1', 'weekly_architecture_audit')
+            ->assertJsonPath('flows.2', 'repair_loop_review')
+            ->assertJsonPath('flows.3', 'kernel_pipeline_review')
+            ->assertJsonPath('commands.1.command', 'atlas:ai:self-improve --flow=weekly_architecture_audit --hours=24 --limit=5 --json')
+            ->assertJsonPath('commands.1.cadence', 'weekly')
+            ->assertJsonPath('commands.1.week_day', 1)
+            ->assertJsonPath('commands.2.command', 'atlas:ai:self-improve --flow=repair_loop_review --hours=24 --limit=5 --json')
+            ->assertJsonPath('commands.2.cadence', 'daily')
+            ->assertJsonPath('commands.3.command', 'atlas:ai:self-improve --flow=kernel_pipeline_review --hours=24 --limit=5 --json')
+            ->assertJsonPath('commands.3.cadence', 'daily')
             ->assertJsonPath('emit', false);
 
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $response->json('plan_hash'));

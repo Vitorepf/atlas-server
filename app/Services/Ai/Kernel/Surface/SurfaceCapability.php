@@ -14,6 +14,11 @@ final class SurfaceCapability
     public const THREAD_CONTEXT = 'thread_context';
     public const DOMAIN_FLOW_SELECTION = 'domain_flow_selection';
     public const ARTIFACT_RENDERING = 'artifact_rendering';
+    public const MEMORY_RECALL = 'memory_recall';
+    public const CONTEXT_COMPOSE = 'context_compose';
+    public const TOOLS_RUNTIME = 'tools_runtime';
+    public const HUMAN_KNOWLEDGE_WORKSPACE = 'human_knowledge_workspace';
+    public const MANAGED_NOTE_PROJECTION = 'managed_note_projection';
 
     /**
      * @return array<int,string>
@@ -31,6 +36,11 @@ final class SurfaceCapability
             self::THREAD_CONTEXT,
             self::DOMAIN_FLOW_SELECTION,
             self::ARTIFACT_RENDERING,
+            self::MEMORY_RECALL,
+            self::CONTEXT_COMPOSE,
+            self::TOOLS_RUNTIME,
+            self::HUMAN_KNOWLEDGE_WORKSPACE,
+            self::MANAGED_NOTE_PROJECTION,
         ];
     }
 

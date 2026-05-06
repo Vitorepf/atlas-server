@@ -101,6 +101,7 @@ class DomainProfileComplianceTest extends TestCase
             'self_improvement.memory_quality_review',
             'self_improvement.tool_runtime_review',
             'self_improvement.repair_loop_review',
+            'self_improvement.kernel_pipeline_review',
             'self_improvement.domain_learning_review',
             'self_improvement.docs_drift_review',
             'self_improvement.provider_performance_review',

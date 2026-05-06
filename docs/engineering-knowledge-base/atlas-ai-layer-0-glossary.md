@@ -16,6 +16,9 @@ capabilities:
   - documentation_governance
   - provider_safe_identity
 decisions:
+  - A Tese do Multiplicador / Canal Unico (Layer -1, ver atlas-ai-thesis-multiplier-channel.md) governa identidade operacional do Atlas. Atlas e canal soberano que multiplica output de qualquer provider; nao competidor.
+  - Atlas precisa ser canal UNICO de interacao com IA; uso direto de provider quebra o ciclo Evidence -> Curator -> Multiplicador.
+  - Atlas Rivals e o instrumento empirico que valida o multiplicador; pergunta-norte de toda decisao: multiplica ou compete? mantem gravidade ou cria fricca de escape?
   - Atlas AI e o core cognitivo persistente e modelo-agnostico do Atlas, nao um provider, chat, CLI ou app.
   - Providers sao motores substituiveis; surfaces sao pontos de contato; runtime e kernel preservam contratos, evidence e policy.
   - Conteudo constitucional legado e source material humano; somente excertos revisados e provider-safe viram autoridade operacional.

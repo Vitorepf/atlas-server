@@ -15,6 +15,7 @@ class AtlasAiDomainCatalogController extends Controller
             'domain' => ['nullable', 'string', 'max:120'],
             'flow' => ['nullable', 'string', 'max:160'],
             'maturity' => ['nullable', 'string', Rule::in(['implemented', 'scaffold', 'planned'])],
+            'onboarding_status' => ['nullable', 'string', Rule::in(['ready', 'executable_incomplete', 'scaffold'])],
         ]);
 
         return response()->json($catalog->inspect($filters));

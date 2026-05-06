@@ -14,6 +14,7 @@ class AtlasCliFixCommand extends Command
         {--max-iterations=3}
         {--auto-test : Run detected tests after each attempt}
         {--allow-write : Confirm scoped workspace writes for this run}
+        {--plan-only : Run preflight and print the repair execution plan without calling provider}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Run Atlas dev repair loop for a known failing test, bug or quality gate.';
@@ -27,6 +28,7 @@ class AtlasCliFixCommand extends Command
             maxIterations: (int) $this->option('max-iterations'),
             autoTest: (bool) $this->option('auto-test'),
             allowWrite: (bool) $this->option('allow-write'),
+            planOnly: (bool) $this->option('plan-only'),
             json: (bool) $this->option('json'),
         ));
     }

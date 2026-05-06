@@ -104,7 +104,7 @@ A v6.0 é refinamento cirúrgico que absorve evidência empírica e contribuiç�
 ## Índice
 
 **PARTE I — FUNDAÇÃO CONSTITUCIONAL**
-- Capítulo 0 — Tese Central
+- Capítulo 0 — Tese Central (inclui 0.6 — Tese Operacional do Multiplicador / Canal Único)
 - Capítulo 1 — As 10 Leis Fundacionais
 - Capítulo 2 — Princípios Operacionais
 - Capítulo 3 — Compromisso do Operador
@@ -236,6 +236,131 @@ Tony Robbins mantém dossiês operacionais sobre cada cliente acumulados ao long
 O que esses sistemas têm em comum: captura disciplinada de longo prazo (10–40 anos), estrutura que permite cross-reference, confronto ativo, externalização de modelos mentais, otimização de input.
 
 **Atlas é tentativa de implementar esses sistemas em software, com IA, para um operador solo, ao longo de décadas.**
+
+### 0.6 A Tese Operacional do Multiplicador / Canal Único
+
+*Adicionada em 2026-05-05. Imutável.*
+
+Atlas é, operacionalmente:
+
+> **O canal único e soberano através do qual toda a inteligência do mundo passa, é multiplicada pelo ecossistema pessoal do Vitor, e é entregue como output que nenhum provider sozinho pode produzir — agora ou no futuro.**
+
+Esta tese é **complementar** às cinco naturezas da seção 0.2, e **operacional** ao
+sentido constitucional do Capítulo 0. Ela define **como** Atlas existe no mercado
+de IA, sem competir com providers nem ser refém deles.
+
+#### As duas propriedades inseparáveis
+
+**1. Multiplicador**: cada componente do Atlas amplifica output bruto de provider.
+
+```
+Output_Atlas = Output_Provider × Multiplicador_Ecossistema
+```
+
+Multiplicador inclui: memory canonical, constitutional filter, skills curados,
+multi-provider routing, domain orchestration, quality gates, evidence ledger,
+curator/self-improvement, hardware sovereignty, modelo próprio (Atlas-Vitor).
+
+**Propriedade fundamental**: a ratio nunca decai. Provider melhora 100x →
+Atlas entrega 1000x → distância estrutural pro provider direto permanece.
+
+**2. Canal único**: Atlas só funciona se for **a única via** pela qual Vitor
+interage com IA. Uso direto de provider, fora do Atlas, quebra o ciclo
+virtuoso:
+
+- Evidence Ledger não captura → Curator não aprende
+- Memory canonical não atualiza → contextos futuros pobres
+- Constitutional filter não aplica → output desviado
+- Modelo Atlas-Vitor não tem dataset pra treinar
+
+Sem canal único, multiplicador estagna. Sem multiplicador, canal único vira
+penalidade de UX. **A tese exige as duas simultaneamente.**
+
+#### O ciclo virtuoso (auto-reforçado)
+
+```
+Uso de Atlas
+   ↓
+Evidence Ledger cresce
+   ↓
+Curator observa mais padrões
+   ↓
+Multiplicador fica mais denso
+   ↓
+Atlas-Vitor treina sobre dataset maior
+   ↓
+Output Atlas > Output direto
+   ↓
+Vitor prefere Atlas naturalmente (gravidade natural)
+   ↓
+[loop volta ao topo, fortalecido]
+```
+
+#### Antifragilidade estrutural
+
+Cada cenário do mercado de IA fortalece Atlas em vez de ameaçar:
+
+- Provider lança memory persistence → Atlas absorve como external source
+- Modelo provider 100x mais inteligente → Atlas roda 100x melhor sem refator
+- Provider sai do mercado → Atlas troca driver, vida segue
+- Provider sobe preço → cost-aware routing migra automaticamente
+- Provider muda alinhamento → constitutional filter garante consistência
+
+#### A Pergunta-Norte
+
+Toda decisão de construção do Atlas deve ser auditada contra:
+
+> **Esta feature multiplica o output do provider, ou compete com ele? E
+> mantém Atlas como caminho mais natural, ou cria fricção que faz Vitor
+> escapar pra uso direto?**
+
+Multiplica + mantém gravidade natural → constrói. Compete OU cria fricção →
+descarta.
+
+#### Validação empírica contínua: Atlas Rivals
+
+Sem instrumento de medição, esta tese é filosofia. **Atlas Rivals**
+(`atlas:engineering:benchmark:rivals`) é o instrumento dedicado a validar
+empiricamente o multiplicador.
+
+Rivals roda a mesma tarefa por dois caminhos — Atlas (com poder total) vs
+provider direto (baseline justa, fair-claude profile) — e compara score,
+gates, iterações, custo. Responde a 4 perguntas operacionais:
+
+1. O multiplicador é positivo?
+2. Por quanto?
+3. Onde está o problema, se houver?
+4. Onde podemos melhorar?
+
+Três cenários:
+
+- **Multiplicador positivo**: Atlas > provider direto. Tese validada,
+  continua construindo.
+- **Multiplicador neutro**: Atlas ≈ direto. Sinal vermelho. Overhead sem
+  ganho proporcional — Curator investiga.
+- **Multiplicador negativo**: Atlas < direto. **Stop-the-line.** Pausa
+  features novas, isola fonte de degradação, corrige ou reverte. Prioridade
+  absoluta.
+
+Cada domínio futuro do Atlas precisará da sua própria versão de Rivals
+(Rivals-Finance, Rivals-Research, Rivals-Health, etc). O conceito é universal:
+medir multiplicador empírico, alimentar Curator, evoluir.
+
+**Rivals é o sistema imune do Atlas.** Sem ele, features ruins se acumulam
+silenciosamente. Com ele, cada feature é auditada empiricamente contra a tese.
+
+#### Compromisso Cardinal
+
+Esta tese é **ponto fixo** do Atlas. Acima de Layer 0 (Constituição), Layer 1
+(Kernel), Layer 2 (Master Architecture). Quando houver conflito entre roadmap,
+princípios operacionais ou specs arquiteturais, **esta tese vence**.
+
+Documento canônico operacional (Layer -1):
+[`docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md`](../../docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md)
+
+A relação com Lei 8 (Modelo-Agnóstico): Lei 8 é a **forma operacional** desta
+tese — Atlas troca de LLM como configuração porque o foso está no multiplicador
+e no canal único, não no modelo.
 
 ---
 

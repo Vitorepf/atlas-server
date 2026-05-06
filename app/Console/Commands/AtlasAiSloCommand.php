@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
+use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
 
 class AtlasAiSloCommand extends Command
@@ -20,11 +21,11 @@ class AtlasAiSloCommand extends Command
 
     protected $description = 'Summarize Atlas AI kernel SLO observations for a recent time window.';
 
-    public function handle(AtlasLedgerReplayService $replay): int
+    public function handle(AtlasLedgerReplayService $replay, KernelReplayReportInput $input): int
     {
-        $hours = max(1, min(720, (int) $this->option('hours')));
+        $hours = $input->hours($this->option('hours'));
         $since = now()->subHours($hours);
-        $filters = $this->filters();
+        $filters = $this->filters($input);
         $payload = [
             'status' => 'ok',
             'hours' => $hours,
@@ -60,6 +61,9 @@ class AtlasAiSloCommand extends Command
         $this->components->twoColumnDetail('Envelopes', (string) ($slo['envelope_count'] ?? 0));
         $this->components->twoColumnDetail('Worst status', (string) ($slo['worst_status'] ?? '-'));
         $this->components->twoColumnDetail('Worst severity', (string) ($slo['worst_severity'] ?? '-'));
+        $this->components->twoColumnDetail('Review signal', (string) data_get($slo, 'review_signal.status', '-'));
+        $this->components->twoColumnDetail('Review severity', (string) data_get($slo, 'review_signal.severity', '-'));
+        $this->components->twoColumnDetail('Recommended action', (string) data_get($slo, 'review_signal.recommended_action', '-'));
 
         $stageRows = collect((array) ($slo['stages'] ?? []))
             ->map(fn (array $stage, string $name): array => [
@@ -95,26 +99,16 @@ class AtlasAiSloCommand extends Command
     /**
      * @return array<string,string>
      */
-    private function filters(): array
+    private function filters(KernelReplayReportInput $input): array
     {
-        $map = [
-            'domain' => 'domain',
-            'flow' => 'flow',
-            'surface' => 'surface_id',
-            'provider' => 'provider',
-            'model' => 'model',
-            'runtime' => 'runtime',
-            'tool' => 'tool_id',
-        ];
-        $filters = [];
-
-        foreach ($map as $option => $dimension) {
-            $value = $this->option($option);
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $filters[$dimension] = trim((string) $value);
-            }
-        }
-
-        return $filters;
+        return $input->aliasedScalarFilters($this->options(), [
+            'domain' => ['domain'],
+            'flow' => ['flow'],
+            'surface_id' => ['surface'],
+            'provider' => ['provider'],
+            'model' => ['model'],
+            'runtime' => ['runtime'],
+            'tool_id' => ['tool'],
+        ]);
     }
 }

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\Kernel\Evidence\KernelLedgerEnvelopeInput;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
@@ -75,6 +76,41 @@ class AtlasAiLedgerCommandTest extends TestCase
         $this->assertSame('env_command', $payload['envelope_id']);
         $this->assertSame(LedgerEventType::ExecutionStarted->value, $payload['events'][0]['event_type']);
         $this->assertSame(['job_id' => 'job-1'], $payload['events'][0]['payload']);
+    }
+
+    public function test_command_uses_canonical_ledger_event_limit_contract(): void
+    {
+        foreach (range(1, 3) as $index) {
+            AtlasLedgerEvent::query()->create([
+                'event_id' => '01HLEDGERLIMITCOMMAND00000'.$index,
+                'schema_version' => 'atlas.ledger_event.v1',
+                'tenant_id' => 'tenant_test',
+                'operator_id' => 'operator_test',
+                'envelope_id' => 'env_limit_command',
+                'receipt_id' => null,
+                'trace_id' => null,
+                'correlation_id' => 'env_limit_command',
+                'causation_id' => null,
+                'event_type' => LedgerEventType::ExecutionStarted->value,
+                'emitter_stage' => 'ai.worker',
+                'emitter_version' => 'ai-worker-v1',
+                'payload' => ['index' => $index],
+                'payload_hash' => hash('sha256', 'limit-command-'.$index),
+                'occurred_at' => now()->addSeconds($index),
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:ledger', [
+            'envelope' => 'env_limit_command',
+            '--limit' => 9999,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(3, $payload['event_count']);
+        $this->assertSame(KernelLedgerEnvelopeInput::MAX_EVENT_LIMIT, app(KernelLedgerEnvelopeInput::class)->eventLimit(9999));
     }
 
     public function test_command_can_include_slo_summary_for_envelope(): void
@@ -157,6 +193,61 @@ class AtlasAiLedgerCommandTest extends TestCase
         $this->assertSame(120, $payload['slo']['stages']['runtime.execute']['p50_ms']);
         $this->assertSame(450, $payload['slo']['stages']['runtime.execute']['p95_ms']);
         $this->assertSame(['p95_budget_exceeded'], $payload['slo']['stages']['runtime.execute']['violations']);
+    }
+
+    public function test_command_can_include_kernel_pipeline_summary_for_envelope(): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => '01HLEDGERCMDKERNEL000000001',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_test',
+            'operator_id' => 'operator_test',
+            'envelope_id' => 'env_kernel_command',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'pipe_command',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::KernelPipelineRejected->value,
+            'emitter_stage' => 'atlas.ai_chat.kernel_pipeline_guard',
+            'emitter_version' => 'atlas.ai_chat.kernel_pipeline_guard.v1',
+            'payload' => [
+                'status' => 'rejected',
+                'violations' => ['kernel_pipeline.stage_order must match the canonical kernel stage order.'],
+                'pipeline' => [
+                    'pipeline_id' => 'pipe_command',
+                    'schema_version' => 'atlas.kernel.pipeline.scaffold.v1',
+                    'stage_count' => 14,
+                    'provider_execution_allowed' => false,
+                    'runtime_execution_allowed' => false,
+                ],
+                'surface' => [
+                    'surface_id' => 'atlas_ai_chat',
+                    'input_mode' => 'declared_dev_plan',
+                ],
+                'routing' => [
+                    'domain' => 'programming',
+                    'flow' => 'programming.dev',
+                ],
+            ],
+            'payload_hash' => hash('sha256', 'kernel-command'),
+            'occurred_at' => now(),
+        ]);
+
+        $exit = Artisan::call('atlas:ai:ledger', [
+            'envelope' => 'env_kernel_command',
+            '--kernel' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'kernel_pipeline.kernel_pipeline_event_count'));
+        $this->assertSame(0, data_get($payload, 'kernel_pipeline.accepted_count'));
+        $this->assertSame(1, data_get($payload, 'kernel_pipeline.rejected_count'));
+        $this->assertTrue(data_get($payload, 'kernel_pipeline.has_rejections'));
+        $this->assertSame('breach', data_get($payload, 'kernel_pipeline.health.status'));
+        $this->assertSame(1, data_get($payload, 'kernel_pipeline.health.rejection_rate'));
+        $this->assertSame('atlas_ai_chat', data_get($payload, 'kernel_pipeline.events.0.surface_id'));
     }
 
     public function test_command_can_include_repair_summary_for_envelope(): void

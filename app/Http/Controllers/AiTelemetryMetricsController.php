@@ -12,6 +12,7 @@ use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
 use App\Services\Ai\Telemetry\AiProviderCostRateService;
 use App\Services\Ai\Telemetry\AiTelemetryHealthService;
 use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
+use App\Services\Ai\Telemetry\AiTelemetryWindowInput;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,13 +25,14 @@ class AiTelemetryMetricsController extends Controller
         AiTelemetryScorecardService $scorecards,
         AiTraceMetricAggregator $aggregator,
         AiTelemetryHealthService $health,
+        AiTelemetryWindowInput $telemetryWindow,
     ): JsonResponse {
         $data = $request->validate([
-            'hours' => ['nullable', 'integer', 'between:1,720'],
+            'hours' => ['nullable', 'integer', 'between:1,'.AiTelemetryWindowInput::MAX_WINDOW_HOURS],
             'recompute' => ['nullable', 'boolean'],
         ]);
 
-        $hours = (int) ($data['hours'] ?? 24);
+        $hours = $telemetryWindow->hours($data['hours'] ?? null);
         $since = now()->subHours($hours);
         $recomputed = null;
 
@@ -49,14 +51,15 @@ class AiTelemetryMetricsController extends Controller
         Request $request,
         AiTelemetryHealthService $health,
         AiTraceMetricAggregator $aggregator,
+        AiTelemetryWindowInput $telemetryWindow,
     ): JsonResponse {
         $data = $request->validate([
-            'hours' => ['nullable', 'integer', 'between:1,720'],
+            'hours' => ['nullable', 'integer', 'between:1,'.AiTelemetryWindowInput::MAX_WINDOW_HOURS],
             'recompute' => ['nullable', 'boolean'],
             'emit' => ['nullable', 'boolean'],
         ]);
 
-        $hours = (int) ($data['hours'] ?? 24);
+        $hours = $telemetryWindow->hours($data['hours'] ?? null);
         $since = now()->subHours($hours);
         $recomputed = null;
 
@@ -74,7 +77,7 @@ class AiTelemetryMetricsController extends Controller
         ]);
     }
 
-    public function summaries(Request $request): JsonResponse
+    public function summaries(Request $request, AiTelemetryWindowInput $telemetryWindow): JsonResponse
     {
         if (! Schema::hasTable('ai_trace_metric_summaries')) {
             return response()->json([
@@ -89,7 +92,7 @@ class AiTelemetryMetricsController extends Controller
             'status' => ['nullable', 'string', 'max:32'],
             'thread_id' => ['nullable', 'uuid'],
             'trace_id' => ['nullable', 'uuid'],
-            'limit' => ['nullable', 'integer', 'between:1,100'],
+            'limit' => ['nullable', 'integer', 'between:1,'.AiTelemetryWindowInput::MAX_SUMMARY_LIMIT],
         ]);
 
         $query = AiTraceMetricSummary::query()->latest('computed_at');
@@ -102,12 +105,16 @@ class AiTelemetryMetricsController extends Controller
         return response()->json([
             'available' => true,
             'summaries' => AiTraceMetricSummaryResource::collection(
-                $query->limit((int) ($data['limit'] ?? 25))->get(),
+                $query->limit($telemetryWindow->limit(
+                    $data['limit'] ?? null,
+                    AiTelemetryWindowInput::DEFAULT_SUMMARY_LIMIT,
+                    AiTelemetryWindowInput::MAX_SUMMARY_LIMIT,
+                ))->get(),
             )->resolve(),
         ]);
     }
 
-    public function costRates(Request $request, AiProviderCostRateService $rates): JsonResponse
+    public function costRates(Request $request, AiProviderCostRateService $rates, AiTelemetryWindowInput $telemetryWindow): JsonResponse
     {
         if (! Schema::hasTable('ai_provider_cost_rates')) {
             return response()->json([
@@ -120,7 +127,7 @@ class AiTelemetryMetricsController extends Controller
             'provider' => ['nullable', 'string', 'max:80'],
             'model' => ['nullable', 'string', 'max:120'],
             'active' => ['nullable', 'boolean'],
-            'limit' => ['nullable', 'integer', 'between:1,200'],
+            'limit' => ['nullable', 'integer', 'between:1,'.AiTelemetryWindowInput::MAX_COST_RATE_LIMIT],
         ]);
 
         $query = (bool) ($data['active'] ?? true)
@@ -136,12 +143,16 @@ class AiTelemetryMetricsController extends Controller
         return response()->json([
             'available' => true,
             'rates' => AiProviderCostRateResource::collection(
-                $query->limit((int) ($data['limit'] ?? 100))->get(),
+                $query->limit($telemetryWindow->limit(
+                    $data['limit'] ?? null,
+                    AiTelemetryWindowInput::DEFAULT_COST_RATE_LIMIT,
+                    AiTelemetryWindowInput::MAX_COST_RATE_LIMIT,
+                ))->get(),
             )->resolve(),
         ]);
     }
 
-    public function missingCostRates(Request $request, AiProviderCostRateService $rates): JsonResponse
+    public function missingCostRates(Request $request, AiProviderCostRateService $rates, AiTelemetryWindowInput $telemetryWindow): JsonResponse
     {
         if (! Schema::hasTable('ai_trace_metric_summaries') || ! Schema::hasTable('ai_provider_cost_rates')) {
             return response()->json([
@@ -151,16 +162,20 @@ class AiTelemetryMetricsController extends Controller
         }
 
         $data = $request->validate([
-            'hours' => ['nullable', 'integer', 'between:1,720'],
-            'limit' => ['nullable', 'integer', 'between:1,200'],
+            'hours' => ['nullable', 'integer', 'between:1,'.AiTelemetryWindowInput::MAX_WINDOW_HOURS],
+            'limit' => ['nullable', 'integer', 'between:1,'.AiTelemetryWindowInput::MAX_COST_RATE_LIMIT],
         ]);
 
         return response()->json([
             'available' => true,
             'missing_rates' => $rates->missingRates(
-                now()->subHours((int) ($data['hours'] ?? 168)),
+                now()->subHours($telemetryWindow->hours($data['hours'] ?? null, AiTelemetryWindowInput::DEFAULT_COST_RATE_WINDOW_HOURS)),
                 now(),
-                (int) ($data['limit'] ?? 100),
+                $telemetryWindow->limit(
+                    $data['limit'] ?? null,
+                    AiTelemetryWindowInput::DEFAULT_COST_RATE_LIMIT,
+                    AiTelemetryWindowInput::MAX_COST_RATE_LIMIT,
+                ),
             ),
         ]);
     }
@@ -201,7 +216,7 @@ class AiTelemetryMetricsController extends Controller
         ], $status);
     }
 
-    public function outcomes(Request $request): JsonResponse
+    public function outcomes(Request $request, AiTelemetryWindowInput $telemetryWindow): JsonResponse
     {
         if (! Schema::hasTable('ai_outcome_links')) {
             return response()->json([
@@ -214,7 +229,7 @@ class AiTelemetryMetricsController extends Controller
             'trace_id' => ['nullable', 'uuid'],
             'thread_id' => ['nullable', 'uuid'],
             'outcome_type' => ['nullable', 'string', 'max:80'],
-            'limit' => ['nullable', 'integer', 'between:1,200'],
+            'limit' => ['nullable', 'integer', 'between:1,'.AiTelemetryWindowInput::MAX_OUTCOME_LIMIT],
         ]);
 
         $query = AiOutcomeLink::query()->latest('occurred_at');
@@ -227,7 +242,11 @@ class AiTelemetryMetricsController extends Controller
         return response()->json([
             'available' => true,
             'outcomes' => AiOutcomeLinkResource::collection(
-                $query->limit((int) ($data['limit'] ?? 50))->get(),
+                $query->limit($telemetryWindow->limit(
+                    $data['limit'] ?? null,
+                    AiTelemetryWindowInput::DEFAULT_OUTCOME_LIMIT,
+                    AiTelemetryWindowInput::MAX_OUTCOME_LIMIT,
+                ))->get(),
             )->resolve(),
         ]);
     }

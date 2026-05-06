@@ -21,6 +21,12 @@ class AtlasAiDomainsCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(8, data_get($payload, 'summary.domains'));
         $this->assertGreaterThanOrEqual(17, data_get($payload, 'summary.flows'));
         $this->assertGreaterThanOrEqual(2, data_get($payload, 'summary.implemented_orchestrators'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'summary.ready_domains'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'summary.scaffold_domains'));
+        $this->assertSame(
+            data_get($payload, 'summary.domains'),
+            array_sum(data_get($payload, 'summary.onboarding_status_counts'))
+        );
 
         $programming = collect($payload['domains'])->firstWhere('id', 'programming');
 
@@ -38,7 +44,7 @@ class AtlasAiDomainsCommandTest extends TestCase
 
         $this->assertSame('ready', data_get($selfImprovement, 'onboarding.status'));
         $this->assertSame(9, data_get($selfImprovement, 'onboarding.completed_count'));
-        $this->assertSame(10, data_get($selfImprovement, 'flow_count'));
+        $this->assertGreaterThanOrEqual(10, data_get($selfImprovement, 'flow_count'));
         $this->assertSame([], data_get($selfImprovement, 'onboarding.missing_phases'));
 
         $marketing = collect($payload['domains'])->firstWhere('id', 'marketing');
@@ -98,6 +104,30 @@ class AtlasAiDomainsCommandTest extends TestCase
         foreach ($payload['orchestrators'] as $orchestrator) {
             $this->assertSame('implemented', $orchestrator['maturity']);
             $this->assertTrue($orchestrator['implemented_contract']);
+        }
+    }
+
+    public function test_domains_command_filters_domain_onboarding_status(): void
+    {
+        $exit = Artisan::call('atlas:ai:domains', [
+            '--onboarding-status' => 'scaffold',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('scaffold', data_get($payload, 'filters.onboarding_status'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'summary.domains'));
+        $this->assertSame(data_get($payload, 'summary.domains'), data_get($payload, 'summary.scaffold_domains'));
+        $this->assertSame(['scaffold' => data_get($payload, 'summary.domains')], data_get($payload, 'summary.onboarding_status_counts'));
+
+        foreach ($payload['domains'] as $domain) {
+            $this->assertSame('scaffold', data_get($domain, 'onboarding.status'));
+        }
+
+        foreach ($payload['flows'] as $flow) {
+            $this->assertContains($flow['domain_id'], collect($payload['domains'])->pluck('id')->all());
         }
     }
 }

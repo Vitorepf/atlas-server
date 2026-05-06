@@ -77,16 +77,55 @@ Policy, Super Tool Runtime, Evidence Ledger e Learning.
 Surfaces finas devem escolher domain/flow e chamar o orchestrator:
 
 - `atlas dev` -> `programming.dev`;
-- `atlas forge` -> `programming.forge`;
-- `atlas fix` -> `programming.repair` quando a intencao for repair;
-- `atlas continue` -> retoma `dev_execution_plan` ou
-  `programming_session_plan`;
-- `atlas:ai:chat --dev` -> `programming.*` conforme mode/task;
+- `atlas forge` -> `programming.forge`, com `forge_contract`, runtime
+  `engineering_harness`, `AtlasProgrammingOrchestrator`, Kernel Pipeline e
+  evidencia obrigatoria;
+- `atlas fix` -> alias fino de `atlas dev --repair`, com `--plan-only`
+  auditavel, `fix_contract` e `programming.repair` no Kernel Pipeline;
+- `atlas continue` -> retoma `dev_execution_plan`,
+  `programming_session_plan` ou `programming_message_plan` por
+  `resume_contract`, preservando profile, intent, modelo e Open Brain antes de
+  chamar `atlas:cli:dev`; o contrato marca `canonical_surface=atlas_cli_dev` e
+  tambem nasce em `ProgrammingSurfaceContractFactory`;
+- `atlas:ai:chat --dev` -> `programming.*` conforme mode/task, com
+  `programming_chat_contract` ligando `atlas_ai_chat`,
+  `AtlasProgrammingOrchestrator`, dispatch, flow e `kernel_pipeline`;
 - app/API/MCP -> `domain_id=programming` e `flow_id=programming.*`.
+
+Forge preserva identidade de surface como `atlas_cli_forge` dentro do Kernel
+Pipeline, mesmo quando a implementacao interna passa por `atlas:cli:dev`.
+Isso deixa claro que `atlas forge` e uma entrada especializada para
+`programming.forge`, nao um segundo dominio de programacao.
+O `forge_contract` e gerado por `ProgrammingSurfaceContractFactory`, mantendo
+surface, flow, runtime, orquestrador, executor e exigencias de evidencia em um
+contrato compartilhado do dominio.
+O `programming_chat_contract` tambem vem da mesma factory, para que
+`atlas:ai:chat --dev` nao mantenha um shape proprio separado de Programming.
+O `resume_contract` de `atlas continue` segue a mesma regra: a command apenas
+coleta origem/plan/thread e a factory do dominio gera o contrato canonico de
+retomada.
+O `fix_contract` de `atlas fix` tambem e gerado pela factory do dominio: ele
+mantem `atlas_cli_fix` como origem, mas fixa `canonical_surface=atlas_cli_dev`,
+flow `programming.repair` e runtime `dev_repair_executor`.
 
 Nenhuma surface deve virar produto paralelo de programacao. A surface coleta
 input, exibe output e preserva metadata; a autoridade operacional fica no
 dominio.
+
+Quando `atlas dev` recebe `--provider`, `--ai` ou `--model`, isso nao torna o
+comando autoridade de modelo. O plano carrega `model_selection_contract` com
+`authority=atlas_decide`, `selection_mode=manual_override` e o provider/modelo
+solicitado. Sem override, o contrato fica em `auto_best_allowed` ou outro modo
+automatico permitido pelo Decide.
+
+`atlas:ai:chat --dev` segue a mesma regra no payload do job: surface
+`atlas_ai_chat`, autoridade `atlas_decide`, modos fechados e override manual
+auditavel. Isso evita que o fluxo interativo vire um segundo produto de
+programacao com selecao de modelo divergente.
+
+O contrato de selecao de modelo e gerado por `ModelSelectionContractFactory`
+no Kernel/Decision. `atlas dev` e `atlas:ai:chat --dev` nao possuem shapes
+proprios; isso reduz drift entre interativo, one-shot e chat.
 
 ## Context And Memory
 

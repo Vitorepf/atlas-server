@@ -7,6 +7,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasMemoryEntryUsage;
 use App\Models\AtlasMemoryQualitySnapshot;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,7 @@ class AtlasMemoryQualityService
 {
     public function __construct(
         private readonly AtlasMemoryPrivacyService $privacy,
+        private readonly MemoryQueryInput $input,
     ) {}
 
     /**
@@ -118,8 +120,8 @@ class AtlasMemoryQualityService
      */
     public function history(array $filters = [], int $days = 30, int $limit = 50): array
     {
-        $days = max(1, min(365, $days));
-        $limit = max(1, min(200, $limit));
+        $days = $this->input->qualityHistoryDays($days);
+        $limit = $this->input->registryLimit($limit);
         $since = now()->subDays($days);
 
         if (! Schema::hasTable('atlas_memory_quality_snapshots')) {

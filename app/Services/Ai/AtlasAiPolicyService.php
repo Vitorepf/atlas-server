@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Programming\ProgrammingIterationPolicy;
+
 class AtlasAiPolicyService
 {
     private const PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli'];
@@ -87,7 +89,7 @@ class AtlasAiPolicyService
             'budget_policy' => [
                 'enabled' => (bool) ($budget['enabled'] ?? false),
                 'mode' => (string) ($budget['mode'] ?? 'block'),
-                'window_hours' => (int) ($budget['window_hours'] ?? 24),
+                'window_hours' => (int) ($budget['window_hours'] ?? AtlasAiRuntimeSettings::DEFAULT_BUDGET_WINDOW_HOURS),
             ],
             'providers' => $this->providers((array) ($runtime['providers'] ?? []), $budget),
             'risk_limits' => [
@@ -262,9 +264,11 @@ class AtlasAiPolicyService
         $programming = str_starts_with($profileId, 'programming.');
         $highRiskTask = in_array($task, ['security', 'database', 'qa', 'visual'], true);
         $complete = $forge || (bool) data_get($payload, 'dev_execution_plan.operator_options.complete', data_get($payload, 'dev_execution_plan.complete', false));
-        $maxIterations = $forge
-            ? 5
-            : ($complete ? max(2, (int) data_get($payload, 'dev_execution_plan.operator_options.max_iterations', 3)) : 1);
+        $maxIterations = ProgrammingIterationPolicy::forExecutionPolicy(
+            data_get($payload, 'dev_execution_plan.operator_options.max_iterations'),
+            $complete,
+            $forge,
+        );
 
         return [
             'executor_preference' => match (true) {
@@ -273,7 +277,7 @@ class AtlasAiPolicyService
                 $programming => 'simple_provider_execution',
                 default => 'standard_ai_response',
             },
-            'max_iterations' => min(10, max(1, $maxIterations)),
+            'max_iterations' => $maxIterations,
             'auto_test' => $forge || $complete || $highRiskTask,
             'quality_required' => $forge || $complete || $highRiskTask,
             'open_brain' => $forge ? 'required' : ($programming ? 'auto' : 'optional'),
@@ -312,14 +316,14 @@ class AtlasAiPolicyService
             $policy['executor_preference'] = 'engineering_harness';
             $policy['harness_required'] = true;
             $policy['quality_required'] = true;
-            $policy['max_iterations'] = max(5, (int) ($policy['max_iterations'] ?? 5));
+            $policy['max_iterations'] = ProgrammingIterationPolicy::forExecutionPolicy($policy['max_iterations'] ?? null, true, true);
             $policy['source'] = $databaseBacked && $declared !== []
                 ? 'domain_flow_profile_with_forge_guard'
                 : $policy['source'];
         } elseif ($programming && $complete && in_array((string) ($policy['executor_preference'] ?? ''), ['', 'simple_provider_execution', 'standard_ai_response'], true)) {
             $policy['executor_preference'] = 'dev_repair_executor';
             $policy['quality_required'] = true;
-            $policy['max_iterations'] = max(2, (int) ($policy['max_iterations'] ?? 2));
+            $policy['max_iterations'] = ProgrammingIterationPolicy::forExecutionPolicy($policy['max_iterations'] ?? null, true, false);
             $policy['source'] = $databaseBacked && $declared !== []
                 ? 'domain_flow_profile_with_complete_guard'
                 : $policy['source'];
@@ -330,7 +334,11 @@ class AtlasAiPolicyService
             $policy['executor_preference'] = 'dev_repair_executor';
             $policy['quality_required'] = true;
             $policy['auto_test'] = true;
-            $policy['max_iterations'] = max(3, (int) ($policy['max_iterations'] ?? 3));
+            $policy['max_iterations'] = ProgrammingIterationPolicy::normalize(
+                $policy['max_iterations'] ?? null,
+                ProgrammingIterationPolicy::MIN_REPAIR_ITERATIONS,
+                ProgrammingIterationPolicy::MIN_REPAIR_ITERATIONS,
+            );
             $policy['source'] = $databaseBacked && $declared !== []
                 ? $policy['source']
                 : 'programming_repair_guard';
@@ -345,7 +353,7 @@ class AtlasAiPolicyService
                 : 'programming_harness_flow_guard';
         }
 
-        $policy['max_iterations'] = min(10, max(1, (int) ($policy['max_iterations'] ?? 1)));
+        $policy['max_iterations'] = ProgrammingIterationPolicy::forRepairPolicy($policy['max_iterations'] ?? null);
 
         return $policy;
     }

@@ -13,6 +13,60 @@ final readonly class KernelPipelineContract
     /**
      * @return array<int,string>
      */
+    public static function programmingSurfaces(): array
+    {
+        return ['atlas_cli_dev', 'atlas_cli_forge', 'atlas_ai_chat'];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function programmingFlows(): array
+    {
+        return ['programming.dev', 'programming.forge', 'programming.repair'];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function programmingInputModes(): array
+    {
+        return ['interactive', 'one_shot', 'declared_dev_plan', 'chat_dev_auto_plan'];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function programmingCommands(): array
+    {
+        return ['atlas:cli:dev', 'atlas:ai:chat'];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function surfaceContractSources(): array
+    {
+        return ['KernelPipelineDevPlanBuilder'];
+    }
+
+    /**
+     * @return array<string,bool|string>
+     */
+    public static function requiredSurfaceContract(string $source): array
+    {
+        return [
+            'required' => true,
+            'source' => $source,
+            'surface_must_not_decide' => true,
+            'provider_execution_blocked_until_runtime_migration' => true,
+            'runtime_execution_blocked_until_runtime_migration' => true,
+        ];
+    }
+
+    /**
+     * @return array<int,string>
+     */
     public static function canonicalFlow(): array
     {
         return KernelPipelineStage::orderedValues();

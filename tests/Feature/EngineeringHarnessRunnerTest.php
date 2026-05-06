@@ -368,6 +368,18 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame('forge_harness', data_get($payload, 'phase'));
         $this->assertSame('forge', data_get($payload, 'workflow.programming_profile'));
         $this->assertSame('engineering_harness', data_get($payload, 'dev_execution_plan.programming_session_plan.executor_decision.executor'));
+        $this->assertSame('atlas.cli_forge.contract.v1', data_get($payload, 'forge_contract.schema_version'));
+        $this->assertSame('atlas_cli_forge', data_get($payload, 'forge_contract.surface'));
+        $this->assertSame('programming.forge', data_get($payload, 'forge_contract.flow'));
+        $this->assertSame('engineering_harness', data_get($payload, 'forge_contract.runtime'));
+        $this->assertSame('AtlasProgrammingOrchestrator', data_get($payload, 'forge_contract.orchestrator'));
+        $this->assertSame('engineering_harness', data_get($payload, 'forge_contract.executor'));
+        $this->assertSame('atlas_cli_forge', data_get($payload, 'dev_execution_plan.kernel_pipeline.input.surface_id'));
+        $this->assertSame('atlas_cli_forge', data_get($payload, 'dev_execution_plan.kernel_pipeline.surface_binding.surface'));
+        $this->assertSame('programming.forge', data_get($payload, 'forge_contract.kernel_pipeline_flow'));
+        $this->assertSame('engineering_harness', data_get($payload, 'forge_contract.kernel_pipeline_runtime'));
+        $this->assertTrue(data_get($payload, 'forge_contract.quality_required'));
+        $this->assertTrue(data_get($payload, 'forge_contract.evidence_required'));
         $this->assertSame('passed', data_get($payload, 'programming_result.status'));
         $this->assertSame('engineering_harness', data_get($payload, 'programming_result.executor'));
         $this->assertTrue((bool) data_get($payload, 'programming_result.created_task'));

@@ -32,6 +32,12 @@ class AtlasDecideReceiptIntegrationTest extends TestCase
         $this->assertSame('programming', data_get($decision, 'receipt_v2.domain'));
         $this->assertSame('programming.dev', data_get($decision, 'receipt_v2.flow'));
         $this->assertSame('auto_best_allowed', data_get($decision, 'receipt_v2.provider_selection.selection_mode'));
+        $this->assertSame('auto_best_allowed', data_get($decision, 'provider_selection.selection_mode'));
+        $this->assertSame('atlas_decide', data_get($decision, 'provider_selection.model_selection_authority'));
+        $this->assertSame(
+            ['auto_best_allowed', 'auto_best_available', 'manual_override'],
+            data_get($decision, 'provider_selection.available_selection_modes'),
+        );
         $this->assertSame('codex_cli', data_get($decision, 'receipt_v2.provider_selection.primary'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($decision, 'receipt_v2.receipt_hash'));
         $this->assertTrue(data_get($decision, 'kernel_contracts.valid'));
@@ -78,6 +84,8 @@ class AtlasDecideReceiptIntegrationTest extends TestCase
         $decision = app(AtlasDecideService::class)->operationalDecision($options, selectedProvider: 'claude_cli', selectedModel: 'opus')->toArray();
 
         $this->assertSame('manual_override', data_get($decision, 'receipt_v2.provider_selection.selection_mode'));
+        $this->assertSame('manual_override', data_get($decision, 'provider_selection.selection_mode'));
+        $this->assertSame('atlas_decide', data_get($decision, 'provider_selection.model_selection_authority'));
         $this->assertSame('claude_cli', data_get($decision, 'receipt_v2.provider_selection.manual_override.requested_provider'));
         $this->assertSame('opus', data_get($decision, 'receipt_v2.provider_selection.model'));
         $this->assertSame('atlas_cli_chat', data_get($decision, 'kernel_contracts.surface.surface_id'));

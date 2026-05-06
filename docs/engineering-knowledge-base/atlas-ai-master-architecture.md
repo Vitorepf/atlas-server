@@ -27,6 +27,8 @@ capabilities:
   - anti_duplication_governance
   - atlas_vs_claude_code_strategy
 decisions:
+  - A Tese do Multiplicador / Canal Unico (Layer -1, ver atlas-ai-thesis-multiplier-channel.md) e ponto fixo acima desta arquitetura. Todo plano, dominio, roadmap e estrategia desta Master Architecture deve ser auditado contra a pergunta-norte (multiplica ou compete? mantem gravidade natural ou cria fricca de escape?).
+  - Atlas Rivals e o instrumento empirico que valida se o multiplicador esta positivo; multiplicador negativo e stop-the-line.
   - Atlas AI e a inteligencia operacional do Atlas, nao um chat, comando, provider ou harness isolado.
   - A arquitetura-mae e dividida em Control Plane, Domain Plane, Runtime Plane, Evidence Plane, Learning Plane, Human Knowledge Surface / Personal Knowledge Workspace e Surface Plane.
   - Toda tarefa operacional relevante deve passar por Profile Resolution, Policy Resolution, Decision Receipt, Domain Orchestrator, Runtime, Gates, Evidence e Learning.
@@ -1192,13 +1194,15 @@ Status inicial implementado:
 - `AtlasSelfImprovementOrchestrator` resolvendo qualquer flow
   `self_improvement.*` suportado, normalizando opcoes, declarando autonomia
   baixa, gates requeridos e plano de execucao antes de acionar o runtime;
-- `AtlasSelfImprovementRuntime` executando 11 flows especializados
+- `AtlasSelfImprovementRuntime` executando 12 flows especializados
   (`nightly_review`, `weekly_architecture_audit`, `capability_gap_scan`,
   `benchmark_review`, `memory_quality_review`, `tool_runtime_review`,
-  `domain_learning_review`, `docs_drift_review`,
+  `repair_loop_review`, `kernel_pipeline_review`, `domain_learning_review`, `docs_drift_review`,
   `provider_performance_review`, `proposal_generation`): consulta o Evidence
-  Ledger, detecta envelopes sem terminal, falhas por stage, gates bloqueados e
-  lacunas de tool evidence, registra `AtlasInitiativeRun`, emite
+  Ledger, detecta envelopes sem terminal, falhas por stage, gates bloqueados,
+  drift de SLO, padroes de Repair Loop, rejeicoes de Kernel Pipeline e
+  lacunas de tool evidence, alem de ler o Domain Catalog para propor evolucao
+  de dominios `scaffold` ou `executable_incomplete`; registra `AtlasInitiativeRun`, emite
   `LEARNING_PROPOSED` e pode criar proposals seguras quando `--emit` estiver
   habilitado;
 - comando `atlas:ai:self-improve --list-flows --json` para inspecionar os flows
@@ -1208,8 +1212,11 @@ Status inicial implementado:
 - comando `atlas:ai:self-improve --flow=repair_loop_review --hours=24 --limit=5 --json`
   com agendamento opcional por `atlas_ai.self_improvement.*`; o scheduler aceita
   `ATLAS_AI_SELF_IMPROVEMENT_FLOWS` como lista CSV de flows para rodar ciclos;
-  o default recorrente roda `nightly_review,repair_loop_review`
+  o default recorrente roda `nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review`
   especializados na madrugada;
+- comando `atlas:ai:self-improve --flow=domain_learning_review --onboarding-status=scaffold --json`
+  para revisar habilidades catalogadas que ainda nao podem ser tratadas como
+  capacidade completa;
 - comando `atlas:ai:ledger {envelope} --json` para replay operacional por
   `envelope_id`.
 - comando `atlas:ai:architecture-validate --json` para validar contratos
@@ -1217,9 +1224,13 @@ Status inicial implementado:
   leitura manual da documentacao.
 - comando `atlas:ai:domains --json` para inventariar domains, flows e
   orchestrators, incluindo maturidade, runtime, autonomia, executor preference
-  onboarding scorecard e filtros por domain/flow/maturity.
+  onboarding scorecard, contadores ready/scaffold/incomplete e filtros por
+  domain/flow/maturity/onboarding status.
 - endpoint `GET /ai/domains` usando o mesmo `AtlasAiDomainCatalogService` do
   CLI, para app e automacoes consumirem o contrato sem duplicar logica.
+- `GET /ai/observability` inclui resumo `domain_catalog` com validacao,
+  contadores de onboarding e distribuicao ready/scaffold/incomplete, para que o
+  painel principal mostre quando uma habilidade ainda e apenas scaffold.
 
 Todo fluxo operacional produz:
 
@@ -1335,6 +1346,11 @@ Contrato duro:
   evidence ledger continuam sendo fonte operacional.
 - Atlas pode escrever notas no Vault como projection humana gerenciada, nao como
   substituto de migrations, services, docs canonicos ou testes.
+- No kernel executavel, essa fronteira aparece como `atlas_vault`, adapter da
+  Human Knowledge Surface. Ele declara texto, arquivos, workspace humano e
+  managed note projection; nao declara decisao, provider, tool runtime,
+  context compose ou memory recall. O poder do Vault vem da curadoria,
+  backlinks, revisao humana e import/export seguro, nao de burlar o pipeline.
 
 O documento que manda nesta fronteira e `obsidian-atlas-vault.md`.
 
@@ -1579,12 +1595,13 @@ Status parcial implementado:
   (`charter`, `profile`, `context`, `orchestrator`, `runtime`, `gates`,
   `learning`, `surface`, `maturity_gate`) e expõe proximas acoes;
 - `atlas:ai:domains` e `GET /ai/domains` tornam o catalogo auditavel por
-  operador, app e automacao;
+  operador, app e automacao, com filtro `--onboarding-status`/`onboarding_status`
+  para isolar rapidamente dominios `ready`, `executable_incomplete` ou `scaffold`;
 - `programming` esta `ready 9/9`: declara context policy Open Brain/code
   intelligence, memory/learning policy, gates por flow e surfaces oficiais
   (`atlas dev`, `atlas forge`, `atlas fix`, `atlas continue`, chat dev/review/debug,
   API, app e MCP);
-- `self_improvement` esta `ready 9/9`: declara 11 flows especializados de
+- `self_improvement` esta `ready 9/9`: declara 12 flows especializados de
   auditoria/evolucao, fontes de contexto (`atlas_evidence_ledger`, architecture
   validation, domain scorecards, KB, code intelligence, tool evidence, memory
   quality, provider performance e benchmark corpus), learning policy, gates de

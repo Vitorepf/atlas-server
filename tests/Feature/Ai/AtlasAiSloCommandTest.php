@@ -111,9 +111,58 @@ class AtlasAiSloCommandTest extends TestCase
         $this->assertSame(['domain' => 'programming'], data_get($payload, 'kernel_slo.filters'));
         $this->assertSame(1, data_get($payload, 'kernel_slo.observation_count'));
         $this->assertSame('warning', data_get($payload, 'kernel_slo.worst_status'));
+        $this->assertSame('warning', data_get($payload, 'kernel_slo.review_signal.status'));
+        $this->assertSame('medium', data_get($payload, 'kernel_slo.review_signal.severity'));
+        $this->assertSame('open_reviewable_slo_drift_proposal', data_get($payload, 'kernel_slo.review_signal.recommended_action'));
         $this->assertSame(['programming' => 1], data_get($payload, 'kernel_slo.dimensions.domain'));
         $this->assertSame(['codex_cli' => 1], data_get($payload, 'kernel_slo.dimensions.provider'));
         $this->assertSame(120000, $payload['kernel_slo']['stages']['runtime.execute']['p95_ms']);
+    }
+
+    public function test_command_human_output_includes_slo_review_signal(): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => '01HSLOHUMAN000000000000000001',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_slo',
+            'operator_id' => 'operator_slo',
+            'envelope_id' => 'env_slo_human',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'env_slo_human',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::SloObserved->value,
+            'emitter_stage' => 'atlas.slo',
+            'emitter_version' => 'atlas.slo.v1',
+            'payload' => [
+                'stage' => 'runtime.execute',
+                'status' => 'breach',
+                'severity' => 'high',
+                'violations' => ['stage_failed'],
+                'dimensions' => [
+                    'domain' => 'programming',
+                    'provider' => 'codex_cli',
+                ],
+                'slo' => [
+                    'stage' => 'runtime.execute',
+                    'duration_ms' => 450000,
+                    'success' => false,
+                    'status' => 'breach',
+                    'severity' => 'high',
+                    'violations' => ['stage_failed'],
+                ],
+            ],
+            'payload_hash' => hash('sha256', 'slo-human'),
+            'occurred_at' => now(),
+        ]);
+
+        $exit = Artisan::call('atlas:ai:slo', ['--hours' => 24]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Review signal', $output);
+        $this->assertStringContainsString('breach', $output);
+        $this->assertStringContainsString('open_reviewable_slo_regression_proposal', $output);
     }
 
     public function test_command_reports_unavailable_when_ledger_table_is_missing(): void
@@ -128,5 +177,7 @@ class AtlasAiSloCommandTest extends TestCase
         $this->assertSame(1, $exit);
         $this->assertSame('ledger_unavailable', $payload['status']);
         $this->assertFalse(data_get($payload, 'kernel_slo.available'));
+        $this->assertSame('unknown', data_get($payload, 'kernel_slo.review_signal.status'));
+        $this->assertSame('wait_for_slo_evidence', data_get($payload, 'kernel_slo.review_signal.recommended_action'));
     }
 }

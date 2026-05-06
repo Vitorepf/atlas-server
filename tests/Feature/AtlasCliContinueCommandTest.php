@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Services\Ai\Cli\AtlasCliSessionService;
+use App\Services\Ai\Programming\AtlasProgrammingSurfaceCommandBuilder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -106,6 +107,21 @@ class AtlasCliContinueCommandTest extends TestCase
         $this->assertStringContainsString('--forge', $payload['command']);
         $this->assertStringContainsString('--repair', $payload['command']);
         $this->assertStringContainsString('--model=gpt-5.5', $payload['command']);
+        $this->assertSame('atlas.cli_continue.resume_contract.v1', data_get($payload, 'resume_contract.schema_version'));
+        $this->assertSame('atlas_cli_continue', data_get($payload, 'resume_contract.surface'));
+        $this->assertSame('atlas_cli_dev', data_get($payload, 'resume_contract.canonical_surface'));
+        $this->assertSame('atlas:cli:dev', data_get($payload, 'resume_contract.target_command'));
+        $this->assertSame('atlas_cli_dev', data_get($payload, 'resume_contract.target_surface'));
+        $this->assertSame(AtlasProgrammingSurfaceCommandBuilder::class, data_get($payload, 'resume_contract.builder'));
+        $this->assertSame('plan_123', data_get($payload, 'resume_contract.plan_id'));
+        $this->assertSame('forge', data_get($payload, 'resume_contract.programming_profile'));
+        $this->assertSame('repair', data_get($payload, 'resume_contract.programming_intent'));
+        $this->assertSame('codex_cli', data_get($payload, 'resume_contract.provider'));
+        $this->assertSame('gpt-5.5', data_get($payload, 'resume_contract.model'));
+        $this->assertTrue(data_get($payload, 'resume_contract.dev_flags.resume'));
+        $this->assertTrue(data_get($payload, 'resume_contract.dev_flags.forge'));
+        $this->assertTrue(data_get($payload, 'resume_contract.dev_flags.repair'));
+        $this->assertSame('required', data_get($payload, 'resume_contract.open_brain.mode'));
     }
 
     public function test_continue_resumes_programming_session_plan_without_legacy_dev_plan(): void
@@ -155,5 +171,14 @@ class AtlasCliContinueCommandTest extends TestCase
         $this->assertStringContainsString('--forge', $payload['command']);
         $this->assertStringContainsString('--repair', $payload['command']);
         $this->assertStringContainsString('--model=gpt-5.5', $payload['command']);
+        $this->assertSame('atlas.cli_continue.resume_contract.v1', data_get($payload, 'resume_contract.schema_version'));
+        $this->assertSame('atlas_cli_continue', data_get($payload, 'resume_contract.surface'));
+        $this->assertSame('atlas_cli_dev', data_get($payload, 'resume_contract.canonical_surface'));
+        $this->assertSame('atlas_cli_dev', data_get($payload, 'resume_contract.target_surface'));
+        $this->assertSame('programming-plan-456', data_get($payload, 'resume_contract.plan_id'));
+        $this->assertSame('forge', data_get($payload, 'resume_contract.programming_profile'));
+        $this->assertSame('repair', data_get($payload, 'resume_contract.programming_intent'));
+        $this->assertTrue(data_get($payload, 'resume_contract.dev_flags.resume'));
+        $this->assertTrue(data_get($payload, 'resume_contract.dev_flags.allow_write'));
     }
 }

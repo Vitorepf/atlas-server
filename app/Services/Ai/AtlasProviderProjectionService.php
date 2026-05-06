@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Provider\ProviderProjectionInput;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -20,6 +21,7 @@ class AtlasProviderProjectionService
         private readonly AtlasMemoryRegistryService $registry,
         private readonly AtlasMemoryPrivacyService $privacy,
         private readonly AtlasEvidenceLedger $ledger,
+        private readonly ?ProviderProjectionInput $input = null,
     ) {}
 
     /**
@@ -31,8 +33,8 @@ class AtlasProviderProjectionService
     {
         $target = $this->target($target);
         $workspace = $this->workspace($context['workspace'] ?? ($options['workspace'] ?? null));
-        $maxLines = $this->boundedInt($options['max_lines'] ?? config('atlas.ai.provider_projection_max_lines', 80), 20, 240);
-        $memoryLimit = $this->boundedInt($options['memory_limit'] ?? config('atlas.ai.provider_projection_memory_limit', 18), 1, 80);
+        $maxLines = $this->projectionInput()->maxLines($options['max_lines'] ?? null);
+        $memoryLimit = $this->projectionInput()->memoryLimit($options['memory_limit'] ?? null);
         $entries = $this->providerSafeEntries($target, $context + ['workspace' => $workspace], $memoryLimit);
         $manualContent = $this->manualContent($workspace.DIRECTORY_SEPARATOR.$this->filename($target), $options);
         $body = $this->body($target, $workspace, $entries, max(1, $maxLines - 1), $manualContent);
@@ -748,7 +750,7 @@ class AtlasProviderProjectionService
     {
         $title = $this->privacy->providerTitle($entry) ?: $this->privacy->providerSummary($entry) ?: $entry->memory_type;
         $text = $this->privacy->providerSummary($entry) ?: $this->privacy->providerBody($entry);
-        $text = Str::limit(trim($text), (int) config('atlas.ai.provider_projection_memory_chars', 220), '...');
+        $text = Str::limit(trim($text), $this->projectionInput()->memoryChars(), '...');
         if ($text === '') {
             return '';
         }
@@ -846,8 +848,8 @@ class AtlasProviderProjectionService
         return rtrim((string) config('atlas.ai.workdir', dirname(base_path())), DIRECTORY_SEPARATOR);
     }
 
-    private function boundedInt(mixed $value, int $min, int $max): int
+    private function projectionInput(): ProviderProjectionInput
     {
-        return max($min, min($max, (int) $value));
+        return $this->input ?? app(ProviderProjectionInput::class);
     }
 }

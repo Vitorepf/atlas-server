@@ -237,7 +237,7 @@ class DomainCatalogSurfaceSelectionServiceTest extends TestCase
     public function test_unknown_explicit_flow_returns_unresolved_selection_without_fallback_magic(): void
     {
         $selection = $this->service()->select([
-            'surface_id' => 'atlas_mcp_readonly',
+            'surface_id' => 'atlas_unknown_surface',
             'mode' => 'programming',
             'task' => 'dev',
             'flow_id' => 'programming.unknown',

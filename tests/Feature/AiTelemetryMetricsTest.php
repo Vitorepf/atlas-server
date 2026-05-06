@@ -11,6 +11,7 @@ use App\Models\AiTelemetryEvent;
 use App\Models\AiTrace;
 use App\Models\AiTraceMetricSummary;
 use App\Services\Ai\AiProviderModelResolver;
+use App\Services\Ai\Telemetry\AiTelemetryWindowInput;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -230,6 +231,31 @@ class AiTelemetryMetricsTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('upserted.0.provider', 'codex_cli')
             ->assertJsonPath('errors', []);
+    }
+
+    public function test_telemetry_list_apis_use_canonical_limit_contracts(): void
+    {
+        $headers = ['X-Atlas-Token' => 'testing-atlas-token-with-enough-length'];
+
+        $this
+            ->withHeaders($headers)
+            ->getJson('/ai/telemetry/summaries?limit='.(AiTelemetryWindowInput::MAX_SUMMARY_LIMIT + 1))
+            ->assertUnprocessable();
+
+        $this
+            ->withHeaders($headers)
+            ->getJson('/ai/telemetry/cost-rates?limit='.(AiTelemetryWindowInput::MAX_COST_RATE_LIMIT + 1))
+            ->assertUnprocessable();
+
+        $this
+            ->withHeaders($headers)
+            ->getJson('/ai/telemetry/cost-rates/missing?limit='.(AiTelemetryWindowInput::MAX_COST_RATE_LIMIT + 1))
+            ->assertUnprocessable();
+
+        $this
+            ->withHeaders($headers)
+            ->getJson('/ai/telemetry/outcomes?limit='.(AiTelemetryWindowInput::MAX_OUTCOME_LIMIT + 1))
+            ->assertUnprocessable();
     }
 
     public function test_rollup_resolves_provider_default_model_identity_for_costing(): void

@@ -7,7 +7,10 @@ use App\Models\AiQualityAction;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiThread;
 use App\Models\AiTrace;
+use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
+use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
+use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use App\Services\Ai\Telemetry\AiTelemetryHealthService;
 use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
@@ -30,19 +33,28 @@ class AiObservabilityController extends Controller
         AiTelemetryHealthService $health,
         AtlasLedgerReplayService $ledgerReplay,
         AtlasSelfImprovementScheduleService $selfImprovementSchedule,
+        AtlasAiDomainCatalogService $domainCatalog,
+        AtlasAiArchitectureValidationService $architectureValidation,
+        KernelReplayReportInput $replayInput,
     ): JsonResponse
     {
         $data = $request->validate([
-            'hours' => ['nullable', 'integer', 'between:1,720'],
+            'hours' => ['nullable', 'integer', 'between:1,'.KernelReplayReportInput::MAX_WINDOW_HOURS],
         ]);
 
-        $hours = (int) ($data['hours'] ?? 24);
+        $hours = $replayInput->hours($data['hours'] ?? null);
         $payload = Cache::remember(
             'atlas.ai.observability:hours='.$hours,
             self::CACHE_TTL_SECONDS,
-            function () use ($hours, $scorecards, $health, $ledgerReplay, $selfImprovementSchedule): array {
+            function () use ($hours, $scorecards, $health, $ledgerReplay, $selfImprovementSchedule, $domainCatalog, $architectureValidation): array {
                 $since = now()->subHours($hours);
                 $scheduledSelfImprovement = $selfImprovementSchedule->schedulePlan();
+                $domainCatalogPayload = $domainCatalog->inspect();
+                $kernelSlo = $ledgerReplay->sloReportForWindow($since);
+                $kernelRepair = $ledgerReplay->repairReportForWindow($since);
+                $kernelPipeline = $ledgerReplay->kernelPipelineReportForWindow($since);
+                $selfImprovementScheduleReplay = $ledgerReplay->selfImprovementScheduleReportForWindow($since);
+                $architecturePayload = $architectureValidation->payload();
 
                 return [
                     'window' => [
@@ -66,8 +78,17 @@ class AiObservabilityController extends Controller
                     'quality' => $this->quality($since),
                     'metrics' => $scorecards->build($since),
                     'metrics_health' => $health->evaluate($since),
-                    'kernel_slo' => $ledgerReplay->sloReportForWindow($since),
-                    'kernel_repair' => $ledgerReplay->repairReportForWindow($since),
+                    'kernel_slo' => $kernelSlo,
+                    'kernel_repair' => $kernelRepair,
+                    'kernel_pipeline' => $kernelPipeline,
+                    'self_improvement_schedule_replay' => $selfImprovementScheduleReplay,
+                    'domain_catalog' => [
+                        'status' => $domainCatalogPayload['status'] ?? 'unknown',
+                        'source' => $domainCatalogPayload['source'] ?? 'unknown',
+                        'summary' => $domainCatalogPayload['summary'] ?? [],
+                        'validation' => $domainCatalogPayload['validation'] ?? ['valid' => false],
+                    ],
+                    'architecture_validation' => $this->architectureValidationSummary($architecturePayload),
                     'self_improvement_schedule' => $scheduledSelfImprovement,
                     'actions' => $this->actions(),
                 ];
@@ -138,6 +159,41 @@ class AiObservabilityController extends Controller
                 ])
                 ->values()
                 ->all(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function architectureValidationSummary(array $payload): array
+    {
+        return [
+            'status' => $payload['status'] ?? 'unknown',
+            'schema_version' => $payload['schema_version'] ?? null,
+            'validated_at' => $payload['validated_at'] ?? null,
+            'kernel' => [
+                'valid' => (bool) data_get($payload, 'kernel.valid', false),
+                'static_scan' => [
+                    'valid' => (bool) data_get($payload, 'kernel.static_scan.valid', false),
+                    'summary' => data_get($payload, 'kernel.static_scan.summary', []),
+                ],
+            ],
+            'capabilities' => [
+                'valid' => (bool) data_get($payload, 'capabilities.valid', false),
+                'count' => (int) data_get($payload, 'capabilities.count', 0),
+                'surface_count' => (int) data_get($payload, 'capabilities.surface_count', 0),
+            ],
+            'domains' => [
+                'valid' => (bool) data_get($payload, 'domains.valid', false),
+                'domain_count' => (int) data_get($payload, 'domains.domain_count', 0),
+                'flow_count' => (int) data_get($payload, 'domains.flow_count', 0),
+            ],
+            'orchestrators' => [
+                'valid' => (bool) data_get($payload, 'orchestrators.valid', false),
+                'count' => (int) data_get($payload, 'orchestrators.count', 0),
+            ],
+            'onboarding' => $payload['onboarding'] ?? [],
         ];
     }
 

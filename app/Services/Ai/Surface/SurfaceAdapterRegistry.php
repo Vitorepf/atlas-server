@@ -8,6 +8,9 @@ use App\Services\Ai\Surface\Adapters\AtlasAppSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliChatSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliDevSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliForgeSurfaceAdapter;
+use App\Services\Ai\Surface\Adapters\AtlasMcpReadonlySurfaceAdapter;
+use App\Services\Ai\Surface\Adapters\AtlasVaultSurfaceAdapter;
+use App\Services\Ai\Surface\Adapters\AtlasWorkerSurfaceAdapter;
 use InvalidArgumentException;
 
 class SurfaceAdapterRegistry
@@ -21,6 +24,9 @@ class SurfaceAdapterRegistry
         AtlasCliForgeSurfaceAdapter::class,
         AtlasApiInteractionSurfaceAdapter::class,
         AtlasAppSurfaceAdapter::class,
+        AtlasWorkerSurfaceAdapter::class,
+        AtlasMcpReadonlySurfaceAdapter::class,
+        AtlasVaultSurfaceAdapter::class,
     ];
 
     /**
@@ -29,6 +35,18 @@ class SurfaceAdapterRegistry
     private const SURFACE_ALIASES = [
         'atlas_api' => 'atlas_api_interaction',
         'atlas_cli' => 'atlas_cli_dev',
+        'atlas_dev' => 'atlas_cli_dev',
+        'atlas_forge' => 'atlas_cli_forge',
+        'atlas_fix' => 'atlas_cli_dev',
+        'atlas_continue' => 'atlas_cli_dev',
+        'atlas_ask' => 'atlas_cli_chat',
+        'atlas_chat' => 'atlas_cli_chat',
+        'atlas_cli_fix' => 'atlas_cli_dev',
+        'atlas_cli_continue' => 'atlas_cli_dev',
+        'atlas_cli_ask' => 'atlas_cli_chat',
+        'obsidian' => 'atlas_vault',
+        'atlas_obsidian' => 'atlas_vault',
+        'atlasvault' => 'atlas_vault',
     ];
 
     /**
@@ -80,7 +98,7 @@ class SurfaceAdapterRegistry
     }
 
     /**
-     * @return array{ok:bool,count:int,surfaces:array<int,string>,errors:array<int,string>}
+     * @return array{ok:bool,count:int,surfaces:array<int,string>,aliases:array<string,string>,errors:array<int,string>}
      */
     public function complianceReport(): array
     {
@@ -108,10 +126,21 @@ class SurfaceAdapterRegistry
             $errors[] = "duplicate surface adapter id [{$duplicate}]";
         }
 
+        foreach (self::SURFACE_ALIASES as $alias => $targetSurfaceId) {
+            if ($alias === '' || ! is_string($alias)) {
+                $errors[] = 'invalid empty surface alias';
+            }
+
+            if (! in_array($targetSurfaceId, $surfaces, true)) {
+                $errors[] = "surface alias [{$alias}] points to unsupported surface [{$targetSurfaceId}]";
+            }
+        }
+
         return [
             'ok' => $errors === [],
             'count' => count($surfaces),
             'surfaces' => $surfaces,
+            'aliases' => self::SURFACE_ALIASES,
             'errors' => $errors,
         ];
     }

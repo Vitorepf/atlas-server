@@ -61,6 +61,15 @@ return [
                 'atlas.context.compose',
             ],
         ],
+        'atlas_vault' => [
+            'label' => 'AtlasVault / Obsidian',
+            'capabilities' => [
+                'atlas.input.text',
+                'atlas.input.file_attachment',
+                'atlas.human_knowledge.vault',
+                'atlas.human_knowledge.managed_note_projection',
+            ],
+        ],
     ],
 
     'capabilities' => [
@@ -71,8 +80,14 @@ return [
             'title' => 'Text Input',
             'owner' => 'atlas.input',
             'description' => 'Accept text input from an operator or automation surface.',
-            'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_api', 'atlas_worker'],
-            'optional_surfaces' => ['atlas_mcp_readonly'],
+            'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_api', 'atlas_worker', 'atlas_vault'],
+            'optional_surfaces' => [],
+            'not_supported' => [
+                [
+                    'surface' => 'atlas_mcp_readonly',
+                    'reason' => 'The read-only MCP surface exposes tools and context resources, not operator-authored text input.',
+                ],
+            ],
             'test_suite' => [
                 'tests/Feature/AtlasCliDevCommandTest.php',
             ],
@@ -95,6 +110,10 @@ return [
                     'surface' => 'atlas_worker',
                     'reason' => 'Workers receive normalized attachments from upstream surfaces instead of reading a clipboard.',
                 ],
+                [
+                    'surface' => 'atlas_vault',
+                    'reason' => 'AtlasVault stores and projects markdown notes, but it does not read live clipboard image paste as an operator input surface.',
+                ],
             ],
             'test_suite' => [
                 'tests/Feature/AiChatCommandPasteImageTest.php',
@@ -108,8 +127,14 @@ return [
             'title' => 'File Attachment',
             'owner' => 'atlas.input',
             'description' => 'Normalize local files and uploaded artifacts as Atlas input attachments.',
-            'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_api'],
+            'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_api', 'atlas_vault'],
             'optional_surfaces' => ['atlas_worker'],
+            'not_supported' => [
+                [
+                    'surface' => 'atlas_mcp_readonly',
+                    'reason' => 'The read-only MCP surface returns context resources and does not accept uploaded files.',
+                ],
+            ],
             'test_suite' => [
                 'tests/Feature/AiAttachmentContentTest.php',
                 'tests/Unit/AtlasFileAttachmentServiceTest.php',
@@ -124,6 +149,12 @@ return [
             'description' => 'Retrieve provider-safe memory, knowledge, and context references.',
             'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_api', 'atlas_worker', 'atlas_mcp_readonly'],
             'optional_surfaces' => [],
+            'not_supported' => [
+                [
+                    'surface' => 'atlas_vault',
+                    'reason' => 'AtlasVault is a human knowledge workspace; raw notes are promoted to memory through import, review, privacy, and provider-safety gates instead of direct memory recall.',
+                ],
+            ],
             'test_suite' => [
                 'tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php',
                 'tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php',
@@ -138,6 +169,12 @@ return [
             'description' => 'Build a deterministic context pack from memory, docs, code refs, conversation, and attachments.',
             'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_api', 'atlas_worker', 'atlas_mcp_readonly'],
             'optional_surfaces' => [],
+            'not_supported' => [
+                [
+                    'surface' => 'atlas_vault',
+                    'reason' => 'AtlasVault can provide source material for reviewed ingestion, but it does not compose runtime provider context directly.',
+                ],
+            ],
             'test_suite' => [
                 'tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php',
             ],
@@ -156,10 +193,86 @@ return [
                     'surface' => 'atlas_mcp_readonly',
                     'reason' => 'The read-only MCP surface can inspect memory/context but cannot execute local tools.',
                 ],
+                [
+                    'surface' => 'atlas_vault',
+                    'reason' => 'AtlasVault is a human workspace and managed-note projection surface, not a tool execution surface.',
+                ],
             ],
             'test_suite' => [
                 'tests/Feature/AtlasToolRuntimeCoreTest.php',
                 'tests/Unit/AiToolRuntimeTest.php',
+            ],
+        ],
+        'atlas.human_knowledge.vault' => [
+            'schema_version' => 'atlas.capability.v1',
+            'id' => 'atlas.human_knowledge.vault',
+            'version' => '1.0.0',
+            'title' => 'Human Knowledge Workspace',
+            'owner' => 'atlas.human_knowledge',
+            'description' => 'Expose AtlasVault/Obsidian as a governed human writing, reading, review, and research workspace without making raw notes an operational source of truth.',
+            'required_surfaces' => ['atlas_vault'],
+            'optional_surfaces' => [],
+            'not_supported' => [
+                [
+                    'surface' => 'atlas_cli',
+                    'reason' => 'CLI commands can trigger vault import/export, but the human knowledge workspace itself is AtlasVault/Obsidian.',
+                ],
+                [
+                    'surface' => 'atlas_app',
+                    'reason' => 'The app can inspect and manage vault workflows, but it is not the Obsidian workspace surface.',
+                ],
+                [
+                    'surface' => 'atlas_api',
+                    'reason' => 'The API exposes vault operations, but it is not the human knowledge workspace surface.',
+                ],
+                [
+                    'surface' => 'atlas_worker',
+                    'reason' => 'Workers consume normalized jobs and do not act as human note workspaces.',
+                ],
+                [
+                    'surface' => 'atlas_mcp_readonly',
+                    'reason' => 'Read-only MCP exposes provider-safe resources and does not host human note authoring.',
+                ],
+            ],
+            'test_suite' => [
+                'tests/Unit/Ai/Surface/SurfaceAdaptersTest.php',
+                'tests/Feature/AtlasVaultCommandTest.php',
+            ],
+        ],
+        'atlas.human_knowledge.managed_note_projection' => [
+            'schema_version' => 'atlas.capability.v1',
+            'id' => 'atlas.human_knowledge.managed_note_projection',
+            'version' => '1.0.0',
+            'title' => 'Managed Note Projection',
+            'owner' => 'atlas.human_knowledge',
+            'description' => 'Project reviewed Atlas memory, evidence, summaries, and proposals into managed AtlasVault notes with frontmatter, links, conflict checks, and human review boundaries.',
+            'required_surfaces' => ['atlas_vault'],
+            'optional_surfaces' => [],
+            'not_supported' => [
+                [
+                    'surface' => 'atlas_cli',
+                    'reason' => 'CLI can request projections, but the managed note projection target is AtlasVault.',
+                ],
+                [
+                    'surface' => 'atlas_app',
+                    'reason' => 'The app can display projection status, but managed markdown notes are written to AtlasVault.',
+                ],
+                [
+                    'surface' => 'atlas_api',
+                    'reason' => 'The API can request projection workflows, but managed notes are projected to AtlasVault.',
+                ],
+                [
+                    'surface' => 'atlas_worker',
+                    'reason' => 'Workers may execute projection jobs, but they are not the managed note projection surface.',
+                ],
+                [
+                    'surface' => 'atlas_mcp_readonly',
+                    'reason' => 'Read-only MCP does not write managed notes.',
+                ],
+            ],
+            'test_suite' => [
+                'tests/Unit/AtlasVaultManagedNoteServiceTest.php',
+                'tests/Feature/AtlasVaultCommandTest.php',
             ],
         ],
     ],
@@ -297,6 +410,7 @@ return [
                 'self_improvement.memory_quality_review',
                 'self_improvement.tool_runtime_review',
                 'self_improvement.repair_loop_review',
+                'self_improvement.kernel_pipeline_review',
                 'self_improvement.domain_learning_review',
                 'self_improvement.docs_drift_review',
                 'self_improvement.provider_performance_review',
@@ -316,7 +430,7 @@ return [
         'time' => env('ATLAS_AI_SELF_IMPROVEMENT_TIME', '02:00'),
         'flows' => array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('ATLAS_AI_SELF_IMPROVEMENT_FLOWS', 'nightly_review,repair_loop_review'))
+            explode(',', (string) env('ATLAS_AI_SELF_IMPROVEMENT_FLOWS', 'nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review'))
         ))),
         'hours' => (int) env('ATLAS_AI_SELF_IMPROVEMENT_HOURS', 24),
         'limit' => (int) env('ATLAS_AI_SELF_IMPROVEMENT_LIMIT', 5),

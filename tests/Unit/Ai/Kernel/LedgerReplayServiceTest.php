@@ -54,6 +54,11 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertSame(1, $report['failure_count']);
         $this->assertSame('breach', $report['worst_status']);
         $this->assertSame('critical', $report['worst_severity']);
+        $this->assertSame('breach', data_get($report, 'review_signal.status'));
+        $this->assertSame('high', data_get($report, 'review_signal.severity'));
+        $this->assertTrue((bool) data_get($report, 'review_signal.review_required'));
+        $this->assertSame('open_reviewable_slo_regression_proposal', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('stage_failed', data_get($report, 'review_signal.reasons'));
         $this->assertSame(['programming' => 3], $report['dimensions']['domain']);
         $this->assertSame(['atlas_cli_dev' => 3], $report['dimensions']['surface_id']);
         $this->assertSame(['codex_cli' => 3], $report['dimensions']['provider']);
@@ -91,6 +96,11 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertSame(2, $report['success_count']);
         $this->assertSame(1, $report['failure_count']);
         $this->assertSame('breach', $report['worst_status']);
+        $this->assertSame('breach', data_get($report, 'review_signal.status'));
+        $this->assertSame('high', data_get($report, 'review_signal.severity'));
+        $this->assertTrue((bool) data_get($report, 'review_signal.review_required'));
+        $this->assertSame('open_reviewable_slo_regression_proposal', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('slo_breach_detected', data_get($report, 'review_signal.reasons'));
         $this->assertSame(['programming' => 1, 'finance' => 1], $report['dimensions']['domain']);
         $this->assertSame(['codex_cli' => 1, 'claude_cli' => 1], $report['dimensions']['provider']);
         $this->assertSame(2, $report['stages']['runtime.execute']['count']);
@@ -207,6 +217,11 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertSame(['rerun_harness' => 1, 'human_review' => 1], $report['strategy_counts']);
         $this->assertSame(1, $report['reason_counts']['failure_domain_requires_human_review']);
         $this->assertTrue($report['requires_human_review']);
+        $this->assertSame('warning', data_get($report, 'review_signal.status'));
+        $this->assertSame('medium', data_get($report, 'review_signal.severity'));
+        $this->assertTrue((bool) data_get($report, 'review_signal.review_required'));
+        $this->assertSame('open_reviewable_repair_loop_human_review_proposal', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('failure_domain_requires_human_review', data_get($report, 'review_signal.reasons'));
         $this->assertSame('env_repair_window_b', $report['recent_events'][0]['envelope_id']);
     }
 
@@ -254,7 +269,189 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertSame(1, $report['envelope_count']);
         $this->assertSame(['needs_human_review' => 1], $report['status_counts']);
         $this->assertSame(['human_review' => 1], $report['strategy_counts']);
+        $this->assertSame('warning', data_get($report, 'review_signal.status'));
+        $this->assertSame('open_reviewable_repair_loop_human_review_proposal', data_get($report, 'review_signal.recommended_action'));
         $this->assertSame('env_repair_filter_human', $report['recent_events'][0]['envelope_id']);
+    }
+
+    public function test_kernel_pipeline_report_projects_acceptance_and_rejection_for_envelope(): void
+    {
+        $this->recordKernelPipelineEvent(
+            eventId: '01HKERNELREPLAY000000000001',
+            envelopeId: 'env_kernel_replay',
+            type: LedgerEventType::KernelPipelineAccepted,
+            status: 'accepted',
+            surfaceId: 'atlas_cli_dev',
+            flow: 'programming.dev',
+            inputMode: 'one_shot',
+        );
+        $this->recordKernelPipelineEvent(
+            eventId: '01HKERNELREPLAY000000000002',
+            envelopeId: 'env_kernel_replay',
+            type: LedgerEventType::KernelPipelineRejected,
+            status: 'rejected',
+            surfaceId: 'atlas_ai_chat',
+            flow: 'programming.dev',
+            inputMode: 'declared_dev_plan',
+            violations: ['kernel_pipeline.canonical_flow_hash does not match the canonical kernel flow.'],
+        );
+        $this->recordKernelPipelineEvent(
+            eventId: '01HKERNELREPLAY000000000003',
+            envelopeId: 'other_env',
+            type: LedgerEventType::KernelPipelineAccepted,
+            status: 'accepted',
+            surfaceId: 'atlas_ai_chat',
+            flow: 'programming.forge',
+            inputMode: 'chat_dev_auto_plan',
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->kernelPipelineReportForEnvelope('env_kernel_replay');
+
+        $this->assertSame('env_kernel_replay', $report['envelope_id']);
+        $this->assertSame(2, $report['kernel_pipeline_event_count']);
+        $this->assertSame(1, $report['accepted_count']);
+        $this->assertSame(1, $report['rejected_count']);
+        $this->assertTrue($report['has_rejections']);
+        $this->assertSame('rejected', $report['latest_status']);
+        $this->assertSame(['accepted' => 1, 'rejected' => 1], $report['status_counts']);
+        $this->assertSame(['atlas_cli_dev' => 1, 'atlas_ai_chat' => 1], $report['surface_counts']);
+        $this->assertSame(['atlas.ai_chat.kernel_pipeline_guard' => 2], $report['emitter_stage_counts']);
+        $this->assertSame(['KernelPipelineDevPlanBuilder' => 2], $report['surface_contract_source_counts']);
+        $this->assertSame(['programming.dev' => 2], $report['flow_counts']);
+        $this->assertSame(1, $report['violation_counts']['kernel_pipeline.canonical_flow_hash does not match the canonical kernel flow.']);
+        $this->assertSame('breach', data_get($report, 'health.status'));
+        $this->assertSame(0.5, data_get($report, 'health.rejection_rate'));
+        $this->assertTrue((bool) data_get($report, 'health.review_required'));
+        $this->assertSame(['kernel_pipeline_rejection_rate_above_breach_threshold'], data_get($report, 'health.reasons'));
+        $this->assertSame('breach', data_get($report, 'review_signal.status'));
+        $this->assertSame('high', data_get($report, 'review_signal.severity'));
+        $this->assertTrue((bool) data_get($report, 'review_signal.review_required'));
+        $this->assertSame('open_reviewable_kernel_pipeline_contract_proposal', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('kernel_pipeline.canonical_flow_hash does not match the canonical kernel flow.', data_get($report, 'review_signal.reasons'));
+        $this->assertSame('KernelPipelineDevPlanBuilder', $report['events'][1]['surface_contract_source']);
+        $this->assertSame('declared_dev_plan', $report['events'][1]['input_mode']);
+    }
+
+    public function test_kernel_pipeline_window_report_filters_by_surface_and_status(): void
+    {
+        $this->recordKernelPipelineEvent(
+            eventId: '01HKERNELWINDOW000000000001',
+            envelopeId: 'env_kernel_window_a',
+            type: LedgerEventType::KernelPipelineAccepted,
+            status: 'accepted',
+            surfaceId: 'atlas_cli_dev',
+            flow: 'programming.dev',
+            inputMode: 'one_shot',
+        );
+        $this->recordKernelPipelineEvent(
+            eventId: '01HKERNELWINDOW000000000002',
+            envelopeId: 'env_kernel_window_b',
+            type: LedgerEventType::KernelPipelineRejected,
+            status: 'rejected',
+            surfaceId: 'atlas_ai_chat',
+            flow: 'programming.dev',
+            inputMode: 'declared_dev_plan',
+            violations: ['kernel_pipeline.stage_order must match the canonical kernel stage order.'],
+        );
+        $this->recordKernelPipelineEvent(
+            eventId: '01HKERNELOLD00000000000001',
+            envelopeId: 'env_kernel_old',
+            type: LedgerEventType::KernelPipelineRejected,
+            status: 'rejected',
+            surfaceId: 'atlas_ai_chat',
+            flow: 'programming.dev',
+            inputMode: 'declared_dev_plan',
+            violations: ['old'],
+            occurredAt: now()->subDays(2),
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->kernelPipelineReportForWindow(
+            now()->subHour(),
+            now()->addMinute(),
+            [
+                'status' => 'rejected',
+                'surface_id' => 'atlas_ai_chat',
+                'surface_contract_source' => 'KernelPipelineDevPlanBuilder',
+            ],
+        );
+
+        $this->assertTrue($report['available']);
+        $this->assertSame([
+            'status' => 'rejected',
+            'surface_id' => 'atlas_ai_chat',
+            'surface_contract_source' => 'KernelPipelineDevPlanBuilder',
+        ], $report['filters']);
+        $this->assertSame(1, $report['kernel_pipeline_event_count']);
+        $this->assertSame(1, $report['envelope_count']);
+        $this->assertSame(0, $report['accepted_count']);
+        $this->assertSame(1, $report['rejected_count']);
+        $this->assertTrue($report['has_rejections']);
+        $this->assertSame('breach', data_get($report, 'health.status'));
+        $this->assertSame(1.0, data_get($report, 'health.rejection_rate'));
+        $this->assertSame('breach', data_get($report, 'review_signal.status'));
+        $this->assertSame('high', data_get($report, 'review_signal.severity'));
+        $this->assertSame('open_reviewable_kernel_pipeline_contract_proposal', data_get($report, 'review_signal.recommended_action'));
+        $this->assertSame('env_kernel_window_b', $report['recent_events'][0]['envelope_id']);
+        $this->assertSame(['atlas.ai_chat.kernel_pipeline_guard' => 1], $report['emitter_stage_counts']);
+        $this->assertSame(['declared_dev_plan' => 1], $report['input_mode_counts']);
+    }
+
+    public function test_self_improvement_schedule_window_report_projects_schedule_health_events(): void
+    {
+        $this->recordSelfImprovementScheduleEvent(
+            eventId: '01HSCHEDREPLAY000000000001',
+            envelopeId: 'self_improvement_run:ok',
+            flow: 'self_improvement.nightly_review',
+            healthStatus: 'healthy',
+            schedulerStatus: 'registered',
+            issues: [],
+            registeredCommandCount: 4,
+            planHash: 'plan-hash-ok',
+        );
+        $this->recordSelfImprovementScheduleEvent(
+            eventId: '01HSCHEDREPLAY000000000002',
+            envelopeId: 'self_improvement_run:warning',
+            flow: 'self_improvement.weekly_architecture_audit',
+            healthStatus: 'warning',
+            schedulerStatus: 'registered',
+            issues: ['invalid_self_improvement_flows_configured'],
+            registeredCommandCount: 1,
+            invalidFlowCount: 1,
+            planHash: 'plan-hash-warning',
+        );
+        $this->recordSelfImprovementScheduleEvent(
+            eventId: '01HSCHEDOLD00000000000001',
+            envelopeId: 'self_improvement_run:old',
+            flow: 'self_improvement.nightly_review',
+            healthStatus: 'warning',
+            schedulerStatus: 'skipped',
+            issues: ['old'],
+            registeredCommandCount: 0,
+            occurredAt: now()->subDays(2),
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->selfImprovementScheduleReportForWindow(now()->subHour(), now()->addMinute());
+
+        $this->assertTrue($report['available']);
+        $this->assertSame(2, $report['schedule_observation_count']);
+        $this->assertSame(2, $report['envelope_count']);
+        $this->assertSame(['healthy' => 1, 'warning' => 1], $report['health_status_counts']);
+        $this->assertSame(['registered' => 2], $report['scheduler_status_counts']);
+        $this->assertSame(1, $report['issue_counts']['invalid_self_improvement_flows_configured']);
+        $this->assertSame(1, $report['warning_count']);
+        $this->assertSame('warning', $report['latest_health_status']);
+        $this->assertSame('registered', $report['latest_scheduler_status']);
+        $this->assertSame('plan-hash-warning', $report['latest_plan_hash']);
+        $this->assertTrue($report['review_required']);
+        $this->assertSame('warning', data_get($report, 'health.status'));
+        $this->assertContains('invalid_self_improvement_flows_configured', data_get($report, 'health.reasons'));
+        $this->assertSame('warning', data_get($report, 'review_signal.status'));
+        $this->assertSame('medium', data_get($report, 'review_signal.severity'));
+        $this->assertTrue((bool) data_get($report, 'review_signal.review_required'));
+        $this->assertSame('open_reviewable_self_improvement_schedule_proposal', data_get($report, 'review_signal.recommended_action'));
+        $this->assertSame('self_improvement_run:warning', $report['recent_events'][0]['envelope_id']);
+        $this->assertSame('self_improvement.weekly_architecture_audit', $report['recent_events'][0]['flow']);
+        $this->assertSame(['daily' => 1], $report['recent_events'][0]['cadence_counts']);
     }
 
     /**
@@ -348,6 +545,128 @@ class LedgerReplayServiceTest extends TestCase
                 'repair_executed' => $repairExecuted,
                 'decision_hash' => $decisionHash,
                 'result_hash' => $resultHash,
+            ],
+            'payload_hash' => hash('sha256', $eventId),
+            'occurred_at' => $occurredAt ?? now(),
+        ]);
+    }
+
+    /**
+     * @param  array<int,string>  $violations
+     */
+    private function recordKernelPipelineEvent(
+        string $eventId,
+        string $envelopeId,
+        LedgerEventType $type,
+        string $status,
+        string $surfaceId,
+        string $flow,
+        string $inputMode,
+        array $violations = [],
+        mixed $occurredAt = null,
+    ): void {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $eventId,
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_test',
+            'operator_id' => 'operator_test',
+            'envelope_id' => $envelopeId,
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'pipe_test',
+            'causation_id' => null,
+            'event_type' => $type->value,
+            'emitter_stage' => 'atlas.ai_chat.kernel_pipeline_guard',
+            'emitter_version' => 'atlas.ai_chat.kernel_pipeline_guard.v1',
+            'payload' => [
+                'status' => $status,
+                'violations' => $violations,
+                'pipeline' => [
+                    'pipeline_id' => 'pipe_test',
+                    'schema_version' => 'atlas.kernel.pipeline.scaffold.v1',
+                    'mode' => 'scaffold_dry_run',
+                    'stage_count' => 14,
+                    'canonical_flow_hash' => 'flow-hash',
+                    'provider_execution_allowed' => false,
+                    'runtime_execution_allowed' => false,
+                ],
+                'surface' => [
+                    'surface_id' => $surfaceId,
+                    'binding_surface' => $surfaceId,
+                    'command' => 'atlas:ai:chat',
+                    'input_mode' => $inputMode,
+                ],
+                'surface_contract' => [
+                    'required' => true,
+                    'source' => 'KernelPipelineDevPlanBuilder',
+                    'surface_must_not_decide' => true,
+                    'provider_execution_blocked_until_runtime_migration' => true,
+                    'runtime_execution_blocked_until_runtime_migration' => true,
+                ],
+                'routing' => [
+                    'domain' => 'programming',
+                    'flow' => $flow,
+                    'runtime' => $flow === 'programming.forge' ? 'engineering_harness' : 'dev_repair_executor',
+                ],
+            ],
+            'payload_hash' => hash('sha256', $eventId),
+            'occurred_at' => $occurredAt ?? now(),
+        ]);
+    }
+
+    /**
+     * @param  array<int,string>  $issues
+     */
+    private function recordSelfImprovementScheduleEvent(
+        string $eventId,
+        string $envelopeId,
+        string $flow,
+        string $healthStatus,
+        string $schedulerStatus,
+        array $issues,
+        int $registeredCommandCount,
+        int $invalidFlowCount = 0,
+        string $planHash = 'plan-hash',
+        mixed $occurredAt = null,
+    ): void {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $eventId,
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_test',
+            'operator_id' => 'operator_test',
+            'envelope_id' => $envelopeId,
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => $envelopeId,
+            'causation_id' => null,
+            'event_type' => LedgerEventType::SelfImprovementScheduleObserved->value,
+            'emitter_stage' => 'atlas.self_improvement',
+            'emitter_version' => 'self-improvement-runtime-v1',
+            'payload' => [
+                'flow' => $flow,
+                'schedule_health' => [
+                    'schema_version' => 1,
+                    'status' => 'ok',
+                    'health_status' => $healthStatus,
+                    'issues' => $issues,
+                    'enabled' => true,
+                    'schedulable' => $schedulerStatus === 'registered',
+                    'scheduler_registration' => [
+                        'status' => $schedulerStatus,
+                        'registered_command_count' => $registeredCommandCount,
+                        'skipped_reason' => $schedulerStatus === 'skipped' ? ($issues[0] ?? 'not_schedulable') : null,
+                    ],
+                    'flow_count' => $registeredCommandCount,
+                    'cadence_counts' => ['daily' => $registeredCommandCount],
+                    'invalid_flow_count' => $invalidFlowCount,
+                    'defaulted' => false,
+                    'emit' => false,
+                    'plan_hash' => $planHash,
+                    'plan_hash_algorithm' => 'sha256',
+                    'time' => '02:00',
+                    'timezone' => 'America/Sao_Paulo',
+                    'next_run_at' => '2026-05-05T05:00:00.000000Z',
+                ],
             ],
             'payload_hash' => hash('sha256', $eventId),
             'occurred_at' => $occurredAt ?? now(),

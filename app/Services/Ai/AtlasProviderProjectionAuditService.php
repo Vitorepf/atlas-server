@@ -3,11 +3,14 @@
 namespace App\Services\Ai;
 
 use App\Models\AtlasMemoryProviderProjectionAudit;
+use App\Services\Ai\Provider\ProviderProjectionAuditInput;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
 class AtlasProviderProjectionAuditService
 {
+    public function __construct(private readonly ProviderProjectionAuditInput $input) {}
+
     /**
      * @param  array<string,mixed>  $result
      * @param  array<string,mixed>  $context
@@ -53,7 +56,7 @@ class AtlasProviderProjectionAuditService
 
         return $this->query($filters)
             ->latest('applied_at')
-            ->limit(max(1, min(200, $limit)))
+            ->limit($this->input->auditLimit($limit))
             ->get();
     }
 
@@ -63,7 +66,7 @@ class AtlasProviderProjectionAuditService
      */
     public function summary(array $filters = [], int $days = 30): array
     {
-        $days = max(1, min(365, $days));
+        $days = $this->input->summaryDays($days);
         $since = now()->subDays($days);
 
         if (! Schema::hasTable('atlas_memory_provider_projection_audits')) {
@@ -110,7 +113,7 @@ class AtlasProviderProjectionAuditService
      */
     public function purge(array $filters = [], int $olderThanDays = 90, bool $dryRun = true): array
     {
-        $olderThanDays = max(1, min(3650, $olderThanDays));
+        $olderThanDays = $this->input->purgeOlderThanDays($olderThanDays);
         $cutoff = now()->subDays($olderThanDays);
 
         if (! Schema::hasTable('atlas_memory_provider_projection_audits')) {
