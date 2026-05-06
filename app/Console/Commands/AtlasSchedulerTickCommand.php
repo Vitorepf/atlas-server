@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Mobile\MobileReliabilityMonitor;
 use App\Services\Ai\Scheduling\AtlasCliSchedulerService;
+use App\Services\Ai\Scheduling\AtlasSchedulerInput;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 
@@ -17,7 +18,7 @@ class AtlasSchedulerTickCommand extends Command
 
     protected $description = 'Claim due Atlas scheduled tasks and dispatch their execution jobs.';
 
-    public function handle(AtlasCliSchedulerService $scheduler): int
+    public function handle(AtlasCliSchedulerService $scheduler, AtlasSchedulerInput $input): int
     {
         if (! Schema::hasTable('ai_scheduled_tasks')) {
             return $this->printPayload([
@@ -28,10 +29,11 @@ class AtlasSchedulerTickCommand extends Command
 
         $dryRun = (bool) $this->option('dry-run');
         $dispatchEnabled = ! $dryRun && ! (bool) $this->option('no-dispatch');
+        $limit = $input->dueTaskLimit($this->option('limit'));
         $result = $dryRun
-            ? $scheduler->previewDueTasks(limit: (int) $this->option('limit'))
+            ? $scheduler->previewDueTasks(limit: $limit)
             : $scheduler->tick(
-                limit: (int) $this->option('limit'),
+                limit: $limit,
                 dispatch: $dispatchEnabled,
             );
 

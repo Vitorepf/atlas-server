@@ -16,6 +16,7 @@ class AtlasCliSchedulerService
 {
     public function __construct(
         private readonly ScheduleParser $parser,
+        private readonly AtlasSchedulerInput $input,
     ) {}
 
     /**
@@ -80,7 +81,7 @@ class AtlasCliSchedulerService
      */
     public function tick(int $limit = 25, bool $dispatch = true): array
     {
-        $limit = max(1, min($limit, 100));
+        $limit = $this->input->dueTaskLimit($limit);
         $claimed = DB::transaction(function () use ($limit): array {
             $tasks = AiScheduledTask::query()
                 ->where('enabled', true)
@@ -134,7 +135,7 @@ class AtlasCliSchedulerService
      */
     public function previewDueTasks(int $limit = 25): array
     {
-        $limit = max(1, min($limit, 100));
+        $limit = $this->input->dueTaskLimit($limit);
         $tasks = AiScheduledTask::query()
             ->where('enabled', true)
             ->whereNotNull('next_run_at')

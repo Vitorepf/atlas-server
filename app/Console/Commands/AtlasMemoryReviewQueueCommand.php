@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasMemoryReviewQueueService;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -26,10 +27,10 @@ class AtlasMemoryReviewQueueCommand extends Command
 
     protected $description = 'Show the unified Atlas memory review queue for privacy, verbatim and relation work.';
 
-    public function handle(AtlasMemoryReviewQueueService $queue): int
+    public function handle(AtlasMemoryReviewQueueService $queue, MemoryQueryInput $input): int
     {
         $payload = [
-            'review_queue' => $queue->queue($this->filters(), (int) $this->option('limit')),
+            'review_queue' => $queue->queue($this->filters(), $input->reviewQueueLimit($this->option('limit'))),
         ];
 
         if ((bool) $this->option('json')) {

@@ -29,6 +29,7 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
     public function __construct(
         private readonly AtlasDomainProfileRegistry $profiles,
         private readonly AtlasSelfImprovementRuntime $runtime,
+        private readonly AtlasSelfImprovementInput $input,
     ) {}
 
     /**
@@ -48,14 +49,12 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
     {
         $flow = $this->normalizeFlow($flow);
         $profile = $this->profiles->resolve($flow);
-        $hours = max(1, min(
-            AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS,
-            (int) ($options['hours'] ?? config('atlas_ai.self_improvement.hours', AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS)),
-        ));
-        $limit = max(1, min(
-            AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN,
-            (int) ($options['limit'] ?? config('atlas_ai.self_improvement.limit', 5)),
-        ));
+        $runtimeOptions = $this->input->runtimeOptions([
+            'hours' => $options['hours'] ?? config('atlas_ai.self_improvement.hours', AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS),
+            'limit' => $options['limit'] ?? config('atlas_ai.self_improvement.limit', AtlasSelfImprovementInput::DEFAULT_FINDINGS_LIMIT),
+        ]);
+        $hours = $runtimeOptions['hours'];
+        $limit = $runtimeOptions['limit'];
         $emit = array_key_exists('emit', $options)
             ? (bool) $options['emit']
             : (bool) config('atlas_ai.self_improvement.emit', false);

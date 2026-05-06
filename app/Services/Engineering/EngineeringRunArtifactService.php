@@ -11,6 +11,8 @@ use Illuminate\Support\Str;
 
 class EngineeringRunArtifactService
 {
+    public function __construct(private readonly ?EngineeringContextIntelligenceInput $input = null) {}
+
     /**
      * @param  array<string,mixed>  $contract
      * @param  array<string,mixed>  $blueprint
@@ -156,7 +158,7 @@ class EngineeringRunArtifactService
      */
     public function evidenceHistory(AtlasTask $task, int $limit = 100): array
     {
-        return array_slice($this->engineeringEvidence($task), 0, max(1, min(200, $limit)));
+        return array_slice($this->engineeringEvidence($task), 0, $this->contextInput()->evidenceHistoryLimit($limit));
     }
 
     /**
@@ -519,7 +521,7 @@ class EngineeringRunArtifactService
                 ->where('task_id', $task->id)
                 ->latest('recorded_at')
                 ->latest('created_at')
-                ->limit(200)
+                ->limit($this->contextInput()->evidenceHistoryLimit(200))
                 ->get()
                 ->map(fn (AtlasEngineeringEvidence $evidence): array => $this->evidenceModelEntry($evidence));
         }
@@ -528,7 +530,7 @@ class EngineeringRunArtifactService
             ->concat($metadataEntries)
             ->unique(fn (array $entry): string => (string) ($entry['id'] ?? md5(json_encode($entry) ?: '')))
             ->sortByDesc(fn (array $entry): string => (string) ($entry['recorded_at'] ?? ''))
-            ->take(100)
+            ->take($this->contextInput()->evidenceHistoryLimit())
             ->values()
             ->all();
     }
@@ -646,5 +648,10 @@ class EngineeringRunArtifactService
             ->filter(fn (mixed $traceId): bool => is_string($traceId) && $traceId !== '')
             ->values()
             ->all();
+    }
+
+    private function contextInput(): EngineeringContextIntelligenceInput
+    {
+        return $this->input ?? app(EngineeringContextIntelligenceInput::class);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Support\AtlasCliLimitInput;
 use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
@@ -18,7 +19,7 @@ class AtlasEngineeringBenchmarkReportCommand extends Command
 
     protected $description = 'Summarize persisted Fair Claude paired benchmark scorecards.';
 
-    public function handle(EngineeringBenchmarkService $benchmarks): int
+    public function handle(EngineeringBenchmarkService $benchmarks, AtlasCliLimitInput $limits): int
     {
         $suiteRef = is_string($this->option('suite')) ? trim($this->option('suite')) : '';
         if ($suiteRef === '') {
@@ -40,7 +41,7 @@ class AtlasEngineeringBenchmarkReportCommand extends Command
         }
 
         $payload = $benchmarks->fairClaudeReportPayload($suite, [
-            'limit' => max(1, min(200, (int) $this->option('limit'))),
+            'limit' => $limits->benchmarkReportLimit($this->option('limit')),
         ]);
         $outputDir = is_string($this->option('output-dir')) ? trim((string) $this->option('output-dir')) : '';
         if ($outputDir !== '') {

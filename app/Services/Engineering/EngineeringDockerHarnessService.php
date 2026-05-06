@@ -11,6 +11,8 @@ use Symfony\Component\Process\Process;
 
 class EngineeringDockerHarnessService
 {
+    public function __construct(private readonly ?EngineeringDockerHarnessInput $input = null) {}
+
     /**
      * @param  array<string,mixed>  $profile
      * @param  array<string,mixed>  $options
@@ -474,7 +476,7 @@ class EngineeringDockerHarnessService
 
         return [
             'services' => $services,
-            'timeout_seconds' => max(1, (int) ($options['docker_healthcheck_timeout'] ?? config('atlas.engineering.docker.healthcheck_timeout_seconds', 45))),
+            'timeout_seconds' => $this->dockerInput()->healthcheckTimeoutSeconds($options['docker_healthcheck_timeout'] ?? null),
         ];
     }
 
@@ -488,8 +490,8 @@ class EngineeringDockerHarnessService
 
         return [
             'paths' => $paths,
-            'max_files' => max(1, (int) ($options['docker_artifact_max_files'] ?? config('atlas.engineering.docker.artifact_max_files', 100))),
-            'max_bytes' => max(1, (int) ($options['docker_artifact_max_bytes'] ?? config('atlas.engineering.docker.artifact_max_bytes', 10_485_760))),
+            'max_files' => $this->dockerInput()->artifactMaxFiles($options['docker_artifact_max_files'] ?? null),
+            'max_bytes' => $this->dockerInput()->artifactMaxBytes($options['docker_artifact_max_bytes'] ?? null),
         ];
     }
 
@@ -529,8 +531,8 @@ class EngineeringDockerHarnessService
      */
     public function cleanup(bool $dryRun = true, array $options = []): array
     {
-        $cacheDays = max(1, (int) ($options['cache_retention_days'] ?? config('atlas.engineering.docker.cleanup.cache_retention_days', 14)));
-        $artifactDays = max(1, (int) ($options['artifact_retention_days'] ?? config('atlas.engineering.docker.cleanup.artifact_retention_days', 30)));
+        $cacheDays = $this->dockerInput()->cacheRetentionDays($options['cache_retention_days'] ?? null);
+        $artifactDays = $this->dockerInput()->artifactRetentionDays($options['artifact_retention_days'] ?? null);
         $targets = [
             [
                 'kind' => 'cache',
@@ -689,5 +691,10 @@ class EngineeringDockerHarnessService
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function dockerInput(): EngineeringDockerHarnessInput
+    {
+        return $this->input ?? app(EngineeringDockerHarnessInput::class);
     }
 }

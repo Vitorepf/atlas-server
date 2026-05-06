@@ -8,6 +8,7 @@ use App\Services\Ai\Kernel\Capability\SurfaceCapabilityParityService;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Kernel\Domain\AtlasDomainManifestValidator;
 use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestratorRegistry;
+use App\Services\Ai\Kernel\Evidence\LedgerProjectionRegistry;
 use App\Services\Ai\Kernel\Failure\FailureClassifier;
 use App\Services\Ai\Kernel\Failure\FailureHandlerRegistry;
 use App\Services\Ai\Kernel\Provider\ProviderDriver;
@@ -15,6 +16,7 @@ use App\Services\Ai\Kernel\Slo\KernelSloTargets;
 use App\Services\Ai\Kernel\Surface\SurfaceAdapter;
 use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
 use App\Services\Ai\Surface\SurfaceAdapterRegistry;
+use App\Services\Engineering\EngineeringDocumentationHealthService;
 
 class AtlasAiArchitectureValidationService
 {
@@ -31,6 +33,8 @@ class AtlasAiArchitectureValidationService
         private readonly ProviderDriverRegistry $providerDrivers,
         private readonly KernelArchitectureStaticScanner $staticScanner,
         private readonly SurfaceCapabilityParityService $surfaceCapabilityParity,
+        private readonly LedgerProjectionRegistry $ledgerProjections,
+        private readonly EngineeringDocumentationHealthService $documentationHealth,
     ) {}
 
     /**
@@ -49,6 +53,9 @@ class AtlasAiArchitectureValidationService
         $sloReport = $this->sloTargets->complianceReport();
         $surfaceReport = $this->surfaceAdapters->complianceReport();
         $providerReport = $this->providerDrivers->complianceReport();
+        $ledgerProjectionReport = $this->ledgerProjections->complianceReport();
+        $ledgerProjectionDriftReport = $this->ledgerProjections->driftReport();
+        $documentationHealthReport = $this->documentationHealth->report();
         $staticScanReport = $this->staticScanner->complianceReport();
         $kernelContracts = [
             'surface_adapter' => interface_exists(SurfaceAdapter::class),
@@ -63,15 +70,17 @@ class AtlasAiArchitectureValidationService
             && $sloReport['ok']
             && $surfaceReport['ok']
             && $providerReport['ok']
+            && $ledgerProjectionReport['ok']
             && $staticScanValid
             && $kernelContracts['surface_adapter']
             && $kernelContracts['provider_driver'];
 
         $capabilitiesValid = $capabilityReport['valid'] && $surfaceCapabilityParityValid;
+        $documentationHealthValid = ($documentationHealthReport['status'] ?? 'failed') === 'ok';
 
         return [
             'schema_version' => 1,
-            'status' => $capabilitiesValid && $orchestratorReport['ok'] && $domainReport['ok'] && $kernelValid ? 'ok' : 'failed',
+            'status' => $capabilitiesValid && $orchestratorReport['ok'] && $domainReport['ok'] && $kernelValid && $documentationHealthValid ? 'ok' : 'failed',
             'kernel' => [
                 'valid' => $kernelValid,
                 'surface_adapter_contract' => $kernelContracts['surface_adapter'],
@@ -108,6 +117,18 @@ class AtlasAiArchitectureValidationService
                     'providers' => $providerReport['providers'],
                     'errors' => $providerReport['errors'],
                     'warnings' => $providerReport['warnings'],
+                ],
+                'ledger_projections' => [
+                    'valid' => $ledgerProjectionReport['ok'],
+                    'ready' => $ledgerProjectionReport['ready'],
+                    'count' => $ledgerProjectionReport['count'],
+                    'ready_count' => $ledgerProjectionReport['ready_count'],
+                    'schema_version' => $ledgerProjectionReport['schema_version'],
+                    'projection_ids' => $ledgerProjectionReport['projection_ids'],
+                    'errors' => $ledgerProjectionReport['errors'],
+                    'warnings' => $ledgerProjectionReport['warnings'],
+                    'projections' => $ledgerProjectionReport['projections'],
+                    'drift' => $ledgerProjectionDriftReport,
                 ],
                 'static_scan' => $staticScanPayload,
             ],
@@ -148,6 +169,14 @@ class AtlasAiArchitectureValidationService
                 'status_counts' => (array) data_get($domainCatalogReport, 'summary.onboarding_status_counts', []),
                 'domain_count' => (int) data_get($domainCatalogReport, 'summary.domains', 0),
             ],
+            'documentation' => [
+                'valid' => $documentationHealthValid,
+                'status' => (string) ($documentationHealthReport['status'] ?? 'failed'),
+                'summary' => (array) ($documentationHealthReport['summary'] ?? []),
+                'required_docs' => (array) ($documentationHealthReport['required_docs'] ?? []),
+                'oversized_docs' => (array) ($documentationHealthReport['oversized_docs'] ?? []),
+                'violations' => (array) ($documentationHealthReport['violations'] ?? []),
+            ],
             'validated_at' => now()->toJSON(),
         ];
     }
@@ -171,6 +200,16 @@ class AtlasAiArchitectureValidationService
             'ap2_surface_context_bypass' => $staticScanReport['ap2_surface_context_bypass'],
             'ap6_decision_receipt_propagation' => $staticScanReport['ap6_decision_receipt_propagation'],
             'ap13_decision_receipt_runtime_guard' => $staticScanReport['ap13_decision_receipt_runtime_guard'],
+            'ap134_decision_receipt_hash_runtime_guard' => $staticScanReport['ap134_decision_receipt_hash_runtime_guard'],
+            'ap135_decision_receipt_determinism_test' => $staticScanReport['ap135_decision_receipt_determinism_test'],
+            'ap136_decision_receipt_chain_replay' => $staticScanReport['ap136_decision_receipt_chain_replay'],
+            'ap137_decision_receipt_replay_surfaces' => $staticScanReport['ap137_decision_receipt_replay_surfaces'],
+            'ap138_decision_receipt_replay_curator_review' => $staticScanReport['ap138_decision_receipt_replay_curator_review'],
+            'ap139_decision_receipt_replay_inbox_emission' => $staticScanReport['ap139_decision_receipt_replay_inbox_emission'],
+            'ap140_ledger_replay_command_surface' => $staticScanReport['ap140_ledger_replay_command_surface'],
+            'ap141_ledger_projection_registry_contract' => $staticScanReport['ap141_ledger_projection_registry_contract'],
+            'ap142_ledger_projection_inbox_action' => $staticScanReport['ap142_ledger_projection_inbox_action'],
+            'ap143_ledger_projection_curator_action_emission' => $staticScanReport['ap143_ledger_projection_curator_action_emission'],
             'ap12_provider_driver_identity_bypass' => $staticScanReport['ap12_provider_driver_identity_bypass'],
             'ap14_tool_tier_hot_path' => $staticScanReport['ap14_tool_tier_hot_path'],
             'ap15_provider_memory_privacy' => $staticScanReport['ap15_provider_memory_privacy'],
@@ -244,6 +283,51 @@ class AtlasAiArchitectureValidationService
             'ap86_semantic_context_input_contract' => $staticScanReport['ap86_semantic_context_input_contract'],
             'ap87_provider_projection_input_contract' => $staticScanReport['ap87_provider_projection_input_contract'],
             'ap88_test_command_input_contract' => $staticScanReport['ap88_test_command_input_contract'],
+            'ap89_engineering_harness_runner_input_contract' => $staticScanReport['ap89_engineering_harness_runner_input_contract'],
+            'ap90_engineering_harnessability_input_contract' => $staticScanReport['ap90_engineering_harnessability_input_contract'],
+            'ap91_engineering_docker_harness_input_contract' => $staticScanReport['ap91_engineering_docker_harness_input_contract'],
+            'ap92_engineering_test_matrix_input_contract' => $staticScanReport['ap92_engineering_test_matrix_input_contract'],
+            'ap93_engineering_claude_code_baseline_input_contract' => $staticScanReport['ap93_engineering_claude_code_baseline_input_contract'],
+            'ap94_engineering_benchmark_input_contract' => $staticScanReport['ap94_engineering_benchmark_input_contract'],
+            'ap95_engineering_context_intelligence_input_contract' => $staticScanReport['ap95_engineering_context_intelligence_input_contract'],
+            'ap96_cli_limit_input_contract' => $staticScanReport['ap96_cli_limit_input_contract'],
+            'ap97_scheduler_input_contract' => $staticScanReport['ap97_scheduler_input_contract'],
+            'ap98_self_improvement_input_contract' => $staticScanReport['ap98_self_improvement_input_contract'],
+            'ap99_provider_usage_performance_contract' => $staticScanReport['ap99_provider_usage_performance_contract'],
+            'ap100_context_pack_manifest_reflection_contract' => $staticScanReport['ap100_context_pack_manifest_reflection_contract'],
+            'ap101_context_retrieval_router_contract' => $staticScanReport['ap101_context_retrieval_router_contract'],
+            'ap102_open_brain_retrieval_plan_summary_contract' => $staticScanReport['ap102_open_brain_retrieval_plan_summary_contract'],
+            'ap103_retrieval_required_source_availability_contract' => $staticScanReport['ap103_retrieval_required_source_availability_contract'],
+            'ap104_retrieval_review_signal_next_action_contract' => $staticScanReport['ap104_retrieval_review_signal_next_action_contract'],
+            'ap105_open_brain_retrieval_self_improvement_contract' => $staticScanReport['ap105_open_brain_retrieval_self_improvement_contract'],
+            'ap106_learning_proposed_review_signal_projection_contract' => $staticScanReport['ap106_learning_proposed_review_signal_projection_contract'],
+            'ap107_proposal_inbox_review_signal_contract' => $staticScanReport['ap107_proposal_inbox_review_signal_contract'],
+            'ap108_learning_proposed_inbox_link_contract' => $staticScanReport['ap108_learning_proposed_inbox_link_contract'],
+            'ap109_operation_completed_inbox_refs_contract' => $staticScanReport['ap109_operation_completed_inbox_refs_contract'],
+            'ap110_schedule_replay_inbox_refs_contract' => $staticScanReport['ap110_schedule_replay_inbox_refs_contract'],
+            'ap111_schedule_replay_inbox_refs_surface_parity' => $staticScanReport['ap111_schedule_replay_inbox_refs_surface_parity'],
+            'ap112_schedule_replay_inbox_item_hydration' => $staticScanReport['ap112_schedule_replay_inbox_item_hydration'],
+            'ap113_schedule_replay_inbox_item_hydration_surface_parity' => $staticScanReport['ap113_schedule_replay_inbox_item_hydration_surface_parity'],
+            'ap114_schedule_replay_inbox_hydration_gap_signal' => $staticScanReport['ap114_schedule_replay_inbox_hydration_gap_signal'],
+            'ap115_self_improvement_schedule_replay_inbox_gap_finding' => $staticScanReport['ap115_self_improvement_schedule_replay_inbox_gap_finding'],
+            'ap116_self_improvement_schedule_replay_inbox_gap_emission' => $staticScanReport['ap116_self_improvement_schedule_replay_inbox_gap_emission'],
+            'ap117_proposal_inbox_review_signal_severity' => $staticScanReport['ap117_proposal_inbox_review_signal_severity'],
+            'ap118_proposal_review_action_contract' => $staticScanReport['ap118_proposal_review_action_contract'],
+            'ap119_cli_inbox_review_action_result_parity' => $staticScanReport['ap119_cli_inbox_review_action_result_parity'],
+            'ap120_inbox_action_evidence_ledger_contract' => $staticScanReport['ap120_inbox_action_evidence_ledger_contract'],
+            'ap121_inbox_action_replay_read_model' => $staticScanReport['ap121_inbox_action_replay_read_model'],
+            'ap122_inbox_action_mcp_report' => $staticScanReport['ap122_inbox_action_mcp_report'],
+            'ap123_self_improvement_inbox_action_replay_review' => $staticScanReport['ap123_self_improvement_inbox_action_replay_review'],
+            'ap124_observability_inbox_action_replay' => $staticScanReport['ap124_observability_inbox_action_replay'],
+            'ap125_inbox_action_report_surfaces' => $staticScanReport['ap125_inbox_action_report_surfaces'],
+            'ap126_architecture_validate_post_ap98_human_output' => $staticScanReport['ap126_architecture_validate_post_ap98_human_output'],
+            'ap127_cli_help_architecture_operations_discovery' => $staticScanReport['ap127_cli_help_architecture_operations_discovery'],
+            'ap128_architecture_operations_shared_catalog' => $staticScanReport['ap128_architecture_operations_shared_catalog'],
+            'ap129_architecture_operations_mcp_tool' => $staticScanReport['ap129_architecture_operations_mcp_tool'],
+            'ap130_architecture_operations_direct_surfaces' => $staticScanReport['ap130_architecture_operations_direct_surfaces'],
+            'ap131_self_improvement_architecture_operations_review' => $staticScanReport['ap131_self_improvement_architecture_operations_review'],
+            'ap132_architecture_operations_metadata_contract' => $staticScanReport['ap132_architecture_operations_metadata_contract'],
+            'ap133_architecture_operations_filter_contract' => $staticScanReport['ap133_architecture_operations_filter_contract'],
             'ap33_surface_capability_parity' => [
                 'valid' => $surfaceCapabilityReport['ok'],
                 'checked' => $surfaceCapabilityReport['checked'],

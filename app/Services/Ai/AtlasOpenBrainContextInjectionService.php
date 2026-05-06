@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AtlasOpenBrainAccessLog;
+use App\Services\Ai\Context\ContextPackSelfReflectionGate;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
@@ -18,6 +19,7 @@ class AtlasOpenBrainContextInjectionService
         private readonly EngineeringKnowledgeBaseService $knowledge,
         private readonly EngineeringCodeIntelligenceService $code,
         private readonly ?AtlasMemoryQualityService $memoryQuality = null,
+        private readonly ?ContextPackSelfReflectionGate $contextReflection = null,
     ) {}
 
     /**
@@ -119,21 +121,24 @@ class AtlasOpenBrainContextInjectionService
         $engineeringContext = $this->engineeringContext($workspace, $payload);
         $memoryQuality = $this->memoryQuality($engineeringContext, $policy);
         $memoryQualitySummary = $this->memoryQualitySummary($memoryQuality);
+        $selfReflection = $this->selfReflection($contextPack);
         $knowledgeRefs = $this->knowledgeRefs($engineeringContext);
         $codeRefs = $this->codeRefs($engineeringContext);
         $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs);
         $hashPayload = [
-            'context_pack' => $pack,
+            'context_pack' => $this->stableContextPackForHash($pack),
             'knowledge_refs' => $knowledgeRefs,
             'code_refs' => $codeRefs,
             'memory_quality' => $memoryQualitySummary,
+            'self_reflection' => $this->stableSelfReflectionForHash($selfReflection),
             'policy' => $policy,
         ];
         $contextPackHash = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
-        $summary = $this->summary($contextRefs, $knowledgeRefs, $codeRefs, $policy);
+        $summary = $this->summary($contextRefs, $knowledgeRefs, $codeRefs, $policy, $pack);
         if ($memoryQuality !== null) {
             $summary['memory_quality'] = $memoryQualitySummary;
         }
+        $summary['self_reflection'] = $selfReflection;
         $warnings = [];
 
         if ((int) $summary['memory_refs'] === 0) {
@@ -148,7 +153,12 @@ class AtlasOpenBrainContextInjectionService
         if ((int) $summary['context_refs'] === 0) {
             $warnings[] = 'open_brain_context_empty';
         }
-        $warnings = array_values(array_unique([...$warnings, ...$this->memoryQualityWarnings($memoryQuality)]));
+        $warnings = array_values(array_unique([
+            ...$warnings,
+            ...$this->memoryQualityWarnings($memoryQuality),
+            ...$this->selfReflectionWarnings($selfReflection),
+            ...$this->retrievalPlanWarnings((array) ($summary['retrieval_plan'] ?? [])),
+        ]));
 
         $promptSection = $this->promptSection(
             task: $task,
@@ -210,6 +220,10 @@ class AtlasOpenBrainContextInjectionService
             'memory_quality_critical',
             'memory_quality_not_migrated',
             'memory_quality_empty',
+            'context_pack_insufficient',
+            'context_pack_contradictory',
+            'context_pack_risky',
+            'retrieval_required_source_unavailable',
         ]));
 
         if ($blockingWarnings !== [] && $policy['mode'] === 'required') {
@@ -225,7 +239,7 @@ class AtlasOpenBrainContextInjectionService
                 'prompt_section' => null,
                 'summary' => $summary,
                 'warnings' => $warnings,
-                'next_actions' => ['Run atlas memory maintain and retry with Open Brain ready.'],
+                'next_actions' => $this->nextActions($warnings, $summary),
                 'context_refs' => $contextRefs,
                 'policy' => $policy,
             ];
@@ -243,10 +257,56 @@ class AtlasOpenBrainContextInjectionService
             'prompt_section' => $promptSection,
             'summary' => $summary,
             'warnings' => $warnings,
-            'next_actions' => $this->nextActions($warnings),
+            'next_actions' => $this->nextActions($warnings, $summary),
             'context_refs' => $contextRefs,
             'policy' => $policy,
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function selfReflection(AiContextPack $contextPack): array
+    {
+        return ($this->contextReflection ?? app(ContextPackSelfReflectionGate::class))->assess($contextPack);
+    }
+
+    /**
+     * @param  array<string,mixed>  $pack
+     * @return array<string,mixed>
+     */
+    private function stableContextPackForHash(array $pack): array
+    {
+        if (is_array($pack['manifest'] ?? null)) {
+            unset($pack['manifest']['created_at'], $pack['manifest']['expires_at']);
+        }
+
+        return $pack;
+    }
+
+    /**
+     * @param  array<string,mixed>  $selfReflection
+     * @return array<string,mixed>
+     */
+    private function stableSelfReflectionForHash(array $selfReflection): array
+    {
+        unset($selfReflection['assessed_at']);
+
+        return $selfReflection;
+    }
+
+    /**
+     * @param  array<string,mixed>  $selfReflection
+     * @return array<int,string>
+     */
+    private function selfReflectionWarnings(array $selfReflection): array
+    {
+        return match ((string) ($selfReflection['status'] ?? 'unknown')) {
+            ContextPackSelfReflectionGate::STATUS_INSUFFICIENT => ['context_pack_insufficient'],
+            ContextPackSelfReflectionGate::STATUS_CONTRADICTORY => ['context_pack_contradictory'],
+            ContextPackSelfReflectionGate::STATUS_RISKY => ['context_pack_risky'],
+            default => [],
+        };
     }
 
     /**
@@ -546,9 +606,10 @@ class AtlasOpenBrainContextInjectionService
      * @param  array<string,mixed>  $policy
      * @return array<string,mixed>
      */
-    private function summary(array $contextRefs, array $knowledgeRefs, array $codeRefs, array $policy): array
+    private function summary(array $contextRefs, array $knowledgeRefs, array $codeRefs, array $policy, array $contextPack): array
     {
         $refs = collect($contextRefs);
+        $retrievalPlan = $this->retrievalPlanSummary((array) data_get($contextPack, 'retrieval', []), $contextRefs, $knowledgeRefs, $codeRefs, $contextPack);
 
         return [
             'context_refs' => $refs->count(),
@@ -560,7 +621,186 @@ class AtlasOpenBrainContextInjectionService
             'budget_chars' => (int) $policy['budget_chars'],
             'used_chars' => 0,
             'provider_safe' => true,
+            'retrieval_plan' => $retrievalPlan,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $retrievalPlan
+     * @return array<string,mixed>|null
+     */
+    private function retrievalPlanSummary(array $retrievalPlan, array $contextRefs, array $knowledgeRefs, array $codeRefs, array $contextPack): ?array
+    {
+        if ($retrievalPlan === []) {
+            return null;
+        }
+
+        $selected = array_values(array_filter((array) ($retrievalPlan['selected_sources'] ?? []), 'is_array'));
+        $required = array_values(array_filter($selected, fn (array $source): bool => (bool) ($source['required'] ?? false)));
+        $availability = $this->retrievalSourceAvailability($selected, $contextRefs, $knowledgeRefs, $codeRefs, $contextPack);
+
+        $reviewSignal = $this->retrievalReviewSignal($availability);
+
+        return [
+            'schema_version' => $retrievalPlan['schema_version'] ?? null,
+            'mode' => $retrievalPlan['mode'] ?? null,
+            'selected_source_count' => count($selected),
+            'selected_sources' => array_values(array_map(fn (array $source): string => (string) ($source['type'] ?? 'unknown'), $selected)),
+            'required_sources' => array_values(array_map(fn (array $source): string => (string) ($source['type'] ?? 'unknown'), $required)),
+            'available_sources' => array_values(array_keys(array_filter($availability, fn (array $source): bool => (bool) $source['available']))),
+            'unavailable_sources' => array_values(array_keys(array_filter($availability, fn (array $source): bool => ! (bool) $source['available']))),
+            'required_unavailable_sources' => array_values(array_keys(array_filter($availability, fn (array $source): bool => (bool) $source['required'] && ! (bool) $source['available']))),
+            'availability' => $availability,
+            'review_signal' => $reviewSignal,
+            'provider_safe_only' => (bool) data_get($retrievalPlan, 'policy.provider_safe_only', true),
+            'max_context_refs' => data_get($retrievalPlan, 'budgets.max_context_refs'),
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $selected
+     * @param  array<int,array<string,mixed>>  $contextRefs
+     * @param  array<int,array<string,mixed>>  $knowledgeRefs
+     * @param  array<int,array<string,mixed>>  $codeRefs
+     * @param  array<string,mixed>  $contextPack
+     * @return array<string,array<string,mixed>>
+     */
+    private function retrievalSourceAvailability(array $selected, array $contextRefs, array $knowledgeRefs, array $codeRefs, array $contextPack): array
+    {
+        $refs = collect($contextRefs);
+        $counts = [
+            'vector_retrieval' => $refs->where('type', 'semantic_note')->count(),
+            'memory_signals' => $refs->whereIn('type', ['atlas_memory_entry', 'atlas_verbatim_memory', 'semantic_note'])->count(),
+            'code_intelligence' => count($codeRefs),
+            'evidence_replay' => $this->evidenceReplayCount($contextRefs, $contextPack),
+            'graph_retrieval' => $this->graphRetrievalCount($contextRefs, $contextPack),
+            'knowledge_base' => count($knowledgeRefs),
+        ];
+
+        $availability = [];
+        foreach ($selected as $source) {
+            $type = (string) ($source['type'] ?? 'unknown');
+            $count = (int) ($counts[$type] ?? 0);
+            $availability[$type] = [
+                'available' => $count > 0,
+                'count' => $count,
+                'required' => (bool) ($source['required'] ?? false),
+                'unavailable_action' => (string) ($source['unavailable_action'] ?? 'degrade_with_review_signal'),
+            ];
+        }
+
+        return $availability;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $contextRefs
+     * @param  array<string,mixed>  $contextPack
+     */
+    private function evidenceReplayCount(array $contextRefs, array $contextPack): int
+    {
+        $refCount = collect($contextRefs)
+            ->whereIn('type', ['atlas_ledger_event', 'atlas_replay_event', 'evidence_replay'])
+            ->count();
+
+        return $refCount
+            + count((array) data_get($contextPack, 'evidence.previous_traces', []))
+            + count((array) data_get($contextPack, 'evidence.replay_events', []));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $contextRefs
+     * @param  array<string,mixed>  $contextPack
+     */
+    private function graphRetrievalCount(array $contextRefs, array $contextPack): int
+    {
+        $refCount = collect($contextRefs)
+            ->whereIn('type', ['graph_relation', 'knowledge_graph_edge', 'graph_retrieval'])
+            ->count();
+
+        return $refCount + count((array) data_get($contextPack, 'graph.relations', []));
+    }
+
+    /**
+     * @param  array<string,mixed>  $retrievalPlan
+     * @return array<int,string>
+     */
+    private function retrievalPlanWarnings(array $retrievalPlan): array
+    {
+        $unavailable = array_values((array) ($retrievalPlan['unavailable_sources'] ?? []));
+        $requiredUnavailable = array_values((array) ($retrievalPlan['required_unavailable_sources'] ?? []));
+        $warnings = [];
+
+        if ($unavailable !== []) {
+            $warnings[] = 'retrieval_source_unavailable';
+        }
+
+        if ($requiredUnavailable !== []) {
+            $warnings[] = 'retrieval_required_source_unavailable';
+        }
+
+        return $warnings;
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $availability
+     * @return array<string,mixed>
+     */
+    private function retrievalReviewSignal(array $availability): array
+    {
+        $unavailable = array_values(array_keys(array_filter($availability, fn (array $source): bool => ! (bool) $source['available'])));
+        $requiredUnavailable = array_values(array_keys(array_filter($availability, fn (array $source): bool => (bool) $source['required'] && ! (bool) $source['available'])));
+
+        if ($requiredUnavailable !== []) {
+            return [
+                'status' => 'blocking',
+                'severity' => 'high',
+                'reason' => 'required_retrieval_source_unavailable',
+                'sources' => $requiredUnavailable,
+                'recommended_action' => $this->retrievalRecommendedAction($requiredUnavailable),
+            ];
+        }
+
+        if ($unavailable !== []) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'reason' => 'optional_retrieval_source_unavailable',
+                'sources' => $unavailable,
+                'recommended_action' => $this->retrievalRecommendedAction($unavailable),
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'severity' => 'none',
+            'reason' => 'all_selected_retrieval_sources_available',
+            'sources' => [],
+            'recommended_action' => 'none',
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $sources
+     */
+    private function retrievalRecommendedAction(array $sources): string
+    {
+        if (in_array('evidence_replay', $sources, true)) {
+            return 'refresh_evidence_replay_or_attach_trace_before_retry';
+        }
+
+        if (in_array('code_intelligence', $sources, true)) {
+            return 'refresh_code_intelligence_before_retry';
+        }
+
+        if (in_array('memory_signals', $sources, true) || in_array('vector_retrieval', $sources, true)) {
+            return 'refresh_memory_context_before_retry';
+        }
+
+        if (in_array('graph_retrieval', $sources, true)) {
+            return 'degrade_graph_context_or_attach_relationship_evidence';
+        }
+
+        return 'refresh_context_sources_before_retry';
     }
 
     /**
@@ -592,6 +832,13 @@ class AtlasOpenBrainContextInjectionService
             '- context_pack_hash: '.$contextPackHash,
             '- refs: memory='.$summary['memory_refs'].'; verbatim='.$summary['verbatim_refs'].'; semantic='.$summary['semantic_refs'].'; knowledge='.$summary['knowledge_refs'].'; code='.$summary['code_refs'],
         ];
+
+        if (is_array($summary['retrieval_plan'] ?? null)) {
+            $retrieval = $summary['retrieval_plan'];
+            $lines[] = '- retrieval_plan: mode='.($retrieval['mode'] ?? 'unknown')
+                .'; selected='.implode(',', (array) ($retrieval['selected_sources'] ?? []))
+                .'; required='.implode(',', (array) ($retrieval['required_sources'] ?? []));
+        }
 
         if ($warnings !== []) {
             $lines[] = '- warnings: '.implode(', ', $warnings);
@@ -625,6 +872,18 @@ class AtlasOpenBrainContextInjectionService
                 $lines[] = '- issues: '.collect($issues)
                     ->map(fn (array $issue): string => (string) ($issue['severity'] ?? 'info').':'.(string) ($issue['code'] ?? 'unknown'))
                     ->implode(', ');
+            }
+        }
+
+        if (is_array($summary['self_reflection'] ?? null)) {
+            $reflection = $summary['self_reflection'];
+            $lines[] = '';
+            $lines[] = '## Context Pack Self-Reflection Gate';
+            $lines[] = '- schema: '.($reflection['schema_version'] ?? 'unknown');
+            $lines[] = '- status: '.($reflection['status'] ?? 'unknown').'; recommended_action='.($reflection['recommended_action'] ?? 'n/a');
+            $reasons = array_values((array) ($reflection['reasons'] ?? []));
+            if ($reasons !== []) {
+                $lines[] = '- reasons: '.implode(', ', $reasons);
             }
         }
 
@@ -728,9 +987,19 @@ class AtlasOpenBrainContextInjectionService
      * @param  array<int,string>  $warnings
      * @return array<int,string>
      */
-    private function nextActions(array $warnings): array
+    private function nextActions(array $warnings, array $summary = []): array
     {
         $actions = [];
+        $retrievalAction = data_get($summary, 'retrieval_plan.review_signal.recommended_action');
+        if (is_string($retrievalAction) && $retrievalAction !== '' && $retrievalAction !== 'none') {
+            $actions[] = match ($retrievalAction) {
+                'refresh_evidence_replay_or_attach_trace_before_retry' => 'Refresh evidence replay or attach trace/envelope evidence before retrying.',
+                'refresh_code_intelligence_before_retry' => 'Refresh code intelligence before retrying.',
+                'refresh_memory_context_before_retry' => 'Refresh Atlas memory/context sources before retrying.',
+                'degrade_graph_context_or_attach_relationship_evidence' => 'Attach relationship evidence or explicitly degrade graph context before retrying.',
+                default => 'Refresh unavailable retrieval sources before retrying.',
+            };
+        }
         if (in_array('no_engineering_knowledge_refs', $warnings, true) || in_array('no_code_intelligence_refs', $warnings, true)) {
             $actions[] = 'Run atlas memory maintain to sync docs and code intelligence.';
         }
@@ -738,7 +1007,7 @@ class AtlasOpenBrainContextInjectionService
             $actions[] = 'Run migrations before requiring Open Brain injection.';
         }
 
-        return $actions;
+        return array_values(array_unique($actions));
     }
 
     /**

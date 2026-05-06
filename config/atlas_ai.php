@@ -1,5 +1,20 @@
 <?php
 
+use App\Services\Ai\Domain\AtlasHealthOrchestrator;
+use App\Services\Ai\Domain\AtlasLearningOrchestrator;
+use App\Services\Ai\Domain\AtlasMarketingOrchestrator;
+use App\Services\Ai\Domain\AtlasOperationsOrchestrator;
+use App\Services\Ai\Domain\AtlasQaOrchestrator;
+use App\Services\Ai\Domain\AtlasResearchOrchestrator;
+use App\Services\Ai\Domain\AtlasSecurityOrchestrator;
+use App\Services\Ai\Domain\AtlasWritingOrchestrator;
+use App\Services\Ai\Domain\BackgroundSafetyOrchestrator;
+use App\Services\Ai\Domain\StandardResponseOrchestrator;
+use App\Services\Ai\Finance\AtlasFinanceOrchestrator;
+use App\Services\Ai\PersonalDevelopment\AtlasPersonalDevelopmentOrchestrator;
+use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementOrchestrator;
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -279,19 +294,19 @@ return [
 
     'domain_orchestrators' => [
         'StandardResponseOrchestrator' => [
-            'class' => App\Services\Ai\Domain\StandardResponseOrchestrator::class,
+            'class' => StandardResponseOrchestrator::class,
             'maturity' => 'scaffold',
             'domains' => ['general'],
             'flows' => ['general.answer'],
         ],
         'AtlasResearchOrchestrator' => [
-            'class' => App\Services\Ai\Domain\AtlasResearchOrchestrator::class,
+            'class' => AtlasResearchOrchestrator::class,
             'maturity' => 'scaffold',
             'domains' => ['research'],
             'flows' => ['research.quick', 'research.super'],
         ],
         'AtlasProgrammingOrchestrator' => [
-            'class' => App\Services\Ai\Programming\AtlasProgrammingOrchestrator::class,
+            'class' => AtlasProgrammingOrchestrator::class,
             'maturity' => 'implemented',
             'domains' => ['programming'],
             'flows' => [
@@ -307,7 +322,7 @@ return [
             ],
         ],
         'AtlasFinanceOrchestrator' => [
-            'class' => App\Services\Ai\Finance\AtlasFinanceOrchestrator::class,
+            'class' => AtlasFinanceOrchestrator::class,
             'maturity' => 'implemented',
             'domains' => ['finance'],
             'flows' => [
@@ -324,7 +339,7 @@ return [
             ],
         ],
         'AtlasPersonalDevelopmentOrchestrator' => [
-            'class' => App\Services\Ai\PersonalDevelopment\AtlasPersonalDevelopmentOrchestrator::class,
+            'class' => AtlasPersonalDevelopmentOrchestrator::class,
             'maturity' => 'implemented',
             'domains' => ['personal_development'],
             'flows' => [
@@ -341,43 +356,43 @@ return [
             ],
         ],
         'AtlasHealthOrchestrator' => [
-            'class' => App\Services\Ai\Domain\AtlasHealthOrchestrator::class,
+            'class' => AtlasHealthOrchestrator::class,
             'maturity' => 'scaffold',
             'domains' => ['health'],
             'flows' => ['health.review'],
         ],
         'AtlasLearningOrchestrator' => [
-            'class' => App\Services\Ai\Domain\AtlasLearningOrchestrator::class,
+            'class' => AtlasLearningOrchestrator::class,
             'maturity' => 'scaffold',
             'domains' => ['learning'],
             'flows' => ['learning.plan'],
         ],
         'AtlasWritingOrchestrator' => [
-            'class' => App\Services\Ai\Domain\AtlasWritingOrchestrator::class,
+            'class' => AtlasWritingOrchestrator::class,
             'maturity' => 'scaffold',
             'domains' => ['writing'],
             'flows' => ['writing.draft'],
         ],
         'AtlasQaOrchestrator' => [
-            'class' => App\Services\Ai\Domain\AtlasQaOrchestrator::class,
+            'class' => AtlasQaOrchestrator::class,
             'maturity' => 'scaffold',
             'domains' => ['qa'],
             'flows' => ['qa.regression_review'],
         ],
         'AtlasSecurityOrchestrator' => [
-            'class' => App\Services\Ai\Domain\AtlasSecurityOrchestrator::class,
+            'class' => AtlasSecurityOrchestrator::class,
             'maturity' => 'scaffold',
             'domains' => ['security'],
             'flows' => ['security.threat_review'],
         ],
         'AtlasOperationsOrchestrator' => [
-            'class' => App\Services\Ai\Domain\AtlasOperationsOrchestrator::class,
+            'class' => AtlasOperationsOrchestrator::class,
             'maturity' => 'scaffold',
             'domains' => ['operations'],
             'flows' => ['operations.diagnostic'],
         ],
         'AtlasMarketingOrchestrator' => [
-            'class' => App\Services\Ai\Domain\AtlasMarketingOrchestrator::class,
+            'class' => AtlasMarketingOrchestrator::class,
             'maturity' => 'scaffold',
             'domains' => ['marketing'],
             'flows' => [
@@ -399,7 +414,7 @@ return [
             ],
         ],
         'AtlasSelfImprovementOrchestrator' => [
-            'class' => App\Services\Ai\SelfImprovement\AtlasSelfImprovementOrchestrator::class,
+            'class' => AtlasSelfImprovementOrchestrator::class,
             'maturity' => 'implemented',
             'domains' => ['self_improvement'],
             'flows' => [
@@ -418,7 +433,7 @@ return [
             ],
         ],
         'BackgroundSafetyOrchestrator' => [
-            'class' => App\Services\Ai\Domain\BackgroundSafetyOrchestrator::class,
+            'class' => BackgroundSafetyOrchestrator::class,
             'maturity' => 'scaffold',
             'domains' => ['background'],
             'flows' => ['background.safe'],
@@ -435,5 +450,12 @@ return [
         'hours' => (int) env('ATLAS_AI_SELF_IMPROVEMENT_HOURS', 24),
         'limit' => (int) env('ATLAS_AI_SELF_IMPROVEMENT_LIMIT', 5),
         'emit' => (bool) env('ATLAS_AI_SELF_IMPROVEMENT_EMIT', false),
+    ],
+
+    'ledger_projection' => [
+        'enabled' => (bool) env('ATLAS_AI_LEDGER_PROJECTION_ENABLED', true),
+        'hours' => (int) env('ATLAS_AI_LEDGER_PROJECTION_HOURS', 24),
+        'limit' => (int) env('ATLAS_AI_LEDGER_PROJECTION_LIMIT', 500),
+        'max_lag_seconds' => (int) env('ATLAS_AI_LEDGER_PROJECTION_MAX_LAG_SECONDS', 900),
     ],
 ];

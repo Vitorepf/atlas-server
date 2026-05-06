@@ -2,11 +2,17 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Models\AiInboxItem;
 use App\Models\AtlasInitiativeRun;
 use App\Models\AtlasLedgerEvent;
+use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
+use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Mobile\ProposalInboxEmitter;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementInput;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementRuntime;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
@@ -24,6 +30,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('atlas_open_brain_access_logs');
         Schema::dropIfExists('atlas_initiative_runs');
         Schema::dropIfExists('atlas_ledger_events');
 
@@ -138,6 +145,29 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame(24, data_get($payload, 'runtime.hours'));
         $this->assertNotEmpty(data_get($payload, 'runtime.findings'));
         $this->assertNotEmpty($payload['evidence_refs']);
+    }
+
+    public function test_command_plan_only_uses_shared_self_improvement_input_contract(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--hours' => 999,
+            '--limit' => 999,
+            '--plan-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('planned', $payload['status']);
+        $this->assertSame(
+            AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS,
+            data_get($payload, 'plan.options.hours'),
+        );
+        $this->assertSame(
+            AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN,
+            data_get($payload, 'plan.options.limit'),
+        );
+        $this->assertSame(AtlasSelfImprovementInput::DEFAULT_FINDINGS_LIMIT, app(AtlasSelfImprovementInput::class)->findingsLimit('bad'));
     }
 
     public function test_command_can_run_specialized_self_improvement_flow(): void
@@ -495,6 +525,145 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertContains('maturity_gate', data_get($finding, 'source_refs.0.missing_phases'));
     }
 
+    public function test_self_improvement_detects_open_brain_retrieval_required_source_gaps(): void
+    {
+        AtlasOpenBrainAccessLog::query()->create([
+            'surface' => 'atlas_cli_dev',
+            'requester' => 'atlas_dev',
+            'action' => 'context_injection',
+            'status' => 'failed_closed',
+            'workspace_hash' => 'workspace-hash',
+            'workspace_label' => 'atlas-server',
+            'context_pack_hash' => 'context-pack-hash',
+            'context_refs_count' => 0,
+            'memory_refs_count' => 2,
+            'provider_safe' => true,
+            'query_json' => ['input_hash' => hash('sha256', 'bug fix with high risk')],
+            'result_summary_json' => [
+                'warnings' => ['retrieval_required_source_unavailable'],
+                'retrieval_plan' => [
+                    'schema_version' => 'atlas.open_brain.retrieval_plan_summary.v1',
+                    'required_unavailable_sources' => ['evidence_replay'],
+                    'review_signal' => [
+                        'status' => 'blocking',
+                        'severity' => 'high',
+                        'reason' => 'required_retrieval_source_unavailable',
+                        'recommended_action' => 'refresh_evidence_replay_or_attach_trace_before_retry',
+                    ],
+                ],
+            ],
+            'metadata' => ['schema_version' => 'atlas.open_brain.access_log.v1'],
+            'accessed_at' => now()->subMinutes(15),
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'domain_learning_review',
+            emit: false,
+            hours: 24,
+            limit: 5,
+        );
+
+        $finding = collect($result['findings'])->firstWhere(
+            'dedupe_key',
+            'self-improvement:open-brain-retrieval:'.sha1('refresh_evidence_replay_or_attach_trace_before_retry:evidence_replay'),
+        );
+
+        $this->assertSame('self_improvement.domain_learning_review', $result['flow']);
+        $this->assertIsArray($finding);
+        $this->assertSame('Corrigir fontes obrigatorias ausentes no Open Brain', $finding['title']);
+        $this->assertSame('atlas.self_improvement.open_brain_retrieval.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('blocking', data_get($finding, 'metadata.review_signal.status'));
+        $this->assertSame('high', data_get($finding, 'metadata.review_signal.severity'));
+        $this->assertSame('refresh_evidence_replay_or_attach_trace_before_retry', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame(['evidence_replay'], data_get($finding, 'metadata.review_signal.required_unavailable_sources'));
+        $this->assertSame(['failed_closed' => 1], data_get($finding, 'metadata.status_counts'));
+        $this->assertSame(['evidence_replay' => 1], data_get($finding, 'metadata.required_unavailable_source_counts'));
+        $this->assertSame('open_brain_access_log', data_get($finding, 'source_refs.0.type'));
+        $this->assertSame('atlas_cli_dev', data_get($finding, 'source_refs.0.surface'));
+        $this->assertSame(['evidence_replay'], data_get($finding, 'source_refs.0.required_unavailable_sources'));
+
+        $learningEvent = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'self_improvement_run:'.$result['run_id'])
+            ->where('event_type', LedgerEventType::LearningProposed->value)
+            ->get()
+            ->first(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'finding.dedupe_key') === $finding['dedupe_key']);
+
+        $this->assertInstanceOf(AtlasLedgerEvent::class, $learningEvent);
+        $this->assertSame('atlas.self_improvement.open_brain_retrieval.v1', data_get($learningEvent->payload, 'finding.schema_version'));
+        $this->assertSame('blocking', data_get($learningEvent->payload, 'finding.review_signal.status'));
+        $this->assertSame('refresh_evidence_replay_or_attach_trace_before_retry', data_get($learningEvent->payload, 'finding.review_signal.recommended_action'));
+        $this->assertSame(['open_brain_access_log'], data_get($learningEvent->payload, 'finding.source_types'));
+    }
+
+    public function test_learning_proposed_event_links_emitted_inbox_item_to_finding(): void
+    {
+        AtlasOpenBrainAccessLog::query()->create([
+            'surface' => 'atlas_cli_dev',
+            'requester' => 'atlas_dev',
+            'action' => 'context_injection',
+            'status' => 'failed_closed',
+            'workspace_hash' => 'workspace-hash',
+            'workspace_label' => 'atlas-server',
+            'context_pack_hash' => 'context-pack-hash',
+            'context_refs_count' => 0,
+            'memory_refs_count' => 2,
+            'provider_safe' => true,
+            'query_json' => ['input_hash' => hash('sha256', 'high risk repair')],
+            'result_summary_json' => [
+                'warnings' => ['retrieval_required_source_unavailable'],
+                'retrieval_plan' => [
+                    'required_unavailable_sources' => ['evidence_replay'],
+                    'review_signal' => [
+                        'status' => 'blocking',
+                        'severity' => 'high',
+                        'reason' => 'required_retrieval_source_unavailable',
+                        'recommended_action' => 'refresh_evidence_replay_or_attach_trace_before_retry',
+                    ],
+                ],
+            ],
+            'metadata' => ['schema_version' => 'atlas.open_brain.access_log.v1'],
+            'accessed_at' => now()->subMinutes(10),
+        ]);
+
+        $inboxItem = new AiInboxItem;
+        $inboxItem->id = '00000000-0000-0000-0000-000000000123';
+
+        $this->mock(ProposalInboxEmitter::class, function ($mock) use ($inboxItem): void {
+            $mock->shouldReceive('emit')
+                ->andReturn($inboxItem);
+        });
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'domain_learning_review',
+            emit: true,
+            hours: 24,
+            limit: 5,
+        );
+
+        $finding = collect($result['findings'])->first(
+            fn (array $finding): bool => str_starts_with((string) ($finding['dedupe_key'] ?? ''), 'self-improvement:open-brain-retrieval:')
+        );
+        $learningEvent = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'self_improvement_run:'.$result['run_id'])
+            ->where('event_type', LedgerEventType::LearningProposed->value)
+            ->get()
+            ->first(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'finding.dedupe_key') === $finding['dedupe_key']);
+        $completedEvent = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'self_improvement_run:'.$result['run_id'])
+            ->where('event_type', LedgerEventType::OperationCompleted->value)
+            ->firstOrFail();
+
+        $this->assertIsArray($finding);
+        $this->assertInstanceOf(AtlasLedgerEvent::class, $learningEvent);
+        $this->assertContains($inboxItem->id, $result['emitted_item_ids']);
+        $this->assertTrue((bool) data_get($learningEvent->payload, 'emitted'));
+        $this->assertTrue((bool) data_get($learningEvent->payload, 'emitted_to_inbox'));
+        $this->assertSame($inboxItem->id, data_get($learningEvent->payload, 'emitted_inbox_item_id'));
+        $this->assertSame($finding['dedupe_key'], data_get($learningEvent->payload, 'finding.dedupe_key'));
+        $this->assertSame(count($result['emitted_item_ids']), data_get($completedEvent->payload, 'emitted_count'));
+        $this->assertContains($inboxItem->id, data_get($completedEvent->payload, 'emitted_inbox_item_ids'));
+    }
+
     public function test_self_improvement_detects_architecture_validation_regressions_from_shared_service(): void
     {
         $this->mock(AtlasAiArchitectureValidationService::class, function ($mock): void {
@@ -561,6 +730,177 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         ], data_get($finding, 'metadata.filters'));
     }
 
+    public function test_self_improvement_detects_ledger_projection_drift_from_architecture_validation(): void
+    {
+        $this->mock(AtlasAiArchitectureValidationService::class, function ($mock): void {
+            $mock->shouldReceive('payload')->once()->andReturn([
+                'schema_version' => 1,
+                'status' => 'ok',
+                'kernel' => [
+                    'valid' => true,
+                    'ledger_projections' => [
+                        'drift' => [
+                            'schema_version' => 'atlas.ledger_projection_drift.v1',
+                            'available' => true,
+                            'status' => 'attention_required',
+                            'projection_count' => 3,
+                            'drifted_count' => 1,
+                            'attention_count' => 1,
+                            'ledger_latest_occurred_at' => '2026-05-06T04:00:00.000000Z',
+                            'projections' => [
+                                [
+                                    'id' => 'ai_traces',
+                                    'table' => 'ai_traces',
+                                    'status' => 'drift_detected',
+                                    'source_event_count' => 12,
+                                    'lag_seconds' => 300,
+                                    'needs_attention' => true,
+                                ],
+                            ],
+                        ],
+                    ],
+                    'static_scan' => [
+                        'valid' => true,
+                        'summary' => [
+                            'total_count' => 40,
+                            'passed_count' => 40,
+                            'failed_count' => 0,
+                            'failed_keys' => [],
+                            'violation_count' => 0,
+                        ],
+                    ],
+                ],
+                'capabilities' => ['valid' => true],
+                'domains' => ['valid' => true],
+                'orchestrators' => ['valid' => true],
+                'onboarding' => [],
+                'validated_at' => '2026-05-06T04:01:00Z',
+            ]);
+        });
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'weekly_architecture_audit',
+            emit: false,
+            hours: 24,
+            limit: 5,
+        );
+
+        $finding = collect($result['findings'])->firstWhere(
+            'dedupe_key',
+            'self-improvement:ledger-projection-drift:'.sha1('ai_traces:attention_required:1')
+        );
+
+        $this->assertSame('self_improvement.weekly_architecture_audit', $result['flow']);
+        $this->assertIsArray($finding);
+        $this->assertSame('Corrigir drift das projection tables do Evidence Ledger', $finding['title']);
+        $this->assertSame('atlas.self_improvement.ledger_projection_drift.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('warning', data_get($finding, 'metadata.review_signal.status'));
+        $this->assertSame('open_reviewable_ledger_projection_backfill_proposal', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('run_ledger_projection', data_get($finding, 'available_actions.0.id'));
+        $this->assertSame('attention_required', data_get($finding, 'payload.projection_health.status'));
+        $this->assertSame(24, data_get($finding, 'payload.ledger_projection.hours'));
+        $this->assertSame(500, data_get($finding, 'payload.ledger_projection.limit'));
+        $this->assertSame(['ai_traces'], data_get($finding, 'metadata.projection_ids'));
+        $this->assertSame('ledger_projection_drift', data_get($finding, 'source_refs.0.type'));
+        $this->assertSame(300, data_get($finding, 'source_refs.0.lag_seconds'));
+    }
+
+    public function test_self_improvement_emits_ledger_projection_drift_proposal_with_assisted_action(): void
+    {
+        $this->mock(AtlasAiArchitectureValidationService::class, function ($mock): void {
+            $mock->shouldReceive('payload')->once()->andReturn([
+                'schema_version' => 1,
+                'status' => 'ok',
+                'kernel' => [
+                    'valid' => true,
+                    'ledger_projections' => [
+                        'drift' => [
+                            'schema_version' => 'atlas.ledger_projection_drift.v1',
+                            'available' => true,
+                            'status' => 'attention_required',
+                            'projection_count' => 3,
+                            'drifted_count' => 1,
+                            'attention_count' => 1,
+                            'ledger_latest_occurred_at' => '2026-05-06T04:00:00.000000Z',
+                            'projections' => [
+                                [
+                                    'id' => 'atlas_tool_runs',
+                                    'table' => 'atlas_tool_runs',
+                                    'status' => 'missing_projection_rows',
+                                    'source_event_count' => 7,
+                                    'lag_seconds' => 900,
+                                    'needs_attention' => true,
+                                ],
+                            ],
+                        ],
+                    ],
+                    'static_scan' => [
+                        'valid' => true,
+                        'summary' => [
+                            'total_count' => 40,
+                            'passed_count' => 40,
+                            'failed_count' => 0,
+                            'failed_keys' => [],
+                            'violation_count' => 0,
+                        ],
+                    ],
+                ],
+                'capabilities' => ['valid' => true],
+                'domains' => ['valid' => true],
+                'orchestrators' => ['valid' => true],
+                'onboarding' => [],
+                'validated_at' => '2026-05-06T04:01:00Z',
+            ]);
+        });
+
+        $inboxItem = new AiInboxItem;
+        $inboxItem->id = '00000000-0000-0000-0000-000000000142';
+        $capturedPayload = null;
+
+        $this->mock(ProposalInboxEmitter::class, function ($mock) use ($inboxItem, &$capturedPayload): void {
+            $mock->shouldReceive('emit')
+                ->andReturnUsing(function (array $payload) use ($inboxItem, &$capturedPayload): AiInboxItem {
+                    if (($payload['dedupe_key'] ?? null) === 'self-improvement:ledger-projection-drift:'.sha1('atlas_tool_runs:attention_required:1')) {
+                        $capturedPayload = $payload;
+
+                        return $inboxItem;
+                    }
+
+                    $other = new AiInboxItem;
+                    $other->id = '00000000-0000-0000-0000-'.substr(hash('sha256', (string) ($payload['dedupe_key'] ?? 'unknown')), 0, 12);
+
+                    return $other;
+                });
+        });
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'weekly_architecture_audit',
+            emit: true,
+            hours: 24,
+            limit: 10,
+        );
+
+        $learningEvent = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'self_improvement_run:'.$result['run_id'])
+            ->where('event_type', LedgerEventType::LearningProposed->value)
+            ->get()
+            ->first(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'finding.dedupe_key') === 'self-improvement:ledger-projection-drift:'.sha1('atlas_tool_runs:attention_required:1'));
+
+        $this->assertFalse($result['dry_run']);
+        $this->assertContains($inboxItem->id, $result['emitted_item_ids']);
+        $this->assertIsArray($capturedPayload);
+        $this->assertSame('run_ledger_projection', data_get($capturedPayload, 'available_actions.0.id'));
+        $this->assertSame('attention_required', data_get($capturedPayload, 'payload.projection_health.status'));
+        $this->assertSame(24, data_get($capturedPayload, 'payload.ledger_projection.hours'));
+        $this->assertSame(500, data_get($capturedPayload, 'payload.ledger_projection.limit'));
+        $this->assertSame('atlas.self_improvement.ledger_projection_drift.v1', data_get($capturedPayload, 'metadata.schema_version'));
+        $this->assertSame('open_reviewable_ledger_projection_backfill_proposal', data_get($capturedPayload, 'metadata.review_signal.recommended_action'));
+        $this->assertInstanceOf(AtlasLedgerEvent::class, $learningEvent);
+        $this->assertTrue((bool) data_get($learningEvent->payload, 'emitted_to_inbox'));
+        $this->assertSame($inboxItem->id, data_get($learningEvent->payload, 'emitted_inbox_item_id'));
+        $this->assertSame('atlas.self_improvement.ledger_projection_drift.v1', data_get($learningEvent->payload, 'finding.schema_version'));
+    }
+
     public function test_self_improvement_detects_unhealthy_recurring_schedule(): void
     {
         config()->set('app.timezone', 'America/Sao_Paulo');
@@ -589,6 +929,47 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('registered', data_get($finding, 'metadata.scheduler_registration.status'));
         $this->assertSame(['daily' => 1], data_get($finding, 'metadata.cadence_counts'));
         $this->assertSame('invalid_self_improvement_flows_configured', data_get($finding, 'source_refs.0.id'));
+    }
+
+    public function test_self_improvement_detects_architecture_operations_catalog_drift(): void
+    {
+        $this->app->instance(AtlasArchitectureOperationsCatalog::class, new AtlasArchitectureOperationsCatalog(commandsOverride: [
+            [
+                'command' => 'atlas ai architecture-validate',
+                'description' => 'Temporary drifted catalog for test.',
+            ],
+        ]));
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'weekly_architecture_audit',
+            emit: false,
+            hours: 24,
+            limit: 10,
+        );
+
+        $finding = collect($result['findings'])->firstWhere(
+            'dedupe_key',
+            'self-improvement:architecture-operations:'.sha1('arquitetura_mae:atlas ai architecture-operations --json,atlas ai slo --hours=24 --json,atlas ai kernel-pipeline-report --hours=24 --json,atlas ai repair-report --hours=24 --json,atlas ai provider-performance --hours=24 --json,atlas ai decision-receipt-report --envelope=<id> --json,atlas ledger replay --envelope=<id> --json,atlas ai ledger-project --limit=500 --json,atlas ai self-improvement-schedule-report --hours=24 --json,atlas ai inbox-action-report --hours=24 --json:1:1')
+        );
+
+        $this->assertSame('self_improvement.weekly_architecture_audit', $result['flow']);
+        $this->assertIsArray($finding);
+        $this->assertSame('Corrigir catalogo operacional da arquitetura mae', $finding['title']);
+        $this->assertSame('atlas.self_improvement.architecture_operations.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('arquitetura_mae', data_get($finding, 'metadata.section'));
+        $this->assertSame(1, data_get($finding, 'metadata.command_count'));
+        $this->assertSame(1, data_get($finding, 'metadata.actual_command_count'));
+        $this->assertFalse((bool) data_get($finding, 'metadata.count_mismatch'));
+        $this->assertContains('atlas ai architecture-operations --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai decision-receipt-report --envelope=<id> --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ledger replay --envelope=<id> --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai ledger-project --limit=500 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai inbox-action-report --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertSame('warning', data_get($finding, 'metadata.review_signal.status'));
+        $this->assertSame('high', data_get($finding, 'metadata.review_signal.severity'));
+        $this->assertSame('restore_architecture_operations_catalog', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('missing_architecture_operation', data_get($finding, 'source_refs.0.type'));
+        $this->assertSame('atlas ai architecture-operations --json', data_get($finding, 'source_refs.0.id'));
     }
 
     public function test_self_improvement_detects_schedule_replay_drift(): void
@@ -631,6 +1012,261 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('open_reviewable_self_improvement_schedule_proposal', data_get($finding, 'metadata.review_signal.recommended_action'));
         $this->assertSame('self_improvement_run:schedule_warn', data_get($finding, 'source_refs.0.envelope_id'));
         $this->assertSame('warning', data_get($finding, 'source_refs.0.health_status'));
+    }
+
+    public function test_self_improvement_detects_schedule_replay_missing_inbox_refs(): void
+    {
+        config()->set('app.timezone', 'America/Sao_Paulo');
+        config()->set('atlas_ai.self_improvement.enabled', true);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.time', '02:00');
+
+        $this->recordSelfImprovementScheduleObservation(
+            eventId: '01HSELFREPLAYINBOXGAP01',
+            envelopeId: 'self_improvement_run:missing_inbox_ref',
+            healthStatus: 'healthy',
+            schedulerStatus: 'registered',
+        );
+        $this->recordSelfImprovementCompletion(
+            eventId: '01HSELFREPLAYINBOXGAP02',
+            envelopeId: 'self_improvement_run:missing_inbox_ref',
+            emittedInboxItemIds: ['00000000-0000-0000-0000-000000000998'],
+        );
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'weekly_architecture_audit',
+            emit: false,
+            hours: 24,
+            limit: 10,
+        );
+
+        $finding = collect($result['findings'])->firstWhere(
+            'dedupe_key',
+            'self-improvement:schedule-replay-inbox-gap:'.sha1('1:00000000-0000-0000-0000-000000000998')
+        );
+
+        $this->assertSame('self_improvement.weekly_architecture_audit', $result['flow']);
+        $this->assertIsArray($finding);
+        $this->assertSame('Restaurar propostas do Inbox emitidas pelo Self-Improvement', $finding['title']);
+        $this->assertSame('atlas.self_improvement.schedule_replay_inbox_gap.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame(1, data_get($finding, 'metadata.missing_count'));
+        $this->assertSame(['00000000-0000-0000-0000-000000000998'], data_get($finding, 'metadata.emitted_inbox_item_missing_ids'));
+        $this->assertFalse((bool) data_get($finding, 'metadata.emitted_inbox_item_hydration_available'));
+        $this->assertSame('warning', data_get($finding, 'metadata.review_signal.status'));
+        $this->assertSame('medium', data_get($finding, 'metadata.review_signal.severity'));
+        $this->assertSame('restore_or_reemit_missing_self_improvement_inbox_items', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('self_improvement_run:missing_inbox_ref', data_get($finding, 'source_refs.0.envelope_id'));
+        $this->assertSame(['00000000-0000-0000-0000-000000000998'], data_get($finding, 'source_refs.0.emitted_inbox_item_missing_ids'));
+    }
+
+    public function test_self_improvement_emits_schedule_replay_missing_inbox_ref_proposal(): void
+    {
+        config()->set('app.timezone', 'America/Sao_Paulo');
+        config()->set('atlas_ai.self_improvement.enabled', true);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.time', '02:00');
+
+        $this->recordSelfImprovementScheduleObservation(
+            eventId: '01HSELFREPLAYINBOXEMIT01',
+            envelopeId: 'self_improvement_run:missing_inbox_emit',
+            healthStatus: 'healthy',
+            schedulerStatus: 'registered',
+        );
+        $this->recordSelfImprovementCompletion(
+            eventId: '01HSELFREPLAYINBOXEMIT02',
+            envelopeId: 'self_improvement_run:missing_inbox_emit',
+            emittedInboxItemIds: ['00000000-0000-0000-0000-000000000997'],
+        );
+
+        $inboxItem = new AiInboxItem;
+        $inboxItem->id = '00000000-0000-0000-0000-000000000777';
+        $targetDedupeKey = 'self-improvement:schedule-replay-inbox-gap:'.sha1('1:00000000-0000-0000-0000-000000000997');
+        $targetPayload = null;
+
+        $this->mock(ProposalInboxEmitter::class, function ($mock) use ($inboxItem, $targetDedupeKey, &$targetPayload): void {
+            $mock->shouldReceive('emit')
+                ->andReturnUsing(function (array $payload) use ($inboxItem, $targetDedupeKey, &$targetPayload): AiInboxItem {
+                    if (($payload['dedupe_key'] ?? null) === $targetDedupeKey) {
+                        $targetPayload = $payload;
+
+                        return $inboxItem;
+                    }
+
+                    $other = new AiInboxItem;
+                    $other->id = '00000000-0000-0000-0000-'.substr(hash('sha256', (string) ($payload['dedupe_key'] ?? 'unknown')), 0, 12);
+
+                    return $other;
+                });
+        });
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'weekly_architecture_audit',
+            emit: true,
+            hours: 24,
+            limit: 10,
+        );
+
+        $finding = collect($result['findings'])->firstWhere(
+            'dedupe_key',
+            'self-improvement:schedule-replay-inbox-gap:'.sha1('1:00000000-0000-0000-0000-000000000997')
+        );
+        $learningEvent = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'self_improvement_run:'.$result['run_id'])
+            ->where('event_type', LedgerEventType::LearningProposed->value)
+            ->get()
+            ->first(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'finding.dedupe_key') === data_get($finding, 'dedupe_key'));
+        $completedEvent = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'self_improvement_run:'.$result['run_id'])
+            ->where('event_type', LedgerEventType::OperationCompleted->value)
+            ->firstOrFail();
+
+        $this->assertIsArray($finding);
+        $this->assertIsArray($targetPayload);
+        $this->assertSame('atlas.self_improvement.schedule_replay_inbox_gap.v1', data_get($targetPayload, 'metadata.schema_version'));
+        $this->assertSame('restore_or_reemit_missing_self_improvement_inbox_items', data_get($targetPayload, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('00000000-0000-0000-0000-000000000997', data_get($targetPayload, 'source_refs.0.emitted_inbox_item_missing_ids.0'));
+        $this->assertFalse($result['dry_run']);
+        $this->assertContains($inboxItem->id, $result['emitted_item_ids']);
+        $this->assertInstanceOf(AtlasLedgerEvent::class, $learningEvent);
+        $this->assertTrue((bool) data_get($learningEvent->payload, 'emitted_to_inbox'));
+        $this->assertSame($inboxItem->id, data_get($learningEvent->payload, 'emitted_inbox_item_id'));
+        $this->assertSame('atlas.self_improvement.schedule_replay_inbox_gap.v1', data_get($learningEvent->payload, 'finding.schema_version'));
+        $this->assertSame('restore_or_reemit_missing_self_improvement_inbox_items', data_get($learningEvent->payload, 'finding.review_signal.recommended_action'));
+        $this->assertSame(count($result['emitted_item_ids']), data_get($completedEvent->payload, 'emitted_count'));
+        $this->assertContains($inboxItem->id, data_get($completedEvent->payload, 'emitted_inbox_item_ids'));
+    }
+
+    public function test_self_improvement_detects_inbox_action_replay_patch_review_gap(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONGAP000000001',
+            inboxItemId: 'inbox-action-gap-1',
+            action: 'review_patch',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'high',
+            recommendedAction: 'review_without_patch_context',
+        );
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'self_improvement.weekly_architecture_audit',
+            emit: false,
+            hours: 24,
+            limit: 10,
+            filters: ['action' => 'review_patch'],
+        );
+
+        $finding = collect($result['findings'])
+            ->firstWhere('dedupe_key', 'self-improvement:inbox-action-replay:'.sha1('24:review_patch_action_without_diff_refs'));
+
+        $this->assertIsArray($finding);
+        $this->assertSame('atlas.self_improvement.inbox_action_replay_gap.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame(1, data_get($finding, 'metadata.reviewed_patch_count'));
+        $this->assertSame(0, data_get($finding, 'metadata.with_diff_refs_count'));
+        $this->assertSame('warning', data_get($finding, 'metadata.review_signal.status'));
+        $this->assertSame('medium', data_get($finding, 'metadata.review_signal.severity'));
+        $this->assertSame('open_reviewable_inbox_action_evidence_proposal', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertContains('review_patch_action_without_diff_refs', data_get($finding, 'metadata.review_signal.reasons'));
+        $this->assertSame('inbox-action-gap-1', data_get($finding, 'source_refs.0.inbox_item_id'));
+        $this->assertSame(['action' => 'review_patch'], data_get($finding, 'metadata.filters'));
+    }
+
+    public function test_self_improvement_detects_decision_receipt_replay_hash_gap(): void
+    {
+        $this->recordDecisionReceiptEvent(
+            eventId: '01HDECISIONSELFGAP00000001',
+            envelopeId: 'env_decision_self_gap',
+            receiptId: 'receipt_self_gap',
+            payloadOverrides: [
+                'chain_hash' => 'tampered-self-improvement-chain',
+            ],
+        );
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'self_improvement.weekly_architecture_audit',
+            emit: false,
+            hours: 24,
+            limit: 10,
+            filters: ['domain' => 'programming', 'provider' => 'codex_cli'],
+        );
+
+        $finding = collect($result['findings'])
+            ->firstWhere('dedupe_key', 'self-improvement:decision-receipt-replay:'.sha1('env_decision_self_gap:decision_receipt_chain_hash_mismatch'));
+
+        $this->assertIsArray($finding);
+        $this->assertSame('atlas.self_improvement.decision_receipt_replay_gap.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame(1, data_get($finding, 'metadata.envelope_count'));
+        $this->assertSame(1, data_get($finding, 'metadata.decision_event_count'));
+        $this->assertSame(1, data_get($finding, 'metadata.invalid_count'));
+        $this->assertSame('breach', data_get($finding, 'metadata.review_signal.status'));
+        $this->assertSame('high', data_get($finding, 'metadata.review_signal.severity'));
+        $this->assertSame('open_reviewable_decision_receipt_replay_proposal', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertContains('decision_receipt_chain_hash_mismatch', data_get($finding, 'metadata.review_signal.reasons'));
+        $this->assertSame('env_decision_self_gap', data_get($finding, 'source_refs.0.envelope_id'));
+        $this->assertSame('receipt_self_gap', data_get($finding, 'source_refs.0.receipt_id'));
+        $this->assertSame('mismatch', data_get($finding, 'source_refs.0.chain_integrity_status'));
+        $this->assertSame(['domain' => 'programming', 'provider' => 'codex_cli'], data_get($finding, 'metadata.filters'));
+    }
+
+    public function test_self_improvement_emits_decision_receipt_replay_hash_gap_proposal(): void
+    {
+        $this->recordDecisionReceiptEvent(
+            eventId: '01HDECISIONSELFEMIT0000001',
+            envelopeId: 'env_decision_self_emit',
+            receiptId: 'receipt_self_emit',
+            payloadOverrides: [
+                'receipt_hash' => 'tampered-self-improvement-receipt',
+            ],
+        );
+
+        $inboxItem = new AiInboxItem;
+        $inboxItem->id = '00000000-0000-0000-0000-000000000776';
+        $targetPayload = null;
+
+        $this->mock(ProposalInboxEmitter::class, function ($mock) use ($inboxItem, &$targetPayload): void {
+            $mock->shouldReceive('emit')
+                ->andReturnUsing(function (array $payload) use ($inboxItem, &$targetPayload): AiInboxItem {
+                    if (data_get($payload, 'metadata.schema_version') === 'atlas.self_improvement.decision_receipt_replay_gap.v1') {
+                        $targetPayload = $payload;
+                    }
+
+                    return $inboxItem;
+                });
+        });
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'self_improvement.weekly_architecture_audit',
+            emit: true,
+            hours: 24,
+            limit: 10,
+            filters: ['domain' => 'programming', 'provider' => 'codex_cli'],
+        );
+
+        $learningEvent = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::LearningProposed->value)
+            ->where('envelope_id', 'like', 'self_improvement_run:%')
+            ->get()
+            ->first(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'finding.schema_version') === 'atlas.self_improvement.decision_receipt_replay_gap.v1');
+        $completedEvent = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::OperationCompleted->value)
+            ->where('envelope_id', 'like', 'self_improvement_run:%')
+            ->latest('occurred_at')
+            ->first();
+
+        $this->assertSame(false, $result['dry_run']);
+        $this->assertContains($inboxItem->id, $result['emitted_item_ids']);
+        $this->assertIsArray($targetPayload);
+        $this->assertStringStartsWith('self-improvement:decision-receipt-replay:', $targetPayload['dedupe_key']);
+        $this->assertSame('atlas.self_improvement.decision_receipt_replay_gap.v1', data_get($targetPayload, 'metadata.schema_version'));
+        $this->assertSame('open_reviewable_decision_receipt_replay_proposal', data_get($targetPayload, 'metadata.review_signal.recommended_action'));
+        $this->assertContains('decision_receipt_hash_mismatch', data_get($targetPayload, 'metadata.review_signal.reasons'));
+        $this->assertSame('env_decision_self_emit', data_get($targetPayload, 'source_refs.0.envelope_id'));
+        $this->assertSame('receipt_self_emit', data_get($targetPayload, 'source_refs.0.receipt_id'));
+        $this->assertSame('mismatch', data_get($targetPayload, 'source_refs.0.receipt_integrity_status'));
+        $this->assertTrue((bool) data_get($learningEvent?->payload, 'emitted_to_inbox'));
+        $this->assertSame($inboxItem->id, data_get($learningEvent?->payload, 'emitted_inbox_item_id'));
+        $this->assertSame('atlas.self_improvement.decision_receipt_replay_gap.v1', data_get($learningEvent?->payload, 'finding.schema_version'));
+        $this->assertContains($inboxItem->id, data_get($completedEvent?->payload, 'emitted_inbox_item_ids'));
     }
 
     public function test_self_improvement_command_accepts_kernel_pipeline_filters(): void
@@ -1060,6 +1696,25 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
             $table->json('metadata')->default('{}');
             $table->timestamps();
         });
+
+        Schema::create('atlas_open_brain_access_logs', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('surface', 80)->index();
+            $table->string('requester', 120)->nullable()->index();
+            $table->string('action', 80)->index();
+            $table->string('status', 40)->index();
+            $table->string('workspace_hash', 64)->nullable()->index();
+            $table->string('workspace_label', 160)->nullable();
+            $table->string('context_pack_hash', 64)->nullable()->index();
+            $table->unsignedInteger('context_refs_count')->default(0);
+            $table->unsignedInteger('memory_refs_count')->default(0);
+            $table->boolean('provider_safe')->default(true);
+            $table->json('query_json')->nullable();
+            $table->json('result_summary_json')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamp('accessed_at')->nullable()->index();
+            $table->timestamps();
+        });
     }
 
     /**
@@ -1168,5 +1823,161 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
             'payload_hash' => hash('sha256', $eventId),
             'occurred_at' => now()->subHours(2),
         ]);
+    }
+
+    /**
+     * @param  array<int,string>  $emittedInboxItemIds
+     */
+    private function recordSelfImprovementCompletion(string $eventId, string $envelopeId, array $emittedInboxItemIds): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $eventId,
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'default',
+            'operator_id' => 'atlas_self_improvement',
+            'envelope_id' => $envelopeId,
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => $envelopeId,
+            'causation_id' => null,
+            'event_type' => LedgerEventType::OperationCompleted->value,
+            'emitter_stage' => 'atlas.self_improvement',
+            'emitter_version' => 'test',
+            'payload' => [
+                'flow' => 'self_improvement.weekly_architecture_audit',
+                'finding_count' => count($emittedInboxItemIds),
+                'emitted_count' => count($emittedInboxItemIds),
+                'emitted_inbox_item_ids' => $emittedInboxItemIds,
+            ],
+            'payload_hash' => hash('sha256', $eventId),
+            'occurred_at' => now()->subHour(),
+        ]);
+    }
+
+    private function recordInboxActionEvent(
+        string $eventId,
+        string $inboxItemId,
+        string $action,
+        string $actorType,
+        string $category,
+        string $severity,
+        string $recommendedAction,
+    ): void {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $eventId,
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'default',
+            'operator_id' => $actorType,
+            'envelope_id' => 'inbox_item:'.$inboxItemId,
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => $inboxItemId,
+            'causation_id' => null,
+            'event_type' => LedgerEventType::InboxActionRecorded->value,
+            'emitter_stage' => 'atlas.inbox',
+            'emitter_version' => 'atlas.inbox_action.v1',
+            'payload' => [
+                'schema_version' => 'atlas.inbox_action.v1',
+                'action' => $action,
+                'inbox_item' => [
+                    'id' => $inboxItemId,
+                    'type' => 'proposal',
+                    'category' => $category,
+                    'severity' => $severity,
+                    'status' => 'read',
+                    'source_type' => 'self_improvement',
+                    'source_id' => 'finding-'.$inboxItemId,
+                    'dedupe_key' => 'dedupe-'.$inboxItemId,
+                ],
+                'actor' => [
+                    'type' => $actorType,
+                    'id' => null,
+                ],
+                'result' => [
+                    'payload' => [
+                        'action' => $action,
+                        'diff_refs' => [],
+                    ],
+                ],
+                'review_signal' => [
+                    'status' => 'warning',
+                    'severity' => $severity,
+                    'recommended_action' => $recommendedAction,
+                ],
+                'recommended_action' => $recommendedAction,
+            ],
+            'payload_hash' => hash('sha256', $eventId),
+            'occurred_at' => now()->subHour(),
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payloadOverrides
+     */
+    private function recordDecisionReceiptEvent(
+        string $eventId,
+        string $envelopeId,
+        string $receiptId,
+        ?string $parentReceiptId = null,
+        ?string $parentChainHash = null,
+        array $payloadOverrides = [],
+    ): array {
+        $payload = [
+            'schema_version' => 'atlas.decide.v2',
+            'receipt_id' => $receiptId,
+            'envelope_id' => $envelopeId,
+            'issued_at' => now()->toJSON(),
+            'expires_at' => now()->addSeconds(30)->toJSON(),
+            'dry_run' => false,
+            'signed_by' => 'atlas-decide-v2',
+            'provider_selection' => ['primary' => 'codex_cli', 'provider' => 'codex_cli', 'model' => 'gpt-5.2'],
+            'domain' => 'programming',
+            'flow' => 'programming.dev',
+            'risk' => 'medium',
+            'budget' => ['max_cost_usd' => 1.0],
+            'quality_gates' => ['tests'],
+            'required_gates' => ['tests'],
+            'required_evidence' => ['summary'],
+            'repair_policy' => ['enabled' => false, 'max_attempts' => 0],
+            'inputs_hash' => hash('sha256', 'input-'.$receiptId),
+            'parent_receipt_id' => $parentReceiptId,
+            'parent_chain_hash' => $parentChainHash,
+        ];
+        $payload['receipt_hash'] = DecisionReceiptHash::hash([
+            'receipt_id' => $payload['receipt_id'],
+            'envelope_id' => $payload['envelope_id'],
+            'schema_version' => $payload['schema_version'],
+            'issued_at' => $payload['issued_at'],
+            'expires_at' => $payload['expires_at'],
+            'dry_run' => $payload['dry_run'],
+            'signed_by' => $payload['signed_by'],
+            'inputs_hash' => $payload['inputs_hash'],
+            'parent_receipt_id' => $payload['parent_receipt_id'],
+        ]);
+        $payload['chain_hash'] = DecisionReceiptHash::hash([
+            'parent_chain_hash' => $payload['parent_chain_hash'],
+            'receipt_hash' => $payload['receipt_hash'],
+        ]);
+        $payload = array_replace_recursive($payload, $payloadOverrides);
+
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $eventId,
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'default',
+            'operator_id' => 'atlas_decide',
+            'envelope_id' => $envelopeId,
+            'receipt_id' => $receiptId,
+            'trace_id' => null,
+            'correlation_id' => $envelopeId,
+            'causation_id' => null,
+            'event_type' => LedgerEventType::DecisionIssued->value,
+            'emitter_stage' => 'atlas.decide',
+            'emitter_version' => 'atlas-decide-v2',
+            'payload' => $payload,
+            'payload_hash' => hash('sha256', $eventId),
+            'occurred_at' => now()->subHour(),
+        ]);
+
+        return $payload;
     }
 }

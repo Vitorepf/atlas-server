@@ -6,6 +6,10 @@ use Carbon\CarbonImmutable;
 
 class AtlasSelfImprovementScheduleService
 {
+    public function __construct(
+        private readonly AtlasSelfImprovementInput $input,
+    ) {}
+
     /**
      * @return array{schema_version:int,status:string,plan_hash:string,plan_hash_algorithm:string,enabled:bool,schedulable:bool,scheduler_registration:array{status:string,registered_command_count:int,skipped_reason:?string},time:string,timezone:string,next_run_at:?string,configured_flows:array<int,string>,invalid_flows:array<int,string>,defaulted:bool,flows:array<int,string>,commands:array<int,array{flow:string,command:string,time:string,cadence:string,week_day:?int,next_run_at:?string}>,count:int,cadence_counts:array<string,int>,emit:bool,health:array{status:string,issues:array<int,string>,actions:array<int,string>}}
      */
@@ -223,18 +227,12 @@ class AtlasSelfImprovementScheduleService
 
     private function hours(): int
     {
-        return max(1, min(
-            AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS,
-            (int) config('atlas_ai.self_improvement.hours', AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS),
-        ));
+        return $this->input->reviewWindowHours(config('atlas_ai.self_improvement.hours', AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS));
     }
 
     private function limit(): int
     {
-        return max(1, min(
-            AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN,
-            (int) config('atlas_ai.self_improvement.limit', 5),
-        ));
+        return $this->input->findingsLimit(config('atlas_ai.self_improvement.limit', AtlasSelfImprovementInput::DEFAULT_FINDINGS_LIMIT));
     }
 
     /**

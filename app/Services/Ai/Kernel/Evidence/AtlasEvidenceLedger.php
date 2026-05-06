@@ -124,6 +124,8 @@ class AtlasEvidenceLedger
             'repair_policy' => $receipt['repair_policy'] ?? [],
             'inputs_hash' => $receipt['inputs_hash'] ?? null,
             'receipt_hash' => $receipt['receipt_hash'] ?? null,
+            'parent_receipt_id' => $receipt['parent_receipt_id'] ?? null,
+            'parent_chain_hash' => $receipt['parent_chain_hash'] ?? data_get($receipt, 'metadata.parent_chain_hash'),
             'chain_hash' => $receipt['chain_hash'] ?? null,
             'issued_at' => $receipt['issued_at'] ?? null,
             'expires_at' => $receipt['expires_at'] ?? null,

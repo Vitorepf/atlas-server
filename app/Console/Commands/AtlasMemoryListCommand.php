@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -27,7 +28,7 @@ class AtlasMemoryListCommand extends Command
 
     protected $description = 'List Atlas central memory registry entries.';
 
-    public function handle(AtlasMemoryRegistryService $memory): int
+    public function handle(AtlasMemoryRegistryService $memory, MemoryQueryInput $input): int
     {
         if (! Schema::hasTable('atlas_memory_entries')) {
             $this->error('Tabela atlas_memory_entries ainda nao existe. Rode migrations.');
@@ -48,7 +49,7 @@ class AtlasMemoryListCommand extends Command
             'include_inactive' => (bool) $this->option('include-inactive'),
         ];
 
-        $entries = $memory->search($filters, (int) $this->option('limit'));
+        $entries = $memory->search($filters, $input->registryLimit($this->option('limit')));
         $rows = $entries->map(fn (AtlasMemoryEntry $entry): array => $this->row($entry))->values()->all();
 
         if ((bool) $this->option('json')) {

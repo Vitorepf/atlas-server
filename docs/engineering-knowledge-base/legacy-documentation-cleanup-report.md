@@ -11,6 +11,21 @@ tags:
   - documentation
   - cleanup
   - legacy
+capabilities:
+  - legacy_documentation_inventory
+  - documentation_archive_governance
+  - source_material_promotion
+decisions:
+  - Este relatorio registra o inventario e as promocoes de limpeza documental ja executadas.
+  - Docs legacy nao devem competir com README, START_HERE, Canonical Architecture Index ou Documentation OS.
+maintenance:
+  - Atualizar quando novas ondas de limpeza promoverem, arquivarem ou redirecionarem documentos.
+  - Nao usar como fonte unica para arquitetura ativa; usar como auditoria historica.
+related_paths:
+  - docs/engineering-knowledge-base/legacy-documentation-cleanup-plan.md
+  - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/archive/README.md
+  - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
 ---
 
 # Legacy Documentation Cleanup Report

@@ -107,6 +107,7 @@ class EngineeringBenchmarkService
         private readonly EngineeringClaudeCodeBaselineRunnerService $claudeCodeBaseline,
         private readonly EngineeringWorkspaceService $workspaces,
         private readonly EngineeringReleaseGateAlertService $releaseGateAlerts,
+        private readonly ?EngineeringBenchmarkInput $input = null,
     ) {}
 
     /**
@@ -365,8 +366,8 @@ class EngineeringBenchmarkService
      */
     public function promoteRecentRuns(AtlasEngineeringBenchmarkSuite $suite, array $options = []): Collection
     {
-        $limit = max(1, min(100, (int) ($options['limit'] ?? 10)));
-        $minSourceScore = max(0, min(100, (int) ($options['min_source_score'] ?? 85)));
+        $limit = $this->benchmarkInput()->promoteRecentRunsLimit($options['limit'] ?? null);
+        $minSourceScore = $this->benchmarkInput()->minSourceScore($options['min_source_score'] ?? null);
         $decision = $this->nonEmptyString($options['decision'] ?? null) ?: 'resolved';
         $workspace = $this->workspaceFrom($options['workspace'] ?? null);
 
@@ -662,7 +663,7 @@ class EngineeringBenchmarkService
      */
     public function trendPayload(AtlasEngineeringBenchmarkSuite $suite, array $options = []): array
     {
-        $limit = max(1, min(200, (int) ($options['limit'] ?? 50)));
+        $limit = $this->benchmarkInput()->trendLimit($options['limit'] ?? null);
         $benchmarkKey = $this->nonEmptyString($options['benchmark_key'] ?? null);
         $provider = $this->nonEmptyString($options['provider'] ?? null);
 
@@ -721,9 +722,9 @@ class EngineeringBenchmarkService
      */
     public function fairClaudeReportPayload(AtlasEngineeringBenchmarkSuite $suite, array $options = []): array
     {
-        $limit = max(1, min(200, (int) ($options['limit'] ?? 20)));
-        $scanLimit = max($limit, min(1000, max(250, $limit * 25)));
-        $batchSize = min(100, $scanLimit);
+        $limit = $this->benchmarkInput()->fairClaudeReportLimit($options['limit'] ?? null);
+        $scanLimit = $this->benchmarkInput()->fairClaudeScanLimit($limit);
+        $batchSize = $this->benchmarkInput()->fairClaudeBatchSize($scanLimit);
         $scannedRunCount = 0;
         $runs = collect();
 
@@ -1210,7 +1211,7 @@ class EngineeringBenchmarkService
      */
     public function calibrateSuite(AtlasEngineeringBenchmarkSuite $suite, array $options = []): array
     {
-        $limit = max(1, min(500, (int) ($options['limit'] ?? 200)));
+        $limit = $this->benchmarkInput()->calibrateSuiteLimit($options['limit'] ?? null);
         $runs = AtlasEngineeringBenchmarkRun::query()
             ->with(['results.benchmarkCase'])
             ->where('suite_id', $suite->id)
@@ -2773,7 +2774,7 @@ class EngineeringBenchmarkService
                 fn (array $comparison): int => $this->fairClaudeCaseComparisonRank($comparison),
                 fn (array $comparison): string => (string) ($comparison['case_code'] ?? $comparison['case_id'] ?? ''),
             ])
-            ->take(max(1, min(200, $limit * 5)))
+            ->take($this->benchmarkInput()->fairClaudeComparisonTakeLimit($limit))
             ->values();
     }
 
@@ -5036,5 +5037,10 @@ class EngineeringBenchmarkService
     private function harnessVersion(): string
     {
         return 'runner-v1.visual-smoke';
+    }
+
+    private function benchmarkInput(): EngineeringBenchmarkInput
+    {
+        return $this->input ?? app(EngineeringBenchmarkInput::class);
     }
 }

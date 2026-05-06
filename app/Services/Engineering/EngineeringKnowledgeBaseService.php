@@ -15,6 +15,7 @@ class EngineeringKnowledgeBaseService
 {
     public function __construct(
         private readonly FrontmatterParser $frontmatter,
+        private readonly ?EngineeringContextIntelligenceInput $input = null,
     ) {}
 
     /**
@@ -110,7 +111,7 @@ class EngineeringKnowledgeBaseService
         }
 
         $items = $this->applyFilters(AtlasEngineeringKnowledgeItem::query(), $filters)
-            ->limit($this->limit($limit))
+            ->limit($this->contextInput()->knowledgeLimit($limit))
             ->get()
             ->map(fn (AtlasEngineeringKnowledgeItem $item): array => $this->itemPayload($item))
             ->values()
@@ -216,7 +217,7 @@ class EngineeringKnowledgeBaseService
         return $query
             ->orderByDesc('priority')
             ->latest('indexed_at')
-            ->limit($this->limit($limit))
+            ->limit($this->contextInput()->knowledgeLimit($limit))
             ->get()
             ->map(fn (AtlasEngineeringKnowledgeItem $item): array => [
                 'type' => 'atlas_engineering_knowledge_item',
@@ -513,8 +514,8 @@ class EngineeringKnowledgeBaseService
         return str_replace(DIRECTORY_SEPARATOR, '/', $relative);
     }
 
-    private function limit(int $limit): int
+    private function contextInput(): EngineeringContextIntelligenceInput
     {
-        return max(1, min(200, $limit));
+        return $this->input ?? app(EngineeringContextIntelligenceInput::class);
     }
 }

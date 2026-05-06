@@ -4,12 +4,15 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\AtlasVerbatimMemoryService;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasMemoryVerbatimCommand extends Command
 {
+    private ?MemoryQueryInput $memoryInput = null;
+
     protected $signature = 'atlas:memory:verbatim
         {action=list : list, add, show, review, release, block, redact or archive}
         {value?* : Text for add or id for show/review/release/block/redact/archive}
@@ -47,8 +50,10 @@ class AtlasMemoryVerbatimCommand extends Command
 
     protected $description = 'Manage exact Atlas verbatim memories with privacy-aware redaction.';
 
-    public function handle(AtlasVerbatimMemoryService $verbatim): int
+    public function handle(AtlasVerbatimMemoryService $verbatim, MemoryQueryInput $input): int
     {
+        $this->memoryInput = $input;
+
         if (! Schema::hasTable('atlas_verbatim_memories')) {
             $this->error('Tabela atlas_verbatim_memories ainda nao existe. Rode migrations.');
 
@@ -124,7 +129,7 @@ class AtlasMemoryVerbatimCommand extends Command
             'tags' => array_values(array_filter((array) $this->option('tag'), 'is_string')),
             'status' => $this->stringOption('status'),
             'include_inactive' => (bool) $this->option('include-inactive'),
-        ], (int) $this->option('limit'));
+        ], $this->memoryInput()->verbatimLimit($this->option('limit')));
 
         return $this->outputPayload([
             'verbatim_memories' => $memories->map(fn (AtlasVerbatimMemory $memory): array => $this->row($memory))->values()->all(),
@@ -350,5 +355,10 @@ class AtlasMemoryVerbatimCommand extends Command
         $value = $this->option($key);
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function memoryInput(): MemoryQueryInput
+    {
+        return $this->memoryInput ?? app(MemoryQueryInput::class);
     }
 }

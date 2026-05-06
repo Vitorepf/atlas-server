@@ -2,7 +2,9 @@
 
 namespace App\Services\Ai\Kernel\Evidence;
 
+use App\Models\AiInboxItem;
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -109,6 +111,32 @@ class AtlasLedgerReplayService
         return [
             'envelope_id' => $envelopeId,
             ...$this->kernelPipelineEventSummary($events),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     envelope_id:string,
+     *     decision_event_count:int,
+     *     valid_receipt_hash_count:int,
+     *     valid_chain_hash_count:int,
+     *     invalid_count:int,
+     *     latest_receipt_id:string|null,
+     *     latest_chain_hash:string|null,
+     *     review_signal:array<string,mixed>,
+     *     events:array<int,array<string,mixed>>
+     * }
+     */
+    public function decisionReceiptReportForEnvelope(string $envelopeId): array
+    {
+        $events = collect($this->eventsForEnvelope($envelopeId))
+            ->filter(fn (array $event): bool => ($event['event_type'] ?? null) === LedgerEventType::DecisionIssued->value)
+            ->map(fn (array $event): array => $this->decisionReceiptEventFromEvent($event))
+            ->values();
+
+        return [
+            'envelope_id' => $envelopeId,
+            ...$this->decisionReceiptEventSummary($events),
         ];
     }
 
@@ -265,6 +293,21 @@ class AtlasLedgerReplayService
             ->get()
             ->map(fn (AtlasLedgerEvent $event): array => $this->selfImprovementScheduleEventFromEvent($event->toArray()))
             ->values();
+        $completionByEnvelope = $this->selfImprovementCompletionByEnvelope($since, $until);
+        $events = $events
+            ->map(fn (array $event): array => $this->withSelfImprovementCompletion($event, $completionByEnvelope[$event['envelope_id'] ?? ''] ?? null))
+            ->values();
+        $inboxItemsById = $this->selfImprovementInboxItemsById($events
+            ->pluck('emitted_inbox_item_ids')
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->values()
+            ->all());
+        $inboxHydrationAvailable = Schema::hasTable('ai_inbox_items');
+        $events = $events
+            ->map(fn (array $event): array => $this->withSelfImprovementInboxItems($event, $inboxItemsById, $inboxHydrationAvailable))
+            ->values();
         $summary = $this->selfImprovementScheduleEventSummary($events);
 
         return [
@@ -273,6 +316,57 @@ class AtlasLedgerReplayService
                 'since' => $since->toJSON(),
                 'until' => $until->toJSON(),
             ],
+            ...array_diff_key($summary, ['events' => true]),
+            'recent_events' => $events
+                ->reverse()
+                ->take(10)
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<string,mixed>
+     */
+    public function inboxActionReportForWindow(CarbonInterface $since, ?CarbonInterface $until = null, array $filters = []): array
+    {
+        $until ??= now();
+        $filters = $this->normalizedInboxActionFilters($filters);
+
+        if (! Schema::hasTable('atlas_ledger_events')) {
+            return [
+                'available' => false,
+                'window' => [
+                    'since' => $since->toJSON(),
+                    'until' => $until->toJSON(),
+                ],
+                'filters' => $filters,
+                'inbox_action_count' => 0,
+                ...array_diff_key($this->inboxActionSummary(collect()), ['events' => true]),
+                'recent_events' => [],
+            ];
+        }
+
+        $events = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::InboxActionRecorded->value)
+            ->whereBetween('occurred_at', [$since, $until])
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->get()
+            ->map(fn (AtlasLedgerEvent $event): array => $this->inboxActionEventFromEvent($event->toArray()))
+            ->filter(fn (array $event): bool => $this->matchesInboxActionFilters($event, $filters))
+            ->values();
+        $summary = $this->inboxActionSummary($events);
+
+        return [
+            'available' => true,
+            'window' => [
+                'since' => $since->toJSON(),
+                'until' => $until->toJSON(),
+            ],
+            'filters' => $filters,
+            'envelope_count' => $events->pluck('envelope_id')->filter()->unique()->count(),
             ...array_diff_key($summary, ['events' => true]),
             'recent_events' => $events
                 ->reverse()
@@ -514,6 +608,132 @@ class AtlasLedgerReplayService
     }
 
     /**
+     * @param  array<string,mixed>  $event
+     * @return array<string,mixed>
+     */
+    private function decisionReceiptEventFromEvent(array $event): array
+    {
+        $payload = (array) ($event['payload'] ?? []);
+        $receiptHash = $this->nullableScalar(data_get($payload, 'receipt_hash'));
+        $chainHash = $this->nullableScalar(data_get($payload, 'chain_hash'));
+        $parentChainHash = $this->nullableScalar(data_get($payload, 'parent_chain_hash'));
+        $expectedReceiptHash = $receiptHash !== null ? DecisionReceiptHash::hash([
+            'receipt_id' => $this->scalarOrDefault(data_get($payload, 'receipt_id'), ''),
+            'envelope_id' => $this->scalarOrDefault(data_get($payload, 'envelope_id'), ''),
+            'schema_version' => $this->scalarOrDefault(data_get($payload, 'schema_version'), ''),
+            'issued_at' => $this->scalarOrDefault(data_get($payload, 'issued_at'), ''),
+            'expires_at' => $this->scalarOrDefault(data_get($payload, 'expires_at'), ''),
+            'dry_run' => (bool) data_get($payload, 'dry_run', false),
+            'signed_by' => $this->scalarOrDefault(data_get($payload, 'signed_by'), ''),
+            'inputs_hash' => $this->scalarOrDefault(data_get($payload, 'inputs_hash'), ''),
+            'parent_receipt_id' => $this->nullableScalar(data_get($payload, 'parent_receipt_id')),
+        ]) : null;
+        $expectedChainHash = ($chainHash !== null && $receiptHash !== null) ? DecisionReceiptHash::hash([
+            'parent_chain_hash' => $parentChainHash,
+            'receipt_hash' => $receiptHash,
+        ]) : null;
+        $receiptIntegrityStatus = $receiptHash === null
+            ? 'unverifiable'
+            : (hash_equals($expectedReceiptHash ?? '', $receiptHash) ? 'ok' : 'mismatch');
+        $chainIntegrityStatus = $chainHash === null || $receiptHash === null
+            ? 'unverifiable'
+            : (hash_equals($expectedChainHash ?? '', $chainHash) ? 'ok' : 'mismatch');
+
+        return [
+            'event_id' => $event['event_id'] ?? null,
+            'event_type' => $event['event_type'] ?? null,
+            'envelope_id' => $event['envelope_id'] ?? null,
+            'receipt_id' => $event['receipt_id'] ?? data_get($payload, 'receipt_id'),
+            'correlation_id' => $event['correlation_id'] ?? null,
+            'emitter_stage' => $event['emitter_stage'] ?? null,
+            'payload_hash' => $event['payload_hash'] ?? null,
+            'occurred_at' => $event['occurred_at'] ?? null,
+            'schema_version' => data_get($payload, 'schema_version'),
+            'domain' => data_get($payload, 'domain'),
+            'flow' => data_get($payload, 'flow'),
+            'risk' => data_get($payload, 'risk'),
+            'provider' => data_get($payload, 'provider_selection.primary'),
+            'model' => data_get($payload, 'provider_selection.model'),
+            'dry_run' => (bool) data_get($payload, 'dry_run', false),
+            'inputs_hash' => data_get($payload, 'inputs_hash'),
+            'receipt_hash' => $receiptHash,
+            'expected_receipt_hash' => $expectedReceiptHash,
+            'receipt_integrity_status' => $receiptIntegrityStatus,
+            'parent_receipt_id' => data_get($payload, 'parent_receipt_id'),
+            'parent_chain_hash' => $parentChainHash,
+            'chain_hash' => $chainHash,
+            'expected_chain_hash' => $expectedChainHash,
+            'chain_integrity_status' => $chainIntegrityStatus,
+        ];
+    }
+
+    /**
+     * @param  Collection<int,array<string,mixed>>  $events
+     * @return array<string,mixed>
+     */
+    private function decisionReceiptEventSummary(Collection $events): array
+    {
+        $invalidEvents = $events->filter(fn (array $event): bool => in_array('mismatch', [
+            $event['receipt_integrity_status'] ?? null,
+            $event['chain_integrity_status'] ?? null,
+        ], true));
+        $latest = $events->last();
+
+        return [
+            'decision_event_count' => $events->count(),
+            'valid_receipt_hash_count' => $events->where('receipt_integrity_status', 'ok')->count(),
+            'valid_chain_hash_count' => $events->where('chain_integrity_status', 'ok')->count(),
+            'invalid_count' => $invalidEvents->count(),
+            'latest_receipt_id' => is_array($latest) ? ($latest['receipt_id'] ?? null) : null,
+            'latest_chain_hash' => is_array($latest) ? ($latest['chain_hash'] ?? null) : null,
+            'review_signal' => $this->decisionReceiptReviewSignal($events, $invalidEvents),
+            'events' => $events->all(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int,array<string,mixed>>  $events
+     * @param  Collection<int,array<string,mixed>>  $invalidEvents
+     * @return array{status:string,severity:string,review_required:bool,reasons:array<int,string>,recommended_action:string}
+     */
+    private function decisionReceiptReviewSignal(Collection $events, Collection $invalidEvents): array
+    {
+        if ($events->isEmpty()) {
+            return [
+                'status' => 'unknown',
+                'severity' => 'low',
+                'review_required' => false,
+                'reasons' => ['no_decision_receipt_events_for_envelope'],
+                'recommended_action' => 'wait_for_decision_receipt_evidence',
+            ];
+        }
+
+        if ($invalidEvents->isNotEmpty()) {
+            return [
+                'status' => 'breach',
+                'severity' => 'high',
+                'review_required' => true,
+                'reasons' => array_values(array_unique($invalidEvents
+                    ->flatMap(fn (array $event): array => [
+                        ($event['receipt_integrity_status'] ?? null) === 'mismatch' ? 'decision_receipt_hash_mismatch' : null,
+                        ($event['chain_integrity_status'] ?? null) === 'mismatch' ? 'decision_receipt_chain_hash_mismatch' : null,
+                    ])
+                    ->filter()
+                    ->all())),
+                'recommended_action' => 'open_reviewable_decision_receipt_replay_proposal',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'severity' => 'none',
+            'review_required' => false,
+            'reasons' => [],
+            'recommended_action' => 'none',
+        ];
+    }
+
+    /**
      * @param  Collection<int,array<string,mixed>>  $events
      * @return array{
      *     repair_event_count:int,
@@ -620,6 +840,22 @@ class AtlasLedgerReplayService
         ];
     }
 
+    private function nullableScalar(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
+    }
+
+    private function scalarOrDefault(mixed $value, string $default): string
+    {
+        return $this->nullableScalar($value) ?? $default;
+    }
+
     /**
      * @param  array<string,mixed>  $event
      * @return array<string,mixed>
@@ -658,6 +894,126 @@ class AtlasLedgerReplayService
     }
 
     /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function selfImprovementCompletionByEnvelope(CarbonInterface $since, CarbonInterface $until): array
+    {
+        return AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::OperationCompleted->value)
+            ->where('emitter_stage', 'atlas.self_improvement')
+            ->whereBetween('occurred_at', [$since, $until])
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->get()
+            ->mapWithKeys(function (AtlasLedgerEvent $event): array {
+                $payload = (array) ($event->payload ?? []);
+
+                return [(string) $event->envelope_id => [[
+                    'event_id' => $event->event_id,
+                    'finding_count' => (int) ($payload['finding_count'] ?? 0),
+                    'emitted_count' => (int) ($payload['emitted_count'] ?? 0),
+                    'emitted_inbox_item_ids' => array_values((array) ($payload['emitted_inbox_item_ids'] ?? [])),
+                    'completed_at' => $event->occurred_at?->toJSON(),
+                ]]];
+            })
+            ->map(fn (array $items): array => end($items) ?: [])
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $completion
+     * @return array<string,mixed>
+     */
+    private function withSelfImprovementCompletion(array $event, ?array $completion): array
+    {
+        $completion ??= [];
+
+        return [
+            ...$event,
+            'completed' => $completion !== [],
+            'finding_count' => (int) ($completion['finding_count'] ?? 0),
+            'emitted_count' => (int) ($completion['emitted_count'] ?? 0),
+            'emitted_inbox_item_ids' => array_values((array) ($completion['emitted_inbox_item_ids'] ?? [])),
+            'completed_at' => $completion['completed_at'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<int,mixed>  $ids
+     * @return array<string,array<string,mixed>>
+     */
+    private function selfImprovementInboxItemsById(array $ids): array
+    {
+        $ids = collect($ids)
+            ->map(fn (mixed $id): string => trim((string) $id))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($ids === [] || ! Schema::hasTable('ai_inbox_items')) {
+            return [];
+        }
+
+        return AiInboxItem::query()
+            ->whereIn('id', $ids)
+            ->get()
+            ->mapWithKeys(fn (AiInboxItem $item): array => [
+                $item->id => $this->selfImprovementInboxItemSummary($item),
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function selfImprovementInboxItemSummary(AiInboxItem $item): array
+    {
+        return [
+            'id' => $item->id,
+            'status' => $item->status,
+            'type' => $item->type,
+            'category' => $item->category,
+            'severity' => $item->severity,
+            'title' => $item->title,
+            'source_type' => $item->source_type,
+            'source_id' => $item->source_id,
+            'deep_link' => $item->deep_link,
+            'review_signal' => data_get($item->payload, 'proposal_contract.review_signal')
+                ?? data_get($item->payload, 'review_signal'),
+            'created_at' => $item->created_at?->toJSON(),
+            'updated_at' => $item->updated_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $event
+     * @param  array<string,array<string,mixed>>  $inboxItemsById
+     * @return array<string,mixed>
+     */
+    private function withSelfImprovementInboxItems(array $event, array $inboxItemsById, bool $hydrationAvailable): array
+    {
+        $ids = array_values((array) ($event['emitted_inbox_item_ids'] ?? []));
+        $missingIds = collect($ids)
+            ->map(fn (mixed $id): string => trim((string) $id))
+            ->filter()
+            ->reject(fn (string $id): bool => array_key_exists($id, $inboxItemsById))
+            ->values()
+            ->all();
+
+        return [
+            ...$event,
+            'emitted_inbox_item_hydration_available' => $hydrationAvailable,
+            'emitted_inbox_item_missing_ids' => $missingIds,
+            'emitted_inbox_items' => collect($ids)
+                ->map(fn (mixed $id): ?array => $inboxItemsById[(string) $id] ?? null)
+                ->filter()
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
      * @param  Collection<int,array<string,mixed>>  $events
      * @return array<string,mixed>
      */
@@ -665,6 +1021,27 @@ class AtlasLedgerReplayService
     {
         $latest = $events->last();
         $issueCounts = $events->pluck('issues')->flatten()->filter()->countBy()->all();
+        $emittedInboxItemIds = $events
+            ->pluck('emitted_inbox_item_ids')
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $emittedInboxItems = $events
+            ->pluck('emitted_inbox_items')
+            ->flatten(1)
+            ->filter()
+            ->unique('id')
+            ->values()
+            ->all();
+        $missingInboxItemIds = $events
+            ->pluck('emitted_inbox_item_missing_ids')
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
         $warningCount = $events->filter(fn (array $event): bool => in_array($event['health_status'] ?? null, ['warning', 'disabled'], true)
             || ($event['scheduler_status'] ?? null) === 'skipped'
             || (int) ($event['invalid_flow_count'] ?? 0) > 0)->count();
@@ -677,6 +1054,12 @@ class AtlasLedgerReplayService
             'scheduler_status_counts' => $events->pluck('scheduler_status')->filter()->countBy()->all(),
             'issue_counts' => $issueCounts,
             'warning_count' => $warningCount,
+            'completed_count' => $events->where('completed', true)->count(),
+            'emitted_count' => $events->sum(fn (array $event): int => (int) ($event['emitted_count'] ?? 0)),
+            'emitted_inbox_item_ids' => $emittedInboxItemIds,
+            'emitted_inbox_items' => $emittedInboxItems,
+            'emitted_inbox_item_hydration_available' => Schema::hasTable('ai_inbox_items'),
+            'emitted_inbox_item_missing_ids' => $missingInboxItemIds,
             'latest_health_status' => is_array($latest) ? ($latest['health_status'] ?? null) : null,
             'latest_scheduler_status' => is_array($latest) ? ($latest['scheduler_status'] ?? null) : null,
             'latest_plan_hash' => is_array($latest) ? ($latest['plan_hash'] ?? null) : null,
@@ -729,6 +1112,120 @@ class AtlasLedgerReplayService
             'review_required' => true,
             'reasons' => $reasons,
             'recommended_action' => 'open_reviewable_self_improvement_schedule_proposal',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $event
+     * @return array<string,mixed>
+     */
+    private function inboxActionEventFromEvent(array $event): array
+    {
+        $payload = (array) data_get($event, 'payload', []);
+        $inboxItem = (array) data_get($payload, 'inbox_item', []);
+        $actor = (array) data_get($payload, 'actor', []);
+        $result = (array) data_get($payload, 'result', []);
+
+        return [
+            'event_id' => $event['event_id'] ?? null,
+            'event_type' => $event['event_type'] ?? null,
+            'envelope_id' => $event['envelope_id'] ?? null,
+            'correlation_id' => $event['correlation_id'] ?? null,
+            'emitter_stage' => $event['emitter_stage'] ?? null,
+            'payload_hash' => $event['payload_hash'] ?? null,
+            'occurred_at' => $event['occurred_at'] ?? null,
+            'schema_version' => data_get($payload, 'schema_version'),
+            'action' => data_get($payload, 'action'),
+            'idempotency_key' => data_get($payload, 'idempotency_key'),
+            'actor_type' => data_get($actor, 'type'),
+            'actor_id' => data_get($actor, 'id'),
+            'inbox_item_id' => data_get($inboxItem, 'id'),
+            'inbox_item_type' => data_get($inboxItem, 'type'),
+            'inbox_item_category' => data_get($inboxItem, 'category'),
+            'inbox_item_severity' => data_get($inboxItem, 'severity'),
+            'inbox_item_status' => data_get($inboxItem, 'status'),
+            'source_type' => data_get($inboxItem, 'source_type'),
+            'source_id' => data_get($inboxItem, 'source_id'),
+            'dedupe_key' => data_get($inboxItem, 'dedupe_key'),
+            'recommended_action' => data_get($payload, 'recommended_action'),
+            'review_signal_status' => data_get($payload, 'review_signal.status'),
+            'review_signal_severity' => data_get($payload, 'review_signal.severity'),
+            'result_action' => data_get($result, 'payload.action'),
+            'diff_ref_count' => count((array) data_get($result, 'payload.diff_refs', [])),
+            'file_ref_count' => count((array) data_get($result, 'payload.file_refs', [])),
+        ];
+    }
+
+    /**
+     * @param  Collection<int,array<string,mixed>>  $events
+     * @return array<string,mixed>
+     */
+    private function inboxActionSummary(Collection $events): array
+    {
+        $reviewedPatchCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_patch')
+            ->count();
+        $withDiffRefsCount = $events
+            ->filter(fn (array $event): bool => (int) ($event['diff_ref_count'] ?? 0) > 0)
+            ->count();
+        $reviewSignal = $this->inboxActionReviewSignal($events, $reviewedPatchCount, $withDiffRefsCount);
+
+        return [
+            'inbox_action_count' => $events->count(),
+            'action_counts' => $events->pluck('action')->filter()->countBy()->all(),
+            'actor_type_counts' => $events->pluck('actor_type')->filter()->countBy()->all(),
+            'category_counts' => $events->pluck('inbox_item_category')->filter()->countBy()->all(),
+            'severity_counts' => $events->pluck('inbox_item_severity')->filter()->countBy()->all(),
+            'recommended_action_counts' => $events->pluck('recommended_action')->filter()->countBy()->all(),
+            'reviewed_patch_count' => $reviewedPatchCount,
+            'with_diff_refs_count' => $withDiffRefsCount,
+            'review_signal' => $reviewSignal,
+            'events' => $events->all(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int,array<string,mixed>>  $events
+     * @return array{status:string,severity:string,review_required:bool,reasons:array<int,string>,recommended_action:string}
+     */
+    private function inboxActionReviewSignal(Collection $events, int $reviewedPatchCount, int $withDiffRefsCount): array
+    {
+        if ($events->isEmpty()) {
+            return [
+                'status' => 'unknown',
+                'severity' => 'low',
+                'review_required' => false,
+                'reasons' => ['no_inbox_action_events_in_window'],
+                'recommended_action' => 'wait_for_inbox_action_evidence',
+            ];
+        }
+
+        if ($reviewedPatchCount > 0 && $withDiffRefsCount > 0) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['human_review_action_with_patch_context_recorded'],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        if ($reviewedPatchCount > 0) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_patch_action_without_diff_refs'],
+                'recommended_action' => 'open_reviewable_inbox_action_evidence_proposal',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'severity' => 'none',
+            'review_required' => false,
+            'reasons' => [],
+            'recommended_action' => 'none',
         ];
     }
 
@@ -967,6 +1464,45 @@ class AtlasLedgerReplayService
      * @param  array<string,string>  $filters
      */
     private function matchesRepairFilters(array $event, array $filters): bool
+    {
+        foreach ($filters as $key => $expected) {
+            if ((string) data_get($event, $key, '') !== $expected) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<string,string>
+     */
+    private function normalizedInboxActionFilters(array $filters): array
+    {
+        $allowed = ['action', 'actor_type', 'inbox_item_category', 'inbox_item_severity', 'recommended_action', 'source_type'];
+        $normalized = [];
+
+        foreach ($allowed as $key) {
+            $value = $filters[$key] ?? null;
+            if (! is_scalar($value)) {
+                continue;
+            }
+
+            $value = trim((string) $value);
+            if ($value !== '') {
+                $normalized[$key] = $value;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<string,mixed>  $event
+     * @param  array<string,string>  $filters
+     */
+    private function matchesInboxActionFilters(array $event, array $filters): bool
     {
         foreach ($filters as $key => $expected) {
             if ((string) data_get($event, $key, '') !== $expected) {

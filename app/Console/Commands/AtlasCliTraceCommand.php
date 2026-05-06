@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Support\AtlasCliLimitInput;
 use App\Models\AiToolEvent;
 use App\Models\AiTrace;
 use Illuminate\Console\Command;
@@ -20,6 +21,15 @@ class AtlasCliTraceCommand extends Command
 
     protected $description = 'Inspect Atlas traces, tool events, quality gates and replay-safe command summaries.';
 
+    private ?AtlasCliLimitInput $limits = null;
+
+    public function __construct(?AtlasCliLimitInput $limits = null)
+    {
+        parent::__construct();
+
+        $this->limits = $limits;
+    }
+
     public function handle(): int
     {
         $action = Str::of((string) $this->argument('action'))->lower()->trim()->value();
@@ -37,7 +47,7 @@ class AtlasCliTraceCommand extends Command
     {
         $traces = AiTrace::query()
             ->latest()
-            ->limit(max(1, min(100, (int) $this->option('limit'))))
+            ->limit($this->cliLimits()->standardLimit($this->option('limit')))
             ->get();
 
         $payload = $traces->map(fn (AiTrace $trace): array => $this->traceSummary($trace))->all();
@@ -57,6 +67,11 @@ class AtlasCliTraceCommand extends Command
         ])->all());
 
         return self::SUCCESS;
+    }
+
+    private function cliLimits(): AtlasCliLimitInput
+    {
+        return $this->limits ?? app(AtlasCliLimitInput::class);
     }
 
     private function show(?AiTrace $trace): int

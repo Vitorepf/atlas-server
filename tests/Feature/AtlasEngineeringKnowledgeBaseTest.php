@@ -112,6 +112,32 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
         $this->assertSame('tool_runtime', data_get($contextPayload, 'knowledge_refs.0.category'));
     }
 
+    public function test_docs_health_reports_bootstrap_contract_and_split_required_docs(): void
+    {
+        $exitCode = Artisan::call('atlas:engineering:knowledge', [
+            'action' => 'docs-health',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('ok', data_get($payload, 'status'));
+        $this->assertSame(0, data_get($payload, 'summary.required_missing_count'));
+        $this->assertSame(0, data_get($payload, 'summary.frontmatter_violation_count'));
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md',
+            collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md',
+            collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md',
+            collect(data_get($payload, 'oversized_docs', []))->pluck('path')->all(),
+        );
+    }
+
     public function test_engineering_context_pack_includes_knowledge_refs(): void
     {
         app(EngineeringKnowledgeBaseService::class)->sync();

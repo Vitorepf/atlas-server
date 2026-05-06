@@ -56,10 +56,9 @@ services:
       ATLAS_MAX_UPLOAD_BYTES: "104857600"
       TRANSCRIPTION_ENABLED: ${TRANSCRIPTION_ENABLED:-true}
       WHISPER_BIN_PATH: /usr/local/bin/whisper-cli
-      WHISPER_MODEL_PATH: /opt/whisper-models/ggml-large-v3-turbo.bin
+      WHISPER_MODELS_DIR: /opt/whisper-models
       FFMPEG_BIN_PATH: /usr/bin/ffmpeg
       WHISPER_LANGUAGE: pt
-      WHISPER_ENGINE: whisper-cpp-large-v3-turbo
       RIZE_API_KEY: ${RIZE_API_KEY:-}
       RIZE_GRAPHQL_ENDPOINT: ${RIZE_GRAPHQL_ENDPOINT:-https://api.rize.io/api/v1/graphql}
       RIZE_TIMEZONE: ${RIZE_TIMEZONE:-America/Sao_Paulo}
@@ -116,10 +115,9 @@ services:
       ATLAS_STORAGE_PATH: /var/atlas/storage
       TRANSCRIPTION_ENABLED: ${TRANSCRIPTION_ENABLED:-true}
       WHISPER_BIN_PATH: /usr/local/bin/whisper-cli
-      WHISPER_MODEL_PATH: /opt/whisper-models/ggml-large-v3-turbo.bin
+      WHISPER_MODELS_DIR: /opt/whisper-models
       FFMPEG_BIN_PATH: /usr/bin/ffmpeg
       WHISPER_LANGUAGE: pt
-      WHISPER_ENGINE: whisper-cpp-large-v3-turbo
       RIZE_API_KEY: ${RIZE_API_KEY:-}
       RIZE_GRAPHQL_ENDPOINT: ${RIZE_GRAPHQL_ENDPOINT:-https://api.rize.io/api/v1/graphql}
       RIZE_TIMEZONE: ${RIZE_TIMEZONE:-America/Sao_Paulo}

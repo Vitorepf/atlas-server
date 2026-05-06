@@ -3,14 +3,18 @@
 namespace App\Console\Commands;
 
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
+use App\Services\Engineering\EngineeringContextIntelligenceInput;
+use App\Services\Engineering\EngineeringDocumentationHealthService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
 class AtlasEngineeringKnowledgeCommand extends Command
 {
+    private ?EngineeringContextIntelligenceInput $contextInput = null;
+
     protected $signature = 'atlas:engineering:knowledge
-        {action=status : status, sync, list, show, context, index-code, audit-code, code-status, modules, symbols or show-module}
+        {action=status : status, sync, list, show, context, docs-health, index-code, audit-code, code-status, modules, symbols or show-module}
         {item? : Knowledge item slug/id or code module slug/id}
         {--category= : Filter by category}
         {--status= : active, draft, archived or deprecated}
@@ -30,8 +34,14 @@ class AtlasEngineeringKnowledgeCommand extends Command
 
     protected $description = 'Sync and inspect the Atlas Engineering Knowledge Base.';
 
-    public function handle(EngineeringKnowledgeBaseService $knowledge, EngineeringCodeIntelligenceService $code): int
-    {
+    public function handle(
+        EngineeringKnowledgeBaseService $knowledge,
+        EngineeringCodeIntelligenceService $code,
+        EngineeringDocumentationHealthService $documentationHealth,
+        EngineeringContextIntelligenceInput $input,
+    ): int {
+        $this->contextInput = $input;
+
         $action = (string) $this->argument('action');
 
         return match ($action) {
@@ -39,6 +49,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
             'list' => $this->renderList($knowledge),
             'show' => $this->renderShow($knowledge),
             'context' => $this->renderContext($knowledge),
+            'docs-health' => $this->renderDocsHealth($documentationHealth),
             'index-code' => $this->renderCodeIndex($code),
             'audit-code' => $this->renderCodeAudit($code),
             'code-status' => $this->renderCodeStatus($code),
@@ -94,7 +105,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
 
     private function renderList(EngineeringKnowledgeBaseService $knowledge): int
     {
-        $payload = $knowledge->catalog($this->filters(), (int) $this->option('limit'));
+        $payload = $knowledge->catalog($this->filters(), $this->contextInput()->knowledgeLimit($this->option('limit')));
         if ($this->json()) {
             $this->line($this->encode($payload));
 
@@ -154,7 +165,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
                     $this->option('category') ?: null,
                     $this->option('q') ?: null,
                 ]),
-            ], (int) $this->option('limit')),
+            ], $this->contextInput()->knowledgeLimit($this->option('limit'))),
         ];
 
         if ($this->json()) {
@@ -174,6 +185,38 @@ class AtlasEngineeringKnowledgeCommand extends Command
         );
 
         return self::SUCCESS;
+    }
+
+    private function renderDocsHealth(EngineeringDocumentationHealthService $documentationHealth): int
+    {
+        $payload = $documentationHealth->report();
+        if ($this->json()) {
+            $this->line($this->encode($payload));
+
+            return $payload['status'] === 'ok' ? self::SUCCESS : self::FAILURE;
+        }
+
+        $summary = $payload['summary'];
+        $this->components->twoColumnDetail('status', (string) $payload['status']);
+        $this->components->twoColumnDetail('docs', (string) ($summary['docs_root'] ?? '-'));
+        $this->components->twoColumnDetail('docs count', (string) ($summary['doc_count'] ?? 0));
+        $this->components->twoColumnDetail('required missing', (string) ($summary['required_missing_count'] ?? 0));
+        $this->components->twoColumnDetail('oversized', (string) ($summary['oversized_count'] ?? 0));
+        $this->components->twoColumnDetail('frontmatter violations', (string) ($summary['frontmatter_violation_count'] ?? 0));
+
+        if (($payload['oversized_docs'] ?? []) !== []) {
+            $this->table(
+                ['path', 'lines', 'limit', 'status'],
+                collect($payload['oversized_docs'])->take(10)->map(fn (array $doc): array => [
+                    $doc['path'],
+                    $doc['line_count'],
+                    $doc['limit'],
+                    $doc['status'],
+                ])->all(),
+            );
+        }
+
+        return $payload['status'] === 'ok' ? self::SUCCESS : self::FAILURE;
     }
 
     private function renderCodeIndex(EngineeringCodeIntelligenceService $code): int
@@ -230,7 +273,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
     {
         $payload = $code->audit([
             'workspace' => $this->stringOption('workspace'),
-            'limit' => (int) $this->option('limit'),
+            'limit' => $this->contextInput()->codeLimit($this->option('limit')),
             'run_context_type' => $this->stringOption('run-context-type'),
             'run_context_id' => $this->stringOption('run-context-id'),
         ]);
@@ -258,7 +301,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
 
     private function renderModules(EngineeringCodeIntelligenceService $code): int
     {
-        $payload = $code->catalog($this->codeModuleFilters(), (int) $this->option('limit'));
+        $payload = $code->catalog($this->codeModuleFilters(), $this->contextInput()->codeLimit($this->option('limit')));
         if ($this->json()) {
             $this->line($this->encode($payload));
 
@@ -284,7 +327,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
 
     private function renderSymbols(EngineeringCodeIntelligenceService $code): int
     {
-        $payload = $code->symbols($this->codeSymbolFilters(), (int) $this->option('limit'));
+        $payload = $code->symbols($this->codeSymbolFilters(), $this->contextInput()->codeLimit($this->option('limit')));
         if ($this->json()) {
             $this->line($this->encode($payload));
 
@@ -397,6 +440,11 @@ class AtlasEngineeringKnowledgeCommand extends Command
     private function json(): bool
     {
         return (bool) $this->option('json');
+    }
+
+    private function contextInput(): EngineeringContextIntelligenceInput
+    {
+        return $this->contextInput ?? app(EngineeringContextIntelligenceInput::class);
     }
 
     /**

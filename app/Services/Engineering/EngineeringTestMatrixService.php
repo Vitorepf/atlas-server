@@ -29,6 +29,7 @@ class EngineeringTestMatrixService
         private readonly EngineeringControlRegistryService $controls,
         private readonly EngineeringDockerHarnessService $dockerHarness,
         private readonly AtlasToolEvidenceStore $toolEvidence,
+        private readonly ?EngineeringTestMatrixInput $input = null,
     ) {}
 
     /**
@@ -315,7 +316,7 @@ class EngineeringTestMatrixService
         $changedOnly = array_key_exists('quality_changed_only', $options)
             ? (bool) $options['quality_changed_only']
             : (bool) config('atlas.engineering.quality_scan.changed_only', true);
-        $timeout = max(10, (int) config('atlas.engineering.quality_scan.timeout_seconds', 300));
+        $timeout = $this->matrixInput()->qualityScanTimeoutSeconds();
         $required = $mode === 'required' || $profileName === 'release' || $profileName === 'deep';
 
         return [[
@@ -351,7 +352,7 @@ class EngineeringTestMatrixService
             return null;
         }
 
-        $timeout = max(5, (int) config('atlas.engineering.visual_e2e.managed_smoke_timeout_seconds', 45));
+        $timeout = $this->matrixInput()->visualSmokeTimeoutSeconds();
         $baseline = (string) config('atlas.engineering.visual_e2e.baseline_mode', 'observe');
         $screenshotDriver = (string) config('atlas.engineering.visual_e2e.screenshot_driver', 'auto');
         $command = implode(' ', array_filter([
@@ -708,8 +709,8 @@ class EngineeringTestMatrixService
 
         $workspace = realpath($workspace) ?: $workspace;
         $targetRoot = storage_path('app/engineering-runs/'.$run->id.'/visual-artifacts/'.$testRun->id);
-        $maxFiles = max(1, (int) config('atlas.engineering.visual_e2e.artifact_max_files', 200));
-        $maxBytes = max(1, (int) config('atlas.engineering.visual_e2e.artifact_max_bytes', 52_428_800));
+        $maxFiles = $this->matrixInput()->visualArtifactMaxFiles();
+        $maxBytes = $this->matrixInput()->visualArtifactMaxBytes();
         $copied = [];
         $totalBytes = 0;
 
@@ -876,8 +877,8 @@ class EngineeringTestMatrixService
         }
 
         $targetRoot = storage_path('app/engineering-runs/'.$run->id.'/quality-artifacts/'.$testRun->id);
-        $maxFiles = max(1, (int) config('atlas.engineering.quality_scan.artifact_max_files', 100));
-        $maxBytes = max(1, (int) config('atlas.engineering.quality_scan.artifact_max_bytes', 10_485_760));
+        $maxFiles = $this->matrixInput()->qualityArtifactMaxFiles();
+        $maxBytes = $this->matrixInput()->qualityArtifactMaxBytes();
         $copied = [];
         $totalBytes = 0;
 
@@ -1078,5 +1079,10 @@ class EngineeringTestMatrixService
     private function caseCode(string $type, string $command): string
     {
         return $type.'_'.substr(hash('sha256', $command), 0, 12);
+    }
+
+    private function matrixInput(): EngineeringTestMatrixInput
+    {
+        return $this->input ?? app(EngineeringTestMatrixInput::class);
     }
 }

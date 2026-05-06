@@ -11,6 +11,21 @@ tags:
   - documentation
   - cleanup
   - plan
+capabilities:
+  - legacy_documentation_cleanup
+  - documentation_archive_governance
+  - source_material_promotion
+decisions:
+  - Limpeza documental deve proteger runtime e docs mae.
+  - Source material historico deve ser promovido, arquivado ou redirecionado sem competir com docs canonicos.
+maintenance:
+  - Usar este plano apenas para ondas futuras de limpeza, sempre conferindo worktree concorrente.
+  - Nao apagar documentos sem busca de referencias e aprovacao humana.
+related_paths:
+  - docs/engineering-knowledge-base/legacy-documentation-cleanup-report.md
+  - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/archive/README.md
+  - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
 ---
 
 # Legacy Documentation Cleanup Plan

@@ -11,6 +11,10 @@ tags:
   - engineering
   - knowledge
 capabilities:
+  - session_bootstrap
+  - documentation_operating_system
+  - runtime_language_boundaries
+  - qualitative_levels_roadmap
   - canonical_architecture_index
   - atlas_ai_master_architecture
   - atlas_ai_vision
@@ -45,7 +49,12 @@ capabilities:
   - self_improvement_domain
   - finance_domain
   - personal_development_domain
+  - atlas_ai_evolution_phase_0_audit
 decisions:
+  - Atlas AI Session Bootstrap e o primeiro pacote curto para novas sessoes responderem o que e Atlas, o que existe, o que falta e como evoluir.
+  - Atlas AI Documentation Operating System define limites de tamanho, ownership, anti-hallucination, promocao e sync/index para documentacao de alta performance.
+  - Atlas AI Runtime Language Boundaries separa Laravel Kernel, Python AI/Data Runtime e Go Edge/Concurrency Runtime.
+  - Atlas AI Qualitative Levels Roadmap formaliza os patamares P1-P7 e a fila governada para co-estrategista, Rivals Strategy e Curator evolutivo.
   - Atlas AI Canonical Architecture Index define a hierarquia oficial entre Constitution, Kernel, Master Architecture, Topology e Domain Specs.
   - Atlas AI Master Architecture e a raiz enterprise para autoridade operacional, contratos canonicos, planes, dominios, runtimes, evidence, learning e estrategia contra Claude Code.
   - Atlas AI Vision, Pipeline e Core Vs Domain sao os tres documentos fundadores curtos da arquitetura-mae.
@@ -63,6 +72,10 @@ decisions:
   - Programming Power Tools Catalog define a bancada operacional de ferramentas, tiers, autoridade e lacunas para programacao pesada.
   - Fair Claude e Atlas Supercharged separam prova cientifica com o mesmo Claude do produto real multi-provider.
 maintenance:
+  - Leia atlas-ai-session-bootstrap.md no inicio de qualquer sessao nova.
+  - Leia atlas-ai-documentation-operating-system.md antes de criar, dividir, promover, arquivar ou expandir docs canonicos.
+  - Leia atlas-ai-runtime-language-boundaries.md antes de propor Python, Go, microservico, worker externo, daemon ou runtime multi-linguagem.
+  - Leia atlas-ai-qualitative-levels-roadmap.md antes de propor co-estrategista, patamar cognitivo, ambiente, Curator auto-mutavel ou memoria longitudinal.
   - Leia atlas-ai-canonical-architecture-index.md antes de escolher qual documento arquitetural tem autoridade.
   - Leia atlas-ai-master-architecture.md antes de alterar autoridade macro, Policy/Profile, Decide, Domain Orchestrator, Runtime, Evidence, Learning ou estrategia contra Claude Code.
   - Leia atlas-ai-vision.md, atlas-ai-pipeline.md e atlas-ai-core-vs-domain.md antes de reorganizar fluxos macro.
@@ -79,6 +92,10 @@ maintenance:
   - Consulte atlas-cli-5x-claude-code-plan.md e atlas-cli-fair-claude-benchmark.md antes de declarar superioridade contra Claude Code.
   - Revise indexed_at e content_hash antes de confiar em uma sessao longa.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
+  - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
+  - docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
@@ -158,11 +175,13 @@ Atlas, ela precisa existir aqui ou em um ADR desta pasta.
 ```bash
 atlas engineering knowledge sync --prune
 atlas engineering knowledge index-code --prune
+atlas engineering knowledge docs-health
 ```
 
 Para inspecionar:
 
 ```bash
+atlas engineering knowledge docs-health
 atlas engineering knowledge status
 atlas engineering knowledge list
 atlas engineering knowledge show engineering-knowledge-base-overview
@@ -180,6 +199,10 @@ detalhe de modulo com docs/testes.
 
 | Doc | Papel |
 |---|---|
+| `atlas-ai-session-bootstrap.md` | Pacote curto para uma nova sessao entender o que e Atlas, o que existe, o que falta e como evoluir sem ler conversa antiga |
+| `atlas-ai-documentation-operating-system.md` | Contrato de documentacao de alta performance: limites de tamanho, status, ownership, anti-hallucination, promocao e sync/index |
+| `atlas-ai-runtime-language-boundaries.md` | Contrato de fronteira entre Laravel Kernel, Python AI/Data Runtime e Go Edge/Concurrency Runtime |
+| `atlas-ai-qualitative-levels-roadmap.md` | Roadmap canonico curto dos patamares P1-P7, co-estrategista, Rivals Strategy e fila QL governada |
 | `START_HERE.md` | Ponto de entrada para humanos e IAs |
 | `atlas-ai-canonical-architecture-index.md` | Indice oficial da hierarquia entre Constitution, Kernel, Master Architecture, Topology e Domain Specs |
 | `atlas-ai-layer-0-glossary.md` | Constituicao operacional enxuta e glossario canonico de Layer 0; impede que providers, prompts ou docs legados disputem a identidade do Atlas AI |
@@ -207,6 +230,8 @@ detalhe de modulo com docs/testes.
 | `atlas-local-agent-surface.md` | Contrato canonico para Mac Agent/local automation como surface, readiness e background jobs |
 | `atlas-ai-governed-backlog.md` | Contrato para preservar backlog legado sem transformar notas pessoais ou ideias cruas em runtime/roadmap automatico |
 | `atlas-ai-architecture-audit.md` | Analise rigorosa de consolidacao dos docs: capacidades existentes, duplicacoes, lacunas e ordem recomendada para reorganizar o Atlas AI |
+| `atlas-ai-evolution-roadmap.md` | Roadmap de evolucao do Atlas AI: Agentic RAG, Self-Reflection Gate, memoria episodica, Provider Strategy Matrix, Graph/Vector/Evidence routing e fases 0-4 |
+| `atlas-ai-evolution-phase-0-audit.md` | Auditoria rigorosa da Fase 0/AP-99: provider usage/performance contract, ganhos esperados, lacunas, criterios de aceite e o que nao deve virar subsistema paralelo |
 | `archive/README.md` | Regras do arquivo documental: como ler source material preservado sem deixar docs legados competirem com a arquitetura canonica |
 | `atlas-ai-memory-context-core-open-brain.md` | Documento mestre versionado de memoria, contexto e recall |
 | `open-brain-context-injection.md` | Como CLI e app devem usar Open Brain automaticamente em dev, continue, chat, programming, review e debug |

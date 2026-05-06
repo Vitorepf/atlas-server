@@ -19,6 +19,8 @@ use App\Console\Commands\AtlasAiArchitectureValidateCommand;
 use App\Console\Commands\AtlasAiDecideCommand;
 use App\Console\Commands\AtlasAiDomainsCommand;
 use App\Console\Commands\AtlasAiLedgerCommand;
+use App\Console\Commands\AtlasAiLedgerProjectionCommand;
+use App\Console\Commands\AtlasAiProviderPerformanceCommand;
 use App\Console\Commands\AtlasAiSelfImproveCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
 use App\Console\Commands\AtlasCliCheckpointCommand;
@@ -126,6 +128,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiDecideCommand::class,
         AtlasAiDomainsCommand::class,
         AtlasAiLedgerCommand::class,
+        AtlasAiLedgerProjectionCommand::class,
+        AtlasAiProviderPerformanceCommand::class,
         AtlasAiSelfImproveCommand::class,
         AtlasCliBootstrapCommand::class,
         AtlasCliCheckpointCommand::class,
@@ -219,6 +223,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('atlas:ai:health')
             ->hourly()
             ->withoutOverlapping();
+
+        if (config('atlas_ai.ledger_projection.enabled', true)) {
+            $projectionHours = max(1, min(8760, (int) config('atlas_ai.ledger_projection.hours', 24)));
+            $projectionLimit = max(1, min(5000, (int) config('atlas_ai.ledger_projection.limit', 500)));
+
+            $schedule->command("atlas:ai:ledger-project --hours={$projectionHours} --limit={$projectionLimit} --json")
+                ->everyTenMinutes()
+                ->withoutOverlapping();
+        }
 
         $schedule->command('atlas:ai:telemetry:rollup --hours=48')
             ->hourly()

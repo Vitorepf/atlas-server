@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementInput;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementOrchestrator;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use Illuminate\Console\Command;
@@ -37,8 +38,11 @@ class AtlasAiSelfImproveCommand extends Command
 
     protected $description = 'Run the Atlas AI self-improvement review over Evidence Ledger events.';
 
-    public function handle(AtlasSelfImprovementOrchestrator $orchestrator, AtlasSelfImprovementScheduleService $schedule): int
-    {
+    public function handle(
+        AtlasSelfImprovementOrchestrator $orchestrator,
+        AtlasSelfImprovementScheduleService $schedule,
+        AtlasSelfImprovementInput $input,
+    ): int {
         if ((bool) $this->option('list-flows')) {
             return $this->renderFlows($orchestrator);
         }
@@ -53,8 +57,10 @@ class AtlasAiSelfImproveCommand extends Command
 
         $options = [
             'emit' => (bool) $this->option('emit'),
-            'hours' => (int) $this->option('hours'),
-            'limit' => (int) $this->option('limit'),
+            ...$input->runtimeOptions([
+                'hours' => $this->option('hours'),
+                'limit' => $this->option('limit'),
+            ]),
             'filters' => $this->dimensionFilters(),
         ];
         $flow = (string) $this->option('flow');
@@ -82,8 +88,10 @@ class AtlasAiSelfImproveCommand extends Command
 
         $payload = $orchestrator->executeFlow((string) $this->option('flow'), [
             'emit' => (bool) $this->option('emit'),
-            'hours' => (int) $this->option('hours'),
-            'limit' => (int) $this->option('limit'),
+            ...$input->runtimeOptions([
+                'hours' => $this->option('hours'),
+                'limit' => $this->option('limit'),
+            ]),
             'filters' => $this->dimensionFilters(),
         ]);
         $runtime = (array) ($payload['runtime'] ?? []);

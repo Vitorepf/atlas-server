@@ -30,6 +30,7 @@ class AtlasAiArchitectureValidateCommand extends Command
         $this->components->twoColumnDetail('Surface adapters', (string) $payload['kernel']['surface_adapters']['count']);
         $this->components->twoColumnDetail('Provider drivers', (string) $payload['kernel']['provider_drivers']['count']);
         $this->components->twoColumnDetail('Static APs', data_get($payload, 'kernel.static_scan.summary.passed_count').'/'.data_get($payload, 'kernel.static_scan.summary.total_count').' passed');
+        $this->components->twoColumnDetail('Documentation', data_get($payload, 'documentation.status', 'unknown').' / '.data_get($payload, 'documentation.summary.oversized_count', 0).' split-required');
         $this->components->twoColumnDetail('Onboarding', $payload['onboarding']['ready_domains'].' ready / '.$payload['onboarding']['scaffold_domains'].' scaffold / '.$payload['onboarding']['executable_incomplete_domains'].' executable incomplete');
         $this->components->twoColumnDetail('Catalog source', $payload['domains']['source']);
 
@@ -135,6 +136,10 @@ class AtlasAiArchitectureValidateCommand extends Command
 
         foreach ($payload['kernel']['static_scan']['ap23_chat_dev_programming_contract']['violations'] as $violation) {
             $this->error('[kernel.static.ap23] '.$violation);
+        }
+
+        foreach (data_get($payload, 'documentation.violations', []) as $violation) {
+            $this->error('[documentation] '.$violation);
         }
 
         foreach ($payload['kernel']['static_scan']['ap24_surface_alias_canonicalization']['violations'] as $violation) {
@@ -397,6 +402,48 @@ class AtlasAiArchitectureValidateCommand extends Command
             $this->error('[kernel.static.ap88] '.$violation);
         }
 
+        foreach ($payload['kernel']['static_scan']['ap89_engineering_harness_runner_input_contract']['violations'] as $violation) {
+            $this->error('[kernel.static.ap89] '.$violation);
+        }
+
+        foreach ($payload['kernel']['static_scan']['ap90_engineering_harnessability_input_contract']['violations'] as $violation) {
+            $this->error('[kernel.static.ap90] '.$violation);
+        }
+
+        foreach ($payload['kernel']['static_scan']['ap91_engineering_docker_harness_input_contract']['violations'] as $violation) {
+            $this->error('[kernel.static.ap91] '.$violation);
+        }
+
+        foreach ($payload['kernel']['static_scan']['ap92_engineering_test_matrix_input_contract']['violations'] as $violation) {
+            $this->error('[kernel.static.ap92] '.$violation);
+        }
+
+        foreach ($payload['kernel']['static_scan']['ap93_engineering_claude_code_baseline_input_contract']['violations'] as $violation) {
+            $this->error('[kernel.static.ap93] '.$violation);
+        }
+
+        foreach ($payload['kernel']['static_scan']['ap94_engineering_benchmark_input_contract']['violations'] as $violation) {
+            $this->error('[kernel.static.ap94] '.$violation);
+        }
+
+        foreach ($payload['kernel']['static_scan']['ap95_engineering_context_intelligence_input_contract']['violations'] as $violation) {
+            $this->error('[kernel.static.ap95] '.$violation);
+        }
+
+        foreach ($payload['kernel']['static_scan']['ap96_cli_limit_input_contract']['violations'] as $violation) {
+            $this->error('[kernel.static.ap96] '.$violation);
+        }
+
+        foreach ($payload['kernel']['static_scan']['ap97_scheduler_input_contract']['violations'] as $violation) {
+            $this->error('[kernel.static.ap97] '.$violation);
+        }
+
+        foreach ($payload['kernel']['static_scan']['ap98_self_improvement_input_contract']['violations'] as $violation) {
+            $this->error('[kernel.static.ap98] '.$violation);
+        }
+
+        $this->renderPostAp98StaticScanViolations($payload);
+
         foreach ($payload['capabilities']['warnings'] as $warning) {
             $this->warn('[capability] '.$warning);
         }
@@ -412,4 +459,27 @@ class AtlasAiArchitectureValidateCommand extends Command
         return $payload['status'] === 'ok' ? self::SUCCESS : self::FAILURE;
     }
 
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function renderPostAp98StaticScanViolations(array $payload): void
+    {
+        foreach ((array) data_get($payload, 'kernel.static_scan', []) as $key => $report) {
+            if (! is_string($key) || $key === 'summary' || ! is_array($report)) {
+                continue;
+            }
+
+            if (! preg_match('/^ap(?P<number>\d+)_/', $key, $matches)) {
+                continue;
+            }
+
+            if ((int) $matches['number'] <= 98) {
+                continue;
+            }
+
+            foreach ((array) ($report['violations'] ?? []) as $violation) {
+                $this->error("[kernel.static.{$key}] ".$violation);
+            }
+        }
+    }
 }

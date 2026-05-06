@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -49,6 +50,14 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertContains('claude_codex', data_get($payload, 'kernel.provider_drivers.providers'));
         $this->assertSame([], data_get($payload, 'kernel.provider_drivers.errors'));
         $this->assertIsArray(data_get($payload, 'kernel.provider_drivers.warnings'));
+        $this->assertTrue(data_get($payload, 'kernel.ledger_projections.valid'));
+        $this->assertSame('atlas.ledger_projection_registry.v1', data_get($payload, 'kernel.ledger_projections.schema_version'));
+        $this->assertSame(3, data_get($payload, 'kernel.ledger_projections.count'));
+        $this->assertContains('ai_traces', data_get($payload, 'kernel.ledger_projections.projection_ids'));
+        $this->assertContains('atlas_engineering_runs', data_get($payload, 'kernel.ledger_projections.projection_ids'));
+        $this->assertContains('atlas_tool_runs', data_get($payload, 'kernel.ledger_projections.projection_ids'));
+        $this->assertSame('atlas.ledger_projection_drift.v1', data_get($payload, 'kernel.ledger_projections.drift.schema_version'));
+        $this->assertIsBool(data_get($payload, 'kernel.ledger_projections.drift.available'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.valid'));
         $this->assertGreaterThanOrEqual(30, data_get($payload, 'kernel.static_scan.summary.total_count'));
         $this->assertSame(
@@ -58,6 +67,22 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertSame(0, data_get($payload, 'kernel.static_scan.summary.failed_count'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.summary.failed_keys'));
         $this->assertSame(0, data_get($payload, 'kernel.static_scan.summary.violation_count'));
+        $this->assertTrue(data_get($payload, 'documentation.valid'));
+        $this->assertSame('ok', data_get($payload, 'documentation.status'));
+        $this->assertSame(0, data_get($payload, 'documentation.summary.required_missing_count'));
+        $this->assertSame(0, data_get($payload, 'documentation.summary.frontmatter_violation_count'));
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md',
+            collect(data_get($payload, 'documentation.required_docs', []))->pluck('path')->all(),
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md',
+            collect(data_get($payload, 'documentation.required_docs', []))->pluck('path')->all(),
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md',
+            collect(data_get($payload, 'documentation.oversized_docs', []))->pluck('path')->all(),
+        );
         $this->assertContains('ap36_kernel_pipeline_health_read_model', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap37_architecture_validation_surface', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap38_architecture_validation_observability', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
@@ -111,10 +136,68 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertContains('ap86_semantic_context_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap87_provider_projection_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap88_test_command_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap89_engineering_harness_runner_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap90_engineering_harnessability_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap91_engineering_docker_harness_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap92_engineering_test_matrix_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap93_engineering_claude_code_baseline_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap94_engineering_benchmark_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap95_engineering_context_intelligence_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap96_cli_limit_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap97_scheduler_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap98_self_improvement_input_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap99_provider_usage_performance_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap100_context_pack_manifest_reflection_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap101_context_retrieval_router_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap102_open_brain_retrieval_plan_summary_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap103_retrieval_required_source_availability_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap104_retrieval_review_signal_next_action_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap105_open_brain_retrieval_self_improvement_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap106_learning_proposed_review_signal_projection_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap107_proposal_inbox_review_signal_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap108_learning_proposed_inbox_link_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap109_operation_completed_inbox_refs_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap110_schedule_replay_inbox_refs_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap111_schedule_replay_inbox_refs_surface_parity', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap112_schedule_replay_inbox_item_hydration', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap113_schedule_replay_inbox_item_hydration_surface_parity', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap114_schedule_replay_inbox_hydration_gap_signal', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap115_self_improvement_schedule_replay_inbox_gap_finding', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap116_self_improvement_schedule_replay_inbox_gap_emission', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap117_proposal_inbox_review_signal_severity', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap118_proposal_review_action_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap119_cli_inbox_review_action_result_parity', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap120_inbox_action_evidence_ledger_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap121_inbox_action_replay_read_model', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap122_inbox_action_mcp_report', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap123_self_improvement_inbox_action_replay_review', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap124_observability_inbox_action_replay', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap125_inbox_action_report_surfaces', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap126_architecture_validate_post_ap98_human_output', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap127_cli_help_architecture_operations_discovery', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap128_architecture_operations_shared_catalog', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap129_architecture_operations_mcp_tool', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap130_architecture_operations_direct_surfaces', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap131_self_improvement_architecture_operations_review', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap132_architecture_operations_metadata_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap133_architecture_operations_filter_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap134_decision_receipt_hash_runtime_guard', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap135_decision_receipt_determinism_test', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap136_decision_receipt_chain_replay', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap137_decision_receipt_replay_surfaces', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap138_decision_receipt_replay_curator_review', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap139_decision_receipt_replay_inbox_emission', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap140_ledger_replay_command_surface', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap141_ledger_projection_registry_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap142_ledger_projection_inbox_action', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap143_ledger_projection_curator_action_emission', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap1_surface_provider_bypass.violations'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap2_surface_context_bypass.violations'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap6_decision_receipt_propagation.violations'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap13_decision_receipt_runtime_guard.violations'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap134_decision_receipt_hash_runtime_guard.violations'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap135_decision_receipt_determinism_test.violations'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap136_decision_receipt_chain_replay.violations'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap12_provider_driver_identity_bypass.violations'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap14_tool_tier_hot_path.violations'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap15_provider_memory_privacy.violations'));
@@ -257,6 +340,38 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap87_provider_projection_input_contract.violations'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap88_test_command_input_contract.valid'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap88_test_command_input_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap89_engineering_harness_runner_input_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap89_engineering_harness_runner_input_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap90_engineering_harnessability_input_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap90_engineering_harnessability_input_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap91_engineering_docker_harness_input_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap91_engineering_docker_harness_input_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap92_engineering_test_matrix_input_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap92_engineering_test_matrix_input_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap93_engineering_claude_code_baseline_input_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap93_engineering_claude_code_baseline_input_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap94_engineering_benchmark_input_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap94_engineering_benchmark_input_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap95_engineering_context_intelligence_input_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap95_engineering_context_intelligence_input_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap96_cli_limit_input_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap96_cli_limit_input_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap97_scheduler_input_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap97_scheduler_input_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap98_self_improvement_input_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap98_self_improvement_input_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap99_provider_usage_performance_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap99_provider_usage_performance_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap100_context_pack_manifest_reflection_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap100_context_pack_manifest_reflection_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap101_context_retrieval_router_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap101_context_retrieval_router_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap102_open_brain_retrieval_plan_summary_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap102_open_brain_retrieval_plan_summary_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap103_retrieval_required_source_availability_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap103_retrieval_required_source_availability_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap104_retrieval_review_signal_next_action_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap104_retrieval_review_signal_next_action_contract.violations'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.valid'));
         $this->assertGreaterThanOrEqual(39, data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.checked'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.violations'));
@@ -289,5 +404,31 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         );
         $this->assertSame(0, data_get($payload, 'onboarding.executable_incomplete_domains'));
         $this->assertGreaterThanOrEqual(1, data_get($payload, 'onboarding.domain_count'));
+    }
+
+    public function test_human_output_renders_post_ap98_static_scan_violations(): void
+    {
+        $payload = app(AtlasAiArchitectureValidationService::class)->payload();
+        data_set($payload, 'status', 'failed');
+        data_set($payload, 'kernel.valid', false);
+        data_set($payload, 'kernel.static_scan.valid', false);
+        data_set($payload, 'kernel.static_scan.ap125_inbox_action_report_surfaces.valid', false);
+        data_set($payload, 'kernel.static_scan.ap125_inbox_action_report_surfaces.violations', [
+            'AP-125 synthetic violation for human output',
+        ]);
+        data_set($payload, 'kernel.static_scan.summary.failed_count', 1);
+        data_set($payload, 'kernel.static_scan.summary.failed_keys', ['ap125_inbox_action_report_surfaces']);
+        data_set($payload, 'kernel.static_scan.summary.violation_count', 1);
+
+        $this->mock(AtlasAiArchitectureValidationService::class, function ($mock) use ($payload): void {
+            $mock->shouldReceive('payload')->once()->andReturn($payload);
+        });
+
+        $exit = Artisan::call('atlas:ai:architecture-validate');
+        $output = Artisan::output();
+
+        $this->assertSame(1, $exit);
+        $this->assertStringContainsString('[kernel.static.ap125_inbox_action_report_surfaces]', $output);
+        $this->assertStringContainsString('AP-125 synthetic violation for human output', $output);
     }
 }

@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\Schema;
 class EngineeringHarnessabilityService
 {
     private const BAD_OUTCOME_STATUSES = ['degraded', 'incident', 'rolled_back'];
+
     private const GOOD_OUTCOME_STATUSES = ['healthy', 'accepted'];
+
     private const DEFAULT_THRESHOLDS = [
         'medium_min_score' => 55,
         'high_min_score' => 80,
@@ -25,7 +27,10 @@ class EngineeringHarnessabilityService
         'require_auto_test_below_score' => 80,
     ];
 
-    public function __construct(private readonly WorkspaceProfiler $profiler) {}
+    public function __construct(
+        private readonly WorkspaceProfiler $profiler,
+        private readonly ?EngineeringHarnessabilityInput $input = null,
+    ) {}
 
     /**
      * @return array<string,mixed>
@@ -81,7 +86,7 @@ class EngineeringHarnessabilityService
      */
     public function calibrate(array $options = []): array
     {
-        $limit = max(1, min(1000, (int) ($options['limit'] ?? 300)));
+        $limit = $this->harnessabilityInput()->calibrationLimit($options['limit'] ?? null);
         $runs = AtlasEngineeringRun::query()
             ->with(['controlResults', 'testRuns', 'reviewFindings'])
             ->whereNotNull('harnessability_score')
@@ -433,6 +438,11 @@ class EngineeringHarnessabilityService
             $score >= self::DEFAULT_THRESHOLDS['medium_min_score'] => 'medium',
             default => 'low',
         };
+    }
+
+    private function harnessabilityInput(): EngineeringHarnessabilityInput
+    {
+        return $this->input ?? app(EngineeringHarnessabilityInput::class);
     }
 
     private function rate(int $count, int $total): ?float

@@ -2,11 +2,14 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Models\AiInboxItem;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Kernel\Evidence\ProviderUsagePayload;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\Concerns\CreatesAiJobChoiceTables;
 use Tests\TestCase;
 
@@ -24,6 +27,8 @@ class AiObservabilityKernelSloTest extends TestCase
         Cache::flush();
         $this->createAiJobChoiceTables();
         Schema::dropIfExists('atlas_ledger_events');
+        Schema::dropIfExists('ai_inbox_items');
+        (require database_path('migrations/2026_04_30_152000_create_ai_inbox_items_table.php'))->up();
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
     }
 
@@ -31,6 +36,7 @@ class AiObservabilityKernelSloTest extends TestCase
     {
         Cache::flush();
         Schema::dropIfExists('atlas_ledger_events');
+        Schema::dropIfExists('ai_inbox_items');
         $this->dropAiJobChoiceTables();
 
         parent::tearDown();
@@ -102,6 +108,110 @@ class AiObservabilityKernelSloTest extends TestCase
         $this->assertSame(300000, $response->json('kernel_slo.stages')['runtime.execute']['p95_ms']);
         $this->assertSame(['stage_failed'], $response->json('kernel_slo.stages')['runtime.execute']['violations']);
         $this->assertSame(['atlas_cli_dev' => 1], $response->json('kernel_slo.stages')['runtime.execute']['dimensions']['surface_id']);
+    }
+
+    public function test_observability_payload_includes_architecture_operations_catalog(): void
+    {
+        $response = $this->getJson('/ai/observability?hours=24', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
+            ->assertJsonPath('architecture_operations.section', 'arquitetura_mae')
+            ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_operations')
+            ->assertJsonPath('architecture_operations.commands.0.kind', 'catalog')
+            ->assertJsonPath('architecture_operations.commands.0.command', 'atlas ai architecture-operations --json');
+
+        $commands = array_column($response->json('architecture_operations.commands'), 'command');
+
+        $this->assertSame(count($commands), $response->json('architecture_operations.command_count'));
+        $this->assertContains('atlas ai provider-performance --hours=24 --json', $commands);
+        $this->assertContains('atlas ai self-improvement-schedule-report --hours=24 --json', $commands);
+        $this->assertContains('atlas ai inbox-action-report --hours=24 --json', $commands);
+        $this->assertContains('atlas ledger replay --envelope=<id> --json', $commands);
+        $this->assertContains('architecture_operations', $response->json('architecture_operations.operation_ids'));
+    }
+
+    public function test_observability_payload_includes_provider_performance_summary(): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => (string) Str::ulid(),
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_observability_provider',
+            'operator_id' => 'operator_observability_provider',
+            'envelope_id' => 'env_observability_provider',
+            'receipt_id' => 'receipt_observability_provider',
+            'trace_id' => 'trace_observability_provider',
+            'correlation_id' => 'env_observability_provider',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::ProviderReturned->value,
+            'emitter_stage' => 'atlas.provider',
+            'emitter_version' => 'atlas.provider.v1',
+            'payload' => [
+                'schema_version' => ProviderUsagePayload::SCHEMA_VERSION,
+                'phase' => 'returned',
+                'provider_cli' => 'codex_cli',
+                'domain' => 'programming',
+                'flow' => 'programming.dev',
+                'task_type' => 'feature',
+                'risk' => 'medium',
+                'exit_status' => 'succeeded',
+                'latency_seconds' => 1.2,
+                'repair_count' => 0,
+                'selection_mode' => 'auto',
+            ],
+            'payload_hash' => hash('sha256', 'observability-provider-performance'),
+            'occurred_at' => now(),
+        ]);
+
+        $this->getJson('/ai/observability?hours=24', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('provider_performance.available', true)
+            ->assertJsonPath('provider_performance.event_count', 1)
+            ->assertJsonPath('provider_performance.success_count', 1)
+            ->assertJsonPath('provider_performance.success_rate', 1)
+            ->assertJsonPath('provider_performance.review_signal.status', 'ok')
+            ->assertJsonPath('provider_performance.provider_counts.codex_cli', 1)
+            ->assertJsonPath('provider_performance.domain_counts.programming', 1)
+            ->assertJsonPath('provider_performance.groups.0.provider_cli', 'codex_cli')
+            ->assertJsonPath('provider_performance.groups.0.task_type', 'feature');
+    }
+
+    public function test_observability_payload_includes_ledger_projection_health(): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => (string) Str::ulid(),
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_observability_projection',
+            'operator_id' => 'operator_observability_projection',
+            'envelope_id' => 'env_observability_projection',
+            'receipt_id' => 'receipt_observability_projection',
+            'trace_id' => null,
+            'correlation_id' => 'env_observability_projection',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::ProviderReturned->value,
+            'emitter_stage' => 'atlas.provider',
+            'emitter_version' => 'atlas.provider.v1',
+            'payload' => [
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.2',
+                'operator_input' => 'Projection health check.',
+            ],
+            'payload_hash' => hash('sha256', 'observability-ledger-projection-health'),
+            'occurred_at' => now(),
+        ]);
+
+        $this->getJson('/ai/observability?hours=24', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('ledger_projection_health.schema_version', 'atlas.ledger_projection_health.v1')
+            ->assertJsonPath('ledger_projection_health.available', true)
+            ->assertJsonPath('ledger_projection_health.status', 'critical')
+            ->assertJsonPath('ledger_projection_health.review_signal.status', 'warning')
+            ->assertJsonPath('ledger_projection_health.review_signal.recommended_action', 'run_atlas_ai_ledger_project_or_review_projection_tables')
+            ->assertJsonPath('ledger_projection_health.scheduler.enabled', true)
+            ->assertJsonPath('ledger_projection_health.scheduler.cadence', 'every_ten_minutes')
+            ->assertJsonPath('ledger_projection_health.projections.0.id', 'ai_traces')
+            ->assertJsonPath('ledger_projection_health.projections.0.status', 'drift_detected')
+            ->assertJsonPath('ledger_projection_health.projections.1.id', 'atlas_engineering_runs')
+            ->assertJsonPath('ledger_projection_health.projections.1.status', 'projection_unavailable');
     }
 
     public function test_observability_payload_includes_kernel_repair_window_summary(): void
@@ -218,6 +328,73 @@ class AiObservabilityKernelSloTest extends TestCase
         $this->assertSame(['provider_execution_allowed_must_be_false' => 1], $response->json('kernel_pipeline.violation_counts'));
     }
 
+    public function test_observability_payload_includes_inbox_action_replay_summary(): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => '01HOBSERVABILITYINBOXACTION001',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_observability',
+            'operator_id' => 'operator_cli',
+            'envelope_id' => 'inbox_item:observability-inbox-action',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'observability-inbox-action',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::InboxActionRecorded->value,
+            'emitter_stage' => 'atlas.inbox',
+            'emitter_version' => 'atlas.inbox_action.v1',
+            'payload' => [
+                'schema_version' => 'atlas.inbox_action.v1',
+                'action' => 'review_patch',
+                'inbox_item' => [
+                    'id' => 'observability-inbox-action',
+                    'type' => 'proposal',
+                    'category' => 'self_improvement',
+                    'severity' => 'high',
+                    'status' => 'read',
+                    'source_type' => 'atlas_self_improvement',
+                    'source_id' => 'finding-observability',
+                    'dedupe_key' => 'dedupe-observability',
+                ],
+                'actor' => [
+                    'type' => 'operator_cli',
+                    'id' => null,
+                ],
+                'result' => [
+                    'payload' => [
+                        'action' => 'review_patch',
+                        'diff_refs' => [],
+                    ],
+                ],
+                'review_signal' => [
+                    'status' => 'warning',
+                    'severity' => 'high',
+                    'recommended_action' => 'review_observability_patch',
+                ],
+                'recommended_action' => 'review_observability_patch',
+            ],
+            'payload_hash' => hash('sha256', 'observability-inbox-action'),
+            'occurred_at' => now(),
+        ]);
+
+        $response = $this->getJson('/ai/observability?hours=24', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('inbox_actions.available', true)
+            ->assertJsonPath('inbox_actions.inbox_action_count', 1)
+            ->assertJsonPath('inbox_actions.envelope_count', 1)
+            ->assertJsonPath('inbox_actions.reviewed_patch_count', 1)
+            ->assertJsonPath('inbox_actions.with_diff_refs_count', 0)
+            ->assertJsonPath('inbox_actions.review_signal.status', 'warning')
+            ->assertJsonPath('inbox_actions.review_signal.severity', 'medium')
+            ->assertJsonPath('inbox_actions.review_signal.recommended_action', 'open_reviewable_inbox_action_evidence_proposal')
+            ->assertJsonPath('inbox_actions.recent_events.0.inbox_item_id', 'observability-inbox-action');
+
+        $this->assertSame(['review_patch' => 1], $response->json('inbox_actions.action_counts'));
+        $this->assertSame(['operator_cli' => 1], $response->json('inbox_actions.actor_type_counts'));
+        $this->assertSame(['review_observability_patch' => 1], $response->json('inbox_actions.recommended_action_counts'));
+        $this->assertContains('review_patch_action_without_diff_refs', $response->json('inbox_actions.review_signal.reasons'));
+    }
+
     public function test_observability_payload_includes_self_improvement_schedule(): void
     {
         config()->set('atlas_ai.self_improvement.enabled', true);
@@ -267,6 +444,50 @@ class AiObservabilityKernelSloTest extends TestCase
             'payload_hash' => hash('sha256', '01HOBSSCHEDULE0000000000001'),
             'occurred_at' => now(),
         ]);
+        AtlasLedgerEvent::query()->create([
+            'event_id' => '01HOBSSCHEDULEDONE000000001',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_observability',
+            'operator_id' => 'operator_observability',
+            'envelope_id' => 'self_improvement_run:observability',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'self_improvement_run:observability',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::OperationCompleted->value,
+            'emitter_stage' => 'atlas.self_improvement',
+            'emitter_version' => 'self-improvement-runtime-v1',
+            'payload' => [
+                'flow' => 'self_improvement.nightly_review',
+                'finding_count' => 1,
+                'emitted_count' => 1,
+                'emitted_inbox_item_ids' => ['00000000-0000-0000-0000-000000000321'],
+            ],
+            'payload_hash' => hash('sha256', '01HOBSSCHEDULEDONE000000001'),
+            'occurred_at' => now(),
+        ]);
+        AiInboxItem::unguarded(fn (): AiInboxItem => AiInboxItem::query()->create([
+            'id' => '00000000-0000-0000-0000-000000000321',
+            'user_id' => 'vitor',
+            'type' => 'proposal',
+            'category' => 'self_improvement',
+            'severity' => 'warning',
+            'status' => 'unread',
+            'title' => 'Observability schedule proposal',
+            'summary' => 'Self-Improvement schedule replay emitted this proposal.',
+            'source_type' => 'atlas_self_improvement',
+            'initiator' => 'system',
+            'payload' => [
+                'proposal_contract' => [
+                    'review_signal' => [
+                        'status' => 'warning',
+                        'severity' => 'medium',
+                        'recommended_action' => 'review_observability_schedule_repair',
+                    ],
+                ],
+            ],
+            'deep_link' => 'atlas://inbox/00000000-0000-0000-0000-000000000321',
+        ]));
 
         $this->getJson('/ai/observability?hours=24', $this->headers)
             ->assertOk()
@@ -301,6 +522,14 @@ class AiObservabilityKernelSloTest extends TestCase
             ->assertJsonPath('self_improvement_schedule.commands.3.cadence', 'daily')
             ->assertJsonPath('self_improvement_schedule_replay.available', true)
             ->assertJsonPath('self_improvement_schedule_replay.schedule_observation_count', 1)
+            ->assertJsonPath('self_improvement_schedule_replay.completed_count', 1)
+            ->assertJsonPath('self_improvement_schedule_replay.emitted_count', 1)
+            ->assertJsonPath('self_improvement_schedule_replay.emitted_inbox_item_ids.0', '00000000-0000-0000-0000-000000000321')
+            ->assertJsonPath('self_improvement_schedule_replay.emitted_inbox_items.0.title', 'Observability schedule proposal')
+            ->assertJsonPath('self_improvement_schedule_replay.emitted_inbox_items.0.review_signal.recommended_action', 'review_observability_schedule_repair')
+            ->assertJsonPath('self_improvement_schedule_replay.recent_events.0.completed', true)
+            ->assertJsonPath('self_improvement_schedule_replay.recent_events.0.emitted_inbox_item_ids.0', '00000000-0000-0000-0000-000000000321')
+            ->assertJsonPath('self_improvement_schedule_replay.recent_events.0.emitted_inbox_items.0.title', 'Observability schedule proposal')
             ->assertJsonPath('self_improvement_schedule_replay.health_status_counts.healthy', 1)
             ->assertJsonPath('self_improvement_schedule_replay.latest_plan_hash', 'observability-plan-hash')
             ->assertJsonPath('self_improvement_schedule_replay.health.status', 'ok')

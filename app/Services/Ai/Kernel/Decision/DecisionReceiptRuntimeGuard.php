@@ -41,8 +41,7 @@ class DecisionReceiptRuntimeGuard
         ?string $runtimeProvider = null,
         ?string $runtimeModel = null,
         ?string $runtimeStage = null,
-    ): ?DecisionReceiptRuntimeViolation
-    {
+    ): ?DecisionReceiptRuntimeViolation {
         $receiptV2 = data_get($receipt, 'receipt_v2');
         if (! is_array($receiptV2)) {
             return null;
@@ -124,12 +123,96 @@ class DecisionReceiptRuntimeGuard
             );
         }
 
+        $hashViolation = $this->hashIntegrityViolation($receiptV2, $base);
+        if ($hashViolation instanceof DecisionReceiptRuntimeViolation) {
+            return $hashViolation;
+        }
+
         $providerViolation = $this->providerSelectionViolation($receiptV2, $runtimeProvider, $runtimeModel, $runtimeStage, $base);
         if ($providerViolation instanceof DecisionReceiptRuntimeViolation) {
             return $providerViolation;
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $receiptV2
+     * @param  array{receiptId:?string,envelopeId:?string,expiresAt:?string,dryRun:?bool,schemaVersion:?string}  $base
+     */
+    private function hashIntegrityViolation(array $receiptV2, array $base): ?DecisionReceiptRuntimeViolation
+    {
+        $receiptHash = $this->stringOrNull(data_get($receiptV2, 'receipt_hash'));
+        if ($receiptHash === null) {
+            return null;
+        }
+
+        $inputsHash = $this->stringOrNull(data_get($receiptV2, 'inputs_hash'));
+        $envelopeInputHash = $this->stringOrNull(data_get($receiptV2, 'metadata.envelope_input_hash'));
+        if ($inputsHash !== null && $envelopeInputHash !== null) {
+            $expectedInputsHash = DecisionReceiptHash::hash([
+                'envelope_input_hash' => $envelopeInputHash,
+                'domain' => $this->stringOrDefault(data_get($receiptV2, 'domain'), 'general'),
+                'flow' => $this->stringOrDefault(data_get($receiptV2, 'flow'), $this->stringOrDefault(data_get($receiptV2, 'domain'), 'general').'.default'),
+                'risk' => $this->stringOrDefault(data_get($receiptV2, 'risk'), 'medium'),
+                'provider_selection' => $this->arrayOrEmpty(data_get($receiptV2, 'provider_selection')),
+                'budgets' => $this->arrayOrEmpty(data_get($receiptV2, 'budgets')),
+                'required_gates' => $this->arrayOrEmpty(data_get($receiptV2, 'required_gates')),
+                'required_evidence' => $this->arrayOrEmpty(data_get($receiptV2, 'required_evidence')),
+                'repair_policy' => $this->arrayOrEmpty(data_get($receiptV2, 'repair_policy')),
+            ]);
+
+            if (! hash_equals($expectedInputsHash, $inputsHash)) {
+                return $this->hashMismatchViolation($base, 'DecisionReceipt invalido: inputs_hash nao corresponde ao payload assinado.');
+            }
+        }
+
+        $expectedReceiptHash = DecisionReceiptHash::hash([
+            'receipt_id' => $this->stringOrDefault(data_get($receiptV2, 'receipt_id'), ''),
+            'envelope_id' => $this->stringOrDefault(data_get($receiptV2, 'envelope_id'), ''),
+            'schema_version' => $this->stringOrDefault(data_get($receiptV2, 'schema_version'), ''),
+            'issued_at' => $this->stringOrDefault(data_get($receiptV2, 'issued_at'), ''),
+            'expires_at' => $this->stringOrDefault(data_get($receiptV2, 'expires_at'), ''),
+            'dry_run' => (bool) data_get($receiptV2, 'dry_run', false),
+            'signed_by' => $this->stringOrDefault(data_get($receiptV2, 'signed_by'), ''),
+            'inputs_hash' => $this->stringOrDefault(data_get($receiptV2, 'inputs_hash'), ''),
+            'parent_receipt_id' => $this->stringOrNull(data_get($receiptV2, 'parent_receipt_id')),
+        ]);
+
+        if (! hash_equals($expectedReceiptHash, $receiptHash)) {
+            return $this->hashMismatchViolation($base, 'DecisionReceipt invalido: receipt_hash nao corresponde ao payload assinado.');
+        }
+
+        $chainHash = $this->stringOrNull(data_get($receiptV2, 'chain_hash'));
+        if ($chainHash !== null) {
+            $expectedChainHash = DecisionReceiptHash::hash([
+                'parent_chain_hash' => $this->stringOrNull(data_get($receiptV2, 'parent_chain_hash'))
+                    ?? $this->stringOrNull(data_get($receiptV2, 'metadata.parent_chain_hash')),
+                'receipt_hash' => $receiptHash,
+            ]);
+
+            if (! hash_equals($expectedChainHash, $chainHash)) {
+                return $this->hashMismatchViolation($base, 'DecisionReceipt invalido: chain_hash nao corresponde ao receipt_hash.');
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{receiptId:?string,envelopeId:?string,expiresAt:?string,dryRun:?bool,schemaVersion:?string}  $base
+     */
+    private function hashMismatchViolation(array $base, string $message): DecisionReceiptRuntimeViolation
+    {
+        return new DecisionReceiptRuntimeViolation(
+            errorCode: 'decision_receipt_hash_mismatch',
+            message: $message,
+            receiptId: $base['receiptId'],
+            envelopeId: $base['envelopeId'],
+            expiresAt: $base['expiresAt'],
+            dryRun: $base['dryRun'],
+            schemaVersion: $base['schemaVersion'],
+        );
     }
 
     /**
@@ -239,5 +322,18 @@ class DecisionReceiptRuntimeGuard
         $value = trim((string) $value);
 
         return $value !== '' ? $value : null;
+    }
+
+    private function stringOrDefault(mixed $value, string $default): string
+    {
+        return $this->stringOrNull($value) ?? $default;
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private function arrayOrEmpty(mixed $value): array
+    {
+        return is_array($value) ? $value : [];
     }
 }

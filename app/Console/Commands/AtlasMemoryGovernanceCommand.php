@@ -3,11 +3,14 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasMemoryGovernanceService;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 
 class AtlasMemoryGovernanceCommand extends Command
 {
+    private ?MemoryQueryInput $memoryInput = null;
+
     protected $signature = 'atlas:memory:govern
         {action=scan : scan}
         {--type=* : Filter by memory type}
@@ -22,8 +25,10 @@ class AtlasMemoryGovernanceCommand extends Command
 
     protected $description = 'Govern Atlas memory registry health, duplicates and conflicts.';
 
-    public function handle(AtlasMemoryGovernanceService $governance): int
+    public function handle(AtlasMemoryGovernanceService $governance, MemoryQueryInput $input): int
     {
+        $this->memoryInput = $input;
+
         if (! Schema::hasTable('atlas_memory_entries')) {
             $this->error('Tabela atlas_memory_entries ainda nao existe. Rode migrations.');
 
@@ -38,7 +43,7 @@ class AtlasMemoryGovernanceCommand extends Command
         }
 
         $payload = [
-            'governance' => $governance->scan($this->filters(), (int) $this->option('limit'), (bool) $this->option('dry-run')),
+            'governance' => $governance->scan($this->filters(), $this->memoryInput()->governanceScanLimit($this->option('limit')), (bool) $this->option('dry-run')),
         ];
 
         if ((bool) $this->option('json')) {
@@ -95,5 +100,10 @@ class AtlasMemoryGovernanceCommand extends Command
         $value = $this->option($key);
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function memoryInput(): MemoryQueryInput
+    {
+        return $this->memoryInput ?? app(MemoryQueryInput::class);
     }
 }

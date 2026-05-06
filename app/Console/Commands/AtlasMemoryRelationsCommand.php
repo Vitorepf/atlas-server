@@ -4,12 +4,15 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasMemoryEntryRelation;
 use App\Services\Ai\AtlasMemoryGovernanceService;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasMemoryRelationsCommand extends Command
 {
+    private ?MemoryQueryInput $memoryInput = null;
+
     protected $signature = 'atlas:memory:relations
         {action=list : list, review, resolve or dismiss}
         {relation? : Relation UUID for review/resolve/dismiss}
@@ -30,8 +33,10 @@ class AtlasMemoryRelationsCommand extends Command
 
     protected $description = 'List and review Atlas memory duplicate/conflict relations.';
 
-    public function handle(AtlasMemoryGovernanceService $governance): int
+    public function handle(AtlasMemoryGovernanceService $governance, MemoryQueryInput $input): int
     {
+        $this->memoryInput = $input;
+
         if (! Schema::hasTable('atlas_memory_entry_relations')) {
             $this->error('Tabela atlas_memory_entry_relations ainda nao existe. Rode migrations.');
 
@@ -51,7 +56,7 @@ class AtlasMemoryRelationsCommand extends Command
 
     private function list(AtlasMemoryGovernanceService $governance): int
     {
-        $relations = $governance->listRelations($this->filters(), (int) $this->option('limit'));
+        $relations = $governance->listRelations($this->filters(), $this->memoryInput()->relationLimit($this->option('limit')));
 
         return $this->outputPayload([
             'relations' => $relations
@@ -200,5 +205,10 @@ class AtlasMemoryRelationsCommand extends Command
         $value = $this->option($key);
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function memoryInput(): MemoryQueryInput
+    {
+        return $this->memoryInput ?? app(MemoryQueryInput::class);
     }
 }

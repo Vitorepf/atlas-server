@@ -21,7 +21,10 @@ class EngineeringCodeIntelligenceService
 {
     private const EXTENSIONS = ['php', 'ts', 'tsx', 'js', 'jsx', 'md'];
 
-    public function __construct(private readonly AtlasToolEvidenceStore $toolEvidence) {}
+    public function __construct(
+        private readonly AtlasToolEvidenceStore $toolEvidence,
+        private readonly ?EngineeringContextIntelligenceInput $input = null,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $options
@@ -82,7 +85,7 @@ class EngineeringCodeIntelligenceService
         $this->ensureTables();
 
         $workspace = $this->workspace($options['workspace'] ?? base_path());
-        $limit = $this->limit((int) ($options['limit'] ?? 50));
+        $limit = $this->contextInput()->codeLimit($options['limit'] ?? null);
         $context = $this->toolRuntimeContext($options);
         $scan = $this->scanWorkspace($workspace);
         $modules = $this->moduleDrift($scan['modules'], $limit);
@@ -161,7 +164,7 @@ class EngineeringCodeIntelligenceService
         $modules = $query
             ->orderByDesc('symbol_count')
             ->orderBy('slug')
-            ->limit($this->limit($limit))
+            ->limit($this->contextInput()->codeLimit($limit))
             ->get()
             ->map(fn (AtlasEngineeringCodeModule $module): array => $this->modulePayload($module))
             ->values()
@@ -218,7 +221,7 @@ class EngineeringCodeIntelligenceService
             'symbols' => $query
                 ->orderBy('file_path')
                 ->orderBy('line_start')
-                ->limit($this->limit($limit))
+                ->limit($this->contextInput()->codeLimit($limit))
                 ->get()
                 ->map(fn (AtlasEngineeringCodeSymbol $symbol): array => $this->symbolPayload($symbol))
                 ->values()
@@ -280,7 +283,7 @@ class EngineeringCodeIntelligenceService
         return $query
             ->orderByDesc('symbol_count')
             ->orderByRaw("case when docs_status = 'documented' then 0 when docs_status = 'inferred' then 1 else 2 end")
-            ->limit($this->limit($limit))
+            ->limit($this->contextInput()->codeLimit($limit))
             ->get()
             ->map(fn (AtlasEngineeringCodeModule $module): array => [
                 'type' => 'atlas_engineering_code_module',
@@ -1844,8 +1847,8 @@ class EngineeringCodeIntelligenceService
         return str_replace(DIRECTORY_SEPARATOR, '/', $relative);
     }
 
-    private function limit(int $limit): int
+    private function contextInput(): EngineeringContextIntelligenceInput
     {
-        return max(1, min(500, $limit));
+        return $this->input ?? app(EngineeringContextIntelligenceInput::class);
     }
 }

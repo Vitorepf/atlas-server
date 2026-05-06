@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use LogicException;
 
 class AtlasLedgerEvent extends Model
 {
@@ -38,5 +39,22 @@ class AtlasLedgerEvent extends Model
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     */
+    public function save(array $options = []): bool
+    {
+        if ($this->exists && $this->isDirty()) {
+            throw new LogicException('Atlas ledger events are append-only; update is not allowed.');
+        }
+
+        return parent::save($options);
+    }
+
+    public function delete()
+    {
+        throw new LogicException('Atlas ledger events are append-only; delete is not allowed.');
     }
 }

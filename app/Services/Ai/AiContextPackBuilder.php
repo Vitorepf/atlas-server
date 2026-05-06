@@ -7,9 +7,10 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
 use App\Services\Ai\Context\ContextPackMemoryInput;
+use App\Services\Ai\Context\ContextRetrievalRouter;
 use App\Services\Ai\Context\SemanticContextInput;
-use App\Services\Ai\Security\PromptInjectionScanner;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Security\PromptInjectionScanner;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Semantic\SemanticSearchService;
@@ -29,6 +30,7 @@ class AiContextPackBuilder
         ?KernelSloProbe $slo = null,
         ?ContextPackMemoryInput $memoryInput = null,
         ?SemanticContextInput $semanticInput = null,
+        ?ContextRetrievalRouter $retrievalRouter = null,
     ) {
         $this->memoryPrivacy = $memoryPrivacy ?? app(AtlasMemoryPrivacyService::class);
         $this->sourcePrivacy = $sourcePrivacy ?? app(AtlasMemorySourcePrivacyPolicy::class);
@@ -37,6 +39,7 @@ class AiContextPackBuilder
         $this->slo = $slo ?? app(KernelSloProbe::class);
         $this->memoryInput = $memoryInput ?? app(ContextPackMemoryInput::class);
         $this->semanticInput = $semanticInput ?? app(SemanticContextInput::class);
+        $this->retrievalRouter = $retrievalRouter ?? app(ContextRetrievalRouter::class);
     }
 
     private AtlasMemoryPrivacyService $memoryPrivacy;
@@ -52,6 +55,8 @@ class AiContextPackBuilder
     private ContextPackMemoryInput $memoryInput;
 
     private SemanticContextInput $semanticInput;
+
+    private ContextRetrievalRouter $retrievalRouter;
 
     public function build(string $input, AiTaskRequest $task, array $options = []): AiContextPack
     {
@@ -93,6 +98,7 @@ class AiContextPackBuilder
         $taskData = $task->toArray();
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
         $conversation = $this->conversation->build($options);
+        $retrievalPlan = $this->retrievalRouter->plan($input, $task, $payload, $options);
         $registryMemory = $this->registryMemory($taskData, $payload, $conversation, $options);
         $registryRefs = $registryMemory->map(fn (AtlasMemoryEntry $entry): array => [
             'type' => 'atlas_memory_entry',
@@ -166,6 +172,7 @@ class AiContextPackBuilder
                 'relevant_files' => array_values((array) data_get($payload, 'relevant_files', [])),
                 'commands' => (array) data_get($payload, 'commands', []),
             ],
+            'retrieval' => $retrievalPlan,
             'memory' => [
                 'constitutional' => [],
                 'recall' => $recallItems,

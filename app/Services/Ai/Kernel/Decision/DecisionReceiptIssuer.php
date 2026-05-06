@@ -36,6 +36,10 @@ class DecisionReceiptIssuer
         $requiredEvidence = $this->stringList($decision['required_evidence'] ?? ['summary']);
         $repairPolicy = DecisionRepairPolicy::fromArray(is_array($decision['repair_policy'] ?? null) ? $decision['repair_policy'] : ['enabled' => false, 'max_attempts' => 0]);
         $metadata = is_array($decision['metadata'] ?? null) ? $decision['metadata'] : [];
+        $metadata['envelope_input_hash'] = $metadata['envelope_input_hash'] ?? $envelope->input->inputHash;
+        if ($parentChainHash !== null) {
+            $metadata['parent_chain_hash'] = $metadata['parent_chain_hash'] ?? $parentChainHash;
+        }
         $inputsHash = $this->hash([
             'envelope_input_hash' => $envelope->input->inputHash,
             'domain' => $domain,
@@ -87,9 +91,6 @@ class DecisionReceiptIssuer
         );
     }
 
-    /**
-     * @param  mixed  $selection
-     */
     private function providerSelection(mixed $selection): DecisionProviderSelection
     {
         $selection = is_array($selection) ? $selection : [];
@@ -151,25 +152,6 @@ class DecisionReceiptIssuer
      */
     private function hash(array $payload): string
     {
-        $payload = $this->canonicalize($payload);
-
-        return hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function canonicalize(array $payload): array
-    {
-        ksort($payload);
-
-        foreach ($payload as $key => $value) {
-            if (is_array($value)) {
-                $payload[$key] = $this->canonicalize($value);
-            }
-        }
-
-        return $payload;
+        return DecisionReceiptHash::hash($payload);
     }
 }

@@ -2000,8 +2000,8 @@ Cada anti-padrao tem teste arquitetural correspondente.
 | AP-67 | Observability normaliza janela de replay fora do contrato compartilhado | `AiObservabilityController` deve usar `KernelReplayReportInput` como `observability replay input contract`, mantendo a janela default de 24h coberta em teste |
 | AP-68 | APIs de replay duplicam literal do limite de janela | Controllers de replay devem manter `replay report validation limit contract`, usando `KernelReplayReportInput::MAX_WINDOW_HOURS` em validacao HTTP em vez de repetir `720` |
 | AP-69 | Self-Improvement usa limites autonomos como magic numbers | `AtlasSelfImprovementRuntime` deve manter `self-improvement runtime window contract` com constantes explicitas para janela default, janela autonoma maxima e limite maximo de findings |
-| AP-70 | Schedule do Self-Improvement duplica limites do runtime | `AtlasSelfImprovementScheduleService` deve manter `self-improvement schedule window contract`, reutilizando constantes do runtime para gerar comandos recorrentes |
-| AP-71 | Orquestrador do Self-Improvement duplica limites do runtime | `AtlasSelfImprovementOrchestrator` deve manter `self-improvement orchestrator window contract`, reutilizando as mesmas constantes do runtime para gerar planos de flow |
+| AP-70 | Schedule do Self-Improvement duplica limites do runtime | `AtlasSelfImprovementScheduleService` deve manter `self-improvement schedule window contract`, usando `AtlasSelfImprovementInput` para gerar comandos recorrentes com limites canonicos |
+| AP-71 | Orquestrador do Self-Improvement duplica limites do runtime | `AtlasSelfImprovementOrchestrator` deve manter `self-improvement orchestrator window contract`, usando `AtlasSelfImprovementInput` para gerar planos de flow com limites canonicos |
 | AP-72 | Telemetria normaliza janela temporal por controller/command | `AiTelemetryWindowInput` deve manter `telemetry window input contract` para APIs e comandos de telemetria, centralizando default, limite maximo e janela default de missing cost rates |
 | AP-73 | Policy/Profile duplica janela de budget do runtime | `AtlasAiRuntimeSettings` deve manter `runtime budget window contract`, centralizando default e limite maximo de `budget.window_hours` para settings, budget payload e EffectivePolicy |
 | AP-74 | Replay de envelope no Evidence Ledger limita eventos de formas diferentes | `KernelLedgerEnvelopeInput` deve manter `ledger envelope input contract`, centralizando default e limite maximo para `atlas:ai:ledger` e `GET /ai/ledger/{envelope}` |
@@ -2009,7 +2009,7 @@ Cada anti-padrao tem teste arquitetural correspondente.
 | AP-76 | APIs de Telemetry listam recursos com limites duplicados | `AiTelemetryWindowInput` deve manter `telemetry list limit contract`, centralizando defaults e tetos para summaries, cost rates, missing cost rates e outcomes |
 | AP-77 | Fluxos Programming/Dev/Forge normalizam iteracoes em pontos diferentes | `ProgrammingIterationPolicy` deve manter `programming iteration policy contract`, centralizando minimo, maximo e guardas de dev, complete, forge e repair para CLI, policy, orchestrator e worker |
 | AP-78 | Ferramentas MCP/Open Brain normalizam limites com numeros magicos | `OpenBrainMcpInput` deve manter `open brain mcp input contract`, centralizando limites de code search, docs lookup, recent changes, decision query, module symbols e context-for |
-| AP-79 | Memoria/Obsidian/Vault normaliza limites em servicos paralelos | `MemoryQueryInput` deve manter `memory query input contract`, centralizando limites de registry, verbatim, governance, privacy, promotion, review queue, quality history e relations para que AtlasVault/Open Brain continuem Core e nao logica solta por surface |
+| AP-79 | Memoria/Obsidian/Vault normaliza limites em servicos e comandos paralelos | `MemoryQueryInput` deve manter `memory query input contract`, centralizando limites de registry, verbatim, governance, privacy, promotion, review queue, quality history e relations tambem nas CLI surfaces para que AtlasVault/Open Brain continuem Core e nao logica solta por surface |
 | AP-80 | Provider Projection Audit normaliza janelas e purge localmente | `ProviderProjectionAuditInput` deve manter `provider projection audit input contract`, centralizando limite de busca, janela de resumo e retencao de purge do audit que protege memoria antes de chegar aos providers |
 | AP-81 | Conversation Context decide janela de turnos dentro do builder | `ConversationContextInput` deve manter `conversation context input contract`, centralizando limites de turnos recentes e turnos vindos do payload para a etapa `context.compose` |
 | AP-82 | Session Search e runtime duplicam `top_n` de retrieval | `RetrievalRankInput` deve manter `retrieval rank input contract`, centralizando `top_n` de session search em service, prompt builder e runtime tool para que contexto recuperado tenha ranking consistente |
@@ -2019,6 +2019,61 @@ Cada anti-padrao tem teste arquitetural correspondente.
 | AP-86 | Context Pack Builder calcula limites de semantic notes dentro do builder | `SemanticContextInput` deve manter `semantic context input contract`, centralizando limite de notas semanticas e tamanho de excerpt para que vault/KB entrem no `context.compose` por contrato comum |
 | AP-87 | Provider Projection calcula limites de linhas/memoria dentro do service | `ProviderProjectionInput` deve manter `provider projection input contract`, centralizando `max_lines`, `memory_limit` e tamanho por memoria para que a projecao provider-safe seja governada por contrato |
 | AP-88 | Test Command Resolver valida memoria do comando dentro do resolver | `TestCommandInput` deve manter `test command input contract`, centralizando `test_memory_limit` para que Quality/Runtime executem testes com limite seguro e auditavel |
+| AP-89 | Engineering Harness Runner normaliza tentativas dentro do runner | `EngineeringHarnessRunnerInput` deve manter `engineering harness runner input contract`, centralizando `max_attempts` para run, replay e autonomia do harness de programacao pesada |
+| AP-90 | Engineering Harnessability calibra autonomia com limite local | `EngineeringHarnessabilityInput` deve manter `engineering harnessability input contract`, centralizando limite de amostra da calibracao que alimenta thresholds de autonomia do harness |
+| AP-91 | Engineering Docker Harness normaliza limites e retencao localmente | `EngineeringDockerHarnessInput` deve manter `engineering docker harness input contract`, centralizando healthcheck timeout, limites de artifact e retencao de cleanup do runtime Docker |
+| AP-92 | Engineering Test Matrix normaliza timeouts e artifact budgets localmente | `EngineeringTestMatrixInput` deve manter `engineering test matrix input contract`, centralizando timeout de quality scan, timeout de visual smoke e limites de artifacts capturados como evidencia |
+| AP-93 | Claude Code Baseline normaliza timeouts dentro do runner | `EngineeringClaudeCodeBaselineInput` deve manter `engineering Claude Code baseline input contract`, centralizando timeout de execucao e timeout de validacao deterministica do baseline contra Claude Code |
+| AP-94 | Engineering Benchmark normaliza limites de relatorio e calibracao | `EngineeringBenchmarkInput` deve manter `engineering benchmark input contract`, centralizando limites de promocao, trend, Fair Claude report, calibracao e comparacoes pareadas |
+| AP-95 | Engineering Context Intelligence normaliza limites de KB, codigo e evidencia | `EngineeringContextIntelligenceInput` deve manter `engineering context intelligence input contract`, centralizando limites de Knowledge Base, Code Intelligence e historico de evidencia usados em context packs, artifacts e CLI de knowledge/code intelligence |
+| AP-96 | CLI surfaces normalizam limites localmente em varios comandos | `AtlasCliLimitInput` deve manter `CLI limit input contract`, centralizando limites de listagem, inbox, trace, tools e benchmark commands para que surface nao replique policy numerica |
+| AP-97 | Scheduler claim/preview normaliza limite dentro da surface e service | `AtlasSchedulerInput` deve manter `scheduler input contract`, centralizando limite de due tasks para `atlas:scheduler:tick`, `tick` e `previewDueTasks` para que autonomia agendada nao replique policy numerica |
+| AP-98 | Self-Improvement CLI/runtime/orchestrator normalizam janela e findings em pontos diferentes | `AtlasSelfImprovementInput` deve manter `self-improvement input contract`, centralizando `hours` e `limit` para comando, runtime, orchestrator e schedule para que o Curator nao replique policy numerica |
+| AP-99 | Provider Strategy Matrix ainda depende de health/policy sem performance empirica normalizada | `ProviderUsagePayload`, `ProviderPerformanceProjection`, `atlas:ai:provider-performance`, `GET /ai/provider-performance`, Observability e `atlas_provider_performance_report` devem manter o `CLI Provider Usage / Performance Contract`: `PROVIDER_CALLED`, `PROVIDER_RETURNED` e `PROVIDER_FALLBACK` carregam `atlas.provider_usage.v1`; Strategy Matrix expoe `empirical_performance`; Self-Improvement consome provider performance; CLI/API/MCP/Observability expoem read model com `review_signal`, sem criar ledger, receipt, router ou policy paralelos |
+| AP-100 | Context Pack sem validade e sem reflexao previa vira prompt opaco | `AiContextPack` deve carregar `Context Pack Manifest` (`atlas.context_pack.manifest.v1`) com `created_at`, `expires_at`, `sources` e `context_ref_hash`; `ContextPackSelfReflectionGate` deve classificar contexto como `sufficient`, `insufficient`, `contradictory` ou `risky` antes de output/execucao critica |
+| AP-101 | Context Builder decide fontes implicitamente e vira busca solta | `ContextRetrievalRouter` deve emitir `atlas.context.retrieval_plan.v1` com fontes explicitas (`vector_retrieval`, `graph_retrieval`, `evidence_replay`, `code_intelligence`, `memory_signals`), reasons, limites, required/unavailable_action e policy provider-safe; `AiContextPackBuilder` deve anexar esse plano ao Context Pack e o prompt deve expor `Retrieval Router Plan` |
+| AP-102 | Open Brain consome retrieval plan sem resumo auditavel | `AtlasOpenBrainContextInjectionService` deve projetar `summary.retrieval_plan` com `mode`, `selected_sources`, `required_sources`, `provider_safe_only` e `max_context_refs`, alem de incluir uma linha `retrieval_plan` no cabecalho provider-safe para replay/auditoria |
+| AP-103 | Fonte obrigatoria do retrieval plan pode faltar sem bloquear execucao critica | Open Brain deve projetar disponibilidade por fonte em `summary.retrieval_plan.availability`, preencher `available_sources`, `unavailable_sources` e `required_unavailable_sources`, emitir `retrieval_required_source_unavailable` e falhar fechado em `open_brain.mode=required` quando uma fonte obrigatoria como `evidence_replay` nao aparece |
+| AP-104 | Falha de retrieval nao orienta reparo ou Curator | Open Brain deve publicar `summary.retrieval_plan.review_signal` com `status`, `severity`, `reason`, `sources` e `recommended_action`, e `next_actions` deve traduzir `refresh_evidence_replay_or_attach_trace_before_retry` e acoes equivalentes para instrucao operacional clara |
+| AP-105 | Review signal de retrieval fica preso no Open Brain e nao vira melhoria | `AtlasSelfImprovementRuntime` deve consumir `atlas_open_brain_access_logs`, detectar `summary.retrieval_plan.review_signal.status=blocking` ou `retrieval_required_source_unavailable`, emitir finding `self-improvement:open-brain-retrieval:*` com `atlas.self_improvement.open_brain_retrieval.v1`, contagens por fonte/acao e proposta revisavel para Curator |
+| AP-106 | `LEARNING_PROPOSED` perde schema/review_signal do finding rico | `ledgerFindingProjection` deve preservar `finding.schema_version`, `finding.review_signal` e `finding.source_types` ao gravar eventos `LEARNING_PROPOSED`, permitindo replay/auditoria do Curator sem reabrir payload completo nem recalcular heuristicas |
+| AP-107 | Proposta no Inbox perde review_signal e refs do Curator | `ProposalInboxEmitter` deve preservar `proposal_contract.schema_version`, `proposal_contract.review_signal` e refs (`source_refs`, `trace_refs`, `job_refs`, `file_refs`, `diff_refs`) no payload do Inbox e no raw payload do Context Bundle, mantendo a proposta revisavel alinhada ao ledger |
+| AP-108 | Ledger nao aponta para a proposta emitida no Inbox | `AtlasSelfImprovementRuntime` deve mapear finding por `dedupe_key` para o item retornado por `ProposalInboxEmitter` e gravar `emitted_to_inbox` + `emitted_inbox_item_id` em `LEARNING_PROPOSED`, permitindo replay direto do ledger para a proposta revisavel |
+| AP-109 | Evento terminal do Self-Improvement perde refs de propostas emitidas | `OPERATION_COMPLETED` deve gravar `emitted_count` e `emitted_inbox_item_ids`, permitindo que replay do run completo encontre todas as propostas revisaveis sem reprocessar cada `LEARNING_PROPOSED` |
+| AP-110 | Schedule replay nao expoe propostas emitidas por run | `selfImprovementScheduleReportForWindow` deve juntar `SELF_IMPROVEMENT_SCHEDULE_OBSERVED` com `OPERATION_COMPLETED` por `envelope_id`, expondo `completed_count`, `emitted_count`, `emitted_inbox_item_ids` e refs por `recent_events[]` |
+| AP-111 | Superficies escondem refs do Inbox emitidos pelo schedule replay | CLI humano, CLI JSON, API, Observability e MCP devem preservar `completed_count`, `emitted_count`, `emitted_inbox_item_ids` e refs por `recent_events[]`; output humano deve mostrar `Completed runs`, `Emitted proposals` e `Emitted inbox refs` |
+| AP-112 | Refs do Inbox exigem abrir outra tabela para serem acionaveis | Schedule replay deve hidratar `emitted_inbox_items` quando `ai_inbox_items` existir, preservando `id`, `status`, `title`, `severity`, `deep_link` e `review_signal` no summary e em cada `recent_events[]` |
+| AP-113 | Observability/MCP podem perder a hidratacao acionavel do Inbox | Observability e MCP devem provar que `emitted_inbox_items` atravessa suas respostas, incluindo `title` e `review_signal.recommended_action` no summary e em `recent_events[]` |
+| AP-114 | Falha de hidratacao do Inbox fica silenciosa | Schedule replay deve expor `emitted_inbox_item_hydration_available` e `emitted_inbox_item_missing_ids` no summary e em cada evento, e o CLI deve mostrar `Inbox hydration` e `Missing inbox refs` |
+| AP-115 | Gap de hidratacao do Inbox nao vira proposta revisavel | `AtlasSelfImprovementRuntime` deve consumir `emitted_inbox_item_missing_ids` do schedule replay e gerar finding `atlas.self_improvement.schedule_replay_inbox_gap.v1` com recommended_action `restore_or_reemit_missing_self_improvement_inbox_items` |
+| AP-116 | Finding de gap do Inbox pode nao entrar no fluxo revisavel padrao | Missing inbox refs finding deve usar `ProposalInboxEmitter`, gravar `LEARNING_PROPOSED.emitted_to_inbox`/`emitted_inbox_item_id` e preservar `emitted_inbox_item_ids` no `OPERATION_COMPLETED` |
+| AP-117 | Proposta critica chega no Inbox como informativa | `ProposalInboxEmitter` deve mapear `review_signal.severity` para `ai_inbox_items.severity` e `priority_score`, preservando urgencia operacional sem depender de leitura manual do payload |
+| AP-118 | `review_patch` obriga surfaces a parsear payload bruto | `InboxActionRegistry` deve expor `proposal_contract`, `review_signal`, `recommended_action` e refs diretamente no resultado de `review_patch`, mantendo App/CLI/API sem heuristica local |
+| AP-119 | CLI descarta o resultado estruturado da action | `atlas:cli:inbox respond --json` deve retornar `result` junto de `item`, preservando `review_patch.recommended_action` e refs para paridade com API/App |
+| AP-120 | Revisao humana do Inbox fica fora do Evidence Ledger | `InboxActionRegistry` deve gravar `INBOX_ACTION_RECORDED` com `atlas.inbox_action.v1`, action, item, actor, result, `proposal_contract`, `review_signal` e `recommended_action` quando uma action como `review_patch` for concluida |
+| AP-121 | Evidencia de actions do Inbox fica gravada mas nao projetada | `AtlasLedgerReplayService::inboxActionReportForWindow` deve projetar `INBOX_ACTION_RECORDED`, filtros por action/actor/categoria/severidade, contagens e review signal `review_patch_action_without_diff_refs` |
+| AP-122 | Agentes nao conseguem consultar actions humanas do Inbox sem banco | Open Brain MCP deve expor `atlas_inbox_action_report` read-only em cima de `inboxActionReportForWindow`, com filtros escalares e fallback `wait_for_inbox_action_evidence` |
+| AP-123 | Curator nao aprende quando revisao humana perde contexto de patch | `AtlasSelfImprovementRuntime::inboxActionReplayFindings` deve consumir `inboxActionReportForWindow` e criar finding `atlas.self_improvement.inbox_action_replay_gap.v1` para `review_patch_action_without_diff_refs` |
+| AP-124 | App/observability nao ve actions humanas do Inbox no mesmo payload operacional | `/ai/observability` deve expor `inbox_actions` vindo de `inboxActionReportForWindow`, incluindo review signal `open_reviewable_inbox_action_evidence_proposal` |
+| AP-125 | Operador nao tem surface dedicada para auditar actions humanas do Inbox | `atlas:ai:inbox-action-report` e `/ai/inbox-actions/report` devem expor `inboxActionReportForWindow` com filtros canonicos, status `ledger_unavailable` e review signal `wait_for_inbox_action_evidence` |
+| AP-126 | Output humano do architecture validate pode esconder violacoes novas | `AtlasAiArchitectureValidateCommand::renderPostAp98StaticScanViolations` deve imprimir qualquer violacao `ap99+` com label `kernel.static.<key>`, mantendo JSON e terminal com a mesma forca operacional |
+| AP-127 | Operador nao descobre os comandos da arquitetura mae no help principal | `atlas:cli:help` deve expor secao `arquitetura_mae` com `architecture-operations`, `architecture-validate`, `slo`, `kernel-pipeline-report`, `repair-report`, `provider-performance`, `self-improvement-schedule-report` e `inbox-action-report` |
+| AP-128 | Catalogo de operacoes da arquitetura mae pode duplicar entre CLI/App | `AtlasArchitectureOperationsCatalog` deve ser a fonte unica da secao `arquitetura_mae`, consumida por `atlas:cli:help` e `/ai/observability` em `architecture_operations` |
+| AP-129 | Agentes nao descobrem catalogo de operacoes da arquitetura mae sem CLI/App | Open Brain MCP deve expor `atlas_architecture_operations` read-only, consumindo `AtlasArchitectureOperationsCatalog::summary()`, entrando no inventory `atlas_capabilities` e publicando `ap129_architecture_operations_mcp_tool` |
+| AP-130 | Catalogo operacional aparece apenas embutido em outras surfaces | `atlas:ai:architecture-operations` e `/ai/architecture/operations` devem expor diretamente `AtlasArchitectureOperationsCatalog::summary()`, com teste CLI/API e scanner `ap130_architecture_operations_direct_surfaces` |
+| AP-131 | Curator nao percebe drift no catalogo operacional da arquitetura mae | `AtlasSelfImprovementRuntime::architectureOperationsFindings` deve consumir `AtlasArchitectureOperationsCatalog::summary()` no `weekly_architecture_audit`, detectar comandos criticos ausentes/contagem divergente e propor `restore_architecture_operations_catalog` |
+| AP-132 | Catalogo operacional e legivel por humano mas fraco para automacao | `AtlasArchitectureOperationsCatalog::summary()` deve publicar schema `atlas.architecture_operations.v1`, `operation_ids` e metadados por comando (`id`, `surface`, `kind`, `output`) em CLI/API/Observability/MCP |
+| AP-133 | Agentes precisam parsear o catalogo inteiro para achar uma operacao | `AtlasArchitectureOperationsCatalog::summary()` deve aceitar filtros `id/kind`, e CLI/API/MCP devem expor o mesmo filtro preservando `filters`, `operation_ids` e contagem filtrada |
+| AP-134 | Receipt v2 podia ser adulterado depois de emitido sem checagem criptografica no runtime | `DecisionReceiptRuntimeGuard` deve usar `DecisionReceiptHash`, validar `inputs_hash`, `receipt_hash` e `chain_hash` quando presentes, bloquear `decision_receipt_hash_mismatch` antes de provider e publicar scanner `ap134_decision_receipt_hash_runtime_guard` |
+| AP-135 | Determinismo do Decision Receipt estava espalhado em testes unitarios, sem prova arquitetural dedicada | `DecisionReceiptDeterminismTest` deve provar hash estavel para mesmo envelope/decisao, hash sensivel a provider/modelo autorizado e rejeicao de replay adulterado pelo runtime; scanner `ap135_decision_receipt_determinism_test` garante permanencia |
+| AP-136 | Replay do ledger nao verificava cadeia de DecisionReceipt | `DECISION_ISSUED` deve preservar `parent_receipt_id` e `parent_chain_hash`; `AtlasLedgerReplayService::decisionReceiptReportForEnvelope()` deve recalcular `receipt_hash`/`chain_hash`, publicar `review_signal` e apontar `decision_receipt_chain_hash_mismatch`; scanner `ap136_decision_receipt_chain_replay` garante permanencia |
+| AP-137 | Replay de DecisionReceipt existia como servico mas nao como operacao auditavel | `atlas:ai:decision-receipt-report`, `/ai/decision-receipts/report` e MCP `atlas_decision_receipt_report` devem expor o mesmo `decisionReceiptReportForEnvelope()`; `AtlasArchitectureOperationsCatalog` lista `decision_receipt_report`; scanner `ap137_decision_receipt_replay_surfaces` garante permanencia |
+| AP-138 | Replay de DecisionReceipt nao fechava loop com Curator | `AtlasSelfImprovementRuntime::decisionReceiptReplayFindings()` deve consumir `decisionReceiptReportForEnvelope()`, gerar finding `atlas.self_improvement.decision_receipt_replay_gap.v1` e propagar `open_reviewable_decision_receipt_replay_proposal`; scanner `ap138_decision_receipt_replay_curator_review` garante permanencia |
+| AP-139 | Finding de DecisionReceipt podia ficar sem proposta revisavel no Inbox | `test_self_improvement_emits_decision_receipt_replay_hash_gap_proposal` deve provar que `emit=true` chama `ProposalInboxEmitter`, preserva `atlas.self_improvement.decision_receipt_replay_gap.v1`, grava `emitted_to_inbox` no `LEARNING_PROPOSED` e registra `emitted_inbox_item_ids`; scanner `ap139_decision_receipt_replay_inbox_emission` garante permanencia |
+| AP-140 | Replay generico do Evidence Ledger existia, mas nao como comando ergonomico/discoverable | `atlas:ledger:replay --envelope=<id> --json` deve consumir `KernelLedgerEnvelopeReportService`, aceitar `--slo/--repair/--kernel`, aparecer no `AtlasArchitectureOperationsCatalog`, ser protegido pelo Curator e pelo scanner `ap140_ledger_replay_command_surface` |
+| AP-141 | Projecoes derivaveis do Evidence Ledger estavam apenas em prosa | `LedgerProjectionRegistry` deve declarar `ai_traces`, `atlas_engineering_runs` e `atlas_tool_runs` com model, tabela, source events, identity keys e colunas requeridas; `architecture-validate` expoe `kernel.ledger_projections`; scanner `ap141_ledger_projection_registry_contract` garante permanencia |
+| AP-142 | Health de projection apontava intervencao mas nao tinha action assistida | `InboxActionRegistry` deve expor `run_ledger_projection` gated por `available_actions`, executar `LedgerProjectionWorker` com dry-run/janela/limite, gravar `atlas.inbox_action.ledger_projection.v1`, resolver somente quando aplicar backfill real e registrar `INBOX_ACTION_RECORDED`; scanner `ap142_ledger_projection_inbox_action` garante permanencia |
+| AP-143 | Curator abria proposta de projection drift mas sem botao acionavel | `AtlasSelfImprovementRuntime::ledgerProjectionDriftFindings` deve emitir proposta com `available_actions[]=run_ledger_projection` e payload `projection_health`/`ledger_projection`; `ProposalInboxEmitter` deve preservar actions/payload customizados; scanner `ap143_ledger_projection_curator_action_emission` garante permanencia |
 
 Cada AP e merge-blocking. CI roda todos.
 
@@ -2092,6 +2147,395 @@ Proximos incrementos:
 - Expandir adapters de surfaces existentes (`AiChatCommand`, `AtlasCliDevCommand`, `AtlasAiSheet`) quando cada surface migrar totalmente.
 - Ampliar `tests/Architecture/EnvelopeImmutabilityTest`.
 
+### Fase 1B — Context Pack Manifest + Self-Reflection Gate
+
+Status atual: base executavel implementada em AP-100. Todo `AiContextPack`
+recebe um `Context Pack Manifest` com schema `atlas.context_pack.manifest.v1`,
+`context_pack_id`, `created_at`, `expires_at`, `ttl_seconds`, `sources`,
+`context_ref_count` e `context_ref_hash`. Isso permite cache local, expiracao,
+auditoria e replay sem depender de cache de provider.
+
+`ContextPackSelfReflectionGate` classifica o pacote antes de consumo critico em
+quatro estados fechados: `sufficient`, `insufficient`, `contradictory` e
+`risky`. O objetivo e impedir output final silencioso quando o contexto esta
+vazio, contraditorio ou arriscado. Esta fase nao implementa Graph RAG, fanout,
+especialistas com execucao propria nem API cache de provider.
+
+Integracao operacional: `AtlasOpenBrainContextInjectionService` inclui
+`summary.self_reflection`, adiciona o bloco `Context Pack Self-Reflection Gate`
+ao prompt provider-safe, gera warnings canonicos
+(`context_pack_insufficient`, `context_pack_contradictory`,
+`context_pack_risky`) e falha fechado quando `open_brain.mode=required` encontra
+contexto insuficiente, contraditorio ou arriscado. O hash operacional remove
+campos temporais (`manifest.created_at`, `manifest.expires_at`,
+`self_reflection.assessed_at`) para manter replay deterministico.
+
+### Fase 1C — Retrieval Router Plan
+
+Status atual: base executavel implementada em AP-101. O Context Builder agora
+possui `ContextRetrievalRouter`, que emite `atlas.context.retrieval_plan.v1`
+antes de compor o `AiContextPack`. O plano nao cria uma memoria paralela e nao
+finge ter Graph RAG completo: ele declara quais fontes devem ser consideradas,
+por que entraram, seus limites, se sao obrigatorias e o que fazer quando
+indisponiveis.
+
+Fontes canonicas do plano:
+
+- `vector_retrieval`: baseline semantico rapido.
+- `memory_signals`: preferencias, decisoes, verbatim e memoria operacional.
+- `code_intelligence`: contexto de codigo para dev/debug/review.
+- `evidence_replay`: ledger/replay para risco alto, debug, review ou auditoria.
+- `graph_retrieval`: relacoes, causas, dependencias e impacto; inicialmente
+  plano declarativo ate o Graph RAG real existir.
+
+O plano entra em `retrieval` no Context Pack e aparece no prompt como
+`Retrieval Router Plan`. Isso deixa o Atlas Decide, Open Brain e auditoria vendo
+qual tipo de contexto foi pretendido, mesmo quando alguma fonte ainda degrada.
+
+### Fase 1D — Open Brain Retrieval Plan Summary
+
+Status atual: implementado em AP-102. O Open Brain agora projeta o plano de
+retrieval para `summary.retrieval_plan`, preservando `mode`, fontes
+selecionadas, fontes obrigatorias, `provider_safe_only` e `max_context_refs`.
+O cabecalho provider-safe tambem inclui uma linha compacta `retrieval_plan`,
+para que qualquer prompt, audit log ou replay consiga identificar rapidamente
+qual estrategia de contexto foi usada sem reabrir o Context Pack completo.
+
+### Fase 1E — Retrieval Required Source Availability
+
+Status atual: implementado em AP-103. Open Brain agora confere se as fontes
+selecionadas pelo `ContextRetrievalRouter` realmente apareceram no contexto
+provider-safe. O resumo inclui `available_sources`, `unavailable_sources`,
+`required_unavailable_sources` e `availability` por fonte. Fontes opcionais
+indisponiveis degradam com warning; fontes obrigatorias indisponiveis em modo
+`open_brain.mode=required` geram `retrieval_required_source_unavailable` e
+falham fechado antes do provider.
+
+Mapeamento inicial de disponibilidade:
+
+- `memory_signals`: memoria registry, verbatim ou semantic refs.
+- `code_intelligence`: refs de Code Intelligence.
+- `evidence_replay`: ledger/replay refs, `evidence.previous_traces` ou
+  `evidence.replay_events`.
+- `graph_retrieval`: relacoes/edges no Context Pack ou refs de graph.
+- `vector_retrieval`: semantic notes.
+
+### Fase 1F — Retrieval Review Signal / Next Actions
+
+Status atual: implementado em AP-104. O resumo de retrieval agora publica
+`summary.retrieval_plan.review_signal` com `status`, `severity`, `reason`,
+`sources` e `recommended_action`. Quando `evidence_replay` obrigatorio falta, o
+sinal vira `blocking/high` com
+`refresh_evidence_replay_or_attach_trace_before_retry`. `next_actions` traduz
+esse codigo para uma instrucao operacional legivel, evitando o fallback generico
+de "rode manutencao de memoria" quando o problema real e evidencia/replay.
+
+### Fase 1G — Open Brain Retrieval Self-Improvement
+
+Status atual: implementado em AP-105. O Self-Improvement agora consulta
+`atlas_open_brain_access_logs` dentro da janela revisada e promove bloqueios de
+retrieval para finding revisavel. Se `summary.retrieval_plan.review_signal`
+estiver `blocking` ou se houver warning `retrieval_required_source_unavailable`,
+o runtime gera `self-improvement:open-brain-retrieval:*` com schema
+`atlas.self_improvement.open_brain_retrieval.v1`, `required_unavailable_source_counts`,
+`recommended_action_counts`, refs para os logs e `review_signal` proprio para o
+Curator. Isso fecha o ciclo: Open Brain detecta a lacuna, Evidence/Audit guarda
+o rastro, Learning transforma em proposta, e o comportamento critico continua
+dependendo de policy/receipt/review em vez de autoalteracao silenciosa.
+
+### Fase 1H — LearningProposed Review Signal Projection
+
+Status atual: implementado em AP-106. Eventos `LEARNING_PROPOSED` agora carregam
+uma projection compacta mas suficiente do finding rico: `finding.schema_version`,
+`finding.review_signal` e `finding.source_types`, alem de title/category/dedupe,
+confidence e quantidade de refs. O ledger segue append-only e leve, mas passa a
+ser capaz de replay/auditoria de propostas do Curator sem depender de reexecutar
+heuristicas do Self-Improvement.
+
+### Fase 1I — Proposal Inbox Review Signal
+
+Status atual: implementado em AP-107. Propostas emitidas pelo Curator agora
+preservam `proposal_contract.schema_version`, `proposal_contract.review_signal`
+e refs de origem tanto no `payload` do `ai_inbox_items` quanto no `raw_payload`
+do `ai_context_bundles`. Isso impede que o App mostre uma proposta sem o motivo
+tecnico que a gerou e mantem Inbox, Context Bundle e Evidence Ledger falando o
+mesmo contrato de revisao.
+
+### Fase 1J — LearningProposed Inbox Link
+
+Status atual: implementado em AP-108. Quando Self-Improvement roda com
+`emit=true`, cada finding emitido passa a ser mapeado por `dedupe_key` para o
+item retornado pelo `ProposalInboxEmitter`. O evento `LEARNING_PROPOSED` grava
+`emitted_to_inbox` e `emitted_inbox_item_id`, permitindo replay/auditoria sairem
+do ledger diretamente para a proposta revisavel no Inbox. Se o Inbox estiver
+indisponivel ou dedupe retornar `null`, o evento continua append-only e registra
+`emitted_to_inbox=false`.
+
+### Fase 1K — OperationCompleted Inbox Refs
+
+Status atual: implementado em AP-109. O evento terminal `OPERATION_COMPLETED`
+do Self-Improvement agora preserva `emitted_count` e `emitted_inbox_item_ids`.
+Isso permite que replay/auditoria do run completo encontrem todas as propostas
+revisaveis emitidas sem varrer cada evento `LEARNING_PROPOSED`, enquanto os
+eventos individuais continuam carregando o link fino por finding.
+
+### Fase 1L — Schedule Replay Inbox Refs
+
+Status atual: implementado em AP-110. `selfImprovementScheduleReportForWindow`
+agora junta observacoes de schedule com eventos `OPERATION_COMPLETED` do
+Self-Improvement por `envelope_id`. O read model expoe `completed_count`,
+`emitted_count`, `emitted_inbox_item_ids` e, em cada `recent_events[]`, os refs
+terminais do run. Com isso CLI/API/Observability conseguem abrir as propostas
+emitidas sem parsear eventos brutos nem recalcular o runtime.
+
+### Fase 1M — Schedule Replay Inbox Refs Surface Parity
+
+Status atual: implementado em AP-111. O contrato de replay agora tambem e
+enforcado nas superficies: `atlas:ai:self-improvement-schedule-report` mostra
+`Completed runs`, `Emitted proposals` e `Emitted inbox refs` no modo humano; CLI
+JSON, API, Observability e MCP testam explicitamente `completed_count`,
+`emitted_count`, `emitted_inbox_item_ids` e refs por `recent_events[]`. A regra
+operacional e que proposta emitida pelo Curator nunca pode ficar visivel apenas
+no Ledger bruto.
+
+### Fase 1N — Schedule Replay Inbox Item Hydration
+
+Status atual: implementado em AP-112. O replay de schedule agora usa
+`AiInboxItem` para hidratar `emitted_inbox_items` quando a tabela
+`ai_inbox_items` esta disponivel. Cada item preserva `id`, `status`, `type`,
+`category`, `severity`, `title`, `source_type`, `source_id`, `deep_link`,
+`review_signal`, `created_at` e `updated_at`. O output humano tambem mostra
+`Emitted inbox items`, entao o operador ve a proposta acionavel sem abrir o
+Ledger bruto.
+
+### Fase 1O — Schedule Replay Inbox Item Hydration Surface Parity
+
+Status atual: implementado em AP-113. Observability e MCP agora testam
+explicitamente a hidratacao acionavel de `emitted_inbox_items`, incluindo
+`title` e `review_signal.recommended_action` tanto no resumo do replay quanto em
+`recent_events[]`. Isso impede que o Open Brain ou a tela de observabilidade
+mostrem apenas UUIDs quando o operador precisa revisar propostas geradas pelo
+Curator.
+
+### Fase 1P — Schedule Replay Inbox Hydration Gap Signal
+
+Status atual: implementado em AP-114. O replay de schedule agora diferencia
+"nao ha itens para hidratar" de "nao consegui hidratar": `emitted_inbox_item_hydration_available`
+indica se a tabela `ai_inbox_items` esta disponivel e
+`emitted_inbox_item_missing_ids` lista refs emitidos que nao resolveram para item
+acionavel. O CLI mostra `Inbox hydration` e `Missing inbox refs`, entao falhas de
+auditoria nao ficam silenciosas.
+
+### Fase 1Q — Self-Improvement Schedule Replay Inbox Gap Finding
+
+Status atual: implementado em AP-115. O Curator/Self-Improvement agora consome
+`emitted_inbox_item_missing_ids` do schedule replay e gera proposta revisavel
+com schema `atlas.self_improvement.schedule_replay_inbox_gap.v1`. A acao
+recomendada canonica e `restore_or_reemit_missing_self_improvement_inbox_items`,
+mantendo a cadeia Evidence Ledger -> Proposal Inbox -> review humano corrigivel
+quando refs emitidos nao resolvem para itens acionaveis.
+
+### Fase 1R — Self-Improvement Schedule Replay Inbox Gap Emission
+
+Status atual: implementado em AP-116. O finding de missing inbox refs agora
+passa pelo caminho padrao de emissao de propostas via `ProposalInboxEmitter`.
+Quando `emit=true`, o evento `LEARNING_PROPOSED` preserva
+`emitted_to_inbox` e `emitted_inbox_item_id`, enquanto `OPERATION_COMPLETED`
+preserva `emitted_inbox_item_ids`. Isso garante que a acao
+`restore_or_reemit_missing_self_improvement_inbox_items` nao fique como alerta
+solto: ela vira item revisavel no Inbox e segue rastreavel no replay.
+
+### Fase 1S — Proposal Inbox Review Signal Severity
+
+Status atual: implementado em AP-117. O `ProposalInboxEmitter` agora usa
+`review_signal.severity` para definir a severidade publica do Inbox e o
+`priority_score` da proposta. Findings `high` e `critical` entram como Inbox
+`critical`, findings `medium` e `low` entram como `warning`, e sinais sem
+severidade ficam informativos. Isso impede que uma proposta de correcao urgente
+fique visualmente misturada com itens meramente informativos.
+
+### Fase 1T — Proposal Review Action Contract
+
+Status atual: implementado em AP-118. A acao `review_patch` deixou de devolver
+apenas um payload bruto. O resultado agora expoe `proposal_contract`,
+`review_signal`, `recommended_action`, `source_refs`, `trace_refs`, `job_refs`,
+`file_refs` e `diff_refs` como campos diretos. Assim App, CLI e API nao precisam
+reimplementar parsing do payload do Inbox para entender o que revisar, por que
+revisar e quais artefatos usar.
+
+### Fase 1U — CLI Inbox Review Action Result Parity
+
+Status atual: implementado em AP-119. O comando `atlas:cli:inbox respond --json`
+agora retorna `result` junto de `item`, preservando o contrato estruturado de
+`review_patch` no CLI. Isso deixa `recommended_action`, `proposal_contract` e
+refs acessiveis para automacao local sem reabrir payload bruto nem depender de
+regras diferentes entre App, API e CLI.
+
+### Fase 1V — Inbox Action Evidence Ledger Contract
+
+Status atual: implementado em AP-120. Acoes concluidas no Inbox agora gravam
+`INBOX_ACTION_RECORDED` no Evidence Ledger quando `atlas_ledger_events` esta
+disponivel. O payload usa schema `atlas.inbox_action.v1` e preserva action,
+item, actor, result, `proposal_contract`, `review_signal` e
+`recommended_action`. Isso conecta revisao humana, como `review_patch`, ao mesmo
+plano de evidencia usado por replay, Self-Improvement e auditoria.
+
+### Fase 1W — Inbox Action Replay Read Model
+
+Status atual: implementado em AP-121. `AtlasLedgerReplayService` agora expoe
+`inboxActionReportForWindow` para projetar eventos `INBOX_ACTION_RECORDED` em
+um read model de auditoria: contagens por action, actor, categoria, severidade,
+recommended action, total de `review_patch` e total com `diff_refs`. Quando uma
+revisao `review_patch` aparece sem refs de diff, o review signal retorna
+`review_patch_action_without_diff_refs` e recomenda
+`open_reviewable_inbox_action_evidence_proposal`. Assim o Ledger deixa de ser
+apenas arquivo morto e passa a alimentar replay/curadoria de revisao humana.
+O evento fonte e definido pelo enum `LedgerEventType::InboxActionRecorded`.
+
+### Fase 1X — Inbox Action MCP Report
+
+Status atual: implementado em AP-122. Open Brain MCP agora possui o tool
+read-only `atlas_inbox_action_report`, que chama `inboxActionReportForWindow` e
+retorna `inbox_actions` com os mesmos filtros canonicos do replay:
+`action`, `actor_type`, `inbox_item_category`, `inbox_item_severity`,
+`recommended_action` e `source_type`. Quando o Ledger nao esta disponivel, a
+resposta preserva review signal `wait_for_inbox_action_evidence`. Isso permite
+que outras sessoes, agentes e automacoes auditem revisao humana do Inbox sem
+acessar tabelas diretamente nem reimplementar parse de payload.
+
+### Fase 1Y — Self-Improvement Inbox Action Replay Review
+
+Status atual: implementado em AP-123. `AtlasSelfImprovementRuntime` agora chama
+`inboxActionReplayFindings` nos fluxos de auditoria e no default nightly. O
+metodo consome `inboxActionReportForWindow` e, quando o review signal aponta
+`review_patch_action_without_diff_refs`, gera finding revisavel com schema
+`atlas.self_improvement.inbox_action_replay_gap.v1` e recommended action
+`open_reviewable_inbox_action_evidence_proposal`. Isso fecha a volta
+`review_patch -> INBOX_ACTION_RECORDED -> replay -> Curator`, sem criar scanner
+paralelo de Inbox.
+
+### Fase 1Z — Observability Inbox Action Replay
+
+Status atual: implementado em AP-124. O payload `/ai/observability` agora expoe
+`inbox_actions`, preenchido por `inboxActionReportForWindow($since)`. A surface
+de observability passa a mostrar o mesmo read model que MCP e Curator usam:
+contagens de actions humanas, `review_patch`, refs de diff e review signal
+`open_reviewable_inbox_action_evidence_proposal` quando uma revisao de patch
+perde contexto. Isso evita dashboard paralelo e deixa App/API alinhados ao
+Evidence Ledger.
+
+### Fase 1AA — Inbox Action Report Surfaces
+
+Status atual: implementado em AP-125. O operador agora tem uma surface direta
+para auditar evidence de actions humanas do Inbox: `atlas:ai:inbox-action-report`
+no CLI e `/ai/inbox-actions/report` na API. Ambas chamam
+`inboxActionReportForWindow` usando `KernelReplayReportInput`, aceitam filtros
+canonicos (`action`, `actor_type`, `inbox_type`, `recommended_action`, `result`
+e `emitter_stage`) e preservam fallback `ledger_unavailable` com review signal
+`wait_for_inbox_action_evidence`. Isso fecha a paridade entre operador humano,
+App/API, MCP, observability e Curator sem criar parse paralelo do Inbox.
+
+### Fase 1AB — Architecture Validate Post-AP98 Human Output
+
+Status atual: implementado em AP-126. O JSON de
+`atlas:ai:architecture-validate --json` ja era a fonte canonica para todos os
+APs, mas o output humano tinha loops explicitos antigos e podia esconder
+violacoes de contratos novos `ap99+`. O comando agora chama
+`renderPostAp98StaticScanViolations`, que percorre `kernel.static_scan`
+genericamente e imprime qualquer violacao nova como
+`[kernel.static.<ap_key>]`. Isso mantem o terminal, CI humano e revisao manual
+alinhados ao mesmo scanner que alimenta Observability, MCP e Curator. O scanner
+executavel publica `ap126_architecture_validate_post_ap98_human_output` para
+impedir regressao desse caminho humano.
+
+### Fase 1AC — CLI Help Architecture Operations Discovery
+
+Status atual: implementado em AP-127. O mapa principal `atlas:cli:help` agora
+tem a secao `arquitetura_mae`, que lista os comandos de operacao e auditoria da
+arquitetura mae em formato descobrivel: `atlas ai architecture-validate`,
+`atlas ai architecture-operations --json`,
+`atlas ai slo --hours=24 --json`,
+`atlas ai kernel-pipeline-report --hours=24 --json`,
+`atlas ai repair-report --hours=24 --json`,
+`atlas ai provider-performance --hours=24 --json`,
+`atlas ai self-improvement-schedule-report --hours=24 --json` e
+`atlas ai inbox-action-report --hours=24 --json`. O scanner publica
+`ap127_cli_help_architecture_operations_discovery`, impedindo que novas
+surfaces operacionais fiquem implementadas mas invisiveis para o operador.
+
+### Fase 1AD — Architecture Operations Shared Catalog
+
+Status atual: implementado em AP-128. A lista de comandos operacionais da
+arquitetura mae saiu do hardcode da surface e passou para
+`AtlasArchitectureOperationsCatalog`, fonte unica para `arquitetura_mae`. O
+`atlas:cli:help` consome `sectionKey()` e `commands()`, enquanto
+`/ai/observability` expoe `architecture_operations` via `summary()`. Isso evita
+que CLI, App/API e futuras surfaces divirjam sobre quais comandos formam o
+control plane operacional. O scanner publica
+`ap128_architecture_operations_shared_catalog` para bloquear duplicacao ou perda
+desse catalogo compartilhado.
+
+### Fase 1AE — Architecture Operations MCP Tool
+
+Status atual: implementado em AP-129. O Open Brain/MCP agora expoe
+`atlas_architecture_operations` como tool read-only e provider-safe em cima do
+mesmo `AtlasArchitectureOperationsCatalog::summary()` usado por Observability.
+Isso permite que outras sessoes Codex, Claude, Curator e clientes MCP descubram
+o control plane operacional da arquitetura mae sem parsear terminal, docs ou
+rotas HTTP. A tool aparece em `atlas_capabilities`, declara `writes=false` e o
+scanner publica `ap129_architecture_operations_mcp_tool` para impedir que esse
+catalogo compartilhado exista em CLI/App mas suma do Open Brain.
+
+### Fase 1AF — Architecture Operations Direct Surfaces
+
+Status atual: implementado em AP-130. O catalogo operacional da arquitetura mae
+agora tem surfaces diretas: `atlas:ai:architecture-operations --json` e
+`GET /ai/architecture/operations`. Ambas consomem
+`AtlasArchitectureOperationsCatalog::summary()`, sem copiar comandos nem
+recalcular a secao `arquitetura_mae`. O proprio catalogo passou a listar
+`atlas ai architecture-operations --json`, deixando o ponto de descoberta
+autoexplicativo para operador, App/API, Open Brain e outras sessoes de
+implementacao. O scanner publica
+`ap130_architecture_operations_direct_surfaces`.
+
+### Fase 1AG — Self-Improvement Architecture Operations Review
+
+Status atual: implementado em AP-131. O `weekly_architecture_audit` e os fluxos
+default do Curator agora chamam `architectureOperationsFindings`, que consome
+`AtlasArchitectureOperationsCatalog::summary()` e verifica secao, contagem e
+comandos criticos do control plane operacional. Se `architecture-operations`,
+`architecture-validate`, SLO, pipeline, repair, provider performance,
+self-improvement schedule report ou inbox action report sumirem do catalogo, o
+Curator gera finding revisavel com schema
+`atlas.self_improvement.architecture_operations.v1` e recommended action
+`restore_architecture_operations_catalog`. O scanner publica
+`ap131_self_improvement_architecture_operations_review`, fechando o loop entre
+descoberta operacional e autoavaliacao.
+
+### Fase 1AH — Architecture Operations Metadata Contract
+
+Status atual: implementado em AP-132. O catalogo operacional agora publica
+schema `atlas.architecture_operations.v1`, `operation_ids` estaveis e metadados
+por comando: `id`, `surface`, `kind` e `output`. Isso preserva a leitura humana
+do `command + description`, mas da a automacoes, Open Brain, Curator e App/API
+um contrato machine-readable para agrupar operacoes por tipo sem parsear strings.
+CLI, API, Observability e MCP retornam o mesmo shape via
+`AtlasArchitectureOperationsCatalog::summary()`. O scanner publica
+`ap132_architecture_operations_metadata_contract`.
+
+### Fase 1AI — Architecture Operations Filter Contract
+
+Status atual: implementado em AP-133. Como as operacoes agora possuem `id` e
+`kind`, o catalogo operacional aceita filtros canonicos `id/kind` em
+`AtlasArchitectureOperationsCatalog::summary()`. As surfaces diretas
+`atlas:ai:architecture-operations --id=... --kind=... --json`,
+`GET /ai/architecture/operations?id=...&kind=...` e a tool MCP
+`atlas_architecture_operations` expõem o mesmo filtro, preservando `filters`,
+`operation_ids`, `command_count` filtrado e o shape `atlas.architecture_operations.v1`.
+Isso deixa agentes e automacoes buscarem uma operacao especifica sem parsear o
+catalogo inteiro. O scanner publica
+`ap133_architecture_operations_filter_contract`.
+
 ### Fase 2 — Decision Receipt v2 Determinista
 
 Status atual: implementado como receipt tipado via `DecisionReceiptIssuer`, com
@@ -2108,11 +2552,83 @@ delegando para `claude_cli`/`codex_cli`) e para scout (`context_scout` usando
 `gemini_cli`). Esse guard tem teste unitario dedicado, teste de integracao no
 worker e tambem e verificado por static scan AP-13.
 
+### Fase 2A — Decision Receipt Hash Runtime Guard
+
+Status atual: implementado em AP-134. O hash do receipt deixou de ser apenas
+evidencia passiva: `DecisionReceiptHash` e o algoritmo canonico compartilhado
+por issuer e runtime, o issuer persiste `metadata.envelope_input_hash` e
+`metadata.parent_chain_hash` quando aplicavel, e `DecisionReceiptRuntimeGuard`
+recalcula `inputs_hash`, `receipt_hash` e `chain_hash` quando esses campos
+existem no receipt v2. Qualquer adulteracao do payload assinado retorna
+`decision_receipt_hash_mismatch`, e `AiWorker` trata esse codigo como bloqueio
+pre-provider. O scanner publica
+`ap134_decision_receipt_hash_runtime_guard`.
+
 Proximos incrementos:
 
-- Promover validacao de assinatura/hash do receipt para o mesmo guard quando o
-  replay forte passar a rejeitar divergencias de hash em runtime.
-- Ampliar `tests/Architecture/DecisionReceiptDeterminismTest`.
+- Expor replay de receipt por CLI/API/MCP quando o operador precisar auditar
+  uma cadeia especifica.
+
+### Fase 2B — Decision Receipt Determinism Test
+
+Status atual: implementado em AP-135. `DecisionReceiptDeterminismTest` virou
+prova arquitetural dedicada para o contrato do Decide: mesmo envelope e mesma
+decisao geram `inputs_hash`, `receipt_hash` e `chain_hash` identicos; mudanca no
+provider/modelo autorizado altera os hashes; e replay com payload assinado
+mutado e recusado por `DecisionReceiptRuntimeGuard` com
+`decision_receipt_hash_mismatch`. O scanner publica
+`ap135_decision_receipt_determinism_test`.
+
+### Fase 2C — Decision Receipt Chain Replay
+
+Status atual: implementado em AP-136. O evento `DECISION_ISSUED` preserva
+`parent_receipt_id` e `parent_chain_hash`, e
+`AtlasLedgerReplayService::decisionReceiptReportForEnvelope()` projeta a cadeia
+de receipts por envelope, recalculando `receipt_hash` e `chain_hash` com
+`DecisionReceiptHash`. O read model retorna contagens validas, ultimo receipt,
+status por evento e `review_signal`; qualquer divergencia de cadeia vira
+`decision_receipt_chain_hash_mismatch` e recomenda
+`open_reviewable_decision_receipt_replay_proposal`. O scanner publica
+`ap136_decision_receipt_chain_replay`.
+
+### Fase 2D — Decision Receipt Replay Surfaces
+
+Status atual: implementado em AP-137. O read model de AP-136 agora e operacao
+auditavel em CLI, API e MCP. `atlas:ai:decision-receipt-report --envelope=<id>
+--json`, `/ai/decision-receipts/report?envelope=<id>` e
+`atlas_decision_receipt_report` retornam o mesmo `decision_receipt_replay` com
+contagem de eventos, hashes validos, `latest_receipt_id`, `latest_chain_hash`,
+eventos detalhados e `review_signal`. O catalogo operacional da arquitetura mae
+inclui `decision_receipt_report` como `evidence_report`, evitando que essa
+capacidade vire conhecimento escondido em servico interno. O scanner publica
+`ap137_decision_receipt_replay_surfaces`.
+
+### Fase 2E — Decision Receipt Replay Curator Review
+
+Status atual: implementado em AP-138. `weekly_architecture_audit` e o fluxo
+default do Self-Improvement chamam `decisionReceiptReplayFindings()`, que agrupa
+eventos `DECISION_ISSUED` por envelope, consome
+`decisionReceiptReportForEnvelope()` e cria finding
+`atlas.self_improvement.decision_receipt_replay_gap.v1` quando o replay aponta
+`decision_receipt_hash_mismatch` ou `decision_receipt_chain_hash_mismatch`. O
+finding preserva `affected_envelope_ids`, contagens de hashes validos/invalidos,
+source refs dos receipts afetados e `review_signal` com
+`open_reviewable_decision_receipt_replay_proposal`. O scanner publica
+`ap138_decision_receipt_replay_curator_review`.
+
+### Fase 2F — Decision Receipt Replay Inbox Emission
+
+Status atual: implementado em AP-139. O loop do Curator para DecisionReceipt nao
+para no finding: quando `nightlyReview(..., emit: true)` encontra
+`atlas.self_improvement.decision_receipt_replay_gap.v1`, ele passa pelo
+`ProposalInboxEmitter`, preserva `review_signal.recommended_action =
+open_reviewable_decision_receipt_replay_proposal`, cria/retorna item de Inbox por
+dedupe key e grava a correlacao no Evidence Ledger via `LEARNING_PROPOSED`
+(`emitted_to_inbox`, `emitted_inbox_item_id`) e `OPERATION_COMPLETED`
+(`emitted_inbox_item_ids`). O teste
+`test_self_improvement_emits_decision_receipt_replay_hash_gap_proposal` garante
+que hash/chain mismatch vira proposta revisavel, nao apenas telemetria passiva.
+O scanner publica `ap139_decision_receipt_replay_inbox_emission`.
 
 ### Fase 3 — Evidence Ledger Append-Only
 
@@ -2120,12 +2636,99 @@ Status atual: implementado como base append-only com `atlas_ledger_events`,
 `AtlasEvidenceLedger`, taxonomia inicial e `ENVELOPE_CREATED` emitido pela
 `OperationEnvelopeFactory`. Decide emite `DECISION_ISSUED`. A coluna
 `trace_id` do ledger aceita UUID de `ai_traces` ou ULID operacional do Kernel.
+`AtlasLedgerEvent` recusa update/delete em runtime e
+`tests/Feature/Architecture/LedgerAppendOnlyTest.php` impede mutacao por model
+ou query builder dentro do codigo da aplicacao.
+
+### Fase 3B — Ledger Projection Registry Contract
+
+Status atual: implementado em AP-141. `LedgerProjectionRegistry` declara as
+tres projecoes operacionais que devem ser derivaveis do Evidence Ledger:
+`ai_traces` para UI/CLI, `atlas_engineering_runs` para Programming/harness e
+`atlas_tool_runs` para Super Tool Runtime. Cada projection tem `model`, `table`,
+`domain`, `projection_role`, `source_events`, `identity_keys` e
+`required_columns`. `architecture-validate` publica
+`kernel.ledger_projections` com schema
+`atlas.ledger_projection_registry.v1`, separando validade do contrato (`valid`)
+da prontidao do ambiente (`ready`). Assim o Atlas consegue saber quando o
+contrato de projection esta correto mesmo que uma tabela ainda nao exista em um
+ambiente de teste, e consegue apontar warnings de readiness quando faltar tabela
+ou coluna. Se a tabela estiver ausente, o registry emite apenas `table_missing`;
+`column_missing` e reservado para tabelas existentes com schema incompleto. O
+scanner publica `ap141_ledger_projection_registry_contract`.
+O registry tambem publica `driftReport()` com schema
+`atlas.ledger_projection_drift.v1`: quando `atlas_ledger_events` existe, cada
+projection reporta `source_event_count`, ultimo evento-fonte, ultimo
+`updated_at` projetado, `lag_seconds`, `drifted` e `needs_attention`. O payload
+de `architecture-validate` expoe esse sinal em
+`kernel.ledger_projections.drift` sem tornar drift bloqueante de boot. O
+Self-Improvement consome esse mesmo sinal no `weekly_architecture_audit` e gera
+finding `atlas.self_improvement.ledger_projection_drift.v1` para abrir proposta
+revisavel de backfill/worker quando houver `attention_required`.
+
+Status operacional: `LedgerProjectionWorker` implementa projection idempotente
+dos eventos fonte para `ai_traces`, `atlas_engineering_runs` e
+`atlas_tool_runs`, preservando metadata de origem (`ledger_event_id`,
+`ledger_event_type`, `envelope_id`, `receipt_id`, hashes e emitter). O comando
+`atlas:ai:ledger-project --limit=500 --json` expõe esse worker como operação
+oficial do control plane; `--dry-run` calcula o trabalho sem escrever e
+`--hours=N` limita a janela. A operação aparece no
+`AtlasArchitectureOperationsCatalog` como `ledger_projection_worker`, tipo
+`maintenance`, para ser discoverable por CLI/App/MCP/Self-Improvement. O
+scheduler registra `atlas:ai:ledger-project --hours=24 --limit=500 --json` a
+cada 10 minutos com `withoutOverlapping`, controlado por
+`atlas_ai.ledger_projection.enabled`, `hours`, `limit` e
+`max_lag_seconds`.
+
+Observability: `LedgerProjectionRegistry::healthReport()` publica
+`atlas.ledger_projection_health.v1`, com `status`
+`healthy|pending|warning|critical|unavailable`, severidade por projection,
+configuracao do scheduler e `review_signal`. `GET /ai/observability` expoe
+esse payload em `ledger_projection_health`, permitindo que App/Curator
+distingam projection atual, backlog dentro da janela esperada, atraso acima de
+`max_lag_seconds`, tabela ausente e Ledger indisponivel sem reconsultar o
+payload completo de `architecture-validate`. Open Brain/MCP expoe a mesma
+leitura como tool read-only `atlas_ledger_projection_health`, preservando
+`writes=false`, `review_signal` e `max_lag_seconds`.
+
+Ledger Projection Inbox Action: status atual implementado em AP-142.
+`InboxActionRegistry` implementa a acao assistida
+`run_ledger_projection`. Ela continua gated por `available_actions` no item do
+Inbox, aceita `hours`, `projection_hours`, `limit`, `projection_limit` e
+`dry_run`, executa o `LedgerProjectionWorker`, grava
+`payload.ledger_projection_action` com schema
+`atlas.inbox_action.ledger_projection.v1`, resolve o item somente quando a
+projection real escreve pelo menos um read model e registra
+`INBOX_ACTION_RECORDED` com comando, resultado, `review_signal` e
+`recommended_action`. O CLI `atlas:cli:inbox respond` expoe os parametros
+`--projection-hours`, `--projection-limit` e `--dry-run`, mantendo a mesma
+action surface do App/API.
+
+Ledger Projection Curator Action Emission: status atual implementado em AP-143.
+Quando `ledgerProjectionDriftFindings()` detecta drift real, o finding ja nasce
+com `available_actions[]=run_ledger_projection` e payload operacional
+`projection_health`/`ledger_projection`. `ProposalInboxEmitter` preserva
+`available_actions` extras e payload customizado no Context Bundle e no Inbox,
+mantendo `review_patch`, `discuss` e `discard` como fallback padrao. Assim o
+Curator nao so pede revisao: ele cria uma proposta acionavel que segue
+`review_signal -> Inbox -> run_ledger_projection -> INBOX_ACTION_RECORDED`.
 
 Proximos incrementos:
 
-- Projecao de `ai_traces`, `atlas_engineering_runs`, `atlas_tool_runs` derivada do ledger via worker.
-- Ampliar `tests/Architecture/LedgerAppendOnlyTest`.
-- Evoluir replay tool: `atlas ledger replay --envelope=<id>`.
+- Criar replay/report especifico para execucoes `run_ledger_projection`,
+  permitindo medir quantas propostas foram aplicadas, previewed ou ignoradas.
+
+### Fase 3A — Ledger Replay Command Surface
+
+Status atual: implementado em AP-140. `atlas:ledger:replay --envelope=<id>
+--json` e a surface ergonomica para reproduzir a timeline append-only de um
+envelope sem depender do comando legado posicional `atlas:ai:ledger`. O comando
+consome `KernelLedgerEnvelopeReportService`, portanto nao cria replay paralelo,
+e preserva os mesmos filtros de `--limit`, `--slo`, `--repair` e `--kernel`.
+`AtlasArchitectureOperationsCatalog` publica `ledger_replay` como
+`evidence_report`, e `AtlasSelfImprovementRuntime::architectureOperationsFindings`
+trata `atlas ledger replay --envelope=<id> --json` como operacao critica da
+arquitetura mae. O scanner publica `ap140_ledger_replay_command_surface`.
 
 ### Fase 3.5 — Pipeline Kernel Scaffold
 

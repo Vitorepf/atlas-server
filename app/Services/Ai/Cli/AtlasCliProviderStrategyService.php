@@ -5,6 +5,7 @@ namespace App\Services\Ai\Cli;
 use App\Models\AiProviderHealthSnapshot;
 use App\Services\Ai\AiRuntimeBudgetService;
 use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
 use Illuminate\Support\Facades\Schema;
 
 class AtlasCliProviderStrategyService
@@ -12,6 +13,7 @@ class AtlasCliProviderStrategyService
     public function __construct(
         private readonly AtlasAiRuntimeSettings $settings,
         private readonly AiRuntimeBudgetService $budgets,
+        private readonly ProviderPerformanceProjection $performance,
     ) {}
 
     /**
@@ -38,6 +40,7 @@ class AtlasCliProviderStrategyService
                 'reason' => 'Tarefa critica: Claude e Codex online permitem dual-review/conselho.',
                 'fallback_provider' => $this->firstAvailable($online, $preferred),
                 'providers' => $providers,
+                'empirical_performance' => $this->empiricalPerformance($mode),
             ];
         }
 
@@ -55,6 +58,7 @@ class AtlasCliProviderStrategyService
             'reason' => $this->reason($recommended, $mode, $providers),
             'fallback_provider' => $this->fallback($recommended, $providers, $mode),
             'providers' => $providers,
+            'empirical_performance' => $this->empiricalPerformance($mode),
             'policy' => [
                 'automatic_respects_app_settings' => true,
                 'default_provider' => $this->settings->defaultProvider(),
@@ -208,6 +212,25 @@ class AtlasCliProviderStrategyService
             ->first(fn (array $item): bool => ($item['provider'] ?? null) === $provider);
 
         return ! is_array($row) || ($row['status'] ?? null) !== 'blocked';
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function empiricalPerformance(string $mode): array
+    {
+        $domain = in_array($mode, ['dev', 'debug'], true) ? 'programming' : null;
+        $taskType = match ($mode) {
+            'review' => 'review',
+            'research' => 'research',
+            'plan' => 'plan',
+            default => null,
+        };
+
+        return $this->performance->reportForWindow(now()->subHours(168), filters: array_filter([
+            'domain' => $domain,
+            'task_type' => $taskType,
+        ]));
     }
 
     /**

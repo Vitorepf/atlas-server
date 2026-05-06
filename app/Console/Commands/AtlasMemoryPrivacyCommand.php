@@ -4,12 +4,15 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasMemoryPrivacyCommand extends Command
 {
+    private ?MemoryQueryInput $memoryInput = null;
+
     protected $signature = 'atlas:memory:privacy
         {action=scan : scan, apply or review}
         {memory? : Memory entry UUID for review}
@@ -36,8 +39,10 @@ class AtlasMemoryPrivacyCommand extends Command
 
     protected $description = 'Apply and review privacy/redaction policy for Atlas memory registry entries.';
 
-    public function handle(AtlasMemoryPrivacyService $privacy): int
+    public function handle(AtlasMemoryPrivacyService $privacy, MemoryQueryInput $input): int
     {
+        $this->memoryInput = $input;
+
         if (! Schema::hasTable('atlas_memory_entries')) {
             $this->error('Tabela atlas_memory_entries ainda nao existe. Rode migrations.');
 
@@ -57,7 +62,7 @@ class AtlasMemoryPrivacyCommand extends Command
     private function scan(AtlasMemoryPrivacyService $privacy, bool $dryRun): int
     {
         return $this->outputPayload([
-            'privacy' => $privacy->scan($this->filters(), (int) $this->option('limit'), $dryRun),
+            'privacy' => $privacy->scan($this->filters(), $this->memoryInput()->governanceScanLimit($this->option('limit')), $dryRun),
         ]);
     }
 
@@ -232,5 +237,10 @@ class AtlasMemoryPrivacyCommand extends Command
         $value = $this->option($key);
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function memoryInput(): MemoryQueryInput
+    {
+        return $this->memoryInput ?? app(MemoryQueryInput::class);
     }
 }

@@ -2,7 +2,9 @@
 
 namespace Tests\Unit\Ai\Kernel;
 
+use App\Models\AiInboxItem;
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\Schema;
@@ -15,12 +17,15 @@ class LedgerReplayServiceTest extends TestCase
         parent::setUp();
 
         Schema::dropIfExists('atlas_ledger_events');
+        Schema::dropIfExists('ai_inbox_items');
+        (require database_path('migrations/2026_04_30_152000_create_ai_inbox_items_table.php'))->up();
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
     }
 
     protected function tearDown(): void
     {
         Schema::dropIfExists('atlas_ledger_events');
+        Schema::dropIfExists('ai_inbox_items');
 
         parent::tearDown();
     }
@@ -396,6 +401,72 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertSame(['declared_dev_plan' => 1], $report['input_mode_counts']);
     }
 
+    public function test_decision_receipt_report_projects_chain_integrity_for_envelope(): void
+    {
+        $first = $this->recordDecisionReceiptEvent(
+            eventId: '01HDECISIONREPLAY0000000001',
+            envelopeId: 'env_decision_replay',
+            receiptId: 'receipt_decision_1',
+            parentReceiptId: null,
+            parentChainHash: null,
+        );
+        $second = $this->recordDecisionReceiptEvent(
+            eventId: '01HDECISIONREPLAY0000000002',
+            envelopeId: 'env_decision_replay',
+            receiptId: 'receipt_decision_2',
+            parentReceiptId: 'receipt_decision_1',
+            parentChainHash: $first['chain_hash'],
+        );
+        $this->recordDecisionReceiptEvent(
+            eventId: '01HDECISIONOTHER0000000001',
+            envelopeId: 'other_env',
+            receiptId: 'receipt_other',
+            parentReceiptId: null,
+            parentChainHash: null,
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->decisionReceiptReportForEnvelope('env_decision_replay');
+
+        $this->assertSame('env_decision_replay', $report['envelope_id']);
+        $this->assertSame(2, $report['decision_event_count']);
+        $this->assertSame(2, $report['valid_receipt_hash_count']);
+        $this->assertSame(2, $report['valid_chain_hash_count']);
+        $this->assertSame(0, $report['invalid_count']);
+        $this->assertSame('receipt_decision_2', $report['latest_receipt_id']);
+        $this->assertSame($second['chain_hash'], $report['latest_chain_hash']);
+        $this->assertSame('ok', data_get($report, 'review_signal.status'));
+        $this->assertSame('ok', data_get($report, 'events.0.receipt_integrity_status'));
+        $this->assertSame('ok', data_get($report, 'events.1.chain_integrity_status'));
+        $this->assertSame($first['chain_hash'], data_get($report, 'events.1.parent_chain_hash'));
+    }
+
+    public function test_decision_receipt_report_flags_hash_mismatch_for_review(): void
+    {
+        $this->recordDecisionReceiptEvent(
+            eventId: '01HDECISIONBAD000000000001',
+            envelopeId: 'env_decision_bad',
+            receiptId: 'receipt_bad',
+            parentReceiptId: null,
+            parentChainHash: null,
+            payloadOverrides: [
+                'chain_hash' => 'tampered-chain-hash',
+            ],
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->decisionReceiptReportForEnvelope('env_decision_bad');
+
+        $this->assertSame(1, $report['decision_event_count']);
+        $this->assertSame(1, $report['valid_receipt_hash_count']);
+        $this->assertSame(0, $report['valid_chain_hash_count']);
+        $this->assertSame(1, $report['invalid_count']);
+        $this->assertSame('breach', data_get($report, 'review_signal.status'));
+        $this->assertSame('high', data_get($report, 'review_signal.severity'));
+        $this->assertTrue((bool) data_get($report, 'review_signal.review_required'));
+        $this->assertSame('open_reviewable_decision_receipt_replay_proposal', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('decision_receipt_chain_hash_mismatch', data_get($report, 'review_signal.reasons'));
+        $this->assertSame('mismatch', data_get($report, 'events.0.chain_integrity_status'));
+    }
+
     public function test_self_improvement_schedule_window_report_projects_schedule_health_events(): void
     {
         $this->recordSelfImprovementScheduleEvent(
@@ -419,6 +490,35 @@ class LedgerReplayServiceTest extends TestCase
             invalidFlowCount: 1,
             planHash: 'plan-hash-warning',
         );
+        $this->recordSelfImprovementCompletionEvent(
+            eventId: '01HSCHEDDONE000000000001',
+            envelopeId: 'self_improvement_run:warning',
+            findingCount: 2,
+            emittedInboxItemIds: ['00000000-0000-0000-0000-000000000123'],
+        );
+        AiInboxItem::unguarded(fn (): AiInboxItem => AiInboxItem::query()->create([
+            'id' => '00000000-0000-0000-0000-000000000123',
+            'user_id' => 'vitor',
+            'type' => 'proposal',
+            'category' => 'self_improvement',
+            'severity' => 'warning',
+            'status' => 'unread',
+            'title' => 'Review recurring schedule warning',
+            'summary' => 'Self-Improvement found schedule drift.',
+            'source_type' => 'atlas_self_improvement',
+            'source_id' => null,
+            'initiator' => 'system',
+            'payload' => [
+                'proposal_contract' => [
+                    'review_signal' => [
+                        'status' => 'warning',
+                        'severity' => 'medium',
+                        'recommended_action' => 'review_schedule_repair',
+                    ],
+                ],
+            ],
+            'deep_link' => 'atlas://inbox/00000000-0000-0000-0000-000000000123',
+        ]));
         $this->recordSelfImprovementScheduleEvent(
             eventId: '01HSCHEDOLD00000000000001',
             envelopeId: 'self_improvement_run:old',
@@ -439,6 +539,16 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertSame(['registered' => 2], $report['scheduler_status_counts']);
         $this->assertSame(1, $report['issue_counts']['invalid_self_improvement_flows_configured']);
         $this->assertSame(1, $report['warning_count']);
+        $this->assertSame(1, $report['completed_count']);
+        $this->assertSame(1, $report['emitted_count']);
+        $this->assertSame(['00000000-0000-0000-0000-000000000123'], $report['emitted_inbox_item_ids']);
+        $this->assertTrue((bool) $report['emitted_inbox_item_hydration_available']);
+        $this->assertSame([], $report['emitted_inbox_item_missing_ids']);
+        $this->assertSame('00000000-0000-0000-0000-000000000123', data_get($report, 'emitted_inbox_items.0.id'));
+        $this->assertSame('unread', data_get($report, 'emitted_inbox_items.0.status'));
+        $this->assertSame('Review recurring schedule warning', data_get($report, 'emitted_inbox_items.0.title'));
+        $this->assertSame('atlas://inbox/00000000-0000-0000-0000-000000000123', data_get($report, 'emitted_inbox_items.0.deep_link'));
+        $this->assertSame('review_schedule_repair', data_get($report, 'emitted_inbox_items.0.review_signal.recommended_action'));
         $this->assertSame('warning', $report['latest_health_status']);
         $this->assertSame('registered', $report['latest_scheduler_status']);
         $this->assertSame('plan-hash-warning', $report['latest_plan_hash']);
@@ -452,6 +562,204 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertSame('self_improvement_run:warning', $report['recent_events'][0]['envelope_id']);
         $this->assertSame('self_improvement.weekly_architecture_audit', $report['recent_events'][0]['flow']);
         $this->assertSame(['daily' => 1], $report['recent_events'][0]['cadence_counts']);
+        $this->assertTrue((bool) $report['recent_events'][0]['completed']);
+        $this->assertSame(2, $report['recent_events'][0]['finding_count']);
+        $this->assertSame(1, $report['recent_events'][0]['emitted_count']);
+        $this->assertSame(['00000000-0000-0000-0000-000000000123'], $report['recent_events'][0]['emitted_inbox_item_ids']);
+        $this->assertTrue((bool) $report['recent_events'][0]['emitted_inbox_item_hydration_available']);
+        $this->assertSame([], $report['recent_events'][0]['emitted_inbox_item_missing_ids']);
+        $this->assertSame('00000000-0000-0000-0000-000000000123', data_get($report, 'recent_events.0.emitted_inbox_items.0.id'));
+        $this->assertSame('Review recurring schedule warning', data_get($report, 'recent_events.0.emitted_inbox_items.0.title'));
+    }
+
+    public function test_self_improvement_schedule_window_report_exposes_missing_inbox_refs(): void
+    {
+        $this->recordSelfImprovementScheduleEvent(
+            eventId: '01HSCHEDMISS000000000001',
+            envelopeId: 'self_improvement_run:missing_inbox',
+            flow: 'self_improvement.weekly_architecture_audit',
+            healthStatus: 'warning',
+            schedulerStatus: 'registered',
+            issues: ['missing_inbox_ref'],
+            registeredCommandCount: 1,
+        );
+        $this->recordSelfImprovementCompletionEvent(
+            eventId: '01HSCHEDMISSDONE00000001',
+            envelopeId: 'self_improvement_run:missing_inbox',
+            findingCount: 1,
+            emittedInboxItemIds: ['00000000-0000-0000-0000-000000000999'],
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->selfImprovementScheduleReportForWindow(now()->subHour(), now()->addMinute());
+
+        $this->assertTrue((bool) $report['emitted_inbox_item_hydration_available']);
+        $this->assertSame(['00000000-0000-0000-0000-000000000999'], $report['emitted_inbox_item_missing_ids']);
+        $this->assertSame([], $report['emitted_inbox_items']);
+        $this->assertSame(['00000000-0000-0000-0000-000000000999'], data_get($report, 'recent_events.0.emitted_inbox_item_missing_ids'));
+    }
+
+    public function test_inbox_action_window_report_projects_human_review_evidence(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTION000000000001',
+            inboxItemId: 'inbox-action-1',
+            action: 'review_patch',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'medium',
+            recommendedAction: 'review_schedule_repair',
+            diffRefs: [['path' => 'app/Services/Ai/Mobile/MobilePushService.php']],
+        );
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTION000000000002',
+            inboxItemId: 'inbox-action-2',
+            action: 'mark_read',
+            actorType: 'mobile_device',
+            category: 'ops',
+            severity: 'low',
+            recommendedAction: 'none',
+        );
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTION000000000003',
+            inboxItemId: 'inbox-old',
+            action: 'review_patch',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'high',
+            recommendedAction: 'review_old',
+            occurredAt: now()->subDays(2),
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->inboxActionReportForWindow(now()->subHour(), now()->addMinute());
+
+        $this->assertTrue($report['available']);
+        $this->assertSame(2, $report['inbox_action_count']);
+        $this->assertSame(2, $report['envelope_count']);
+        $this->assertSame(['review_patch' => 1, 'mark_read' => 1], $report['action_counts']);
+        $this->assertSame(['operator_cli' => 1, 'mobile_device' => 1], $report['actor_type_counts']);
+        $this->assertSame(['self_improvement' => 1, 'ops' => 1], $report['category_counts']);
+        $this->assertSame(1, $report['reviewed_patch_count']);
+        $this->assertSame(1, $report['with_diff_refs_count']);
+        $this->assertSame('ok', data_get($report, 'review_signal.status'));
+        $this->assertSame('none', data_get($report, 'review_signal.recommended_action'));
+        $this->assertSame('mark_read', $report['recent_events'][0]['action']);
+        $this->assertSame('review_patch', data_get($report, 'recent_events.1.result_action'));
+        $this->assertSame(1, data_get($report, 'recent_events.1.diff_ref_count'));
+    }
+
+    public function test_inbox_action_window_report_filters_and_warns_when_patch_review_lacks_diff_refs(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONFILTER000001',
+            inboxItemId: 'inbox-action-filter-1',
+            action: 'review_patch',
+            actorType: 'operator_cli',
+            category: 'self_improvement',
+            severity: 'high',
+            recommendedAction: 'review_without_patch',
+        );
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONFILTER000002',
+            inboxItemId: 'inbox-action-filter-2',
+            action: 'mark_read',
+            actorType: 'mobile_device',
+            category: 'ops',
+            severity: 'low',
+            recommendedAction: 'none',
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->inboxActionReportForWindow(
+            now()->subHour(),
+            now()->addMinute(),
+            ['action' => 'review_patch', 'actor_type' => 'operator_cli'],
+        );
+
+        $this->assertTrue($report['available']);
+        $this->assertSame(['action' => 'review_patch', 'actor_type' => 'operator_cli'], $report['filters']);
+        $this->assertSame(1, $report['inbox_action_count']);
+        $this->assertSame(1, $report['reviewed_patch_count']);
+        $this->assertSame(0, $report['with_diff_refs_count']);
+        $this->assertSame('warning', data_get($report, 'review_signal.status'));
+        $this->assertSame('medium', data_get($report, 'review_signal.severity'));
+        $this->assertTrue((bool) data_get($report, 'review_signal.review_required'));
+        $this->assertSame('open_reviewable_inbox_action_evidence_proposal', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('review_patch_action_without_diff_refs', data_get($report, 'review_signal.reasons'));
+        $this->assertSame('inbox-action-filter-1', $report['recent_events'][0]['inbox_item_id']);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payloadOverrides
+     * @return array<string,mixed>
+     */
+    private function recordDecisionReceiptEvent(
+        string $eventId,
+        string $envelopeId,
+        string $receiptId,
+        ?string $parentReceiptId,
+        ?string $parentChainHash,
+        array $payloadOverrides = [],
+        mixed $occurredAt = null,
+    ): array {
+        $payload = [
+            'envelope_id' => $envelopeId,
+            'receipt_id' => $receiptId,
+            'schema_version' => 'atlas.decide.v2',
+            'issued_at' => '2026-05-05T12:00:00.000000Z',
+            'expires_at' => '2026-05-05T12:01:00.000000Z',
+            'dry_run' => false,
+            'signed_by' => 'atlas.decide.v2',
+            'domain' => 'programming',
+            'flow' => 'programming.dev',
+            'risk' => 'medium',
+            'provider_selection' => [
+                'primary' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'fallbacks' => [],
+            ],
+            'budgets' => [],
+            'required_gates' => ['tests'],
+            'required_evidence' => ['summary'],
+            'repair_policy' => ['enabled' => false, 'max_attempts' => 0],
+            'inputs_hash' => hash('sha256', 'input-'.$receiptId),
+            'parent_receipt_id' => $parentReceiptId,
+            'parent_chain_hash' => $parentChainHash,
+        ];
+        $payload['receipt_hash'] = DecisionReceiptHash::hash([
+            'receipt_id' => $payload['receipt_id'],
+            'envelope_id' => $payload['envelope_id'],
+            'schema_version' => $payload['schema_version'],
+            'issued_at' => $payload['issued_at'],
+            'expires_at' => $payload['expires_at'],
+            'dry_run' => $payload['dry_run'],
+            'signed_by' => $payload['signed_by'],
+            'inputs_hash' => $payload['inputs_hash'],
+            'parent_receipt_id' => $payload['parent_receipt_id'],
+        ]);
+        $payload['chain_hash'] = DecisionReceiptHash::hash([
+            'parent_chain_hash' => $payload['parent_chain_hash'],
+            'receipt_hash' => $payload['receipt_hash'],
+        ]);
+        $payload = array_replace_recursive($payload, $payloadOverrides);
+
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $eventId,
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_test',
+            'operator_id' => 'operator_test',
+            'envelope_id' => $envelopeId,
+            'receipt_id' => $receiptId,
+            'trace_id' => null,
+            'correlation_id' => $envelopeId,
+            'causation_id' => null,
+            'event_type' => LedgerEventType::DecisionIssued->value,
+            'emitter_stage' => 'atlas.decide',
+            'emitter_version' => 'atlas-decide-v2',
+            'payload' => $payload,
+            'payload_hash' => hash('sha256', $eventId),
+            'occurred_at' => $occurredAt ?? now(),
+        ]);
+
+        return $payload;
     }
 
     /**
@@ -615,6 +923,77 @@ class LedgerReplayServiceTest extends TestCase
     }
 
     /**
+     * @param  array<int,array<string,mixed>>  $diffRefs
+     */
+    private function recordInboxActionEvent(
+        string $eventId,
+        string $inboxItemId,
+        string $action,
+        string $actorType,
+        string $category,
+        string $severity,
+        string $recommendedAction,
+        array $diffRefs = [],
+        mixed $occurredAt = null,
+    ): void {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $eventId,
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_test',
+            'operator_id' => $actorType,
+            'envelope_id' => 'inbox_item:'.$inboxItemId,
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => $inboxItemId,
+            'causation_id' => null,
+            'event_type' => LedgerEventType::InboxActionRecorded->value,
+            'emitter_stage' => 'atlas.inbox',
+            'emitter_version' => 'atlas.inbox_action.v1',
+            'payload' => [
+                'schema_version' => 'atlas.inbox_action.v1',
+                'action' => $action,
+                'idempotency_key' => 'idem-'.$eventId,
+                'inbox_item' => [
+                    'id' => $inboxItemId,
+                    'type' => 'proposal',
+                    'category' => $category,
+                    'severity' => $severity,
+                    'status' => 'read',
+                    'source_type' => 'self_improvement',
+                    'source_id' => 'finding-'.$inboxItemId,
+                    'dedupe_key' => 'dedupe-'.$inboxItemId,
+                ],
+                'actor' => [
+                    'type' => $actorType,
+                    'id' => $actorType === 'mobile_device' ? 'device-1' : null,
+                ],
+                'result' => [
+                    'payload' => [
+                        'action' => $action,
+                        'diff_refs' => $diffRefs,
+                    ],
+                ],
+                'proposal_contract' => [
+                    'review_signal' => [
+                        'status' => $severity === 'high' ? 'warning' : 'ok',
+                        'severity' => $severity,
+                        'recommended_action' => $recommendedAction,
+                    ],
+                    'diff_refs' => $diffRefs,
+                ],
+                'review_signal' => [
+                    'status' => $severity === 'high' ? 'warning' : 'ok',
+                    'severity' => $severity,
+                    'recommended_action' => $recommendedAction,
+                ],
+                'recommended_action' => $recommendedAction,
+            ],
+            'payload_hash' => hash('sha256', $eventId),
+            'occurred_at' => $occurredAt ?? now(),
+        ]);
+    }
+
+    /**
      * @param  array<int,string>  $issues
      */
     private function recordSelfImprovementScheduleEvent(
@@ -667,6 +1046,40 @@ class LedgerReplayServiceTest extends TestCase
                     'timezone' => 'America/Sao_Paulo',
                     'next_run_at' => '2026-05-05T05:00:00.000000Z',
                 ],
+            ],
+            'payload_hash' => hash('sha256', $eventId),
+            'occurred_at' => $occurredAt ?? now(),
+        ]);
+    }
+
+    /**
+     * @param  array<int,string>  $emittedInboxItemIds
+     */
+    private function recordSelfImprovementCompletionEvent(
+        string $eventId,
+        string $envelopeId,
+        int $findingCount,
+        array $emittedInboxItemIds,
+        mixed $occurredAt = null,
+    ): void {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $eventId,
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_test',
+            'operator_id' => 'atlas_self_improvement',
+            'envelope_id' => $envelopeId,
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => $envelopeId,
+            'causation_id' => null,
+            'event_type' => LedgerEventType::OperationCompleted->value,
+            'emitter_stage' => 'atlas.self_improvement',
+            'emitter_version' => 'self-improvement-runtime-v1',
+            'payload' => [
+                'flow' => 'self_improvement.weekly_architecture_audit',
+                'finding_count' => $findingCount,
+                'emitted_count' => count($emittedInboxItemIds),
+                'emitted_inbox_item_ids' => $emittedInboxItemIds,
             ],
             'payload_hash' => hash('sha256', $eventId),
             'occurred_at' => $occurredAt ?? now(),

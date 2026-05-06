@@ -4,11 +4,14 @@ namespace App\Services\Ai\SelfImprovement;
 
 use App\Models\AtlasInitiativeRun;
 use App\Models\AtlasLedgerEvent;
+use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
+use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
 use App\Services\Ai\Mobile\ProposalInboxEmitter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -22,13 +25,21 @@ class AtlasSelfImprovementRuntime
 
     public const MAX_FINDINGS_PER_RUN = 20;
 
+    /**
+     * @var array<string,mixed>|null
+     */
+    private ?array $architectureValidationPayload = null;
+
     public function __construct(
         private readonly AtlasEvidenceLedger $ledger,
         private readonly AtlasLedgerReplayService $replay,
         private readonly ProposalInboxEmitter $proposals,
         private readonly AtlasAiDomainCatalogService $domainCatalog,
         private readonly AtlasAiArchitectureValidationService $architectureValidation,
+        private readonly AtlasArchitectureOperationsCatalog $architectureOperations,
         private readonly AtlasSelfImprovementScheduleService $schedule,
+        private readonly AtlasSelfImprovementInput $input,
+        private readonly ProviderPerformanceProjection $providerPerformance,
     ) {}
 
     /**
@@ -38,9 +49,10 @@ class AtlasSelfImprovementRuntime
     public function nightlyReview(string $flow = 'self_improvement.nightly_review', bool $emit = false, int $hours = self::DEFAULT_REVIEW_WINDOW_HOURS, int $limit = 5, array $filters = []): array
     {
         $flow = $this->normalizeFlow($flow);
-        $hours = max(1, min(self::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS, $hours));
-        $limit = max(1, min(self::MAX_FINDINGS_PER_RUN, $limit));
+        $hours = $this->input->reviewWindowHours($hours);
+        $limit = $this->input->findingsLimit($limit);
         $filters = $this->normalizedRuntimeFilters($filters);
+        $this->architectureValidationPayload = null;
         $run = $this->startRun($flow, $emit, $hours, $limit);
         $envelopeId = $run ? 'self_improvement_run:'.$run->id : 'self_improvement_run:ad_hoc';
 
@@ -67,6 +79,7 @@ class AtlasSelfImprovementRuntime
                 ->all();
 
             $emitted = [];
+            $emittedByDedupeKey = [];
             if ($emit) {
                 foreach ($findings as $finding) {
                     $item = $this->proposals->emit([
@@ -76,15 +89,22 @@ class AtlasSelfImprovementRuntime
                     ]);
                     if ($item) {
                         $emitted[] = $item->id;
+                        $dedupeKey = (string) ($finding['dedupe_key'] ?? '');
+                        if ($dedupeKey !== '') {
+                            $emittedByDedupeKey[$dedupeKey] = $item->id;
+                        }
                     }
                 }
             }
 
             foreach ($findings as $finding) {
+                $emittedInboxItemId = $emittedByDedupeKey[(string) ($finding['dedupe_key'] ?? '')] ?? null;
                 $this->recordCycleEvent(LedgerEventType::LearningProposed, $envelopeId, $run, [
                     'flow' => $flow,
                     'finding' => $this->ledgerFindingProjection($finding),
                     'emitted' => $emit,
+                    'emitted_to_inbox' => $emittedInboxItemId !== null,
+                    'emitted_inbox_item_id' => $emittedInboxItemId,
                 ]);
             }
 
@@ -93,6 +113,7 @@ class AtlasSelfImprovementRuntime
                 'flow' => $flow,
                 'finding_count' => count($findings),
                 'emitted_count' => count($emitted),
+                'emitted_inbox_item_ids' => array_values($emitted),
             ]);
 
             return [
@@ -133,6 +154,7 @@ class AtlasSelfImprovementRuntime
             ],
             'self_improvement.benchmark_review',
             'self_improvement.provider_performance_review' => [
+                ...$this->providerPerformanceFindings($hours, $filters),
                 ...$this->sloDriftFindings($events, $filters),
                 ...$this->repairLoopFindings($events, $filters),
                 ...$this->operationFailureFindings($events),
@@ -143,8 +165,13 @@ class AtlasSelfImprovementRuntime
             'self_improvement.weekly_architecture_audit',
             'self_improvement.domain_learning_review' => [
                 ...$this->architectureValidationFindings($filters),
+                ...$this->ledgerProjectionDriftFindings($filters),
+                ...$this->architectureOperationsFindings($filters),
                 ...$this->selfImprovementScheduleFindings($filters),
                 ...$this->selfImprovementScheduleReplayFindings($hours, $filters),
+                ...$this->inboxActionReplayFindings($hours, $filters),
+                ...$this->decisionReceiptReplayFindings($events, $filters),
+                ...$this->openBrainRetrievalFindings($hours, $filters),
                 ...$this->domainOnboardingFindings($filters),
                 ...$this->sloDriftFindings($events, $filters),
                 ...$this->repairLoopFindings($events, $filters),
@@ -166,7 +193,12 @@ class AtlasSelfImprovementRuntime
             ],
             default => [
                 ...$this->architectureValidationFindings($filters),
+                ...$this->ledgerProjectionDriftFindings($filters),
+                ...$this->architectureOperationsFindings($filters),
                 ...$this->selfImprovementScheduleReplayFindings($hours, $filters),
+                ...$this->inboxActionReplayFindings($hours, $filters),
+                ...$this->decisionReceiptReplayFindings($events, $filters),
+                ...$this->openBrainRetrievalFindings($hours, $filters),
                 ...$this->domainOnboardingFindings($filters),
                 ...$this->sloDriftFindings($events, $filters),
                 ...$this->repairLoopFindings($events, $filters),
@@ -192,6 +224,196 @@ class AtlasSelfImprovementRuntime
             ->where('occurred_at', '>=', now()->subHours($hours))
             ->orderBy('occurred_at')
             ->get();
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function openBrainRetrievalFindings(int $hours, array $filters = []): array
+    {
+        if (! Schema::hasTable('atlas_open_brain_access_logs')) {
+            return [];
+        }
+
+        $query = AtlasOpenBrainAccessLog::query()
+            ->where('accessed_at', '>=', now()->subHours($hours))
+            ->whereIn('action', ['context_injection', 'context_injection_preview']);
+
+        if (($filters['surface'] ?? null) !== null) {
+            $query->where('surface', $filters['surface']);
+        }
+
+        $logs = $query
+            ->orderByDesc('accessed_at')
+            ->limit(100)
+            ->get();
+
+        $blocked = $logs
+            ->filter(function (AtlasOpenBrainAccessLog $log): bool {
+                $summary = (array) ($log->result_summary_json ?? []);
+                $warnings = (array) data_get($summary, 'warnings', []);
+
+                return data_get($summary, 'retrieval_plan.review_signal.status') === 'blocking'
+                    || in_array('retrieval_required_source_unavailable', $warnings, true);
+            })
+            ->values();
+
+        if ($blocked->isEmpty()) {
+            return [];
+        }
+
+        $requiredUnavailable = $blocked
+            ->flatMap(fn (AtlasOpenBrainAccessLog $log): array => (array) data_get($log->result_summary_json, 'retrieval_plan.required_unavailable_sources', []))
+            ->filter(fn (mixed $source): bool => is_string($source) && $source !== '')
+            ->values()
+            ->all();
+
+        $recommendedActions = $blocked
+            ->map(fn (AtlasOpenBrainAccessLog $log): ?string => data_get($log->result_summary_json, 'retrieval_plan.review_signal.recommended_action'))
+            ->filter(fn (mixed $action): bool => is_string($action) && $action !== '')
+            ->values()
+            ->all();
+
+        $statusCounts = $blocked
+            ->map(fn (AtlasOpenBrainAccessLog $log): string => (string) ($log->status ?? 'unknown'))
+            ->countBy()
+            ->all();
+        $requiredUnavailableSourceCounts = array_count_values($requiredUnavailable);
+        $recommendedActionCounts = array_count_values($recommendedActions);
+        $primaryAction = $recommendedActions[0] ?? 'refresh_context_sources_before_retry';
+        $primarySources = array_values(array_unique($requiredUnavailable));
+        $sourceText = $primarySources === [] ? 'fontes obrigatorias desconhecidas' : implode(', ', $primarySources);
+
+        return [[
+            'title' => 'Corrigir fontes obrigatorias ausentes no Open Brain',
+            'category' => 'self_improvement',
+            'finding' => "Open Brain registrou {$blocked->count()} injecao(oes) com retrieval obrigatorio indisponivel na janela analisada: {$sourceText}.",
+            'problem' => 'Quando o Context Builder exige evidence replay, code intelligence, memoria ou graph retrieval e a fonte nao esta disponivel, o Atlas pode degradar contexto, bloquear execucao required-mode ou repetir tentativas sem aprender a lacuna.',
+            'solution' => 'Promover o review_signal de retrieval para o Curator/Self-Improvement, abrir proposta revisavel para atualizar a fonte ausente e reexecutar o fluxo somente depois que o contexto obrigatorio estiver fresco.',
+            'worth_it' => 'Vale porque transforma falhas de contexto em backlog automatico de melhoria, fechando o ciclo Input -> Evidence -> Learning -> Curator sem criar repair paralelo.',
+            'best_solution_rationale' => 'Consumir atlas_open_brain_access_logs preserva o contrato do Open Brain como fonte operacional e evita duplicar a logica de disponibilidade dentro do Curator.',
+            'alternatives' => ['Aguardar nova tentativa manual com mais contexto anexado.', 'Relaxar a fonte para optional apenas se o Decision Receipt permitir degradacao.'],
+            'source_refs' => $blocked
+                ->take(5)
+                ->map(fn (AtlasOpenBrainAccessLog $log): array => [
+                    'type' => 'open_brain_access_log',
+                    'id' => $log->id,
+                    'surface' => $log->surface,
+                    'action' => $log->action,
+                    'status' => $log->status,
+                    'context_pack_hash' => $log->context_pack_hash,
+                    'required_unavailable_sources' => array_values((array) data_get($log->result_summary_json, 'retrieval_plan.required_unavailable_sources', [])),
+                    'recommended_action' => data_get($log->result_summary_json, 'retrieval_plan.review_signal.recommended_action'),
+                    'accessed_at' => $log->accessed_at?->toJSON(),
+                ])
+                ->values()
+                ->all(),
+            'confidence' => $blocked->count() > 1 ? 0.88 : 0.82,
+            'dedupe_key' => 'self-improvement:open-brain-retrieval:'.sha1($primaryAction.':'.implode('|', $primarySources)),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.open_brain_retrieval.v1',
+                'review_signal' => [
+                    'status' => 'blocking',
+                    'severity' => 'high',
+                    'reason' => 'required_retrieval_source_unavailable',
+                    'recommended_action' => $primaryAction,
+                    'required_unavailable_sources' => $primarySources,
+                ],
+                'log_count' => $blocked->count(),
+                'status_counts' => $statusCounts,
+                'required_unavailable_source_counts' => $requiredUnavailableSourceCounts,
+                'recommended_action_counts' => $recommendedActionCounts,
+                'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
+            ],
+        ]];
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function providerPerformanceFindings(int $hours, array $filters = []): array
+    {
+        $report = $this->providerPerformance->reportForWindow(
+            now()->subHours($hours),
+            filters: $this->normalizedProviderPerformanceFilters($filters),
+        );
+
+        if (! (bool) ($report['available'] ?? false) || (int) ($report['event_count'] ?? 0) === 0) {
+            return [[
+                'title' => 'Instrumentar Provider Performance da Fase 0',
+                'category' => 'self_improvement',
+                'finding' => 'Provider performance review nao encontrou eventos normalizados de provider usage na janela analisada.',
+                'problem' => 'Sem Provider Usage Event normalizado, o Atlas Decide continua dependendo de health, policy e preferencias estaticas em vez de aprender empiricamente qual provider funciona melhor por dominio e tarefa.',
+                'solution' => 'Garantir que PROVIDER_CALLED, PROVIDER_RETURNED e PROVIDER_FALLBACK carreguem schema atlas.provider_usage.v1 e que o projection de performance seja consultavel antes de alterar estrategia default.',
+                'worth_it' => 'Vale porque Fase 0 e o ponto em que o Atlas sai do achismo de provider e passa a roteamento baseado em evidencia.',
+                'best_solution_rationale' => 'Usar o Evidence Ledger como fonte evita criar tabela paralela, router paralelo ou heuristica solta dentro do Curator.',
+                'alternatives' => ['Aguardar mais execucoes reais se a instrumentacao acabou de ser ativada.', 'Rodar um benchmark controlado para popular a janela inicial.'],
+                'source_refs' => [],
+                'confidence' => 0.76,
+                'dedupe_key' => 'self-improvement:provider-performance:'.sha1('missing-provider-usage-events'),
+                'metadata' => [
+                    'report_available' => (bool) ($report['available'] ?? false),
+                    'event_count' => (int) ($report['event_count'] ?? 0),
+                    'filters' => $report['filters'] ?? [],
+                    'schema_version' => $report['schema_version'] ?? null,
+                ],
+            ]];
+        }
+
+        $findings = [];
+        $fallbackCount = (int) ($report['fallback_count'] ?? 0);
+        $failureCount = (int) ($report['failure_count'] ?? 0);
+        $successRate = $report['success_rate'];
+
+        if ($fallbackCount > 0 || $failureCount > 0 || (is_float($successRate) && $successRate < 0.8)) {
+            $findings[] = [
+                'title' => 'Revisar matriz empirica de providers',
+                'category' => 'self_improvement',
+                'finding' => "Provider performance encontrou {$failureCount} falha(s), {$fallbackCount} fallback(s) e success_rate ".($successRate === null ? 'desconhecido' : (string) $successRate).'.',
+                'problem' => 'Falhas e fallbacks recorrentes por provider/domain/task_type indicam que a Provider Strategy Matrix pode estar escolhendo uma rota subotima ou que falta policy especifica para o tipo de tarefa.',
+                'solution' => 'Comparar grupos por provider_cli + domain + task_type, separar overrides manuais de decisoes automaticas e propor ajuste revisavel na matriz somente com amostra suficiente.',
+                'worth_it' => 'Vale porque melhora qualidade e desempenho sem depender de opiniao fixa sobre Claude, Codex ou Gemini.',
+                'best_solution_rationale' => 'A projection usa provider usage normalizado no Evidence Ledger, preservando receipt, router decision e outcome no mesmo rastro auditavel.',
+                'alternatives' => ['Manter observacao ate haver mais amostras.', 'Executar benchmark pareado antes de promover mudanca de roteamento.'],
+                'source_refs' => collect((array) ($report['recent_events'] ?? []))
+                    ->take(5)
+                    ->map(fn (array $event): array => [
+                        'type' => 'ledger_event',
+                        'id' => $event['event_id'] ?? null,
+                        'envelope_id' => $event['envelope_id'] ?? null,
+                        'provider_cli' => $event['provider_cli'] ?? null,
+                        'domain' => $event['domain'] ?? null,
+                        'task_type' => $event['task_type'] ?? null,
+                        'exit_status' => $event['exit_status'] ?? null,
+                        'failure_reason' => $event['failure_reason'] ?? null,
+                    ])
+                    ->values()
+                    ->all(),
+                'confidence' => $fallbackCount > 0 ? 0.86 : 0.8,
+                'dedupe_key' => 'self-improvement:provider-performance:'.sha1(json_encode($report['failure_reason_counts'] ?? [], JSON_THROW_ON_ERROR).':'.$fallbackCount.':'.$failureCount),
+                'metadata' => [
+                    'event_count' => $report['event_count'] ?? 0,
+                    'returned_count' => $report['returned_count'] ?? 0,
+                    'fallback_count' => $fallbackCount,
+                    'success_count' => $report['success_count'] ?? 0,
+                    'failure_count' => $failureCount,
+                    'success_rate' => $successRate,
+                    'average_latency_seconds' => $report['average_latency_seconds'] ?? null,
+                    'average_repair_count' => $report['average_repair_count'] ?? null,
+                    'provider_counts' => $report['provider_counts'] ?? [],
+                    'domain_counts' => $report['domain_counts'] ?? [],
+                    'task_type_counts' => $report['task_type_counts'] ?? [],
+                    'failure_reason_counts' => $report['failure_reason_counts'] ?? [],
+                    'selection_mode_counts' => $report['selection_mode_counts'] ?? [],
+                    'groups' => $report['groups'] ?? [],
+                    'filters' => $report['filters'] ?? [],
+                ],
+            ];
+        }
+
+        return $findings;
     }
 
     /**
@@ -588,7 +810,7 @@ class AtlasSelfImprovementRuntime
      */
     private function architectureValidationFindings(array $filters = []): array
     {
-        $payload = $this->architectureValidation->payload();
+        $payload = $this->architectureValidationPayload();
         $summary = (array) data_get($payload, 'kernel.static_scan.summary', []);
         $failedKeys = (array) ($summary['failed_keys'] ?? []);
         $violationCount = (int) ($summary['violation_count'] ?? 0);
@@ -635,6 +857,190 @@ class AtlasSelfImprovementRuntime
                 'orchestrators_valid' => (bool) data_get($payload, 'orchestrators.valid', false),
                 'kernel_valid' => (bool) data_get($payload, 'kernel.valid', false),
                 'onboarding' => (array) ($payload['onboarding'] ?? []),
+                'filters' => $this->normalizedArchitectureValidationFilters($filters),
+            ],
+        ]];
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function ledgerProjectionDriftFindings(array $filters = []): array
+    {
+        if (array_filter($filters, fn (?string $value): bool => $value !== null && $value !== '') !== []) {
+            return [];
+        }
+
+        $payload = $this->architectureValidationPayload();
+        $drift = (array) data_get($payload, 'kernel.ledger_projections.drift', []);
+        $status = (string) ($drift['status'] ?? 'unknown');
+        $available = (bool) ($drift['available'] ?? false);
+        $attentionCount = (int) ($drift['attention_count'] ?? 0);
+
+        if (! $available || $status !== 'attention_required' || $attentionCount === 0) {
+            return [];
+        }
+
+        $projections = collect((array) ($drift['projections'] ?? []))
+            ->filter(fn (array $projection): bool => (bool) ($projection['needs_attention'] ?? false))
+            ->values();
+
+        if ($projections->isEmpty()) {
+            return [];
+        }
+
+        $projectionIds = $projections
+            ->map(fn (array $projection): string => (string) ($projection['id'] ?? 'unknown'))
+            ->values()
+            ->all();
+
+        return [[
+            'title' => 'Corrigir drift das projection tables do Evidence Ledger',
+            'category' => 'self_improvement',
+            'finding' => 'O Evidence Ledger possui eventos mais recentes ou eventos-fonte sem projection operacional atualizada.',
+            'problem' => 'Quando as projection tables atrasam, UI, CLI, dashboards, Curator e replay podem tomar decisoes com leitura antiga enquanto o ledger append-only ja contem a verdade mais recente.',
+            'solution' => 'Revisar o worker incremental de projections, reprocessar os eventos-fonte afetados e manter o ledger como fonte de verdade sem atualizar eventos historicos.',
+            'worth_it' => 'Vale porque fecha o loop entre event sourcing e operacao diaria, evitando que a arquitetura mae fique correta no ledger mas invisivel nas surfaces.',
+            'best_solution_rationale' => 'Atacar projection drift preserva append-only e melhora observabilidade sem relaxar gates nem duplicar regras por surface.',
+            'alternatives' => ['Manter como warning ate o worker incremental existir.', 'Reexecutar apenas a projection afetada em dry-run antes de aplicar backfill.'],
+            'available_actions' => [
+                ['id' => 'run_ledger_projection', 'label' => 'Rodar projection', 'style' => 'primary'],
+                ['id' => 'review_patch', 'label' => 'Revisar evidencia', 'style' => 'secondary'],
+                ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
+                ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
+            ],
+            'payload' => [
+                'projection_health' => [
+                    'schema_version' => $drift['schema_version'] ?? null,
+                    'status' => $status,
+                    'available' => $available,
+                    'projection_count' => (int) ($drift['projection_count'] ?? 0),
+                    'drifted_count' => (int) ($drift['drifted_count'] ?? 0),
+                    'attention_count' => $attentionCount,
+                    'ledger_latest_occurred_at' => $drift['ledger_latest_occurred_at'] ?? null,
+                ],
+                'ledger_projection' => [
+                    'hours' => (int) config('atlas_ai.ledger_projection.hours', 24),
+                    'limit' => (int) config('atlas_ai.ledger_projection.limit', 500),
+                    'dry_run' => false,
+                ],
+            ],
+            'source_refs' => $projections
+                ->map(fn (array $projection): array => [
+                    'type' => 'ledger_projection_drift',
+                    'id' => (string) ($projection['id'] ?? 'unknown'),
+                    'table' => (string) ($projection['table'] ?? 'unknown'),
+                    'status' => (string) ($projection['status'] ?? 'unknown'),
+                    'source_event_count' => (int) ($projection['source_event_count'] ?? 0),
+                    'lag_seconds' => $projection['lag_seconds'] ?? null,
+                ])
+                ->all(),
+            'confidence' => 0.88,
+            'dedupe_key' => 'self-improvement:ledger-projection-drift:'.sha1(implode(',', $projectionIds).':'.$status.':'.$attentionCount),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.ledger_projection_drift.v1',
+                'drift_schema_version' => $drift['schema_version'] ?? null,
+                'status' => $status,
+                'available' => $available,
+                'projection_count' => (int) ($drift['projection_count'] ?? 0),
+                'drifted_count' => (int) ($drift['drifted_count'] ?? 0),
+                'attention_count' => $attentionCount,
+                'projection_ids' => $projectionIds,
+                'ledger_latest_occurred_at' => $drift['ledger_latest_occurred_at'] ?? null,
+                'review_signal' => [
+                    'status' => 'warning',
+                    'severity' => 'medium',
+                    'reason' => 'ledger_projection_drift',
+                    'recommended_action' => 'open_reviewable_ledger_projection_backfill_proposal',
+                ],
+                'filters' => $this->normalizedArchitectureValidationFilters($filters),
+            ],
+        ]];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function architectureValidationPayload(): array
+    {
+        if ($this->architectureValidationPayload === null) {
+            $payload = $this->architectureValidation->payload();
+            $this->architectureValidationPayload = $payload;
+        }
+
+        return $this->architectureValidationPayload;
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function architectureOperationsFindings(array $filters = []): array
+    {
+        $summary = $this->architectureOperations->summary();
+        $commands = collect((array) ($summary['commands'] ?? []))
+            ->map(fn (array $operation): ?string => is_string($operation['command'] ?? null) ? $operation['command'] : null)
+            ->filter()
+            ->values()
+            ->all();
+        $expectedCommands = [
+            'atlas ai architecture-operations --json',
+            'atlas ai architecture-validate',
+            'atlas ai slo --hours=24 --json',
+            'atlas ai kernel-pipeline-report --hours=24 --json',
+            'atlas ai repair-report --hours=24 --json',
+            'atlas ai provider-performance --hours=24 --json',
+            'atlas ai decision-receipt-report --envelope=<id> --json',
+            'atlas ledger replay --envelope=<id> --json',
+            'atlas ai ledger-project --limit=500 --json',
+            'atlas ai self-improvement-schedule-report --hours=24 --json',
+            'atlas ai inbox-action-report --hours=24 --json',
+        ];
+        $missingCommands = array_values(array_diff($expectedCommands, $commands));
+        $section = (string) ($summary['section'] ?? '');
+        $commandCount = (int) ($summary['command_count'] ?? 0);
+        $actualCommandCount = count($commands);
+        $countMismatch = $commandCount !== $actualCommandCount;
+
+        if ($section === 'arquitetura_mae' && $missingCommands === [] && ! $countMismatch) {
+            return [];
+        }
+
+        return [[
+            'title' => 'Corrigir catalogo operacional da arquitetura mae',
+            'category' => 'self_improvement',
+            'finding' => 'Architecture Operations Catalog perdeu comandos criticos, mudou de secao ou reportou contagem divergente.',
+            'problem' => 'Se o catalogo operacional diverge, operador, App, MCP, Observability e sessoes auxiliares deixam de descobrir o mesmo control plane da arquitetura mae.',
+            'solution' => 'Restaurar `AtlasArchitectureOperationsCatalog`, validar CLI help, Observability, MCP e surfaces diretas, e rodar `atlas:ai:architecture-validate` antes de promover a mudanca.',
+            'worth_it' => 'Vale porque descoberta operacional e parte do produto: comando implementado mas invisivel vira fluxo solto.',
+            'best_solution_rationale' => 'O Self-Improvement consome o mesmo catalogo compartilhado das surfaces, entao a auditoria nao cria uma segunda lista manual de comandos.',
+            'alternatives' => ['Manter o catalogo em observacao se outra sessao estiver migrando nomes.', 'Criar redirect temporario apenas com AP documentado.'],
+            'source_refs' => collect($missingCommands === [] ? $commands : $missingCommands)
+                ->take(8)
+                ->map(fn (string $command): array => [
+                    'type' => $missingCommands === [] ? 'architecture_operation' : 'missing_architecture_operation',
+                    'id' => $command,
+                    'section' => $section,
+                ])
+                ->values()
+                ->all(),
+            'confidence' => $missingCommands === [] ? 0.82 : 0.9,
+            'dedupe_key' => 'self-improvement:architecture-operations:'.sha1($section.':'.implode(',', $missingCommands).':'.$commandCount.':'.$actualCommandCount),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.architecture_operations.v1',
+                'section' => $section,
+                'command_count' => $commandCount,
+                'actual_command_count' => $actualCommandCount,
+                'count_mismatch' => $countMismatch,
+                'missing_commands' => $missingCommands,
+                'expected_commands' => $expectedCommands,
+                'review_signal' => [
+                    'status' => 'warning',
+                    'severity' => $missingCommands === [] ? 'medium' : 'high',
+                    'reason' => 'architecture_operations_catalog_drift',
+                    'recommended_action' => 'restore_architecture_operations_catalog',
+                ],
                 'filters' => $this->normalizedArchitectureValidationFilters($filters),
             ],
         ]];
@@ -712,9 +1118,62 @@ class AtlasSelfImprovementRuntime
         $reviewSignal = (array) ($report['review_signal'] ?? []);
         $warningCount = (int) ($report['warning_count'] ?? 0);
         $issueCounts = (array) ($report['issue_counts'] ?? []);
+        $missingInboxItemIds = array_values((array) ($report['emitted_inbox_item_missing_ids'] ?? []));
 
-        if (! (bool) ($report['available'] ?? false) || ! (bool) ($reviewSignal['review_required'] ?? false) || $warningCount === 0) {
+        if (! (bool) ($report['available'] ?? false)) {
             return [];
+        }
+
+        $findings = [];
+        if ($missingInboxItemIds !== []) {
+            $missingEvents = collect((array) ($report['recent_events'] ?? []))
+                ->filter(fn (array $event): bool => ((array) ($event['emitted_inbox_item_missing_ids'] ?? [])) !== [])
+                ->values();
+            $findings[] = [
+                'title' => 'Restaurar propostas do Inbox emitidas pelo Self-Improvement',
+                'category' => 'self_improvement',
+                'finding' => 'Schedule replay encontrou refs de propostas emitidas que nao resolveram para itens acionaveis do Inbox.',
+                'problem' => 'Quando `OPERATION_COMPLETED` aponta para uma proposta que nao existe mais no Inbox, auditoria, revisao humana e aprendizado ficam quebrados no ponto mais importante do loop.',
+                'solution' => 'Investigar se os itens foram apagados, expirados incorretamente ou se o emitter gravou IDs inconsistentes; restaurar a proposta ou corrigir a emissao para manter Ledger e Inbox alinhados.',
+                'worth_it' => 'Vale porque fecha a cadeia Evidence Ledger -> Proposal Inbox -> review humano, que e essencial para autoaprimoramento seguro.',
+                'best_solution_rationale' => 'Consumir o gap do replay evita varrer tabelas manualmente e preserva o Ledger como fonte de causalidade.',
+                'alternatives' => ['Criar waiver temporario se a proposta foi removida por politica de retencao documentada.', 'Reemitir a proposta com novo ID e registrar link de supersede.'],
+                'source_refs' => $missingEvents
+                    ->take(5)
+                    ->map(fn (array $event): array => [
+                        'type' => 'ledger_event',
+                        'id' => $event['event_id'] ?? null,
+                        'envelope_id' => $event['envelope_id'] ?? null,
+                        'emitted_inbox_item_missing_ids' => array_values((array) ($event['emitted_inbox_item_missing_ids'] ?? [])),
+                        'emitted_inbox_item_hydration_available' => (bool) ($event['emitted_inbox_item_hydration_available'] ?? false),
+                        'occurred_at' => $event['occurred_at'] ?? null,
+                    ])
+                    ->values()
+                    ->all(),
+                'confidence' => 0.92,
+                'dedupe_key' => 'self-improvement:schedule-replay-inbox-gap:'.sha1(count($missingInboxItemIds).':'.implode(',', $missingInboxItemIds)),
+                'metadata' => [
+                    'schema_version' => 'atlas.self_improvement.schedule_replay_inbox_gap.v1',
+                    'hours' => $hours,
+                    'missing_count' => count($missingInboxItemIds),
+                    'emitted_inbox_item_missing_ids' => $missingInboxItemIds,
+                    'emitted_inbox_item_hydration_available' => (bool) ($report['emitted_inbox_item_hydration_available'] ?? false),
+                    'schedule_observation_count' => (int) ($report['schedule_observation_count'] ?? 0),
+                    'envelope_count' => (int) ($report['envelope_count'] ?? 0),
+                    'review_signal' => [
+                        'status' => 'warning',
+                        'severity' => 'medium',
+                        'review_required' => true,
+                        'reason' => 'self_improvement_schedule_replay_missing_inbox_items',
+                        'recommended_action' => 'restore_or_reemit_missing_self_improvement_inbox_items',
+                    ],
+                    'filters' => $this->normalizedArchitectureValidationFilters($filters),
+                ],
+            ];
+        }
+
+        if (! (bool) ($reviewSignal['review_required'] ?? false) || $warningCount === 0) {
+            return $findings;
         }
 
         $warningEvents = collect((array) ($report['recent_events'] ?? []))
@@ -728,7 +1187,7 @@ class AtlasSelfImprovementRuntime
         $latestHealthStatus = (string) ($report['latest_health_status'] ?? 'unknown');
         $latestSchedulerStatus = (string) ($report['latest_scheduler_status'] ?? 'unknown');
 
-        return [[
+        $findings[] = [
             'title' => 'Investigar drift recorrente no schedule do Self-Improvement',
             'category' => 'self_improvement',
             'finding' => "Replay do Evidence Ledger encontrou {$warningCount} observacao(oes) de schedule com warning na janela analisada.",
@@ -768,6 +1227,184 @@ class AtlasSelfImprovementRuntime
                 'health' => (array) ($report['health'] ?? []),
                 'review_signal' => $reviewSignal,
                 'filters' => $this->normalizedArchitectureValidationFilters($filters),
+            ],
+        ];
+
+        return $findings;
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function inboxActionReplayFindings(int $hours, array $filters = []): array
+    {
+        if ($this->normalizedDomainOnboardingFilters($filters) !== []) {
+            return [];
+        }
+
+        $report = $this->replay->inboxActionReportForWindow(
+            now()->subHours($hours),
+            null,
+            $this->normalizedInboxActionFilters($filters),
+        );
+        $reviewSignal = (array) ($report['review_signal'] ?? []);
+        $gapReason = 'review_patch_action_without_diff_refs';
+        $proposalAction = 'open_reviewable_inbox_action_evidence_proposal';
+
+        if (! (bool) ($report['available'] ?? false)
+            || ! (bool) ($reviewSignal['review_required'] ?? false)
+            || ! in_array($gapReason, (array) ($reviewSignal['reasons'] ?? []), true)
+            || ($reviewSignal['recommended_action'] ?? null) !== $proposalAction) {
+            return [];
+        }
+
+        $recentEvents = collect((array) ($report['recent_events'] ?? []))
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_patch'
+                && (int) ($event['diff_ref_count'] ?? 0) === 0)
+            ->values();
+
+        if ($recentEvents->isEmpty()) {
+            return [];
+        }
+
+        return [[
+            'title' => 'Restaurar contexto de patch nas revisoes humanas do Inbox',
+            'category' => 'self_improvement',
+            'finding' => 'Replay do Evidence Ledger encontrou actions `review_patch` sem `diff_refs` preservados.',
+            'problem' => 'Quando uma revisao humana confirma ou analisa patch sem refs de diff, o Atlas perde a trilha auditavel entre proposta, artefato revisado e aprendizado posterior.',
+            'solution' => 'Corrigir o contrato do emitter/action para sempre anexar `diff_refs` ou marcar explicitamente que nao havia patch aplicavel, mantendo o evento `INBOX_ACTION_RECORDED` reprodutivel.',
+            'worth_it' => 'Vale porque revisao humana e uma das barreiras de seguranca do Atlas; sem contexto de patch, o Curator nao consegue aprender com a decisao do operador.',
+            'best_solution_rationale' => 'Consumir `inboxActionReportForWindow` mantem o Evidence Ledger como fonte unica e evita novo scanner manual sobre payloads do Inbox.',
+            'alternatives' => ['Criar waiver apenas para proposals sem artefato de diff por desenho.', 'Converter actions sem diff em discussao antes de permitir marcar como revisado.'],
+            'source_refs' => $recentEvents
+                ->take(5)
+                ->map(fn (array $event): array => [
+                    'type' => 'ledger_event',
+                    'id' => $event['event_id'] ?? null,
+                    'envelope_id' => $event['envelope_id'] ?? null,
+                    'inbox_item_id' => $event['inbox_item_id'] ?? null,
+                    'action' => $event['action'] ?? null,
+                    'actor_type' => $event['actor_type'] ?? null,
+                    'recommended_action' => $event['recommended_action'] ?? null,
+                    'diff_ref_count' => (int) ($event['diff_ref_count'] ?? 0),
+                    'occurred_at' => $event['occurred_at'] ?? null,
+                ])
+                ->values()
+                ->all(),
+            'confidence' => 0.88,
+            'dedupe_key' => 'self-improvement:inbox-action-replay:'.sha1($hours.':'.implode(',', (array) ($reviewSignal['reasons'] ?? []))),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.inbox_action_replay_gap.v1',
+                'hours' => $hours,
+                'inbox_action_count' => (int) ($report['inbox_action_count'] ?? 0),
+                'reviewed_patch_count' => (int) ($report['reviewed_patch_count'] ?? 0),
+                'with_diff_refs_count' => (int) ($report['with_diff_refs_count'] ?? 0),
+                'action_counts' => (array) ($report['action_counts'] ?? []),
+                'actor_type_counts' => (array) ($report['actor_type_counts'] ?? []),
+                'recommended_action_counts' => (array) ($report['recommended_action_counts'] ?? []),
+                'review_signal' => $reviewSignal,
+                'filters' => $this->normalizedInboxActionFilters($filters),
+            ],
+        ]];
+    }
+
+    /**
+     * @param  Collection<int,AtlasLedgerEvent>  $events
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function decisionReceiptReplayFindings(Collection $events, array $filters = []): array
+    {
+        if (isset($this->normalizedDomainOnboardingFilters($filters)['onboarding_status'])) {
+            return [];
+        }
+
+        $decisionEvents = $events
+            ->filter(fn (AtlasLedgerEvent $event): bool => $event->event_type === LedgerEventType::DecisionIssued->value)
+            ->filter(fn (AtlasLedgerEvent $event): bool => $this->matchesDecisionReceiptFilters($event, $filters))
+            ->values();
+
+        if ($decisionEvents->isEmpty()) {
+            return [];
+        }
+
+        $reports = $decisionEvents
+            ->pluck('envelope_id')
+            ->filter(fn (mixed $envelopeId): bool => is_string($envelopeId) && $envelopeId !== '')
+            ->unique()
+            ->map(fn (string $envelopeId): array => $this->replay->decisionReceiptReportForEnvelope($envelopeId))
+            ->filter(fn (array $report): bool => (bool) data_get($report, 'review_signal.review_required', false)
+                && data_get($report, 'review_signal.recommended_action') === 'open_reviewable_decision_receipt_replay_proposal')
+            ->values();
+
+        if ($reports->isEmpty()) {
+            return [];
+        }
+
+        $invalidEvents = $reports
+            ->flatMap(fn (array $report): array => collect((array) ($report['events'] ?? []))
+                ->filter(fn (array $event): bool => in_array('mismatch', [
+                    $event['receipt_integrity_status'] ?? null,
+                    $event['chain_integrity_status'] ?? null,
+                ], true))
+                ->all())
+            ->values();
+        $reasons = $reports
+            ->flatMap(fn (array $report): array => (array) data_get($report, 'review_signal.reasons', []))
+            ->filter(fn (mixed $reason): bool => is_string($reason) && $reason !== '')
+            ->unique()
+            ->values()
+            ->all();
+        $envelopeIds = $reports
+            ->pluck('envelope_id')
+            ->filter()
+            ->values()
+            ->all();
+
+        return [[
+            'title' => 'Auditar cadeia de DecisionReceipt adulterada',
+            'category' => 'self_improvement',
+            'finding' => 'DecisionReceipt replay encontrou divergencia de `receipt_hash` ou `chain_hash` na janela analisada.',
+            'problem' => 'Quando a cadeia de DecisionReceipt diverge, o Atlas perde a garantia de que Decide, runtime e replay estao obedecendo o mesmo contrato assinado antes do provider.',
+            'solution' => 'Abrir proposal revisavel, comparar eventos DECISION_ISSUED do envelope, corrigir emissao/propagacao do receipt e bloquear qualquer runtime que aceite receipt com hash divergente.',
+            'worth_it' => 'Vale porque protege o ponto mais sensivel da arquitetura mae: provider e runtime nao podem operar com uma decisao que nao bate com o contrato assinado.',
+            'best_solution_rationale' => 'Consumir `decisionReceiptReportForEnvelope()` preserva uma unica fonte de verificacao criptografica e evita o Curator recalcular hashes com regra paralela.',
+            'alternatives' => ['Manter observacao se os eventos vierem de fixture legada explicitamente marcada.', 'Arquivar como falso positivo apenas com evidence ledger e waiver auditavel.'],
+            'source_refs' => $invalidEvents
+                ->take(5)
+                ->map(fn (array $event): array => [
+                    'type' => 'ledger_event',
+                    'id' => $event['event_id'] ?? null,
+                    'envelope_id' => $event['envelope_id'] ?? null,
+                    'receipt_id' => $event['receipt_id'] ?? null,
+                    'receipt_integrity_status' => $event['receipt_integrity_status'] ?? null,
+                    'chain_integrity_status' => $event['chain_integrity_status'] ?? null,
+                    'provider' => $event['provider'] ?? null,
+                    'model' => $event['model'] ?? null,
+                    'occurred_at' => $event['occurred_at'] ?? null,
+                ])
+                ->values()
+                ->all(),
+            'confidence' => 0.94,
+            'dedupe_key' => 'self-improvement:decision-receipt-replay:'.sha1(implode(',', $envelopeIds).':'.implode(',', $reasons)),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.decision_receipt_replay_gap.v1',
+                'envelope_count' => $reports->count(),
+                'decision_event_count' => $reports->sum(fn (array $report): int => (int) ($report['decision_event_count'] ?? 0)),
+                'invalid_count' => $reports->sum(fn (array $report): int => (int) ($report['invalid_count'] ?? 0)),
+                'valid_receipt_hash_count' => $reports->sum(fn (array $report): int => (int) ($report['valid_receipt_hash_count'] ?? 0)),
+                'valid_chain_hash_count' => $reports->sum(fn (array $report): int => (int) ($report['valid_chain_hash_count'] ?? 0)),
+                'affected_envelope_ids' => $envelopeIds,
+                'reasons' => $reasons,
+                'review_signal' => [
+                    'status' => 'breach',
+                    'severity' => 'high',
+                    'review_required' => true,
+                    'reasons' => $reasons,
+                    'recommended_action' => 'open_reviewable_decision_receipt_replay_proposal',
+                ],
+                'filters' => $this->normalizedDecisionReceiptFilters($filters),
             ],
         ]];
     }
@@ -866,6 +1503,77 @@ class AtlasSelfImprovementRuntime
      * @param  array<string,string|null>  $filters
      * @return array<string,string>
      */
+    private function normalizedProviderPerformanceFilters(array $filters): array
+    {
+        $normalized = [];
+        foreach (['provider', 'provider_cli', 'domain', 'flow', 'task_type', 'risk', 'selection_mode'] as $key) {
+            $value = $filters[$key] ?? null;
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                $normalized[$key === 'provider' ? 'provider_cli' : $key] = trim((string) $value);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<string,string>
+     */
+    private function normalizedInboxActionFilters(array $filters): array
+    {
+        $normalized = [];
+        foreach (['action', 'actor_type', 'inbox_item_category', 'inbox_item_severity', 'recommended_action', 'source_type'] as $key) {
+            $value = $filters[$key] ?? null;
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                $normalized[$key] = trim((string) $value);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<string,string>
+     */
+    private function normalizedDecisionReceiptFilters(array $filters): array
+    {
+        $normalized = [];
+        foreach (['domain', 'flow', 'provider', 'model', 'risk'] as $key) {
+            $value = $filters[$key] ?? null;
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                $normalized[$key] = trim((string) $value);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     */
+    private function matchesDecisionReceiptFilters(AtlasLedgerEvent $event, array $filters): bool
+    {
+        foreach ($this->normalizedDecisionReceiptFilters($filters) as $key => $value) {
+            $actual = match ($key) {
+                'provider' => data_get($event->payload, 'provider_selection.primary', data_get($event->payload, 'provider_selection.provider')),
+                'model' => data_get($event->payload, 'provider_selection.model'),
+                default => data_get($event->payload, $key),
+            };
+
+            if (! is_scalar($actual) || trim((string) $actual) !== $value) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<string,string>
+     */
     private function normalizedRuntimeFilters(array $filters): array
     {
         return [
@@ -873,6 +1581,8 @@ class AtlasSelfImprovementRuntime
             ...$this->normalizedRepairFilters($filters),
             ...$this->normalizedKernelPipelineFilters($filters),
             ...$this->normalizedDomainOnboardingFilters($filters),
+            ...$this->normalizedInboxActionFilters($filters),
+            ...$this->normalizedDecisionReceiptFilters($filters),
         ];
     }
 
@@ -1076,12 +1786,22 @@ class AtlasSelfImprovementRuntime
      */
     private function ledgerFindingProjection(array $finding): array
     {
+        $metadata = (array) ($finding['metadata'] ?? []);
+
         return [
             'title' => $finding['title'] ?? null,
             'category' => $finding['category'] ?? null,
             'dedupe_key' => $finding['dedupe_key'] ?? null,
             'confidence' => $finding['confidence'] ?? null,
             'source_ref_count' => count((array) ($finding['source_refs'] ?? [])),
+            'schema_version' => $metadata['schema_version'] ?? null,
+            'review_signal' => (array) ($metadata['review_signal'] ?? []),
+            'source_types' => collect((array) ($finding['source_refs'] ?? []))
+                ->map(fn (array $source): ?string => is_string($source['type'] ?? null) ? $source['type'] : null)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
         ];
     }
 

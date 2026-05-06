@@ -4,7 +4,9 @@ namespace Tests\Unit\Ai\Kernel;
 
 use App\Models\AiJob;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
+use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use Carbon\CarbonImmutable;
 use Tests\TestCase;
 
@@ -40,6 +42,50 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
                 'dry_run' => false,
             ],
         ]));
+    }
+
+    public function test_accepts_issued_receipt_with_matching_hashes(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+
+        $receipt = $this->issuedReceipt([
+            'provider_selection' => [
+                'primary' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'fallbacks' => [],
+            ],
+        ]);
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt(
+            ['receipt_v2' => $receipt],
+            runtimeProvider: 'codex_cli',
+            runtimeModel: 'gpt-5.5',
+        );
+
+        $this->assertNull($violation);
+    }
+
+    public function test_blocks_issued_receipt_when_signed_payload_is_tampered(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+
+        $receipt = $this->issuedReceipt([
+            'provider_selection' => [
+                'primary' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'fallbacks' => [],
+            ],
+        ]);
+        $receipt['provider_selection']['primary'] = 'claude_cli';
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt(
+            ['receipt_v2' => $receipt],
+            runtimeProvider: 'claude_cli',
+            runtimeModel: 'gpt-5.5',
+        );
+
+        $this->assertSame('decision_receipt_hash_mismatch', $violation?->errorCode);
+        $this->assertSame($receipt['receipt_id'], $violation?->receiptId);
     }
 
     public function test_accepts_provider_and_model_that_match_receipt_selection(): void
@@ -215,5 +261,32 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
             'rcpt_metadata',
             data_get((new DecisionReceiptRuntimeGuard)->receiptForJob($job), 'receipt_v2.receipt_id'),
         );
+    }
+
+    /**
+     * @param  array<string,mixed>  $decision
+     * @return array<string,mixed>
+     */
+    private function issuedReceipt(array $decision = []): array
+    {
+        $envelope = app(OperationEnvelopeFactory::class)->create([
+            'text' => 'execute tarefa protegida por receipt',
+        ]);
+
+        return app(DecisionReceiptIssuer::class)->issue($envelope, array_replace_recursive([
+            'receipt_id' => 'rcpt_hash_guard',
+            'issued_at' => '2026-05-05T12:00:00Z',
+            'expires_at' => '2026-05-05T12:01:00Z',
+            'domain' => 'programming',
+            'flow' => 'programming.dev',
+            'risk' => 'medium',
+            'provider_selection' => [
+                'primary' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'fallbacks' => [],
+            ],
+            'required_evidence' => ['summary'],
+            'repair_policy' => ['enabled' => false, 'max_attempts' => 0],
+        ], $decision))->toArray();
     }
 }

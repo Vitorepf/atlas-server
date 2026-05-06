@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Support\AtlasCliLimitInput;
 use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
@@ -16,7 +17,7 @@ class AtlasEngineeringBenchmarkCalibrateCommand extends Command
 
     protected $description = 'Calibrate Atlas-Bench rollout policy and corpus health from recorded benchmark outcomes.';
 
-    public function handle(EngineeringBenchmarkService $benchmarks): int
+    public function handle(EngineeringBenchmarkService $benchmarks, AtlasCliLimitInput $limits): int
     {
         $suiteRef = is_string($this->option('suite')) ? trim($this->option('suite')) : '';
         if ($suiteRef === '') {
@@ -38,7 +39,7 @@ class AtlasEngineeringBenchmarkCalibrateCommand extends Command
         }
 
         $calibration = $benchmarks->calibrateSuite($suite, [
-            'limit' => max(1, min(500, (int) $this->option('limit'))),
+            'limit' => $limits->benchmarkCalibrationLimit($this->option('limit')),
         ]);
         $payload = [
             'suite' => $benchmarks->suitePayload($suite->refresh())['suite'] ?? null,

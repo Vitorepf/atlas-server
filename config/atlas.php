@@ -9,10 +9,12 @@ return [
     'transcription' => [
         'enabled' => (bool) env('TRANSCRIPTION_ENABLED', false),
         'bin_path' => env('WHISPER_BIN_PATH', '/usr/local/bin/whisper-cli'),
-        'model_path' => env('WHISPER_MODEL_PATH', '/opt/whisper-models/ggml-base.bin'),
         'ffmpeg_path' => env('FFMPEG_BIN_PATH', '/usr/bin/ffmpeg'),
         'language' => env('WHISPER_LANGUAGE', 'pt'),
-        'engine' => env('WHISPER_ENGINE', 'whisper-cpp-base'),
+        'models_dir' => env('WHISPER_MODELS_DIR', '/opt/whisper-models'),
+        'model_file' => 'ggml-large-v3-turbo.bin',
+        'model_path' => rtrim(env('WHISPER_MODELS_DIR', '/opt/whisper-models'), '/').'/ggml-large-v3-turbo.bin',
+        'engine' => 'whisper-cpp-large-v3-turbo',
     ],
 
     'semantic_memory' => [

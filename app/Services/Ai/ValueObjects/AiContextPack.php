@@ -4,10 +4,15 @@ namespace App\Services\Ai\ValueObjects;
 
 class AiContextPack
 {
-    public function __construct(
-        private readonly array $data,
-        private readonly array $contextRefs,
-    ) {}
+    private readonly array $data;
+
+    private readonly array $contextRefs;
+
+    public function __construct(array $data, array $contextRefs)
+    {
+        $this->contextRefs = array_values($contextRefs);
+        $this->data = $this->withManifest($data, $this->contextRefs);
+    }
 
     public function toArray(): array
     {
@@ -17,6 +22,73 @@ class AiContextPack
     public function contextRefs(): array
     {
         return $this->contextRefs;
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @param  array<int,mixed>  $contextRefs
+     * @return array<string,mixed>
+     */
+    private function withManifest(array $data, array $contextRefs): array
+    {
+        if (isset($data['manifest']) && is_array($data['manifest'])) {
+            return $data;
+        }
+
+        $createdAt = now();
+        $ttlSeconds = max(60, (int) data_get($data, 'policy.context_pack_ttl_seconds', config('atlas.ai.context_pack_ttl_seconds', 3600)));
+        $sources = $this->sources($data, $contextRefs);
+        $hashPayload = [
+            'task' => $data['task'] ?? [],
+            'surface' => $data['surface'] ?? [],
+            'sources' => $sources,
+            'context_refs' => $contextRefs,
+        ];
+
+        $data['manifest'] = [
+            'schema_version' => 'atlas.context_pack.manifest.v1',
+            'context_pack_id' => 'ctx_'.substr(hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''), 0, 24),
+            'created_at' => $createdAt->toJSON(),
+            'expires_at' => $createdAt->copy()->addSeconds($ttlSeconds)->toJSON(),
+            'ttl_seconds' => $ttlSeconds,
+            'source_count' => count($sources),
+            'sources' => $sources,
+            'context_ref_count' => count($contextRefs),
+            'context_ref_hash' => hash('sha256', json_encode($contextRefs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+            'builder' => static::class,
+        ];
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @param  array<int,mixed>  $contextRefs
+     * @return array<int,array<string,mixed>>
+     */
+    private function sources(array $data, array $contextRefs): array
+    {
+        $sources = collect((array) data_get($data, 'evidence.sources', []))
+            ->filter(fn (mixed $source): bool => is_scalar($source) && trim((string) $source) !== '')
+            ->map(fn (mixed $source): array => [
+                'type' => 'evidence_source',
+                'id' => trim((string) $source),
+            ]);
+
+        $refs = collect($contextRefs)
+            ->filter(fn (mixed $ref): bool => is_array($ref))
+            ->map(fn (array $ref): array => [
+                'type' => (string) ($ref['type'] ?? 'context_ref'),
+                'id' => (string) ($ref['id'] ?? $ref['path'] ?? $ref['title'] ?? 'unknown'),
+                'path' => $ref['path'] ?? null,
+                'privacy_class' => $ref['privacy_class'] ?? null,
+            ]);
+
+        return $sources
+            ->merge($refs)
+            ->unique(fn (array $source): string => ($source['type'] ?? 'unknown').':'.($source['id'] ?? 'unknown'))
+            ->values()
+            ->all();
     }
 
     public function toPromptSection(): string
@@ -30,6 +102,7 @@ class AiContextPack
         $latestCompaction = data_get($continuity, 'latest_compaction');
         $latestHandoff = data_get($continuity, 'latest_provider_handoff');
         $rankedRecall = data_get($this->data, 'memory.recall', []);
+        $retrievalPlan = data_get($this->data, 'retrieval', []);
         $registryMemory = data_get($this->data, 'memory.registry', []);
         $verbatimMemory = data_get($this->data, 'memory.verbatim', []);
         $memory = data_get($this->data, 'memory.semantic', []);
@@ -146,6 +219,23 @@ class AiContextPack
             $lines[] = '## Nao Fazer';
             foreach ($constraints['must_not_do'] as $item) {
                 $lines[] = '- '.$item;
+            }
+        }
+
+        if (is_array($retrievalPlan) && ! empty($retrievalPlan['selected_sources'])) {
+            $lines[] = '';
+            $lines[] = '## Retrieval Router Plan';
+            $lines[] = '- schema: '.($retrievalPlan['schema_version'] ?? 'unknown');
+            $lines[] = '- mode: '.($retrievalPlan['mode'] ?? 'balanced');
+            foreach (array_slice((array) $retrievalPlan['selected_sources'], 0, 8) as $source) {
+                if (! is_array($source)) {
+                    continue;
+                }
+
+                $lines[] = '- '.($source['type'] ?? 'unknown')
+                    .'; reason='.($source['reason'] ?? 'n/a')
+                    .'; limit='.($source['limit'] ?? 'n/a')
+                    .'; required='.(($source['required'] ?? false) ? 'true' : 'false');
             }
         }
 

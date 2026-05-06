@@ -7,6 +7,9 @@ use App\Models\AiMessage;
 use App\Models\AiPerformanceRecommendation;
 use App\Models\AiThread;
 use App\Models\AtlasMobileDevice;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Kernel\Evidence\LedgerProjectionWorker;
 use App\Services\Ai\Telemetry\Engine\RecommendationLifecycleService;
 use App\Services\AuditLogService;
 use Illuminate\Support\Carbon;
@@ -31,6 +34,8 @@ class InboxActionRegistry
         private readonly ProposalInboxEmitter $proposals,
         private readonly RecommendationLifecycleService $recommendations,
         private readonly DiscussionBootstrapper $discussionBootstrapper,
+        private readonly AtlasEvidenceLedger $ledger,
+        private readonly LedgerProjectionWorker $ledgerProjectionWorker,
     ) {}
 
     /**
@@ -91,6 +96,7 @@ class InboxActionRegistry
                 'approve_once', 'approve_session', 'approve_workspace_1h', 'deny' => $this->resolveApproval($locked, $actionId, $input),
                 'view_trace', 'review_patch' => $this->readOnlyResult($locked, $actionId),
                 'create_proposal' => $this->createProposal($locked),
+                'run_ledger_projection' => $this->runLedgerProjection($locked, $input),
                 'ignore_30d' => $this->ignoreThirtyDays($locked),
                 'acknowledge_recommendation', 'apply_recommendation', 'reject_recommendation' => $this->transitionRecommendation($locked, $actionId, $input),
                 default => throw ValidationException::withMessages(['action' => 'Action handler nao implementado.']),
@@ -130,11 +136,13 @@ class InboxActionRegistry
                 'evidence' => ['action' => $actionId],
                 'privacy' => ['sensitivity' => 'private'],
             ]);
+            $serializedResult = $this->serializableResult($result);
+            $this->recordInboxActionLedgerEvent($fresh, $actionId, $serializedResult, $actor, $idempotencyKey);
 
             return [
                 'ok' => true,
                 'idempotent' => false,
-                'result' => $this->serializableResult($result),
+                'result' => $serializedResult,
                 'item' => $fresh->refresh(),
             ];
         });
@@ -471,13 +479,24 @@ class InboxActionRegistry
      */
     private function readOnlyResult(AiInboxItem $item, string $actionId): array
     {
+        $payload = $item->payload ?? [];
+        $proposalContract = $this->array(data_get($payload, 'proposal_contract'));
+
         return [
             'item' => $this->inbox->markRead($item),
             'payload' => [
                 'action' => $actionId,
                 'source_type' => $item->source_type,
                 'source_id' => $item->source_id,
-                'payload' => $item->payload ?? [],
+                'proposal_contract' => $proposalContract,
+                'review_signal' => $this->array(data_get($proposalContract, 'review_signal')),
+                'recommended_action' => $this->string(data_get($proposalContract, 'review_signal.recommended_action')),
+                'source_refs' => $this->array(data_get($proposalContract, 'source_refs')),
+                'trace_refs' => $this->array(data_get($proposalContract, 'trace_refs')),
+                'job_refs' => $this->array(data_get($proposalContract, 'job_refs')),
+                'file_refs' => $this->array(data_get($proposalContract, 'file_refs')),
+                'diff_refs' => $this->array(data_get($proposalContract, 'diff_refs')),
+                'payload' => $payload,
             ],
         ];
     }
@@ -520,6 +539,73 @@ class InboxActionRegistry
             'item' => $item->refresh(),
             'proposal_item_id' => $proposal?->id,
             'proposal_deep_link' => $proposal?->deep_link,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{item:AiInboxItem,ledger_projection:array<string,mixed>,ledger_projection_action:array<string,mixed>,applied:bool,dry_run:bool,command:string,source_health_status:?string}
+     */
+    private function runLedgerProjection(AiInboxItem $item, array $input): array
+    {
+        $payload = $item->payload ?? [];
+        $sourceHealth = $this->array(data_get($payload, 'ledger_projection_health'));
+        if ($sourceHealth === []) {
+            $sourceHealth = $this->array(data_get($payload, 'projection_health'));
+        }
+
+        $hours = $this->positiveInt($input['hours'] ?? null)
+            ?? $this->positiveInt($input['projection_hours'] ?? null)
+            ?? $this->positiveInt(data_get($payload, 'ledger_projection.hours'))
+            ?? $this->positiveInt(data_get($payload, 'ledger_projection_health.scheduler.hours'))
+            ?? $this->positiveInt(data_get($payload, 'scheduler.hours'))
+            ?? (int) config('atlas_ai.ledger_projection.hours', 24);
+        $limit = $this->positiveInt($input['limit'] ?? null)
+            ?? $this->positiveInt($input['projection_limit'] ?? null)
+            ?? $this->positiveInt(data_get($payload, 'ledger_projection.limit'))
+            ?? $this->positiveInt(data_get($payload, 'ledger_projection_health.scheduler.limit'))
+            ?? $this->positiveInt(data_get($payload, 'scheduler.limit'))
+            ?? (int) config('atlas_ai.ledger_projection.limit', 500);
+        $dryRun = $this->booleanValue($input['dry_run'] ?? data_get($payload, 'ledger_projection.dry_run', false));
+
+        $hours = max(1, min(8760, $hours));
+        $limit = max(1, min(5000, $limit));
+
+        $report = $this->ledgerProjectionWorker->project($limit, $hours, $dryRun);
+        $applied = ! $dryRun
+            && (bool) ($report['available'] ?? false)
+            && ($report['status'] ?? null) === 'ok'
+            && (int) ($report['projected_count'] ?? 0) > 0;
+
+        $payload['ledger_projection_action'] = [
+            'schema_version' => 'atlas.inbox_action.ledger_projection.v1',
+            'dry_run' => $dryRun,
+            'hours' => $hours,
+            'limit' => $limit,
+            'applied' => $applied,
+            'available' => (bool) ($report['available'] ?? false),
+            'status' => $report['status'] ?? 'unknown',
+            'event_count' => (int) ($report['event_count'] ?? 0),
+            'projected_count' => (int) ($report['projected_count'] ?? 0),
+            'skipped_count' => (int) ($report['skipped_count'] ?? 0),
+            'completed_at' => now()->toJSON(),
+        ];
+
+        $item->update([
+            'payload' => $payload,
+            'status' => $applied ? 'resolved' : ($item->status === 'unread' ? 'read' : $item->status),
+            'read_at' => $item->read_at ?? now(),
+            'resolved_at' => $applied ? now() : $item->resolved_at,
+        ]);
+
+        return [
+            'item' => $item->refresh(),
+            'ledger_projection' => $report,
+            'ledger_projection_action' => $payload['ledger_projection_action'],
+            'applied' => $applied,
+            'dry_run' => $dryRun,
+            'command' => 'atlas:ai:ledger-project --hours='.$hours.' --limit='.$limit.($dryRun ? ' --dry-run' : '').' --json',
+            'source_health_status' => $this->string($sourceHealth['status'] ?? null),
         ];
     }
 
@@ -667,6 +753,50 @@ class InboxActionRegistry
 
     /**
      * @param  array<string,mixed>  $result
+     */
+    private function recordInboxActionLedgerEvent(
+        AiInboxItem $item,
+        string $actionId,
+        array $result,
+        ?AtlasMobileDevice $actor,
+        ?string $idempotencyKey,
+    ): void {
+        $payload = [
+            'schema_version' => 'atlas.inbox_action.v1',
+            'action' => $actionId,
+            'idempotency_key' => $idempotencyKey,
+            'inbox_item' => [
+                'id' => $item->id,
+                'type' => $item->type,
+                'category' => $item->category,
+                'severity' => $item->severity,
+                'status' => $item->status,
+                'source_type' => $item->source_type,
+                'source_id' => $item->source_id,
+                'dedupe_key' => $item->dedupe_key,
+            ],
+            'actor' => [
+                'type' => $actor ? 'mobile_device' : 'operator_cli',
+                'id' => $actor?->id,
+            ],
+            'result' => $result,
+            'proposal_contract' => $this->array(data_get($item->payload ?? [], 'proposal_contract')),
+            'review_signal' => $this->array(data_get($item->payload ?? [], 'proposal_contract.review_signal')),
+            'recommended_action' => $this->string(data_get($item->payload ?? [], 'proposal_contract.review_signal.recommended_action')),
+        ];
+
+        $this->ledger->record(LedgerEventType::InboxActionRecorded, $payload, [
+            'tenant_id' => 'default',
+            'operator_id' => $actor ? 'mobile_device:'.$actor->id : 'operator_cli',
+            'envelope_id' => 'inbox_item:'.$item->id,
+            'correlation_id' => $item->id,
+            'emitter_stage' => 'atlas.inbox',
+            'emitter_version' => 'atlas.inbox_action.v1',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
      * @return array<string,mixed>
      */
     private function serializableResult(array $result): array
@@ -679,5 +809,37 @@ class InboxActionRegistry
     private function string(mixed $value): ?string
     {
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function positiveInt(mixed $value): ?int
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        $value = (int) $value;
+
+        return $value > 0 ? $value : null;
+    }
+
+    private function booleanValue(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
+        }
+
+        return is_numeric($value) && (int) $value === 1;
+    }
+
+    /**
+     * @return array<int|string,mixed>
+     */
+    private function array(mixed $value): array
+    {
+        return is_array($value) ? $value : [];
     }
 }

@@ -3,18 +3,26 @@
 namespace App\Services\Ai;
 
 use App\Models\AtlasMemoryEntry;
+use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasOpenBrainAccessLog;
+use App\Models\AtlasTask;
+use App\Models\AtlasTaskEvent;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
+use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
+use App\Services\Ai\Kernel\Evidence\LedgerProjectionRegistry;
+use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
 use App\Services\Ai\Kernel\Mcp\OpenBrainMcpInput;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 class AtlasOpenBrainMcpService
@@ -31,8 +39,11 @@ class AtlasOpenBrainMcpService
         private readonly EngineeringCodeIntelligenceService $code,
         private readonly AtlasAiDomainCatalogService $domainCatalog,
         private readonly AtlasAiArchitectureValidationService $architectureValidation,
+        private readonly AtlasArchitectureOperationsCatalog $architectureOperations,
         private readonly AtlasSelfImprovementScheduleService $selfImprovementSchedule,
         private readonly AtlasLedgerReplayService $ledgerReplay,
+        private readonly ProviderPerformanceProjection $providerPerformance,
+        private readonly LedgerProjectionRegistry $ledgerProjectionRegistry,
         private readonly KernelReplayReportInput $replayInput,
         private readonly OpenBrainMcpInput $mcpInput,
         private readonly AtlasEvidenceLedger $ledger,
@@ -226,6 +237,20 @@ class AtlasOpenBrainMcpService
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
             [
+                'name' => 'atlas_architecture_operations',
+                'title' => 'Atlas Architecture Operations',
+                'description' => 'Retorna o catalogo compartilhado de comandos operacionais da arquitetura mae, o mesmo usado por CLI help e Observability.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'id' => ['type' => 'string', 'description' => 'Filtra por stable operation id, por exemplo provider_performance_report.'],
+                        'kind' => ['type' => 'string', 'description' => 'Filtra por kind: catalog, validation ou evidence_report.'],
+                    ],
+                    'required' => [],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
                 'name' => 'atlas_self_improvement_schedule',
                 'title' => 'Atlas Self-Improvement Schedule',
                 'description' => 'Retorna o plano recorrente e health do Self-Improvement/Curator, incluindo cadencia, next_run_at por comando, plan_hash e scheduler_registration. Read-only.',
@@ -299,6 +324,69 @@ class AtlasOpenBrainMcpService
                         'failure_domain' => ['type' => 'string', 'description' => 'Filtra por failure domain.'],
                         'emitter_stage' => ['type' => 'string', 'description' => 'Filtra por emitter stage.'],
                     ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_inbox_action_report',
+                'title' => 'Atlas Inbox Action Report',
+                'description' => 'Retorna replay/read model dos eventos INBOX_ACTION_RECORDED no Evidence Ledger, incluindo acoes humanas como review_patch.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'hours' => ['type' => 'integer', 'description' => 'Janela de replay em horas. Default 24, max 720.'],
+                        'action' => ['type' => 'string', 'description' => 'Filtra por action do Inbox, por exemplo review_patch.'],
+                        'actor_type' => ['type' => 'string', 'description' => 'Filtra por actor type, como operator_cli ou mobile_device.'],
+                        'inbox_item_category' => ['type' => 'string', 'description' => 'Filtra por categoria do item.'],
+                        'inbox_item_severity' => ['type' => 'string', 'description' => 'Filtra por severidade do item.'],
+                        'recommended_action' => ['type' => 'string', 'description' => 'Filtra por recommended_action preservada no review_signal.'],
+                        'source_type' => ['type' => 'string', 'description' => 'Filtra por source_type do item.'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_provider_performance_report',
+                'title' => 'Atlas Provider Performance Report',
+                'description' => 'Retorna projection read-only dos eventos PROVIDER_RETURNED/PROVIDER_FALLBACK para auditar performance empirica por provider, dominio, flow e task_type.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'hours' => ['type' => 'integer', 'description' => 'Janela de replay em horas. Default 24, max 720.'],
+                        'provider' => ['type' => 'string', 'description' => 'Filtra por provider CLI.'],
+                        'provider_cli' => ['type' => 'string', 'description' => 'Alias canonico para provider CLI.'],
+                        'domain' => ['type' => 'string', 'description' => 'Filtra por domain.'],
+                        'flow' => ['type' => 'string', 'description' => 'Filtra por flow.'],
+                        'task_type' => ['type' => 'string', 'description' => 'Filtra por task_type.'],
+                        'risk' => ['type' => 'string', 'description' => 'Filtra por risk.'],
+                        'selection_mode' => ['type' => 'string', 'description' => 'Filtra por auto/manual_override.'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_ledger_projection_health',
+                'title' => 'Atlas Ledger Projection Health',
+                'description' => 'Retorna health read-only das projections derivadas do Evidence Ledger para ai_traces, atlas_engineering_runs e atlas_tool_runs, incluindo scheduler, lag e review_signal.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'max_lag_seconds' => ['type' => 'integer', 'description' => 'Limite de lag tolerado antes de warning. Default vem de atlas_ai.ledger_projection.max_lag_seconds.'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_decision_receipt_report',
+                'title' => 'Atlas DecisionReceipt Report',
+                'description' => 'Retorna replay read-only de DECISION_ISSUED para um envelope, verificando receipt_hash, chain_hash e review_signal.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'envelope' => ['type' => 'string', 'description' => 'Envelope id a auditar.'],
+                        'envelope_id' => ['type' => 'string', 'description' => 'Alias de envelope id.'],
+                    ],
+                    'required' => ['envelope'],
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
@@ -569,11 +657,16 @@ class AtlasOpenBrainMcpService
                 'atlas_capabilities' => $this->toolResponse($id, $this->capabilities()),
                 'atlas_domain_catalog' => $this->toolResponse($id, $this->domainCatalog($arguments)),
                 'atlas_architecture_validate' => $this->toolResponse($id, $this->architectureValidate($arguments)),
+                'atlas_architecture_operations' => $this->toolResponse($id, $this->architectureOperations($arguments)),
                 'atlas_self_improvement_schedule' => $this->toolResponse($id, $this->selfImprovementSchedule($arguments)),
                 'atlas_self_improvement_schedule_report' => $this->toolResponse($id, $this->selfImprovementScheduleReport($arguments)),
                 'atlas_kernel_slo_report' => $this->toolResponse($id, $this->kernelSloReport($arguments)),
                 'atlas_kernel_pipeline_report' => $this->toolResponse($id, $this->kernelPipelineReport($arguments)),
                 'atlas_repair_loop_report' => $this->toolResponse($id, $this->repairLoopReport($arguments)),
+                'atlas_inbox_action_report' => $this->toolResponse($id, $this->inboxActionReport($arguments)),
+                'atlas_provider_performance_report' => $this->toolResponse($id, $this->providerPerformanceReport($arguments)),
+                'atlas_ledger_projection_health' => $this->toolResponse($id, $this->ledgerProjectionHealth($arguments)),
+                'atlas_decision_receipt_report' => $this->toolResponse($id, $this->decisionReceiptReport($arguments)),
                 'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
                 'atlas_recent_changes' => $this->toolResponse($id, $this->recentChanges($arguments)),
                 'atlas_decision_query' => $this->toolResponse($id, $this->decisionQuery($arguments)),
@@ -931,6 +1024,19 @@ class AtlasOpenBrainMcpService
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    private function architectureOperations(array $arguments): array
+    {
+        return [
+            'ok' => true,
+            'tool' => 'atlas_architecture_operations',
+            'architecture_operations' => $this->architectureOperations->summary($this->onlyScalarFilters($arguments, ['id', 'kind'])),
+            'writes' => false,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $arguments
      * @return array<string,mixed>
      */
@@ -1067,6 +1173,108 @@ class AtlasOpenBrainMcpService
 
     /**
      * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function inboxActionReport(array $arguments): array
+    {
+        $hours = $this->reportWindowHours($arguments);
+        $filters = $this->onlyScalarFilters($arguments, [
+            'action',
+            'actor_type',
+            'inbox_item_category',
+            'inbox_item_severity',
+            'recommended_action',
+            'source_type',
+        ]);
+        $report = $this->ledgerReplay->inboxActionReportForWindow(now()->subHours($hours), null, $filters);
+
+        return [
+            'ok' => (bool) ($report['available'] ?? false),
+            'tool' => 'atlas_inbox_action_report',
+            'hours' => $hours,
+            'filters' => $filters,
+            'inbox_actions' => $report,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function ledgerProjectionHealth(array $arguments): array
+    {
+        $maxLagSeconds = $this->positiveInt($arguments['max_lag_seconds'] ?? null);
+        $report = $this->ledgerProjectionRegistry->healthReport($maxLagSeconds);
+
+        return [
+            'ok' => (bool) ($report['available'] ?? false) && ($report['status'] ?? null) !== 'critical',
+            'tool' => 'atlas_ledger_projection_health',
+            'max_lag_seconds' => $report['max_lag_seconds'] ?? $maxLagSeconds,
+            'ledger_projection_health' => $report,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function providerPerformanceReport(array $arguments): array
+    {
+        $hours = $this->reportWindowHours($arguments);
+        $filters = $this->onlyScalarFilters($arguments, [
+            'provider_cli',
+            'provider',
+            'domain',
+            'flow',
+            'task_type',
+            'risk',
+            'selection_mode',
+        ]);
+        if (isset($filters['provider']) && ! isset($filters['provider_cli'])) {
+            $filters['provider_cli'] = $filters['provider'];
+        }
+        unset($filters['provider']);
+
+        $report = $this->providerPerformance->reportForWindow(now()->subHours($hours), null, $filters);
+
+        return [
+            'ok' => (bool) ($report['available'] ?? false),
+            'tool' => 'atlas_provider_performance_report',
+            'hours' => $hours,
+            'filters' => $filters,
+            'provider_performance' => $report,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function decisionReceiptReport(array $arguments): array
+    {
+        $envelopeId = $this->string($arguments['envelope'] ?? ($arguments['envelope_id'] ?? null));
+        if ($envelopeId === null || $envelopeId === '') {
+            return [
+                'ok' => false,
+                'tool' => 'atlas_decision_receipt_report',
+                'error' => 'envelope_required',
+                'writes' => false,
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_decision_receipt_report',
+            'decision_receipt_replay' => $this->ledgerReplay->decisionReceiptReportForEnvelope($envelopeId),
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
      */
     private function reportWindowHours(array $arguments): int
     {
@@ -1170,15 +1378,15 @@ class AtlasOpenBrainMcpService
     private function recentChanges(array $arguments): array
     {
         $workspace = $this->workspace($arguments['workspace'] ?? null);
-        if ($workspace === null || ! is_dir($workspace . '/.git')) {
+        if ($workspace === null || ! is_dir($workspace.'/.git')) {
             return ['ok' => false, 'tool' => 'atlas_recent_changes', 'error' => 'workspace_not_git_repo'];
         }
 
         $since = $this->string($arguments['since'] ?? null) ?: '7 days ago';
         $limit = $this->mcpInput->recentChangesLimit($arguments['limit'] ?? null);
 
-        $process = new \Symfony\Component\Process\Process(
-            ['git', 'log', '--name-only', '--pretty=format:', '--since=' . $since],
+        $process = new Process(
+            ['git', 'log', '--name-only', '--pretty=format:', '--since='.$since],
             $workspace
         );
         $process->setTimeout(10);
@@ -1195,7 +1403,7 @@ class AtlasOpenBrainMcpService
         $lastIndexAt = $codeSummary['last_indexed_at'] ?? null;
         $indexFresh = false;
         if ($lastIndexAt !== null) {
-            $indexFresh = \Illuminate\Support\Carbon::parse($lastIndexAt)
+            $indexFresh = Carbon::parse($lastIndexAt)
                 ->greaterThan(now()->subDay());
         }
 
@@ -1269,7 +1477,7 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_task_start', 'error' => 'title_required'];
         }
 
-        $task = \App\Models\AtlasTask::create([
+        $task = AtlasTask::create([
             'title' => $title,
             'description' => $this->string($arguments['objective'] ?? null),
             'status' => 'open',
@@ -1303,12 +1511,12 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_task_progress', 'error' => 'task_id_and_milestone_required'];
         }
 
-        $task = \App\Models\AtlasTask::find($taskId);
+        $task = AtlasTask::find($taskId);
         if ($task === null) {
             return ['ok' => false, 'tool' => 'atlas_task_progress', 'error' => 'task_not_found'];
         }
 
-        $event = \App\Models\AtlasTaskEvent::create([
+        $event = AtlasTaskEvent::create([
             'task_id' => $taskId,
             'event_type' => 'milestone',
             'source' => 'mcp_tool',
@@ -1341,7 +1549,7 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_task_complete', 'error' => 'task_id_required'];
         }
 
-        $task = \App\Models\AtlasTask::find($taskId);
+        $task = AtlasTask::find($taskId);
         if ($task === null) {
             return ['ok' => false, 'tool' => 'atlas_task_complete', 'error' => 'task_not_found'];
         }
@@ -1351,7 +1559,7 @@ class AtlasOpenBrainMcpService
             'completed_at' => now(),
         ]);
 
-        $event = \App\Models\AtlasTaskEvent::create([
+        $event = AtlasTaskEvent::create([
             'task_id' => $taskId,
             'event_type' => 'completed',
             'source' => 'mcp_tool',
@@ -1426,7 +1634,7 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_memory_link', 'error' => 'source_target_type_required'];
         }
 
-        if (! in_array($type, \App\Models\AtlasMemoryEntryRelation::TYPES, true)) {
+        if (! in_array($type, AtlasMemoryEntryRelation::TYPES, true)) {
             return ['ok' => false, 'tool' => 'atlas_memory_link', 'error' => 'invalid_relation_type'];
         }
 
@@ -1434,7 +1642,7 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_memory_link', 'error' => 'cannot_link_to_self'];
         }
 
-        $relation = \App\Models\AtlasMemoryEntryRelation::create([
+        $relation = AtlasMemoryEntryRelation::create([
             'source_memory_entry_id' => $sourceId,
             'target_memory_entry_id' => $targetId,
             'relation_type' => $type,
@@ -1875,6 +2083,17 @@ class AtlasOpenBrainMcpService
         $value = trim((string) $value);
 
         return $value !== '' ? $value : null;
+    }
+
+    private function positiveInt(mixed $value): ?int
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        $value = (int) $value;
+
+        return $value > 0 ? $value : null;
     }
 
     private function workspace(mixed $workspace): ?string

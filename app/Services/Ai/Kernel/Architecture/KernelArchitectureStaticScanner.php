@@ -13,6 +13,16 @@ class KernelArchitectureStaticScanner
      *   ap2_surface_context_bypass:array{valid:bool,violations:array<int,string>},
      *   ap6_decision_receipt_propagation:array{valid:bool,violations:array<int,string>},
      *   ap13_decision_receipt_runtime_guard:array{valid:bool,violations:array<int,string>},
+     *   ap134_decision_receipt_hash_runtime_guard:array{valid:bool,violations:array<int,string>},
+     *   ap135_decision_receipt_determinism_test:array{valid:bool,violations:array<int,string>},
+     *   ap136_decision_receipt_chain_replay:array{valid:bool,violations:array<int,string>},
+     *   ap137_decision_receipt_replay_surfaces:array{valid:bool,violations:array<int,string>},
+     *   ap138_decision_receipt_replay_curator_review:array{valid:bool,violations:array<int,string>},
+     *   ap139_decision_receipt_replay_inbox_emission:array{valid:bool,violations:array<int,string>},
+     *   ap140_ledger_replay_command_surface:array{valid:bool,violations:array<int,string>},
+     *   ap141_ledger_projection_registry_contract:array{valid:bool,violations:array<int,string>},
+     *   ap142_ledger_projection_inbox_action:array{valid:bool,violations:array<int,string>},
+     *   ap143_ledger_projection_curator_action_emission:array{valid:bool,violations:array<int,string>},
      *   ap12_provider_driver_identity_bypass:array{valid:bool,violations:array<int,string>},
      *   ap14_tool_tier_hot_path:array{valid:bool,violations:array<int,string>},
      *   ap15_provider_memory_privacy:array{valid:bool,violations:array<int,string>},
@@ -85,7 +95,52 @@ class KernelArchitectureStaticScanner
      *   ap85_context_pack_memory_input_contract:array{valid:bool,violations:array<int,string>},
      *   ap86_semantic_context_input_contract:array{valid:bool,violations:array<int,string>},
      *   ap87_provider_projection_input_contract:array{valid:bool,violations:array<int,string>},
-     *   ap88_test_command_input_contract:array{valid:bool,violations:array<int,string>}
+     *   ap88_test_command_input_contract:array{valid:bool,violations:array<int,string>},
+     *   ap89_engineering_harness_runner_input_contract:array{valid:bool,violations:array<int,string>},
+     *   ap90_engineering_harnessability_input_contract:array{valid:bool,violations:array<int,string>},
+     *   ap91_engineering_docker_harness_input_contract:array{valid:bool,violations:array<int,string>},
+     *   ap92_engineering_test_matrix_input_contract:array{valid:bool,violations:array<int,string>},
+     *   ap93_engineering_claude_code_baseline_input_contract:array{valid:bool,violations:array<int,string>},
+     *   ap94_engineering_benchmark_input_contract:array{valid:bool,violations:array<int,string>},
+     *   ap95_engineering_context_intelligence_input_contract:array{valid:bool,violations:array<int,string>},
+     *   ap96_cli_limit_input_contract:array{valid:bool,violations:array<int,string>},
+     *   ap97_scheduler_input_contract:array{valid:bool,violations:array<int,string>},
+     *   ap98_self_improvement_input_contract:array{valid:bool,violations:array<int,string>},
+     *   ap99_provider_usage_performance_contract:array{valid:bool,violations:array<int,string>},
+     *   ap100_context_pack_manifest_reflection_contract:array{valid:bool,violations:array<int,string>},
+     *   ap101_context_retrieval_router_contract:array{valid:bool,violations:array<int,string>},
+     *   ap102_open_brain_retrieval_plan_summary_contract:array{valid:bool,violations:array<int,string>},
+     *   ap103_retrieval_required_source_availability_contract:array{valid:bool,violations:array<int,string>},
+     *   ap104_retrieval_review_signal_next_action_contract:array{valid:bool,violations:array<int,string>},
+     *   ap105_open_brain_retrieval_self_improvement_contract:array{valid:bool,violations:array<int,string>},
+     *   ap106_learning_proposed_review_signal_projection_contract:array{valid:bool,violations:array<int,string>},
+     *   ap107_proposal_inbox_review_signal_contract:array{valid:bool,violations:array<int,string>},
+     *   ap108_learning_proposed_inbox_link_contract:array{valid:bool,violations:array<int,string>},
+     *   ap109_operation_completed_inbox_refs_contract:array{valid:bool,violations:array<int,string>},
+     *   ap110_schedule_replay_inbox_refs_contract:array{valid:bool,violations:array<int,string>},
+     *   ap111_schedule_replay_inbox_refs_surface_parity:array{valid:bool,violations:array<int,string>},
+     *   ap112_schedule_replay_inbox_item_hydration:array{valid:bool,violations:array<int,string>},
+     *   ap113_schedule_replay_inbox_item_hydration_surface_parity:array{valid:bool,violations:array<int,string>},
+     *   ap114_schedule_replay_inbox_hydration_gap_signal:array{valid:bool,violations:array<int,string>},
+     *   ap115_self_improvement_schedule_replay_inbox_gap_finding:array{valid:bool,violations:array<int,string>},
+     *   ap116_self_improvement_schedule_replay_inbox_gap_emission:array{valid:bool,violations:array<int,string>},
+     *   ap117_proposal_inbox_review_signal_severity:array{valid:bool,violations:array<int,string>},
+     *   ap118_proposal_review_action_contract:array{valid:bool,violations:array<int,string>},
+     *   ap119_cli_inbox_review_action_result_parity:array{valid:bool,violations:array<int,string>},
+     *   ap120_inbox_action_evidence_ledger_contract:array{valid:bool,violations:array<int,string>},
+     *   ap121_inbox_action_replay_read_model:array{valid:bool,violations:array<int,string>},
+     *   ap122_inbox_action_mcp_report:array{valid:bool,violations:array<int,string>},
+     *   ap123_self_improvement_inbox_action_replay_review:array{valid:bool,violations:array<int,string>},
+     *   ap124_observability_inbox_action_replay:array{valid:bool,violations:array<int,string>},
+     *   ap125_inbox_action_report_surfaces:array{valid:bool,violations:array<int,string>},
+     *   ap126_architecture_validate_post_ap98_human_output:array{valid:bool,violations:array<int,string>},
+     *   ap127_cli_help_architecture_operations_discovery:array{valid:bool,violations:array<int,string>},
+     *   ap128_architecture_operations_shared_catalog:array{valid:bool,violations:array<int,string>},
+     *   ap129_architecture_operations_mcp_tool:array{valid:bool,violations:array<int,string>},
+     *   ap130_architecture_operations_direct_surfaces:array{valid:bool,violations:array<int,string>},
+     *   ap131_self_improvement_architecture_operations_review:array{valid:bool,violations:array<int,string>},
+     *   ap132_architecture_operations_metadata_contract:array{valid:bool,violations:array<int,string>},
+     *   ap133_architecture_operations_filter_contract:array{valid:bool,violations:array<int,string>}
      * }
      */
     public function complianceReport(): array
@@ -143,6 +198,16 @@ class KernelArchitectureStaticScanner
         );
         $decisionReceiptPropagation = $this->scanGatewayDecisionReceiptPropagation();
         $decisionReceiptRuntimeGuard = $this->scanWorkerDecisionReceiptRuntimeGuard();
+        $decisionReceiptHashRuntimeGuard = $this->scanDecisionReceiptHashRuntimeGuard();
+        $decisionReceiptDeterminismTest = $this->scanDecisionReceiptDeterminismTest();
+        $decisionReceiptChainReplay = $this->scanDecisionReceiptChainReplay();
+        $decisionReceiptReplaySurfaces = $this->scanDecisionReceiptReplaySurfaces();
+        $decisionReceiptReplayCuratorReview = $this->scanDecisionReceiptReplayCuratorReview();
+        $decisionReceiptReplayInboxEmission = $this->scanDecisionReceiptReplayInboxEmission();
+        $ledgerReplayCommandSurface = $this->scanLedgerReplayCommandSurface();
+        $ledgerProjectionRegistryContract = $this->scanLedgerProjectionRegistryContract();
+        $ledgerProjectionInboxAction = $this->scanLedgerProjectionInboxAction();
+        $ledgerProjectionCuratorActionEmission = $this->scanLedgerProjectionCuratorActionEmission();
         $toolTierHotPath = $this->scanToolTierHotPathPolicy();
         $providerMemoryPrivacy = $this->scanProviderMemoryPrivacy();
         $sloObservability = $this->scanSloObservability();
@@ -215,12 +280,67 @@ class KernelArchitectureStaticScanner
         $semanticContextInputContract = $this->scanSemanticContextInputContract();
         $providerProjectionInputContract = $this->scanProviderProjectionInputContract();
         $testCommandInputContract = $this->scanTestCommandInputContract();
+        $engineeringHarnessRunnerInputContract = $this->scanEngineeringHarnessRunnerInputContract();
+        $engineeringHarnessabilityInputContract = $this->scanEngineeringHarnessabilityInputContract();
+        $engineeringDockerHarnessInputContract = $this->scanEngineeringDockerHarnessInputContract();
+        $engineeringTestMatrixInputContract = $this->scanEngineeringTestMatrixInputContract();
+        $engineeringClaudeCodeBaselineInputContract = $this->scanEngineeringClaudeCodeBaselineInputContract();
+        $engineeringBenchmarkInputContract = $this->scanEngineeringBenchmarkInputContract();
+        $engineeringContextIntelligenceInputContract = $this->scanEngineeringContextIntelligenceInputContract();
+        $cliLimitInputContract = $this->scanCliLimitInputContract();
+        $schedulerInputContract = $this->scanSchedulerInputContract();
+        $selfImprovementInputContract = $this->scanSelfImprovementInputContract();
+        $providerUsagePerformanceContract = $this->scanProviderUsagePerformanceContract();
+        $contextPackManifestReflectionContract = $this->scanContextPackManifestReflectionContract();
+        $contextRetrievalRouterContract = $this->scanContextRetrievalRouterContract();
+        $openBrainRetrievalPlanSummaryContract = $this->scanOpenBrainRetrievalPlanSummaryContract();
+        $retrievalRequiredSourceAvailabilityContract = $this->scanRetrievalRequiredSourceAvailabilityContract();
+        $retrievalReviewSignalNextActionContract = $this->scanRetrievalReviewSignalNextActionContract();
+        $openBrainRetrievalSelfImprovementContract = $this->scanOpenBrainRetrievalSelfImprovementContract();
+        $learningProposedReviewSignalProjectionContract = $this->scanLearningProposedReviewSignalProjectionContract();
+        $proposalInboxReviewSignalContract = $this->scanProposalInboxReviewSignalContract();
+        $learningProposedInboxLinkContract = $this->scanLearningProposedInboxLinkContract();
+        $operationCompletedInboxRefsContract = $this->scanOperationCompletedInboxRefsContract();
+        $scheduleReplayInboxRefsContract = $this->scanScheduleReplayInboxRefsContract();
+        $scheduleReplayInboxRefsSurfaceParity = $this->scanScheduleReplayInboxRefsSurfaceParity();
+        $scheduleReplayInboxItemHydration = $this->scanScheduleReplayInboxItemHydration();
+        $scheduleReplayInboxItemHydrationSurfaceParity = $this->scanScheduleReplayInboxItemHydrationSurfaceParity();
+        $scheduleReplayInboxHydrationGapSignal = $this->scanScheduleReplayInboxHydrationGapSignal();
+        $selfImprovementScheduleReplayInboxGapFinding = $this->scanSelfImprovementScheduleReplayInboxGapFinding();
+        $selfImprovementScheduleReplayInboxGapEmission = $this->scanSelfImprovementScheduleReplayInboxGapEmission();
+        $proposalInboxReviewSignalSeverity = $this->scanProposalInboxReviewSignalSeverity();
+        $proposalReviewActionContract = $this->scanProposalReviewActionContract();
+        $cliInboxReviewActionResultParity = $this->scanCliInboxReviewActionResultParity();
+        $inboxActionEvidenceLedgerContract = $this->scanInboxActionEvidenceLedgerContract();
+        $inboxActionReplayReadModel = $this->scanInboxActionReplayReadModel();
+        $inboxActionMcpReport = $this->scanInboxActionMcpReport();
+        $selfImprovementInboxActionReplayReview = $this->scanSelfImprovementInboxActionReplayReview();
+        $observabilityInboxActionReplay = $this->scanObservabilityInboxActionReplay();
+        $inboxActionReportSurfaces = $this->scanInboxActionReportSurfaces();
+        $architectureValidatePostAp98HumanOutput = $this->scanArchitectureValidatePostAp98HumanOutput();
+        $cliHelpArchitectureOperationsDiscovery = $this->scanCliHelpArchitectureOperationsDiscovery();
+        $architectureOperationsSharedCatalog = $this->scanArchitectureOperationsSharedCatalog();
+        $architectureOperationsMcpTool = $this->scanArchitectureOperationsMcpTool();
+        $architectureOperationsDirectSurfaces = $this->scanArchitectureOperationsDirectSurfaces();
+        $selfImprovementArchitectureOperationsReview = $this->scanSelfImprovementArchitectureOperationsReview();
+        $architectureOperationsMetadataContract = $this->scanArchitectureOperationsMetadataContract();
+        $architectureOperationsFilterContract = $this->scanArchitectureOperationsFilterContract();
 
         return [
             'ok' => $surfaceProviderBypass === []
                 && $surfaceContextBypass === []
                 && $decisionReceiptPropagation === []
                 && $decisionReceiptRuntimeGuard === []
+                && $decisionReceiptHashRuntimeGuard === []
+                && $decisionReceiptDeterminismTest === []
+                && $decisionReceiptChainReplay === []
+                && $decisionReceiptReplaySurfaces === []
+                && $decisionReceiptReplayCuratorReview === []
+                && $decisionReceiptReplayInboxEmission === []
+                && $ledgerReplayCommandSurface === []
+                && $ledgerProjectionRegistryContract === []
+                && $ledgerProjectionInboxAction === []
+                && $ledgerProjectionCuratorActionEmission === []
                 && $providerDriverBypass === []
                 && $toolTierHotPath === []
                 && $providerMemoryPrivacy === []
@@ -293,7 +413,52 @@ class KernelArchitectureStaticScanner
                 && $contextPackMemoryInputContract === []
                 && $semanticContextInputContract === []
                 && $providerProjectionInputContract === []
-                && $testCommandInputContract === [],
+                && $testCommandInputContract === []
+                && $engineeringHarnessRunnerInputContract === []
+                && $engineeringHarnessabilityInputContract === []
+                && $engineeringDockerHarnessInputContract === []
+                && $engineeringTestMatrixInputContract === []
+                && $engineeringClaudeCodeBaselineInputContract === []
+                && $engineeringBenchmarkInputContract === []
+                && $engineeringContextIntelligenceInputContract === []
+                && $cliLimitInputContract === []
+                && $schedulerInputContract === []
+                && $selfImprovementInputContract === []
+                && $providerUsagePerformanceContract === []
+                && $contextPackManifestReflectionContract === []
+                && $contextRetrievalRouterContract === []
+                && $openBrainRetrievalPlanSummaryContract === []
+                && $retrievalRequiredSourceAvailabilityContract === []
+                && $retrievalReviewSignalNextActionContract === []
+                && $openBrainRetrievalSelfImprovementContract === []
+                && $learningProposedReviewSignalProjectionContract === []
+                && $proposalInboxReviewSignalContract === []
+                && $learningProposedInboxLinkContract === []
+                && $operationCompletedInboxRefsContract === []
+                && $scheduleReplayInboxRefsContract === []
+                && $scheduleReplayInboxRefsSurfaceParity === []
+                && $scheduleReplayInboxItemHydration === []
+                && $scheduleReplayInboxItemHydrationSurfaceParity === []
+                && $scheduleReplayInboxHydrationGapSignal === []
+                && $selfImprovementScheduleReplayInboxGapFinding === []
+                && $selfImprovementScheduleReplayInboxGapEmission === []
+                && $proposalInboxReviewSignalSeverity === []
+                && $proposalReviewActionContract === []
+                && $cliInboxReviewActionResultParity === []
+                && $inboxActionEvidenceLedgerContract === []
+                && $inboxActionReplayReadModel === []
+                && $inboxActionMcpReport === []
+                && $selfImprovementInboxActionReplayReview === []
+                && $observabilityInboxActionReplay === []
+                && $inboxActionReportSurfaces === []
+                && $architectureValidatePostAp98HumanOutput === []
+                && $cliHelpArchitectureOperationsDiscovery === []
+                && $architectureOperationsSharedCatalog === []
+                && $architectureOperationsMcpTool === []
+                && $architectureOperationsDirectSurfaces === []
+                && $selfImprovementArchitectureOperationsReview === []
+                && $architectureOperationsMetadataContract === []
+                && $architectureOperationsFilterContract === [],
             'ap1_surface_provider_bypass' => [
                 'valid' => $surfaceProviderBypass === [],
                 'violations' => $surfaceProviderBypass,
@@ -309,6 +474,46 @@ class KernelArchitectureStaticScanner
             'ap13_decision_receipt_runtime_guard' => [
                 'valid' => $decisionReceiptRuntimeGuard === [],
                 'violations' => $decisionReceiptRuntimeGuard,
+            ],
+            'ap134_decision_receipt_hash_runtime_guard' => [
+                'valid' => $decisionReceiptHashRuntimeGuard === [],
+                'violations' => $decisionReceiptHashRuntimeGuard,
+            ],
+            'ap135_decision_receipt_determinism_test' => [
+                'valid' => $decisionReceiptDeterminismTest === [],
+                'violations' => $decisionReceiptDeterminismTest,
+            ],
+            'ap136_decision_receipt_chain_replay' => [
+                'valid' => $decisionReceiptChainReplay === [],
+                'violations' => $decisionReceiptChainReplay,
+            ],
+            'ap137_decision_receipt_replay_surfaces' => [
+                'valid' => $decisionReceiptReplaySurfaces === [],
+                'violations' => $decisionReceiptReplaySurfaces,
+            ],
+            'ap138_decision_receipt_replay_curator_review' => [
+                'valid' => $decisionReceiptReplayCuratorReview === [],
+                'violations' => $decisionReceiptReplayCuratorReview,
+            ],
+            'ap139_decision_receipt_replay_inbox_emission' => [
+                'valid' => $decisionReceiptReplayInboxEmission === [],
+                'violations' => $decisionReceiptReplayInboxEmission,
+            ],
+            'ap140_ledger_replay_command_surface' => [
+                'valid' => $ledgerReplayCommandSurface === [],
+                'violations' => $ledgerReplayCommandSurface,
+            ],
+            'ap141_ledger_projection_registry_contract' => [
+                'valid' => $ledgerProjectionRegistryContract === [],
+                'violations' => $ledgerProjectionRegistryContract,
+            ],
+            'ap142_ledger_projection_inbox_action' => [
+                'valid' => $ledgerProjectionInboxAction === [],
+                'violations' => $ledgerProjectionInboxAction,
+            ],
+            'ap143_ledger_projection_curator_action_emission' => [
+                'valid' => $ledgerProjectionCuratorActionEmission === [],
+                'violations' => $ledgerProjectionCuratorActionEmission,
             ],
             'ap12_provider_driver_identity_bypass' => [
                 'valid' => $providerDriverBypass === [],
@@ -602,7 +807,2688 @@ class KernelArchitectureStaticScanner
                 'valid' => $testCommandInputContract === [],
                 'violations' => $testCommandInputContract,
             ],
+            'ap89_engineering_harness_runner_input_contract' => [
+                'valid' => $engineeringHarnessRunnerInputContract === [],
+                'violations' => $engineeringHarnessRunnerInputContract,
+            ],
+            'ap90_engineering_harnessability_input_contract' => [
+                'valid' => $engineeringHarnessabilityInputContract === [],
+                'violations' => $engineeringHarnessabilityInputContract,
+            ],
+            'ap91_engineering_docker_harness_input_contract' => [
+                'valid' => $engineeringDockerHarnessInputContract === [],
+                'violations' => $engineeringDockerHarnessInputContract,
+            ],
+            'ap92_engineering_test_matrix_input_contract' => [
+                'valid' => $engineeringTestMatrixInputContract === [],
+                'violations' => $engineeringTestMatrixInputContract,
+            ],
+            'ap93_engineering_claude_code_baseline_input_contract' => [
+                'valid' => $engineeringClaudeCodeBaselineInputContract === [],
+                'violations' => $engineeringClaudeCodeBaselineInputContract,
+            ],
+            'ap94_engineering_benchmark_input_contract' => [
+                'valid' => $engineeringBenchmarkInputContract === [],
+                'violations' => $engineeringBenchmarkInputContract,
+            ],
+            'ap95_engineering_context_intelligence_input_contract' => [
+                'valid' => $engineeringContextIntelligenceInputContract === [],
+                'violations' => $engineeringContextIntelligenceInputContract,
+            ],
+            'ap96_cli_limit_input_contract' => [
+                'valid' => $cliLimitInputContract === [],
+                'violations' => $cliLimitInputContract,
+            ],
+            'ap97_scheduler_input_contract' => [
+                'valid' => $schedulerInputContract === [],
+                'violations' => $schedulerInputContract,
+            ],
+            'ap98_self_improvement_input_contract' => [
+                'valid' => $selfImprovementInputContract === [],
+                'violations' => $selfImprovementInputContract,
+            ],
+            'ap99_provider_usage_performance_contract' => [
+                'valid' => $providerUsagePerformanceContract === [],
+                'violations' => $providerUsagePerformanceContract,
+            ],
+            'ap100_context_pack_manifest_reflection_contract' => [
+                'valid' => $contextPackManifestReflectionContract === [],
+                'violations' => $contextPackManifestReflectionContract,
+            ],
+            'ap101_context_retrieval_router_contract' => [
+                'valid' => $contextRetrievalRouterContract === [],
+                'violations' => $contextRetrievalRouterContract,
+            ],
+            'ap102_open_brain_retrieval_plan_summary_contract' => [
+                'valid' => $openBrainRetrievalPlanSummaryContract === [],
+                'violations' => $openBrainRetrievalPlanSummaryContract,
+            ],
+            'ap103_retrieval_required_source_availability_contract' => [
+                'valid' => $retrievalRequiredSourceAvailabilityContract === [],
+                'violations' => $retrievalRequiredSourceAvailabilityContract,
+            ],
+            'ap104_retrieval_review_signal_next_action_contract' => [
+                'valid' => $retrievalReviewSignalNextActionContract === [],
+                'violations' => $retrievalReviewSignalNextActionContract,
+            ],
+            'ap105_open_brain_retrieval_self_improvement_contract' => [
+                'valid' => $openBrainRetrievalSelfImprovementContract === [],
+                'violations' => $openBrainRetrievalSelfImprovementContract,
+            ],
+            'ap106_learning_proposed_review_signal_projection_contract' => [
+                'valid' => $learningProposedReviewSignalProjectionContract === [],
+                'violations' => $learningProposedReviewSignalProjectionContract,
+            ],
+            'ap107_proposal_inbox_review_signal_contract' => [
+                'valid' => $proposalInboxReviewSignalContract === [],
+                'violations' => $proposalInboxReviewSignalContract,
+            ],
+            'ap108_learning_proposed_inbox_link_contract' => [
+                'valid' => $learningProposedInboxLinkContract === [],
+                'violations' => $learningProposedInboxLinkContract,
+            ],
+            'ap109_operation_completed_inbox_refs_contract' => [
+                'valid' => $operationCompletedInboxRefsContract === [],
+                'violations' => $operationCompletedInboxRefsContract,
+            ],
+            'ap110_schedule_replay_inbox_refs_contract' => [
+                'valid' => $scheduleReplayInboxRefsContract === [],
+                'violations' => $scheduleReplayInboxRefsContract,
+            ],
+            'ap111_schedule_replay_inbox_refs_surface_parity' => [
+                'valid' => $scheduleReplayInboxRefsSurfaceParity === [],
+                'violations' => $scheduleReplayInboxRefsSurfaceParity,
+            ],
+            'ap112_schedule_replay_inbox_item_hydration' => [
+                'valid' => $scheduleReplayInboxItemHydration === [],
+                'violations' => $scheduleReplayInboxItemHydration,
+            ],
+            'ap113_schedule_replay_inbox_item_hydration_surface_parity' => [
+                'valid' => $scheduleReplayInboxItemHydrationSurfaceParity === [],
+                'violations' => $scheduleReplayInboxItemHydrationSurfaceParity,
+            ],
+            'ap114_schedule_replay_inbox_hydration_gap_signal' => [
+                'valid' => $scheduleReplayInboxHydrationGapSignal === [],
+                'violations' => $scheduleReplayInboxHydrationGapSignal,
+            ],
+            'ap115_self_improvement_schedule_replay_inbox_gap_finding' => [
+                'valid' => $selfImprovementScheduleReplayInboxGapFinding === [],
+                'violations' => $selfImprovementScheduleReplayInboxGapFinding,
+            ],
+            'ap116_self_improvement_schedule_replay_inbox_gap_emission' => [
+                'valid' => $selfImprovementScheduleReplayInboxGapEmission === [],
+                'violations' => $selfImprovementScheduleReplayInboxGapEmission,
+            ],
+            'ap117_proposal_inbox_review_signal_severity' => [
+                'valid' => $proposalInboxReviewSignalSeverity === [],
+                'violations' => $proposalInboxReviewSignalSeverity,
+            ],
+            'ap118_proposal_review_action_contract' => [
+                'valid' => $proposalReviewActionContract === [],
+                'violations' => $proposalReviewActionContract,
+            ],
+            'ap119_cli_inbox_review_action_result_parity' => [
+                'valid' => $cliInboxReviewActionResultParity === [],
+                'violations' => $cliInboxReviewActionResultParity,
+            ],
+            'ap120_inbox_action_evidence_ledger_contract' => [
+                'valid' => $inboxActionEvidenceLedgerContract === [],
+                'violations' => $inboxActionEvidenceLedgerContract,
+            ],
+            'ap121_inbox_action_replay_read_model' => [
+                'valid' => $inboxActionReplayReadModel === [],
+                'violations' => $inboxActionReplayReadModel,
+            ],
+            'ap122_inbox_action_mcp_report' => [
+                'valid' => $inboxActionMcpReport === [],
+                'violations' => $inboxActionMcpReport,
+            ],
+            'ap123_self_improvement_inbox_action_replay_review' => [
+                'valid' => $selfImprovementInboxActionReplayReview === [],
+                'violations' => $selfImprovementInboxActionReplayReview,
+            ],
+            'ap124_observability_inbox_action_replay' => [
+                'valid' => $observabilityInboxActionReplay === [],
+                'violations' => $observabilityInboxActionReplay,
+            ],
+            'ap125_inbox_action_report_surfaces' => [
+                'valid' => $inboxActionReportSurfaces === [],
+                'violations' => $inboxActionReportSurfaces,
+            ],
+            'ap126_architecture_validate_post_ap98_human_output' => [
+                'valid' => $architectureValidatePostAp98HumanOutput === [],
+                'violations' => $architectureValidatePostAp98HumanOutput,
+            ],
+            'ap127_cli_help_architecture_operations_discovery' => [
+                'valid' => $cliHelpArchitectureOperationsDiscovery === [],
+                'violations' => $cliHelpArchitectureOperationsDiscovery,
+            ],
+            'ap128_architecture_operations_shared_catalog' => [
+                'valid' => $architectureOperationsSharedCatalog === [],
+                'violations' => $architectureOperationsSharedCatalog,
+            ],
+            'ap129_architecture_operations_mcp_tool' => [
+                'valid' => $architectureOperationsMcpTool === [],
+                'violations' => $architectureOperationsMcpTool,
+            ],
+            'ap130_architecture_operations_direct_surfaces' => [
+                'valid' => $architectureOperationsDirectSurfaces === [],
+                'violations' => $architectureOperationsDirectSurfaces,
+            ],
+            'ap131_self_improvement_architecture_operations_review' => [
+                'valid' => $selfImprovementArchitectureOperationsReview === [],
+                'violations' => $selfImprovementArchitectureOperationsReview,
+            ],
+            'ap132_architecture_operations_metadata_contract' => [
+                'valid' => $architectureOperationsMetadataContract === [],
+                'violations' => $architectureOperationsMetadataContract,
+            ],
+            'ap133_architecture_operations_filter_contract' => [
+                'valid' => $architectureOperationsFilterContract === [],
+                'violations' => $architectureOperationsFilterContract,
+            ],
         ];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanArchitectureOperationsFilterContract(): array
+    {
+        $violations = [];
+        $catalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
+        $commandPath = app_path('Console/Commands/AtlasAiArchitectureOperationsCommand.php');
+        $controllerPath = app_path('Http/Controllers/AtlasAiArchitectureOperationsController.php');
+        $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
+        $unitTestPath = base_path('tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsApiTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-133-architecture-operations-filter-contract.md');
+
+        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
+        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'public function summary(array $filters = []): array',
+            'private function normalizeFilters(array $filters): array',
+            'private function matchesFilters(array $command, array $filters): bool',
+            "'filters' => \$filters",
+            "'id'",
+            "'kind'",
+        ] as $token) {
+            if (! str_contains($catalog, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-133 catalog must support canonical id/kind filters [{$token}]";
+            }
+        }
+
+        foreach ([
+            '{--id= : Filter by stable operation id}',
+            '{--kind= : Filter by operation kind}',
+            '$catalog->summary($this->filters())',
+            'private function filters(): array',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiArchitectureOperationsCommand.php: AP-133 CLI must expose id/kind filters [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'id' => ['nullable', 'string', 'max:120']",
+            "'kind' => ['nullable', 'string', 'max:120']",
+            '$catalog->summary($data)',
+        ] as $token) {
+            if (! str_contains($controller, $token)) {
+                $violations[] = "app/Http/Controllers/AtlasAiArchitectureOperationsController.php: AP-133 API must expose id/kind filters [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'id' => ['type' => 'string'",
+            "'kind' => ['type' => 'string'",
+            "'atlas_architecture_operations' => \$this->toolResponse(\$id, \$this->architectureOperations(\$arguments))",
+            "\$this->architectureOperations->summary(\$this->onlyScalarFilters(\$arguments, ['id', 'kind']))",
+        ] as $token) {
+            if (! str_contains($mcp, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-133 MCP must expose id/kind filters [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_catalog_filters_architecture_operations_by_id_and_kind',
+            "summary(['id' => 'provider_performance_report'])",
+            "summary(['kind' => 'evidence_report'])",
+            "'filters'",
+        ] as $token) {
+            if (! str_contains($unitTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php: AP-133 catalog filters must be unit tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_command_filters_architecture_operations_by_id_and_kind',
+            "'--kind' => 'evidence_report'",
+            "'--id' => 'inbox_action_report'",
+            'architecture_operations.filters',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiArchitectureOperationsCommandTest.php: AP-133 CLI filters must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_api_filters_architecture_operations_catalog',
+            '/ai/architecture/operations?kind=evidence_report',
+            '/ai/architecture/operations?id=provider_performance_report',
+            'architecture_operations.filters',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiArchitectureOperationsApiTest.php: AP-133 API filters must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_architecture_operations_tool_filters_shared_operations_catalog',
+            "'arguments' => ['kind' => 'evidence_report']",
+            'architecture_operations.filters',
+        ] as $token) {
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-133 MCP filters must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-133',
+            'Architecture Operations Filter Contract',
+            'id/kind',
+            'ap133_architecture_operations_filter_contract',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-133 architecture operations filter contract must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-133-architecture-operations-filter-contract.md: AP-133 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanArchitectureOperationsMetadataContract(): array
+    {
+        $violations = [];
+        $catalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
+        $unitTestPath = base_path('tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsApiTest.php');
+        $observabilityTestPath = base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-132-architecture-operations-metadata-contract.md');
+
+        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            "'schema_version' => 'atlas.architecture_operations.v1'",
+            "'operation_ids' => array_values",
+            "'id' => 'architecture_operations'",
+            "'surface' => 'cli'",
+            "'kind' => 'catalog'",
+            "'output' => 'json'",
+            "'kind' => 'evidence_report'",
+        ] as $token) {
+            if (! str_contains($catalog, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-132 architecture operations must expose stable machine-readable metadata [{$token}]";
+            }
+        }
+
+        foreach ([
+            "assertSame('atlas.architecture_operations.v1'",
+            "'architecture_operations'",
+            "'kernel_slo_report'",
+            'commands.0.id',
+            'commands.0.kind',
+            'commands.0.surface',
+            'commands.7.kind',
+        ] as $token) {
+            if (! str_contains($unitTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php: AP-132 catalog metadata must be unit tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'architecture_operations.schema_version',
+            'architecture_operations.operation_ids',
+            'architecture_operations.commands.0.id',
+            'architecture_operations.commands.0.kind',
+            'architecture_operations.commands.0.surface',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiArchitectureOperationsCommandTest.php: AP-132 CLI metadata contract must be covered [{$token}]";
+            }
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiArchitectureOperationsApiTest.php: AP-132 API metadata contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'architecture_operations.schema_version',
+            'architecture_operations.operation_ids',
+            'architecture_operations.commands.0.id',
+            'architecture_operations.commands.0.kind',
+        ] as $token) {
+            if (! str_contains($observabilityTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-132 Observability metadata contract must be covered [{$token}]";
+            }
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-132 MCP metadata contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-132',
+            'Architecture Operations Metadata Contract',
+            'atlas.architecture_operations.v1',
+            'operation_ids',
+            'ap132_architecture_operations_metadata_contract',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-132 architecture operations metadata contract must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-132-architecture-operations-metadata-contract.md: AP-132 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanSelfImprovementArchitectureOperationsReview(): array
+    {
+        $violations = [];
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-131-self-improvement-architecture-operations-review.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'AtlasArchitectureOperationsCatalog $architectureOperations',
+            '...$this->architectureOperationsFindings($filters)',
+            'private function architectureOperationsFindings(array $filters = []): array',
+            'atlas.self_improvement.architecture_operations.v1',
+            'restore_architecture_operations_catalog',
+            'missing_architecture_operation',
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-131 Self-Improvement must review Architecture Operations catalog drift [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_self_improvement_detects_architecture_operations_catalog_drift',
+            'AtlasArchitectureOperationsCatalog(commandsOverride:',
+            'atlas.self_improvement.architecture_operations.v1',
+            'restore_architecture_operations_catalog',
+            'missing_architecture_operation',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-131 Self-Improvement architecture operations review must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-131',
+            'Self-Improvement Architecture Operations Review',
+            'architectureOperationsFindings',
+            'restore_architecture_operations_catalog',
+            'ap131_self_improvement_architecture_operations_review',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-131 Self-Improvement architecture operations review must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-131-self-improvement-architecture-operations-review.md: AP-131 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanArchitectureOperationsDirectSurfaces(): array
+    {
+        $violations = [];
+        $commandPath = app_path('Console/Commands/AtlasAiArchitectureOperationsCommand.php');
+        $controllerPath = app_path('Http/Controllers/AtlasAiArchitectureOperationsController.php');
+        $routesPath = base_path('routes/api.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsApiTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-130-architecture-operations-direct-surfaces.md');
+
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
+        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            "protected \$signature = 'atlas:ai:architecture-operations",
+            'AtlasArchitectureOperationsCatalog $catalog',
+            "'architecture_operations' => \$catalog->summary(\$this->filters())",
+            'Atlas AI Architecture Operations',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiArchitectureOperationsCommand.php: AP-130 architecture operations CLI surface must consume shared catalog [{$token}]";
+            }
+        }
+
+        foreach ([
+            'class AtlasAiArchitectureOperationsController extends Controller',
+            'AtlasArchitectureOperationsCatalog $catalog',
+            "'architecture_operations' => \$catalog->summary(\$data)",
+        ] as $token) {
+            if (! str_contains($controller, $token)) {
+                $violations[] = "app/Http/Controllers/AtlasAiArchitectureOperationsController.php: AP-130 architecture operations API surface must consume shared catalog [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasAiArchitectureOperationsController',
+            "Route::get('/ai/architecture/operations', AtlasAiArchitectureOperationsController::class)",
+        ] as $token) {
+            if (! str_contains($routes, $token)) {
+                $violations[] = "routes/api.php: AP-130 architecture operations API route must exist [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_command_exposes_architecture_operations_as_json',
+            'test_command_human_output_lists_architecture_operations',
+            'atlas:ai:architecture-operations',
+            'architecture_operations.command_count',
+            'atlas ai architecture-operations --json',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiArchitectureOperationsCommandTest.php: AP-130 architecture operations CLI must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_api_exposes_architecture_operations_catalog',
+            'test_api_requires_atlas_token',
+            '/ai/architecture/operations',
+            'architecture_operations.command_count',
+            'atlas ai architecture-operations --json',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiArchitectureOperationsApiTest.php: AP-130 architecture operations API must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-130',
+            'Architecture Operations Direct Surfaces',
+            'atlas:ai:architecture-operations',
+            '/ai/architecture/operations',
+            'ap130_architecture_operations_direct_surfaces',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-130 direct architecture operations surfaces must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-130-architecture-operations-direct-surfaces.md: AP-130 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanArchitectureOperationsMcpTool(): array
+    {
+        $violations = [];
+        $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-129-architecture-operations-mcp-tool.md');
+
+        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'AtlasArchitectureOperationsCatalog $architectureOperations',
+            "'name' => 'atlas_architecture_operations'",
+            "'atlas_architecture_operations' => \$this->toolResponse(\$id, \$this->architectureOperations(\$arguments))",
+            'private function architectureOperations(array $arguments): array',
+            "\$this->architectureOperations->summary(\$this->onlyScalarFilters(\$arguments, ['id', 'kind']))",
+            "'writes' => false",
+        ] as $token) {
+            if (! str_contains($mcp, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-129 architecture operations must be exposed as read-only MCP tool [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_architecture_operations_tool_exposes_shared_operations_catalog',
+            'atlas_architecture_operations',
+            'architecture_operations.section',
+            'architecture_operations.command_count',
+            'atlas ai inbox-action-report --hours=24 --json',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-129 MCP architecture operations tool must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-129',
+            'Architecture Operations MCP Tool',
+            'atlas_architecture_operations',
+            'AtlasArchitectureOperationsCatalog',
+            'ap129_architecture_operations_mcp_tool',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-129 architecture operations MCP tool must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-129-architecture-operations-mcp-tool.md: AP-129 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanArchitectureOperationsSharedCatalog(): array
+    {
+        $violations = [];
+        $catalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
+        $helpPath = app_path('Console/Commands/AtlasCliHelpCommand.php');
+        $observabilityPath = app_path('Http/Controllers/AiObservabilityController.php');
+        $unitTestPath = base_path('tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php');
+        $observabilityTestPath = base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-128-architecture-operations-shared-catalog.md');
+
+        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $help = File::exists($helpPath) ? File::get($helpPath) : '';
+        $observability = File::exists($observabilityPath) ? File::get($observabilityPath) : '';
+        $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
+        $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'final class AtlasArchitectureOperationsCatalog',
+            "return 'arquitetura_mae'",
+            'public function commands(): array',
+            'public function summary(array $filters = []): array',
+            "'command_count' => count(\$commands)",
+            "'atlas ai architecture-operations --json'",
+            "'atlas ai architecture-validate'",
+            "'atlas ai inbox-action-report --hours=24 --json'",
+        ] as $token) {
+            if (! str_contains($catalog, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-128 shared architecture operations catalog must exist [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasArchitectureOperationsCatalog $architectureOperations',
+            '$architectureOperations->sectionKey() => $architectureOperations->commands()',
+        ] as $token) {
+            if (! str_contains($help, $token)) {
+                $violations[] = "app/Console/Commands/AtlasCliHelpCommand.php: AP-128 CLI help must consume shared architecture operations catalog [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasArchitectureOperationsCatalog $architectureOperations',
+            "'architecture_operations' => \$architectureOperations->summary()",
+        ] as $token) {
+            if (! str_contains($observability, $token)) {
+                $violations[] = "app/Http/Controllers/AiObservabilityController.php: AP-128 Observability must expose shared architecture operations catalog [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_catalog_exposes_canonical_architecture_operations',
+            'AtlasArchitectureOperationsCatalog',
+            "'arquitetura_mae'",
+            'atlas ai architecture-operations --json',
+            'atlas ai inbox-action-report --hours=24 --json',
+        ] as $token) {
+            if (! str_contains($unitTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php: AP-128 catalog must be unit tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_observability_payload_includes_architecture_operations_catalog',
+            "assertJsonPath('architecture_operations.section', 'arquitetura_mae')",
+            "\$this->assertSame(count(\$commands), \$response->json('architecture_operations.command_count'))",
+            'atlas ai architecture-operations --json',
+            'atlas ai self-improvement-schedule-report --hours=24 --json',
+            'atlas ledger replay --envelope=<id> --json',
+        ] as $token) {
+            if (! str_contains($observabilityTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-128 Observability architecture operations catalog must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-128',
+            'Architecture Operations Shared Catalog',
+            'AtlasArchitectureOperationsCatalog',
+            'architecture_operations',
+            'ap128_architecture_operations_shared_catalog',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-128 shared architecture operations catalog must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-128-architecture-operations-shared-catalog.md: AP-128 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanCliHelpArchitectureOperationsDiscovery(): array
+    {
+        $violations = [];
+        $commandPath = app_path('Console/Commands/AtlasCliHelpCommand.php');
+        $catalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
+        $testPath = base_path('tests/Feature/AtlasCliHelpCommandTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-127-cli-help-architecture-operations-discovery.md');
+
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'AtlasArchitectureOperationsCatalog $architectureOperations',
+            '$architectureOperations->sectionKey() => $architectureOperations->commands()',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasCliHelpCommand.php: AP-127 CLI help must expose architecture operations discovery [{$token}]";
+            }
+        }
+
+        foreach ([
+            "return 'arquitetura_mae'",
+            "'command' => 'atlas ai architecture-operations --json'",
+            "'command' => 'atlas ai architecture-validate'",
+            "'command' => 'atlas ai slo --hours=24 --json'",
+            "'command' => 'atlas ai kernel-pipeline-report --hours=24 --json'",
+            "'command' => 'atlas ai repair-report --hours=24 --json'",
+            "'command' => 'atlas ai provider-performance --hours=24 --json'",
+            "'command' => 'atlas ai self-improvement-schedule-report --hours=24 --json'",
+            "'command' => 'atlas ai inbox-action-report --hours=24 --json'",
+        ] as $token) {
+            if (! str_contains($catalog, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-127 architecture operation commands must remain discoverable [{$token}]";
+            }
+        }
+
+        foreach ([
+            'arquitetura_mae',
+            'atlas ai architecture-operations --json',
+            'atlas ai architecture-validate',
+            'atlas ai slo --hours=24 --json',
+            'atlas ai kernel-pipeline-report --hours=24 --json',
+            'atlas ai repair-report --hours=24 --json',
+            'atlas ai provider-performance --hours=24 --json',
+            'atlas ai self-improvement-schedule-report --hours=24 --json',
+            'atlas ai inbox-action-report --hours=24 --json',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/AtlasCliHelpCommandTest.php: AP-127 CLI help architecture operations must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-127',
+            'CLI Help Architecture Operations Discovery',
+            'arquitetura_mae',
+            'atlas ai architecture-operations --json',
+            'atlas ai inbox-action-report --hours=24 --json',
+            'ap127_cli_help_architecture_operations_discovery',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-127 CLI help architecture operations discovery must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-127-cli-help-architecture-operations-discovery.md: AP-127 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanArchitectureValidatePostAp98HumanOutput(): array
+    {
+        $violations = [];
+        $commandPath = app_path('Console/Commands/AtlasAiArchitectureValidateCommand.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasAiArchitectureValidateCommandTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-126-architecture-validate-post-ap98-human-output.md');
+
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'renderPostAp98StaticScanViolations($payload)',
+            'private function renderPostAp98StaticScanViolations(array $payload): void',
+            "data_get(\$payload, 'kernel.static_scan', [])",
+            "preg_match('/^ap(?P<number>\\d+)_/', \$key, \$matches)",
+            "(int) \$matches['number'] <= 98",
+            '$this->error("[kernel.static.{$key}] ".$violation)',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiArchitectureValidateCommand.php: AP-126 human output must render post-AP98 static scan violations generically [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_human_output_renders_post_ap98_static_scan_violations',
+            'ap125_inbox_action_report_surfaces',
+            '[kernel.static.ap125_inbox_action_report_surfaces]',
+            'AP-125 synthetic violation for human output',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiArchitectureValidateCommandTest.php: AP-126 human output regression must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-126',
+            'Architecture Validate Post-AP98 Human Output',
+            'renderPostAp98StaticScanViolations',
+            'ap126_architecture_validate_post_ap98_human_output',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-126 architecture validate human output must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-126-architecture-validate-post-ap98-human-output.md: AP-126 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanInboxActionReportSurfaces(): array
+    {
+        $violations = [];
+        $commandPath = app_path('Console/Commands/AtlasAiInboxActionReportCommand.php');
+        $controllerPath = app_path('Http/Controllers/AtlasAiInboxActionReportController.php');
+        $routesPath = base_path('routes/api.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiInboxActionReportApiTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-125-inbox-action-report-surfaces.md');
+
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
+        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'atlas:ai:inbox-action-report',
+            'KernelReplayReportInput $input',
+            'inboxActionReportForWindow(now()->subHours($hours), filters: $filters)',
+            "'inbox_actions' => \$report",
+            "'actor_type' => ['actor-type']",
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiInboxActionReportCommand.php: AP-125 command must expose Inbox action replay via shared input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'class AtlasAiInboxActionReportController',
+            'KernelReplayReportInput $input',
+            "'recommended_action' => ['nullable', 'string', 'max:180']",
+            '$replay->inboxActionReportForWindow(now()->subHours($hours), filters: $filters)',
+            "'inbox_actions' => \$report",
+        ] as $token) {
+            if (! str_contains($controller, $token)) {
+                $violations[] = "app/Http/Controllers/AtlasAiInboxActionReportController.php: AP-125 API must expose Inbox action replay via shared input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasAiInboxActionReportController',
+            "Route::get('/ai/inbox-actions/report', AtlasAiInboxActionReportController::class)",
+        ] as $token) {
+            if (! str_contains($routes, $token)) {
+                $violations[] = "routes/api.php: AP-125 Inbox action report API route must be registered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_command_summarizes_inbox_action_window_as_json',
+            'test_command_filters_inbox_action_report_as_json',
+            'test_command_reports_unavailable_when_ledger_table_is_missing',
+            'LedgerEventType::InboxActionRecorded',
+            'atlas:ai:inbox-action-report',
+            'open_reviewable_inbox_action_evidence_proposal',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php: AP-125 command surface must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_inbox_action_report_api_returns_window_summary',
+            'test_inbox_action_report_api_filters_window_summary',
+            'test_inbox_action_report_api_requires_atlas_token',
+            '/ai/inbox-actions/report',
+            'LedgerEventType::InboxActionRecorded',
+            'wait_for_inbox_action_evidence',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiInboxActionReportApiTest.php: AP-125 API surface must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-125',
+            'Inbox Action Report Surfaces',
+            'atlas:ai:inbox-action-report',
+            '/ai/inbox-actions/report',
+            'inboxActionReportForWindow',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-125 Inbox action report surfaces must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-125-inbox-action-report-surfaces.md: AP-125 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanObservabilityInboxActionReplay(): array
+    {
+        $violations = [];
+        $controllerPath = app_path('Http/Controllers/AiObservabilityController.php');
+        $testPath = base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-124-observability-inbox-action-replay.md');
+
+        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            '$inboxActions = $ledgerReplay->inboxActionReportForWindow($since)',
+            "'inbox_actions' => \$inboxActions",
+        ] as $token) {
+            if (! str_contains($controller, $token)) {
+                $violations[] = "app/Http/Controllers/AiObservabilityController.php: AP-124 observability must expose Inbox action replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_observability_payload_includes_inbox_action_replay_summary',
+            'LedgerEventType::InboxActionRecorded',
+            "assertJsonPath('inbox_actions.available', true)",
+            "assertJsonPath('inbox_actions.review_signal.recommended_action', 'open_reviewable_inbox_action_evidence_proposal')",
+            'review_patch_action_without_diff_refs',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-124 observability Inbox action replay must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-124',
+            'Observability Inbox Action Replay',
+            'inbox_actions',
+            'inboxActionReportForWindow',
+            'open_reviewable_inbox_action_evidence_proposal',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-124 observability Inbox action replay must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-124-observability-inbox-action-replay.md: AP-124 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanSelfImprovementInboxActionReplayReview(): array
+    {
+        $violations = [];
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-123-self-improvement-inbox-action-replay-review.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'inboxActionReplayFindings(',
+            'inboxActionReportForWindow(',
+            'normalizedInboxActionFilters(',
+            'atlas.self_improvement.inbox_action_replay_gap.v1',
+            'review_patch_action_without_diff_refs',
+            'open_reviewable_inbox_action_evidence_proposal',
+            'self-improvement:inbox-action-replay:',
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-123 Self-Improvement must consume Inbox action replay gaps [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_self_improvement_detects_inbox_action_replay_patch_review_gap',
+            'recordInboxActionEvent(',
+            'LedgerEventType::InboxActionRecorded',
+            'atlas.self_improvement.inbox_action_replay_gap.v1',
+            'open_reviewable_inbox_action_evidence_proposal',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-123 Inbox action replay review must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-123',
+            'Self-Improvement Inbox Action Replay Review',
+            'inboxActionReplayFindings',
+            'atlas.self_improvement.inbox_action_replay_gap.v1',
+            'review_patch_action_without_diff_refs',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-123 Inbox action replay review must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-123-self-improvement-inbox-action-replay-review.md: AP-123 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanInboxActionMcpReport(): array
+    {
+        $violations = [];
+        $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-122-inbox-action-mcp-report.md');
+
+        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            "'name' => 'atlas_inbox_action_report'",
+            "'atlas_inbox_action_report' => \$this->toolResponse(\$id, \$this->inboxActionReport(\$arguments))",
+            'private function inboxActionReport(array $arguments): array',
+            '$this->ledgerReplay->inboxActionReportForWindow(',
+            "'inbox_actions' => \$report",
+            "'action'",
+            "'actor_type'",
+            "'inbox_item_category'",
+            "'recommended_action'",
+        ] as $token) {
+            if (! str_contains($mcp, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-122 Inbox action replay must be exposed as read-only MCP report [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_inbox_action_report_tool_exposes_replay_read_model',
+            'recordInboxActionForMcp(',
+            'atlas_inbox_action_report',
+            'inbox_actions.review_signal.status',
+            'wait_for_inbox_action_evidence',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-122 MCP Inbox action report must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-122',
+            'Inbox Action MCP Report',
+            'atlas_inbox_action_report',
+            'inboxActionReportForWindow',
+            'wait_for_inbox_action_evidence',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-122 Inbox action MCP report must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-122-inbox-action-mcp-report.md: AP-122 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanInboxActionReplayReadModel(): array
+    {
+        $violations = [];
+        $replayPath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
+        $testPath = base_path('tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-121-inbox-action-replay-read-model.md');
+
+        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'public function inboxActionReportForWindow(CarbonInterface $since, ?CarbonInterface $until = null, array $filters = []): array',
+            'LedgerEventType::InboxActionRecorded',
+            'inboxActionEventFromEvent(',
+            'inboxActionSummary(',
+            'inboxActionReviewSignal(',
+            'normalizedInboxActionFilters(',
+            'matchesInboxActionFilters(',
+            "'open_reviewable_inbox_action_evidence_proposal'",
+            "'wait_for_inbox_action_evidence'",
+        ] as $token) {
+            if (! str_contains($replay, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-121 Inbox action events must be projectable through replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_inbox_action_window_report_projects_human_review_evidence',
+            'test_inbox_action_window_report_filters_and_warns_when_patch_review_lacks_diff_refs',
+            'recordInboxActionEvent(',
+            'LedgerEventType::InboxActionRecorded',
+            'inboxActionReportForWindow(',
+            'review_patch_action_without_diff_refs',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php: AP-121 Inbox action replay read model must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-121',
+            'Inbox Action Replay Read Model',
+            'inboxActionReportForWindow',
+            'LedgerEventType::InboxActionRecorded',
+            'review_patch_action_without_diff_refs',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-121 Inbox action replay read model must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-121-inbox-action-replay-read-model.md: AP-121 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanInboxActionEvidenceLedgerContract(): array
+    {
+        $violations = [];
+        $eventTypePath = app_path('Services/Ai/Kernel/Evidence/LedgerEventType.php');
+        $actionsPath = app_path('Services/Ai/Mobile/InboxActionRegistry.php');
+        $testPath = base_path('tests/Feature/MobileGatewayTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-120-inbox-action-evidence-ledger-contract.md');
+
+        $eventType = File::exists($eventTypePath) ? File::get($eventTypePath) : '';
+        $actions = File::exists($actionsPath) ? File::get($actionsPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        if (! str_contains($eventType, "case InboxActionRecorded = 'INBOX_ACTION_RECORDED'")) {
+            $violations[] = 'app/Services/Ai/Kernel/Evidence/LedgerEventType.php: AP-120 must define INBOX_ACTION_RECORDED';
+        }
+
+        foreach ([
+            'private readonly AtlasEvidenceLedger $ledger',
+            'private function recordInboxActionLedgerEvent',
+            'LedgerEventType::InboxActionRecorded',
+            "'schema_version' => 'atlas.inbox_action.v1'",
+            "'recommended_action' => \$this->string(data_get(\$item->payload ?? [], 'proposal_contract.review_signal.recommended_action'))",
+            "'emitter_stage' => 'atlas.inbox'",
+        ] as $token) {
+            if (! str_contains($actions, $token)) {
+                $violations[] = "app/Services/Ai/Mobile/InboxActionRegistry.php: AP-120 Inbox actions must be recorded in Evidence Ledger [{$token}]";
+            }
+        }
+
+        foreach ([
+            'LedgerEventType::InboxActionRecorded',
+            'atlas.inbox_action.v1',
+            "data_get(\$ledgerEvent->payload, 'action')",
+            "data_get(\$ledgerEvent->payload, 'result.payload.diff_refs.0.path')",
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/MobileGatewayTest.php: AP-120 Inbox action ledger event must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-120',
+            'Inbox Action Evidence Ledger Contract',
+            'LedgerEventType::InboxActionRecorded',
+            'atlas.inbox_action.v1',
+            'review_patch',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-120 Inbox action ledger contract must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-120-inbox-action-evidence-ledger-contract.md: AP-120 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanCliInboxReviewActionResultParity(): array
+    {
+        $violations = [];
+        $commandPath = app_path('Console/Commands/AtlasCliInboxCommand.php');
+        $testPath = base_path('tests/Feature/MobileGatewayTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-119-cli-inbox-review-action-result-parity-contract.md');
+
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            "return \$this->printItem(\$result['item'], \$result['result'] ?? [])",
+            "'result' => \$result",
+            'private function printItem(AiInboxItem $item, array $result = [])',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasCliInboxCommand.php: AP-119 CLI respond JSON must preserve action result parity [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Review patch via CLI',
+            "'--action' => 'review_patch'",
+            'result.payload.recommended_action',
+            'result.payload.diff_refs.0.path',
+            'review_cli_proposal_contract',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/MobileGatewayTest.php: AP-119 CLI review_patch parity must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-119',
+            'CLI Inbox Review Action Result Parity',
+            'atlas:cli:inbox respond',
+            'review_patch',
+            'recommended_action',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-119 CLI review action parity must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-119-cli-inbox-review-action-result-parity-contract.md: AP-119 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanProposalReviewActionContract(): array
+    {
+        $violations = [];
+        $actionsPath = app_path('Services/Ai/Mobile/InboxActionRegistry.php');
+        $testPath = base_path('tests/Feature/MobileGatewayTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-118-proposal-review-action-contract.md');
+
+        $actions = File::exists($actionsPath) ? File::get($actionsPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            '$proposalContract = $this->array(data_get($payload, \'proposal_contract\'))',
+            "'proposal_contract' => \$proposalContract",
+            "'review_signal' => \$this->array(data_get(\$proposalContract, 'review_signal'))",
+            "'recommended_action' => \$this->string(data_get(\$proposalContract, 'review_signal.recommended_action'))",
+            "'diff_refs' => \$this->array(data_get(\$proposalContract, 'diff_refs'))",
+        ] as $token) {
+            if (! str_contains($actions, $token)) {
+                $violations[] = "app/Services/Ai/Mobile/InboxActionRegistry.php: AP-118 review_patch must expose proposal contract fields directly [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'review_patch'",
+            'result.payload.action',
+            'result.payload.diff_refs.0.path',
+            'result.payload.proposal_contract.diff_refs.0.path',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/MobileGatewayTest.php: AP-118 review_patch action contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-118',
+            'Proposal Review Action Contract',
+            'review_patch',
+            'proposal_contract',
+            'recommended_action',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-118 review action contract must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-118-proposal-review-action-contract.md: AP-118 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanProposalInboxReviewSignalSeverity(): array
+    {
+        $violations = [];
+        $emitterPath = app_path('Services/Ai/Mobile/ProposalInboxEmitter.php');
+        $testPath = base_path('tests/Unit/Ai/ProposalInboxEmitterTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-117-proposal-inbox-review-signal-severity-contract.md');
+
+        $emitter = File::exists($emitterPath) ? File::get($emitterPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            '$reviewSignal = $this->array($metadata[\'review_signal\'] ?? [])',
+            "'severity' => \$this->severityFromReviewSignal(\$reviewSignal)",
+            "'priority_score' => \$this->priorityFromReviewSignal(\$reviewSignal)",
+            'private function severityFromReviewSignal',
+            'private function priorityFromReviewSignal',
+        ] as $token) {
+            if (! str_contains($emitter, $token)) {
+                $violations[] = "app/Services/Ai/Mobile/ProposalInboxEmitter.php: AP-117 Proposal Inbox must map review_signal severity into Inbox severity/priority [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_proposal_maps_review_signal_to_inbox_severity_and_priority',
+            "'severity' => 'high'",
+            "data_get(\$inbox->created, 'severity')",
+            "data_get(\$inbox->created, 'priority_score')",
+            "'critical'",
+            '85',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/ProposalInboxEmitterTest.php: AP-117 severity/priority mapping must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-117',
+            'Proposal Inbox Review Signal Severity',
+            'review_signal.severity',
+            'priority_score',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-117 proposal severity mapping must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-117-proposal-inbox-review-signal-severity-contract.md: AP-117 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanSelfImprovementScheduleReplayInboxGapEmission(): array
+    {
+        $violations = [];
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-116-self-improvement-schedule-replay-inbox-gap-emission-contract.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            '$item = $this->proposals->emit([',
+            "'emitted_to_inbox' => \$emittedInboxItemId !== null",
+            "'emitted_inbox_item_id' => \$emittedInboxItemId",
+            "'emitted_inbox_item_ids' => array_values(\$emitted)",
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-116 Self-Improvement must emit inbox-gap findings through the standard proposal/ledger path [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_self_improvement_emits_schedule_replay_missing_inbox_ref_proposal',
+            'ProposalInboxEmitter::class',
+            'emitted_to_inbox',
+            'emitted_inbox_item_id',
+            'emitted_inbox_item_ids',
+            'restore_or_reemit_missing_self_improvement_inbox_items',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-116 inbox-gap proposal emission must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-116',
+            'Self-Improvement Schedule Replay Inbox Gap Emission',
+            'emitted_to_inbox',
+            'OPERATION_COMPLETED',
+            'restore_or_reemit_missing_self_improvement_inbox_items',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-116 inbox-gap emission must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-116-self-improvement-schedule-replay-inbox-gap-emission-contract.md: AP-116 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanSelfImprovementScheduleReplayInboxGapFinding(): array
+    {
+        $violations = [];
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-115-self-improvement-schedule-replay-inbox-gap-finding-contract.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            "\$missingInboxItemIds = array_values((array) (\$report['emitted_inbox_item_missing_ids'] ?? []))",
+            "'title' => 'Restaurar propostas do Inbox emitidas pelo Self-Improvement'",
+            "'schema_version' => 'atlas.self_improvement.schedule_replay_inbox_gap.v1'",
+            "'recommended_action' => 'restore_or_reemit_missing_self_improvement_inbox_items'",
+            "'dedupe_key' => 'self-improvement:schedule-replay-inbox-gap:'.sha1",
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-115 Self-Improvement must turn schedule replay inbox hydration gaps into reviewable findings [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_self_improvement_detects_schedule_replay_missing_inbox_refs',
+            'recordSelfImprovementCompletion',
+            'atlas.self_improvement.schedule_replay_inbox_gap.v1',
+            'restore_or_reemit_missing_self_improvement_inbox_items',
+            'self-improvement:schedule-replay-inbox-gap:',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-115 missing inbox refs finding must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-115',
+            'Self-Improvement Schedule Replay Inbox Gap Finding',
+            'atlas.self_improvement.schedule_replay_inbox_gap.v1',
+            'restore_or_reemit_missing_self_improvement_inbox_items',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-115 inbox gap finding must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-115-self-improvement-schedule-replay-inbox-gap-finding-contract.md: AP-115 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanScheduleReplayInboxHydrationGapSignal(): array
+    {
+        $violations = [];
+        $replayPath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
+        $commandPath = app_path('Console/Commands/AtlasAiSelfImprovementScheduleReportCommand.php');
+        $unitTestPath = base_path('tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportApiTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-114-schedule-replay-inbox-hydration-gap-signal-contract.md');
+
+        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            "'emitted_inbox_item_hydration_available' => \$hydrationAvailable",
+            "'emitted_inbox_item_missing_ids' => \$missingIds",
+            "'emitted_inbox_item_hydration_available' => Schema::hasTable('ai_inbox_items')",
+            "'emitted_inbox_item_missing_ids' => \$missingInboxItemIds",
+        ] as $token) {
+            if (! str_contains($replay, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-114 replay must expose inbox hydration availability and missing ids [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Inbox hydration',
+            'Missing inbox refs',
+            "'missing refs'",
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiSelfImprovementScheduleReportCommand.php: AP-114 CLI must show inbox hydration gaps [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_self_improvement_schedule_window_report_exposes_missing_inbox_refs',
+            'emitted_inbox_item_hydration_available',
+            'emitted_inbox_item_missing_ids',
+        ] as $token) {
+            if (! str_contains($unitTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php: AP-114 missing inbox refs must be unit tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'missing_inbox_refs',
+            'emitted_inbox_item_hydration_available',
+            'emitted_inbox_item_missing_ids',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportCommandTest.php: AP-114 CLI/API JSON gap signals must be covered [{$token}]";
+            }
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportApiTest.php: AP-114 API gap signals must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-114',
+            'Schedule Replay Inbox Hydration Gap Signal',
+            'emitted_inbox_item_hydration_available',
+            'emitted_inbox_item_missing_ids',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-114 hydration gap signal must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-114-schedule-replay-inbox-hydration-gap-signal-contract.md: AP-114 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanScheduleReplayInboxItemHydrationSurfaceParity(): array
+    {
+        $violations = [];
+        $observabilityTestPath = base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-113-schedule-replay-inbox-item-hydration-surface-parity-contract.md');
+
+        $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'AiInboxItem::unguarded',
+            'self_improvement_schedule_replay.emitted_inbox_items.0.title',
+            'self_improvement_schedule_replay.emitted_inbox_items.0.review_signal.recommended_action',
+            'self_improvement_schedule_replay.recent_events.0.emitted_inbox_items.0.title',
+        ] as $token) {
+            if (! str_contains($observabilityTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-113 Observability must expose hydrated schedule replay inbox items [{$token}]";
+            }
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-113 MCP must expose hydrated schedule replay inbox items [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-113',
+            'Schedule Replay Inbox Item Hydration Surface Parity',
+            'Observability',
+            'MCP',
+            'emitted_inbox_items',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-113 hydration surface parity must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-113-schedule-replay-inbox-item-hydration-surface-parity-contract.md: AP-113 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanScheduleReplayInboxItemHydration(): array
+    {
+        $violations = [];
+        $replayPath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
+        $commandPath = app_path('Console/Commands/AtlasAiSelfImprovementScheduleReportCommand.php');
+        $unitTestPath = base_path('tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportApiTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-112-schedule-replay-inbox-item-hydration-contract.md');
+
+        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'use App\\Models\\AiInboxItem;',
+            'private function selfImprovementInboxItemsById(array $ids): array',
+            'private function selfImprovementInboxItemSummary(AiInboxItem $item): array',
+            'private function withSelfImprovementInboxItems(array $event, array $inboxItemsById, bool $hydrationAvailable): array',
+            "'emitted_inbox_items' => \$emittedInboxItems",
+            "'review_signal' => data_get(\$item->payload, 'proposal_contract.review_signal')",
+        ] as $token) {
+            if (! str_contains($replay, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-112 schedule replay must hydrate emitted inbox item summaries [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Emitted inbox items',
+            'compactInboxItems(',
+            "'inbox items'",
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiSelfImprovementScheduleReportCommand.php: AP-112 CLI human output must expose hydrated inbox item summaries [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AiInboxItem::unguarded',
+            'emitted_inbox_items.0.title',
+            'review_schedule_repair',
+        ] as $token) {
+            if (! str_contains($unitTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php: AP-112 replay hydration must be unit tested [{$token}]";
+            }
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportCommandTest.php: AP-112 CLI hydration must be covered [{$token}]";
+            }
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportApiTest.php: AP-112 API hydration must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-112',
+            'Schedule Replay Inbox Item Hydration',
+            'emitted_inbox_items',
+            'review_signal',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-112 hydration contract must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-112-schedule-replay-inbox-item-hydration-contract.md: AP-112 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanScheduleReplayInboxRefsSurfaceParity(): array
+    {
+        $violations = [];
+        $commandPath = app_path('Console/Commands/AtlasAiSelfImprovementScheduleReportCommand.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportApiTest.php');
+        $observabilityTestPath = base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-111-schedule-replay-inbox-refs-surface-parity-contract.md');
+
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'Completed runs',
+            'Emitted proposals',
+            'Emitted inbox refs',
+            "'inbox refs'",
+            'compactList(',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiSelfImprovementScheduleReportCommand.php: AP-111 CLI human output must expose schedule replay completion refs [{$token}]";
+            }
+        }
+
+        foreach ([
+            'self_improvement_schedule_replay.completed_count',
+            'self_improvement_schedule_replay.emitted_count',
+            'self_improvement_schedule_replay.emitted_inbox_item_ids',
+            'Emitted inbox refs',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportCommandTest.php: AP-111 CLI surface parity must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'self_improvement_schedule_replay.completed_count',
+            'self_improvement_schedule_replay.emitted_count',
+            'self_improvement_schedule_replay.emitted_inbox_item_ids.0',
+            'self_improvement_schedule_replay.recent_events.0.emitted_inbox_item_ids.0',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportApiTest.php: AP-111 API surface parity must be covered [{$token}]";
+            }
+            if (! str_contains($observabilityTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-111 Observability surface parity must be covered [{$token}]";
+            }
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-111 MCP surface parity must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-111',
+            'Schedule Replay Inbox Refs Surface Parity',
+            'Completed runs',
+            'Emitted inbox refs',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-111 surface parity contract must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-111-schedule-replay-inbox-refs-surface-parity-contract.md: AP-111 contract doc must exist and define surface parity [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanScheduleReplayInboxRefsContract(): array
+    {
+        $violations = [];
+        $replayPath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
+        $testPath = base_path('tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+
+        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'private function selfImprovementCompletionByEnvelope(CarbonInterface $since, CarbonInterface $until): array',
+            'private function withSelfImprovementCompletion(array $event, ?array $completion): array',
+            "'emitted_inbox_item_ids' => array_values((array) (\$completion['emitted_inbox_item_ids'] ?? []))",
+            "'completed_count' => \$events->where('completed', true)->count()",
+            "'emitted_inbox_item_ids' => \$emittedInboxItemIds",
+        ] as $token) {
+            if (! str_contains($replay, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-110 schedule replay must expose emitted inbox refs [{$token}]";
+            }
+        }
+
+        foreach ([
+            'recordSelfImprovementCompletionEvent',
+            'emitted_inbox_item_ids',
+            'completed_count',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php: AP-110 schedule replay inbox refs must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-110',
+            'Schedule Replay Inbox Refs',
+            'selfImprovementScheduleReportForWindow',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-110 schedule replay inbox refs contract must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanOperationCompletedInboxRefsContract(): array
+    {
+        $violations = [];
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'LedgerEventType::OperationCompleted',
+            "'emitted_count' => count(\$emitted)",
+            "'emitted_inbox_item_ids' => array_values(\$emitted)",
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-109 OperationCompleted must preserve emitted inbox ids [{$token}]";
+            }
+        }
+
+        foreach ([
+            'LedgerEventType::OperationCompleted->value',
+            'emitted_inbox_item_ids',
+            'emitted_count',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-109 OperationCompleted inbox refs must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-109',
+            'OperationCompleted Inbox Refs',
+            'emitted_inbox_item_ids',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-109 OperationCompleted inbox refs contract must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanLearningProposedInboxLinkContract(): array
+    {
+        $violations = [];
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            '$emittedByDedupeKey = [];',
+            '$emittedByDedupeKey[$dedupeKey] = $item->id;',
+            '$emittedInboxItemId = $emittedByDedupeKey[(string) ($finding[\'dedupe_key\'] ?? \'\')] ?? null;',
+            "'emitted_to_inbox' => \$emittedInboxItemId !== null",
+            "'emitted_inbox_item_id' => \$emittedInboxItemId",
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-108 LearningProposed must link emitted inbox item to finding [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_learning_proposed_event_links_emitted_inbox_item_to_finding',
+            'emitted_to_inbox',
+            'emitted_inbox_item_id',
+            'ProposalInboxEmitter::class',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-108 LearningProposed inbox link must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-108',
+            'LearningProposed Inbox Link',
+            'emitted_inbox_item_id',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-108 LearningProposed inbox link contract must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanProposalInboxReviewSignalContract(): array
+    {
+        $violations = [];
+        $emitterPath = app_path('Services/Ai/Mobile/ProposalInboxEmitter.php');
+        $testPath = base_path('tests/Unit/Ai/ProposalInboxEmitterTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+
+        $emitter = File::exists($emitterPath) ? File::get($emitterPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'private function proposalPayload(array $data, string $problem, string $solution, string $worthIt): array',
+            "'proposal_contract' => [",
+            "'schema_version' => \$metadata['schema_version'] ?? null",
+            "'review_signal' => \$this->array(\$metadata['review_signal'] ?? [])",
+            "'source_refs' => \$this->array(\$data['source_refs'] ?? [])",
+        ] as $token) {
+            if (! str_contains($emitter, $token)) {
+                $violations[] = "app/Services/Ai/Mobile/ProposalInboxEmitter.php: AP-107 Proposal Inbox must preserve schema/review_signal/source refs [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_proposal_preserves_review_signal_contract_in_bundle_and_inbox_payload',
+            'payload.proposal_contract.schema_version',
+            'payload.proposal_contract.review_signal.status',
+            'raw_payload.proposal_contract.review_signal.status',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/ProposalInboxEmitterTest.php: AP-107 Proposal Inbox review_signal contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-107',
+            'Proposal Inbox Review Signal',
+            'proposal_contract.review_signal',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-107 Proposal Inbox review_signal contract must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanLearningProposedReviewSignalProjectionContract(): array
+    {
+        $violations = [];
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            '$metadata = (array) ($finding[\'metadata\'] ?? []);',
+            "'schema_version' => \$metadata['schema_version'] ?? null",
+            "'review_signal' => (array) (\$metadata['review_signal'] ?? [])",
+            "'source_types' => collect((array) (\$finding['source_refs'] ?? []))",
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-106 LearningProposed projection must preserve review_signal/schema/source types [{$token}]";
+            }
+        }
+
+        foreach ([
+            'finding.schema_version',
+            'finding.review_signal.status',
+            'finding.review_signal.recommended_action',
+            'finding.source_types',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-106 LearningProposed projection must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-106',
+            'LearningProposed Review Signal Projection',
+            'finding.review_signal',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-106 LearningProposed projection contract must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanOpenBrainRetrievalSelfImprovementContract(): array
+    {
+        $violations = [];
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'use App\Models\AtlasOpenBrainAccessLog;',
+            'private function openBrainRetrievalFindings(int $hours, array $filters = []): array',
+            "Schema::hasTable('atlas_open_brain_access_logs')",
+            "data_get(\$summary, 'retrieval_plan.review_signal.status')",
+            "'required_unavailable_source_counts' => \$requiredUnavailableSourceCounts",
+            "'self-improvement:open-brain-retrieval:'",
+            "'atlas.self_improvement.open_brain_retrieval.v1'",
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-105 Open Brain retrieval signal must feed Self-Improvement [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_self_improvement_detects_open_brain_retrieval_required_source_gaps',
+            "'recommended_action' => 'refresh_evidence_replay_or_attach_trace_before_retry'",
+            'required_unavailable_source_counts',
+            'self-improvement:open-brain-retrieval:',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-105 Open Brain retrieval Self-Improvement contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-105',
+            'Open Brain Retrieval Self-Improvement',
+            'self-improvement:open-brain-retrieval',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-105 Open Brain retrieval Self-Improvement contract must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanRetrievalReviewSignalNextActionContract(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/AtlasOpenBrainContextInjectionService.php');
+        $testPath = base_path('tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            "'review_signal' => \$reviewSignal",
+            'private function retrievalReviewSignal(array $availability): array',
+            'private function retrievalRecommendedAction(array $sources): string',
+            "'status' => 'blocking'",
+            "'recommended_action' => \$this->retrievalRecommendedAction(\$requiredUnavailable)",
+            'private function nextActions(array $warnings, array $summary = []): array',
+            "data_get(\$summary, 'retrieval_plan.review_signal.recommended_action')",
+            'Refresh evidence replay or attach trace/envelope evidence before retrying.',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainContextInjectionService.php: AP-104 retrieval review_signal/next_actions contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            'summary.retrieval_plan.review_signal.status',
+            'summary.retrieval_plan.review_signal.recommended_action',
+            'Refresh evidence replay or attach trace/envelope evidence before retrying.',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php: AP-104 retrieval review_signal/next_actions must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-104',
+            'Retrieval Review Signal',
+            'refresh_evidence_replay_or_attach_trace_before_retry',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-104 retrieval review_signal contract must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanRetrievalRequiredSourceAvailabilityContract(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/AtlasOpenBrainContextInjectionService.php');
+        $testPath = base_path('tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'private function retrievalSourceAvailability(array $selected, array $contextRefs, array $knowledgeRefs, array $codeRefs, array $contextPack): array',
+            "'available_sources' => array_values(array_keys(array_filter",
+            "'unavailable_sources' => array_values(array_keys(array_filter",
+            "'required_unavailable_sources' => array_values(array_keys(array_filter",
+            'private function evidenceReplayCount(array $contextRefs, array $contextPack): int',
+            'private function graphRetrievalCount(array $contextRefs, array $contextPack): int',
+            'private function retrievalPlanWarnings(array $retrievalPlan): array',
+            "'retrieval_required_source_unavailable'",
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainContextInjectionService.php: AP-103 required retrieval source availability gate is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_required_open_brain_fails_closed_when_required_retrieval_source_is_unavailable',
+            'summary.retrieval_plan.required_unavailable_sources',
+            'retrieval_required_source_unavailable',
+            'failed_closed',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php: AP-103 retrieval availability gate must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-103',
+            'Retrieval Required Source Availability',
+            'retrieval_required_source_unavailable',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-103 retrieval availability contract must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanOpenBrainRetrievalPlanSummaryContract(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/AtlasOpenBrainContextInjectionService.php');
+        $testPath = base_path('tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            "'retrieval_plan' => \$retrievalPlan",
+            'private function retrievalPlanSummary(array $retrievalPlan, array $contextRefs, array $knowledgeRefs, array $codeRefs, array $contextPack): ?array',
+            "'selected_sources' => array_values(array_map",
+            "'required_sources' => array_values(array_map",
+            "'max_context_refs' => data_get(\$retrievalPlan, 'budgets.max_context_refs')",
+            "'provider_safe_only' => (bool) data_get(\$retrievalPlan, 'policy.provider_safe_only', true)",
+            "'- retrieval_plan: mode='",
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainContextInjectionService.php: Open Brain must summarize AP-101 retrieval plan for audit and prompt header [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_retrieval_plan_is_summarized_for_open_brain_audit_and_prompt_header',
+            'summary.retrieval_plan.selected_sources',
+            'summary.retrieval_plan.required_sources',
+            'retrieval_plan: mode=audit_heavy',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php: AP-102 Open Brain retrieval plan summary must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-102',
+            'Open Brain Retrieval Plan Summary',
+            'summary.retrieval_plan',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-102 Open Brain retrieval summary contract must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanContextRetrievalRouterContract(): array
+    {
+        $violations = [];
+        $routerPath = app_path('Services/Ai/Context/ContextRetrievalRouter.php');
+        $builderPath = app_path('Services/Ai/AiContextPackBuilder.php');
+        $packPath = app_path('Services/Ai/ValueObjects/AiContextPack.php');
+        $testPath = base_path('tests/Unit/Ai/Context/ContextRetrievalRouterTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+
+        $router = File::exists($routerPath) ? File::get($routerPath) : '';
+        $builder = File::exists($builderPath) ? File::get($builderPath) : '';
+        $pack = File::exists($packPath) ? File::get($packPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'final class ContextRetrievalRouter',
+            "public const SCHEMA_VERSION = 'atlas.context.retrieval_plan.v1'",
+            "'vector_retrieval'",
+            "'graph_retrieval'",
+            "'evidence_replay'",
+            "'code_intelligence'",
+            "'memory_signals'",
+            "'do_not_create_parallel_memory' => true",
+        ] as $token) {
+            if (! str_contains($router, $token)) {
+                $violations[] = "app/Services/Ai/Context/ContextRetrievalRouter.php: AP-101 retrieval router contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            'private ContextRetrievalRouter $retrievalRouter',
+            '$retrievalPlan = $this->retrievalRouter->plan($input, $task, $payload, $options)',
+            '\'retrieval\' => $retrievalPlan',
+        ] as $token) {
+            if (! str_contains($builder, $token)) {
+                $violations[] = "app/Services/Ai/AiContextPackBuilder.php: Context Builder must attach AP-101 retrieval plan [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Retrieval Router Plan',
+            'selected_sources',
+        ] as $token) {
+            if (! str_contains($pack, $token)) {
+                $violations[] = "app/Services/Ai/ValueObjects/AiContextPack.php: prompt context must expose AP-101 retrieval plan [{$token}]";
+            }
+        }
+
+        foreach ([
+            'ContextRetrievalRouterTest',
+            'test_builds_provider_safe_retrieval_plan_for_programming_context',
+            'test_marks_evidence_required_for_high_risk_and_graph_for_architecture_questions',
+            'atlas.context.retrieval_plan.v1',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/Context/ContextRetrievalRouterTest.php: AP-101 retrieval router must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-101',
+            'Retrieval Router',
+            'atlas.context.retrieval_plan.v1',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-101 retrieval router contract must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanContextPackManifestReflectionContract(): array
+    {
+        $violations = [];
+        $contextPackPath = app_path('Services/Ai/ValueObjects/AiContextPack.php');
+        $gatePath = app_path('Services/Ai/Context/ContextPackSelfReflectionGate.php');
+        $testPath = base_path('tests/Unit/Ai/Context/ContextPackSelfReflectionGateTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+
+        $contextPack = File::exists($contextPackPath) ? File::get($contextPackPath) : '';
+        $gate = File::exists($gatePath) ? File::get($gatePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'private function withManifest(array $data, array $contextRefs): array',
+            "'schema_version' => 'atlas.context_pack.manifest.v1'",
+            "'created_at' => \$createdAt->toJSON()",
+            "'expires_at' => \$createdAt->copy()->addSeconds(\$ttlSeconds)->toJSON()",
+            "'sources' => \$sources",
+            "'context_ref_hash' => hash('sha256'",
+        ] as $token) {
+            if (! str_contains($contextPack, $token)) {
+                $violations[] = "app/Services/Ai/ValueObjects/AiContextPack.php: Context Pack must carry AP-100 manifest with sources, created_at and expires_at [{$token}]";
+            }
+        }
+
+        foreach ([
+            'class ContextPackSelfReflectionGate',
+            "public const STATUS_SUFFICIENT = 'sufficient'",
+            "public const STATUS_INSUFFICIENT = 'insufficient'",
+            "public const STATUS_CONTRADICTORY = 'contradictory'",
+            "public const STATUS_RISKY = 'risky'",
+            'public function assess(AiContextPack|array $contextPack): array',
+            "'schema_version' => 'atlas.context_pack.self_reflection.v1'",
+            'refresh_or_request_context',
+            'surface_conflict_before_execution',
+            'require_review_before_execution',
+        ] as $token) {
+            if (! str_contains($gate, $token)) {
+                $violations[] = "app/Services/Ai/Context/ContextPackSelfReflectionGate.php: Self-Reflection Gate must classify sufficient/insufficient/contradictory/risky context [{$token}]";
+            }
+        }
+
+        foreach ([
+            'ContextPackSelfReflectionGateTest',
+            'test_context_pack_manifest_has_sources_created_at_and_expires_at',
+            'test_self_reflection_gate_classifies_sufficient_insufficient_contradictory_and_risky_context',
+            'atlas.context_pack.manifest.v1',
+            'atlas.context_pack.self_reflection.v1',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/Context/ContextPackSelfReflectionGateTest.php: AP-100 manifest and reflection gate must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-100',
+            'Context Pack Manifest',
+            'Self-Reflection Gate',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-100 context manifest/reflection contract must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanProviderUsagePerformanceContract(): array
+    {
+        $violations = [];
+        $payloadPath = app_path('Services/Ai/Kernel/Evidence/ProviderUsagePayload.php');
+        $projectionPath = app_path('Services/Ai/Kernel/Evidence/ProviderPerformanceProjection.php');
+        $workerPath = app_path('Services/Ai/AiWorker.php');
+        $strategyPath = app_path('Services/Ai/Cli/AtlasCliProviderStrategyService.php');
+        $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $commandPath = app_path('Console/Commands/AtlasAiProviderPerformanceCommand.php');
+        $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
+        $apiPath = app_path('Http/Controllers/AtlasAiProviderPerformanceController.php');
+        $observabilityPath = app_path('Http/Controllers/AiObservabilityController.php');
+        $routesPath = base_path('routes/api.php');
+        $bootstrapPath = base_path('bootstrap/app.php');
+        $projectionTestPath = base_path('tests/Unit/Ai/ProviderPerformanceProjectionTest.php');
+        $workerTestPath = base_path('tests/Feature/Ai/AiWorkerProviderChoiceTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiProviderPerformanceCommandTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiProviderPerformanceApiTest.php');
+        $observabilityTestPath = base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php');
+
+        $payload = File::exists($payloadPath) ? File::get($payloadPath) : '';
+        $projection = File::exists($projectionPath) ? File::get($projectionPath) : '';
+        $worker = File::exists($workerPath) ? File::get($workerPath) : '';
+        $strategy = File::exists($strategyPath) ? File::get($strategyPath) : '';
+        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $api = File::exists($apiPath) ? File::get($apiPath) : '';
+        $observability = File::exists($observabilityPath) ? File::get($observabilityPath) : '';
+        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
+        $bootstrap = File::exists($bootstrapPath) ? File::get($bootstrapPath) : '';
+        $projectionTest = File::exists($projectionTestPath) ? File::get($projectionTestPath) : '';
+        $workerTest = File::exists($workerTestPath) ? File::get($workerTestPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
+
+        foreach ([
+            'class ProviderUsagePayload',
+            "public const SCHEMA_VERSION = 'atlas.provider_usage.v1'",
+            'public function called(AiJob $job, AiJobAttempt $attempt',
+            'public function returned(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result',
+            'public function fallback(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result',
+            "'provider_cli'",
+            "'domain'",
+            "'flow'",
+            "'task_type'",
+            "'risk'",
+            "'router_decision_id'",
+            "'selection_mode'",
+        ] as $token) {
+            if (! str_contains($payload, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/ProviderUsagePayload.php: provider usage payload must keep AP-99 normalized field [{$token}]";
+            }
+        }
+
+        foreach ([
+            'class ProviderPerformanceProjection',
+            'public function reportForWindow(CarbonInterface $since',
+            'LedgerEventType::ProviderReturned',
+            'LedgerEventType::ProviderFallback',
+            "'provider_cli'",
+            "'domain'",
+            "'task_type'",
+            "'success_rate'",
+            "'average_latency_seconds'",
+            "'groups'",
+        ] as $token) {
+            if (! str_contains($projection, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/ProviderPerformanceProjection.php: provider performance projection must aggregate AP-99 ledger events [{$token}]";
+            }
+        }
+
+        foreach ([
+            'ProviderUsagePayload $providerUsage',
+            'LedgerEventType::ProviderCalled',
+            'LedgerEventType::ProviderReturned',
+            'LedgerEventType::ProviderFallback',
+            '$this->providerUsage->called(',
+            '$this->providerUsage->returned(',
+            '$this->providerUsage->fallback(',
+        ] as $token) {
+            if (! str_contains($worker, $token)) {
+                $violations[] = "app/Services/Ai/AiWorker.php: worker must emit normalized provider usage events for AP-99 [{$token}]";
+            }
+        }
+
+        foreach ([
+            'ProviderPerformanceProjection $performance',
+            "'empirical_performance'",
+            '$this->performance->reportForWindow(',
+        ] as $token) {
+            if (! str_contains($strategy, $token)) {
+                $violations[] = "app/Services/Ai/Cli/AtlasCliProviderStrategyService.php: Strategy Matrix must expose AP-99 empirical performance projection [{$token}]";
+            }
+        }
+
+        foreach ([
+            'ProviderPerformanceProjection $providerPerformance',
+            'providerPerformanceFindings(',
+            'self-improvement:provider-performance:',
+            'atlas.provider_usage.v1',
+        ] as $token) {
+            if (! str_contains($selfImprovement, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: provider_performance_review must consume AP-99 projection [{$token}]";
+            }
+        }
+
+        foreach ([
+            "protected \$signature = 'atlas:ai:provider-performance",
+            'ProviderPerformanceProjection $performance',
+            '$performance->reportForWindow(',
+            "'provider_performance'",
+            '{--provider=',
+            "data_get(\$report, 'review_signal.status'",
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiProviderPerformanceCommand.php: AP-99 must expose provider performance through CLI read model [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasAiProviderPerformanceCommand::class',
+        ] as $token) {
+            if (! str_contains($bootstrap, $token)) {
+                $violations[] = "bootstrap/app.php: AP-99 provider performance CLI command must be registered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'ProviderPerformanceProjection $providerPerformance',
+            "'name' => 'atlas_provider_performance_report'",
+            "'atlas_provider_performance_report' => \$this->toolResponse(\$id, \$this->providerPerformanceReport(\$arguments))",
+            'providerPerformanceReport(array $arguments)',
+            '$this->providerPerformance->reportForWindow(',
+        ] as $token) {
+            if (! str_contains($mcp, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-99 provider performance must be available as a read-only MCP report [{$token}]";
+            }
+        }
+
+        foreach ([
+            'class AtlasAiProviderPerformanceController',
+            'ProviderPerformanceProjection $performance',
+            'KernelReplayReportInput $input',
+            '$performance->reportForWindow(',
+            "'provider_performance'",
+            "'ledger_unavailable'",
+        ] as $token) {
+            if (! str_contains($api, $token)) {
+                $violations[] = "app/Http/Controllers/AtlasAiProviderPerformanceController.php: AP-99 provider performance API must expose the shared read model [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasAiProviderPerformanceController::class',
+            "'/ai/provider-performance'",
+        ] as $token) {
+            if (! str_contains($routes, $token)) {
+                $violations[] = "routes/api.php: AP-99 provider performance API route must be registered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'ProviderPerformanceProjection $providerPerformance',
+            '$providerPerformance->reportForWindow($since)',
+            "'provider_performance' => \$providerPerformanceReport",
+        ] as $token) {
+            if (! str_contains($observability, $token)) {
+                $violations[] = "app/Http/Controllers/AiObservabilityController.php: AP-99 provider performance must appear in Observability through the shared projection [{$token}]";
+            }
+        }
+
+        foreach ([
+            'ProviderPerformanceProjectionTest',
+            'provider_performance_projection_groups',
+            'ProviderUsagePayload::SCHEMA_VERSION',
+        ] as $token) {
+            if (! str_contains($projectionTest, $token)) {
+                $violations[] = "tests/Unit/Ai/ProviderPerformanceProjectionTest.php: AP-99 projection contract must have focused tests [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.provider_usage.v1',
+            "'router_fallback_provider'",
+            "'selection_mode'",
+        ] as $token) {
+            if (! str_contains($workerTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AiWorkerProviderChoiceTest.php: AP-99 worker hot path must assert normalized provider usage payload [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasAiProviderPerformanceCommandTest',
+            'atlas:ai:provider-performance',
+            'provider_performance.event_count',
+            'Review signal',
+            'ledger_unavailable',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiProviderPerformanceCommandTest.php: AP-99 provider performance CLI must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas_provider_performance_report',
+            'test_provider_performance_report_summarizes_normalized_provider_usage',
+            'provider_performance.success_rate',
+            "'provider_cli' => 'codex_cli'",
+        ] as $token) {
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-99 provider performance MCP report must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasAiProviderPerformanceApiTest',
+            '/ai/provider-performance?hours=24&provider=codex_cli&domain=programming',
+            'provider_performance.review_signal.status',
+            'wait_for_provider_usage_evidence',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiProviderPerformanceApiTest.php: AP-99 provider performance API must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_observability_payload_includes_provider_performance_summary',
+            'ProviderUsagePayload::SCHEMA_VERSION',
+            'provider_performance.provider_counts.codex_cli',
+            'provider_performance.review_signal.status',
+        ] as $token) {
+            if (! str_contains($observabilityTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-99 provider performance Observability payload must be covered [{$token}]";
+            }
+        }
+
+        return $violations;
     }
 
     /**
@@ -877,7 +3763,7 @@ class KernelArchitectureStaticScanner
             "'title' => 'Atlas Architecture Validate'",
             "'atlas_architecture_validate' => \$this->toolResponse(\$id, \$this->architectureValidate(\$arguments))",
             'private function architectureValidate(array $arguments): array',
-            "\$payload = \$this->architectureValidation->payload();",
+            '$payload = $this->architectureValidation->payload();',
             "'writes' => false",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
@@ -930,7 +3816,7 @@ class KernelArchitectureStaticScanner
             'private readonly AtlasAiArchitectureValidationService $architectureValidation',
             '...$this->architectureValidationFindings($filters)',
             'private function architectureValidationFindings(array $filters = []): array',
-            "\$payload = \$this->architectureValidation->payload();",
+            '$payload = $this->architectureValidation->payload();',
             "'type' => 'architecture_validation_ap'",
             "'dedupe_key' => 'self-improvement:architecture-validation:'",
         ] as $token) {
@@ -985,7 +3871,7 @@ class KernelArchitectureStaticScanner
         $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
         $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
 
-        if (! str_contains($config, "nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review")) {
+        if (! str_contains($config, 'nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review')) {
             $violations[] = 'config/atlas_ai.php: ATLAS_AI_SELF_IMPROVEMENT_FLOWS default must include weekly_architecture_audit between nightly and repair reviews';
         }
 
@@ -1112,7 +3998,7 @@ class KernelArchitectureStaticScanner
             "'next_run_at' => \$this->nextRunAtForCommand(",
             "'next_run_at' => \$command['next_run_at']",
             'private function nextRunAtForCommand(string $time, string $timezone, string $cadence, ?int $weekDay): ?string',
-            "while ((int) \$next->dayOfWeek !== \$targetWeekDay || \$next->lessThanOrEqualTo(\$now))",
+            'while ((int) $next->dayOfWeek !== $targetWeekDay || $next->lessThanOrEqualTo($now))',
             'private function hashableCommands(array $commands): array',
             "unset(\$command['next_run_at']);",
         ] as $token) {
@@ -2708,11 +5594,13 @@ class KernelArchitectureStaticScanner
      */
     private function scanSelfImprovementRuntimeWindowContract(): array
     {
+        $inputPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementInput.php');
         $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
         $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
+        $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = File::exists($docsPath) ? File::get($docsPath) : '';
@@ -2722,11 +5610,26 @@ class KernelArchitectureStaticScanner
             'public const MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS = 168',
             'public const MAX_FINDINGS_PER_RUN = 20',
             'int $hours = self::DEFAULT_REVIEW_WINDOW_HOURS',
-            'min(self::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS, $hours)',
-            'min(self::MAX_FINDINGS_PER_RUN, $limit)',
+            'private readonly AtlasSelfImprovementInput $input',
+            '$this->input->reviewWindowHours($hours)',
+            '$this->input->findingsLimit($limit)',
         ] as $token) {
             if (! str_contains($runtime, $token)) {
                 $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: Self-Improvement autonomous runtime limits must be explicit [{$token}]";
+            }
+        }
+
+        foreach ([
+            'final class AtlasSelfImprovementInput',
+            'public const DEFAULT_FINDINGS_LIMIT = 5',
+            'public function reviewWindowHours(',
+            'public function findingsLimit(',
+            'public function runtimeOptions(',
+            'AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS',
+            'AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN',
+        ] as $token) {
+            if (! str_contains($input, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementInput.php: Self-Improvement input contract is incomplete [{$token}]";
             }
         }
 
@@ -2736,8 +5639,10 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             'test_nightly_review_uses_explicit_autonomous_window_and_limit_contract',
+            'test_command_plan_only_uses_shared_self_improvement_input_contract',
             'AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS',
             'AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN',
+            'AtlasSelfImprovementInput::DEFAULT_FINDINGS_LIMIT',
         ] as $token) {
             if (! str_contains($test, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: Self-Improvement runtime window contract must be covered [{$token}]";
@@ -2771,9 +5676,10 @@ class KernelArchitectureStaticScanner
         $docs = File::exists($docsPath) ? File::get($docsPath) : '';
 
         foreach ([
-            'AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS',
             'AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS',
-            'AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN',
+            'private readonly AtlasSelfImprovementInput $input',
+            '$this->input->reviewWindowHours(',
+            '$this->input->findingsLimit(',
         ] as $token) {
             if (! str_contains($schedule, $token)) {
                 $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementScheduleService.php: schedule must reuse Self-Improvement runtime limits [{$token}]";
@@ -2820,9 +5726,10 @@ class KernelArchitectureStaticScanner
         $docs = File::exists($docsPath) ? File::get($docsPath) : '';
 
         foreach ([
-            'AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS',
             'AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS',
-            'AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN',
+            'private readonly AtlasSelfImprovementInput $input',
+            '$this->input->runtimeOptions(',
+            'AtlasSelfImprovementInput::DEFAULT_FINDINGS_LIMIT',
         ] as $token) {
             if (! str_contains($orchestrator, $token)) {
                 $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementOrchestrator.php: orchestrator must reuse Self-Improvement runtime limits [{$token}]";
@@ -3265,6 +6172,12 @@ class KernelArchitectureStaticScanner
         $maintenancePath = app_path('Services/Ai/AtlasMemoryMaintenanceService.php');
         $reviewQueuePath = app_path('Services/Ai/AtlasMemoryReviewQueueService.php');
         $qualityPath = app_path('Services/Ai/AtlasMemoryQualityService.php');
+        $listCommandPath = app_path('Console/Commands/AtlasMemoryListCommand.php');
+        $verbatimCommandPath = app_path('Console/Commands/AtlasMemoryVerbatimCommand.php');
+        $relationsCommandPath = app_path('Console/Commands/AtlasMemoryRelationsCommand.php');
+        $reviewQueueCommandPath = app_path('Console/Commands/AtlasMemoryReviewQueueCommand.php');
+        $governanceCommandPath = app_path('Console/Commands/AtlasMemoryGovernanceCommand.php');
+        $privacyCommandPath = app_path('Console/Commands/AtlasMemoryPrivacyCommand.php');
         $testPath = base_path('tests/Unit/Ai/Memory/MemoryQueryInputTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
@@ -3279,6 +6192,12 @@ class KernelArchitectureStaticScanner
         $maintenance = File::exists($maintenancePath) ? File::get($maintenancePath) : '';
         $reviewQueue = File::exists($reviewQueuePath) ? File::get($reviewQueuePath) : '';
         $quality = File::exists($qualityPath) ? File::get($qualityPath) : '';
+        $listCommand = File::exists($listCommandPath) ? File::get($listCommandPath) : '';
+        $verbatimCommand = File::exists($verbatimCommandPath) ? File::get($verbatimCommandPath) : '';
+        $relationsCommand = File::exists($relationsCommandPath) ? File::get($relationsCommandPath) : '';
+        $reviewQueueCommand = File::exists($reviewQueueCommandPath) ? File::get($reviewQueueCommandPath) : '';
+        $governanceCommand = File::exists($governanceCommandPath) ? File::get($governanceCommandPath) : '';
+        $privacyCommand = File::exists($privacyCommandPath) ? File::get($privacyCommandPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = File::exists($docsPath) ? File::get($docsPath) : '';
 
@@ -3391,6 +6310,64 @@ class KernelArchitectureStaticScanner
         ] as $token) {
             if (! str_contains($quality, $token)) {
                 $violations[] = "app/Services/Ai/AtlasMemoryQualityService.php: memory quality must use shared query input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'MemoryQueryInput $input',
+            '$input->registryLimit($this->option(\'limit\'))',
+        ] as $token) {
+            if (! str_contains($listCommand, $token)) {
+                $violations[] = "app/Console/Commands/AtlasMemoryListCommand.php: memory list command must use shared query input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'MemoryQueryInput $input',
+            '$this->memoryInput()->verbatimLimit($this->option(\'limit\'))',
+            'private function memoryInput(): MemoryQueryInput',
+        ] as $token) {
+            if (! str_contains($verbatimCommand, $token)) {
+                $violations[] = "app/Console/Commands/AtlasMemoryVerbatimCommand.php: verbatim command must use shared query input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'MemoryQueryInput $input',
+            '$this->memoryInput()->relationLimit($this->option(\'limit\'))',
+            'private function memoryInput(): MemoryQueryInput',
+        ] as $token) {
+            if (! str_contains($relationsCommand, $token)) {
+                $violations[] = "app/Console/Commands/AtlasMemoryRelationsCommand.php: memory relations command must use shared query input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'MemoryQueryInput $input',
+            '$input->reviewQueueLimit($this->option(\'limit\'))',
+        ] as $token) {
+            if (! str_contains($reviewQueueCommand, $token)) {
+                $violations[] = "app/Console/Commands/AtlasMemoryReviewQueueCommand.php: memory review queue command must use shared query input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'MemoryQueryInput $input',
+            '$this->memoryInput()->governanceScanLimit($this->option(\'limit\'))',
+            'private function memoryInput(): MemoryQueryInput',
+        ] as $token) {
+            if (! str_contains($governanceCommand, $token)) {
+                $violations[] = "app/Console/Commands/AtlasMemoryGovernanceCommand.php: memory governance command must use shared query input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'MemoryQueryInput $input',
+            '$this->memoryInput()->governanceScanLimit($this->option(\'limit\'))',
+            'private function memoryInput(): MemoryQueryInput',
+        ] as $token) {
+            if (! str_contains($privacyCommand, $token)) {
+                $violations[] = "app/Console/Commands/AtlasMemoryPrivacyCommand.php: memory privacy command must use shared query input contract [{$token}]";
             }
         }
 
@@ -4045,7 +7022,7 @@ class KernelArchitectureStaticScanner
             }
         }
 
-        if (! str_contains($resolverTest, "memory_limit=1024M")) {
+        if (! str_contains($resolverTest, 'memory_limit=1024M')) {
             $violations[] = 'tests/Unit/AtlasTestCommandResolverTest.php: resolver must preserve canonical test memory default in generated command';
         }
 
@@ -4055,6 +7032,820 @@ class KernelArchitectureStaticScanner
         ] as $token) {
             if (! str_contains($docs, $token)) {
                 $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe test command input contract [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanEngineeringHarnessRunnerInputContract(): array
+    {
+        $inputPath = app_path('Services/Engineering/EngineeringHarnessRunnerInput.php');
+        $runnerPath = app_path('Services/Engineering/EngineeringHarnessRunnerService.php');
+        $testPath = base_path('tests/Unit/EngineeringHarnessRunnerInputTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $violations = [];
+
+        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $runner = File::exists($runnerPath) ? File::get($runnerPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'final class EngineeringHarnessRunnerInput',
+            'public const DEFAULT_MAX_ATTEMPTS = 1',
+            'public const MAX_MAX_ATTEMPTS = 10',
+            'public function maxAttempts(',
+        ] as $token) {
+            if (! str_contains($input, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringHarnessRunnerInput.php: engineering harness runner input contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            '?EngineeringHarnessRunnerInput $input = null',
+            '$this->runnerInput()->maxAttempts($options[\'max_attempts\'] ?? null)',
+            '$this->runnerInput()->maxAttempts($maxAttempts)',
+            '$this->runnerInput()->maxAttempts($requested[\'max_attempts\'] ?? null)',
+            'private function runnerInput(): EngineeringHarnessRunnerInput',
+        ] as $token) {
+            if (! str_contains($runner, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringHarnessRunnerService.php: engineering harness runner must use shared input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_normalizes_engineering_harness_runner_attempt_limits',
+            'EngineeringHarnessRunnerInput::DEFAULT_MAX_ATTEMPTS',
+            'EngineeringHarnessRunnerInput::MAX_MAX_ATTEMPTS',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/EngineeringHarnessRunnerInputTest.php: engineering harness runner input contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'engineering harness runner input contract',
+            'AP-89',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe engineering harness runner input contract [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanEngineeringHarnessabilityInputContract(): array
+    {
+        $inputPath = app_path('Services/Engineering/EngineeringHarnessabilityInput.php');
+        $servicePath = app_path('Services/Engineering/EngineeringHarnessabilityService.php');
+        $testPath = base_path('tests/Unit/EngineeringHarnessabilityInputTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $violations = [];
+
+        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'final class EngineeringHarnessabilityInput',
+            'public const DEFAULT_CALIBRATION_LIMIT = 300',
+            'public const MAX_CALIBRATION_LIMIT = 1000',
+            'public function calibrationLimit(',
+        ] as $token) {
+            if (! str_contains($input, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringHarnessabilityInput.php: engineering harnessability input contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            '?EngineeringHarnessabilityInput $input = null',
+            '$this->harnessabilityInput()->calibrationLimit($options[\'limit\'] ?? null)',
+            'private function harnessabilityInput(): EngineeringHarnessabilityInput',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringHarnessabilityService.php: engineering harnessability must use shared input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_normalizes_engineering_harnessability_calibration_limit',
+            'EngineeringHarnessabilityInput::DEFAULT_CALIBRATION_LIMIT',
+            'EngineeringHarnessabilityInput::MAX_CALIBRATION_LIMIT',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/EngineeringHarnessabilityInputTest.php: engineering harnessability input contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'engineering harnessability input contract',
+            'AP-90',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe engineering harnessability input contract [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanEngineeringDockerHarnessInputContract(): array
+    {
+        $inputPath = app_path('Services/Engineering/EngineeringDockerHarnessInput.php');
+        $servicePath = app_path('Services/Engineering/EngineeringDockerHarnessService.php');
+        $testPath = base_path('tests/Unit/EngineeringDockerHarnessInputTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $violations = [];
+
+        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'final class EngineeringDockerHarnessInput',
+            'public const DEFAULT_HEALTHCHECK_TIMEOUT_SECONDS = 45',
+            'public const MAX_HEALTHCHECK_TIMEOUT_SECONDS = 600',
+            'public const DEFAULT_ARTIFACT_MAX_FILES = 100',
+            'public const MAX_ARTIFACT_MAX_FILES = 1000',
+            'public const DEFAULT_ARTIFACT_MAX_BYTES = 10_485_760',
+            'public const MAX_ARTIFACT_MAX_BYTES = 524_288_000',
+            'public const DEFAULT_CACHE_RETENTION_DAYS = 14',
+            'public const MAX_CACHE_RETENTION_DAYS = 365',
+            'public const DEFAULT_ARTIFACT_RETENTION_DAYS = 30',
+            'public const MAX_ARTIFACT_RETENTION_DAYS = 365',
+            'public function healthcheckTimeoutSeconds(',
+            'public function artifactMaxFiles(',
+            'public function artifactMaxBytes(',
+            'public function cacheRetentionDays(',
+            'public function artifactRetentionDays(',
+        ] as $token) {
+            if (! str_contains($input, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringDockerHarnessInput.php: engineering docker harness input contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            '?EngineeringDockerHarnessInput $input = null',
+            '$this->dockerInput()->healthcheckTimeoutSeconds($options[\'docker_healthcheck_timeout\'] ?? null)',
+            '$this->dockerInput()->artifactMaxFiles($options[\'docker_artifact_max_files\'] ?? null)',
+            '$this->dockerInput()->artifactMaxBytes($options[\'docker_artifact_max_bytes\'] ?? null)',
+            '$this->dockerInput()->cacheRetentionDays($options[\'cache_retention_days\'] ?? null)',
+            '$this->dockerInput()->artifactRetentionDays($options[\'artifact_retention_days\'] ?? null)',
+            'private function dockerInput(): EngineeringDockerHarnessInput',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringDockerHarnessService.php: engineering docker harness must use shared input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_normalizes_engineering_docker_harness_limits',
+            'EngineeringDockerHarnessInput::MAX_HEALTHCHECK_TIMEOUT_SECONDS',
+            'EngineeringDockerHarnessInput::MAX_ARTIFACT_MAX_FILES',
+            'EngineeringDockerHarnessInput::MAX_ARTIFACT_MAX_BYTES',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/EngineeringDockerHarnessInputTest.php: engineering docker harness input contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'engineering docker harness input contract',
+            'AP-91',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe engineering docker harness input contract [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanEngineeringTestMatrixInputContract(): array
+    {
+        $inputPath = app_path('Services/Engineering/EngineeringTestMatrixInput.php');
+        $servicePath = app_path('Services/Engineering/EngineeringTestMatrixService.php');
+        $testPath = base_path('tests/Unit/EngineeringTestMatrixInputTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $violations = [];
+
+        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'final class EngineeringTestMatrixInput',
+            'public const DEFAULT_QUALITY_SCAN_TIMEOUT_SECONDS = 300',
+            'public const MAX_QUALITY_SCAN_TIMEOUT_SECONDS = 3600',
+            'public const DEFAULT_VISUAL_SMOKE_TIMEOUT_SECONDS = 45',
+            'public const MAX_VISUAL_SMOKE_TIMEOUT_SECONDS = 1800',
+            'public const DEFAULT_VISUAL_ARTIFACT_MAX_FILES = 200',
+            'public const MAX_VISUAL_ARTIFACT_MAX_FILES = 2000',
+            'public const DEFAULT_VISUAL_ARTIFACT_MAX_BYTES = 52_428_800',
+            'public const MAX_VISUAL_ARTIFACT_MAX_BYTES = 1_073_741_824',
+            'public const DEFAULT_QUALITY_ARTIFACT_MAX_FILES = 100',
+            'public const MAX_QUALITY_ARTIFACT_MAX_FILES = 1000',
+            'public const DEFAULT_QUALITY_ARTIFACT_MAX_BYTES = 10_485_760',
+            'public const MAX_QUALITY_ARTIFACT_MAX_BYTES = 524_288_000',
+            'public function qualityScanTimeoutSeconds(',
+            'public function visualSmokeTimeoutSeconds(',
+            'public function visualArtifactMaxFiles(',
+            'public function visualArtifactMaxBytes(',
+            'public function qualityArtifactMaxFiles(',
+            'public function qualityArtifactMaxBytes(',
+        ] as $token) {
+            if (! str_contains($input, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringTestMatrixInput.php: engineering test matrix input contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            '?EngineeringTestMatrixInput $input = null',
+            '$this->matrixInput()->qualityScanTimeoutSeconds()',
+            '$this->matrixInput()->visualSmokeTimeoutSeconds()',
+            '$this->matrixInput()->visualArtifactMaxFiles()',
+            '$this->matrixInput()->visualArtifactMaxBytes()',
+            '$this->matrixInput()->qualityArtifactMaxFiles()',
+            '$this->matrixInput()->qualityArtifactMaxBytes()',
+            'private function matrixInput(): EngineeringTestMatrixInput',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringTestMatrixService.php: engineering test matrix must use shared input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_normalizes_engineering_test_matrix_limits',
+            'EngineeringTestMatrixInput::MAX_QUALITY_SCAN_TIMEOUT_SECONDS',
+            'EngineeringTestMatrixInput::MAX_VISUAL_ARTIFACT_MAX_FILES',
+            'EngineeringTestMatrixInput::MAX_QUALITY_ARTIFACT_MAX_BYTES',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/EngineeringTestMatrixInputTest.php: engineering test matrix input contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'engineering test matrix input contract',
+            'AP-92',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe engineering test matrix input contract [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanEngineeringClaudeCodeBaselineInputContract(): array
+    {
+        $inputPath = app_path('Services/Engineering/EngineeringClaudeCodeBaselineInput.php');
+        $servicePath = app_path('Services/Engineering/EngineeringClaudeCodeBaselineRunnerService.php');
+        $testPath = base_path('tests/Unit/EngineeringClaudeCodeBaselineInputTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $violations = [];
+
+        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'final class EngineeringClaudeCodeBaselineInput',
+            'public const DEFAULT_TIMEOUT_SECONDS = 900',
+            'public const MAX_TIMEOUT_SECONDS = 3600',
+            'public const DEFAULT_VALIDATION_TIMEOUT_SECONDS = 300',
+            'public const MAX_VALIDATION_TIMEOUT_SECONDS = 1800',
+            'public function runTimeoutSeconds(',
+            'public function validationTimeoutSeconds(',
+        ] as $token) {
+            if (! str_contains($input, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringClaudeCodeBaselineInput.php: engineering Claude Code baseline input contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            '?EngineeringClaudeCodeBaselineInput $input = null',
+            '$this->baselineInput()->runTimeoutSeconds($runnerOptions)',
+            '$this->baselineInput()->validationTimeoutSeconds($runnerOptions)',
+            'private function baselineInput(): EngineeringClaudeCodeBaselineInput',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringClaudeCodeBaselineRunnerService.php: Claude Code baseline runner must use shared input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_normalizes_claude_code_baseline_timeouts',
+            'EngineeringClaudeCodeBaselineInput::MAX_TIMEOUT_SECONDS',
+            'EngineeringClaudeCodeBaselineInput::MAX_VALIDATION_TIMEOUT_SECONDS',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/EngineeringClaudeCodeBaselineInputTest.php: Claude Code baseline input contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'engineering Claude Code baseline input contract',
+            'AP-93',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe engineering Claude Code baseline input contract [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanEngineeringBenchmarkInputContract(): array
+    {
+        $inputPath = app_path('Services/Engineering/EngineeringBenchmarkInput.php');
+        $servicePath = app_path('Services/Engineering/EngineeringBenchmarkService.php');
+        $testPath = base_path('tests/Unit/EngineeringBenchmarkInputTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $violations = [];
+
+        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'final class EngineeringBenchmarkInput',
+            'public const DEFAULT_PROMOTE_RECENT_RUNS_LIMIT = 10',
+            'public const MAX_PROMOTE_RECENT_RUNS_LIMIT = 100',
+            'public const DEFAULT_TREND_LIMIT = 50',
+            'public const MAX_TREND_LIMIT = 200',
+            'public const DEFAULT_FAIR_CLAUDE_REPORT_LIMIT = 20',
+            'public const MAX_FAIR_CLAUDE_REPORT_LIMIT = 200',
+            'public const DEFAULT_CALIBRATE_SUITE_LIMIT = 200',
+            'public const MAX_CALIBRATE_SUITE_LIMIT = 500',
+            'public const MAX_FAIR_CLAUDE_COMPARISONS = 200',
+            'public function promoteRecentRunsLimit(',
+            'public function trendLimit(',
+            'public function fairClaudeReportLimit(',
+            'public function calibrateSuiteLimit(',
+            'public function fairClaudeComparisonTakeLimit(',
+            'public function fairClaudeScanLimit(',
+            'public function fairClaudeBatchSize(',
+            'public function minSourceScore(',
+        ] as $token) {
+            if (! str_contains($input, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringBenchmarkInput.php: engineering benchmark input contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            '?EngineeringBenchmarkInput $input = null',
+            '$this->benchmarkInput()->promoteRecentRunsLimit($options[\'limit\'] ?? null)',
+            '$this->benchmarkInput()->minSourceScore($options[\'min_source_score\'] ?? null)',
+            '$this->benchmarkInput()->trendLimit($options[\'limit\'] ?? null)',
+            '$this->benchmarkInput()->fairClaudeReportLimit($options[\'limit\'] ?? null)',
+            '$this->benchmarkInput()->fairClaudeScanLimit($limit)',
+            '$this->benchmarkInput()->fairClaudeBatchSize($scanLimit)',
+            '$this->benchmarkInput()->calibrateSuiteLimit($options[\'limit\'] ?? null)',
+            '$this->benchmarkInput()->fairClaudeComparisonTakeLimit($limit)',
+            'private function benchmarkInput(): EngineeringBenchmarkInput',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringBenchmarkService.php: engineering benchmark must use shared input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_normalizes_engineering_benchmark_limits',
+            'EngineeringBenchmarkInput::MAX_PROMOTE_RECENT_RUNS_LIMIT',
+            'EngineeringBenchmarkInput::MAX_FAIR_CLAUDE_REPORT_LIMIT',
+            'EngineeringBenchmarkInput::MAX_FAIR_CLAUDE_COMPARISONS',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/EngineeringBenchmarkInputTest.php: engineering benchmark input contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'engineering benchmark input contract',
+            'AP-94',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe engineering benchmark input contract [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanEngineeringContextIntelligenceInputContract(): array
+    {
+        $inputPath = app_path('Services/Engineering/EngineeringContextIntelligenceInput.php');
+        $knowledgePath = app_path('Services/Engineering/EngineeringKnowledgeBaseService.php');
+        $codePath = app_path('Services/Engineering/EngineeringCodeIntelligenceService.php');
+        $artifactPath = app_path('Services/Engineering/EngineeringRunArtifactService.php');
+        $commandPath = app_path('Console/Commands/AtlasEngineeringKnowledgeCommand.php');
+        $testPath = base_path('tests/Unit/EngineeringContextIntelligenceInputTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $violations = [];
+
+        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $knowledge = File::exists($knowledgePath) ? File::get($knowledgePath) : '';
+        $code = File::exists($codePath) ? File::get($codePath) : '';
+        $artifact = File::exists($artifactPath) ? File::get($artifactPath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'final class EngineeringContextIntelligenceInput',
+            'public const DEFAULT_KNOWLEDGE_LIMIT = 50',
+            'public const MAX_KNOWLEDGE_LIMIT = 200',
+            'public const DEFAULT_CODE_LIMIT = 50',
+            'public const MAX_CODE_LIMIT = 500',
+            'public const DEFAULT_EVIDENCE_HISTORY_LIMIT = 100',
+            'public const MAX_EVIDENCE_HISTORY_LIMIT = 200',
+            'public function knowledgeLimit(',
+            'public function codeLimit(',
+            'public function evidenceHistoryLimit(',
+        ] as $token) {
+            if (! str_contains($input, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringContextIntelligenceInput.php: engineering context intelligence input contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            '?EngineeringContextIntelligenceInput $input = null',
+            '$this->contextInput()->knowledgeLimit($limit)',
+            'private function contextInput(): EngineeringContextIntelligenceInput',
+        ] as $token) {
+            if (! str_contains($knowledge, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringKnowledgeBaseService.php: knowledge base must use shared context intelligence input [{$token}]";
+            }
+        }
+
+        foreach ([
+            '?EngineeringContextIntelligenceInput $input = null',
+            '$this->contextInput()->codeLimit($options[\'limit\'] ?? null)',
+            '$this->contextInput()->codeLimit($limit)',
+            'private function contextInput(): EngineeringContextIntelligenceInput',
+        ] as $token) {
+            if (! str_contains($code, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringCodeIntelligenceService.php: code intelligence must use shared context intelligence input [{$token}]";
+            }
+        }
+
+        foreach ([
+            '?EngineeringContextIntelligenceInput $input = null',
+            '$this->contextInput()->evidenceHistoryLimit($limit)',
+            '$this->contextInput()->evidenceHistoryLimit(200)',
+            '$this->contextInput()->evidenceHistoryLimit()',
+            'private function contextInput(): EngineeringContextIntelligenceInput',
+        ] as $token) {
+            if (! str_contains($artifact, $token)) {
+                $violations[] = "app/Services/Engineering/EngineeringRunArtifactService.php: run artifacts must use shared context intelligence input [{$token}]";
+            }
+        }
+
+        foreach ([
+            'EngineeringContextIntelligenceInput $input',
+            '$this->contextInput()->knowledgeLimit($this->option(\'limit\'))',
+            '$this->contextInput()->codeLimit($this->option(\'limit\'))',
+            'private function contextInput(): EngineeringContextIntelligenceInput',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasEngineeringKnowledgeCommand.php: engineering knowledge command must use shared context intelligence input [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_normalizes_engineering_context_intelligence_limits',
+            'EngineeringContextIntelligenceInput::MAX_KNOWLEDGE_LIMIT',
+            'EngineeringContextIntelligenceInput::MAX_CODE_LIMIT',
+            'EngineeringContextIntelligenceInput::MAX_EVIDENCE_HISTORY_LIMIT',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/EngineeringContextIntelligenceInputTest.php: engineering context intelligence input contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'engineering context intelligence input contract',
+            'AP-95',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe engineering context intelligence input contract [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanCliLimitInputContract(): array
+    {
+        $inputPath = app_path('Console/Commands/Support/AtlasCliLimitInput.php');
+        $toolsPath = app_path('Console/Commands/AtlasToolsCommand.php');
+        $tracePath = app_path('Console/Commands/AtlasCliTraceCommand.php');
+        $inboxPath = app_path('Console/Commands/AtlasCliInboxCommand.php');
+        $benchmarkReportPath = app_path('Console/Commands/AtlasEngineeringBenchmarkReportCommand.php');
+        $benchmarkCalibratePath = app_path('Console/Commands/AtlasEngineeringBenchmarkCalibrateCommand.php');
+        $testPath = base_path('tests/Unit/Console/AtlasCliLimitInputTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $violations = [];
+
+        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $tools = File::exists($toolsPath) ? File::get($toolsPath) : '';
+        $trace = File::exists($tracePath) ? File::get($tracePath) : '';
+        $inbox = File::exists($inboxPath) ? File::get($inboxPath) : '';
+        $benchmarkReport = File::exists($benchmarkReportPath) ? File::get($benchmarkReportPath) : '';
+        $benchmarkCalibrate = File::exists($benchmarkCalibratePath) ? File::get($benchmarkCalibratePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'final class AtlasCliLimitInput',
+            'public const DEFAULT_LIST_LIMIT = 20',
+            'public const DEFAULT_INBOX_LIMIT = 50',
+            'public const DEFAULT_RELEASE_GATE_LIMIT = 100',
+            'public const MAX_STANDARD_LIMIT = 100',
+            'public const MAX_RELEASE_GATE_LIMIT = 200',
+            'public const MAX_BENCHMARK_CALIBRATION_LIMIT = 500',
+            'public function standardLimit(',
+            'public function releaseGateLimit(',
+            'public function benchmarkReportLimit(',
+            'public function benchmarkCalibrationLimit(',
+            'public function inboxLimit(',
+        ] as $token) {
+            if (! str_contains($input, $token)) {
+                $violations[] = "app/Console/Commands/Support/AtlasCliLimitInput.php: CLI limit input contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasCliLimitInput $limits',
+            '$this->cliLimits()->standardLimit($this->option(\'limit\'))',
+            '$this->cliLimits()->releaseGateLimit($this->option(\'limit\'))',
+            'private function cliLimits(): AtlasCliLimitInput',
+        ] as $token) {
+            if (! str_contains($tools, $token)) {
+                $violations[] = "app/Console/Commands/AtlasToolsCommand.php: tools command must use shared CLI limit input [{$token}]";
+            }
+        }
+
+        foreach ([
+            '?AtlasCliLimitInput $limits = null',
+            '$this->cliLimits()->standardLimit($this->option(\'limit\'))',
+            'private function cliLimits(): AtlasCliLimitInput',
+        ] as $token) {
+            if (! str_contains($trace, $token)) {
+                $violations[] = "app/Console/Commands/AtlasCliTraceCommand.php: trace command must use shared CLI limit input [{$token}]";
+            }
+        }
+
+        foreach ([
+            '?AtlasCliLimitInput $limits = null',
+            '$this->cliLimits()->inboxLimit($this->option(\'limit\'))',
+            'private function cliLimits(): AtlasCliLimitInput',
+        ] as $token) {
+            if (! str_contains($inbox, $token)) {
+                $violations[] = "app/Console/Commands/AtlasCliInboxCommand.php: inbox command must use shared CLI limit input [{$token}]";
+            }
+        }
+
+        if (! str_contains($benchmarkReport, '$limits->benchmarkReportLimit($this->option(\'limit\'))')) {
+            $violations[] = 'app/Console/Commands/AtlasEngineeringBenchmarkReportCommand.php: benchmark report must use shared CLI limit input';
+        }
+
+        if (! str_contains($benchmarkCalibrate, '$limits->benchmarkCalibrationLimit($this->option(\'limit\'))')) {
+            $violations[] = 'app/Console/Commands/AtlasEngineeringBenchmarkCalibrateCommand.php: benchmark calibrate must use shared CLI limit input';
+        }
+
+        foreach ([
+            'test_normalizes_shared_cli_limits',
+            'AtlasCliLimitInput::MAX_STANDARD_LIMIT',
+            'AtlasCliLimitInput::MAX_RELEASE_GATE_LIMIT',
+            'AtlasCliLimitInput::MAX_BENCHMARK_CALIBRATION_LIMIT',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Console/AtlasCliLimitInputTest.php: CLI limit input contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'CLI limit input contract',
+            'AP-96',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe CLI limit input contract [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanSchedulerInputContract(): array
+    {
+        $inputPath = app_path('Services/Ai/Scheduling/AtlasSchedulerInput.php');
+        $servicePath = app_path('Services/Ai/Scheduling/AtlasCliSchedulerService.php');
+        $commandPath = app_path('Console/Commands/AtlasSchedulerTickCommand.php');
+        $testPath = base_path('tests/Unit/Ai/Scheduling/AtlasSchedulerInputTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $violations = [];
+
+        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'final class AtlasSchedulerInput',
+            'public const DEFAULT_DUE_TASK_LIMIT = 25',
+            'public const MAX_DUE_TASK_LIMIT = 100',
+            'public function dueTaskLimit(',
+        ] as $token) {
+            if (! str_contains($input, $token)) {
+                $violations[] = "app/Services/Ai/Scheduling/AtlasSchedulerInput.php: scheduler input contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            'private readonly AtlasSchedulerInput $input',
+            '$this->input->dueTaskLimit($limit)',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/Scheduling/AtlasCliSchedulerService.php: scheduler service must use shared scheduler input [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasSchedulerInput $input',
+            '$limit = $input->dueTaskLimit($this->option(\'limit\'))',
+            'previewDueTasks(limit: $limit)',
+            'limit: $limit',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasSchedulerTickCommand.php: scheduler tick command must use shared scheduler input [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_normalizes_scheduler_due_task_limit',
+            'AtlasSchedulerInput::DEFAULT_DUE_TASK_LIMIT',
+            'AtlasSchedulerInput::MAX_DUE_TASK_LIMIT',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/Scheduling/AtlasSchedulerInputTest.php: scheduler input contract must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'scheduler input contract',
+            'AP-97',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe scheduler input contract [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanSelfImprovementInputContract(): array
+    {
+        $inputPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementInput.php');
+        $commandPath = app_path('Console/Commands/AtlasAiSelfImproveCommand.php');
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $orchestratorPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementOrchestrator.php');
+        $schedulePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementScheduleService.php');
+        $testPath = base_path('tests/Unit/Ai/AtlasSelfImprovementInputTest.php');
+        $runtimeTestPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $violations = [];
+
+        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $orchestrator = File::exists($orchestratorPath) ? File::get($orchestratorPath) : '';
+        $schedule = File::exists($schedulePath) ? File::get($schedulePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+
+        foreach ([
+            'final class AtlasSelfImprovementInput',
+            'public const DEFAULT_FINDINGS_LIMIT = 5',
+            'public function reviewWindowHours(',
+            'public function findingsLimit(',
+            'public function runtimeOptions(',
+            'AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS',
+            'AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS',
+            'AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN',
+        ] as $token) {
+            if (! str_contains($input, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementInput.php: self-improvement input contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasSelfImprovementInput $input',
+            '$input->runtimeOptions([',
+            "'hours' => \$this->option('hours')",
+            "'limit' => \$this->option('limit')",
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiSelfImproveCommand.php: command must use self-improvement input contract [{$token}]";
+            }
+        }
+
+        if (str_contains($command, "(int) \$this->option('hours')") || str_contains($command, "(int) \$this->option('limit')")) {
+            $violations[] = 'app/Console/Commands/AtlasAiSelfImproveCommand.php: command must not cast hours/limit outside AtlasSelfImprovementInput';
+        }
+
+        foreach ([
+            'private readonly AtlasSelfImprovementInput $input',
+            '$this->input->reviewWindowHours($hours)',
+            '$this->input->findingsLimit($limit)',
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: runtime must use self-improvement input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'private readonly AtlasSelfImprovementInput $input',
+            '$this->input->runtimeOptions([',
+            'AtlasSelfImprovementInput::DEFAULT_FINDINGS_LIMIT',
+        ] as $token) {
+            if (! str_contains($orchestrator, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementOrchestrator.php: orchestrator must use self-improvement input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'private readonly AtlasSelfImprovementInput $input',
+            '$this->input->reviewWindowHours(',
+            '$this->input->findingsLimit(',
+            'AtlasSelfImprovementInput::DEFAULT_FINDINGS_LIMIT',
+        ] as $token) {
+            if (! str_contains($schedule, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementScheduleService.php: schedule must use self-improvement input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_normalizes_self_improvement_runtime_options',
+            'AtlasSelfImprovementInput::DEFAULT_FINDINGS_LIMIT',
+            'AtlasSelfImprovementRuntime::MAX_AUTONOMOUS_REVIEW_WINDOW_HOURS',
+            'AtlasSelfImprovementRuntime::MAX_FINDINGS_PER_RUN',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/AtlasSelfImprovementInputTest.php: self-improvement input contract must be covered [{$token}]";
+            }
+        }
+
+        if (! str_contains($runtimeTest, 'test_command_plan_only_uses_shared_self_improvement_input_contract')) {
+            $violations[] = 'tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: command normalization must be covered by self-improvement input contract test';
+        }
+
+        foreach ([
+            'self-improvement input contract',
+            'AP-98',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe self-improvement input contract [{$token}]";
             }
         }
 
@@ -4239,10 +8030,10 @@ class KernelArchitectureStaticScanner
 
         $contents = File::get($path);
         $checks = [
-            'gateway emits a trace-level receipt' => "decisionReceiptForTrace(",
+            'gateway emits a trace-level receipt' => 'decisionReceiptForTrace(',
             'trace metadata persists the receipt' => "'decision_receipt' => \$decisionReceipt",
-            'scout job accepts the receipt as an explicit parameter' => "array \$decisionReceipt",
-            'scout job is called with the same receipt' => "decisionReceipt: \$decisionReceipt",
+            'scout job accepts the receipt as an explicit parameter' => 'array $decisionReceipt',
+            'scout job is called with the same receipt' => 'decisionReceipt: $decisionReceipt',
         ];
 
         $violations = [];
@@ -4275,7 +8066,7 @@ class KernelArchitectureStaticScanner
         $guardContents = File::exists($guardPath) ? File::get($guardPath) : '';
         $checks = [
             'worker delegates receipt validation to the kernel guard' => 'DecisionReceiptRuntimeGuard',
-            'worker evaluates receipt before provider lookup' => "violationForJob(\$job, \$providerKey, \$job->model)",
+            'worker evaluates receipt before provider lookup' => 'violationForJob($job, $providerKey, $job->model)',
             'worker persists receipt metadata through the kernel guard' => 'receiptForJob($job)',
             'kernel guard class exists' => 'class DecisionReceiptRuntimeGuard',
             'worker blocks expired receipts' => 'decision_receipt_expired',
@@ -4331,7 +8122,7 @@ class KernelArchitectureStaticScanner
             'providerDecision exposes auditable privacy decision' => 'providerDecision(AtlasMemoryEntry $entry)',
             'providerAllowed computes canonical privacy class' => 'privacyClass(data_get($entry->metadata',
             'providerAllowed applies external-ai block list' => 'externalAiAllowed($privacyClass',
-            'providerDecision honors explicit metadata block' => "metadataExternalAiAllowed !== false",
+            'providerDecision honors explicit metadata block' => 'metadataExternalAiAllowed !== false',
             'providerTitle redacts raw title fallback' => 'AtlasSecurity::redactString((string) $entry->title)',
             'providerSummary redacts raw summary fallback' => 'AtlasSecurity::redactString((string) $entry->summary)',
             'providerBody redacts raw body fallback' => 'AtlasSecurity::redactString((string) $entry->body)',
@@ -5154,7 +8945,7 @@ class KernelArchitectureStaticScanner
         foreach ([
             'final class ModelSelectionContractFactory',
             "public const AUTHORITY = 'atlas_decide'",
-            "public const AVAILABLE_SELECTION_MODES = [",
+            'public const AVAILABLE_SELECTION_MODES = [',
             'public function forCliDev(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array',
             'public function forAiChat(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode): array',
             "'schema_version' => \$schemaVersion",
@@ -5188,6 +8979,804 @@ class KernelArchitectureStaticScanner
         foreach (["'schema_version' => 'atlas.cli_dev.model_selection_contract.v1'", "'schema_version' => 'atlas.ai_chat.model_selection_contract.v1'"] as $token) {
             if (str_contains($dev, $token) || str_contains($chat, $token)) {
                 $violations[] = "surface commands must not inline model selection contract schema; use ModelSelectionContractFactory [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanDecisionReceiptHashRuntimeGuard(): array
+    {
+        $guardPath = app_path('Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php');
+        $hashPath = app_path('Services/Ai/Kernel/Decision/DecisionReceiptHash.php');
+        $issuerPath = app_path('Services/Ai/Kernel/Decision/DecisionReceiptIssuer.php');
+        $workerPath = app_path('Services/Ai/AiWorker.php');
+        $testPath = base_path('tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-134-decision-receipt-hash-runtime-guard.md');
+
+        $guard = File::exists($guardPath) ? File::get($guardPath) : '';
+        $hash = File::exists($hashPath) ? File::get($hashPath) : '';
+        $issuer = File::exists($issuerPath) ? File::get($issuerPath) : '';
+        $worker = File::exists($workerPath) ? File::get($workerPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        $violations = [];
+
+        foreach ([
+            'final class DecisionReceiptHash',
+            'public static function hash(array $payload): string',
+            'public static function canonicalize(array $payload): array',
+            'JSON_THROW_ON_ERROR',
+        ] as $token) {
+            if (! str_contains($hash, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Decision/DecisionReceiptHash.php: AP-134 shared receipt hasher must exist [{$token}]";
+            }
+        }
+
+        foreach ([
+            'DecisionReceiptHash::hash($payload)',
+            "'envelope_input_hash'",
+            "'parent_chain_hash'",
+        ] as $token) {
+            if (! str_contains($issuer, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Decision/DecisionReceiptIssuer.php: AP-134 issuer must use shared hash contract and persist verification hints [{$token}]";
+            }
+        }
+
+        foreach ([
+            'private function hashIntegrityViolation(array $receiptV2, array $base): ?DecisionReceiptRuntimeViolation',
+            'decision_receipt_hash_mismatch',
+            'DecisionReceiptHash::hash([',
+            'inputs_hash',
+            'receipt_hash',
+            'chain_hash',
+            'hash_equals(',
+        ] as $token) {
+            if (! str_contains($guard, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php: AP-134 runtime guard must reject tampered DecisionReceipt hashes [{$token}]";
+            }
+        }
+
+        if (! str_contains($worker, "'decision_receipt_hash_mismatch'")) {
+            $violations[] = 'app/Services/Ai/AiWorker.php: AP-134 worker must treat hash mismatch as pre-provider block [decision_receipt_hash_mismatch]';
+        }
+
+        foreach ([
+            'test_accepts_issued_receipt_with_matching_hashes',
+            'test_blocks_issued_receipt_when_signed_payload_is_tampered',
+            'decision_receipt_hash_mismatch',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php: AP-134 hash runtime guard must be unit tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-134',
+            'Decision Receipt Hash Runtime Guard',
+            'decision_receipt_hash_mismatch',
+            'ap134_decision_receipt_hash_runtime_guard',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-134 receipt hash runtime guard must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-134-decision-receipt-hash-runtime-guard.md: AP-134 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanDecisionReceiptDeterminismTest(): array
+    {
+        $testPath = base_path('tests/Feature/Architecture/DecisionReceiptDeterminismTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-135-decision-receipt-determinism-test.md');
+
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        $violations = [];
+
+        foreach ([
+            'class DecisionReceiptDeterminismTest extends TestCase',
+            'test_receipt_hashes_are_stable_for_same_envelope_and_decision_contract',
+            'test_receipt_hash_changes_when_authorized_provider_changes',
+            'test_runtime_guard_rejects_replayed_receipt_after_signed_payload_mutation',
+            'DecisionReceiptIssuer',
+            'DecisionReceiptRuntimeGuard',
+            'decision_receipt_hash_mismatch',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Architecture/DecisionReceiptDeterminismTest.php: AP-135 must prove DecisionReceipt determinism and tamper rejection [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-135',
+            'Decision Receipt Determinism Test',
+            'DecisionReceiptDeterminismTest',
+            'ap135_decision_receipt_determinism_test',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-135 DecisionReceipt determinism test must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-135-decision-receipt-determinism-test.md: AP-135 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanDecisionReceiptChainReplay(): array
+    {
+        $ledgerPath = app_path('Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php');
+        $replayPath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
+        $testPath = base_path('tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-136-decision-receipt-chain-replay.md');
+
+        $ledger = File::exists($ledgerPath) ? File::get($ledgerPath) : '';
+        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        $violations = [];
+
+        foreach ([
+            "'parent_receipt_id' => \$receipt['parent_receipt_id'] ?? null",
+            "'parent_chain_hash' => \$receipt['parent_chain_hash'] ?? data_get(\$receipt, 'metadata.parent_chain_hash')",
+        ] as $token) {
+            if (! str_contains($ledger, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php: AP-136 DECISION_ISSUED must preserve receipt chain fields [{$token}]";
+            }
+        }
+
+        foreach ([
+            'public function decisionReceiptReportForEnvelope(string $envelopeId): array',
+            'private function decisionReceiptEventFromEvent(array $event): array',
+            'private function decisionReceiptEventSummary(Collection $events): array',
+            'private function decisionReceiptReviewSignal(Collection $events, Collection $invalidEvents): array',
+            'DecisionReceiptHash::hash([',
+            'decision_receipt_chain_hash_mismatch',
+            'open_reviewable_decision_receipt_replay_proposal',
+        ] as $token) {
+            if (! str_contains($replay, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-136 replay must verify DecisionReceipt chain integrity [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_decision_receipt_report_projects_chain_integrity_for_envelope',
+            'test_decision_receipt_report_flags_hash_mismatch_for_review',
+            'recordDecisionReceiptEvent',
+            'decisionReceiptReportForEnvelope',
+            'decision_receipt_chain_hash_mismatch',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php: AP-136 DecisionReceipt chain replay must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-136',
+            'Decision Receipt Chain Replay',
+            'decisionReceiptReportForEnvelope',
+            'ap136_decision_receipt_chain_replay',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-136 DecisionReceipt chain replay must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-136-decision-receipt-chain-replay.md: AP-136 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanDecisionReceiptReplaySurfaces(): array
+    {
+        $commandPath = app_path('Console/Commands/AtlasAiDecisionReceiptReportCommand.php');
+        $controllerPath = app_path('Http/Controllers/AtlasAiDecisionReceiptReportController.php');
+        $routesPath = base_path('routes/api.php');
+        $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
+        $catalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiDecisionReceiptReportCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiDecisionReceiptReportApiTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-137-decision-receipt-replay-surfaces.md');
+
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
+        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
+        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        $violations = [];
+
+        foreach ([
+            "protected \$signature = 'atlas:ai:decision-receipt-report",
+            'decisionReceiptReportForEnvelope($envelopeId)',
+            "'decision_receipt_replay' => \$report",
+            'envelope_required',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiDecisionReceiptReportCommand.php: AP-137 CLI surface must expose DecisionReceipt replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            'class AtlasAiDecisionReceiptReportController',
+            "'envelope' => ['required', 'string', 'max:160']",
+            'decisionReceiptReportForEnvelope($data',
+            "'decision_receipt_replay'",
+        ] as $token) {
+            if (! str_contains($controller, $token)) {
+                $violations[] = "app/Http/Controllers/AtlasAiDecisionReceiptReportController.php: AP-137 API surface must expose DecisionReceipt replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasAiDecisionReceiptReportController::class',
+            '/ai/decision-receipts/report',
+        ] as $token) {
+            if (! str_contains($routes, $token)) {
+                $violations[] = "routes/api.php: AP-137 API route must be registered [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'name' => 'atlas_decision_receipt_report'",
+            "'required' => ['envelope']",
+            "'atlas_decision_receipt_report' => \$this->toolResponse(\$id, \$this->decisionReceiptReport(\$arguments))",
+            'private function decisionReceiptReport(array $arguments): array',
+            "'decision_receipt_replay' => \$this->ledgerReplay->decisionReceiptReportForEnvelope(\$envelopeId)",
+        ] as $token) {
+            if (! str_contains($mcp, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-137 MCP tool must expose DecisionReceipt replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'id' => 'decision_receipt_report'",
+            'atlas ai decision-receipt-report --envelope=<id> --json',
+            'DecisionReceipt',
+        ] as $token) {
+            if (! str_contains($catalog, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-137 architecture operations catalog must include DecisionReceipt replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_command_replays_decision_receipt_chain_as_json',
+            'test_command_reports_invalid_input_without_envelope',
+            'atlas:ai:decision-receipt-report',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiDecisionReceiptReportCommandTest.php: AP-137 CLI tests must cover DecisionReceipt replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_api_replays_decision_receipt_chain_for_envelope',
+            'test_api_requires_atlas_token',
+            '/ai/decision-receipts/report?envelope=env_api_receipt',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiDecisionReceiptReportApiTest.php: AP-137 API tests must cover DecisionReceipt replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_decision_receipt_report_replays_receipt_chain_for_envelope',
+            'test_decision_receipt_report_requires_envelope',
+            'atlas_decision_receipt_report',
+            'recordDecisionReceiptForMcp',
+        ] as $token) {
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-137 MCP tests must cover DecisionReceipt replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-137',
+            'Decision Receipt Replay Surfaces',
+            'atlas:ai:decision-receipt-report',
+            'ap137_decision_receipt_replay_surfaces',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-137 DecisionReceipt replay surfaces must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-137-decision-receipt-replay-surfaces.md: AP-137 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanDecisionReceiptReplayCuratorReview(): array
+    {
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-138-decision-receipt-replay-curator-review.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        $violations = [];
+
+        foreach ([
+            'decisionReceiptReplayFindings($events, $filters)',
+            'private function decisionReceiptReplayFindings(Collection $events, array $filters = []): array',
+            'decisionReceiptReportForEnvelope($envelopeId)',
+            'open_reviewable_decision_receipt_replay_proposal',
+            'atlas.self_improvement.decision_receipt_replay_gap.v1',
+            'matchesDecisionReceiptFilters',
+            'normalizedDecisionReceiptFilters',
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-138 Curator must consume DecisionReceipt replay findings [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_self_improvement_detects_decision_receipt_replay_hash_gap',
+            'recordDecisionReceiptEvent',
+            'atlas.self_improvement.decision_receipt_replay_gap.v1',
+            'decision_receipt_chain_hash_mismatch',
+            'open_reviewable_decision_receipt_replay_proposal',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-138 Curator DecisionReceipt replay must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-138',
+            'Decision Receipt Replay Curator Review',
+            'decisionReceiptReplayFindings',
+            'ap138_decision_receipt_replay_curator_review',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-138 DecisionReceipt replay Curator review must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-138-decision-receipt-replay-curator-review.md: AP-138 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanDecisionReceiptReplayInboxEmission(): array
+    {
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-139-decision-receipt-replay-inbox-emission.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        $violations = [];
+
+        foreach ([
+            '$this->proposals->emit',
+            'emitted_to_inbox',
+            'emitted_inbox_item_id',
+            'LedgerEventType::LearningProposed',
+            'emitted_inbox_item_ids',
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-139 DecisionReceipt replay findings must flow through proposal emission [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_self_improvement_emits_decision_receipt_replay_hash_gap_proposal',
+            'self-improvement:decision-receipt-replay:',
+            'atlas.self_improvement.decision_receipt_replay_gap.v1',
+            'open_reviewable_decision_receipt_replay_proposal',
+            'emitted_to_inbox',
+            'emitted_inbox_item_id',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-139 DecisionReceipt replay proposal emission must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-139',
+            'Decision Receipt Replay Inbox Emission',
+            'test_self_improvement_emits_decision_receipt_replay_hash_gap_proposal',
+            'ap139_decision_receipt_replay_inbox_emission',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-139 DecisionReceipt replay Inbox emission must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-139-decision-receipt-replay-inbox-emission.md: AP-139 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanLedgerReplayCommandSurface(): array
+    {
+        $commandPath = app_path('Console/Commands/AtlasLedgerReplayCommand.php');
+        $catalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $testPath = base_path('tests/Feature/Ai/AtlasLedgerReplayCommandTest.php');
+        $catalogTestPath = base_path('tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-140-ledger-replay-command-surface.md');
+
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $catalogTest = File::exists($catalogTestPath) ? File::get($catalogTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        $violations = [];
+
+        foreach ([
+            "protected \$signature = 'atlas:ledger:replay",
+            'KernelLedgerEnvelopeReportService',
+            '{--envelope=',
+            'envelope_required',
+            'includeSlo',
+            'includeRepair',
+            'includeKernel',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasLedgerReplayCommand.php: AP-140 ledger replay command must expose canonical envelope replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'id' => 'ledger_replay'",
+            "'command' => 'atlas ledger replay --envelope=<id> --json'",
+            "'kind' => 'evidence_report'",
+        ] as $token) {
+            if (! str_contains($catalog, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-140 ledger replay must be discoverable [{$token}]";
+            }
+        }
+
+        if (! str_contains($runtime, 'atlas ledger replay --envelope=<id> --json')) {
+            $violations[] = 'app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-140 Self-Improvement must protect ledger replay in architecture operations expected commands';
+        }
+
+        foreach ([
+            'test_command_replays_envelope_from_named_option_as_json',
+            'test_command_requires_envelope_option',
+            "Artisan::call('atlas:ledger:replay'",
+            'envelope_required',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasLedgerReplayCommandTest.php: AP-140 command behavior must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'ledger_replay',
+            'atlas ledger replay --envelope=<id> --json',
+        ] as $token) {
+            if (! str_contains($catalogTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php: AP-140 catalog discovery must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-140',
+            'Ledger Replay Command Surface',
+            'atlas:ledger:replay',
+            'ap140_ledger_replay_command_surface',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-140 ledger replay command must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-140-ledger-replay-command-surface.md: AP-140 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanLedgerProjectionRegistryContract(): array
+    {
+        $registryPath = app_path('Services/Ai/Kernel/Evidence/LedgerProjectionRegistry.php');
+        $validationPath = app_path('Services/Ai/Kernel/Architecture/AtlasAiArchitectureValidationService.php');
+        $testPath = base_path('tests/Unit/Ai/Kernel/LedgerProjectionRegistryTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureValidateCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureValidateApiTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-141-ledger-projection-registry-contract.md');
+
+        $registry = File::exists($registryPath) ? File::get($registryPath) : '';
+        $validation = File::exists($validationPath) ? File::get($validationPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        $violations = [];
+
+        foreach ([
+            'final class LedgerProjectionRegistry',
+            "'schema_version' => 'atlas.ledger_projection_registry.v1'",
+            "'id' => 'ai_traces'",
+            "'id' => 'atlas_engineering_runs'",
+            "'id' => 'atlas_tool_runs'",
+            'LedgerEventType::ProviderCalled',
+            'LedgerEventType::ToolEvidenceRecorded',
+            'LedgerEventType::RepairCompleted',
+            'required_columns',
+            'identity_keys',
+            'readinessWarnings',
+        ] as $token) {
+            if (! str_contains($registry, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Evidence/LedgerProjectionRegistry.php: AP-141 ledger projection registry contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            'LedgerProjectionRegistry',
+            'ledger_projections',
+            "'schema_version' => \$ledgerProjectionReport['schema_version']",
+            "'projection_ids' => \$ledgerProjectionReport['projection_ids']",
+        ] as $token) {
+            if (! str_contains($validation, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasAiArchitectureValidationService.php: AP-141 architecture validate must expose ledger projections [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_registry_declares_core_ledger_projections',
+            'test_registry_reports_projection_readiness_from_schema',
+            'test_registry_reports_missing_table_without_column_noise',
+            'atlas.ledger_projection_registry.v1',
+            'atlas_engineering_runs',
+            'atlas_tool_runs',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/LedgerProjectionRegistryTest.php: AP-141 projection registry must be unit tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'kernel.ledger_projections.valid',
+            'kernel.ledger_projections.schema_version',
+            'ap141_ledger_projection_registry_contract',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiArchitectureValidateCommandTest.php: AP-141 command validate payload must be covered [{$token}]";
+            }
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiArchitectureValidateApiTest.php: AP-141 API validate payload must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-141',
+            'Ledger Projection Registry Contract',
+            'LedgerProjectionRegistry',
+            'ap141_ledger_projection_registry_contract',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-141 ledger projection registry must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-141-ledger-projection-registry-contract.md: AP-141 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanLedgerProjectionInboxAction(): array
+    {
+        $registryPath = app_path('Services/Ai/Mobile/InboxActionRegistry.php');
+        $cliPath = app_path('Console/Commands/AtlasCliInboxCommand.php');
+        $testPath = base_path('tests/Feature/Ai/InboxLedgerProjectionActionTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-142-ledger-projection-inbox-action.md');
+
+        $registry = File::exists($registryPath) ? File::get($registryPath) : '';
+        $cli = File::exists($cliPath) ? File::get($cliPath) : '';
+        $test = File::exists($testPath) ? File::get($testPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        $violations = [];
+
+        foreach ([
+            'LedgerProjectionWorker',
+            "'run_ledger_projection' => \$this->runLedgerProjection(\$locked, \$input)",
+            'private function runLedgerProjection(AiInboxItem $item, array $input): array',
+            "'schema_version' => 'atlas.inbox_action.ledger_projection.v1'",
+            "'ledger_projection_action' => \$payload['ledger_projection_action']",
+            "'status' => \$applied ? 'resolved'",
+            'LedgerEventType::InboxActionRecorded',
+        ] as $token) {
+            if (! str_contains($registry, $token)) {
+                $violations[] = "app/Services/Ai/Mobile/InboxActionRegistry.php: AP-142 ledger projection Inbox action is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
+            '{--projection-hours= : Hours window for run_ledger_projection}',
+            '{--projection-limit= : Max ledger events for run_ledger_projection}',
+            '{--dry-run : Preview run_ledger_projection without writing projection tables}',
+            "'projection_hours' => \$this->option('projection-hours')",
+            "'projection_limit' => \$this->option('projection-limit')",
+        ] as $token) {
+            if (! str_contains($cli, $token)) {
+                $violations[] = "app/Console/Commands/AtlasCliInboxCommand.php: AP-142 CLI must expose projection action inputs [{$token}]";
+            }
+        }
+
+        foreach ([
+            'class InboxLedgerProjectionActionTest',
+            'test_inbox_action_runs_ledger_projection_and_records_reviewable_evidence',
+            'test_inbox_action_can_preview_ledger_projection_without_resolving_item',
+            'run_ledger_projection',
+            'atlas.inbox_action.ledger_projection.v1',
+            'LedgerEventType::InboxActionRecorded',
+        ] as $token) {
+            if (! str_contains($test, $token)) {
+                $violations[] = "tests/Feature/Ai/InboxLedgerProjectionActionTest.php: AP-142 Inbox projection action must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-142',
+            'Ledger Projection Inbox Action',
+            'run_ledger_projection',
+            'atlas.inbox_action.ledger_projection.v1',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-142 ledger projection Inbox action must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-142-ledger-projection-inbox-action.md: AP-142 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanLedgerProjectionCuratorActionEmission(): array
+    {
+        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $emitterPath = app_path('Services/Ai/Mobile/ProposalInboxEmitter.php');
+        $runtimeTestPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $emitterTestPath = base_path('tests/Unit/Ai/ProposalInboxEmitterTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-143-ledger-projection-curator-action-emission.md');
+
+        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $emitter = File::exists($emitterPath) ? File::get($emitterPath) : '';
+        $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
+        $emitterTest = File::exists($emitterTestPath) ? File::get($emitterTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        $violations = [];
+
+        foreach ([
+            'ledgerProjectionDriftFindings',
+            "'available_actions' => [",
+            "'id' => 'run_ledger_projection'",
+            "'projection_health' => [",
+            "'ledger_projection' => [",
+            "'recommended_action' => 'open_reviewable_ledger_projection_backfill_proposal'",
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-143 Curator must emit actionable ledger projection proposal [{$token}]";
+            }
+        }
+
+        foreach ([
+            '$availableActions = $this->availableActions($data)',
+            'private function availableActions(array $data): array',
+            "\$this->array(\$data['available_actions'] ?? [])",
+            "\$payload = \$this->array(\$data['payload'] ?? [])",
+            'array_replace_recursive($payload',
+        ] as $token) {
+            if (! str_contains($emitter, $token)) {
+                $violations[] = "app/Services/Ai/Mobile/ProposalInboxEmitter.php: AP-143 Proposal emitter must preserve custom actions and payload [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_self_improvement_emits_ledger_projection_drift_proposal_with_assisted_action',
+            'run_ledger_projection',
+            'payload.projection_health.status',
+            'payload.ledger_projection.hours',
+        ] as $token) {
+            if (! str_contains($runtimeTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-143 Curator emission must be feature tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_proposal_preserves_custom_actions_and_payload_for_assisted_operations',
+            'run_ledger_projection',
+            'available_actions.0.id',
+            'raw_payload.projection_health.status',
+        ] as $token) {
+            if (! str_contains($emitterTest, $token)) {
+                $violations[] = "tests/Unit/Ai/ProposalInboxEmitterTest.php: AP-143 emitter payload/action preservation must be unit tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-143',
+            'Ledger Projection Curator Action Emission',
+            'run_ledger_projection',
+            'available_actions',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-143 Curator action emission must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-143-ledger-projection-curator-action-emission.md: AP-143 contract doc must exist [{$token}]";
             }
         }
 
@@ -5693,7 +10282,7 @@ class KernelArchitectureStaticScanner
         }
 
         foreach ([
-            "kernelPipelineReportForEnvelope(\$envelopeId)",
+            'kernelPipelineReportForEnvelope($envelopeId)',
             "\$payload['kernel_pipeline']",
         ] as $token) {
             if (! str_contains($ledgerReportContents, $token)) {
@@ -6093,7 +10682,7 @@ class KernelArchitectureStaticScanner
             }
         }
         foreach ([
-            "repairReportForEnvelope(\$envelopeId)",
+            'repairReportForEnvelope($envelopeId)',
             "\$payload['repair']",
         ] as $token) {
             if (! str_contains($ledgerReport, $token)) {

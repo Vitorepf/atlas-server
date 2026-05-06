@@ -41,5 +41,14 @@ class AtlasCliHelpCommandTest extends TestCase
         $this->assertStringContainsString('atlas engineering visual-baseline', $output);
         $this->assertStringContainsString('atlas dogfood', $output);
         $this->assertStringContainsString('atlas release', $output);
+        $this->assertStringContainsString('arquitetura_mae', $output);
+        $this->assertStringContainsString('atlas ai architecture-operations --json', $output);
+        $this->assertStringContainsString('atlas ai architecture-validate', $output);
+        $this->assertStringContainsString('atlas ai slo --hours=24 --json', $output);
+        $this->assertStringContainsString('atlas ai kernel-pipeline-report --hours=24 --json', $output);
+        $this->assertStringContainsString('atlas ai repair-report --hours=24 --json', $output);
+        $this->assertStringContainsString('atlas ai provider-performance --hours=24 --json', $output);
+        $this->assertStringContainsString('atlas ai self-improvement-schedule-report --hours=24 --json', $output);
+        $this->assertStringContainsString('atlas ai inbox-action-report --hours=24 --json', $output);
     }
 }

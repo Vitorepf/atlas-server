@@ -22,6 +22,10 @@ class AtlasAiArchitectureValidateApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('kernel.valid', true)
+            ->assertJsonPath('kernel.ledger_projections.valid', true)
+            ->assertJsonPath('kernel.ledger_projections.schema_version', 'atlas.ledger_projection_registry.v1')
+            ->assertJsonPath('kernel.ledger_projections.count', 3)
+            ->assertJsonPath('kernel.ledger_projections.drift.schema_version', 'atlas.ledger_projection_drift.v1')
             ->assertJsonPath('kernel.static_scan.valid', true)
             ->assertJsonPath('kernel.static_scan.summary.failed_count', 0)
             ->assertJsonPath('kernel.static_scan.summary.violation_count', 0)
@@ -87,6 +91,61 @@ class AtlasAiArchitectureValidateApiTest extends TestCase
         $this->assertContains('ap86_semantic_context_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap87_provider_projection_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap88_test_command_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap89_engineering_harness_runner_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap90_engineering_harnessability_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap91_engineering_docker_harness_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap92_engineering_test_matrix_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap93_engineering_claude_code_baseline_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap94_engineering_benchmark_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap95_engineering_context_intelligence_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap96_cli_limit_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap97_scheduler_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap98_self_improvement_input_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap99_provider_usage_performance_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap100_context_pack_manifest_reflection_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap101_context_retrieval_router_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap102_open_brain_retrieval_plan_summary_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap103_retrieval_required_source_availability_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap104_retrieval_review_signal_next_action_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap105_open_brain_retrieval_self_improvement_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap106_learning_proposed_review_signal_projection_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap107_proposal_inbox_review_signal_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap108_learning_proposed_inbox_link_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap109_operation_completed_inbox_refs_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap110_schedule_replay_inbox_refs_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap111_schedule_replay_inbox_refs_surface_parity', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap112_schedule_replay_inbox_item_hydration', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap113_schedule_replay_inbox_item_hydration_surface_parity', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap114_schedule_replay_inbox_hydration_gap_signal', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap115_self_improvement_schedule_replay_inbox_gap_finding', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap116_self_improvement_schedule_replay_inbox_gap_emission', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap117_proposal_inbox_review_signal_severity', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap118_proposal_review_action_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap119_cli_inbox_review_action_result_parity', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap120_inbox_action_evidence_ledger_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap121_inbox_action_replay_read_model', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap122_inbox_action_mcp_report', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap123_self_improvement_inbox_action_replay_review', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap124_observability_inbox_action_replay', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap125_inbox_action_report_surfaces', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap126_architecture_validate_post_ap98_human_output', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap127_cli_help_architecture_operations_discovery', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap128_architecture_operations_shared_catalog', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap129_architecture_operations_mcp_tool', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap130_architecture_operations_direct_surfaces', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap131_self_improvement_architecture_operations_review', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap132_architecture_operations_metadata_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap133_architecture_operations_filter_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap134_decision_receipt_hash_runtime_guard', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap135_decision_receipt_determinism_test', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap136_decision_receipt_chain_replay', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap137_decision_receipt_replay_surfaces', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap138_decision_receipt_replay_curator_review', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap139_decision_receipt_replay_inbox_emission', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap140_ledger_replay_command_surface', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap141_ledger_projection_registry_contract', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap142_ledger_projection_inbox_action', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap143_ledger_projection_curator_action_emission', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertSame([], $response->json('kernel.static_scan.summary.failed_keys'));
         $this->assertSame([], $response->json('kernel.static_scan.ap35_surface_adapter_parity_map_coverage.unmapped_adapters'));
     }

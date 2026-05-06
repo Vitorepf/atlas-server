@@ -38,6 +38,7 @@ enum LedgerEventType: string
     case EscalationRequested = 'ESCALATION_REQUESTED';
     case EvidencePacked = 'EVIDENCE_PACKED';
     case LearningProposed = 'LEARNING_PROPOSED';
+    case InboxActionRecorded = 'INBOX_ACTION_RECORDED';
     case SelfImprovementScheduleObserved = 'SELF_IMPROVEMENT_SCHEDULE_OBSERVED';
     case MemoryDeltaAccepted = 'MEMORY_DELTA_ACCEPTED';
     case SloObserved = 'SLO_OBSERVED';

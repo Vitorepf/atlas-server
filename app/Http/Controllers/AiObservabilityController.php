@@ -8,9 +8,12 @@ use App\Models\AiQualityEvaluation;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
+use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
+use App\Services\Ai\Kernel\Evidence\LedgerProjectionRegistry;
+use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use App\Services\Ai\Telemetry\AiTelemetryHealthService;
 use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
@@ -36,8 +39,10 @@ class AiObservabilityController extends Controller
         AtlasAiDomainCatalogService $domainCatalog,
         AtlasAiArchitectureValidationService $architectureValidation,
         KernelReplayReportInput $replayInput,
-    ): JsonResponse
-    {
+        ProviderPerformanceProjection $providerPerformance,
+        LedgerProjectionRegistry $ledgerProjectionRegistry,
+        AtlasArchitectureOperationsCatalog $architectureOperations,
+    ): JsonResponse {
         $data = $request->validate([
             'hours' => ['nullable', 'integer', 'between:1,'.KernelReplayReportInput::MAX_WINDOW_HOURS],
         ]);
@@ -46,14 +51,17 @@ class AiObservabilityController extends Controller
         $payload = Cache::remember(
             'atlas.ai.observability:hours='.$hours,
             self::CACHE_TTL_SECONDS,
-            function () use ($hours, $scorecards, $health, $ledgerReplay, $selfImprovementSchedule, $domainCatalog, $architectureValidation): array {
+            function () use ($hours, $scorecards, $health, $ledgerReplay, $selfImprovementSchedule, $domainCatalog, $architectureValidation, $providerPerformance, $ledgerProjectionRegistry, $architectureOperations): array {
                 $since = now()->subHours($hours);
                 $scheduledSelfImprovement = $selfImprovementSchedule->schedulePlan();
                 $domainCatalogPayload = $domainCatalog->inspect();
                 $kernelSlo = $ledgerReplay->sloReportForWindow($since);
                 $kernelRepair = $ledgerReplay->repairReportForWindow($since);
                 $kernelPipeline = $ledgerReplay->kernelPipelineReportForWindow($since);
+                $inboxActions = $ledgerReplay->inboxActionReportForWindow($since);
                 $selfImprovementScheduleReplay = $ledgerReplay->selfImprovementScheduleReportForWindow($since);
+                $providerPerformanceReport = $providerPerformance->reportForWindow($since);
+                $ledgerProjectionHealth = $ledgerProjectionRegistry->healthReport();
                 $architecturePayload = $architectureValidation->payload();
 
                 return [
@@ -81,6 +89,9 @@ class AiObservabilityController extends Controller
                     'kernel_slo' => $kernelSlo,
                     'kernel_repair' => $kernelRepair,
                     'kernel_pipeline' => $kernelPipeline,
+                    'inbox_actions' => $inboxActions,
+                    'provider_performance' => $providerPerformanceReport,
+                    'ledger_projection_health' => $ledgerProjectionHealth,
                     'self_improvement_schedule_replay' => $selfImprovementScheduleReplay,
                     'domain_catalog' => [
                         'status' => $domainCatalogPayload['status'] ?? 'unknown',
@@ -89,6 +100,7 @@ class AiObservabilityController extends Controller
                         'validation' => $domainCatalogPayload['validation'] ?? ['valid' => false],
                     ],
                     'architecture_validation' => $this->architectureValidationSummary($architecturePayload),
+                    'architecture_operations' => $architectureOperations->summary(),
                     'self_improvement_schedule' => $scheduledSelfImprovement,
                     'actions' => $this->actions(),
                 ];

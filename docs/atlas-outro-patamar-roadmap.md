@@ -1,5 +1,11 @@
 # Atlas em outro patamar — roadmap evolutivo
 
+> **Status operacional**: este arquivo e o roadmap expandido/source material.
+> A versao canonica curta, indexada na Knowledge Base e usada por novas sessoes
+> de IA e
+> [`engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md`](engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md).
+> Nao implementar diretamente deste arquivo sem passar pela spec canonica.
+
 > **Documento de evolução do ecossistema** — não execução tática.
 >
 > Versão 2.0 — reescrito sob a **Tese do Multiplicador / Canal Único** (Layer

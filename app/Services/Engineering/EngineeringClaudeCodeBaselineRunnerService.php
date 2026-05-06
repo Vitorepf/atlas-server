@@ -4,8 +4,8 @@ namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringBenchmarkCase;
 use App\Models\AtlasTask;
-use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Concerns\RunsCliProcesses;
+use App\Services\Ai\FairClaudePolicy;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -15,6 +15,8 @@ use Symfony\Component\Process\Process;
 class EngineeringClaudeCodeBaselineRunnerService
 {
     use RunsCliProcesses;
+
+    public function __construct(private readonly ?EngineeringClaudeCodeBaselineInput $input = null) {}
 
     /**
      * @param  array<string,mixed>  $runnerOptions
@@ -29,7 +31,7 @@ class EngineeringClaudeCodeBaselineRunnerService
 
         $workspace = $this->workspace($runnerOptions, $mode);
         $model = $this->model($runnerOptions);
-        $timeout = max(1, min(3600, (int) ($runnerOptions['claude_code_baseline_timeout'] ?? $runnerOptions['baseline_timeout_seconds'] ?? 900)));
+        $timeout = $this->baselineInput()->runTimeoutSeconds($runnerOptions);
         $binary = $this->binary($runnerOptions);
         $prompt = $this->prompt($case, $task);
         $command = $this->command($binary, $model, $runnerOptions);
@@ -125,7 +127,7 @@ class EngineeringClaudeCodeBaselineRunnerService
         }
 
         $command = trim($command);
-        $timeout = max(1, min(1800, (int) ($runnerOptions['claude_code_baseline_validation_timeout'] ?? $runnerOptions['baseline_validation_timeout_seconds'] ?? 300)));
+        $timeout = $this->baselineInput()->validationTimeoutSeconds($runnerOptions);
         $started = hrtime(true);
         $process = Process::fromShellCommandline($command, $workspace, $this->cliProcessEnv());
         $process->setTimeout($timeout);
@@ -345,7 +347,7 @@ class EngineeringClaudeCodeBaselineRunnerService
         $testCommand = isset($runnerOptions['test_command']) && is_string($runnerOptions['test_command'])
             ? trim($runnerOptions['test_command'])
             : '';
-        $validationTimeout = max(1, min(1800, (int) ($runnerOptions['claude_code_baseline_validation_timeout'] ?? $runnerOptions['baseline_validation_timeout_seconds'] ?? 300)));
+        $validationTimeout = $this->baselineInput()->validationTimeoutSeconds($runnerOptions);
 
         return [
             'schema_version' => 1,
@@ -397,5 +399,10 @@ class EngineeringClaudeCodeBaselineRunnerService
         $resolved = realpath($workspace);
 
         return $resolved && is_dir($resolved) ? $resolved : null;
+    }
+
+    private function baselineInput(): EngineeringClaudeCodeBaselineInput
+    {
+        return $this->input ?? app(EngineeringClaudeCodeBaselineInput::class);
     }
 }

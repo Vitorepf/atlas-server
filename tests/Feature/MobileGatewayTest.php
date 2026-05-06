@@ -11,12 +11,14 @@ use App\Models\AiQualityEvaluation;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\AtlasInitiativeRun;
+use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMobileDevice;
 use App\Models\AuditEvent;
 use App\Models\HealthSnapshot;
 use App\Models\MobilePairingCode;
 use App\Models\MobilePushDelivery;
 use App\Services\Ai\AiGatewayService;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\Mobile\AutoImprovementProposalScanner;
 use App\Services\Ai\Mobile\ContextBundleService;
@@ -1852,6 +1854,36 @@ class MobileGatewayTest extends TestCase
         $this->assertStringStartsWith('atlas://thread/', $discussPayload['deep_link'] ?? '');
         $this->assertDatabaseCount('ai_threads', 1);
         $this->assertDatabaseCount('ai_messages', 2);
+
+        $proposal = app(ProposalInboxEmitter::class)->emit([
+            'title' => 'Review patch via CLI',
+            'problem' => 'CLI precisa receber contrato estruturado da action.',
+            'solution' => 'Retornar result junto do item no JSON.',
+            'worth_it' => 'Evita parser local no CLI.',
+            'dedupe_key' => 'cli:proposal:review-patch',
+            'diff_refs' => [['path' => 'app/Console/Commands/AtlasCliInboxCommand.php']],
+            'metadata' => [
+                'review_signal' => [
+                    'status' => 'warning',
+                    'severity' => 'medium',
+                    'recommended_action' => 'review_cli_proposal_contract',
+                ],
+            ],
+        ]);
+
+        $reviewExit = Artisan::call('atlas:cli:inbox', [
+            'action' => 'respond',
+            'id' => $proposal?->id,
+            '--action' => 'review_patch',
+            '--json' => true,
+        ]);
+        $reviewPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $reviewExit);
+        $this->assertSame('review_patch', data_get($reviewPayload, 'result.payload.action'));
+        $this->assertSame('review_cli_proposal_contract', data_get($reviewPayload, 'result.payload.recommended_action'));
+        $this->assertSame('app/Console/Commands/AtlasCliInboxCommand.php', data_get($reviewPayload, 'result.payload.diff_refs.0.path'));
+        $this->assertSame($proposal?->id, data_get($reviewPayload, 'item.id'));
     }
 
     public function test_push_dispatch_sends_immediate_notification_with_badge_count(): void
@@ -2460,6 +2492,8 @@ class MobileGatewayTest extends TestCase
 
     public function test_proposal_emitter_creates_safe_review_item_without_commit_action(): void
     {
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
         $item = app(ProposalInboxEmitter::class)->emit([
             'title' => 'Refatorar MobilePushService',
             'finding' => 'Batching e quiet hours estao no mesmo metodo.',
@@ -2484,6 +2518,21 @@ class MobileGatewayTest extends TestCase
         $this->assertContains('discard', $actions);
         $this->assertNotContains('commit', $actions);
         $this->assertDatabaseCount('ai_context_bundles', 1);
+
+        $review = app(InboxActionRegistry::class)->handle($item->refresh(), 'review_patch', [], 'review-proposal-mobile-push-policy');
+
+        $this->assertSame('review_patch', data_get($review, 'result.payload.action'));
+        $this->assertSame('app/Services/Ai/Mobile/MobilePushService.php', data_get($review, 'result.payload.diff_refs.0.path'));
+        $this->assertSame('app/Services/Ai/Mobile/MobilePushService.php', data_get($review, 'result.payload.proposal_contract.diff_refs.0.path'));
+        $this->assertSame('proposal:mobile-push-policy', data_get($review, 'item.dedupe_key'));
+        $ledgerEvent = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::InboxActionRecorded->value)
+            ->firstOrFail();
+        $this->assertSame('atlas.inbox_action.v1', data_get($ledgerEvent->payload, 'schema_version'));
+        $this->assertSame('review_patch', data_get($ledgerEvent->payload, 'action'));
+        $this->assertSame($item->id, data_get($ledgerEvent->payload, 'inbox_item.id'));
+        $this->assertSame('operator_cli', data_get($ledgerEvent->payload, 'actor.type'));
+        $this->assertSame('app/Services/Ai/Mobile/MobilePushService.php', data_get($ledgerEvent->payload, 'result.payload.diff_refs.0.path'));
 
         $again = app(ProposalInboxEmitter::class)->emit([
             'title' => 'Refatorar MobilePushService',
@@ -3627,6 +3676,7 @@ PHP);
 
     private function dropMobileTables(): void
     {
+        Schema::dropIfExists('atlas_ledger_events');
         Schema::dropIfExists('ai_provider_handoffs');
         Schema::dropIfExists('ai_context_snapshots');
         Schema::dropIfExists('ai_compactions');

@@ -10,6 +10,7 @@ use App\Services\Ai\Cli\AtlasCliQualityService;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Kernel\Evidence\ProviderUsagePayload;
 use App\Services\Ai\Kernel\Failure\FailureClassification;
 use App\Services\Ai\Kernel\Failure\FailureDomain;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineAuditService;
@@ -65,6 +66,7 @@ class AiWorker
         private readonly KernelSloProbe $slo,
         private readonly AtlasRepairOrchestrator $repairOrchestrator,
         private readonly RepairRequestFactory $repairRequests,
+        private readonly ProviderUsagePayload $providerUsage,
     ) {}
 
     public function runNext(?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
@@ -209,13 +211,15 @@ class AiWorker
                         'attempt_number' => $attempt->attempt_number,
                     ],
                 ]);
-                $this->recordLedgerEvent(LedgerEventType::ProviderCalled, $job, $attempt, [
-                    'attempt_number' => $attempt->attempt_number,
-                    'prompt_hash' => $attempt->prompt_hash,
-                    'timeout_seconds' => $job->timeout_seconds,
-                    'permission_mode' => $permission->mode,
-                    'permission_allowed' => $permission->allowed,
-                ], $workerId);
+                $this->recordLedgerEvent(LedgerEventType::ProviderCalled, $job, $attempt, array_merge(
+                    $this->providerUsage->called($job, $attempt, $this->kernelContextForJob($job)),
+                    [
+                        'prompt_hash' => $attempt->prompt_hash,
+                        'timeout_seconds' => $job->timeout_seconds,
+                        'permission_mode' => $permission->mode,
+                        'permission_allowed' => $permission->allowed,
+                    ],
+                ), $workerId);
                 $firstTokenRecorded = false;
                 $powerSession = $this->macAgent->startSession(
                     kind: 'ai_job',
@@ -1403,7 +1407,7 @@ class AiWorker
             ],
         ]);
         if ($this->providerWasCalled($result)) {
-            $this->recordLedgerEvent(LedgerEventType::ProviderReturned, $job, $attempt, $this->providerResultLedgerPayload($result, $responseHash), $workerId);
+            $this->recordLedgerEvent(LedgerEventType::ProviderReturned, $job, $attempt, $this->providerResultLedgerPayload($job, $attempt, $result, $responseHash), $workerId);
         } else {
             $this->recordLedgerEvent(LedgerEventType::OperationBlocked, $job, $attempt, [
                 'reason' => $result->errorCode,
@@ -2059,6 +2063,7 @@ class AiWorker
         return ! in_array($result->errorCode, [
             'decision_receipt_dry_run',
             'decision_receipt_expired',
+            'decision_receipt_hash_mismatch',
             'decision_receipt_invalid',
             'decision_receipt_model_mismatch',
             'decision_receipt_provider_mismatch',
@@ -2070,19 +2075,9 @@ class AiWorker
     /**
      * @return array<string,mixed>
      */
-    private function providerResultLedgerPayload(AiProviderResult $result, ?string $responseHash): array
+    private function providerResultLedgerPayload(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, ?string $responseHash): array
     {
-        return [
-            'ok' => $result->ok,
-            'exit_code' => $result->exitCode,
-            'duration_ms' => $result->durationMs,
-            'response_hash' => $responseHash,
-            'command_hash' => $result->command ? hash('sha256', json_encode($result->command, JSON_THROW_ON_ERROR)) : null,
-            'stdout_hash' => $result->stdout !== '' ? hash('sha256', $result->stdout) : null,
-            'stderr_hash' => $result->stderr !== '' ? hash('sha256', $result->stderr) : null,
-            'error_code' => $result->errorCode,
-            'error_message_hash' => $result->errorMessage ? hash('sha256', $result->errorMessage) : null,
-        ];
+        return $this->providerUsage->returned($job, $attempt, $result, $responseHash, $this->kernelContextForJob($job));
     }
 
     /**
@@ -2680,6 +2675,14 @@ TEXT);
                 'fallback_reason' => $result->errorCode,
             ],
         ]);
+        $this->recordLedgerEvent(LedgerEventType::ProviderFallback, $job, $attempt, $this->providerUsage->fallback(
+            $job,
+            $attempt,
+            $result,
+            $fallbackProvider,
+            'gemini_to_claude',
+            $this->kernelContextForJob($job),
+        ), $workerId);
         $this->audit->record('ai_provider_fallback_requeued', [
             'subject_type' => 'ai_job',
             'subject_id' => $job->id,

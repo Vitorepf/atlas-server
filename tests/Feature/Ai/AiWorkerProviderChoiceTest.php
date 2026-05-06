@@ -3,6 +3,7 @@
 namespace Tests\Feature\Ai;
 
 use App\Models\AiJob;
+use App\Models\AiRouterDecision;
 use App\Models\AiTrace;
 use App\Models\AiWorkerEvent;
 use App\Models\AtlasLedgerEvent;
@@ -321,6 +322,7 @@ class AiWorkerProviderChoiceTest extends TestCase
             'available_at' => now()->subSecond(),
             'max_attempts' => 1,
             'payload' => [
+                'task_type' => 'feature',
                 'decision_receipt' => [
                     'receipt_v2' => [
                         'envelope_id' => 'env_worker_success',
@@ -328,6 +330,9 @@ class AiWorkerProviderChoiceTest extends TestCase
                         'schema_version' => 'atlas.decide.v2',
                         'expires_at' => now()->addMinute()->toISOString(),
                         'dry_run' => false,
+                        'domain' => 'programming',
+                        'flow' => 'programming.dev',
+                        'risk' => 'medium',
                         'metadata' => [
                             'tenant_id' => 'tenant_worker',
                             'operator_id' => 'operator_worker',
@@ -335,6 +340,18 @@ class AiWorkerProviderChoiceTest extends TestCase
                     ],
                 ],
             ],
+        ]);
+
+        AiRouterDecision::query()->create([
+            'trace_id' => $trace->id,
+            'mode' => 'dev',
+            'selected_provider' => 'codex_cli',
+            'fallback_provider' => 'claude_cli',
+            'signals' => [
+                'decision_mode' => 'auto_best_allowed',
+            ],
+            'reason' => 'Codex selected for programming dev test.',
+            'was_overridden' => false,
         ]);
 
         $this->mockProviderManagerWith(new AiProviderResult(
@@ -365,6 +382,25 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertSame('tenant_worker', $events->first()?->tenant_id);
         $this->assertSame('operator_worker', $events->first()?->operator_id);
         $this->assertSame($trace->id, $events->firstWhere('event_type', LedgerEventType::OperationCompleted->value)?->trace_id);
+        $calledPayload = $events->firstWhere('event_type', LedgerEventType::ProviderCalled->value)?->payload;
+        $returnedPayload = $events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload;
+        $this->assertSame('atlas.provider_usage.v1', data_get($calledPayload, 'schema_version'));
+        $this->assertSame('called', data_get($calledPayload, 'phase'));
+        $this->assertSame('codex_cli', data_get($calledPayload, 'provider_cli'));
+        $this->assertSame('gpt-5.5', data_get($calledPayload, 'model_name_if_available'));
+        $this->assertSame('programming', data_get($calledPayload, 'domain'));
+        $this->assertSame('programming.dev', data_get($calledPayload, 'flow'));
+        $this->assertSame('feature', data_get($calledPayload, 'task_type'));
+        $this->assertSame('medium', data_get($calledPayload, 'risk'));
+        $this->assertSame('env_worker_success', data_get($calledPayload, 'envelope_id'));
+        $this->assertSame('rcpt_worker_success', data_get($calledPayload, 'receipt_id'));
+        $this->assertSame('auto', data_get($calledPayload, 'selection_mode'));
+        $this->assertSame('claude_cli', data_get($calledPayload, 'router_fallback_provider'));
+        $this->assertSame('atlas.provider_usage.v1', data_get($returnedPayload, 'schema_version'));
+        $this->assertSame('returned', data_get($returnedPayload, 'phase'));
+        $this->assertSame('succeeded', data_get($returnedPayload, 'exit_status'));
+        $this->assertSame(0.123, data_get($returnedPayload, 'latency_seconds'));
+        $this->assertSame(2, data_get($returnedPayload, 'output_size_estimate'));
         $this->assertNull(data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'stdout'));
         $this->assertNull(data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'output'));
         $this->assertSame(hash('sha256', 'ok'), data_get($events->firstWhere('event_type', LedgerEventType::ProviderReturned->value)?->payload, 'response_hash'));
@@ -948,6 +984,18 @@ class AiWorkerProviderChoiceTest extends TestCase
             $table->timestamps();
         });
 
+        Schema::create('ai_router_decisions', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('trace_id')->nullable()->index();
+            $table->string('mode', 32)->default('direct');
+            $table->string('selected_provider', 32);
+            $table->string('fallback_provider', 32)->nullable();
+            $table->json('signals');
+            $table->text('reason');
+            $table->boolean('was_overridden')->default(false);
+            $table->timestamps();
+        });
+
         Schema::create('ai_jobs', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('trace_id')->nullable();
@@ -1075,6 +1123,7 @@ class AiWorkerProviderChoiceTest extends TestCase
             'ai_worker_events',
             'ai_job_attempts',
             'ai_jobs',
+            'ai_router_decisions',
             'ai_traces',
             'ai_sessions',
             'ai_threads',

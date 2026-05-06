@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Support\AtlasCliLimitInput;
 use App\Http\Resources\AiInboxItemResource;
 use App\Models\AiInboxItem;
 use App\Services\Ai\Mobile\AtlasInboxService;
@@ -21,9 +22,21 @@ class AtlasCliInboxCommand extends Command
         {--severity= : debug, info, warning or critical}
         {--limit=50 : Number of items to list}
         {--cursor= : Cursor returned by a previous JSON list response}
+        {--projection-hours= : Hours window for run_ledger_projection}
+        {--projection-limit= : Max ledger events for run_ledger_projection}
+        {--dry-run : Preview run_ledger_projection without writing projection tables}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Read and act on the Atlas operational inbox.';
+
+    private ?AtlasCliLimitInput $limits = null;
+
+    public function __construct(?AtlasCliLimitInput $limits = null)
+    {
+        parent::__construct();
+
+        $this->limits = $limits;
+    }
 
     public function handle(AtlasInboxService $inbox, InboxActionRegistry $actions): int
     {
@@ -137,9 +150,12 @@ class AtlasCliInboxCommand extends Command
 
         $result = $actions->handle($item, $action, [
             'reason' => is_string($this->option('reason')) ? $this->option('reason') : null,
+            'projection_hours' => $this->option('projection-hours'),
+            'projection_limit' => $this->option('projection-limit'),
+            'dry_run' => (bool) $this->option('dry-run'),
         ], 'cli-'.$action.'-'.$item->id);
 
-        return $this->printItem($result['item']);
+        return $this->printItem($result['item'], $result['result'] ?? []);
     }
 
     private function discuss(InboxActionRegistry $actions): int
@@ -178,12 +194,18 @@ class AtlasCliInboxCommand extends Command
         return $item;
     }
 
-    private function printItem(AiInboxItem $item): int
+    /**
+     * @param  array<string,mixed>  $result
+     */
+    private function printItem(AiInboxItem $item, array $result = []): int
     {
         $payload = (new AiInboxItemResource($item))->resolve();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode(['item' => $payload], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line(json_encode([
+                'result' => $result,
+                'item' => $payload,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         } else {
             $this->info('Inbox item atualizado: '.$item->id.' ['.$item->status.']');
         }
@@ -193,9 +215,12 @@ class AtlasCliInboxCommand extends Command
 
     private function limitOption(): int
     {
-        $value = $this->option('limit');
+        return $this->cliLimits()->inboxLimit($this->option('limit'));
+    }
 
-        return max(1, min(100, is_numeric($value) ? (int) $value : 50));
+    private function cliLimits(): AtlasCliLimitInput
+    {
+        return $this->limits ?? app(AtlasCliLimitInput::class);
     }
 
     private function severityOption(): ?string

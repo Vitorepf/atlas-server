@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Support\AtlasCliLimitInput;
 use App\Models\AtlasToolFinding;
 use App\Services\Tools\AtlasToolApprovalService;
 use App\Services\Tools\AtlasToolAuthorityMatrixService;
@@ -63,6 +64,8 @@ class AtlasToolsCommand extends Command
 
     protected $description = 'Inspect and operate the Atlas Super Tool Runtime registry, policy and evidence store.';
 
+    private ?AtlasCliLimitInput $limits = null;
+
     public function handle(
         AtlasToolRegistryService $registry,
         AtlasToolExecutor $executor,
@@ -73,7 +76,9 @@ class AtlasToolsCommand extends Command
         AtlasToolGateService $gate,
         AtlasToolFindingWaiverService $waivers,
         AtlasToolReleaseGateService $releaseGate,
+        AtlasCliLimitInput $limits,
     ): int {
+        $this->limits = $limits;
         $action = strtolower((string) $this->argument('action'));
         $workspace = $this->workspace();
 
@@ -236,7 +241,7 @@ class AtlasToolsCommand extends Command
      */
     private function evidencePayload(AtlasToolEvidenceQueryService $evidenceQuery, string $workspace): array
     {
-        $limit = max(1, min(100, is_numeric($this->option('limit')) ? (int) $this->option('limit') : 20));
+        $limit = $this->cliLimits()->standardLimit($this->option('limit'));
         $slug = (string) $this->argument('tool');
 
         return [
@@ -355,7 +360,7 @@ class AtlasToolsCommand extends Command
      */
     private function policiesPayload(AtlasToolApprovalService $approvals, string $workspace): array
     {
-        $limit = max(1, min(100, is_numeric($this->option('limit')) ? (int) $this->option('limit') : 20));
+        $limit = $this->cliLimits()->standardLimit($this->option('limit'));
 
         return ['policies' => $approvals->policies($workspace, $limit)];
     }
@@ -474,7 +479,7 @@ class AtlasToolsCommand extends Command
             'recipe_recommended_surface' => $this->option('recipe-surface'),
             'recipe_blocking_capable' => $this->recipeBlockingCapableFilter(),
             'required' => (bool) $this->option('required-only') ?: null,
-            'limit' => max(1, min(100, is_numeric($this->option('limit')) ? (int) $this->option('limit') : 20)),
+            'limit' => $this->cliLimits()->standardLimit($this->option('limit')),
         ], [
             'required_tools' => $requiredTools,
             'fail_statuses' => (array) $this->option('fail-status'),
@@ -502,7 +507,7 @@ class AtlasToolsCommand extends Command
             'recipe_recommended_surface' => $this->option('recipe-surface'),
             'recipe_blocking_capable' => $this->recipeBlockingCapableFilter(),
             'required' => (bool) $this->option('required-only') ?: null,
-            'limit' => max(1, min(200, is_numeric($this->option('limit')) ? (int) $this->option('limit') : 100)),
+            'limit' => $this->cliLimits()->releaseGateLimit($this->option('limit')),
         ], [
             'release_profile' => (string) ($this->option('release-profile') ?: 'security_sbom_release'),
             'fail_statuses' => (array) $this->option('fail-status'),
@@ -712,5 +717,10 @@ class AtlasToolsCommand extends Command
         $resolved = realpath($workspace);
 
         return ['workspace' => $resolved && is_dir($resolved) ? $resolved : $workspace];
+    }
+
+    private function cliLimits(): AtlasCliLimitInput
+    {
+        return $this->limits ?? app(AtlasCliLimitInput::class);
     }
 }

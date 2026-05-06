@@ -2,8 +2,8 @@
 
 namespace Tests\Unit\Ai;
 
-use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\AtlasMemoryQualityService;
+use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
@@ -15,7 +15,9 @@ use Tests\TestCase;
 class AtlasOpenBrainContextInjectionServiceTest extends TestCase
 {
     private EngineeringKnowledgeBaseService $knowledge;
+
     private EngineeringCodeIntelligenceService $code;
+
     private AtlasOpenBrainContextInjectionService $service;
 
     protected function setUp(): void
@@ -160,8 +162,90 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $section = $result['prompt_section'] ?? '';
         $this->assertStringContainsString('context_pack_hash:', $section);
         $this->assertStringContainsString('surface: cli_chat', $section);
+        $this->assertStringContainsString('## Context Pack Self-Reflection Gate', $section);
+        $this->assertSame('insufficient', data_get($result, 'summary.self_reflection.status'));
+        $this->assertContains('context_pack_insufficient', $result['warnings']);
         $this->assertNotEmpty($result['context_pack_hash']);
         $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', (string) $result['context_pack_hash']);
+    }
+
+    public function test_retrieval_plan_is_summarized_for_open_brain_audit_and_prompt_header(): void
+    {
+        $result = $this->service->inject(
+            'implementar feature X',
+            $this->task('dev'),
+            new AiContextPack(
+                data: [
+                    'task' => ['type' => 'dev', 'desired_mode' => 'dev', 'risk_level' => 'high', 'domain' => 'developer', 'objective' => 'test'],
+                    'surface' => ['kind' => 'mac_cli', 'workspace' => base_path()],
+                    'retrieval' => [
+                        'schema_version' => 'atlas.context.retrieval_plan.v1',
+                        'mode' => 'audit_heavy',
+                        'selected_sources' => [
+                            ['type' => 'evidence_replay', 'required' => true, 'limit' => 8],
+                            ['type' => 'code_intelligence', 'required' => false, 'limit' => 12],
+                            ['type' => 'memory_signals', 'required' => false, 'limit' => 8],
+                        ],
+                        'budgets' => ['max_context_refs' => 28],
+                        'policy' => ['provider_safe_only' => true],
+                    ],
+                    'memory' => ['semantic' => [['title' => 'Atlas']]],
+                    'constraints' => [],
+                ],
+                contextRefs: [['type' => 'semantic_note', 'id' => 1]],
+            ),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        );
+
+        $this->assertSame('audit_heavy', data_get($result, 'summary.retrieval_plan.mode'));
+        $this->assertSame(['evidence_replay', 'code_intelligence', 'memory_signals'], data_get($result, 'summary.retrieval_plan.selected_sources'));
+        $this->assertSame(['evidence_replay'], data_get($result, 'summary.retrieval_plan.required_sources'));
+        $this->assertSame(['memory_signals'], data_get($result, 'summary.retrieval_plan.available_sources'));
+        $this->assertSame(['evidence_replay'], data_get($result, 'summary.retrieval_plan.required_unavailable_sources'));
+        $this->assertSame('blocking', data_get($result, 'summary.retrieval_plan.review_signal.status'));
+        $this->assertSame('refresh_evidence_replay_or_attach_trace_before_retry', data_get($result, 'summary.retrieval_plan.review_signal.recommended_action'));
+        $this->assertSame(28, data_get($result, 'summary.retrieval_plan.max_context_refs'));
+        $this->assertContains('retrieval_required_source_unavailable', $result['warnings']);
+        $this->assertContains('Refresh evidence replay or attach trace/envelope evidence before retrying.', $result['next_actions']);
+        $this->assertStringContainsString('retrieval_plan: mode=audit_heavy; selected=evidence_replay,code_intelligence,memory_signals; required=evidence_replay', $result['prompt_section'] ?? '');
+    }
+
+    public function test_required_open_brain_fails_closed_when_required_retrieval_source_is_unavailable(): void
+    {
+        $result = $this->service->inject(
+            'validar deploy com evidencia obrigatoria',
+            $this->task('dev'),
+            new AiContextPack(
+                data: [
+                    'task' => ['type' => 'dev', 'desired_mode' => 'dev', 'risk_level' => 'high', 'domain' => 'developer', 'objective' => 'test'],
+                    'surface' => ['kind' => 'mac_cli', 'workspace' => base_path()],
+                    'retrieval' => [
+                        'schema_version' => 'atlas.context.retrieval_plan.v1',
+                        'mode' => 'audit_heavy',
+                        'selected_sources' => [
+                            ['type' => 'evidence_replay', 'required' => true, 'limit' => 8, 'unavailable_action' => 'fail_closed_or_request_review'],
+                        ],
+                        'budgets' => ['max_context_refs' => 8],
+                        'policy' => ['provider_safe_only' => true],
+                    ],
+                    'memory' => ['semantic' => [['title' => 'Atlas']]],
+                    'constraints' => [],
+                ],
+                contextRefs: [['type' => 'semantic_note', 'id' => 1]],
+            ),
+            ['payload' => [
+                'atlas_workflow_mode' => 'dev',
+                'workspace' => base_path(),
+                'open_brain' => ['mode' => 'required'],
+            ]],
+        );
+
+        $this->assertSame('failed_closed', $result['status']);
+        $this->assertContains('retrieval_required_source_unavailable', $result['warnings']);
+        $this->assertSame(['evidence_replay'], data_get($result, 'summary.retrieval_plan.required_unavailable_sources'));
+        $this->assertSame('blocking', data_get($result, 'summary.retrieval_plan.review_signal.status'));
+        $this->assertContains('Refresh evidence replay or attach trace/envelope evidence before retrying.', $result['next_actions']);
+        $this->assertNull($result['prompt_section']);
     }
 
     public function test_prompt_section_not_duplicated_when_knowledge_refs_empty(): void
@@ -288,7 +372,7 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         // knowledgeRefs() has its own try-catch: exceptions from knowledge service
         // are swallowed and return [] → no_engineering_knowledge_refs warning → degraded
         $knowledge = $this->createMock(EngineeringKnowledgeBaseService::class);
-        $knowledge->method('contextRefs')->willThrowException(new \RuntimeException('db down'));
+        $knowledge->method('contextRefs')->willThrowException(new RuntimeException('db down'));
         $code = $this->createMock(EngineeringCodeIntelligenceService::class);
         $code->method('contextRefs')->willReturn([]);
 
@@ -310,7 +394,7 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         // failed_open is triggered by an exception that escapes buildInjection()
         // AiContextPack::toArray() is not wrapped in a try-catch inside the service
         $pack = $this->createMock(AiContextPack::class);
-        $pack->method('toArray')->willThrowException(new \RuntimeException('pack corrupted'));
+        $pack->method('toArray')->willThrowException(new RuntimeException('pack corrupted'));
         $pack->method('contextRefs')->willReturn([]);
 
         $result = $this->service->inject(
@@ -327,7 +411,7 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
     public function test_failed_closed_when_exception_and_mode_required(): void
     {
         $knowledge = $this->createMock(EngineeringKnowledgeBaseService::class);
-        $knowledge->method('contextRefs')->willThrowException(new \RuntimeException('db down'));
+        $knowledge->method('contextRefs')->willThrowException(new RuntimeException('db down'));
         $code = $this->createMock(EngineeringCodeIntelligenceService::class);
         $code->method('contextRefs')->willReturn([]);
 
@@ -560,6 +644,7 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $this->assertSame('failed_closed', $result['status']);
         $this->assertContains('memory_quality_critical', $result['warnings']);
         $this->assertContains('memory_quality_no_provider_safe_memory', $result['warnings']);
+        $this->assertContains('context_pack_insufficient', $result['warnings']);
         $this->assertSame('critical', data_get($result, 'summary.memory_quality.status'));
     }
 

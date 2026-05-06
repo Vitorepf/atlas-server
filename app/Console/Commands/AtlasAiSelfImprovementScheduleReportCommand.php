@@ -43,6 +43,12 @@ class AtlasAiSelfImprovementScheduleReportCommand extends Command
         $this->components->twoColumnDetail('Hours', (string) ($payload['hours'] ?? '-'));
         $this->components->twoColumnDetail('Schedule observations', (string) ($report['schedule_observation_count'] ?? 0));
         $this->components->twoColumnDetail('Envelopes', (string) ($report['envelope_count'] ?? 0));
+        $this->components->twoColumnDetail('Completed runs', (string) ($report['completed_count'] ?? 0));
+        $this->components->twoColumnDetail('Emitted proposals', (string) ($report['emitted_count'] ?? 0));
+        $this->components->twoColumnDetail('Emitted inbox refs', $this->compactList((array) ($report['emitted_inbox_item_ids'] ?? [])));
+        $this->components->twoColumnDetail('Emitted inbox items', $this->compactInboxItems((array) ($report['emitted_inbox_items'] ?? [])));
+        $this->components->twoColumnDetail('Inbox hydration', ($report['emitted_inbox_item_hydration_available'] ?? false) ? 'available' : 'unavailable');
+        $this->components->twoColumnDetail('Missing inbox refs', $this->compactList((array) ($report['emitted_inbox_item_missing_ids'] ?? [])));
         $this->components->twoColumnDetail('Latest health', (string) ($report['latest_health_status'] ?? '-'));
         $this->components->twoColumnDetail('Latest scheduler', (string) ($report['latest_scheduler_status'] ?? '-'));
         $this->components->twoColumnDetail('Latest plan hash', (string) ($report['latest_plan_hash'] ?? '-'));
@@ -75,13 +81,52 @@ class AtlasAiSelfImprovementScheduleReportCommand extends Command
                 $event['flow'] ?? '-',
                 $event['registered_command_count'] ?? 0,
                 $event['invalid_flow_count'] ?? 0,
+                ($event['completed'] ?? false) ? 'yes' : 'no',
+                $event['emitted_count'] ?? 0,
+                $this->compactList((array) ($event['emitted_inbox_item_ids'] ?? [])),
+                $this->compactInboxItems((array) ($event['emitted_inbox_items'] ?? [])),
+                $this->compactList((array) ($event['emitted_inbox_item_missing_ids'] ?? [])),
                 $event['envelope_id'] ?? '-',
             ])
             ->all();
         if ($recentRows !== []) {
-            $this->table(['health', 'scheduler', 'flow', 'registered', 'invalid', 'envelope'], $recentRows);
+            $this->table(['health', 'scheduler', 'flow', 'registered', 'invalid', 'completed', 'emitted', 'inbox refs', 'inbox items', 'missing refs', 'envelope'], $recentRows);
         }
 
         return ($payload['status'] ?? null) === 'ok' ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * @param  array<int,mixed>  $items
+     */
+    private function compactList(array $items): string
+    {
+        $values = collect($items)
+            ->map(fn (mixed $item): string => trim((string) $item))
+            ->filter()
+            ->values()
+            ->all();
+
+        return $values === [] ? '-' : implode(', ', $values);
+    }
+
+    /**
+     * @param  array<int,mixed>  $items
+     */
+    private function compactInboxItems(array $items): string
+    {
+        $values = collect($items)
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->map(function (array $item): string {
+                $title = trim((string) ($item['title'] ?? $item['id'] ?? ''));
+                $status = trim((string) ($item['status'] ?? 'unknown'));
+
+                return $title === '' ? '' : "{$title} ({$status})";
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        return $values === [] ? '-' : implode(', ', $values);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use Illuminate\Console\Command;
 
 class AtlasCliHelpCommand extends Command
@@ -10,12 +11,12 @@ class AtlasCliHelpCommand extends Command
 
     protected $description = 'Show the Atlas CLI product command map.';
 
-    public function handle(): int
+    public function handle(AtlasArchitectureOperationsCatalog $architectureOperations): int
     {
         $payload = [
             'product' => 'Atlas CLI',
             'default_flow' => 'atlas dev para programacao diaria; atlas forge para tarefas medias/dificeis/extremas',
-            'commands' => $this->commands(),
+            'commands' => $this->commands($architectureOperations),
         ];
 
         if ((bool) $this->option('json')) {
@@ -46,7 +47,7 @@ class AtlasCliHelpCommand extends Command
     /**
      * @return array<string, array<int, array{command:string, description:string}>>
      */
-    private function commands(): array
+    private function commands(AtlasArchitectureOperationsCatalog $architectureOperations): array
     {
         return [
             'fluxo_principal' => [
@@ -191,6 +192,7 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'Comando baixo nivel usado pelo bootstrap para atualizar health de providers.',
                 ],
             ],
+            $architectureOperations->sectionKey() => $architectureOperations->commands(),
             'sessao_memoria' => [
                 [
                     'command' => 'atlas state',

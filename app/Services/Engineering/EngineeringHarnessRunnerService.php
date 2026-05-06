@@ -2,12 +2,12 @@
 
 namespace App\Services\Engineering;
 
+use App\Models\AiTrace;
 use App\Models\AtlasEngineeringControlResult;
 use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
 use App\Models\AtlasTask;
-use App\Models\AiTrace;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -15,6 +15,7 @@ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Tools\AtlasToolGateService;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -41,6 +42,7 @@ class EngineeringHarnessRunnerService
         private readonly AtlasMemoryRegistryService $memoryRegistry,
         private readonly AtlasToolGateService $toolGate,
         private readonly AtlasEvidenceLedger $ledger,
+        private readonly ?EngineeringHarnessRunnerInput $input = null,
     ) {}
 
     /**
@@ -53,7 +55,7 @@ class EngineeringHarnessRunnerService
         $dryRun = (bool) ($options['dry_run'] ?? false);
         $noProvider = (bool) ($options['no_provider'] ?? false);
         $requestedAutoTest = (bool) ($options['auto_test'] ?? false);
-        $requestedMaxAttempts = max(1, min(10, (int) ($options['max_attempts'] ?? 1)));
+        $requestedMaxAttempts = $this->runnerInput()->maxAttempts($options['max_attempts'] ?? null);
         $requestedProvider = is_string($options['provider'] ?? null) && trim((string) $options['provider']) !== ''
             ? trim((string) $options['provider'])
             : null;
@@ -470,7 +472,7 @@ class EngineeringHarnessRunnerService
             'provider_docker_service' => $options['provider_docker_service'] ?? data_get($strategy, 'provider_runtime.provider_docker_service'),
             'provider_docker_app_dir' => $options['provider_docker_app_dir'] ?? data_get($strategy, 'provider_runtime.provider_docker_app_dir'),
             'provider_docker_workspace_dir' => $options['provider_docker_workspace_dir'] ?? data_get($strategy, 'provider_runtime.provider_docker_workspace_dir'),
-            'max_attempts' => max(1, min(10, $maxAttempts)),
+            'max_attempts' => $this->runnerInput()->maxAttempts($maxAttempts),
             'test_command' => is_string($options['test_command'] ?? null) && $options['test_command'] !== ''
                 ? $options['test_command']
                 : $this->sourceTestCommand($sourceRun),
@@ -1505,9 +1507,9 @@ class EngineeringHarnessRunnerService
 
     /**
      * @param  array<string,mixed>  $providerRun
-     * @return \Illuminate\Support\Collection<int,array<string,mixed>>
+     * @return Collection<int,array<string,mixed>>
      */
-    private function providerRunsFromTrace(array $providerRun): \Illuminate\Support\Collection
+    private function providerRunsFromTrace(array $providerRun): Collection
     {
         $traceId = $this->uuidOrNull($this->providerTraceId($providerRun));
         if ($traceId === null || ! Schema::hasTable('ai_traces') || ! Schema::hasTable('ai_jobs')) {
@@ -2307,7 +2309,7 @@ class EngineeringHarnessRunnerService
         $forceSandboxWithoutProvider = (bool) ($requested['force_sandbox_without_provider'] ?? false);
         $permission = $this->permissionMode($requested['permission'] ?? 'auto');
         $sandbox = $this->sandboxMode($requested['sandbox'] ?? 'workspace');
-        $maxAttempts = max(1, min(10, (int) ($requested['max_attempts'] ?? 1)));
+        $maxAttempts = $this->runnerInput()->maxAttempts($requested['max_attempts'] ?? null);
         $autoTest = (bool) ($requested['auto_test'] ?? false);
         $actions = [];
         $reasons = [];
@@ -2800,5 +2802,10 @@ class EngineeringHarnessRunnerService
         $resolved = realpath($workspace);
 
         return $resolved && is_dir($resolved) ? $resolved : $workspace;
+    }
+
+    private function runnerInput(): EngineeringHarnessRunnerInput
+    {
+        return $this->input ?? app(EngineeringHarnessRunnerInput::class);
     }
 }

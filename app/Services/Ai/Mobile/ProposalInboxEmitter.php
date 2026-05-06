@@ -11,8 +11,7 @@ class ProposalInboxEmitter
     public function __construct(
         private readonly ContextBundleService $bundles,
         private readonly AtlasInboxService $inbox,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array<string,mixed>  $data
@@ -34,7 +33,11 @@ class ProposalInboxEmitter
             return $existing;
         }
 
+        $metadata = $this->array($data['metadata'] ?? []);
+        $reviewSignal = $this->array($metadata['review_signal'] ?? []);
         $body = $this->body($data, $problem, $solution, $worthIt);
+        $payload = $this->proposalPayload($data, $problem, $solution, $worthIt);
+        $availableActions = $this->availableActions($data);
         $bundle = $this->bundles->create([
             'purpose' => 'proposal',
             'title' => $title,
@@ -47,11 +50,7 @@ class ProposalInboxEmitter
             'diff_refs' => $this->array($data['diff_refs'] ?? []),
             'raw_payload' => [
                 'branch' => $this->nullableString($data['branch'] ?? null),
-                'problem' => $problem,
-                'solution' => $solution,
-                'worth_it' => $worthIt,
-                'alternatives' => $this->array($data['alternatives'] ?? []),
-                'policy' => $this->policy($data),
+                ...$payload,
             ],
             'expires_at' => now()->addDays(7),
         ]);
@@ -59,7 +58,7 @@ class ProposalInboxEmitter
         return $this->inbox->create([
             'type' => 'proposal',
             'category' => $this->string($data['category'] ?? null, 'auto_improvement'),
-            'severity' => 'info',
+            'severity' => $this->severityFromReviewSignal($reviewSignal),
             'title' => $title,
             'summary' => Str::limit($problem, 220, '...'),
             'body' => $body,
@@ -68,24 +67,67 @@ class ProposalInboxEmitter
             'initiator' => 'atlas',
             'context_bundle_id' => $bundle->id,
             'dedupe_key' => $dedupeKey,
-            'available_actions' => [
-                ['id' => 'review_patch', 'label' => 'Revisar proposta', 'style' => 'primary'],
-                ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
-                ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
-            ],
+            'available_actions' => $availableActions,
             'payload' => [
                 'branch' => $this->nullableString($data['branch'] ?? null),
-                'problem' => $problem,
-                'solution' => $solution,
-                'worth_it' => $worthIt,
-                'alternatives' => $this->array($data['alternatives'] ?? []),
-                'policy' => $this->policy($data),
+                ...$payload,
             ],
             'push_policy' => ['send' => 'auto', 'reason' => 'auto_improvement_proposal'],
             'confidence_score' => isset($data['confidence']) ? (float) $data['confidence'] : null,
-            'priority_score' => 65,
+            'priority_score' => $this->priorityFromReviewSignal($reviewSignal),
             'expires_at' => now()->addDays(7),
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function proposalPayload(array $data, string $problem, string $solution, string $worthIt): array
+    {
+        $metadata = $this->array($data['metadata'] ?? []);
+        $payload = $this->array($data['payload'] ?? []);
+
+        return array_replace_recursive($payload, [
+            'problem' => $problem,
+            'solution' => $solution,
+            'worth_it' => $worthIt,
+            'alternatives' => $this->array($data['alternatives'] ?? []),
+            'policy' => $this->policy($data),
+            'proposal_contract' => [
+                'schema_version' => $metadata['schema_version'] ?? null,
+                'review_signal' => $this->array($metadata['review_signal'] ?? []),
+                'source_refs' => $this->array($data['source_refs'] ?? []),
+                'trace_refs' => $this->array($data['trace_refs'] ?? []),
+                'job_refs' => $this->array($data['job_refs'] ?? []),
+                'file_refs' => $this->array($data['file_refs'] ?? []),
+                'diff_refs' => $this->array($data['diff_refs'] ?? []),
+            ],
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<int,array<string,mixed>>
+     */
+    private function availableActions(array $data): array
+    {
+        $default = [
+            ['id' => 'review_patch', 'label' => 'Revisar proposta', 'style' => 'primary'],
+            ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
+            ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
+        ];
+
+        $provided = collect($this->array($data['available_actions'] ?? []))
+            ->filter(fn (mixed $action): bool => is_array($action) && $this->nullableString($action['id'] ?? null) !== null)
+            ->map(fn (array $action): array => $action)
+            ->values()
+            ->all();
+
+        return collect([...$provided, ...$default])
+            ->unique(fn (array $action): string => (string) $action['id'])
+            ->values()
+            ->all();
     }
 
     private function existingActiveItem(string $dedupeKey): ?AiInboxItem
@@ -141,6 +183,34 @@ class ProposalInboxEmitter
             'requires_operator_review' => true,
             'requires_tests_passed' => true,
         ], $provided);
+    }
+
+    /**
+     * @param  array<string,mixed>  $reviewSignal
+     */
+    private function severityFromReviewSignal(array $reviewSignal): string
+    {
+        return match ($this->nullableString($reviewSignal['severity'] ?? null)) {
+            'critical', 'high' => 'critical',
+            'medium', 'low' => 'warning',
+            'debug' => 'debug',
+            default => 'info',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $reviewSignal
+     */
+    private function priorityFromReviewSignal(array $reviewSignal): int
+    {
+        return match ($this->nullableString($reviewSignal['severity'] ?? null)) {
+            'critical' => 95,
+            'high' => 85,
+            'medium' => 75,
+            'low' => 65,
+            'debug' => 35,
+            default => 55,
+        };
     }
 
     /**
