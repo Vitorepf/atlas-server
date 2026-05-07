@@ -149,6 +149,7 @@ class AtlasSelfImprovementScheduleService
             'weekly_architecture_audit',
             'repair_loop_review',
             'kernel_pipeline_review',
+            'agent_behavior_review',
         ];
     }
 
@@ -414,7 +415,7 @@ class AtlasSelfImprovementScheduleService
 
         if ($plan['count'] < 1) {
             $issues[] = 'self_improvement_schedule_empty';
-            $actions[] = 'Restore the default nightly_review, weekly_architecture_audit, repair_loop_review, and kernel_pipeline_review schedule.';
+            $actions[] = 'Restore the default nightly_review, weekly_architecture_audit, repair_loop_review, kernel_pipeline_review, and agent_behavior_review schedule.';
         }
 
         if ($issues === []) {

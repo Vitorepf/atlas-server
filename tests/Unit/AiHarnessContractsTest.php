@@ -51,6 +51,31 @@ class AiHarnessContractsTest extends TestCase
         $this->assertSame('high', $task->riskLevel());
         $this->assertTrue($plan['requires_human_confirmation']);
         $this->assertContains('human_confirmation_required', $plan['quality_gates']);
+        $this->assertSame('atlas-ai.agent-behavior.v1', data_get($plan, 'agent_behavior_contract.contract_id'));
+        $this->assertContains('Surgical Diff Discipline', data_get($plan, 'agent_behavior_contract.principles'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($plan, 'agent_behavior_contract.content_hash'));
+    }
+
+    public function test_execution_plan_prompt_renders_agent_behavior_contract(): void
+    {
+        $task = AiTaskRequest::fromInput('Corrija o bug e rode os testes.', [
+            'source_type' => 'cli',
+            'payload' => [
+                'atlas_workflow_mode' => 'dev',
+            ],
+        ], [
+            'agent' => 'desenvolvedor',
+            'intent' => 'keyword:corrija',
+        ]);
+
+        $prompt = AiExecutionPlan::fromTask($task, 'desenvolvedor', 'codex_cli', [])->toPromptSection();
+
+        $this->assertStringContainsString('## Agent Behavior Contract', $prompt);
+        $this->assertStringContainsString('atlas-ai.agent-behavior.v1', $prompt);
+        $this->assertStringContainsString('Assumption Management', $prompt);
+        $this->assertStringContainsString('Simplicity Bias', $prompt);
+        $this->assertStringContainsString('Surgical Diff Discipline', $prompt);
+        $this->assertStringContainsString('Verifiable Goal Loop', $prompt);
     }
 
     public function test_context_pack_renders_recent_conversation_for_short_replies(): void

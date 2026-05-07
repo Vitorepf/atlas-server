@@ -89,6 +89,7 @@ class EngineeringHarnessExecutionService
                     'profile' => $request->profile(),
                     'workspace' => $request->workspace(),
                     'policy_contracts' => $request->policyContracts(),
+                    'agent_behavior_contract' => $request->agentBehaviorContract(),
                     'created_at' => now()->toJSON(),
                 ],
             ],
@@ -116,6 +117,7 @@ class EngineeringHarnessExecutionService
                 'Gates proporcionais ao risco avaliados.',
                 'Completion packet ou harness payload disponivel.',
             ],
+            'agent_behavior_contract' => $request->agentBehaviorContract(),
         ], $contract);
     }
 
@@ -189,6 +191,7 @@ class EngineeringHarnessExecutionService
                 'permission' => $options['permission'] ?? null,
                 'apply_isolated_patch' => (bool) ($options['apply_isolated_patch'] ?? true),
                 'no_provider' => (bool) ($options['no_provider'] ?? false),
+                'agent_behavior_contract' => $options['agent_behavior_contract'] ?? null,
             ],
         ], fn (mixed $value): bool => $value !== null && $value !== []);
     }
@@ -294,6 +297,7 @@ class EngineeringHarnessExecutionService
                 'model' => $request->model(),
                 'no_provider' => (bool) ($harnessOptions['no_provider'] ?? false),
                 'policy_contracts' => $request->policyContracts(),
+                'agent_behavior_contract' => $request->agentBehaviorContract(),
             ],
         );
 

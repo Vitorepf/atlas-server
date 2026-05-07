@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\ValueObjects;
 
+use App\Services\Ai\Kernel\Provider\AgentBehaviorContract;
+
 class AiExecutionPlan
 {
     public function __construct(
@@ -14,6 +16,7 @@ class AiExecutionPlan
         $mode = $task->desiredMode();
         $risk = $task->riskLevel();
         $requestedProvider = data_get($options, 'payload.requested_provider');
+        $agentBehavior = app(AgentBehaviorContract::class);
 
         return new self([
             'schema_version' => 1,
@@ -24,6 +27,7 @@ class AiExecutionPlan
             'agents' => self::agents($taskType, $mode, $agent),
             'tools_allowed' => self::tools($taskType, $mode),
             'quality_gates' => self::gates($taskType, $mode, $risk),
+            'agent_behavior_contract' => $agentBehavior->toArray(),
             'requires_human_confirmation' => in_array($risk, ['high', 'irreversible'], true),
             'escalation_policy' => 'Escalar para provider alternativo ou Vitor se gate falhar duas vezes.',
         ]);
@@ -62,6 +66,17 @@ class AiExecutionPlan
         $lines[] = '## Quality Gates';
         foreach ($this->data['quality_gates'] as $gate) {
             $lines[] = '- '.$gate;
+        }
+
+        $behavior = (array) ($this->data['agent_behavior_contract'] ?? []);
+        if ($behavior !== []) {
+            $lines[] = '';
+            $lines[] = '## Agent Behavior Contract';
+            $lines[] = '- contract: '.(string) ($behavior['contract_id'] ?? 'unknown');
+            $lines[] = '- hash: '.(string) ($behavior['content_hash'] ?? 'unknown');
+            foreach ((array) ($behavior['principles'] ?? []) as $principle) {
+                $lines[] = '- '.$principle;
+            }
         }
 
         return implode("\n", $lines);

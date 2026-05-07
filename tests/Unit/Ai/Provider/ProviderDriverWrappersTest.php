@@ -65,6 +65,11 @@ class ProviderDriverWrappersTest extends TestCase
         $this->assertSame($providerId, data_get($first->metadata, 'provider_id'));
         $this->assertStringContainsString('Provider: '.$providerId, $first->text);
         $this->assertStringContainsString('provider is an execution engine', $first->text);
+        $this->assertStringContainsString('Atlas AI Agent Behavior Contract v1', $first->text);
+        $this->assertStringContainsString('Surgical Diff Discipline', $first->text);
+        $this->assertStringContainsString('Verifiable Goal Loop', $first->text);
+        $this->assertSame('atlas-ai.agent-behavior.v1', data_get($first->metadata, 'agent_behavior_contract.contract_id'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($first->metadata, 'agent_behavior_contract.content_hash'));
         $this->assertSame($first->contentHash, $first->toArray()['content_hash']);
     }
 
@@ -94,6 +99,7 @@ class ProviderDriverWrappersTest extends TestCase
         $this->assertSame($identity->identityId, data_get($prepared, 'payload.identity_fragment.identity_id'));
         $this->assertSame($identity->contentHash, data_get($prepared, 'payload.identity_fragment.content_hash'));
         $this->assertSame($identity->text, data_get($prepared, 'payload.identity_fragment.text'));
+        $this->assertSame('atlas-ai.agent-behavior.v1', data_get($prepared, 'payload.identity_fragment.metadata.agent_behavior_contract.contract_id'));
         $this->assertContains(data_get($prepared, 'payload.identity_fragment.metadata.source'), [
             'atlas_ai_master_prompt_projection',
             'atlas_ai_master_prompt_fallback',

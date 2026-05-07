@@ -7,7 +7,10 @@ use Throwable;
 
 class AtlasProviderIdentityProjector
 {
-    public function __construct(private readonly AiSkillStore $skills) {}
+    public function __construct(
+        private readonly AiSkillStore $skills,
+        private readonly AgentBehaviorContract $agentBehavior,
+    ) {}
 
     public function forProvider(string $providerId): IdentityFragment
     {
@@ -26,6 +29,7 @@ class AtlasProviderIdentityProjector
                     'source_hash' => $master->contentHash,
                     'provider_id' => $providerId,
                     'integration_stage' => 'canonical_identity_projection',
+                    'agent_behavior_contract' => $this->agentBehavior->toArray(),
                     'fallback' => false,
                 ],
             );
@@ -37,6 +41,7 @@ class AtlasProviderIdentityProjector
                     'source' => 'atlas_ai_master_prompt_fallback',
                     'provider_id' => $providerId,
                     'integration_stage' => 'canonical_identity_projection',
+                    'agent_behavior_contract' => $this->agentBehavior->toArray(),
                     'fallback' => true,
                     'fallback_reason' => $exception::class,
                 ],
@@ -57,6 +62,8 @@ class AtlasProviderIdentityProjector
             'Invariant: provider is an execution engine; Atlas AI remains the identity, policy, memory, and decision authority.',
             'Canonical Atlas identity:',
             trim($masterIdentity),
+            'Behavior contract:',
+            $this->agentBehavior->text(),
         ]));
     }
 

@@ -34,6 +34,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
 ---
 
 # Atlas Native Mac Agent
@@ -117,12 +118,27 @@ LaunchAgent nao substitui scheduler Laravel; apenas mantem bridges nativos vivos
 Somente com AP proprio, privacy review e opt-in explicito:
 
 1. captura continua de tela;
-2. microfone/voz sempre ativo;
-3. controle de janelas e teclado em background;
-4. HomeKit, Bluetooth ou IoT;
-5. automacao de apps externos;
-6. modelos locais com acesso a dados privados;
-7. daemon always-on com contexto ambiental longitudinal.
+2. controle de janelas e teclado em background;
+3. HomeKit, Bluetooth ou IoT;
+4. automacao de apps externos;
+5. modelos locais com acesso a dados privados;
+6. daemon always-on com contexto ambiental longitudinal.
+
+## Escopo Ativo Especializado: Voice Realtime Edge
+
+Voz/microfone era escopo futuro deste documento. Foi destravado por AP proprio
+e governanca em `atlas-ai-voice-realtime-surface.md`, sob as seguintes
+restricoes constitutivas:
+
+1. wake word detectado **localmente**; audio ambiente nao streama antes;
+2. audio raw nunca persiste em disco;
+3. eclipse modes (calendar, focus, manual, domain rule) sao class-3 imutaveis;
+4. LED virtual sinaliza captura ativa em tempo real;
+5. binario `atlas-voice-edge` registrado como runtime `swift_native_mac` com
+   capability `voice.realtime.edge`;
+6. Privacy class por domain (sensitive/secret bloqueia hash de audio).
+
+Captura continua de tela e modelos locais com dados privados continuam future.
 
 ## Proibido
 
@@ -198,7 +214,7 @@ Toda operacao Swift deve registrar:
 | App focus | metadata only + no hidden content capture |
 | LaunchAgent | opt-in + health + user-visible disable |
 | XPC helper | signed helper + least privilege |
-| Microphone | future only + explicit session consent |
+| Microphone | wake word local + eclipse + privacy class + LED visivel; ver `atlas-ai-voice-realtime-surface.md` |
 | Endpoint Security | future/blocked + AP + entitlement review |
 
 ## Implementation Roadmap

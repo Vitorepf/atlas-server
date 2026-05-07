@@ -6,6 +6,7 @@ use App\Models\AiQualityAction;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiTrace;
 use App\Services\Ai\AiQualityActionService;
+use App\Services\Ai\FairClaudePolicy;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -75,10 +76,42 @@ class AiQualityActionServiceTest extends TestCase
         $this->assertSame('queued', $actions->first()->status);
     }
 
+    public function test_verification_action_carries_agent_behavior_findings_for_review(): void
+    {
+        $trace = $this->trace([
+            'context_pack' => [
+                'surface' => ['workspace' => '/repo'],
+            ],
+        ]);
+        $evaluation = $this->evaluation($trace, [
+            ['code' => 'verification_missing', 'severity' => 'medium'],
+        ], [
+            'score' => 82,
+            'status' => 'needs_review',
+            'evidence' => [
+                'agent_behavior_findings' => [[
+                    'code' => 'agent.verification_missing',
+                    'severity' => 'p2',
+                    'metadata' => [
+                        'schema_version' => 'atlas.agent_behavior.finding.v1',
+                        'contract_id' => 'atlas-ai.agent-behavior.v1',
+                    ],
+                ]],
+            ],
+        ]);
+
+        $actions = app(AiQualityActionService::class)->planFor($trace, $evaluation, autoRun: false);
+
+        $this->assertSame('request_verification', $actions->first()->action_type);
+        $this->assertSame('blocked', $actions->first()->status);
+        $this->assertSame('agent.verification_missing', data_get($actions->first()->payload, 'agent_behavior_findings.0.code'));
+        $this->assertSame('atlas.agent_behavior.finding.v1', data_get($actions->first()->payload, 'agent_behavior_findings.0.metadata.schema_version'));
+    }
+
     public function test_fair_mode_low_score_repairs_with_claude_only_instead_of_council(): void
     {
         $trace = $this->trace([
-            'fair_mode' => app(\App\Services\Ai\FairClaudePolicy::class)->metadata(),
+            'fair_mode' => app(FairClaudePolicy::class)->metadata(),
             'requested_model' => 'claude-opus-4-7',
         ]);
         $trace->update(['model' => 'claude-opus-4-7']);
@@ -111,7 +144,7 @@ class AiQualityActionServiceTest extends TestCase
         ]);
     }
 
-    private function evaluation(AiTrace $trace, array $flags): AiQualityEvaluation
+    private function evaluation(AiTrace $trace, array $flags, array $metadata = []): AiQualityEvaluation
     {
         return AiQualityEvaluation::query()->create([
             'trace_id' => $trace->id,
@@ -120,12 +153,12 @@ class AiQualityActionServiceTest extends TestCase
             'provider' => $trace->provider,
             'agent_slug' => $trace->agent_slug,
             'evaluator_version' => 'heuristic-v1',
-            'score' => 52,
-            'status' => 'failed',
+            'score' => (int) ($metadata['score'] ?? 52),
+            'status' => (string) ($metadata['status'] ?? 'failed'),
             'dimensions' => [],
             'flags' => $flags,
             'suggested_actions' => [],
-            'metadata' => [],
+            'metadata' => collect($metadata)->except(['score', 'status'])->all(),
         ]);
     }
 

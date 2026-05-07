@@ -348,6 +348,24 @@ class AtlasOpenBrainMcpService
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
             [
+                'name' => 'atlas_agent_behavior_report',
+                'title' => 'Atlas Agent Behavior Report',
+                'description' => 'Retorna replay/read model dos eventos GATE_EVALUATED do agent behavior contract, incluindo findings recorrentes, providers afetados e review_signal.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'hours' => ['type' => 'integer', 'description' => 'Janela de replay em horas. Default 24, max 720.'],
+                        'status' => ['type' => 'string', 'description' => 'Filtra por status da quality evaluation.'],
+                        'provider' => ['type' => 'string', 'description' => 'Filtra por provider.'],
+                        'model' => ['type' => 'string', 'description' => 'Filtra por model.'],
+                        'agent_slug' => ['type' => 'string', 'description' => 'Filtra por agente/especialista.'],
+                        'finding_code' => ['type' => 'string', 'description' => 'Filtra por finding code, ex: agent.verification_missing.'],
+                        'contract_id' => ['type' => 'string', 'description' => 'Filtra por contract id.'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
                 'name' => 'atlas_provider_performance_report',
                 'title' => 'Atlas Provider Performance Report',
                 'description' => 'Retorna projection read-only dos eventos PROVIDER_RETURNED/PROVIDER_FALLBACK para auditar performance empirica por provider, dominio, flow, task_type e specialist_profile.',
@@ -685,6 +703,7 @@ class AtlasOpenBrainMcpService
                 'atlas_kernel_pipeline_report' => $this->toolResponse($id, $this->kernelPipelineReport($arguments)),
                 'atlas_repair_loop_report' => $this->toolResponse($id, $this->repairLoopReport($arguments)),
                 'atlas_inbox_action_report' => $this->toolResponse($id, $this->inboxActionReport($arguments)),
+                'atlas_agent_behavior_report' => $this->toolResponse($id, $this->agentBehaviorReport($arguments)),
                 'atlas_provider_performance_report' => $this->toolResponse($id, $this->providerPerformanceReport($arguments)),
                 'atlas_dynamic_compute_market_report' => $this->toolResponse($id, $this->dynamicComputeMarketReport($arguments)),
                 'atlas_ledger_projection_health' => $this->toolResponse($id, $this->ledgerProjectionHealth($arguments)),
@@ -1216,6 +1235,33 @@ class AtlasOpenBrainMcpService
             'hours' => $hours,
             'filters' => $filters,
             'inbox_actions' => $report,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function agentBehaviorReport(array $arguments): array
+    {
+        $hours = $this->reportWindowHours($arguments);
+        $filters = $this->onlyScalarFilters($arguments, [
+            'status',
+            'provider',
+            'model',
+            'agent_slug',
+            'finding_code',
+            'contract_id',
+        ]);
+        $report = $this->ledgerReplay->agentBehaviorReportForWindow(now()->subHours($hours), null, $filters);
+
+        return [
+            'ok' => (bool) ($report['available'] ?? false),
+            'tool' => 'atlas_agent_behavior_report',
+            'hours' => $hours,
+            'filters' => $filters,
+            'agent_behavior' => $report,
             'writes' => false,
         ];
     }

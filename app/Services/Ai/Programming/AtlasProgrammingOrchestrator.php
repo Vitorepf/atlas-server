@@ -5,6 +5,7 @@ namespace App\Services\Ai\Programming;
 use App\Services\Ai\AtlasAiPolicyService;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
+use App\Services\Ai\Kernel\Provider\AgentBehaviorContract;
 use App\Services\Ai\Kernel\Repair\RepairStrategy;
 use App\Services\Engineering\EngineeringHarnessExecutionService;
 use Illuminate\Support\Str;
@@ -15,6 +16,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         private readonly AtlasAiPolicyService $policies,
         private readonly AtlasDecideService $decide,
         private readonly EngineeringHarnessExecutionService $harness,
+        private readonly AgentBehaviorContract $agentBehavior,
     ) {}
 
     /**
@@ -112,6 +114,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             ],
             'policy_profile' => $policyProfile,
             'policy_contracts' => $policyContracts,
+            'agent_behavior_contract' => $this->agentBehavior->toArray(),
             'operational_decision' => $decision->toArray(),
             'created_at' => now()->toJSON(),
         ];

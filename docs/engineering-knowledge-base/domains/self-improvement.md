@@ -69,6 +69,9 @@ com rastreabilidade.
   catalogo, migrations e docs historicos.
 - `self_improvement.provider_performance_review`: revisa custo, latencia,
   qualidade, fallback, SLO drift e compliance de providers.
+- `self_improvement.agent_behavior_review`: revisa comportamento dos agentes,
+  verificacao ausente, diffs pouco cirurgicos, drift de instrucoes, clusters por
+  provider/model e repeticao de finding codes.
 - `self_improvement.proposal_generation`: consolida findings em proposals
   provider-safe, auditaveis e revisaveis.
 
@@ -135,7 +138,7 @@ operacional primaria.
 Self-Improvement esta centrally registered como dominio Atlas AI implemented/ready.
 
 - `AtlasSelfImprovementOrchestrator` resolve flows `self_improvement.*`.
-- `AtlasSelfImprovementRuntime` executa os 12 flows especializados.
+- `AtlasSelfImprovementRuntime` executa os 13 flows especializados.
 - O runtime consome `AtlasLedgerReplayService::sloReportForWindow()` para
   transformar `SLO_OBSERVED` em findings revisaveis de SLO drift. As dimensoes
   SLO permitem priorizar problemas por dominio, surface, provider e modelo sem
@@ -198,7 +201,7 @@ Self-Improvement esta centrally registered como dominio Atlas AI implemented/rea
   dedicado `self_improvement.repair_loop_review` no catalogo.
 - `AtlasSelfImprovementScheduleService` normaliza o agendamento recorrente por
   `ATLAS_AI_SELF_IMPROVEMENT_FLOWS`. O default seguro executa
-  `nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review`, deduplica flows, reporta
+  `nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review,agent_behavior_review`, deduplica flows, reporta
   `configured_flows`, `invalid_flows`, `defaulted`, `timezone`, `next_run_at`
   e `health`, e preserva `emit=false` salvo configuracao explicita. O plano
   tambem publica `plan_hash` com `plan_hash_algorithm=sha256`, calculado sobre

@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Kernel\Provider\AgentBehaviorContract;
+
 class ProgrammingExecutionRequest
 {
     /**
@@ -93,6 +95,26 @@ class ProgrammingExecutionRequest
     /**
      * @return array<string,mixed>
      */
+    public function agentBehaviorContract(): array
+    {
+        foreach ([
+            'agent_behavior_contract',
+            'programming_message_plan.agent_behavior_contract',
+            'programming_session_plan.agent_behavior_contract',
+            'dev_execution_plan.programming_session_plan.agent_behavior_contract',
+        ] as $path) {
+            $contract = data_get($this->data, $path);
+            if (is_array($contract) && $contract !== []) {
+                return $contract;
+            }
+        }
+
+        return app(AgentBehaviorContract::class)->toArray();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     public function harnessOptions(): array
     {
         $profile = $this->profile();
@@ -123,6 +145,7 @@ class ProgrammingExecutionRequest
             'no_provider' => (bool) ($this->data['no_provider'] ?? false),
             'keep_workspace' => (bool) ($this->data['keep_workspace'] ?? false),
             'apply_isolated_patch' => (bool) ($this->data['apply_isolated_patch'] ?? true),
+            'agent_behavior_contract' => $this->agentBehaviorContract(),
         ];
     }
 }

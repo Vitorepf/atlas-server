@@ -159,10 +159,14 @@ class AtlasSelfImprovementRuntime
             'self_improvement.benchmark_review',
             'self_improvement.provider_performance_review' => [
                 ...$this->providerPerformanceFindings($hours, $filters),
+                ...$this->agentBehaviorReplayFindings($hours, $filters),
                 ...$this->sloDriftFindings($events, $filters),
                 ...$this->repairLoopFindings($events, $filters),
                 ...$this->operationFailureFindings($events),
                 ...$this->gateBlockedFindings($events),
+            ],
+            'self_improvement.agent_behavior_review' => [
+                ...$this->agentBehaviorReplayFindings($hours, $filters),
             ],
             'self_improvement.memory_quality_review',
             'self_improvement.docs_drift_review',
@@ -175,6 +179,7 @@ class AtlasSelfImprovementRuntime
                 ...$this->selfImprovementScheduleFindings($filters),
                 ...$this->selfImprovementScheduleReplayFindings($hours, $filters),
                 ...$this->inboxActionReplayFindings($hours, $filters),
+                ...$this->agentBehaviorReplayFindings($hours, $filters),
                 ...$this->decisionReceiptReplayFindings($events, $filters),
                 ...$this->rivalsStrategyFindings($hours, $filters),
                 ...$this->openBrainRetrievalFindings($hours, $filters),
@@ -204,6 +209,7 @@ class AtlasSelfImprovementRuntime
                 ...$this->architectureOperationsFindings($filters),
                 ...$this->selfImprovementScheduleReplayFindings($hours, $filters),
                 ...$this->inboxActionReplayFindings($hours, $filters),
+                ...$this->agentBehaviorReplayFindings($hours, $filters),
                 ...$this->decisionReceiptReplayFindings($events, $filters),
                 ...$this->rivalsStrategyFindings($hours, $filters),
                 ...$this->openBrainRetrievalFindings($hours, $filters),
@@ -1317,7 +1323,10 @@ class AtlasSelfImprovementRuntime
             'atlas ai kernel-pipeline-report --hours=24 --json',
             'atlas ai repair-report --hours=24 --json',
             'atlas ai provider-performance --hours=24 --json',
+            'atlas ai agent-behavior-report --hours=24 --json',
             'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
+            'atlas ai self-improve --flow=agent_behavior_review --hours=168 --json',
             'atlas ai telemetry cost-rates --missing --hours=168 --json',
             'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
             'atlas ai qualitative-levels --hours=720 --json',
@@ -1987,6 +1996,123 @@ class AtlasSelfImprovementRuntime
     }
 
     /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function agentBehaviorReplayFindings(int $hours, array $filters = []): array
+    {
+        if ($this->normalizedDomainOnboardingFilters($filters) !== []) {
+            return [];
+        }
+
+        $normalizedFilters = $this->normalizedAgentBehaviorFilters($filters);
+        $report = $this->replay->agentBehaviorReportForWindow(
+            now()->subHours($hours),
+            null,
+            $normalizedFilters,
+        );
+        $reviewSignal = (array) ($report['review_signal'] ?? []);
+
+        if (! (bool) ($report['available'] ?? false)
+            || ! (bool) ($reviewSignal['review_required'] ?? false)
+            || ($reviewSignal['recommended_action'] ?? null) !== 'open_reviewable_agent_behavior_quality_proposal') {
+            return [];
+        }
+
+        $recentEvents = collect((array) ($report['recent_events'] ?? []))
+            ->filter(fn (array $event): bool => (array) ($event['finding_codes'] ?? []) !== [])
+            ->values();
+
+        if ($recentEvents->isEmpty()) {
+            return [];
+        }
+
+        $findingCodeCounts = (array) ($report['finding_code_counts'] ?? []);
+        $topFindingCode = collect($findingCodeCounts)
+            ->sortDesc()
+            ->keys()
+            ->first() ?: 'agent.behavior';
+        $availableActions = [
+            ['id' => 'review_patch', 'label' => 'Revisar contrato comportamental', 'style' => 'primary'],
+            ['id' => 'discuss', 'label' => 'Discutir comportamento do agente', 'style' => 'default'],
+            ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
+        ];
+
+        return [[
+            'title' => 'Corrigir recorrencia de comportamento dos agentes',
+            'category' => 'self_improvement',
+            'finding' => 'Replay do Evidence Ledger encontrou findings comportamentais recorrentes em execucoes de IA.',
+            'problem' => 'Falhas repetidas como falta de verificacao, diff lateral ou quebra de contrato degradam qualidade de programacao e tornam o contrato comportamental apenas decorativo.',
+            'solution' => 'Revisar AgentBehaviorContract, gates, prompts e surfaces afetadas; reforcar verificacao, disciplina de diff e evidencia antes de ajustar provider/model.',
+            'worth_it' => 'Vale porque transforma comportamento de agente em loop mensuravel de melhoria continua, com replay e proposta revisavel.',
+            'best_solution_rationale' => 'Consumir `agentBehaviorReportForWindow` preserva o Evidence Ledger como fonte unica e evita um scanner paralelo sobre traces, prompts ou logs crus.',
+            'alternatives' => ['Criar waiver temporario para findings legados explicitamente marcados.', 'Elevar severidade apenas quando houver amostra maior por provider/model.'],
+            'available_actions' => $availableActions,
+            'policy' => [
+                'auto_commit' => false,
+                'auto_merge' => false,
+                'auto_apply_behavior_change' => false,
+                'requires_operator_review' => true,
+                'requires_tests_passed' => true,
+                'requires_architecture_validate' => true,
+            ],
+            'payload' => [
+                'agent_behavior_replay' => [
+                    'schema_version' => 'atlas.self_improvement.agent_behavior_replay.proposal_payload.v1',
+                    'hours' => $hours,
+                    'review_signal' => $reviewSignal,
+                    'finding_code_counts' => $findingCodeCounts,
+                    'provider_counts' => (array) ($report['provider_counts'] ?? []),
+                    'agent_slug_counts' => (array) ($report['agent_slug_counts'] ?? []),
+                    'source_event_count' => $recentEvents->count(),
+                    'filters' => $normalizedFilters,
+                    'governance' => [
+                        'auto_apply' => false,
+                        'critical_behavior_change_requires_human_review' => true,
+                    ],
+                ],
+            ],
+            'source_refs' => $recentEvents
+                ->take(5)
+                ->map(fn (array $event): array => [
+                    'type' => 'ledger_event',
+                    'id' => $event['event_id'] ?? null,
+                    'event_id' => $event['event_id'] ?? null,
+                    'envelope_id' => $event['envelope_id'] ?? null,
+                    'trace_id' => $event['trace_id'] ?? null,
+                    'status' => $event['status'] ?? null,
+                    'score' => $event['score'] ?? null,
+                    'provider' => $event['provider'] ?? null,
+                    'model' => $event['model'] ?? null,
+                    'agent_slug' => $event['agent_slug'] ?? null,
+                    'contract_id' => $event['contract_id'] ?? null,
+                    'finding_codes' => (array) ($event['finding_codes'] ?? []),
+                    'occurred_at' => $event['occurred_at'] ?? null,
+                ])
+                ->values()
+                ->all(),
+            'confidence' => 0.87,
+            'dedupe_key' => 'self-improvement:agent-behavior-replay:'.sha1($hours.':'.implode(',', array_keys($findingCodeCounts))),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.agent_behavior_replay.v1',
+                'hours' => $hours,
+                'agent_behavior_event_count' => (int) ($report['agent_behavior_event_count'] ?? 0),
+                'finding_count' => (int) ($report['finding_count'] ?? 0),
+                'finding_code_counts' => $findingCodeCounts,
+                'finding_severity_counts' => (array) ($report['finding_severity_counts'] ?? []),
+                'status_counts' => (array) ($report['status_counts'] ?? []),
+                'provider_counts' => (array) ($report['provider_counts'] ?? []),
+                'agent_slug_counts' => (array) ($report['agent_slug_counts'] ?? []),
+                'average_score' => $report['average_score'] ?? null,
+                'top_finding_code' => (string) $topFindingCode,
+                'review_signal' => $reviewSignal,
+                'available_actions' => $availableActions,
+                'filters' => $normalizedFilters,
+            ],
+        ]];
+    }
+
+    /**
      * @param  array<string,mixed>  $event
      * @return array<string,mixed>
      */
@@ -2290,6 +2416,23 @@ class AtlasSelfImprovementRuntime
 
     /**
      * @param  array<string,string|null>  $filters
+     * @return array<string,string>
+     */
+    private function normalizedAgentBehaviorFilters(array $filters): array
+    {
+        $normalized = [];
+        foreach (['status', 'provider', 'model', 'agent_slug', 'finding_code', 'contract_id'] as $key) {
+            $value = $filters[$key] ?? null;
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                $normalized[$key] = trim((string) $value);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
      */
     private function matchesDecisionReceiptFilters(AtlasLedgerEvent $event, array $filters): bool
     {
@@ -2321,6 +2464,7 @@ class AtlasSelfImprovementRuntime
             ...$this->normalizedDomainOnboardingFilters($filters),
             ...$this->normalizedInboxActionFilters($filters),
             ...$this->normalizedDecisionReceiptFilters($filters),
+            ...$this->normalizedAgentBehaviorFilters($filters),
         ];
     }
 

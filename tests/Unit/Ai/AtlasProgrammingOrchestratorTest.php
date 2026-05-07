@@ -25,6 +25,9 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('single_executor', data_get($normal, 'policy_contracts.model_graph.graph'));
         $this->assertSame('workspace_write', data_get($normal, 'execution_profile.tool_contract.mode'));
         $this->assertSame('standard', data_get($normal, 'execution_profile.gate_contract.minimum_gate'));
+        $this->assertSame('atlas-ai.agent-behavior.v1', data_get($normal, 'agent_behavior_contract.contract_id'));
+        $this->assertContains('Surgical Diff Discipline', data_get($normal, 'agent_behavior_contract.principles'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($normal, 'agent_behavior_contract.content_hash'));
 
         $complete = $orchestrator->sessionPlan($workspace, 'dev', [
             'task' => 'implemente fluxo completo',
@@ -52,6 +55,7 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('scout_execute_review', data_get($forge, 'policy_contracts.model_graph.graph'));
         $this->assertSame('harness', data_get($forge, 'execution_profile.tool_contract.mode'));
         $this->assertSame('strict', data_get($forge, 'execution_profile.gate_contract.minimum_gate'));
+        $this->assertSame('atlas-ai.agent-behavior.v1', data_get($forge, 'agent_behavior_contract.contract_id'));
     }
 
     public function test_session_plan_selects_specialized_programming_flows(): void

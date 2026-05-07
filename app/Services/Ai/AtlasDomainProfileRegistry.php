@@ -1741,6 +1741,7 @@ class AtlasDomainProfileRegistry
             ['self_improvement.domain_learning_review', 'Domain Learning Review', 'domain_learning_runtime', 'Cross-domain learning review that checks whether domain outcomes are feeding memory, docs, and gates.'],
             ['self_improvement.docs_drift_review', 'Docs Drift Review', 'docs_drift_runtime', 'Documentation drift review comparing kernel contracts, KB docs, code intelligence, and domain manifests.'],
             ['self_improvement.provider_performance_review', 'Provider Performance Review', 'provider_performance_runtime', 'Provider and model performance review over failures, routing decisions, benchmark outcomes, and cost signals.'],
+            ['self_improvement.agent_behavior_review', 'Agent Behavior Review', 'agent_behavior_review_runtime', 'Dedicated agent behavior review over verification gaps, unsurgical diffs, instruction drift, repeated finding codes, and provider/model clusters.'],
             ['self_improvement.proposal_generation', 'Proposal Generation', 'proposal_generation_runtime', 'Final proposal synthesis flow that emits bounded, reviewable improvement proposals linked to evidence.'],
         ];
 

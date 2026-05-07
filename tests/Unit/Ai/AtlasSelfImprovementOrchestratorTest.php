@@ -119,6 +119,24 @@ class AtlasSelfImprovementOrchestratorTest extends TestCase
         $this->assertTrue((bool) data_get($plan, 'execution_policy.proposal_only'));
     }
 
+    public function test_agent_behavior_review_plan_uses_dedicated_executor_contract(): void
+    {
+        $plan = app(AtlasSelfImprovementOrchestrator::class)->flowPlan('agent_behavior_review', [
+            'hours' => 24,
+            'limit' => 5,
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.2',
+        ]);
+
+        $this->assertSame('self_improvement.agent_behavior_review', $plan['flow']);
+        $this->assertSame('agent_behavior_review_runtime', data_get($plan, 'execution_policy.executor_preference'));
+        $this->assertSame([
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.2',
+        ], data_get($plan, 'options.filters'));
+        $this->assertTrue((bool) data_get($plan, 'execution_policy.proposal_only'));
+    }
+
     public function test_execute_nightly_review_returns_plan_runtime_and_evidence_refs(): void
     {
         app(AtlasEvidenceLedger::class)->record(LedgerEventType::OperationFailed, [

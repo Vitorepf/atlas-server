@@ -22,7 +22,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
             ->assertJsonPath('architecture_operations.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 22)
+            ->assertJsonPath('architecture_operations.command_count', 25)
             ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_operations')
             ->assertJsonPath('architecture_operations.commands.0.kind', 'catalog')
             ->assertJsonPath('architecture_operations.commands.0.surface', 'cli');
@@ -35,6 +35,9 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
         $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
         $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $commands);
+        $this->assertContains('atlas ai agent-behavior-report --hours=24 --json', $commands);
+        $this->assertContains('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', $commands);
+        $this->assertContains('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', $commands);
         $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', $commands);
         $this->assertContains('atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', $commands);
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', $commands);
@@ -54,9 +57,10 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $response = $this->getJson('/ai/architecture/operations?kind=evidence_report', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.kind', 'evidence_report')
-            ->assertJsonPath('architecture_operations.command_count', 10);
+            ->assertJsonPath('architecture_operations.command_count', 11);
 
         $this->assertContains('provider_performance_report', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('agent_behavior_report', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('dynamic_compute_market_report', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('provider_cost_rates_missing', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('decision_receipt_report', $response->json('architecture_operations.operation_ids'));
@@ -80,5 +84,17 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('architecture_operations.filters.id', 'dynamic_compute_market_report')
             ->assertJsonPath('architecture_operations.command_count', 1)
             ->assertJsonPath('architecture_operations.commands.0.command', 'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json');
+
+        $this->getJson('/ai/architecture/operations?id=provider_performance_curator_review', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.id', 'provider_performance_curator_review')
+            ->assertJsonPath('architecture_operations.command_count', 1)
+            ->assertJsonPath('architecture_operations.commands.0.command', 'atlas ai self-improve --flow=provider_performance_review --hours=168 --json');
+
+        $this->getJson('/ai/architecture/operations?id=agent_behavior_curator_review', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.id', 'agent_behavior_curator_review')
+            ->assertJsonPath('architecture_operations.command_count', 1)
+            ->assertJsonPath('architecture_operations.commands.0.command', 'atlas ai self-improve --flow=agent_behavior_review --hours=168 --json');
     }
 }

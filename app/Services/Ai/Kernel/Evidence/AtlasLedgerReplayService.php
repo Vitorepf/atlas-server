@@ -377,6 +377,58 @@ class AtlasLedgerReplayService
     }
 
     /**
+     * @param  array<string,string|null>  $filters
+     * @return array<string,mixed>
+     */
+    public function agentBehaviorReportForWindow(CarbonInterface $since, ?CarbonInterface $until = null, array $filters = []): array
+    {
+        $until ??= now();
+        $filters = $this->normalizedAgentBehaviorFilters($filters);
+
+        if (! Schema::hasTable('atlas_ledger_events')) {
+            return [
+                'available' => false,
+                'window' => [
+                    'since' => $since->toJSON(),
+                    'until' => $until->toJSON(),
+                ],
+                'filters' => $filters,
+                'agent_behavior_event_count' => 0,
+                ...array_diff_key($this->agentBehaviorSummary(collect()), ['events' => true]),
+                'recent_events' => [],
+            ];
+        }
+
+        $events = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::GateEvaluated->value)
+            ->where('emitter_stage', 'atlas.agent_behavior_quality_gate')
+            ->whereBetween('occurred_at', [$since, $until])
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->get()
+            ->map(fn (AtlasLedgerEvent $event): array => $this->agentBehaviorEventFromEvent($event->toArray()))
+            ->filter(fn (array $event): bool => $this->matchesAgentBehaviorFilters($event, $filters))
+            ->values();
+        $summary = $this->agentBehaviorSummary($events);
+
+        return [
+            'available' => true,
+            'window' => [
+                'since' => $since->toJSON(),
+                'until' => $until->toJSON(),
+            ],
+            'filters' => $filters,
+            'envelope_count' => $events->pluck('envelope_id')->filter()->unique()->count(),
+            ...array_diff_key($summary, ['events' => true]),
+            'recent_events' => $events
+                ->reverse()
+                ->take(10)
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
      * @return array{
      *     available:bool,
      *     window:array{since:string,until:string},
@@ -721,6 +773,122 @@ class AtlasLedgerReplayService
                     ->filter()
                     ->all())),
                 'recommended_action' => 'open_reviewable_decision_receipt_replay_proposal',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'severity' => 'none',
+            'review_required' => false,
+            'reasons' => [],
+            'recommended_action' => 'none',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $event
+     * @return array<string,mixed>
+     */
+    private function agentBehaviorEventFromEvent(array $event): array
+    {
+        $payload = (array) ($event['payload'] ?? []);
+        $findings = collect((array) data_get($payload, 'agent_behavior_findings', []))
+            ->filter(fn (mixed $finding): bool => is_array($finding))
+            ->map(fn (array $finding): array => [
+                'code' => (string) ($finding['code'] ?? 'unknown'),
+                'severity' => (string) ($finding['severity'] ?? 'unknown'),
+                'review_signal' => data_get($finding, 'metadata.review_signal'),
+                'contract_id' => data_get($finding, 'metadata.contract_id'),
+                'contract_hash' => data_get($finding, 'metadata.contract_hash'),
+                'principle' => data_get($finding, 'evidence.principle'),
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'event_id' => $event['event_id'] ?? null,
+            'event_type' => $event['event_type'] ?? null,
+            'envelope_id' => $event['envelope_id'] ?? null,
+            'trace_id' => $event['trace_id'] ?? data_get($payload, 'trace.trace_id'),
+            'correlation_id' => $event['correlation_id'] ?? null,
+            'causation_id' => $event['causation_id'] ?? null,
+            'emitter_stage' => $event['emitter_stage'] ?? null,
+            'payload_hash' => $event['payload_hash'] ?? null,
+            'occurred_at' => $event['occurred_at'] ?? null,
+            'gate_id' => data_get($payload, 'gate_id'),
+            'status' => (string) data_get($payload, 'status', 'unknown'),
+            'score' => (int) data_get($payload, 'score', 0),
+            'provider' => data_get($payload, 'provider'),
+            'model' => data_get($payload, 'model'),
+            'agent_slug' => data_get($payload, 'agent_slug'),
+            'contract_id' => data_get($payload, 'contract_id'),
+            'contract_hash' => data_get($payload, 'contract_hash'),
+            'flag_codes' => (array) data_get($payload, 'flags', []),
+            'suggested_action_codes' => (array) data_get($payload, 'suggested_actions', []),
+            'finding_codes' => collect($findings)->pluck('code')->filter()->values()->all(),
+            'finding_severities' => collect($findings)->pluck('severity')->filter()->values()->all(),
+            'findings' => $findings,
+        ];
+    }
+
+    /**
+     * @param  Collection<int,array<string,mixed>>  $events
+     * @return array<string,mixed>
+     */
+    private function agentBehaviorSummary(Collection $events): array
+    {
+        $findingCodes = $events->pluck('finding_codes')->flatten()->filter()->values();
+        $findingSeverities = $events->pluck('finding_severities')->flatten()->filter()->values();
+        $scoreAvg = $events->isEmpty()
+            ? null
+            : round($events->pluck('score')->map(fn (mixed $score): int => (int) $score)->avg(), 2);
+        $reviewSignal = $this->agentBehaviorReviewSignal($events, $findingCodes);
+
+        return [
+            'agent_behavior_event_count' => $events->count(),
+            'finding_count' => $findingCodes->count(),
+            'status_counts' => $events->pluck('status')->filter()->countBy()->all(),
+            'finding_code_counts' => $findingCodes->countBy()->all(),
+            'finding_severity_counts' => $findingSeverities->countBy()->all(),
+            'provider_counts' => $events->pluck('provider')->filter()->countBy()->all(),
+            'agent_slug_counts' => $events->pluck('agent_slug')->filter()->countBy()->all(),
+            'average_score' => $scoreAvg,
+            'review_signal' => $reviewSignal,
+            'events' => $events->all(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int,array<string,mixed>>  $events
+     * @param  Collection<int,string>  $findingCodes
+     * @return array{status:string,severity:string,review_required:bool,reasons:array<int,string>,recommended_action:string}
+     */
+    private function agentBehaviorReviewSignal(Collection $events, Collection $findingCodes): array
+    {
+        if ($events->isEmpty()) {
+            return [
+                'status' => 'unknown',
+                'severity' => 'low',
+                'review_required' => false,
+                'reasons' => ['no_agent_behavior_gate_events_in_window'],
+                'recommended_action' => 'wait_for_agent_behavior_evidence',
+            ];
+        }
+
+        $recurring = $findingCodes
+            ->countBy()
+            ->filter(fn (int $count): bool => $count >= 2)
+            ->keys()
+            ->values()
+            ->all();
+
+        if ($recurring !== []) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => array_map(fn (string $code): string => 'recurring_agent_behavior_finding:'.$code, $recurring),
+                'recommended_action' => 'open_reviewable_agent_behavior_quality_proposal',
             ];
         }
 
@@ -1606,6 +1774,53 @@ class AtlasLedgerReplayService
     private function matchesInboxActionFilters(array $event, array $filters): bool
     {
         foreach ($filters as $key => $expected) {
+            if ((string) data_get($event, $key, '') !== $expected) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<string,string>
+     */
+    private function normalizedAgentBehaviorFilters(array $filters): array
+    {
+        $allowed = ['status', 'provider', 'model', 'agent_slug', 'finding_code', 'contract_id'];
+        $normalized = [];
+
+        foreach ($allowed as $key) {
+            $value = $filters[$key] ?? null;
+            if (! is_scalar($value)) {
+                continue;
+            }
+
+            $value = trim((string) $value);
+            if ($value !== '') {
+                $normalized[$key] = $value;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<string,mixed>  $event
+     * @param  array<string,string>  $filters
+     */
+    private function matchesAgentBehaviorFilters(array $event, array $filters): bool
+    {
+        foreach ($filters as $key => $expected) {
+            if ($key === 'finding_code') {
+                if (! in_array($expected, (array) ($event['finding_codes'] ?? []), true)) {
+                    return false;
+                }
+
+                continue;
+            }
+
             if ((string) data_get($event, $key, '') !== $expected) {
                 return false;
             }

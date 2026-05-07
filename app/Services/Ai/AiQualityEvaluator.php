@@ -4,6 +4,8 @@ namespace App\Services\Ai;
 
 use App\Models\AiQualityEvaluation;
 use App\Models\AiTrace;
+use App\Services\Ai\Kernel\Behavior\AgentBehaviorQualityGate;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\AuditLogService;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -14,6 +16,8 @@ class AiQualityEvaluator
 
     public function __construct(
         private readonly AuditLogService $audit,
+        private readonly AgentBehaviorQualityGate $agentBehaviorGate,
+        private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
     public function evaluateTrace(AiTrace $trace): ?AiQualityEvaluation
@@ -89,6 +93,8 @@ class AiQualityEvaluator
                 'quality_evaluation_id' => $evaluation->id,
             ],
         ]);
+
+        $this->recordAgentBehaviorGateEvaluation($trace, $evaluation->refresh(), $assessment);
 
         return $evaluation->refresh();
     }
@@ -166,23 +172,17 @@ class AiQualityEvaluator
             $suggestedActions[] = $this->action('apply_clear_communicator_skill', 'Reduzir saída, evitar despejo de código e destacar apenas decisões e mudanças.');
         }
 
-        if ($taskLooksLikeDevelopment && ! $this->containsAny($lowerResponse, [
-            'teste',
-            'testes',
-            'valid',
-            'verific',
-            'rodei',
-            'passou',
-            'falhou',
-            'não rodei',
-            'nao rodei',
-            'php artisan',
-            'npm run',
-            'lint',
-            'typecheck',
-        ])) {
-            $flags[] = $this->flag('verification_missing', 'medium', 'Tarefa técnica concluída sem sinal claro de verificação.');
-            $suggestedActions[] = $this->action('request_verification_or_tests', 'Registrar comandos executados ou declarar objetivamente o que não foi validado.');
+        $agentBehaviorFindings = $this->agentBehaviorGate->evaluate([
+            'response_text' => $response,
+            'task_type' => data_get($metadata, 'task_request.task_type'),
+            'task_looks_like_development' => $taskLooksLikeDevelopment,
+        ]);
+
+        foreach ($agentBehaviorFindings as $finding) {
+            if (($finding['code'] ?? null) === 'agent.verification_missing') {
+                $flags[] = $this->flag('verification_missing', 'medium', (string) $finding['body']);
+                $suggestedActions[] = $this->action('request_verification_or_tests', (string) $finding['recommendation']);
+            }
         }
 
         $flagCodes = collect($flags)->pluck('code')->all();
@@ -228,6 +228,7 @@ class AiQualityEvaluator
                 'response_chars' => $responseChars,
                 'code_fence_count' => $codeFenceCount,
                 'code_like_line_count' => $codeLikeLineCount,
+                'agent_behavior_findings' => $agentBehaviorFindings,
             ],
         ];
     }
@@ -346,5 +347,18 @@ class AiQualityEvaluator
     private function arrayValue(mixed $value): array
     {
         return is_array($value) ? $value : [];
+    }
+
+    /**
+     * @param  array{score:int,status:string,dimensions:array<string,int>,flags:array<int,array<string,mixed>>,suggested_actions:array<int,array<string,string>>,evidence:array<string,mixed>}  $assessment
+     */
+    private function recordAgentBehaviorGateEvaluation(AiTrace $trace, AiQualityEvaluation $evaluation, array $assessment): void
+    {
+        $findings = (array) data_get($assessment, 'evidence.agent_behavior_findings', []);
+        if ($findings === []) {
+            return;
+        }
+
+        $this->ledger->recordAgentBehaviorGateEvaluation($trace, $evaluation, $findings);
     }
 }

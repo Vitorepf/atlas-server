@@ -16,8 +16,9 @@ sessoes auxiliares de implementacao e revisao.
   duplicar comandos.
 - Operacoes novas de governanca, como `provider_cost_rates_missing` e
   `provider_cost_rates_upsert`, e operacoes de auditoria como
-  `dynamic_compute_market_report`, devem aparecer no MCP automaticamente por
-  esse catalogo compartilhado.
+  `agent_behavior_report`, `dynamic_compute_market_report` e
+  `provider_performance_curator_review` e `agent_behavior_curator_review`,
+  devem aparecer no MCP automaticamente por esse catalogo compartilhado.
 - O payload deve retornar `ok=true`, `tool=atlas_architecture_operations`,
   `architecture_operations` e `writes=false`.
 - `atlas_capabilities` deve listar a tool para capability negotiation.

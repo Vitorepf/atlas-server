@@ -42,7 +42,7 @@ class AtlasAiSelfImprovementScheduleApiTest extends TestCase
     public function test_self_improvement_schedule_api_returns_recurring_plan(): void
     {
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review']);
         config()->set('atlas_ai.self_improvement.time', '02:00');
         config()->set('atlas_ai.self_improvement.hours', 24);
         config()->set('atlas_ai.self_improvement.limit', 5);
@@ -56,12 +56,12 @@ class AtlasAiSelfImprovementScheduleApiTest extends TestCase
             ->assertJsonPath('enabled', true)
             ->assertJsonPath('schedulable', true)
             ->assertJsonPath('scheduler_registration.status', 'registered')
-            ->assertJsonPath('scheduler_registration.registered_command_count', 4)
-            ->assertJsonPath('cadence_counts.daily', 3)
+            ->assertJsonPath('scheduler_registration.registered_command_count', 5)
+            ->assertJsonPath('cadence_counts.daily', 4)
             ->assertJsonPath('cadence_counts.weekly', 1)
             ->assertJsonPath('time', '02:00')
             ->assertJsonPath('timezone', config('app.timezone'))
-            ->assertJsonPath('count', 4)
+            ->assertJsonPath('count', 5)
             ->assertJsonPath('configured_flows.0', 'nightly_review')
             ->assertJsonPath('configured_flows.1', 'weekly_architecture_audit')
             ->assertJsonPath('configured_flows.2', 'repair_loop_review')

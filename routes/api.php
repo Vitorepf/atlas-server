@@ -11,6 +11,7 @@ use App\Http\Controllers\AiQualityActionController;
 use App\Http\Controllers\AiTelemetryController;
 use App\Http\Controllers\AiTelemetryMetricsController;
 use App\Http\Controllers\AiThreadController;
+use App\Http\Controllers\AtlasAiAgentBehaviorReportController;
 use App\Http\Controllers\AtlasAiArchitectureOperationsController;
 use App\Http\Controllers\AtlasAiArchitectureValidateController;
 use App\Http\Controllers\AtlasAiDecisionReceiptReportController;
@@ -319,6 +320,7 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/ai/dynamic-compute-market', AtlasAiDynamicComputeMarketController::class);
     Route::get('/ai/architecture/validate', AtlasAiArchitectureValidateController::class);
     Route::get('/ai/architecture/operations', AtlasAiArchitectureOperationsController::class);
+    Route::get('/ai/agent-behavior/report', AtlasAiAgentBehaviorReportController::class);
     Route::get('/ai/decision-receipts/report', AtlasAiDecisionReceiptReportController::class);
     Route::get('/ai/ledger/{envelope}', [AtlasAiLedgerController::class, 'show']);
     Route::get('/ai/inbox-actions/report', AtlasAiInboxActionReportController::class);

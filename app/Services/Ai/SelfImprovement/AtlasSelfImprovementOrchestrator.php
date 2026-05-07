@@ -23,6 +23,7 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
         'self_improvement.domain_learning_review',
         'self_improvement.docs_drift_review',
         'self_improvement.provider_performance_review',
+        'self_improvement.agent_behavior_review',
         'self_improvement.proposal_generation',
     ];
 
@@ -220,6 +221,9 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
             'emitter_stage' => ['emitter_stage', 'repair_emitter_stage'],
             'input_mode' => ['input_mode', 'kernel_input_mode'],
             'onboarding_status' => ['onboarding_status'],
+            'agent_slug' => ['agent_slug'],
+            'finding_code' => ['finding_code'],
+            'contract_id' => ['contract_id'],
         ];
 
         foreach ($aliases as $dimension => $keys) {
@@ -235,7 +239,7 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
         return collect($filters)
             ->filter(fn (mixed $value): bool => is_scalar($value) && trim((string) $value) !== '')
             ->map(fn (mixed $value): string => trim((string) $value))
-            ->only(['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id', 'status', 'strategy', 'failure_domain', 'emitter_stage', 'input_mode', 'onboarding_status'])
+            ->only(['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id', 'status', 'strategy', 'failure_domain', 'emitter_stage', 'input_mode', 'onboarding_status', 'agent_slug', 'finding_code', 'contract_id'])
             ->all();
     }
 }

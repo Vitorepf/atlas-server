@@ -4,7 +4,9 @@ namespace Tests\Unit;
 
 use App\Models\AiQualityEvaluation;
 use App\Models\AiTrace;
+use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\AiQualityEvaluator;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -16,6 +18,7 @@ class AiQualityEvaluatorTest extends TestCase
         parent::setUp();
 
         $this->createAiQualityTables();
+        $this->createLedgerTable();
     }
 
     protected function tearDown(): void
@@ -82,6 +85,7 @@ class AiQualityEvaluatorTest extends TestCase
         $this->assertSame(1, AiQualityEvaluation::query()->where('trace_id', $trace->id)->count());
         $this->assertContains('internal_context_leak', collect($second?->flags)->pluck('code')->all());
         $this->assertContains('verification_missing', collect($second?->flags)->pluck('code')->all());
+        $this->assertSame('agent.verification_missing', data_get($second?->metadata, 'evidence.agent_behavior_findings.0.code'));
     }
 
     public function test_dev_task_type_requires_verification_signal(): void
@@ -105,6 +109,24 @@ class AiQualityEvaluatorTest extends TestCase
         $evaluation = app(AiQualityEvaluator::class)->evaluateTrace($trace);
 
         $this->assertContains('verification_missing', collect($evaluation?->flags)->pluck('code')->all());
+
+        $event = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::GateEvaluated->value)
+            ->where('emitter_stage', 'atlas.agent_behavior_quality_gate')
+            ->first();
+
+        $this->assertNotNull($event);
+        $this->assertSame('atlas.agent_behavior', data_get($event?->payload, 'gate_id'));
+        $this->assertSame('atlas.agent_behavior.gate_evaluation.v1', data_get($event?->payload, 'schema_version'));
+        $this->assertSame('agent.verification_missing', data_get($event?->payload, 'agent_behavior_findings.0.code'));
+        $this->assertSame('atlas-ai.agent-behavior.v1', data_get($event?->payload, 'contract_id'));
+    }
+
+    private function createLedgerTable(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
     }
 
     private function createAiQualityTables(): void
@@ -160,6 +182,7 @@ class AiQualityEvaluatorTest extends TestCase
     private function dropAiQualityTables(): void
     {
         foreach ([
+            'atlas_ledger_events',
             'ai_quality_evaluations',
             'ai_traces',
         ] as $table) {

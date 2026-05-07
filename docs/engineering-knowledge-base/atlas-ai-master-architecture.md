@@ -1194,7 +1194,7 @@ Status inicial implementado:
 - `AtlasSelfImprovementOrchestrator` resolvendo qualquer flow
   `self_improvement.*` suportado, normalizando opcoes, declarando autonomia
   baixa, gates requeridos e plano de execucao antes de acionar o runtime;
-- `AtlasSelfImprovementRuntime` executando 12 flows especializados
+- `AtlasSelfImprovementRuntime` executando 13 flows especializados
   (`nightly_review`, `weekly_architecture_audit`, `capability_gap_scan`,
   `benchmark_review`, `memory_quality_review`, `tool_runtime_review`,
   `repair_loop_review`, `kernel_pipeline_review`, `domain_learning_review`, `docs_drift_review`,
@@ -1212,7 +1212,7 @@ Status inicial implementado:
 - comando `atlas:ai:self-improve --flow=repair_loop_review --hours=24 --limit=5 --json`
   com agendamento opcional por `atlas_ai.self_improvement.*`; o scheduler aceita
   `ATLAS_AI_SELF_IMPROVEMENT_FLOWS` como lista CSV de flows para rodar ciclos;
-  o default recorrente roda `nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review`
+  o default recorrente roda `nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review,agent_behavior_review`
   especializados na madrugada;
 - comando `atlas:ai:self-improve --flow=domain_learning_review --onboarding-status=scaffold --json`
   para revisar habilidades catalogadas que ainda nao podem ser tratadas como
@@ -1601,7 +1601,7 @@ Status parcial implementado:
   intelligence, memory/learning policy, gates por flow e surfaces oficiais
   (`atlas dev`, `atlas forge`, `atlas fix`, `atlas continue`, chat dev/review/debug,
   API, app e MCP);
-- `self_improvement` esta `ready 9/9`: declara 12 flows especializados de
+- `self_improvement` esta `ready 9/9`: declara 13 flows especializados de
   auditoria/evolucao, fontes de contexto (`atlas_evidence_ledger`, architecture
   validation, domain scorecards, KB, code intelligence, tool evidence, memory
   quality, provider performance e benchmark corpus), learning policy, gates de

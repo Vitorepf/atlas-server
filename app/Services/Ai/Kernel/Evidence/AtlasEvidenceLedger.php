@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Evidence;
 
+use App\Models\AiQualityEvaluation;
+use App\Models\AiTrace;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelope;
@@ -426,6 +428,63 @@ class AtlasEvidenceLedger
             'causation_id' => $context['causation_id'] ?? data_get($result->decision->evidencePayload, 'decision_hash'),
             'emitter_stage' => $context['emitter_stage'] ?? 'atlas.repair',
             'emitter_version' => $context['emitter_version'] ?? 'atlas.repair.v1',
+        ]);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $findings
+     * @param  array<string,mixed>  $context
+     */
+    public function recordAgentBehaviorGateEvaluation(
+        AiTrace $trace,
+        AiQualityEvaluation $evaluation,
+        array $findings,
+        array $context = [],
+    ): ?AtlasLedgerEvent {
+        $traceMetadata = is_array($trace->metadata) ? $trace->metadata : [];
+        $evaluationMetadata = is_array($evaluation->metadata) ? $evaluation->metadata : [];
+
+        return $this->record(LedgerEventType::GateEvaluated, [
+            'gate_id' => 'atlas.agent_behavior',
+            'schema_version' => 'atlas.agent_behavior.gate_evaluation.v1',
+            'status' => $evaluation->status,
+            'score' => $evaluation->score,
+            'provider' => $trace->provider,
+            'model' => $trace->model,
+            'agent_slug' => $trace->agent_slug,
+            'flags' => collect($evaluation->flags ?? [])->pluck('code')->filter()->values()->all(),
+            'suggested_actions' => collect($evaluation->suggested_actions ?? [])->pluck('code')->filter()->values()->all(),
+            'agent_behavior_findings' => array_values($findings),
+            'contract_id' => data_get($findings, '0.metadata.contract_id'),
+            'contract_hash' => data_get($findings, '0.metadata.contract_hash'),
+            'quality_evaluation_id' => (string) $evaluation->id,
+            'trace' => [
+                'trace_id' => (string) $trace->id,
+                'thread_id' => $trace->thread_id,
+                'session_id' => $trace->session_id,
+                'source_type' => $trace->source_type,
+            ],
+            'evidence' => [
+                'task_looks_like_development' => (bool) data_get($evaluationMetadata, 'evidence.task_looks_like_development', false),
+                'response_chars' => data_get($evaluationMetadata, 'evidence.response_chars'),
+                'code_fence_count' => data_get($evaluationMetadata, 'evidence.code_fence_count'),
+                'code_like_line_count' => data_get($evaluationMetadata, 'evidence.code_like_line_count'),
+            ],
+        ], [
+            'tenant_id' => $context['tenant_id'] ?? data_get($traceMetadata, 'operator.tenant_id', 'default'),
+            'operator_id' => $context['operator_id'] ?? data_get($traceMetadata, 'operator.operator_id', 'system'),
+            'envelope_id' => $context['envelope_id']
+                ?? data_get($traceMetadata, 'decision_receipt.envelope_id')
+                ?? data_get($traceMetadata, 'decision_receipt.receipt_v2.envelope_id')
+                ?? 'ai_trace:'.(string) $trace->id,
+            'receipt_id' => $context['receipt_id']
+                ?? data_get($traceMetadata, 'decision_receipt.receipt_id')
+                ?? data_get($traceMetadata, 'decision_receipt.receipt_v2.receipt_id'),
+            'trace_id' => $context['trace_id'] ?? (string) $trace->id,
+            'correlation_id' => $context['correlation_id'] ?? (string) ($trace->thread_id ?: $trace->id),
+            'causation_id' => $context['causation_id'] ?? (string) $evaluation->id,
+            'emitter_stage' => 'atlas.agent_behavior_quality_gate',
+            'emitter_version' => 'atlas.agent_behavior.v1',
         ]);
     }
 

@@ -28,6 +28,10 @@ class AtlasAiSelfImproveCommand extends Command
         {--kernel-input-mode= : Filter Kernel Pipeline findings by input mode}
         {--kernel-emitter-stage= : Filter Kernel Pipeline findings by ledger emitter stage}
         {--onboarding-status= : Filter Domain Onboarding findings by status: ready, executable_incomplete, scaffold}
+        {--agent-status= : Filter Agent Behavior findings by gate status}
+        {--agent-slug= : Filter Agent Behavior findings by agent slug}
+        {--finding-code= : Filter Agent Behavior findings by finding code}
+        {--contract-id= : Filter Agent Behavior findings by behavior contract id}
         {--emit : Emit safe review proposals to the Inbox}
         {--plan-only : Print the execution plan without running the runtime}
         {--list-flows : List supported self-improvement flows}
@@ -140,6 +144,10 @@ class AtlasAiSelfImproveCommand extends Command
             'kernel-input-mode' => 'input_mode',
             'kernel-emitter-stage' => 'emitter_stage',
             'onboarding-status' => 'onboarding_status',
+            'agent-status' => 'status',
+            'agent-slug' => 'agent_slug',
+            'finding-code' => 'finding_code',
+            'contract-id' => 'contract_id',
         ];
         $filters = [];
 

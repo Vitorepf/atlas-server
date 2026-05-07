@@ -2,8 +2,8 @@
 
 namespace Tests\Unit\Ai;
 
-use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementRuntime;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use Carbon\CarbonImmutable;
 use Tests\TestCase;
 
@@ -21,7 +21,7 @@ class AtlasSelfImprovementScheduleServiceTest extends TestCase
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05 01:30:00', 'America/Sao_Paulo'));
         config()->set('app.timezone', 'America/Sao_Paulo');
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review']);
         config()->set('atlas_ai.self_improvement.hours', 24);
         config()->set('atlas_ai.self_improvement.limit', 5);
         config()->set('atlas_ai.self_improvement.time', '02:00');
@@ -30,29 +30,31 @@ class AtlasSelfImprovementScheduleServiceTest extends TestCase
         $plan = app(AtlasSelfImprovementScheduleService::class)->schedulePlan();
         $commands = $plan['commands'];
 
-        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review'], $plan['configured_flows']);
+        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review'], $plan['configured_flows']);
         $this->assertSame([], $plan['invalid_flows']);
         $this->assertFalse($plan['defaulted']);
         $this->assertSame('healthy', $plan['health']['status']);
         $this->assertSame([], $plan['health']['issues']);
         $this->assertTrue($plan['schedulable']);
         $this->assertSame('registered', $plan['scheduler_registration']['status']);
-        $this->assertSame(4, $plan['scheduler_registration']['registered_command_count']);
+        $this->assertSame(5, $plan['scheduler_registration']['registered_command_count']);
         $this->assertNull($plan['scheduler_registration']['skipped_reason']);
         $this->assertSame('America/Sao_Paulo', $plan['timezone']);
         $this->assertSame('2026-05-05T05:00:00.000000Z', $plan['next_run_at']);
         $this->assertSame('sha256', $plan['plan_hash_algorithm']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $plan['plan_hash']);
-        $this->assertSame(['daily' => 3, 'weekly' => 1], $plan['cadence_counts']);
-        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review'], array_column($commands, 'flow'));
+        $this->assertSame(['daily' => 4, 'weekly' => 1], $plan['cadence_counts']);
+        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review'], array_column($commands, 'flow'));
         $this->assertSame('atlas:ai:self-improve --flow=nightly_review --hours=24 --limit=5 --json', $commands[0]['command']);
         $this->assertSame('atlas:ai:self-improve --flow=weekly_architecture_audit --hours=24 --limit=5 --json', $commands[1]['command']);
         $this->assertSame('atlas:ai:self-improve --flow=repair_loop_review --hours=24 --limit=5 --json', $commands[2]['command']);
         $this->assertSame('atlas:ai:self-improve --flow=kernel_pipeline_review --hours=24 --limit=5 --json', $commands[3]['command']);
+        $this->assertSame('atlas:ai:self-improve --flow=agent_behavior_review --hours=24 --limit=5 --json', $commands[4]['command']);
         $this->assertSame('02:00', $commands[0]['time']);
         $this->assertSame('02:00', $commands[1]['time']);
         $this->assertSame('02:00', $commands[2]['time']);
         $this->assertSame('02:00', $commands[3]['time']);
+        $this->assertSame('02:00', $commands[4]['time']);
         $this->assertSame('daily', $commands[0]['cadence']);
         $this->assertSame('2026-05-05T05:00:00.000000Z', $commands[0]['next_run_at']);
         $this->assertSame('weekly', $commands[1]['cadence']);
@@ -62,6 +64,8 @@ class AtlasSelfImprovementScheduleServiceTest extends TestCase
         $this->assertSame('2026-05-05T05:00:00.000000Z', $commands[2]['next_run_at']);
         $this->assertSame('daily', $commands[3]['cadence']);
         $this->assertSame('2026-05-05T05:00:00.000000Z', $commands[3]['next_run_at']);
+        $this->assertSame('daily', $commands[4]['cadence']);
+        $this->assertSame('2026-05-05T05:00:00.000000Z', $commands[4]['next_run_at']);
     }
 
     public function test_scheduled_commands_carry_timezone_and_plan_hash_for_scheduler_registration(): void
@@ -161,7 +165,7 @@ class AtlasSelfImprovementScheduleServiceTest extends TestCase
             'invalid_self_improvement_flows_configured',
             'self_improvement_schedule_defaulted',
         ], $plan['health']['issues']);
-        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review'], array_column($commands, 'flow'));
+        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review'], array_column($commands, 'flow'));
     }
 
     public function test_schedule_health_reports_disabled_state(): void

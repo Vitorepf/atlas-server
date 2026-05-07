@@ -127,7 +127,10 @@ class AiObservabilityKernelSloTest extends TestCase
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
         $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
         $this->assertContains('atlas ai provider-performance --hours=24 --json', $commands);
+        $this->assertContains('atlas ai agent-behavior-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $commands);
+        $this->assertContains('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', $commands);
+        $this->assertContains('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', $commands);
         $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', $commands);
         $this->assertContains('atlas ai self-improvement-schedule-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', $commands);
@@ -547,7 +550,7 @@ class AiObservabilityKernelSloTest extends TestCase
     public function test_observability_payload_includes_self_improvement_schedule(): void
     {
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review']);
         config()->set('atlas_ai.self_improvement.time', '02:00');
         config()->set('atlas_ai.self_improvement.hours', 24);
         config()->set('atlas_ai.self_improvement.limit', 5);
@@ -575,11 +578,11 @@ class AiObservabilityKernelSloTest extends TestCase
                     'schedulable' => true,
                     'scheduler_registration' => [
                         'status' => 'registered',
-                        'registered_command_count' => 4,
+                        'registered_command_count' => 5,
                         'skipped_reason' => null,
                     ],
-                    'flow_count' => 4,
-                    'cadence_counts' => ['daily' => 3, 'weekly' => 1],
+                    'flow_count' => 5,
+                    'cadence_counts' => ['daily' => 4, 'weekly' => 1],
                     'invalid_flow_count' => 0,
                     'defaulted' => false,
                     'emit' => false,
@@ -643,18 +646,19 @@ class AiObservabilityKernelSloTest extends TestCase
             ->assertJsonPath('self_improvement_schedule.enabled', true)
             ->assertJsonPath('self_improvement_schedule.schedulable', true)
             ->assertJsonPath('self_improvement_schedule.scheduler_registration.status', 'registered')
-            ->assertJsonPath('self_improvement_schedule.scheduler_registration.registered_command_count', 4)
-            ->assertJsonPath('self_improvement_schedule.cadence_counts.daily', 3)
+            ->assertJsonPath('self_improvement_schedule.scheduler_registration.registered_command_count', 5)
+            ->assertJsonPath('self_improvement_schedule.cadence_counts.daily', 4)
             ->assertJsonPath('self_improvement_schedule.cadence_counts.weekly', 1)
             ->assertJsonPath('self_improvement_schedule.plan_hash_algorithm', 'sha256')
             ->assertJsonPath('self_improvement_schedule.time', '02:00')
             ->assertJsonPath('self_improvement_schedule.timezone', config('app.timezone'))
             ->assertJsonStructure(['self_improvement_schedule' => ['next_run_at']])
-            ->assertJsonPath('self_improvement_schedule.count', 4)
+            ->assertJsonPath('self_improvement_schedule.count', 5)
             ->assertJsonPath('self_improvement_schedule.configured_flows.0', 'nightly_review')
             ->assertJsonPath('self_improvement_schedule.configured_flows.1', 'weekly_architecture_audit')
             ->assertJsonPath('self_improvement_schedule.configured_flows.2', 'repair_loop_review')
             ->assertJsonPath('self_improvement_schedule.configured_flows.3', 'kernel_pipeline_review')
+            ->assertJsonPath('self_improvement_schedule.configured_flows.4', 'agent_behavior_review')
             ->assertJsonPath('self_improvement_schedule.invalid_flows', [])
             ->assertJsonPath('self_improvement_schedule.defaulted', false)
             ->assertJsonPath('self_improvement_schedule.health.status', 'healthy')
@@ -662,6 +666,7 @@ class AiObservabilityKernelSloTest extends TestCase
             ->assertJsonPath('self_improvement_schedule.flows.1', 'weekly_architecture_audit')
             ->assertJsonPath('self_improvement_schedule.flows.2', 'repair_loop_review')
             ->assertJsonPath('self_improvement_schedule.flows.3', 'kernel_pipeline_review')
+            ->assertJsonPath('self_improvement_schedule.flows.4', 'agent_behavior_review')
             ->assertJsonPath('self_improvement_schedule.commands.1.command', 'atlas:ai:self-improve --flow=weekly_architecture_audit --hours=24 --limit=5 --json')
             ->assertJsonPath('self_improvement_schedule.commands.1.cadence', 'weekly')
             ->assertJsonPath('self_improvement_schedule.commands.1.week_day', 1)
@@ -669,6 +674,8 @@ class AiObservabilityKernelSloTest extends TestCase
             ->assertJsonPath('self_improvement_schedule.commands.2.cadence', 'daily')
             ->assertJsonPath('self_improvement_schedule.commands.3.command', 'atlas:ai:self-improve --flow=kernel_pipeline_review --hours=24 --limit=5 --json')
             ->assertJsonPath('self_improvement_schedule.commands.3.cadence', 'daily')
+            ->assertJsonPath('self_improvement_schedule.commands.4.command', 'atlas:ai:self-improve --flow=agent_behavior_review --hours=24 --limit=5 --json')
+            ->assertJsonPath('self_improvement_schedule.commands.4.cadence', 'daily')
             ->assertJsonPath('self_improvement_schedule_replay.available', true)
             ->assertJsonPath('self_improvement_schedule_replay.schedule_observation_count', 1)
             ->assertJsonPath('self_improvement_schedule_replay.completed_count', 1)

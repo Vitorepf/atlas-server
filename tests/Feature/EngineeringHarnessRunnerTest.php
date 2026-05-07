@@ -228,10 +228,14 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertTrue((bool) data_get($result, 'created_task'));
         $this->assertNotEmpty(data_get($result, 'task_id'));
         $this->assertSame('resolved', data_get($result, 'harness_payload.run.decision'));
+        $this->assertSame('atlas-ai.agent-behavior.v1', data_get($result, 'policy_contract_enforcement.effective_options.agent_behavior_contract.contract_id'));
         $this->assertDatabaseHas('atlas_tasks', [
             'id' => data_get($result, 'task_id'),
             'title' => 'Executar harness sem task-id explicito',
         ]);
+        $task = AtlasTask::query()->findOrFail(data_get($result, 'task_id'));
+        $this->assertSame('atlas-ai.agent-behavior.v1', data_get($task->metadata, 'engineering_contract.agent_behavior_contract.contract_id'));
+        $this->assertSame('atlas-ai.agent-behavior.v1', data_get($task->metadata, 'programming_orchestrator.agent_behavior_contract.contract_id'));
     }
 
     public function test_harness_execution_service_enforces_gate_policy_contracts(): void
@@ -298,6 +302,7 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertContains('tool_contract_blocks_workspace_write', data_get($result, 'blocking_failures'));
         $this->assertSame('tool_contract_blocks_workspace_write', data_get($result, 'policy_contract_enforcement.blocked_reason'));
         $this->assertSame('read_only', data_get($result, 'policy_contracts.tools.mode'));
+        $this->assertSame('atlas-ai.agent-behavior.v1', data_get($result, 'policy_contract_enforcement.effective_options.agent_behavior_contract.contract_id'));
         $this->assertSame('needs_human_review', data_get($result, 'kernel_repair_decision.status'));
         $this->assertSame('human_review', data_get($result, 'kernel_repair_decision.strategy'));
         $this->assertSame('tool.policy_denied', data_get($result, 'kernel_repair_decision.evidence_payload.failure_classification.failure_domain'));

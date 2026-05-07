@@ -401,6 +401,57 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertSame(['declared_dev_plan' => 1], $report['input_mode_counts']);
     }
 
+    public function test_agent_behavior_window_report_projects_gate_findings(): void
+    {
+        $this->recordAgentBehaviorGateEvent(
+            eventId: '01HAGENTBEHAVIOR00000000001',
+            envelopeId: 'env_agent_behavior_a',
+            traceId: 'trace-agent-a',
+            provider: 'codex_cli',
+            agentSlug: 'desenvolvedor',
+            findingCode: 'agent.verification_missing',
+            score: 72,
+        );
+        $this->recordAgentBehaviorGateEvent(
+            eventId: '01HAGENTBEHAVIOR00000000002',
+            envelopeId: 'env_agent_behavior_b',
+            traceId: 'trace-agent-b',
+            provider: 'claude_cli',
+            agentSlug: 'desenvolvedor',
+            findingCode: 'agent.verification_missing',
+            score: 68,
+        );
+        $this->recordAgentBehaviorGateEvent(
+            eventId: '01HAGENTBEHAVIOR00000000003',
+            envelopeId: 'env_agent_behavior_old',
+            traceId: 'trace-agent-old',
+            provider: 'codex_cli',
+            agentSlug: 'desenvolvedor',
+            findingCode: 'agent.unsurgical_diff',
+            score: 55,
+            occurredAt: now()->subDays(2),
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->agentBehaviorReportForWindow(
+            now()->subHour(),
+            now()->addMinute(),
+            ['finding_code' => 'agent.verification_missing'],
+        );
+
+        $this->assertTrue($report['available']);
+        $this->assertSame(2, $report['agent_behavior_event_count']);
+        $this->assertSame(2, $report['finding_count']);
+        $this->assertSame(2, $report['envelope_count']);
+        $this->assertSame(['agent.verification_missing' => 2], $report['finding_code_counts']);
+        $this->assertSame(['codex_cli' => 1, 'claude_cli' => 1], $report['provider_counts']);
+        $this->assertSame(['desenvolvedor' => 2], $report['agent_slug_counts']);
+        $this->assertSame(70.0, $report['average_score']);
+        $this->assertSame('warning', data_get($report, 'review_signal.status'));
+        $this->assertSame('open_reviewable_agent_behavior_quality_proposal', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('recurring_agent_behavior_finding:agent.verification_missing', data_get($report, 'review_signal.reasons'));
+        $this->assertSame('env_agent_behavior_b', data_get($report, 'recent_events.0.envelope_id'));
+    }
+
     public function test_decision_receipt_report_projects_chain_integrity_for_envelope(): void
     {
         $first = $this->recordDecisionReceiptEvent(
@@ -1175,6 +1226,68 @@ class LedgerReplayServiceTest extends TestCase
                     'recommended_action' => $recommendedAction,
                 ],
                 'recommended_action' => $recommendedAction,
+            ],
+            'payload_hash' => hash('sha256', $eventId),
+            'occurred_at' => $occurredAt ?? now(),
+        ]);
+    }
+
+    private function recordAgentBehaviorGateEvent(
+        string $eventId,
+        string $envelopeId,
+        string $traceId,
+        string $provider,
+        string $agentSlug,
+        string $findingCode,
+        int $score,
+        mixed $occurredAt = null,
+    ): void {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $eventId,
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_test',
+            'operator_id' => 'operator_test',
+            'envelope_id' => $envelopeId,
+            'receipt_id' => null,
+            'trace_id' => $traceId,
+            'correlation_id' => $traceId,
+            'causation_id' => 'quality-evaluation-'.$eventId,
+            'event_type' => LedgerEventType::GateEvaluated->value,
+            'emitter_stage' => 'atlas.agent_behavior_quality_gate',
+            'emitter_version' => 'atlas.agent_behavior.v1',
+            'payload' => [
+                'gate_id' => 'atlas.agent_behavior',
+                'schema_version' => 'atlas.agent_behavior.gate_evaluation.v1',
+                'status' => 'needs_review',
+                'score' => $score,
+                'provider' => $provider,
+                'model' => 'model-test',
+                'agent_slug' => $agentSlug,
+                'flags' => ['verification_missing'],
+                'suggested_actions' => ['request_verification_or_tests'],
+                'contract_id' => 'atlas-ai.agent-behavior.v1',
+                'contract_hash' => 'contract-hash-test',
+                'quality_evaluation_id' => 'quality-evaluation-'.$eventId,
+                'trace' => [
+                    'trace_id' => $traceId,
+                    'thread_id' => 'thread-test',
+                    'session_id' => 'session-test',
+                    'source_type' => 'manual',
+                ],
+                'agent_behavior_findings' => [[
+                    'code' => $findingCode,
+                    'severity' => 'p2',
+                    'metadata' => [
+                        'contract_id' => 'atlas-ai.agent-behavior.v1',
+                        'contract_hash' => 'contract-hash-test',
+                        'review_signal' => [
+                            'recommended_action' => 'request_verification_or_tests',
+                        ],
+                    ],
+                    'evidence' => [
+                        'principle' => 'Verifiable Goal Loop',
+                    ],
+                ]],
             ],
             'payload_hash' => hash('sha256', $eventId),
             'occurred_at' => $occurredAt ?? now(),

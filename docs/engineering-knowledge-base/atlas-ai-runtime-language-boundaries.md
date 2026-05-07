@@ -39,6 +39,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-autonomy-power-backlog.md
   - docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
+  - docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
 ---
 
@@ -140,13 +141,26 @@ alto volume, streaming, agent local ou rede persistente.
 
 ## Papel Do Swift
 
-Swift e o Native Mac Runtime. Use para Keychain, Touch ID, notificacoes nativas,
-Menu Bar, FSEvents, Accessibility opt-in, ScreenCaptureKit manual, Core
-Spotlight e Core ML leve. O contrato detalhado vive em
-`atlas-native-mac-agent.md`.
+Swift e o Native Mac Runtime. Use para:
+
+1. Keychain, Touch ID e XPC helper isolado;
+2. notificacoes nativas, Menu Bar e LED virtual de status;
+3. FSEvents e NSWorkspace focus events;
+4. Accessibility opt-in (selected text only) e ScreenCaptureKit manual;
+5. Core Spotlight, Shortcuts/App Intents e deep links;
+6. Core ML leve para classificacao/embedding/STT local sem substituir Decide;
+7. Voice Realtime Edge: wake word local, VAD, echo cancel, captura de mic e
+   AirPods, LiveKit Swift SDK como cliente WebRTC.
+
+Identidade canonica do runtime: `swift_native_mac`.
 
 Nao use Swift para Kernel, API, provider routing, Graph RAG, analytics pesado,
-decisao de dominio/modelo ou automacao destrutiva sem approval.
+decisao de dominio/modelo, automacao destrutiva sem approval ou streaming de
+audio/video ambiente sem wake word/eclipse/policy do Kernel.
+
+Contratos detalhados:
+- `atlas-native-mac-agent.md` — contrato base de capabilities Apple.
+- `atlas-ai-voice-realtime-surface.md` — voice edge (`atlas-voice-edge`).
 
 ## Matriz De Decisao
 
@@ -164,6 +178,8 @@ decisao de dominio/modelo ou automacao destrutiva sem approval.
 | Streaming/backpressure | Go | rede e I/O concorrente |
 | Touch ID, Keychain e notificacoes nativas | Swift | APIs Apple nativas |
 | FSEvents, Accessibility e ScreenCaptureKit | Swift | contexto local opt-in |
+| Wake word local, VAD, echo cancel, captura mic/AirPods | Swift | latencia <50ms e zero stream antes de wake |
+| LiveKit client SDK no edge do Mac | Swift | qualidade nativa de audio e WebRTC |
 
 ## Contrato De Comunicacao
 

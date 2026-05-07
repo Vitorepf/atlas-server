@@ -14,11 +14,18 @@ Observability, MCP, or future control-plane surfaces.
 - `/ai/observability` must expose `architecture_operations` from `summary()`.
 - The catalog must include the core operational commands: architecture
   validation, documentation health, KB sync, Code Intelligence index, SLO,
-  kernel pipeline, repair, provider performance, Dynamic Compute Market report,
-  provider cost-rate gaps, provider cost-rate human upsert, self-improvement
-  schedule replay, and Inbox action report.
+  kernel pipeline, repair, provider performance, agent behavior report,
+  Dynamic Compute Market report, provider performance Curator review, provider
+  cost-rate gaps, provider cost-rate human upsert, self-improvement schedule
+  replay, and Inbox action report.
+- Agent behavior must be exposed as an evidence operation:
+  `atlas ai agent-behavior-report --hours=24 --json`.
 - Dynamic Compute Market must be exposed as a read-only operation:
   `atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json`.
+- Provider performance Curator review must be exposed as proposal-only operation:
+  `atlas ai self-improve --flow=provider_performance_review --hours=168 --json`.
+- Agent behavior Curator review must be exposed as proposal-only operation:
+  `atlas ai self-improve --flow=agent_behavior_review --hours=168 --json`.
 - Provider cost-rate operations are part of the same catalog because AP-99 and
   AP-146 depend on humans and agents discovering exactly how to close unknown
   cost evidence:

@@ -184,6 +184,7 @@ class DomainProfileComplianceTest extends TestCase
             'self_improvement.domain_learning_review',
             'self_improvement.docs_drift_review',
             'self_improvement.provider_performance_review',
+            'self_improvement.agent_behavior_review',
             'self_improvement.proposal_generation',
         ] as $flowId) {
             $profile = $registry->resolve($flowId);

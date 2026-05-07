@@ -178,7 +178,7 @@ class AiQualityActionService
                     reason: 'Resposta precisa ser reescrita antes de virar saída canônica do Atlas.',
                     provider: $this->repairProvider($trace),
                 ),
-                ...$this->verificationPlanIfNeeded($trace, $flags),
+                ...$this->verificationPlanIfNeeded($trace, $evaluation, $flags),
             ];
         }
 
@@ -192,7 +192,7 @@ class AiQualityActionService
                         reason: 'Fair Claude mode exige reparo pelo mesmo Claude Opus, sem council ou fallback.',
                         provider: FairClaudePolicy::PROVIDER_LOCK,
                     ),
-                    ...$this->verificationPlanIfNeeded($trace, $flags),
+                    ...$this->verificationPlanIfNeeded($trace, $evaluation, $flags),
                 ];
             }
 
@@ -204,12 +204,12 @@ class AiQualityActionService
                     reason: 'Score baixo exige reparo automático pelo Claude Sonnet.',
                     provider: 'claude_cli',
                 ),
-                ...$this->verificationPlanIfNeeded($trace, $flags),
+                ...$this->verificationPlanIfNeeded($trace, $evaluation, $flags),
             ];
         }
 
         return [
-            ...$this->verificationPlanIfNeeded($trace, $flags),
+            ...$this->verificationPlanIfNeeded($trace, $evaluation, $flags),
             $this->operatorReviewPlan($trace, $evaluation, 'Resposta marcada para revisão operacional.'),
         ];
     }
@@ -234,7 +234,7 @@ class AiQualityActionService
      * @param  array<int,string>  $flags
      * @return array<int,array<string,mixed>>
      */
-    private function verificationPlanIfNeeded(AiTrace $trace, array $flags): array
+    private function verificationPlanIfNeeded(AiTrace $trace, AiQualityEvaluation $evaluation, array $flags): array
     {
         if (! in_array('verification_missing', $flags, true)) {
             return [];
@@ -250,6 +250,7 @@ class AiQualityActionService
                 'required' => true,
                 'workspace' => data_get($trace->metadata, 'context_pack.surface.workspace'),
                 'recommended_next_step' => 'Rodar validação ou declarar objetivamente por que não foi possível validar.',
+                'agent_behavior_findings' => $this->agentBehaviorFindings($evaluation),
             ],
         ]];
     }
@@ -266,8 +267,20 @@ class AiQualityActionService
                 'score' => $evaluation->score,
                 'quality_status' => $evaluation->status,
                 'source_provider' => $trace->provider,
+                'agent_behavior_findings' => $this->agentBehaviorFindings($evaluation),
             ],
         ];
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function agentBehaviorFindings(AiQualityEvaluation $evaluation): array
+    {
+        return collect((array) data_get($evaluation->metadata, 'evidence.agent_behavior_findings', []))
+            ->filter(fn (mixed $finding): bool => is_array($finding) && str_starts_with((string) ($finding['code'] ?? ''), 'agent.'))
+            ->values()
+            ->all();
     }
 
     private function enqueueRemediation(AiQualityAction $action, AiTrace $trace): AiTrace

@@ -208,8 +208,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After AP-147: 16 + 5 new tools + domain/architecture/operations/schedule/kernel/provider/market/inbox/receipt/projection reports = 34.
-        $this->assertCount(34, $structured['tools']);
+        // After AP-156: 16 + 5 new tools + domain/architecture/operations/schedule/kernel/provider/market/inbox/agent/receipt/projection reports = 35.
+        $this->assertCount(35, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_domain_catalog', array_column($structured['tools'], 'name'));
@@ -221,6 +221,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('atlas_kernel_pipeline_report', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_repair_loop_report', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_inbox_action_report', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_agent_behavior_report', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_provider_performance_report', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_dynamic_compute_market_report', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_ledger_projection_health', array_column($structured['tools'], 'name'));
@@ -406,10 +407,13 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('atlas engineering knowledge sync --prune --json', array_column($commands, 'command'));
         $this->assertContains('atlas engineering knowledge index-code --prune --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', array_column($commands, 'command'));
         $this->assertContains('atlas ledger replay --envelope=<id> --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai agent-behavior-report --hours=24 --json', array_column($commands, 'command'));
     }
 
     public function test_architecture_operations_tool_filters_shared_operations_catalog(): void
@@ -430,6 +434,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertTrue($structured['ok']);
         $this->assertSame(['kind' => 'evidence_report'], data_get($structured, 'architecture_operations.filters'));
         $this->assertContains('provider_performance_report', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('agent_behavior_report', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('dynamic_compute_market_report', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('provider_cost_rates_missing', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('decision_receipt_report', data_get($structured, 'architecture_operations.operation_ids'));
@@ -446,7 +451,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
     {
         config()->set('app.timezone', 'America/Sao_Paulo');
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review']);
         config()->set('atlas_ai.self_improvement.time', '02:00');
 
         $service = $this->app->make(AtlasOpenBrainMcpService::class);
@@ -467,8 +472,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('commands', $structured['detail']);
         $this->assertFalse($structured['writes']);
         $this->assertSame('registered', data_get($structured, 'schedule.scheduler_registration.status'));
-        $this->assertSame(4, data_get($structured, 'schedule.count'));
-        $this->assertSame(['daily' => 3, 'weekly' => 1], data_get($structured, 'schedule.cadence_counts'));
+        $this->assertSame(5, data_get($structured, 'schedule.count'));
+        $this->assertSame(['daily' => 4, 'weekly' => 1], data_get($structured, 'schedule.cadence_counts'));
         $this->assertSame('weekly_architecture_audit', data_get($structured, 'schedule.commands.1.flow'));
         $this->assertSame('weekly', data_get($structured, 'schedule.commands.1.cadence'));
         $this->assertSame(1, data_get($structured, 'schedule.commands.1.week_day'));
@@ -1032,6 +1037,10 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
                 'path' => 'inbox_actions.review_signal',
                 'action' => 'wait_for_inbox_action_evidence',
             ],
+            'atlas_agent_behavior_report' => [
+                'path' => 'agent_behavior.review_signal',
+                'action' => 'wait_for_agent_behavior_evidence',
+            ],
             'atlas_provider_performance_report' => [
                 'path' => 'provider_performance.review_signal',
                 'action' => 'wait_for_provider_usage_evidence',
@@ -1075,6 +1084,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
             ['tool' => 'atlas_kernel_pipeline_report', 'input' => ['bad'], 'expected' => 24],
             ['tool' => 'atlas_repair_loop_report', 'input' => '12', 'expected' => 12],
             ['tool' => 'atlas_inbox_action_report', 'input' => 72, 'expected' => 72],
+            ['tool' => 'atlas_agent_behavior_report', 'input' => 36, 'expected' => 36],
             ['tool' => 'atlas_provider_performance_report', 'input' => 48, 'expected' => 48],
         ] as $case) {
             $response = $service->handleJsonRpc([
@@ -1122,6 +1132,11 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
                 'tool' => 'atlas_inbox_action_report',
                 'arguments' => ['action' => ' review_patch ', 'actor_type' => ['bad'], 'inbox_item_category' => ' self_improvement ', 'source_type' => ''],
                 'expected' => ['action' => 'review_patch', 'inbox_item_category' => 'self_improvement'],
+            ],
+            [
+                'tool' => 'atlas_agent_behavior_report',
+                'arguments' => ['provider' => ' codex_cli ', 'finding_code' => ' agent.verification_missing ', 'agent_slug' => ['bad']],
+                'expected' => ['provider' => 'codex_cli', 'finding_code' => 'agent.verification_missing'],
             ],
             [
                 'tool' => 'atlas_provider_performance_report',
@@ -1250,6 +1265,36 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('collect_ap99_evidence_before_policy_change', data_get($structured, 'dynamic_compute_market.recommended_next_action'));
         $this->assertFalse((bool) data_get($structured, 'dynamic_compute_market.routing_control.changes_provider'));
         $this->assertFalse((bool) data_get($structured, 'dynamic_compute_market.ap99.available'));
+    }
+
+    public function test_agent_behavior_report_summarizes_gate_findings(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        $this->recordAgentBehaviorForMcp('mcp-agent-a', 'codex_cli', 'agent.verification_missing', 72);
+        $this->recordAgentBehaviorForMcp('mcp-agent-b', 'claude_cli', 'agent.verification_missing', 68);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 95,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_agent_behavior_report',
+                'arguments' => ['hours' => 24, 'finding_code' => 'agent.verification_missing'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_agent_behavior_report', $structured['tool']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame(2, data_get($structured, 'agent_behavior.agent_behavior_event_count'));
+        $this->assertSame(['agent.verification_missing' => 2], data_get($structured, 'agent_behavior.finding_code_counts'));
+        $this->assertSame('warning', data_get($structured, 'agent_behavior.review_signal.status'));
+        $this->assertSame('open_reviewable_agent_behavior_quality_proposal', data_get($structured, 'agent_behavior.review_signal.recommended_action'));
     }
 
     public function test_decision_receipt_report_replays_receipt_chain_for_envelope(): void
@@ -1968,6 +2013,50 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertArrayHasKey('memory', $structured);
         $this->assertArrayHasKey('code', $structured);
         $this->assertArrayHasKey('docs', $structured);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function recordAgentBehaviorForMcp(string $suffix, string $provider, string $findingCode, int $score): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => 'evt_'.$suffix,
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_mcp_agent_behavior',
+            'operator_id' => 'operator_mcp_agent_behavior',
+            'envelope_id' => 'env_'.$suffix,
+            'receipt_id' => null,
+            'trace_id' => 'trace_'.$suffix,
+            'correlation_id' => 'trace_'.$suffix,
+            'causation_id' => 'quality_'.$suffix,
+            'event_type' => LedgerEventType::GateEvaluated->value,
+            'emitter_stage' => 'atlas.agent_behavior_quality_gate',
+            'emitter_version' => 'atlas.agent_behavior.v1',
+            'payload' => [
+                'gate_id' => 'atlas.agent_behavior',
+                'schema_version' => 'atlas.agent_behavior.gate_evaluation.v1',
+                'status' => 'needs_review',
+                'score' => $score,
+                'provider' => $provider,
+                'model' => 'model-test',
+                'agent_slug' => 'desenvolvedor',
+                'contract_id' => 'atlas-ai.agent-behavior.v1',
+                'contract_hash' => 'contract-hash-test',
+                'flags' => ['verification_missing'],
+                'suggested_actions' => ['request_verification_or_tests'],
+                'agent_behavior_findings' => [[
+                    'code' => $findingCode,
+                    'severity' => 'p2',
+                    'metadata' => [
+                        'contract_id' => 'atlas-ai.agent-behavior.v1',
+                        'contract_hash' => 'contract-hash-test',
+                    ],
+                ]],
+            ],
+            'payload_hash' => hash('sha256', $suffix),
+            'occurred_at' => now(),
+        ]);
     }
 
     /**

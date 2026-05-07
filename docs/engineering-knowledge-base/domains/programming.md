@@ -217,6 +217,19 @@ de ledger do gate/repair. Se o kernel bloquear, o worker para com
 de chegar ao worker: `kernel_repair_contract`, `allowed_strategies`,
 `heavy_strategies` e `requires_evidence_for_heavy_repair`.
 
+O mesmo plano tambem publica `agent_behavior_contract` (`AP-152`) com
+`atlas-ai.agent-behavior.v1`, hash e principios. Programming nao deve copiar
+prompt comportamental local: `AtlasProgrammingOrchestrator` herda o contrato do
+Kernel para garantir Assumption Management, Simplicity Bias,
+Surgical Diff Discipline e Verifiable Goal Loop em `atlas dev`, `atlas forge`,
+`atlas fix`, dispatch e harness.
+
+`ProgrammingExecutionRequest` e `EngineeringHarnessExecutionService` propagam o
+mesmo contrato para o Forge/Harness (`AP-153`): task metadata, engineering
+contract, effective harness options, policy enforcement e repair metadata
+carregam `agent_behavior_contract`. Harness executa e valida; ele nao inventa
+contrato comportamental proprio.
+
 `EngineeringHarnessExecutionService` tambem ja passa resultados bloqueados,
 parciais ou falhos do Forge/Harness pelo Kernel Repair. O resultado de
 programacao carrega `kernel_repair_decision` e `repair_contract` quando existe

@@ -77,4 +77,5 @@ Inbox/review humano e aos gates de policy/receipt.
 - `AtlasOpenBrainMcpServiceTest::test_dynamic_compute_market_report_exposes_read_only_shadow_advice`
 - `AtlasOpenBrainMcpServiceTest::test_dynamic_compute_market_report_preserves_review_signal_when_ledger_is_unavailable`
 - `AtlasSelfImprovementRuntimeTest::test_provider_performance_review_emits_dynamic_compute_market_benchmark_proposal`
+- `AtlasSelfImprovementRuntimeTest::test_self_improvement_command_surfaces_dynamic_compute_market_proposal_without_routing_change`
 - `KernelArchitectureStaticScanner::scanProviderUsagePerformanceContract`

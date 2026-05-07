@@ -428,6 +428,89 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('draft_model_selection_policy_patch', data_get($finding, 'metadata.available_actions.1.id'));
     }
 
+    public function test_self_improvement_command_surfaces_dynamic_compute_market_proposal_without_routing_change(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            app(AtlasEvidenceLedger::class)->record(LedgerEventType::ProviderReturned, [
+                'schema_version' => 'atlas.provider_usage.v1',
+                'provider_cli' => 'codex_cli',
+                'model_name_if_available' => 'gpt-5.5',
+                'domain' => 'programming',
+                'flow' => 'programming.frontend',
+                'task_type' => 'programming',
+                'specialist_profile' => 'programming.frontend',
+                'phase' => 'returned',
+                'exit_status' => 'succeeded',
+                'selection_mode' => 'auto_best_allowed',
+                'latency_seconds' => 150.0,
+                'repair_count' => 0,
+                'total_tokens' => 1200,
+                'cost_microusd' => 80,
+                'cost_confidence' => 'exact',
+                'cost_source' => 'configured_rate',
+                'cost_mode' => 'configured',
+            ], [
+                'tenant_id' => 'default',
+                'operator_id' => 'system',
+                'envelope_id' => 'dynamic_market_cli_codex_'.$i,
+                'correlation_id' => 'dynamic_market_cli_codex_'.$i,
+                'emitter_stage' => 'ai.worker',
+                'emitter_version' => 'test',
+            ]);
+
+            app(AtlasEvidenceLedger::class)->record(LedgerEventType::ProviderReturned, [
+                'schema_version' => 'atlas.provider_usage.v1',
+                'provider_cli' => 'claude_cli',
+                'model_name_if_available' => 'opus-test',
+                'domain' => 'programming',
+                'flow' => 'programming.frontend',
+                'task_type' => 'programming',
+                'specialist_profile' => 'programming.frontend',
+                'phase' => 'returned',
+                'exit_status' => 'succeeded',
+                'selection_mode' => 'auto_best_allowed',
+                'latency_seconds' => 40.0,
+                'repair_count' => 0,
+                'total_tokens' => 1100,
+                'cost_microusd' => 70,
+                'cost_confidence' => 'exact',
+                'cost_source' => 'configured_rate',
+                'cost_mode' => 'configured',
+            ], [
+                'tenant_id' => 'default',
+                'operator_id' => 'system',
+                'envelope_id' => 'dynamic_market_cli_claude_'.$i,
+                'correlation_id' => 'dynamic_market_cli_claude_'.$i,
+                'emitter_stage' => 'ai.worker',
+                'emitter_version' => 'test',
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--flow' => 'provider_performance_review',
+            '--domain' => 'programming',
+            '--slo-flow' => 'programming.frontend',
+            '--hours' => 168,
+            '--limit' => 5,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $finding = collect(data_get($payload, 'runtime.findings', []))
+            ->firstWhere('metadata.schema_version', 'atlas.self_improvement.dynamic_compute_market.v1');
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('completed', $payload['status']);
+        $this->assertSame('self_improvement.provider_performance_review', data_get($payload, 'plan.flow'));
+        $this->assertSame(['domain' => 'programming', 'flow' => 'programming.frontend'], data_get($payload, 'runtime.filters'));
+        $this->assertIsArray($finding);
+        $this->assertSame('proposal_only', data_get($finding, 'metadata.mode'));
+        $this->assertSame('benchmark_lower_latency_alternative', data_get($finding, 'metadata.dynamic_compute_market.recommendation'));
+        $this->assertSame('claude_cli', data_get($finding, 'metadata.candidate.provider'));
+        $this->assertFalse((bool) data_get($finding, 'metadata.routing_control.changes_provider'));
+        $this->assertSame('atlas_decide', data_get($finding, 'metadata.routing_control.routing_authority'));
+        $this->assertSame(['policy_patch', 'decision_receipt'], data_get($finding, 'metadata.routing_control.provider_change_requires'));
+    }
+
     public function test_self_improvement_detects_kernel_slo_drift_from_replay_service(): void
     {
         app(AtlasEvidenceLedger::class)->record(LedgerEventType::SloObserved, [
@@ -1361,7 +1444,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
 
         $finding = collect($result['findings'])->firstWhere(
             'dedupe_key',
-            'self-improvement:architecture-operations:'.sha1('arquitetura_mae:atlas ai architecture-operations --json,atlas engineering knowledge docs-health --json,atlas engineering knowledge sync --prune --json,atlas engineering knowledge index-code --prune --json,atlas ai slo --hours=24 --json,atlas ai kernel-pipeline-report --hours=24 --json,atlas ai repair-report --hours=24 --json,atlas ai provider-performance --hours=24 --json,atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json,atlas ai telemetry cost-rates --missing --hours=168 --json,atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json,atlas ai qualitative-levels --hours=720 --json,atlas ai rivals-strategy report --hours=8760 --json,atlas ai rivals-strategy due-reviews --due-days=30 --json,atlas ai strategic-decision review --json,atlas ai decision-receipt-report --envelope=<id> --json,atlas ledger replay --envelope=<id> --json,atlas ai ledger-project --limit=500 --json,atlas ai self-improvement-schedule-report --hours=24 --json,atlas ai inbox-action-report --hours=24 --json:1:1')
+            'self-improvement:architecture-operations:'.sha1('arquitetura_mae:atlas ai architecture-operations --json,atlas engineering knowledge docs-health --json,atlas engineering knowledge sync --prune --json,atlas engineering knowledge index-code --prune --json,atlas ai slo --hours=24 --json,atlas ai kernel-pipeline-report --hours=24 --json,atlas ai repair-report --hours=24 --json,atlas ai provider-performance --hours=24 --json,atlas ai agent-behavior-report --hours=24 --json,atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json,atlas ai self-improve --flow=provider_performance_review --hours=168 --json,atlas ai self-improve --flow=agent_behavior_review --hours=168 --json,atlas ai telemetry cost-rates --missing --hours=168 --json,atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json,atlas ai qualitative-levels --hours=720 --json,atlas ai rivals-strategy report --hours=8760 --json,atlas ai rivals-strategy due-reviews --due-days=30 --json,atlas ai strategic-decision review --json,atlas ai decision-receipt-report --envelope=<id> --json,atlas ledger replay --envelope=<id> --json,atlas ai ledger-project --limit=500 --json,atlas ai self-improvement-schedule-report --hours=24 --json,atlas ai inbox-action-report --hours=24 --json:1:1')
         );
 
         $this->assertSame('self_improvement.weekly_architecture_audit', $result['flow']);
@@ -1376,8 +1459,11 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertContains('atlas engineering knowledge docs-health --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas engineering knowledge sync --prune --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas engineering knowledge index-code --prune --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai agent-behavior-report --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai decision-receipt-report --envelope=<id> --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai qualitative-levels --hours=720 --json', data_get($finding, 'metadata.missing_commands'));
@@ -1398,7 +1484,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
     {
         config()->set('app.timezone', 'America/Sao_Paulo');
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review']);
         config()->set('atlas_ai.self_improvement.time', '02:00');
 
         $this->recordSelfImprovementScheduleObservation(
@@ -1440,7 +1526,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
     {
         config()->set('app.timezone', 'America/Sao_Paulo');
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review']);
         config()->set('atlas_ai.self_improvement.time', '02:00');
 
         $this->recordSelfImprovementScheduleObservation(
@@ -1485,7 +1571,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
     {
         config()->set('app.timezone', 'America/Sao_Paulo');
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review']);
         config()->set('atlas_ai.self_improvement.time', '02:00');
 
         $this->recordSelfImprovementScheduleObservation(
@@ -1774,6 +1860,130 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame(['domain' => 'programming', 'provider' => 'codex_cli'], data_get($finding, 'metadata.filters'));
     }
 
+    public function test_self_improvement_detects_agent_behavior_replay_patterns(): void
+    {
+        $this->recordAgentBehaviorGateEvent('env_agent_behavior_a', 'trace-agent-a', 'codex_cli', 'agent.verification_missing', 72);
+        $this->recordAgentBehaviorGateEvent('env_agent_behavior_b', 'trace-agent-b', 'claude_cli', 'agent.verification_missing', 68);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'self_improvement.agent_behavior_review',
+            emit: false,
+            hours: 24,
+            limit: 20,
+            filters: ['finding_code' => 'agent.verification_missing'],
+        );
+
+        $finding = collect($result['findings'])
+            ->firstWhere('dedupe_key', 'self-improvement:agent-behavior-replay:'.sha1('24:agent.verification_missing'));
+
+        $this->assertIsArray($finding);
+        $this->assertSame('self_improvement.agent_behavior_review', $result['flow']);
+        $this->assertSame('atlas.self_improvement.agent_behavior_replay.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('open_reviewable_agent_behavior_quality_proposal', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame(['agent.verification_missing' => 2], data_get($finding, 'metadata.finding_code_counts'));
+        $this->assertSame(['codex_cli' => 1, 'claude_cli' => 1], data_get($finding, 'metadata.provider_counts'));
+        $this->assertSame(['finding_code' => 'agent.verification_missing'], data_get($finding, 'metadata.filters'));
+        $this->assertSame('agent.verification_missing', data_get($finding, 'source_refs.0.finding_codes.0'));
+    }
+
+    public function test_command_filters_agent_behavior_review_by_behavior_dimensions(): void
+    {
+        $this->recordAgentBehaviorGateEvent('env_agent_behavior_filter_a', 'trace-agent-filter-a', 'codex_cli', 'agent.verification_missing', 72);
+        $this->recordAgentBehaviorGateEvent('env_agent_behavior_filter_b', 'trace-agent-filter-b', 'claude_cli', 'agent.verification_missing', 68);
+        $this->recordAgentBehaviorGateEvent('env_agent_behavior_filter_c', 'trace-agent-filter-c', 'codex_cli', 'agent.verification_missing', 70);
+
+        $exit = Artisan::call('atlas:ai:self-improve', [
+            '--flow' => 'agent_behavior_review',
+            '--hours' => 24,
+            '--limit' => 5,
+            '--provider' => 'codex_cli',
+            '--agent-slug' => 'programming_agent',
+            '--finding-code' => 'agent.verification_missing',
+            '--contract-id' => 'atlas-ai.agent-behavior.v1',
+            '--agent-status' => 'needs_review',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $expectedFilters = [
+            'provider' => 'codex_cli',
+            'status' => 'needs_review',
+            'agent_slug' => 'programming_agent',
+            'finding_code' => 'agent.verification_missing',
+            'contract_id' => 'atlas-ai.agent-behavior.v1',
+        ];
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('self_improvement.agent_behavior_review', data_get($payload, 'plan.flow'));
+        $this->assertSame($expectedFilters, data_get($payload, 'plan.options.filters'));
+        $this->assertSame($expectedFilters, data_get($payload, 'runtime.filters'));
+        $this->assertSame(['codex_cli' => 2], data_get($payload, 'runtime.findings.0.metadata.provider_counts'));
+        $this->assertSame(['agent.verification_missing' => 2], data_get($payload, 'runtime.findings.0.metadata.finding_code_counts'));
+        $this->assertSame('codex_cli', data_get($payload, 'runtime.findings.0.source_refs.0.provider'));
+    }
+
+    public function test_self_improvement_emits_agent_behavior_replay_proposal_with_review_governance(): void
+    {
+        $this->recordAgentBehaviorGateEvent('env_agent_behavior_emit_a', 'trace-agent-emit-a', 'codex_cli', 'agent.verification_missing', 72);
+        $this->recordAgentBehaviorGateEvent('env_agent_behavior_emit_b', 'trace-agent-emit-b', 'claude_cli', 'agent.verification_missing', 68);
+
+        $inboxItem = new AiInboxItem;
+        $inboxItem->id = '00000000-0000-0000-0000-000000000762';
+        $targetPayload = null;
+
+        $this->mock(ProposalInboxEmitter::class, function ($mock) use ($inboxItem, &$targetPayload): void {
+            $mock->shouldReceive('emit')
+                ->andReturnUsing(function (array $payload) use ($inboxItem, &$targetPayload): AiInboxItem {
+                    if (data_get($payload, 'metadata.schema_version') === 'atlas.self_improvement.agent_behavior_replay.v1') {
+                        $targetPayload = $payload;
+                    }
+
+                    return $inboxItem;
+                });
+        });
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'self_improvement.agent_behavior_review',
+            emit: true,
+            hours: 24,
+            limit: 5,
+            filters: ['finding_code' => 'agent.verification_missing'],
+        );
+
+        $learningEvent = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::LearningProposed->value)
+            ->where('envelope_id', 'like', 'self_improvement_run:%')
+            ->get()
+            ->first(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'finding.schema_version') === 'atlas.self_improvement.agent_behavior_replay.v1');
+        $completedEvent = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::OperationCompleted->value)
+            ->where('envelope_id', 'like', 'self_improvement_run:%')
+            ->latest('occurred_at')
+            ->first();
+
+        $this->assertSame(false, $result['dry_run']);
+        $this->assertContains($inboxItem->id, $result['emitted_item_ids']);
+        $this->assertIsArray($targetPayload);
+        $this->assertStringStartsWith('self-improvement:agent-behavior-replay:', $targetPayload['dedupe_key']);
+        $this->assertSame('atlas.self_improvement.agent_behavior_replay.v1', data_get($targetPayload, 'metadata.schema_version'));
+        $this->assertSame('open_reviewable_agent_behavior_quality_proposal', data_get($targetPayload, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('review_patch', data_get($targetPayload, 'available_actions.0.id'));
+        $this->assertSame('discuss', data_get($targetPayload, 'available_actions.1.id'));
+        $this->assertSame('discard', data_get($targetPayload, 'available_actions.2.id'));
+        $this->assertFalse((bool) data_get($targetPayload, 'policy.auto_apply_behavior_change'));
+        $this->assertTrue((bool) data_get($targetPayload, 'policy.requires_operator_review'));
+        $this->assertTrue((bool) data_get($targetPayload, 'policy.requires_architecture_validate'));
+        $this->assertSame('atlas.self_improvement.agent_behavior_replay.proposal_payload.v1', data_get($targetPayload, 'payload.agent_behavior_replay.schema_version'));
+        $this->assertFalse((bool) data_get($targetPayload, 'payload.agent_behavior_replay.governance.auto_apply'));
+        $this->assertContains('env_agent_behavior_emit_a', collect(data_get($targetPayload, 'source_refs', []))->pluck('envelope_id')->all());
+        $this->assertContains('env_agent_behavior_emit_b', collect(data_get($targetPayload, 'source_refs', []))->pluck('envelope_id')->all());
+        $this->assertSame('agent.verification_missing', data_get($targetPayload, 'source_refs.0.finding_codes.0'));
+        $this->assertTrue((bool) data_get($learningEvent?->payload, 'emitted_to_inbox'));
+        $this->assertSame($inboxItem->id, data_get($learningEvent?->payload, 'emitted_inbox_item_id'));
+        $this->assertSame('atlas.self_improvement.agent_behavior_replay.v1', data_get($learningEvent?->payload, 'finding.schema_version'));
+        $this->assertContains($inboxItem->id, data_get($completedEvent?->payload, 'emitted_inbox_item_ids'));
+    }
+
     public function test_self_improvement_emits_decision_receipt_replay_hash_gap_proposal(): void
     {
         $this->recordDecisionReceiptEvent(
@@ -1994,8 +2204,9 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
 
         $this->assertSame(0, $listExit);
         $this->assertSame('ok', $listPayload['status']);
-        $this->assertSame(12, $listPayload['count']);
+        $this->assertSame(13, $listPayload['count']);
         $this->assertContains('self_improvement.provider_performance_review', $listPayload['flows']);
+        $this->assertContains('self_improvement.agent_behavior_review', $listPayload['flows']);
         $this->assertContains('self_improvement.repair_loop_review', $listPayload['flows']);
         $this->assertContains('self_improvement.kernel_pipeline_review', $listPayload['flows']);
 
@@ -2022,7 +2233,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
     public function test_command_can_render_recurring_schedule_plan(): void
     {
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review']);
         config()->set('atlas_ai.self_improvement.time', '02:00');
         config()->set('atlas_ai.self_improvement.hours', 24);
         config()->set('atlas_ai.self_improvement.limit', 5);
@@ -2042,16 +2253,16 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertArrayHasKey('next_run_at', $payload);
         $this->assertTrue($payload['schedulable']);
         $this->assertSame('registered', data_get($payload, 'scheduler_registration.status'));
-        $this->assertSame(4, data_get($payload, 'scheduler_registration.registered_command_count'));
+        $this->assertSame(5, data_get($payload, 'scheduler_registration.registered_command_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['plan_hash']);
         $this->assertSame('sha256', $payload['plan_hash_algorithm']);
-        $this->assertSame(['daily' => 3, 'weekly' => 1], $payload['cadence_counts']);
-        $this->assertSame(4, $payload['count']);
-        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review'], $payload['configured_flows']);
+        $this->assertSame(['daily' => 4, 'weekly' => 1], $payload['cadence_counts']);
+        $this->assertSame(5, $payload['count']);
+        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review'], $payload['configured_flows']);
         $this->assertSame([], $payload['invalid_flows']);
         $this->assertFalse($payload['defaulted']);
         $this->assertSame('healthy', data_get($payload, 'health.status'));
-        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review'], $payload['flows']);
+        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review'], $payload['flows']);
         $this->assertSame('atlas:ai:self-improve --flow=weekly_architecture_audit --hours=24 --limit=5 --json', data_get($payload, 'commands.1.command'));
         $this->assertSame('weekly', data_get($payload, 'commands.1.cadence'));
         $this->assertSame(1, data_get($payload, 'commands.1.week_day'));
@@ -2059,6 +2270,8 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('daily', data_get($payload, 'commands.2.cadence'));
         $this->assertSame('atlas:ai:self-improve --flow=kernel_pipeline_review --hours=24 --limit=5 --json', data_get($payload, 'commands.3.command'));
         $this->assertSame('daily', data_get($payload, 'commands.3.cadence'));
+        $this->assertSame('atlas:ai:self-improve --flow=agent_behavior_review --hours=24 --limit=5 --json', data_get($payload, 'commands.4.command'));
+        $this->assertSame('daily', data_get($payload, 'commands.4.cadence'));
         $this->assertSame(0, AtlasInitiativeRun::query()->count(), 'Schedule-plan must not create initiative runs.');
     }
 
@@ -2112,7 +2325,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
     public function test_schedule_plan_fail_on_warning_passes_when_schedule_is_healthy(): void
     {
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review']);
         config()->set('atlas_ai.self_improvement.time', '02:00');
         config()->set('atlas_ai.self_improvement.hours', 24);
         config()->set('atlas_ai.self_improvement.limit', 5);
@@ -2185,7 +2398,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
     public function test_schedule_health_human_output_includes_scheduler_registration(): void
     {
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review']);
         config()->set('atlas_ai.self_improvement.time', '02:00');
         config()->set('atlas_ai.self_improvement.hours', 24);
         config()->set('atlas_ai.self_improvement.limit', 5);
@@ -2201,13 +2414,13 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertStringContainsString('Scheduler registration', $output);
         $this->assertStringContainsString('Registered commands', $output);
         $this->assertStringContainsString('registered', $output);
-        $this->assertStringContainsString('4', $output);
+        $this->assertStringContainsString('5', $output);
     }
 
     public function test_schedule_plan_human_output_includes_skipped_scheduler_registration_reason(): void
     {
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review']);
         config()->set('atlas_ai.self_improvement.time', '25:99');
         config()->set('atlas_ai.self_improvement.hours', 24);
         config()->set('atlas_ai.self_improvement.limit', 5);
@@ -2372,10 +2585,10 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
                     'schedulable' => true,
                     'scheduler_registration' => [
                         'status' => $schedulerStatus,
-                        'registered_command_count' => $schedulerStatus === 'registered' ? 4 : 0,
+                        'registered_command_count' => $schedulerStatus === 'registered' ? 5 : 0,
                     ],
-                    'flow_count' => 4,
-                    'cadence_counts' => ['daily' => 3, 'weekly' => 1],
+                    'flow_count' => 5,
+                    'cadence_counts' => ['daily' => 4, 'weekly' => 1],
                     'invalid_flow_count' => $invalidFlowCount,
                     'defaulted' => false,
                     'emit' => false,
@@ -2474,6 +2687,55 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
                 'recommended_action' => $recommendedAction,
             ],
             'payload_hash' => hash('sha256', $eventId),
+            'occurred_at' => now()->subHour(),
+        ]);
+    }
+
+    private function recordAgentBehaviorGateEvent(
+        string $envelopeId,
+        string $traceId,
+        string $provider,
+        string $findingCode,
+        int $score,
+    ): void {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => 'agent-behavior-'.sha1($envelopeId.$traceId.$provider.$findingCode),
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'default',
+            'operator_id' => 'atlas_agent_behavior',
+            'envelope_id' => $envelopeId,
+            'receipt_id' => null,
+            'trace_id' => $traceId,
+            'correlation_id' => $traceId,
+            'causation_id' => null,
+            'event_type' => LedgerEventType::GateEvaluated->value,
+            'emitter_stage' => 'atlas.agent_behavior_quality_gate',
+            'emitter_version' => 'atlas.agent_behavior_quality_gate.v1',
+            'payload' => [
+                'schema_version' => 'atlas.agent_behavior.gate_evaluation.v1',
+                'gate_id' => 'atlas.agent_behavior',
+                'status' => 'needs_review',
+                'score' => $score,
+                'provider' => $provider,
+                'model' => 'test-model',
+                'agent_slug' => 'programming_agent',
+                'contract_id' => 'atlas-ai.agent-behavior.v1',
+                'contract_hash' => 'contract-hash-test',
+                'flags' => ['verification_missing'],
+                'suggested_actions' => ['request_verification_or_tests'],
+                'agent_behavior_findings' => [[
+                    'code' => $findingCode,
+                    'severity' => 'p2',
+                    'metadata' => [
+                        'contract_id' => 'atlas-ai.agent-behavior.v1',
+                        'contract_hash' => 'contract-hash-test',
+                    ],
+                    'evidence' => [
+                        'principle' => 'Verifiable Goal Loop',
+                    ],
+                ]],
+            ],
+            'payload_hash' => hash('sha256', $envelopeId.$traceId.$provider.$findingCode),
             'occurred_at' => now()->subHour(),
         ]);
     }

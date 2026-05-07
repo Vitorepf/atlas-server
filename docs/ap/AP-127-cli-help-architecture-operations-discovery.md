@@ -18,7 +18,10 @@ operational commands:
 - `atlas ai kernel-pipeline-report --hours=24 --json`
 - `atlas ai repair-report --hours=24 --json`
 - `atlas ai provider-performance --hours=24 --json`
+- `atlas ai agent-behavior-report --hours=24 --json`
 - `atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json`
+- `atlas ai self-improve --flow=provider_performance_review --hours=168 --json`
+- `atlas ai self-improve --flow=agent_behavior_review --hours=168 --json`
 - `atlas ai telemetry cost-rates --missing --hours=168 --json`
 - `atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json`
 - `atlas ai self-improvement-schedule-report --hours=24 --json`
