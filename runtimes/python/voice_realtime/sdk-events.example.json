@@ -1,0 +1,44 @@
+{
+  "events": [
+    {
+      "event_kind": "room_connected",
+      "session_id": "voice_session_sdk_sequence",
+      "participant_identity": "mobile:vitor",
+      "room_name": "atlas-voice-sdk-sequence",
+      "client_surface": "mobile",
+      "transport": "livekit_webrtc",
+      "privacy_class": "p3_audio"
+    },
+    {
+      "event_kind": "transcript_final",
+      "session_id": "voice_session_sdk_sequence",
+      "turn_id": "voice_turn_sdk_sequence",
+      "transcript": "continue a implementacao do Atlas",
+      "language": "pt-BR",
+      "domain_hint": "programming",
+      "flow_hint": "programming.implementation"
+    },
+    {
+      "event_kind": "tts_synthesized",
+      "session_id": "voice_session_sdk_sequence",
+      "turn_id": "voice_turn_sdk_sequence",
+      "response_text_hash": "2dc22a58640459efd97ef7d5fee1abfb32c8189dd1f5e4cfe4d58ce3fc498c33",
+      "audio_hash": "de9215788823aab3a5785b8b5678c30d0026c81907064d1fadd9542aa74852ea",
+      "audio_duration_ms": 900,
+      "tts_provider": "mock_tts",
+      "latency_ms": 180
+    },
+    {
+      "event_kind": "audio_played",
+      "session_id": "voice_session_sdk_sequence",
+      "turn_id": "voice_turn_sdk_sequence",
+      "played_duration_ms": 900,
+      "latency_ms": 60
+    },
+    {
+      "event_kind": "room_disconnected",
+      "session_id": "voice_session_sdk_sequence",
+      "reason": "sequence_completed"
+    }
+  ]
+}

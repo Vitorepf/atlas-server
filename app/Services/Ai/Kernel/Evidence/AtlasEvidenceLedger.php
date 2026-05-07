@@ -565,6 +565,11 @@ class AtlasEvidenceLedger
             'raw_audio_bytes',
             'pcm',
             'wav',
+            'access_token',
+            'livekit_token',
+            'token',
+            'api_key',
+            'api_secret',
         ];
 
         foreach ($forbiddenKeys as $key) {
@@ -591,6 +596,28 @@ class AtlasEvidenceLedger
             $payload['audio_hash'] = $this->string((string) $payload['audio_hash'], 120);
         }
 
+        return $this->removeVoiceSecrets($payload, $forbiddenKeys);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<int,string>  $forbiddenKeys
+     * @return array<string,mixed>
+     */
+    private function removeVoiceSecrets(array $payload, array $forbiddenKeys): array
+    {
+        foreach ($payload as $key => $value) {
+            if (in_array($key, $forbiddenKeys, true)) {
+                unset($payload[$key]);
+
+                continue;
+            }
+
+            if (is_array($value)) {
+                $payload[$key] = $this->removeVoiceSecrets($value, $forbiddenKeys);
+            }
+        }
+
         return $payload;
     }
 
@@ -611,6 +638,7 @@ class AtlasEvidenceLedger
             'job_id' => ['job_id'],
             'attempt_id' => ['attempt_id'],
             'worker_id' => ['worker_id'],
+            'rivals_arm' => ['rivals_arm'],
         ];
 
         $dimensions = [];

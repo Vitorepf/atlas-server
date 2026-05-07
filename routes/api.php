@@ -89,14 +89,34 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', HealthController::class);
 Route::post('/integrations/rize/webhook', RizeWebhookController::class);
 
-Route::prefix('v1/mobile')->group(function (): void {
+$registerAtlasVoiceRoutes = static function (): void {
+    Route::get('/ai/voice/health', [AtlasAiVoiceRealtimeController::class, 'health']);
+    Route::get('/ai/voice/readiness', [AtlasAiVoiceRealtimeController::class, 'readiness']);
+    Route::get('/ai/voice/rivals', [AtlasAiVoiceRealtimeController::class, 'rivals']);
+    Route::get('/ai/voice/eclipse/active', [AtlasAiVoiceRealtimeController::class, 'eclipse']);
+    Route::get('/ai/voice/runtime/contract', [AtlasAiVoiceRealtimeController::class, 'contract']);
+    Route::get('/ai/voice/runtime/bootstrap', [AtlasAiVoiceRealtimeController::class, 'bootstrap']);
+    Route::get('/ai/voice/runtime/dependencies', [AtlasAiVoiceRealtimeController::class, 'dependencies']);
+    Route::get('/ai/voice/runtime/certification', [AtlasAiVoiceRealtimeController::class, 'runtimeCertification']);
+    Route::post('/ai/voice/session/start', [AtlasAiVoiceRealtimeController::class, 'start']);
+    Route::post('/ai/voice/session/end', [AtlasAiVoiceRealtimeController::class, 'end']);
+    Route::post('/ai/voice/wake-word', [AtlasAiVoiceRealtimeController::class, 'wakeWord']);
+    Route::post('/ai/voice/turn', [AtlasAiVoiceRealtimeController::class, 'turn']);
+    Route::post('/ai/voice/turn/interrupted', [AtlasAiVoiceRealtimeController::class, 'interrupted']);
+    Route::post('/ai/voice/turn/synthesized', [AtlasAiVoiceRealtimeController::class, 'synthesized']);
+    Route::post('/ai/voice/turn/played', [AtlasAiVoiceRealtimeController::class, 'played']);
+    Route::post('/ai/voice/runtime/failed', [AtlasAiVoiceRealtimeController::class, 'failed']);
+    Route::post('/ai/voice/provider/health-degraded', [AtlasAiVoiceRealtimeController::class, 'providerHealth']);
+};
+
+Route::prefix('v1/mobile')->group(function () use ($registerAtlasVoiceRoutes): void {
     Route::post('/pairing/confirm', [MobilePairingController::class, 'confirm']);
 
     Route::middleware('atlas.token')->group(function (): void {
         Route::post('/pairing/initiate', [MobilePairingController::class, 'initiate']);
     });
 
-    Route::middleware('atlas.mobile.bearer')->group(function (): void {
+    Route::middleware('atlas.mobile.bearer')->group(function () use ($registerAtlasVoiceRoutes): void {
         Route::get('/health', [MobileHealthController::class, 'show']);
         Route::post('/telemetry/events', [AiTelemetryController::class, 'store']);
 
@@ -126,18 +146,7 @@ Route::prefix('v1/mobile')->group(function (): void {
         Route::get('/ai/recommendations', [MobileRecommendationController::class, 'index']);
         Route::get('/ai/recommendations/{recommendation}', [MobileRecommendationController::class, 'show']);
         Route::post('/ai/recommendations/{recommendation}/transition', [MobileRecommendationController::class, 'transition']);
-        Route::get('/ai/voice/health', [AtlasAiVoiceRealtimeController::class, 'health']);
-        Route::get('/ai/voice/eclipse/active', [AtlasAiVoiceRealtimeController::class, 'eclipse']);
-        Route::get('/ai/voice/runtime/contract', [AtlasAiVoiceRealtimeController::class, 'contract']);
-        Route::get('/ai/voice/runtime/bootstrap', [AtlasAiVoiceRealtimeController::class, 'bootstrap']);
-        Route::post('/ai/voice/session/start', [AtlasAiVoiceRealtimeController::class, 'start']);
-        Route::post('/ai/voice/session/end', [AtlasAiVoiceRealtimeController::class, 'end']);
-        Route::post('/ai/voice/turn', [AtlasAiVoiceRealtimeController::class, 'turn']);
-        Route::post('/ai/voice/turn/interrupted', [AtlasAiVoiceRealtimeController::class, 'interrupted']);
-        Route::post('/ai/voice/turn/synthesized', [AtlasAiVoiceRealtimeController::class, 'synthesized']);
-        Route::post('/ai/voice/turn/played', [AtlasAiVoiceRealtimeController::class, 'played']);
-        Route::post('/ai/voice/runtime/failed', [AtlasAiVoiceRealtimeController::class, 'failed']);
-        Route::post('/ai/voice/provider/health-degraded', [AtlasAiVoiceRealtimeController::class, 'providerHealth']);
+        $registerAtlasVoiceRoutes();
 
         Route::post('/threads/from-inbox/{inboxItem}', [MobileThreadController::class, 'fromInbox']);
         Route::post('/threads/{thread}/reply', [MobileThreadController::class, 'reply']);
@@ -145,7 +154,7 @@ Route::prefix('v1/mobile')->group(function (): void {
     });
 });
 
-Route::middleware('atlas.token')->group(function (): void {
+Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRoutes): void {
     Route::apiResource('domains', AtlasDomainController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('/inbox', [InboxController::class, 'index']);
     Route::get('/inbox/health', [InboxController::class, 'health']);
@@ -351,18 +360,7 @@ Route::middleware('atlas.token')->group(function (): void {
     Route::get('/ai/self-improvement/schedule/report', AtlasAiSelfImprovementScheduleReportController::class);
     Route::get('/ai/slo', AtlasAiSloController::class);
     Route::post('/ai/strategic-decision/review', AtlasAiStrategicDecisionController::class);
-    Route::get('/ai/voice/health', [AtlasAiVoiceRealtimeController::class, 'health']);
-    Route::get('/ai/voice/eclipse/active', [AtlasAiVoiceRealtimeController::class, 'eclipse']);
-    Route::get('/ai/voice/runtime/contract', [AtlasAiVoiceRealtimeController::class, 'contract']);
-    Route::get('/ai/voice/runtime/bootstrap', [AtlasAiVoiceRealtimeController::class, 'bootstrap']);
-    Route::post('/ai/voice/session/start', [AtlasAiVoiceRealtimeController::class, 'start']);
-    Route::post('/ai/voice/session/end', [AtlasAiVoiceRealtimeController::class, 'end']);
-    Route::post('/ai/voice/turn', [AtlasAiVoiceRealtimeController::class, 'turn']);
-    Route::post('/ai/voice/turn/interrupted', [AtlasAiVoiceRealtimeController::class, 'interrupted']);
-    Route::post('/ai/voice/turn/synthesized', [AtlasAiVoiceRealtimeController::class, 'synthesized']);
-    Route::post('/ai/voice/turn/played', [AtlasAiVoiceRealtimeController::class, 'played']);
-    Route::post('/ai/voice/runtime/failed', [AtlasAiVoiceRealtimeController::class, 'failed']);
-    Route::post('/ai/voice/provider/health-degraded', [AtlasAiVoiceRealtimeController::class, 'providerHealth']);
+    $registerAtlasVoiceRoutes();
     Route::get('/ai/memory', [AtlasMemoryController::class, 'index']);
     Route::post('/ai/memory', [AtlasMemoryController::class, 'store']);
     Route::post('/ai/memory/recall', AtlasMemoryRecallController::class);

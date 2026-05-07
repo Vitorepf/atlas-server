@@ -137,6 +137,19 @@ class AtlasSelfImprovementOrchestratorTest extends TestCase
         $this->assertTrue((bool) data_get($plan, 'execution_policy.proposal_only'));
     }
 
+    public function test_voice_realtime_review_plan_uses_dedicated_executor_contract(): void
+    {
+        $plan = app(AtlasSelfImprovementOrchestrator::class)->flowPlan('voice_realtime_review', [
+            'hours' => 24,
+            'limit' => 5,
+        ]);
+
+        $this->assertSame('self_improvement.voice_realtime_review', $plan['flow']);
+        $this->assertSame('voice_realtime_review_runtime', data_get($plan, 'execution_policy.executor_preference'));
+        $this->assertSame([], data_get($plan, 'options.filters'));
+        $this->assertTrue((bool) data_get($plan, 'execution_policy.proposal_only'));
+    }
+
     public function test_execute_nightly_review_returns_plan_runtime_and_evidence_refs(): void
     {
         app(AtlasEvidenceLedger::class)->record(LedgerEventType::OperationFailed, [

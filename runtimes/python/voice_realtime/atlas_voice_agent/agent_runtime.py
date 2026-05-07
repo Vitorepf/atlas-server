@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from .kernel_client import AtlasKernelClient
+from .session_lease import AtlasVoiceSessionLease
 from .turn_payload import UnsafeVoicePayload
 
 
@@ -47,6 +48,21 @@ class AtlasVoiceAgentRuntime:
         self.client = client
         self._turns: dict[str, AtlasVoiceTurnResult] = {}
 
+    def start_session(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        return self.client.start_session(payload)
+
+    def start_session_lease(self, payload: Mapping[str, Any]) -> AtlasVoiceSessionLease:
+        return self.client.start_session_lease(payload)
+
+    def end_session(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        return self.client.end_session(payload)
+
+    def readiness(self, hours: int = 24) -> Mapping[str, Any]:
+        return self.client.readiness(hours=hours)
+
+    def rivals(self, hours: int = 24) -> Mapping[str, Any]:
+        return self.client.rivals(hours=hours)
+
     def submit_turn(self, payload: Mapping[str, Any]) -> AtlasVoiceTurnResult:
         response = self.client.submit_turn(payload)
         session_id = str(payload.get("session_id") or "")
@@ -64,6 +80,9 @@ class AtlasVoiceAgentRuntime:
         self._turns[self._key(session_id, turn_id)] = result
 
         return result
+
+    def report_wake_word(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        return self.client.report_wake_word(payload)
 
     def report_synthesized(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
         self._assert_turn_can_emit_runtime_callback(payload)

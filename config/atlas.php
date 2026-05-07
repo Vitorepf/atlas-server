@@ -130,6 +130,16 @@ return [
         'busy_input_mode' => env('ATLAS_BUSY_INPUT_MODE', 'interrupt'),
     ],
 
+    'voice' => [
+        'livekit' => [
+            'token_issuer_enabled' => (bool) env('ATLAS_VOICE_LIVEKIT_TOKEN_ISSUER_ENABLED', false),
+            'url' => env('LIVEKIT_URL'),
+            'api_key' => env('LIVEKIT_API_KEY'),
+            'api_secret' => env('LIVEKIT_API_SECRET'),
+            'token_ttl_seconds' => (int) env('ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS', 900),
+        ],
+    ],
+
     'engineering' => [
         'docker' => [
             'default_service' => env('ATLAS_ENGINEERING_DOCKER_SERVICE'),

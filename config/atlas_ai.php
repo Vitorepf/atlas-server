@@ -504,6 +504,7 @@ return [
                 'self_improvement.docs_drift_review',
                 'self_improvement.provider_performance_review',
                 'self_improvement.agent_behavior_review',
+                'self_improvement.voice_realtime_review',
                 'self_improvement.proposal_generation',
             ],
         ],
@@ -520,7 +521,7 @@ return [
         'time' => env('ATLAS_AI_SELF_IMPROVEMENT_TIME', '02:00'),
         'flows' => array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('ATLAS_AI_SELF_IMPROVEMENT_FLOWS', 'nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review,agent_behavior_review'))
+            explode(',', (string) env('ATLAS_AI_SELF_IMPROVEMENT_FLOWS', 'nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review,agent_behavior_review,voice_realtime_review'))
         ))),
         'hours' => (int) env('ATLAS_AI_SELF_IMPROVEMENT_HOURS', 24),
         'limit' => (int) env('ATLAS_AI_SELF_IMPROVEMENT_LIMIT', 5),

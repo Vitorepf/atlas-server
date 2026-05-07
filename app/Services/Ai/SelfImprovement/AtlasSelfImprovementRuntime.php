@@ -15,6 +15,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
 use App\Services\Ai\Mobile\ProposalInboxEmitter;
+use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -44,6 +45,7 @@ class AtlasSelfImprovementRuntime
         private readonly ProviderPerformanceProjection $providerPerformance,
         private readonly DynamicComputeMarketAdvisor $dynamicComputeMarket,
         private readonly AtlasRivalsStrategyReadModel $rivalsStrategy,
+        private readonly AtlasVoiceRivalsRunner $voiceRivals,
     ) {}
 
     /**
@@ -168,6 +170,9 @@ class AtlasSelfImprovementRuntime
             'self_improvement.agent_behavior_review' => [
                 ...$this->agentBehaviorReplayFindings($hours, $filters),
             ],
+            'self_improvement.voice_realtime_review' => [
+                ...$this->voiceRealtimeFindings($hours, ['surface_id' => 'voice_realtime', ...$filters]),
+            ],
             'self_improvement.memory_quality_review',
             'self_improvement.docs_drift_review',
             'self_improvement.weekly_architecture_audit',
@@ -182,6 +187,7 @@ class AtlasSelfImprovementRuntime
                 ...$this->agentBehaviorReplayFindings($hours, $filters),
                 ...$this->decisionReceiptReplayFindings($events, $filters),
                 ...$this->rivalsStrategyFindings($hours, $filters),
+                ...$this->voiceRealtimeFindings($hours, $filters),
                 ...$this->openBrainRetrievalFindings($hours, $filters),
                 ...$this->domainOnboardingFindings($filters),
                 ...$this->sloDriftFindings($events, $filters),
@@ -212,6 +218,7 @@ class AtlasSelfImprovementRuntime
                 ...$this->agentBehaviorReplayFindings($hours, $filters),
                 ...$this->decisionReceiptReplayFindings($events, $filters),
                 ...$this->rivalsStrategyFindings($hours, $filters),
+                ...$this->voiceRealtimeFindings($hours, $filters),
                 ...$this->openBrainRetrievalFindings($hours, $filters),
                 ...$this->domainOnboardingFindings($filters),
                 ...$this->sloDriftFindings($events, $filters),
@@ -1308,6 +1315,9 @@ class AtlasSelfImprovementRuntime
     private function architectureOperationsFindings(array $filters = []): array
     {
         $summary = $this->architectureOperations->summary();
+        $operationsById = collect((array) ($summary['commands'] ?? []))
+            ->filter(fn (array $operation): bool => is_string($operation['id'] ?? null) && $operation['id'] !== '')
+            ->keyBy(fn (array $operation): string => (string) $operation['id']);
         $commands = collect((array) ($summary['commands'] ?? []))
             ->map(fn (array $operation): ?string => is_string($operation['command'] ?? null) ? $operation['command'] : null)
             ->filter()
@@ -1320,6 +1330,25 @@ class AtlasSelfImprovementRuntime
             'atlas engineering knowledge sync --prune --json',
             'atlas engineering knowledge index-code --prune --json',
             'atlas ai slo --hours=24 --json',
+            'atlas ai voice contract --json',
+            'atlas ai voice bootstrap --json',
+            'atlas ai voice dependencies --json',
+            'atlas ai voice scripted-example --json',
+            'atlas ai voice scripted-smoke --json',
+            'atlas ai voice callback-smoke --json',
+            'atlas ai voice callback-sequence-smoke --json',
+            'atlas ai voice callback-loop-check --json',
+            'atlas ai voice preflight --json',
+            'atlas ai voice activation-contract --json',
+            'atlas ai voice sdk-check --json',
+            'atlas ai voice worker-plan --json',
+            'atlas ai voice production-loop-plan --json',
+            'atlas ai voice production-loop-smoke --json',
+            'atlas ai voice worker-start-check --json',
+            'atlas ai voice runtime-certify --json',
+            'atlas ai voice readiness --hours=24 --json',
+            'atlas ai voice rivals --hours=24 --json',
+            'PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests',
             'atlas ai kernel-pipeline-report --hours=24 --json',
             'atlas ai repair-report --hours=24 --json',
             'atlas ai provider-performance --hours=24 --json',
@@ -1327,11 +1356,13 @@ class AtlasSelfImprovementRuntime
             'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
             'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
             'atlas ai self-improve --flow=agent_behavior_review --hours=168 --json',
+            'atlas ai self-improve --flow=voice_realtime_review --hours=168 --json',
             'atlas ai telemetry cost-rates --missing --hours=168 --json',
             'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
             'atlas ai qualitative-levels --hours=720 --json',
             'atlas ai rivals-strategy report --hours=8760 --json',
             'atlas ai rivals-strategy due-reviews --due-days=30 --json',
+            'atlas ai rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
             'atlas ai strategic-decision review --json',
             'atlas ai decision-receipt-report --envelope=<id> --json',
             'atlas ledger replay --envelope=<id> --json',
@@ -1339,36 +1370,82 @@ class AtlasSelfImprovementRuntime
             'atlas ai self-improvement-schedule-report --hours=24 --json',
             'atlas ai inbox-action-report --hours=24 --json',
         ];
+        $expectedApiEndpoints = [
+            'voice_realtime_contract' => '/ai/voice/runtime/contract',
+            'voice_realtime_bootstrap' => '/ai/voice/runtime/bootstrap',
+            'voice_realtime_dependencies' => '/ai/voice/runtime/dependencies',
+            'voice_realtime_runtime_certification' => '/ai/voice/runtime/certification',
+            'voice_realtime_readiness' => '/ai/voice/readiness',
+            'voice_realtime_rivals_report' => '/ai/voice/rivals',
+        ];
+        $expectedMobileEndpoints = [
+            'voice_realtime_contract' => '/v1/mobile/ai/voice/runtime/contract',
+            'voice_realtime_bootstrap' => '/v1/mobile/ai/voice/runtime/bootstrap',
+            'voice_realtime_dependencies' => '/v1/mobile/ai/voice/runtime/dependencies',
+            'voice_realtime_runtime_certification' => '/v1/mobile/ai/voice/runtime/certification',
+            'voice_realtime_readiness' => '/v1/mobile/ai/voice/readiness',
+            'voice_realtime_rivals_report' => '/v1/mobile/ai/voice/rivals',
+        ];
         $missingCommands = array_values(array_diff($expectedCommands, $commands));
+        $missingApiEndpoints = $this->missingArchitectureOperationEndpoints($operationsById->all(), $expectedApiEndpoints, 'api_endpoint');
+        $missingMobileEndpoints = $this->missingArchitectureOperationEndpoints($operationsById->all(), $expectedMobileEndpoints, 'mobile_endpoint');
         $section = (string) ($summary['section'] ?? '');
         $commandCount = (int) ($summary['command_count'] ?? 0);
         $actualCommandCount = count($commands);
         $countMismatch = $commandCount !== $actualCommandCount;
 
-        if ($section === 'arquitetura_mae' && $missingCommands === [] && ! $countMismatch) {
+        if ($section === 'arquitetura_mae' && $missingCommands === [] && $missingApiEndpoints === [] && $missingMobileEndpoints === [] && ! $countMismatch) {
             return [];
         }
+
+        if ($missingCommands === []) {
+            $endpointRefs = collect($missingApiEndpoints)
+                ->merge($missingMobileEndpoints)
+                ->take(8)
+                ->map(fn (array $endpoint, string $operationId): array => [
+                    'type' => 'missing_architecture_operation_endpoint',
+                    'id' => $operationId,
+                    'section' => $section,
+                    'endpoint_field' => $endpoint['field'],
+                    'expected' => $endpoint['expected'],
+                    'actual' => $endpoint['actual'],
+                ]);
+
+            $sourceRefs = $endpointRefs->isNotEmpty()
+                ? $endpointRefs
+                : collect($commands)
+                    ->take(8)
+                    ->map(fn (string $command): array => [
+                        'type' => 'architecture_operation',
+                        'id' => $command,
+                        'section' => $section,
+                    ]);
+        } else {
+            $sourceRefs = collect($missingCommands)
+                ->take(8)
+                ->map(fn (string $command): array => [
+                    'type' => 'missing_architecture_operation',
+                    'id' => $command,
+                    'section' => $section,
+                ]);
+        }
+
+        $hasCriticalMissingContract = $missingCommands !== [] || $missingApiEndpoints !== [] || $missingMobileEndpoints !== [];
 
         return [[
             'title' => 'Corrigir catalogo operacional da arquitetura mae',
             'category' => 'self_improvement',
-            'finding' => 'Architecture Operations Catalog perdeu comandos criticos, mudou de secao ou reportou contagem divergente.',
+            'finding' => 'Architecture Operations Catalog perdeu comandos ou endpoints criticos, mudou de secao ou reportou contagem divergente.',
             'problem' => 'Se o catalogo operacional diverge, operador, App, MCP, Observability e sessoes auxiliares deixam de descobrir o mesmo control plane da arquitetura mae.',
-            'solution' => 'Restaurar `AtlasArchitectureOperationsCatalog`, validar CLI help, Observability, MCP e surfaces diretas, e rodar `atlas:ai:architecture-validate` antes de promover a mudanca.',
+            'solution' => 'Restaurar `AtlasArchitectureOperationsCatalog`, validar CLI help, API, mobile, Observability, MCP e surfaces diretas, e rodar `atlas:ai:architecture-validate` antes de promover a mudanca.',
             'worth_it' => 'Vale porque descoberta operacional e parte do produto: comando implementado mas invisivel vira fluxo solto.',
             'best_solution_rationale' => 'O Self-Improvement consome o mesmo catalogo compartilhado das surfaces, entao a auditoria nao cria uma segunda lista manual de comandos.',
             'alternatives' => ['Manter o catalogo em observacao se outra sessao estiver migrando nomes.', 'Criar redirect temporario apenas com AP documentado.'],
-            'source_refs' => collect($missingCommands === [] ? $commands : $missingCommands)
-                ->take(8)
-                ->map(fn (string $command): array => [
-                    'type' => $missingCommands === [] ? 'architecture_operation' : 'missing_architecture_operation',
-                    'id' => $command,
-                    'section' => $section,
-                ])
+            'source_refs' => $sourceRefs
                 ->values()
                 ->all(),
-            'confidence' => $missingCommands === [] ? 0.82 : 0.9,
-            'dedupe_key' => 'self-improvement:architecture-operations:'.sha1($section.':'.implode(',', $missingCommands).':'.$commandCount.':'.$actualCommandCount),
+            'confidence' => $hasCriticalMissingContract ? 0.9 : 0.82,
+            'dedupe_key' => 'self-improvement:architecture-operations:'.sha1($section.':'.implode(',', $missingCommands).':'.json_encode($missingApiEndpoints).':'.json_encode($missingMobileEndpoints).':'.$commandCount.':'.$actualCommandCount),
             'metadata' => [
                 'schema_version' => 'atlas.self_improvement.architecture_operations.v1',
                 'section' => $section,
@@ -1377,15 +1454,43 @@ class AtlasSelfImprovementRuntime
                 'count_mismatch' => $countMismatch,
                 'missing_commands' => $missingCommands,
                 'expected_commands' => $expectedCommands,
+                'missing_api_endpoints' => $missingApiEndpoints,
+                'expected_api_endpoints' => $expectedApiEndpoints,
+                'missing_mobile_endpoints' => $missingMobileEndpoints,
+                'expected_mobile_endpoints' => $expectedMobileEndpoints,
                 'review_signal' => [
                     'status' => 'warning',
-                    'severity' => $missingCommands === [] ? 'medium' : 'high',
+                    'severity' => $hasCriticalMissingContract ? 'high' : 'medium',
                     'reason' => 'architecture_operations_catalog_drift',
                     'recommended_action' => 'restore_architecture_operations_catalog',
                 ],
                 'filters' => $this->normalizedArchitectureValidationFilters($filters),
             ],
         ]];
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $operationsById
+     * @param  array<string,string>  $expectedEndpoints
+     * @return array<string,array{field:string,expected:string,actual:mixed}>
+     */
+    private function missingArchitectureOperationEndpoints(array $operationsById, array $expectedEndpoints, string $field): array
+    {
+        $missing = [];
+
+        foreach ($expectedEndpoints as $operationId => $expectedEndpoint) {
+            $actualEndpoint = data_get($operationsById, $operationId.'.'.$field);
+
+            if ($actualEndpoint !== $expectedEndpoint) {
+                $missing[$operationId] = [
+                    'field' => $field,
+                    'expected' => $expectedEndpoint,
+                    'actual' => $actualEndpoint,
+                ];
+            }
+        }
+
+        return $missing;
     }
 
     /**
@@ -1660,6 +1765,89 @@ class AtlasSelfImprovementRuntime
         }
 
         return [];
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function voiceRealtimeFindings(int $hours, array $filters = []): array
+    {
+        if ($filters !== [] && ($filters['surface_id'] ?? null) !== 'voice_realtime') {
+            return [];
+        }
+
+        $report = $this->voiceRivals->report(['hours' => $hours]);
+        if (! (bool) ($report['available'] ?? false)) {
+            return [];
+        }
+
+        $atlasArm = (array) data_get($report, 'arms.atlas_voice', []);
+        $baselineArm = (array) data_get($report, 'arms.direct_provider_baseline', []);
+        $observedVoiceActivity = (int) ($atlasArm['session_count'] ?? 0)
+            + (int) ($atlasArm['turn_count'] ?? 0)
+            + (int) ($baselineArm['session_count'] ?? 0)
+            + (int) ($baselineArm['turn_count'] ?? 0);
+        $reviewSignal = (array) ($report['review_signal'] ?? []);
+        $reviewStatus = (string) ($reviewSignal['status'] ?? 'unknown');
+
+        if ($observedVoiceActivity === 0 || in_array($reviewStatus, ['ok', 'none'], true)) {
+            return [];
+        }
+
+        $recommendedAction = (string) ($reviewSignal['recommended_action'] ?? 'review_voice_realtime_maturity_gates');
+        $missingEvents = array_values((array) data_get($report, 'readiness.missing_events', []));
+        $failedCertificationGates = array_values((array) data_get($report, 'runtime_certification.summary.failed_keys', []));
+        $reasons = array_values((array) ($reviewSignal['reasons'] ?? []));
+
+        return [[
+            'title' => 'Fechar gates de maturidade do Atlas Voice',
+            'category' => 'self_improvement',
+            'finding' => 'Voice Realtime possui atividade no Ledger, mas Rivals-Voice ainda nao esta pronto para validar superioridade contra baseline direto.',
+            'problem' => 'Sem readiness, runtime certification e baseline comparavel, a surface de voz pode parecer funcional sem provar que respeita Kernel, SLO, Decision Receipt e multiplicador real.',
+            'solution' => 'Corrigir o gate indicado pelo review_signal, completar eventos VOICE_* faltantes, certificar runtime e coletar baseline direto antes de promover maturidade de voz.',
+            'worth_it' => 'Vale porque voz e uma surface de alta friccao/alta privacidade: se o ciclo de evidencia nao fecha, o Atlas vira apenas mais um voice wrapper.',
+            'best_solution_rationale' => 'O Curator consome `AtlasVoiceRivalsRunner`, a mesma fonte de readiness + certification + baseline usada por CLI/API/mobile, sem criar regra paralela.',
+            'alternatives' => ['Manter Voice em scaffold ate haver baseline.', 'Arquivar se a atividade veio de teste manual marcado como nao comparavel.'],
+            'available_actions' => [
+                ['id' => 'run_voice_runtime_certification', 'label' => 'Certificar runtime', 'style' => 'primary'],
+                ['id' => 'collect_voice_baseline', 'label' => 'Coletar baseline', 'style' => 'secondary'],
+                ['id' => 'review_patch', 'label' => 'Revisar evidencia', 'style' => 'secondary'],
+                ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
+                ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
+            ],
+            'source_refs' => [
+                [
+                    'type' => 'voice_rivals_report',
+                    'id' => 'atlas.voice.rivals.v1',
+                    'status' => $report['status'] ?? 'unknown',
+                    'recommended_action' => $recommendedAction,
+                    'readiness_status' => data_get($report, 'readiness.status'),
+                    'runtime_certification_status' => data_get($report, 'runtime_certification.status'),
+                ],
+            ],
+            'confidence' => $reviewStatus === 'blocked' ? 0.9 : 0.82,
+            'dedupe_key' => 'self-improvement:voice-realtime:'.sha1($recommendedAction.':'.implode(',', $missingEvents).':'.implode(',', $failedCertificationGates)),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.voice_realtime.v1',
+                'hours' => $hours,
+                'report_status' => $report['status'] ?? 'unknown',
+                'observed_voice_activity' => $observedVoiceActivity,
+                'readiness' => $report['readiness'] ?? [],
+                'runtime_certification' => $report['runtime_certification'] ?? [],
+                'comparison' => $report['comparison'] ?? [],
+                'arms' => $report['arms'] ?? [],
+                'missing_events' => $missingEvents,
+                'failed_certification_gates' => $failedCertificationGates,
+                'review_signal' => [
+                    'status' => $reviewStatus,
+                    'severity' => $reviewSignal['severity'] ?? 'medium',
+                    'reasons' => $reasons,
+                    'recommended_action' => $recommendedAction,
+                ],
+                'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
+            ],
+        ]];
     }
 
     /**

@@ -394,7 +394,14 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertFalse($structured['writes']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($structured, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($structured, 'architecture_operations.section'));
+        $this->assertSame(45, data_get($structured, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_preflight', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_activation_contract', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_production_loop_plan', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_curator_review', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_production_loop_smoke', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_runtime_certification', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertSame('architecture_operations', data_get($structured, 'architecture_operations.commands.0.id'));
         $this->assertSame('catalog', data_get($structured, 'architecture_operations.commands.0.kind'));
         $this->assertSame('cli', data_get($structured, 'architecture_operations.commands.0.surface'));
@@ -406,6 +413,14 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('atlas engineering knowledge docs-health --json', array_column($commands, 'command'));
         $this->assertContains('atlas engineering knowledge sync --prune --json', array_column($commands, 'command'));
         $this->assertContains('atlas engineering knowledge index-code --prune --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai voice callback-smoke --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai voice callback-sequence-smoke --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai voice callback-loop-check --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai voice preflight --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai voice activation-contract --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai voice production-loop-plan --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai voice production-loop-smoke --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai voice runtime-certify --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', array_column($commands, 'command'));
@@ -433,6 +448,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
         $this->assertTrue($structured['ok']);
         $this->assertSame(['kind' => 'evidence_report'], data_get($structured, 'architecture_operations.filters'));
+        $this->assertContains('voice_realtime_readiness', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('provider_performance_report', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('agent_behavior_report', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('dynamic_compute_market_report', data_get($structured, 'architecture_operations.operation_ids'));
@@ -445,6 +461,80 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
             count(data_get($structured, 'architecture_operations.commands')),
             data_get($structured, 'architecture_operations.command_count'),
         );
+
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 767,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_architecture_operations',
+                'arguments' => ['id' => 'voice_realtime_activation_contract'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame(['id' => 'voice_realtime_activation_contract'], data_get($structured, 'architecture_operations.filters'));
+        $this->assertSame(1, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame('atlas ai voice activation-contract --json', data_get($structured, 'architecture_operations.commands.0.command'));
+        $this->assertSame('runtime_contract', data_get($structured, 'architecture_operations.commands.0.kind'));
+
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 769,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_architecture_operations',
+                'arguments' => ['id' => 'voice_realtime_runtime_certification'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame(['id' => 'voice_realtime_runtime_certification'], data_get($structured, 'architecture_operations.filters'));
+        $this->assertSame(1, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame('atlas ai voice runtime-certify --json', data_get($structured, 'architecture_operations.commands.0.command'));
+        $this->assertSame('/ai/voice/runtime/certification', data_get($structured, 'architecture_operations.commands.0.api_endpoint'));
+        $this->assertSame('/v1/mobile/ai/voice/runtime/certification', data_get($structured, 'architecture_operations.commands.0.mobile_endpoint'));
+
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 770,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_architecture_operations',
+                'arguments' => ['id' => 'voice_realtime_dependencies'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame(['id' => 'voice_realtime_dependencies'], data_get($structured, 'architecture_operations.filters'));
+        $this->assertSame(1, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame('atlas ai voice dependencies --json', data_get($structured, 'architecture_operations.commands.0.command'));
+        $this->assertSame('/ai/voice/runtime/dependencies', data_get($structured, 'architecture_operations.commands.0.api_endpoint'));
+        $this->assertSame('/v1/mobile/ai/voice/runtime/dependencies', data_get($structured, 'architecture_operations.commands.0.mobile_endpoint'));
+
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 771,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_architecture_operations',
+                'arguments' => ['id' => 'voice_realtime_production_loop_plan'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame(['id' => 'voice_realtime_production_loop_plan'], data_get($structured, 'architecture_operations.filters'));
+        $this->assertSame(1, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame('atlas ai voice production-loop-plan --json', data_get($structured, 'architecture_operations.commands.0.command'));
+        $this->assertSame('runtime_contract', data_get($structured, 'architecture_operations.commands.0.kind'));
     }
 
     public function test_self_improvement_schedule_tool_exposes_recurring_health(): void

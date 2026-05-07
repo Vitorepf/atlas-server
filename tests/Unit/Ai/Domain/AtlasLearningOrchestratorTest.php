@@ -14,7 +14,7 @@ class AtlasLearningOrchestratorTest extends TestCase
         $this->assertSame('AtlasLearningOrchestrator', $orchestrator->orchestratorId());
         $this->assertSame(['learning'], $orchestrator->supportedDomains());
         $this->assertSame('implemented', $orchestrator->maturity());
-        $this->assertSame(['learning.plan', 'learning.practice', 'learning.review', 'learning.spaced_review'], $orchestrator->supportedFlows());
+        $this->assertSame(['learning.plan', 'learning.practice', 'learning.review', 'learning.spaced_review', 'learning.worked_example'], $orchestrator->supportedFlows());
 
         $plan = $orchestrator->plan('learning.practice', [
             'objective' => 'Treinar arquitetura do Atlas por exercicios.',
@@ -48,6 +48,8 @@ class AtlasLearningOrchestratorTest extends TestCase
         $this->assertTrue($result['plan_only_until_operator_acceptance']);
         $this->assertTrue(data_get($result, 'result.receipt.dry_run'));
         $this->assertSame('atlas.learning.packet.v1', data_get($result, 'result.receipt.signed_by'));
+        $this->assertSame('atlas.decide.extension.dreyfus.v1', data_get($result, 'result.receipt.metadata.cognitive_decision.schema_version'));
+        $this->assertSame(1, data_get($result, 'result.receipt.metadata.cognitive_decision.dreyfus_stage_resolved'));
         $this->assertContains('DECISION_ISSUED', data_get($result, 'result.ledger.events'));
     }
 }

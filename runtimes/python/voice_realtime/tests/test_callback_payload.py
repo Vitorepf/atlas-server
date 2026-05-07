@@ -20,12 +20,14 @@ class AtlasVoiceCallbackPayloadTest(unittest.TestCase):
             "turn_id": "voice_turn",
             "response_text": "resposta sensivel",
             "tts_provider": "elevenlabs",
-            "audio_hash": "audio123",
+            "audio_hash": "54b3a51133731af31a6d839861dc388514e9d3bd67da6d2c4a54b3366bb198d7",
+            "rivals_arm": "direct_provider_baseline",
         }).to_kernel_payload()
 
         self.assertEqual(hashlib.sha256("resposta sensivel".encode("utf-8")).hexdigest(), payload["response_text_hash"])
-        self.assertEqual("audio123", payload["audio_hash"])
+        self.assertEqual("54b3a51133731af31a6d839861dc388514e9d3bd67da6d2c4a54b3366bb198d7", payload["audio_hash"])
         self.assertEqual("elevenlabs", payload["tts_provider"])
+        self.assertEqual("direct_provider_baseline", payload["rivals_arm"])
         self.assertNotIn("response_text", payload)
         self.assertNotIn("raw_audio", payload)
 
@@ -38,11 +40,41 @@ class AtlasVoiceCallbackPayloadTest(unittest.TestCase):
                 "response_text": "hello",
             })
 
+    def test_callbacks_reject_tokens_or_api_secrets(self) -> None:
+        for key in ["access_token", "token", "livekit_token", "api_key", "api_secret"]:
+            with self.subTest(key=key):
+                with self.assertRaises(UnsafeVoicePayload):
+                    AtlasVoiceSynthesizedPayload.from_runtime_output({
+                        "session_id": "voice_session",
+                        "turn_id": "voice_turn",
+                        "response_text_hash": "990cd70b1bfe9e7b30370699399e3d30281b9f3515533e4629ad2a182c7cdf0a",
+                        key: "do-not-pass-through",
+                    })
+
     def test_synthesized_requires_text_hash_or_audio_hash(self) -> None:
         with self.assertRaises(UnsafeVoicePayload):
             AtlasVoiceSynthesizedPayload.from_runtime_output({
                 "session_id": "voice_session",
                 "turn_id": "voice_turn",
+            })
+
+    def test_synthesized_rejects_non_sha256_hashes(self) -> None:
+        for key in ["response_text_hash", "audio_hash"]:
+            with self.subTest(key=key):
+                with self.assertRaises(UnsafeVoicePayload):
+                    AtlasVoiceSynthesizedPayload.from_runtime_output({
+                        "session_id": "voice_session",
+                        "turn_id": "voice_turn",
+                        key: "not-a-sha256-hash",
+                    })
+
+    def test_synthesized_rejects_unknown_runtime(self) -> None:
+        with self.assertRaises(UnsafeVoicePayload):
+            AtlasVoiceSynthesizedPayload.from_runtime_output({
+                "session_id": "voice_session",
+                "turn_id": "voice_turn",
+                "response_text_hash": hashlib.sha256("ok".encode("utf-8")).hexdigest(),
+                "runtime": "direct_provider_runtime",
             })
 
     def test_played_payload_is_minimal_and_safe(self) -> None:

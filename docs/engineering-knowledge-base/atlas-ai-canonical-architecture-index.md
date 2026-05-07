@@ -68,6 +68,21 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-resolver-corpus-audit.md
   - docs/ap/AP-146-provider-cost-rate-inbox-replay.md
   - docs/ap/AP-147-dynamic-compute-market-shadow-surface.md
+  - docs/engineering-knowledge-base/cognitive/README.md
+  - docs/engineering-knowledge-base/cognitive/overview.md
+  - docs/engineering-knowledge-base/cognitive/principles.md
+  - docs/engineering-knowledge-base/cognitive/capabilities-core.md
+  - docs/engineering-knowledge-base/cognitive/multiplier-edge.md
+  - docs/engineering-knowledge-base/cognitive/pipeline-overlay.md
+  - docs/engineering-knowledge-base/cognitive/roadmap.md
+  - docs/ap/AP-163-cognitive-dreyfus-dynamic-pedagogy.md
+  - docs/ap/AP-164-cognitive-worked-example-engine.md
+  - docs/ap/AP-165-cognitive-process-pattern-catalog.md
+  - docs/ap/AP-166-cognitive-failure-signature-tracker.md
+  - docs/ap/AP-167-cognitive-self-regulated-learning-orchestrator.md
+  - docs/ap/AP-168-cognitive-productive-failure-flow.md
+  - docs/ap/AP-169-cognitive-personal-worked-examples-generator.md
+  - docs/ap/AP-170-cognitive-predictive-failure-insertion.md
 ---
 # Atlas AI Canonical Architecture Index
 Indice oficial que impede documentos diferentes de disputarem autoridade arquitetural.
@@ -133,6 +148,7 @@ Layer 4 - Domain Specs
 | Scenario simulation, MiroFish/OASIS patterns e outcome calibration | `atlas-ai-scenario-simulation-harness.md` + `atlas-ai-autonomy-power-backlog.md` |
 | Mobile surface, mobile gateway, push e inbox | `atlas-ai-mobile-surface-gateway.md` + `atlas-ai-operating-system.md` |
 | Voice Realtime Surface mobile-first, LiveKit Agents SDK, Swift Mac edge futuro, eclipse modes e Rivals-Voice | `atlas-ai-voice-realtime-surface.md` + `atlas-ai-mobile-surface-gateway.md` + `atlas-native-mac-agent.md` + `atlas-ai-runtime-language-boundaries.md` |
+| Catalogo executavel da arquitetura mae: comandos, endpoints API e endpoints mobile por operacao | `AtlasArchitectureOperationsCatalog` + `/ai/architecture/operations` + Open Brain MCP `architecture_operations` |
 | Constelacao / Motor de Serendipidade mobile | `atlas-constelacao-surface.md` + source material constitucional em `atlas-vault-backup/00-constituicao/constelacao-*.md` |
 | CLI multimodal, paste de imagem e anexos | `atlas-ai-cli-multimodal.md` + `docs/paste-image-setup.md` |
 | Skill system | `atlas-ai-skill-system.md` + `atlas-ai-kernel-architecture.md` |
@@ -149,6 +165,15 @@ Layer 4 - Domain Specs
 | Personal Development domain | `domains/personal-development.md` + `atlas-ai-master-architecture.md` |
 | Fluxo visual canonico e operating model geral | `atlas-ai-flow-visual-map.md` + `atlas-ai-operating-system.md` |
 | Triagem do corpus resolver | `atlas-ai-resolver-corpus-audit.md` |
+| Cognitive Development Plane (sub-arquitetura cognitiva, Pareto, Dreyfus, multiplier edge cognitivo) | `cognitive/README.md` (bootstrap) + `cognitive/overview.md` + `cognitive/principles.md` + `cognitive/capabilities-core.md` + `cognitive/multiplier-edge.md` + `cognitive/pipeline-overlay.md` + `cognitive/roadmap.md` |
+| Cognitive Dreyfus Dynamic Pedagogy (Fase 1, executavel) | `docs/ap/AP-163-cognitive-dreyfus-dynamic-pedagogy.md` |
+| Cognitive Worked Example Engine + Process Fading (eixo Tim Cook, executavel) | `docs/ap/AP-164-cognitive-worked-example-engine.md` |
+| Cognitive Process Pattern Catalog (Latticework formalizado, executavel) | `docs/ap/AP-165-cognitive-process-pattern-catalog.md` |
+| Cognitive Failure Signature Classifier + Bayesian Tracker (C20 operacional, executavel) | `docs/ap/AP-166-cognitive-failure-signature-tracker.md` |
+| Cognitive Self-Regulated Learning Orchestrator (Zimmerman overlay metacognitivo, executavel) | `docs/ap/AP-167-cognitive-self-regulated-learning-orchestrator.md` |
+| Cognitive Productive Failure Flow (Kapur 3 fases, executavel) | `docs/ap/AP-168-cognitive-productive-failure-flow.md` |
+| Cognitive Personal Worked Examples Generator (Multiplier Edge cardinal, executavel) | `docs/ap/AP-169-cognitive-personal-worked-examples-generator.md` |
+| Cognitive Predictive Failure Insertion (Multiplier Edge cardinal, executavel) | `docs/ap/AP-170-cognitive-predictive-failure-insertion.md` |
 
 ## Regra De Resolucao De Conflito
 Quando dois documentos parecerem conflitar:

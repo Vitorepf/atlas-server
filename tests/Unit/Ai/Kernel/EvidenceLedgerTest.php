@@ -269,6 +269,7 @@ class EvidenceLedgerTest extends TestCase
             'envelope_id' => 'env_slo',
             'receipt_id' => 'receipt_slo',
             'trace_id' => 'trace_slo',
+            'rivals_arm' => 'direct_provider_baseline',
         ]);
 
         $this->assertInstanceOf(AtlasLedgerEvent::class, $event);
@@ -284,6 +285,7 @@ class EvidenceLedgerTest extends TestCase
         $this->assertSame(['latency_above_p99'], data_get($event->payload, 'violations'));
         $this->assertSame(900, data_get($event->payload, 'slo.duration_ms'));
         $this->assertSame(750, data_get($event->payload, 'slo.target.p99_ms'));
+        $this->assertSame('direct_provider_baseline', data_get($event->payload, 'dimensions.rivals_arm'));
     }
 
     public function test_records_voice_event_without_persisting_raw_audio_or_transcript(): void
@@ -300,6 +302,11 @@ class EvidenceLedgerTest extends TestCase
             'transcript' => 'texto sensivel falado pelo usuario',
             'response_text' => 'resposta sensivel falada pelo atlas',
             'latency_ms' => 312,
+            'session_lease' => [
+                'token_status' => 'issued',
+                'access_token' => 'must-not-persist',
+                'nested' => ['livekit_token' => 'also-forbidden'],
+            ],
         ], [
             'tenant_id' => 'tenant-voice',
             'operator_id' => 'operator-voice',
@@ -323,6 +330,9 @@ class EvidenceLedgerTest extends TestCase
         $this->assertArrayNotHasKey('raw_audio', data_get($event->payload, 'voice'));
         $this->assertArrayNotHasKey('transcript', data_get($event->payload, 'voice'));
         $this->assertArrayNotHasKey('response_text', data_get($event->payload, 'voice'));
+        $this->assertSame('issued', data_get($event->payload, 'voice.session_lease.token_status'));
+        $this->assertArrayNotHasKey('access_token', data_get($event->payload, 'voice.session_lease'));
+        $this->assertArrayNotHasKey('livekit_token', data_get($event->payload, 'voice.session_lease.nested'));
     }
 
     public function test_rejects_non_voice_event_in_voice_recorder(): void

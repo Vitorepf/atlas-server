@@ -24,6 +24,7 @@ class AtlasSelfImprovementOrchestrator implements AtlasDomainOrchestrator
         'self_improvement.docs_drift_review',
         'self_improvement.provider_performance_review',
         'self_improvement.agent_behavior_review',
+        'self_improvement.voice_realtime_review',
         'self_improvement.proposal_generation',
     ];
 

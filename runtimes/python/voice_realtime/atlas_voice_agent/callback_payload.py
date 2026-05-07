@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -17,6 +18,7 @@ class AtlasVoiceCallbackBase:
     provider: str | None = None
     model: str | None = None
     latency_ms: int | None = None
+    rivals_arm: str = "atlas_voice"
 
     FORBIDDEN_KEYS = {
         "audio",
@@ -28,13 +30,22 @@ class AtlasVoiceCallbackBase:
         "wav",
         "tts_text",
         "raw_response_text",
+        "access_token",
+        "token",
+        "livekit_token",
+        "api_key",
+        "api_secret",
     }
+    SHA256_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
+    ALLOWED_RUNTIMES = {"livekit_agents_sdk"}
+    ALLOWED_RIVALS_ARMS = {"atlas_voice", "direct_provider_baseline"}
 
     def base_payload(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "session_id": self.session_id,
             "turn_id": self.turn_id,
             "runtime": self.runtime,
+            "rivals_arm": self.rivals_arm,
         }
         for key, value in {
             "envelope_id": self.envelope_id,
@@ -75,6 +86,23 @@ class AtlasVoiceCallbackBase:
 
         return parsed
 
+    @staticmethod
+    def rivals_arm_value(value: Any) -> str:
+        return "direct_provider_baseline" if value == "direct_provider_baseline" else "atlas_voice"
+
+    @classmethod
+    def runtime_value(cls, value: Any) -> str:
+        parsed = str(value or "livekit_agents_sdk").strip()
+        if parsed not in cls.ALLOWED_RUNTIMES:
+            raise UnsafeVoicePayload("runtime is not allowed")
+
+        return parsed
+
+    @classmethod
+    def assert_sha256(cls, value: str, field: str) -> None:
+        if cls.SHA256_PATTERN.match(value) is None:
+            raise UnsafeVoicePayload(f"{field} must be a sha256 hex digest")
+
 
 @dataclass(frozen=True)
 class AtlasVoiceSynthesizedPayload(AtlasVoiceCallbackBase):
@@ -91,9 +119,13 @@ class AtlasVoiceSynthesizedPayload(AtlasVoiceCallbackBase):
         response_text_hash_value = str(response_text_hash).strip() if response_text_hash is not None else None
         if response_text is not None:
             response_text_hash_value = hashlib.sha256(str(response_text).encode("utf-8")).hexdigest()
+        if response_text_hash_value is not None:
+            cls.assert_sha256(response_text_hash_value, "response_text_hash")
 
         audio_hash = payload.get("audio_hash")
         audio_hash_value = str(audio_hash).strip() if audio_hash is not None else None
+        if audio_hash_value is not None:
+            cls.assert_sha256(audio_hash_value, "audio_hash")
         if not response_text_hash_value and not audio_hash_value:
             raise UnsafeVoicePayload("synthesis callback requires response_text_hash or audio_hash")
 
@@ -102,10 +134,11 @@ class AtlasVoiceSynthesizedPayload(AtlasVoiceCallbackBase):
             turn_id=cls.require_string(payload, "turn_id"),
             envelope_id=str(payload["envelope_id"]) if payload.get("envelope_id") is not None else None,
             receipt_id=str(payload["receipt_id"]) if payload.get("receipt_id") is not None else None,
-            runtime=str(payload.get("runtime") or "livekit_agents_sdk"),
+            runtime=cls.runtime_value(payload.get("runtime")),
             provider=str(payload["provider"]) if payload.get("provider") is not None else None,
             model=str(payload["model"]) if payload.get("model") is not None else None,
             latency_ms=cls.optional_int(payload.get("latency_ms")),
+            rivals_arm=cls.rivals_arm_value(payload.get("rivals_arm")),
             response_text_hash=response_text_hash_value,
             audio_hash=audio_hash_value,
             audio_duration_ms=cls.optional_int(payload.get("audio_duration_ms")),
@@ -141,10 +174,11 @@ class AtlasVoicePlayedPayload(AtlasVoiceCallbackBase):
             turn_id=cls.require_string(payload, "turn_id"),
             envelope_id=str(payload["envelope_id"]) if payload.get("envelope_id") is not None else None,
             receipt_id=str(payload["receipt_id"]) if payload.get("receipt_id") is not None else None,
-            runtime=str(payload.get("runtime") or "livekit_agents_sdk"),
+            runtime=cls.runtime_value(payload.get("runtime")),
             provider=str(payload["provider"]) if payload.get("provider") is not None else None,
             model=str(payload["model"]) if payload.get("model") is not None else None,
             latency_ms=cls.optional_int(payload.get("latency_ms")),
+            rivals_arm=cls.rivals_arm_value(payload.get("rivals_arm")),
             played_duration_ms=cls.optional_int(payload.get("played_duration_ms")),
         )
 
@@ -172,10 +206,11 @@ class AtlasVoiceInterruptedPayload(AtlasVoiceCallbackBase):
             turn_id=cls.require_string(payload, "turn_id"),
             envelope_id=str(payload["envelope_id"]) if payload.get("envelope_id") is not None else None,
             receipt_id=str(payload["receipt_id"]) if payload.get("receipt_id") is not None else None,
-            runtime=str(payload.get("runtime") or "livekit_agents_sdk"),
+            runtime=cls.runtime_value(payload.get("runtime")),
             provider=str(payload["provider"]) if payload.get("provider") is not None else None,
             model=str(payload["model"]) if payload.get("model") is not None else None,
             latency_ms=cls.optional_int(payload.get("latency_ms")),
+            rivals_arm=cls.rivals_arm_value(payload.get("rivals_arm")),
             reason=str(payload.get("reason") or "operator_interrupted"),
             interrupted_stage=str(payload.get("interrupted_stage") or "runtime_or_tts"),
         )
@@ -204,10 +239,11 @@ class AtlasVoiceFailurePayload(AtlasVoiceCallbackBase):
             turn_id=cls.require_string(payload, "turn_id"),
             envelope_id=str(payload["envelope_id"]) if payload.get("envelope_id") is not None else None,
             receipt_id=str(payload["receipt_id"]) if payload.get("receipt_id") is not None else None,
-            runtime=str(payload.get("runtime") or "livekit_agents_sdk"),
+            runtime=cls.runtime_value(payload.get("runtime")),
             provider=str(payload["provider"]) if payload.get("provider") is not None else None,
             model=str(payload["model"]) if payload.get("model") is not None else None,
             latency_ms=cls.optional_int(payload.get("latency_ms")),
+            rivals_arm=cls.rivals_arm_value(payload.get("rivals_arm")),
             failure_code=str(payload.get("failure_code") or "runtime_failed"),
             error_class=str(payload["error_class"]) if payload.get("error_class") is not None else None,
         )
@@ -237,10 +273,11 @@ class AtlasVoiceProviderHealthPayload(AtlasVoiceCallbackBase):
             turn_id=cls.require_string(payload, "turn_id"),
             envelope_id=str(payload["envelope_id"]) if payload.get("envelope_id") is not None else None,
             receipt_id=str(payload["receipt_id"]) if payload.get("receipt_id") is not None else None,
-            runtime=str(payload.get("runtime") or "livekit_agents_sdk"),
+            runtime=cls.runtime_value(payload.get("runtime")),
             provider=provider,
             model=str(payload["model"]) if payload.get("model") is not None else None,
             latency_ms=cls.optional_int(payload.get("latency_ms")),
+            rivals_arm=cls.rivals_arm_value(payload.get("rivals_arm")),
             reason=str(payload.get("reason") or "provider_degraded"),
         )
 

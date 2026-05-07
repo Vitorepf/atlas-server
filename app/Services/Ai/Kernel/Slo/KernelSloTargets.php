@@ -24,6 +24,13 @@ final class KernelSloTargets
         'voice.wake_word_detect',
         'voice.turn_to_first_audio',
         'voice.interruption_stop_audio',
+        'cognitive.dreyfus.lookup',
+        'cognitive.dreyfus.resolve',
+        'cognitive.dreyfus.aggregate',
+        'cognitive.dreyfus.gate',
+        'cognitive.worked_example.select',
+        'cognitive.worked_example.render',
+        'cognitive.worked_example.gate',
     ];
 
     /**
@@ -68,6 +75,13 @@ final class KernelSloTargets
             'voice.wake_word_detect' => new KernelSloTarget('voice.wake_word_detect', 50, 250, 600, 99.0, 'critical', 'Local wake-word/VAD detection before any audio stream leaves the device.'),
             'voice.turn_to_first_audio' => new KernelSloTarget('voice.turn_to_first_audio', 250, 600, 1200, 98.5, 'critical', 'Realtime voice turn latency from accepted transcript to first synthesized audio.'),
             'voice.interruption_stop_audio' => new KernelSloTarget('voice.interruption_stop_audio', 60, 250, 500, 99.0, 'critical', 'Barge-in latency from interruption request to audio stop acknowledgement.'),
+            'cognitive.dreyfus.lookup' => new KernelSloTarget('cognitive.dreyfus.lookup', 10, 50, 120, 99.5, 'medium', 'Lookup Dreyfus overlay for a knowledge node and domain.'),
+            'cognitive.dreyfus.resolve' => new KernelSloTarget('cognitive.dreyfus.resolve', 50, 200, 500, 99.0, 'medium', 'Resolve Dreyfus stage and pedagogy mode for a learning flow.'),
+            'cognitive.dreyfus.aggregate' => new KernelSloTarget('cognitive.dreyfus.aggregate', 250, 2500, 10000, 98.0, 'medium', 'Aggregate ledger evidence into Dreyfus stage signals.'),
+            'cognitive.dreyfus.gate' => new KernelSloTarget('cognitive.dreyfus.gate', 5, 30, 100, 99.5, 'medium', 'Validate pedagogy mode is resolved before cognitive provider/runtime work.'),
+            'cognitive.worked_example.select' => new KernelSloTarget('cognitive.worked_example.select', 50, 150, 400, 99.0, 'medium', 'Select an appropriate worked example for node, domain and source preference.'),
+            'cognitive.worked_example.render' => new KernelSloTarget('cognitive.worked_example.render', 75, 300, 750, 99.0, 'medium', 'Render worked example with fading schedule.'),
+            'cognitive.worked_example.gate' => new KernelSloTarget('cognitive.worked_example.gate', 5, 50, 120, 99.5, 'medium', 'Validate worked example fading level matches Dreyfus stage.'),
         ];
     }
 

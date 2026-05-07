@@ -1052,6 +1052,7 @@ class AtlasDomainProfileRegistry
             'learning.practice' => $this->learningFlow('learning.practice', 'Practice', 'LearningPracticeRuntime', 'medium', ['practice_loop', 'feedback_loop', 'mastery_rubric']),
             'learning.review' => $this->learningFlow('learning.review', 'Review', 'LearningReviewRuntime', 'low', ['outcome_evidence', 'gap_map', 'next_iteration']),
             'learning.spaced_review' => $this->learningFlow('learning.spaced_review', 'Spaced Review', 'LearningSpacedReviewRuntime', 'low', ['spaced_review', 'retrieval_practice', 'forgetting_risk']),
+            'learning.worked_example' => $this->learningFlow('learning.worked_example', 'Worked Example', 'LearningWorkedExampleRuntime', 'medium', ['worked_example_appropriate_for_stage', 'pedagogy_matches_stage', 'mastery_rubric']),
         ];
     }
 
@@ -1742,6 +1743,7 @@ class AtlasDomainProfileRegistry
             ['self_improvement.docs_drift_review', 'Docs Drift Review', 'docs_drift_runtime', 'Documentation drift review comparing kernel contracts, KB docs, code intelligence, and domain manifests.'],
             ['self_improvement.provider_performance_review', 'Provider Performance Review', 'provider_performance_runtime', 'Provider and model performance review over failures, routing decisions, benchmark outcomes, and cost signals.'],
             ['self_improvement.agent_behavior_review', 'Agent Behavior Review', 'agent_behavior_review_runtime', 'Dedicated agent behavior review over verification gaps, unsurgical diffs, instruction drift, repeated finding codes, and provider/model clusters.'],
+            ['self_improvement.voice_realtime_review', 'Voice Realtime Review', 'voice_realtime_review_runtime', 'Dedicated Voice Realtime review over readiness, runtime certification, Rivals-Voice baseline, VOICE_* evidence, and privacy gates.'],
             ['self_improvement.proposal_generation', 'Proposal Generation', 'proposal_generation_runtime', 'Final proposal synthesis flow that emits bounded, reviewable improvement proposals linked to evidence.'],
         ];
 

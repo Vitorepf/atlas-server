@@ -1,0 +1,52 @@
+{
+  "schema_version": "atlas.voice_realtime.runtime_dependencies.v1",
+  "runtime_id": "livekit_agents_sdk",
+  "runtime_family": "python_ai_data",
+  "status": "scaffold",
+  "python": {
+    "minimum_version": "3.9",
+    "tested_version": "3.9.6"
+  },
+  "core": {
+    "third_party_dependencies": [],
+    "reason": "The governed boundary, payload guards, mock Kernel smoke and SDK availability checks must run with Python standard library only."
+  },
+  "governed_allowlists": {
+    "runtimes": [
+      "livekit_agents_sdk"
+    ],
+    "client_surfaces": [
+      "mobile",
+      "mac_edge"
+    ],
+    "transports": [
+      "mobile_push_to_talk",
+      "livekit_webrtc"
+    ],
+    "privacy_classes": [
+      "p1_public",
+      "p2_internal",
+      "p3_audio",
+      "p4_secret"
+    ]
+  },
+  "optional_livekit": {
+    "packages": [
+      {
+        "pip": "livekit-agents",
+        "import": "livekit.agents",
+        "purpose": "Real LiveKit Agents SDK worker loop, room callbacks, turn detection and plugin orchestration."
+      }
+    ],
+    "install_command": "python3 -m pip install livekit-agents",
+    "activation_gate": "atlas ai voice sdk-check --json must report status=ready before wiring real SDK callbacks.",
+    "forbidden": [
+      "direct_llm_provider_call",
+      "direct_tool_execution",
+      "raw_audio_persistence",
+      "raw_transcript_persistence",
+      "memory_write",
+      "policy_override"
+    ]
+  }
+}

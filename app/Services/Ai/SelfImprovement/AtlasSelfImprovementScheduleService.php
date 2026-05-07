@@ -150,6 +150,7 @@ class AtlasSelfImprovementScheduleService
             'repair_loop_review',
             'kernel_pipeline_review',
             'agent_behavior_review',
+            'voice_realtime_review',
         ];
     }
 

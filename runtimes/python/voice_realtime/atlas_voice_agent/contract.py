@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from .callback_contract import REQUIRED_CALLBACK_PAYLOAD_SCHEMAS
+
 
 class ContractViolation(RuntimeError):
     """Raised when the Kernel bootstrap manifest is unsafe or incomplete."""
@@ -29,6 +31,17 @@ class AtlasVoiceRuntimeContract:
         "LIVEKIT_API_SECRET",
         "ATLAS_VOICE_BOOTSTRAP",
     }
+    ALLOWED_BOOTSTRAP_TOKEN_STATUS = {
+        "not_issued_scaffold",
+        "issued_when_session_starts",
+        "not_issued_missing_config",
+    }
+    REQUIRED_ALLOWLISTS = {
+        "allowlists.client_surfaces": {"mobile", "mac_edge"},
+        "allowlists.transports": {"mobile_push_to_talk", "livekit_webrtc"},
+        "allowlists.runtimes": {"livekit_agents_sdk"},
+        "allowlists.privacy_classes": {"p1_public", "p2_internal", "p3_audio", "p4_secret"},
+    }
 
     @classmethod
     def from_manifest(cls, manifest: Mapping[str, Any]) -> "AtlasVoiceRuntimeContract":
@@ -43,10 +56,21 @@ class AtlasVoiceRuntimeContract:
         self._expect("surface_id", "voice_realtime")
         self._expect("runtime_family", "python_ai_data")
         self._expect("default_providers.llm", "atlas_kernel_only")
+        self._expect("session_lease.schema_version", "atlas.voice.session_lease.v1")
+        token_status = self._get("session_lease.token_status")
+        if token_status not in self.ALLOWED_BOOTSTRAP_TOKEN_STATUS:
+            raise ContractViolation(f"session_lease.token_status is not allowed in bootstrap: {token_status!r}")
+        self._expect("session_lease.kernel_decision_required_per_turn", True)
         self._expect("persistence_contract.raw_audio", False)
         self._expect("persistence_contract.raw_transcript", False)
         self._expect("persistence_contract.raw_response_text", False)
+        self._expect("callback_payload_schemas", REQUIRED_CALLBACK_PAYLOAD_SCHEMAS)
         self._expect("auth_contract.internal_api.middleware", "atlas.token")
+
+        for path, expected in self.REQUIRED_ALLOWLISTS.items():
+            actual = set(self._get(path) or [])
+            if actual != expected:
+                raise ContractViolation(f"{path} expected {sorted(expected)!r}, got {sorted(actual)!r}")
 
         required_env = set(self._get("required_env") or [])
         missing_env = self.REQUIRED_ENV - required_env
@@ -60,6 +84,11 @@ class AtlasVoiceRuntimeContract:
 
         for path in [
             "kernel.contract_url",
+            "kernel.session_start_url",
+            "kernel.session_end_url",
+            "kernel.readiness_url",
+            "kernel.rivals_url",
+            "kernel.wake_word_url",
             "kernel.turn_url",
             "kernel.callbacks.turn_synthesized",
             "kernel.callbacks.turn_played",
@@ -73,6 +102,36 @@ class AtlasVoiceRuntimeContract:
 
         if not isinstance(self._get("contract_hash"), str) or self._get("contract_hash") == "":
             raise ContractViolation("contract_hash is required")
+
+    @property
+    def wake_word_url(self) -> str:
+        return str(self._get("kernel.wake_word_url"))
+
+    @property
+    def room_prefix(self) -> str:
+        return str(self._get("session_lease.room_prefix") or "atlas-voice")
+
+    @property
+    def livekit_url(self) -> str | None:
+        value = self._get("session_lease.livekit_url")
+
+        return str(value) if isinstance(value, str) and value != "" else None
+
+    @property
+    def session_start_url(self) -> str:
+        return str(self._get("kernel.session_start_url"))
+
+    @property
+    def session_end_url(self) -> str:
+        return str(self._get("kernel.session_end_url"))
+
+    @property
+    def readiness_url(self) -> str:
+        return str(self._get("kernel.readiness_url"))
+
+    @property
+    def rivals_url(self) -> str:
+        return str(self._get("kernel.rivals_url"))
 
     @property
     def turn_url(self) -> str:

@@ -1,0 +1,11 @@
+{
+  "callback_kind": "participant_joined",
+  "payload": {
+    "session_id": "voice_session_example",
+    "participant_identity": "mobile:vitor",
+    "room_name": "atlas-voice-example",
+    "client_surface": "mobile",
+    "transport": "livekit_webrtc",
+    "privacy_class": "p3_audio"
+  }
+}

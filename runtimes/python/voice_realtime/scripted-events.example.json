@@ -1,0 +1,50 @@
+{
+  "schema_version": "atlas.voice_realtime.scripted_events.v1",
+  "events": [
+    {
+      "event_kind": "start_session",
+      "session_id": "voice_session_example",
+      "participant_identity": "mobile:vitor",
+      "room_name": "atlas-voice-example",
+      "client_surface": "mobile",
+      "transport": "livekit_webrtc",
+      "privacy_class": "p3_audio"
+    },
+    {
+      "event_kind": "wake_word_detected",
+      "session_id": "voice_session_example",
+      "wake_word_engine": "mobile_local",
+      "confidence": 0.92,
+      "latency_ms": 80
+    },
+    {
+      "event_kind": "transcribed_turn",
+      "session_id": "voice_session_example",
+      "turn_id": "voice_turn_001",
+      "transcript": "continue a implementacao da estrutura mae",
+      "language": "pt-BR",
+      "domain_hint": "programming",
+      "flow_hint": "programming.dev"
+    },
+    {
+      "event_kind": "synthesized",
+      "session_id": "voice_session_example",
+      "turn_id": "voice_turn_001",
+      "response_text_hash": "44e241aa89e925aef933e044cb36d0e23ec3825a593f80ce0c1476bb3a3ddbf8",
+      "tts_provider": "local_or_configured",
+      "audio_hash": "f5bd6d1752d0c365532001b10e03d1461ff36963d4d35f171bc19ed2fffaaf78",
+      "audio_duration_ms": 1200
+    },
+    {
+      "event_kind": "played",
+      "session_id": "voice_session_example",
+      "turn_id": "voice_turn_001",
+      "played_duration_ms": 1200
+    },
+    {
+      "event_kind": "session_ended",
+      "session_id": "voice_session_example",
+      "reason": "operator_finished"
+    }
+  ]
+}

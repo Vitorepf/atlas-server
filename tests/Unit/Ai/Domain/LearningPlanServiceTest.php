@@ -23,6 +23,9 @@ class LearningPlanServiceTest extends TestCase
         $this->assertSame('spaced_review_plan', $packet['mode']);
         $this->assertSame([], data_get($packet, 'brief.missing_inputs'));
         $this->assertTrue(data_get($packet, 'learning_contract.practice_loop_required'));
+        $this->assertSame('atlas.cognitive.dreyfus_pedagogy_resolution.v1', data_get($packet, 'dreyfus.resolution.schema_version'));
+        $this->assertSame('atlas.cognitive.dreyfus_prompt_builder.v1', data_get($packet, 'dreyfus.prompt_builder.schema_version'));
+        $this->assertSame('passed', collect($packet['gates'])->firstWhere('id', 'pedagogy_matches_stage')['status']);
         $this->assertTrue(data_get($packet, 'rules.learning_domain_is_not_core_learning_plane'));
         $this->assertContains('confuse_domain_learning_with_core_learning_plane', $packet['forbidden_actions']);
     }
