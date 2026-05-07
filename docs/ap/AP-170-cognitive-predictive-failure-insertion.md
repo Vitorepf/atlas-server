@@ -6,7 +6,7 @@ Status: scaffold
 
 Implementar capability cardinal do **Multiplier Edge** que **predicta onde o operador vai falhar** cruzando 4 sinais (gaps no Knowledge Graph + decay overlay alto + dreyfus_stage baixo + failure_signature historico) e **insere problema calibrado em zona 80/20** que ativa Generation Effect personalizado.
 
-E **Capability 9** do Multiplier Edge (`cognitive/multiplier-edge.md`). Implementa C14 (sem erro preditivo, sem aprendizado) com calibracao pessoal — algo que tutor humano ou IA generica nao consegue por nao ter o historico longitudinal.
+E **Capability 9** do Multiplier Edge (`cognitive/multiplier-edge.md`). Implementa C14 como erro preditivo calibrado com historico pessoal — algo que tutor humano ou IA generica nao consegue por nao ter o historico longitudinal. Nao autoriza frustracao aleatoria nem promessa de ganho sem Rivals-Learning.
 
 ## Pre-requisitos
 
@@ -262,4 +262,4 @@ php artisan atlas:ai:architecture-validate --json
 9. Brier score + calibration_error sao computados em janela rolling 60d
 10. Architecture test garante que PFI nao roda sob load alto (`test_pfi_never_runs_under_high_cognitive_load`)
 11. Ledger emite todos os 7 events em fluxo end-to-end
-12. SLOs registrados em `KernelSloTargets`; `cognitive/multiplier-edge.md` marca Capability 9 como `implemented`
+12. SLOs registrados em `KernelSloTargets`; `cognitive/multiplier-edge.md` marca Capability 9 com status exato da taxonomia

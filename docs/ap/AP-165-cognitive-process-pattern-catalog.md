@@ -1,6 +1,6 @@
 # AP-165 — Cognitive Process Pattern Catalog
 
-Status: scaffold
+Status: implemented-operational-read-model
 
 ## Objetivo
 
@@ -29,7 +29,7 @@ Status promove para `implemented-operational-read-model` apos DoD.
 ## Fluxo
 
 ```
-Atlas Input (atlas pattern <name> | atlas pattern apply <name> | atlas pattern matcher <problem>)
+Atlas Input (`php artisan atlas:pattern <name>` | `php artisan atlas:pattern apply <name>` | `php artisan atlas:pattern matcher <problem>`)
   -> Surface Adapter canoniza
   -> Operation Envelope (input_kind=cognitive)
   -> Domain / Profile / Flow (learning.pattern_extraction | learning.process_optimization)
@@ -119,7 +119,7 @@ process_pattern:
 | `LearningProcessOptimizationFlow` | flow `learning.process_optimization` sob demanda | `app/Services/Ai/Domain/` |
 | `PatternStructureCompleteGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
 | `PatternPersonalEvidenceProviderSafeGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
-| `AtlasPatternCommand` | CLI base `atlas pattern` | `app/Console/Commands/` |
+| `AtlasPatternCommand` | CLI base `atlas:pattern` | `app/Console/Commands/` |
 
 ## Gates Executaveis
 
@@ -150,18 +150,17 @@ Bloqueia envio de pattern com `personal_evidence_refs` para provider externo se 
 
 | Comando | Output |
 |---|---|
-| `atlas pattern catalog [--category=...]` | tabela: name, category, applied_count, success_rate, last_applied_at |
-| `atlas pattern <name>` | spec completa do pattern (10 campos) |
-| `atlas pattern propose` | lista candidatos do `Process Pattern Personal Detector` (futuro AP-COG-EDGE-10) |
-| `atlas pattern apply <name>` | registra aplicacao manual (envelope_id atual + outcome esperado) |
-| `atlas pattern matcher <problem-description>` | retorna top-5 patterns aplicaveis ranqueados |
-| `atlas pattern author <name>` | inicia autoria manual (operador escreve o pattern) |
-| `atlas pattern reflect <application-id>` | adiciona reflection a uma aplicacao registrada |
+| `atlas:pattern catalog [--category=...]` | tabela: name, category, applied_count, success_rate, last_applied_at |
+| `atlas:pattern <name>` | spec completa do pattern |
+| `atlas:pattern matcher <problem-description>` | retorna top-5 patterns aplicaveis ranqueados |
+| `atlas:pattern apply <name>` | registra aplicacao manual com outcome |
+| `atlas:pattern author <name>` | autoria manual operator-authored |
+| `atlas:pattern propose/reflect` | ficam para AP-COG-EDGE-10 + review UI |
 
 ### Tela / Interacao tipica (Pattern Catalog Latticework)
 
 ```
-$ atlas pattern catalog --category=decision
+$ php artisan atlas:pattern catalog --category=decision
 
 | name                  | category | applied | success_rate | last_applied |
 | cut-then-rebuild      | decision | 4       | 0.75         | 2026-04-22   |
@@ -171,7 +170,7 @@ $ atlas pattern catalog --category=decision
 ```
 
 ```
-$ atlas pattern matcher "team de 4 ficou bloqueado em decisao de stack ha 2 semanas"
+$ php artisan atlas:pattern matcher "team de 4 ficou bloqueado em decisao de stack ha 2 semanas"
 
 Top-3 patterns aplicaveis:
 
@@ -235,12 +234,12 @@ atlas engineering knowledge docs-health
 1. Migrations `process_patterns` + `process_pattern_applications` aplicadas e idempotentes
 2. `ProcessPatternRepository`, `CatalogService`, `Matcher`, `EvidenceTracker`, `StructureValidator` implementados e testados
 3. `PatternStructureCompleteGate` e `PatternPersonalEvidenceProviderSafeGate` executaveis
-4. Flow `learning.pattern_extraction` semanal agendado no scheduler (consome candidatos do Detector quando AP-COG-EDGE-10 entrar)
-5. Flow `learning.process_optimization` sob demanda operacional
-6. CLI `atlas pattern catalog`, `atlas pattern <name>`, `atlas pattern matcher`, `atlas pattern apply`, `atlas pattern author`, `atlas pattern reflect` operacionais
+4. Flow `learning.pattern_extraction` registrado; agenda semanal fica para AP-COG-EDGE-10 detector
+5. Flow `learning.process_optimization` registrado no Learning domain
+6. CLI `atlas:pattern catalog`, `atlas:pattern <name>`, `atlas:pattern matcher`, `atlas:pattern apply`, `atlas:pattern author` operacionais
 7. Ledger emite `PROCESS_PATTERN_CATALOGED` e `PROCESS_PATTERN_APPLIED` end-to-end
 8. SLOs registrados em `KernelSloTargets`
 9. `atlas:ai:architecture-validate --json` continua verde
 10. Pelo menos 5 patterns canonical_library seedados em migration (cut-then-rebuild, validate-then-scale, unblock-then-validate, reverse-the-burden, fail-fast-cheap)
-11. `cognitive/capabilities-core.md` marca Process Pattern Catalog como `implemented`
+11. `cognitive/capabilities-core.md` marca Process Pattern Catalog como `implemented-operational-read-model`
 12. AP-COG-EDGE-10 (Personal Detector) pode consumir este catalogo sem refactor

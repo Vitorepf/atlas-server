@@ -54,6 +54,7 @@ capabilities:
   - personal_development_domain
   - atlas_ai_evolution_phase_0_audit
   - voice_realtime_surface
+  - cognitive_plane_governance
 decisions:
   - Atlas AI Session Bootstrap e o primeiro pacote curto para novas sessoes responderem o que e Atlas, o que existe, o que falta e como evoluir.
   - Atlas AI Documentation Operating System define limites de tamanho, ownership, anti-hallucination, promocao e sync/index para documentacao de alta performance.
@@ -80,6 +81,7 @@ decisions:
   - Open Brain Context Injection define quando CLI/app devem usar memoria automaticamente em tarefas de codigo.
   - Programming Power Tools Catalog define a bancada operacional de ferramentas, tiers, autoridade e lacunas para programacao pesada.
   - Fair Claude e Atlas Supercharged separam prova cientifica com o mesmo Claude do produto real multi-provider.
+  - Cognitive Plane e sub-arquitetura canonica seria para desenvolvimento cognitivo; `cognitive/implementation-briefing.md` governa APs, status, comandos e validacoes para IAs implementarem sem confundir scaffold com runtime.
 maintenance:
   - Leia atlas-ai-session-bootstrap.md no inicio de qualquer sessao nova.
   - Leia atlas-ai-documentation-operating-system.md antes de criar, dividir, promover, arquivar ou expandir docs canonicos.
@@ -89,6 +91,7 @@ maintenance:
   - Leia atlas-ai-model-selection-strategy.md antes de alterar Atlas Decide, selecao de provider/modelo, AP-99, Dynamic Compute Market ou especialistas de Programming que influenciam modelo.
   - Leia domains/programming-frontend-superpower.md antes de alterar frontend/design harness, skills de UI, visual QA, Playwright frontend ou avaliacao de Huashu/Claude Designer.
   - Leia atlas-ai-qualitative-levels-roadmap.md antes de propor co-estrategista, patamar cognitivo, ambiente, Curator auto-mutavel ou memoria longitudinal.
+  - Leia cognitive/implementation-briefing.md antes de implementar ou revisar qualquer AP, flow, gate, SLO, command ou doc do Cognitive Development Plane.
   - Leia atlas-ai-canonical-architecture-index.md antes de escolher qual documento arquitetural tem autoridade.
   - Leia atlas-ai-flow-visual-map.md antes de redesenhar fluxo, criar slide/diagrama ou explicar camadas do Atlas para humano/IA.
   - Leia atlas-ai-master-architecture.md antes de alterar autoridade macro, Policy/Profile, Decide, Domain Orchestrator, Runtime, Evidence, Learning ou estrategia contra Claude Code.
@@ -128,6 +131,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
   - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
   - docs/engineering-knowledge-base/atlas-ai-resolver-corpus-audit.md
+  - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
+  - docs/engineering-knowledge-base/cognitive/README.md
   - docs/engineering-knowledge-base/archive/README.md
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md

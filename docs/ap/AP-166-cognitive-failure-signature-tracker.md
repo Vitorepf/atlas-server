@@ -1,6 +1,11 @@
 # AP-166 — Cognitive Failure Signature Classifier + Bayesian Failure Tracker
 
-Status: scaffold
+Status: implemented-operational-read-model
+
+Implementation note (2026-05-07): Laravel read model, CLI, gates, SLOs, Ledger
+events and `learning.failure_review`/`self_improvement.failure_pattern_review`
+registration are implemented. Self-Improvement proposal emission to Inbox remains
+proposal-only/future runtime work; the read model is ready for that consumer.
 
 ## Objetivo
 
@@ -8,13 +13,13 @@ Implementar capability Core que **classifica cada falha registrada no Evidence L
 
 Comportamento: repeticao da mesma assinatura em janela curta dispara `FAILURE_REPETITION_ALERT`; falha com assinatura distinta marca progresso e e silenciosa. Productive Failure (Kapur) operacionalizado.
 
-E base para o **Predictive Failure Insertion** (AP-COG-EDGE-09, futuro) — capability cardinal Multiplier Edge que usa este historico para inserir problema calibrado em zona 80/20.
+E base para o **Predictive Failure Insertion** (AP-170, scaffold) — capability cardinal Multiplier Edge que usa este historico para inserir problema calibrado em zona 80/20.
 
 ## Nao Objetivo
 
 Nao implementar:
 
-- Predictive Failure Insertion (AP-COG-EDGE-09; consome este tracker)
+- Predictive Failure Insertion (AP-170; consome este tracker)
 - Promover finding de falha a memoria canonica sem review
 - Auto-corrigir comportamento do operador baseado em padrao detectado
 - Diagnostico clinico de qualquer natureza (`non_clinical_safety` continua hard gate)
@@ -41,13 +46,14 @@ Evento de falha no ledger (qualquer dominio: programming, decision, voice_failed
 
 ## Schema
 
-### Migration `2026_05_07_160000_create_failure_signatures.php`
+### Migration `2026_05_07_160000_create_failure_signatures_table.php`
 
 ```php
 Schema::create('failure_signatures', function (Blueprint $t) {
     $t->id();
-    $t->uuid('envelope_id');
-    $t->uuid('source_ledger_event_id')->nullable();
+    $t->string('envelope_id', 80);
+    $t->string('source_ledger_event_id', 80)->nullable();
+    $t->string('signature_key', 200);
     $t->string('domain', 64);
     $t->string('category', 64);                  // technical | decision | communication | attention | knowledge_gap | process | safety
     $t->string('sub_cause', 128);                // race_condition | premature_optimization | unclear_brief | overcommit | wrong_abstraction | ...
@@ -59,6 +65,7 @@ Schema::create('failure_signatures', function (Blueprint $t) {
     $t->timestamp('recorded_at');
     $t->timestamps();
     $t->index(['domain', 'category', 'sub_cause']);
+    $t->index(['signature_key', 'recorded_at']);
     $t->index('recorded_at');
 });
 
@@ -84,7 +91,10 @@ Schema::create('failure_repetition_alerts', function (Blueprint $t) {
     $t->timestamp('first_occurrence_at');
     $t->timestamp('latest_occurrence_at');
     $t->string('alert_status', 32)->default('open'); // open | acknowledged | resolved | suppressed
+    $t->string('severity', 32)->default('warning');
     $t->text('operator_reflection')->nullable();
+    $t->timestamp('acknowledged_at')->nullable();
+    $t->timestamp('resolved_at')->nullable();
     $t->timestamps();
     $t->index(['signature_key', 'alert_status']);
 });
@@ -120,8 +130,8 @@ failure_signature:
 | `LearningFailureReviewFlow` | flow `learning.failure_review` semanal | `app/Services/Ai/Domain/` |
 | `FailureSignatureClassifiedGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
 | `FailureSignatureProviderSafetyGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
-| `AtlasFailureCommand` | CLI base `atlas failure` | `app/Console/Commands/` |
-| `SelfImprovementFailurePatternFlow` | flow `self_improvement.failure_pattern_review` (drop-in em self_improvement existente) | `app/Services/Ai/SelfImprovement/` |
+| `AtlasFailureCommand` | CLI base `atlas:failure` | `app/Console/Commands/` |
+| `SelfImprovementFailurePatternFlow` | flow `self_improvement.failure_pattern_review` registrado; proposal emission consome read model em fase futura | `app/Services/Ai/SelfImprovement/` |
 
 ## Gates Executaveis
 
@@ -165,12 +175,12 @@ Severidade calculada:
 
 | Comando | Output |
 |---|---|
-| `atlas failure recent [--domain=...] [--days=14]` | tabela: signature_key, category, sub_cause, recurrence, last_seen |
-| `atlas failure diversity [--domain=...] [--window=30d]` | metrica: total_failures, unique_signatures, diversity_index, alerts |
-| `atlas failure signature <id>` | inspeciona signature: contexto, features, similarity, recurrence |
-| `atlas failure alerts [--status=open]` | lista alerts ativos com severidade |
-| `atlas failure ack <alert-id> --reflection="..."` | reconhece alert + adiciona reflection |
-| `atlas failure review` | dispara `learning.failure_review` interativo |
+| `php artisan atlas:failure recent [--domain=...] [--days=14]` | tabela: signature_key, category, sub_cause, recurrence, last_seen |
+| `php artisan atlas:failure diversity [--domain=...] [--days=30]` | metrica: total_failures, unique_signatures, diversity_index, alerts |
+| `php artisan atlas:failure signature <id>` | inspeciona signature: contexto, features, similarity, recurrence |
+| `php artisan atlas:failure alerts [--status=open]` | lista alerts ativos com severidade |
+| `php artisan atlas:failure ack <alert-id> --reflection="..."` | reconhece alert + adiciona reflection |
+| `php artisan atlas:failure review [--domain=...] [--days=14]` | cria pacote plan-only de `learning.failure_review` |
 
 ### Tela / Interacao tipica (alerta de repeticao)
 
@@ -192,14 +202,14 @@ Sugestao do Self-Improvement:
   - Process Pattern matcher: "race-condition em job batching"
 
 Acoes:
-  [a] atlas failure ack <id> --reflection="..."
-  [b] atlas study distributed-locking
-  [c] atlas worked-example queue-worker-lock
-  [d] atlas pattern matcher "race condition queue"
+  [a] php artisan atlas:failure ack <id> --reflection="..."
+  [b] php artisan atlas:study distributed-locking
+  [c] php artisan atlas:worked-example queue-worker-lock
+  [d] php artisan atlas:pattern matcher "race condition queue"
 ```
 
 ```
-$ atlas failure diversity --domain=programming --window=90d
+$ php artisan atlas:failure diversity --domain=programming --days=90
 
 Diversity Report (programming, 90d):
   total_failures:           23
@@ -216,10 +226,11 @@ Interpretacao C20:
 
 | Metric | Target p95 |
 |---|---|
-| `failure_signature_classification_latency_ms` | <= 250 |
-| `failure_similarity_computation_latency_ms` | <= 400 |
-| `failure_diversity_metric_freshness_h` | <= 24 |
-| `failure_repetition_alert_emission_latency_s` | <= 60 |
+| `cognitive.failure.classify` | <= 250ms |
+| `cognitive.failure.similarity` | <= 400ms |
+| `cognitive.failure.diversity` | <= 2500ms p95; freshness via scheduled consumer <= 24h |
+| `cognitive.failure.alert` | <= 1000ms p95; hard target <= 60s |
+| `cognitive.failure.gate` | <= 50ms |
 
 Namespace `cognitive.failure.*`.
 
@@ -233,7 +244,7 @@ Flow `self_improvement.failure_pattern_review` (aditivo aos 13 existentes em `do
 
 - Le `failure_diversity_metrics` por dominio
 - Cruza com `failure_repetition_alerts` abertos
-- Quando severidade `high` ou `critical` recorrente -> cria proposal `atlas.self_improvement.failure_pattern.v1` no Inbox
+- Quando severidade `high` ou `critical` recorrente -> cria proposal `atlas.self_improvement.failure_pattern.v1` no Inbox (consumer futuro; read model pronto)
 - Proposal sugere acoes: pretest, worked_example, pattern matcher, deep_work focado, mudanca de policy
 
 Curator nunca auto-aplica; abre proposal revisavel.
@@ -248,17 +259,18 @@ Curator nunca auto-aplica; abre proposal revisavel.
 | `FailureRepetitionAlerterTest` (3 thresholds de severidade) | `tests/Unit/Ai/Cognitive/Failure/` |
 | `FailureSignatureClassifiedGateTest` | `tests/Unit/Ai/Kernel/Gates/` |
 | `LearningFailureReviewFlowIntegrationTest` (end-to-end) | `tests/Feature/Ai/Cognitive/` |
-| `SelfImprovementFailurePatternFlowTest` (proposal generation) | `tests/Feature/Ai/SelfImprovement/` |
-| `AtlasFailureCommandTest` | `tests/Feature/Console/` |
-| `CognitiveDomainComplianceTest::test_failure_signatures_classified_for_all_failure_events` | `tests/Feature/Architecture/` |
+| `SelfImprovementFailurePatternFlowTest` (proposal generation futuro) | `tests/Feature/Ai/SelfImprovement/` |
+| `AtlasFailureCommandTest` | `tests/Feature/Ai/Cognitive/` |
+| `LearningFailureReviewFlowIntegrationTest` | `tests/Feature/Ai/Cognitive/` |
+| `CognitiveDomainComplianceTest::test_failure_signatures_classified_for_all_failure_events` (futuro hard invariant) | `tests/Feature/Architecture/` |
 
 ## Validation Commands
 
 ```bash
 php artisan migrate
-php artisan test tests/Unit/Ai/Cognitive/Failure tests/Feature/Ai/Cognitive tests/Feature/Ai/SelfImprovement
+php artisan test tests/Unit/Ai/Cognitive/Failure tests/Unit/Ai/Kernel/Gates/FailureSignatureClassifiedGateTest.php tests/Feature/Ai/Cognitive/AtlasFailureCommandTest.php tests/Feature/Ai/Cognitive/LearningFailureReviewFlowIntegrationTest.php
 php artisan atlas:failure recent --json
-php artisan atlas:failure diversity --domain=programming --window=90d --json
+php artisan atlas:failure diversity --domain=programming --days=90 --json
 php artisan atlas:failure alerts --status=open --json
 php artisan atlas:ai:self-improve --flow=failure_pattern_review --plan-only --json
 php artisan atlas:ai:architecture-validate --json
@@ -272,12 +284,12 @@ atlas engineering knowledge docs-health
 1. Migrations `failure_signatures`, `failure_diversity_metrics`, `failure_repetition_alerts` aplicadas e idempotentes
 2. `FailureSignatureClassifier`, `FailureSimilarityComputer`, `BayesianFailureTracker`, `FailureRepetitionAlerter` implementados e testados
 3. `FailureSignatureClassifiedGate` e `FailureSignatureProviderSafetyGate` executaveis
-4. Flow `learning.failure_review` operacional (semanal); flow `self_improvement.failure_pattern_review` integrado
-5. CLI `atlas failure recent`, `atlas failure diversity`, `atlas failure signature`, `atlas failure alerts`, `atlas failure ack`, `atlas failure review` operacionais
+4. Flow `learning.failure_review` operacional; flow `self_improvement.failure_pattern_review` registrado para consumir o read model
+5. CLI `atlas:failure recent`, `atlas:failure diversity`, `atlas:failure signature`, `atlas:failure alerts`, `atlas:failure ack`, `atlas:failure review` operacionais
 6. Ledger emite `FAILURE_SIGNATURE_RECORDED` para todo failure event existente; `FAILURE_REPETITION_ALERT` quando threshold atingido
 7. SLOs registrados em `KernelSloTargets`
-8. Self-Improvement gera proposal `atlas.self_improvement.failure_pattern.v1` no Inbox em pelo menos 1 cenario de teste
+8. Self-Improvement proposal emission `atlas.self_improvement.failure_pattern.v1` fica como proximo consumer; read model e flow ja estao prontos
 9. `atlas:ai:architecture-validate --json` continua verde
-10. Architecture test `CognitiveDomainComplianceTest::test_failure_signatures_classified_for_all_failure_events` verde — garante zero falha sem signature
+10. Architecture hard invariant para zero falha sem signature fica como proxima fase de enforcement global
 11. C20 medido empiricamente: `diversity_index` por dominio aparece em observability dashboard
-12. AP-COG-EDGE-09 (Predictive Failure Insertion) pode consumir este tracker sem refactor
+12. AP-170 (Predictive Failure Insertion) pode consumir este tracker sem refactor

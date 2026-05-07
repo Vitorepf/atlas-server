@@ -5,7 +5,7 @@ title: Atlas AI Cognitive Plane - Capabilities Core
 status: scaffold
 category: architecture
 priority: 94
-summary: ~25 capabilities cognitivas horizontais que vivem no Core (servem learning + research + writing + self_improvement). Cada capability declara papel, runtime, evidence_level e fundamento cientifico. Anti-duplicacao Core vs Domain enforcada.
+summary: ~32 capabilities cognitivas horizontais que vivem no Core (servem learning + research + writing + self_improvement). Cada capability declara papel, runtime, evidence_level e fundamento cientifico. Anti-duplicacao Core vs Domain enforcada.
 tags:
   - atlas-ai
   - cognitive
@@ -27,8 +27,9 @@ decisions:
   - Multi-Provider Debate, Identity Tracker e Confidence Calibration tem restricoes operacionais especificas (ver tabela).
 maintenance:
   - Manter abaixo de 260 linhas.
-  - Atualizar quando capability mudar de evidence_level, sair de scaffold ou ganhar AP-COG dedicado.
+  - Atualizar quando capability mudar de evidence_level, sair de scaffold ou ganhar AP dedicado.
 related_paths:
+  - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
   - docs/engineering-knowledge-base/cognitive/README.md
   - docs/engineering-knowledge-base/cognitive/principles.md
   - docs/engineering-knowledge-base/cognitive/multiplier-edge.md
@@ -55,7 +56,7 @@ Capabilities horizontais que servem learning + research + writing + self_improve
 |---|---|---|---|---|
 | Spaced Repetition Engine | algoritmo FSRS por nó do grafo (default; SM-2 deprecado) | Python AI/Data | consensus | Wozniak; FSRS |
 | Active Recall Generator | gera perguntas tipadas (factual/conceitual/transferencia/contraexemplo) | Python AI/Data | consensus | Bjork (Retrieval Practice) |
-| Generation Engine / Pretest | apresenta problema antes da teoria; mapeia erro pre-aprendizado | Provider + Laravel | consensus | Generation Effect |
+| Generation Engine / Pretest | apresenta problema antes da teoria; captura `operator_prediction`; compara com realidade validada; gera `prediction_error_delta` e `model_update` | Provider + Laravel | consensus | Generation Effect + Productive Failure |
 | Feynman Validator | scoreia explicacao humana (clareza, lacuna, analogia fragil) | Laravel + Provider | consensus | Feynman Technique |
 | Knowledge Graph Builder | extrai conceitos e relacoes; consolida grafo | Python AI/Data | consensus | grafo cognitivo |
 | Curriculum Engine | objetivos + estado -> trilha resolvida | Laravel Kernel | consensus | desenho instrucional |
@@ -83,10 +84,10 @@ Capabilities horizontais que servem learning + research + writing + self_improve
 | Cognitive Forge Harness | sessao multi-flow pesada com Evidence packet final | Harness pattern | consensus | Engineering Harness pattern |
 | TMR (Targeted Memory Reactivation) | requires_rivals_validation + hardware (StackChan/wearable) | future | emerging | TMR (laboratorio) |
 | **Worked Example Engine + Process Fading Scheduler** | **implementado-operational-read-model**: apresenta solucao completa de processo/decisao; fade scheduler vai removendo etapas conforme dreyfus_stage avanca; gera explicit step-by-step pra novato, caso parcial pra competente, caso cru pra proficiente+. **Cardinal para dominios tecnicos e operacionais**. | Laravel | consensus | Sweller, Renkl (Worked Examples + Fading) |
-| **Process Pattern Catalog** | catalogo formal de padroes humanos de decisao/processo. Cada pattern: name, category (decision/process/communication/optimization/failure_recovery/architecture), intent, problem_context, forces, solution, personal_evidence (refs do ledger), consequences, anti_patterns, related_patterns. **Latticework de Munger formalizado como Design Patterns GoF aplicaveis** | Laravel + Python (deteccao) | emerging | Munger Latticework + GoF Design Patterns |
-| **Failure Signature Classifier + Bayesian Failure Tracker** | classifica cada falha registrada em `failure_signature` (categoria + sub-causa + contexto). Tracker mede `failure_diversity_index` longitudinal. Repeticao de assinatura -> alerta; falha nova -> marca progresso. Implementa C20. | Python + Laravel | emerging | Productive Failure (Kapur) + Bayesian updating |
+| **Process Pattern Catalog** | **implementado-operational-read-model**: catalogo formal de padroes humanos de decisao/processo. Cada pattern: name, category, intent, problem_context, forces, solution, personal_evidence, consequences, anti_patterns, related_patterns. **Latticework de Munger formalizado como Design Patterns GoF aplicaveis** | Laravel | consensus | Munger Latticework + GoF Design Patterns |
+| **Failure Signature Classifier + Bayesian Failure Tracker** | **implementado-operational-read-model**: classifica falhas em `failure_signature` provider-safe, persiste recorrencia, mede `failure_diversity_index`, emite `FAILURE_REPETITION_ALERT`, expõe CLI `atlas:failure` e registra `learning.failure_review` + `self_improvement.failure_pattern_review`. Implementa C20; proposal emission futura consome este read model. | Laravel | emerging | Productive Failure (Kapur) + Bayesian updating |
 | **Self-Explanation Generator** | refinamento do Active Recall com tipo `self_explanation_question` ("explique pra si mesmo por que isso e verdade") | Provider + Laravel | consensus | Chi, Bassok (Self-Explanation) |
-| **Self-Regulated Learning Orchestrator** | wrapper transversal das 3 fases SRL (planejar -> monitorar -> avaliar) sobre flows existentes. Nao novo flow, e overlay metacognitivo opcional | Laravel | consensus | Zimmerman (Self-Regulated Learning) |
+| **Self-Regulated Learning Orchestrator** | **implementado-operational-read-model**: overlay metacognitivo opt-in com preferences por dominio, episodios SRL, forethought/performance/reflection, CLI `atlas:srl`, gate de fase e events `SRL_*`. Runtime UI hooks em surfaces ficam como consumer work. | Laravel | consensus | Zimmerman (Self-Regulated Learning) |
 | **Multimedia Composer (Mayer Principles)** | hint do Output Renderer: combina texto + diagrama + voz + codigo conforme 12 principios validados de Mayer (signaling, segmenting, coherence, etc.) | Laravel + provider | consensus | Mayer (Multimedia Learning) |
 
 ## Specialist Profiles iniciais de `learning`
@@ -135,4 +136,4 @@ atlas ai architecture-validate --json
 
 ## Continuidade
 
-Detalhes executaveis (schema, migration, services, gates, tests) por capability vivem em `docs/ap/AP-COG-*.md` quando a capability sair de scaffold. Roadmap em `roadmap.md` define prioridade.
+Detalhes executaveis (schema, migration, services, gates, tests) por capability vivem em `docs/ap/AP-###-cognitive-*.md` quando a capability sair de scaffold. Briefing operacional em `implementation-briefing.md`; roadmap em `roadmap.md` define prioridade.

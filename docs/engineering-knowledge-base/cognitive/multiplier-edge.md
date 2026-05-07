@@ -5,7 +5,7 @@ title: Atlas AI Cognitive Plane - Multiplier Edge
 status: implemented-operational-read-model
 category: architecture
 priority: 96
-summary: 7 capabilities cardinais cognitivas que NENHUM sistema educacional concorrente pode replicar por motivo arquitetural - onde a Tese de canal multiplicador encontra o Cognitive Plane. Lista resumida; detalhe operacional em APs dedicados.
+summary: 10 capabilities cardinais cognitivas que NENHUM sistema educacional concorrente pode replicar por motivo arquitetural - onde a Tese de canal multiplicador encontra o Cognitive Plane. Lista resumida; detalhe operacional em APs dedicados.
 tags:
   - atlas-ai
   - cognitive
@@ -23,7 +23,7 @@ capabilities:
   - cross_domain_evidence_routing
   - temporal_compression_validation
 decisions:
-  - 7 capabilities cardinais; Dreyfus first por bang-for-buck (impacto na primeira sessao, menor pre-requisito).
+  - 10 capabilities cardinais; Dreyfus first por bang-for-buck (impacto na primeira sessao, menor pre-requisito).
   - Multi-Provider Debate Engine e opt-in cardinal, nunca default.
   - Atlas-Vitor Socratico nasce como modo do Atlas-Vitor Cognitivo, nao capability separada.
   - Cross-Domain Evidence Routing e ponte entre `programming` (uso real) e `learning` (currículo).
@@ -31,9 +31,10 @@ decisions:
   - Temporal Compression Validation e a metrica cardinal de Rivals-Learning.
 maintenance:
   - Manter abaixo de 260 linhas.
-  - Detalhes executaveis por capability vivem em `docs/ap/AP-COG-EDGE-*.md`. Esta spec e indice resumido.
+  - Detalhes executaveis por capability vivem em `docs/ap/AP-###-cognitive-*.md` quando ja existe AP numerado; AP-COG-EDGE-* fica reservado para futuros sem numero.
   - Atualizar quando capability sair de scaffold ou ganhar AP dedicado.
 related_paths:
+  - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
   - docs/engineering-knowledge-base/cognitive/README.md
   - docs/engineering-knowledge-base/cognitive/overview.md
   - docs/engineering-knowledge-base/cognitive/capabilities-core.md
@@ -56,23 +57,23 @@ Sim → fica aqui. Nao → vai pra `capabilities-core.md`.
 
 ## Authority
 
-Em conflito: Tese central > Kernel > `cognitive/overview.md` > este doc > AP-COG-EDGE-NN.
+Em conflito: Tese central > Kernel > `cognitive/overview.md` > este doc > AP numerado ou AP-COG-EDGE futuro.
 
-## As 7 Capabilities Cardinais
+## As 10 Capabilities Cardinais
 
 Resumo executivo. Detalhe operacional (schema, migration, services, gates, telas) vive em AP dedicado.
 
 | # | Capability | Por que so o Atlas pode | Pre-req | Evidence | Fase | AP |
 |---|---|---|---|---|---|---|
-| 1 | **Dreyfus Dynamic Pedagogy** | conhece nivel real por dominio via Programming/Finance/Learning ledgers cruzados; nao confia em auto-relato | flows `learning` v2 | implemented | **1 (done)** | AP-163 |
+| 1 | **Dreyfus Dynamic Pedagogy** | conhece nivel real por dominio via Programming/Finance/Learning ledgers cruzados; nao confia em auto-relato | flows `learning` v2 | implemented-operational-read-model | **1 (done)** | AP-163 |
 | 2 | **Evidence-driven Self-Assessment** | mastery derivada de uso real auditavel no ledger | Evidence Ledger ~30-60d | consensus | 2 | AP-COG-EDGE-02 |
 | 3 | **Cross-Domain Latticework** | Knowledge Graph cruzado com domains de trabalho real | Knowledge Graph ~500+ nós | emerging | 3 | AP-COG-EDGE-03 |
 | 4 | **Multi-Provider Discord Detector** (opt-in) | canal multi-provider neutro por design | Provider Driver Registry | emerging | 4 | AP-COG-EDGE-04 |
 | 5 | **Atlas-Vitor Socratic Tutor** | modelo local fine-tuned no Knowledge Graph pessoal | Atlas-Vitor Cognitivo + ledger maduro | speculative | 5 | AP-COG-EDGE-05 |
 | 6 | **Cross-Domain Evidence Routing** | Programming/Finance detectam uso real -> Curator ajusta currículo | Evidence Ledger + Curator | emerging | 2 | AP-COG-EDGE-06 |
 | 7 | **Temporal Compression Validation** | Rivals-Learning real - tempo ate `transfer_proof` Atlas vs uso direto | Rivals-Learning maduro | emerging | 6 | AP-COG-EDGE-07 |
-| 8 | **Personal Worked Examples Generator** | usa SEU codigo (commits, PRs), SUAS decisoes (Strategic Decision domain), SEUS Feynman antigos como worked examples com fading. Worked examples + fading com material proprio que nenhum tutor tem | Evidence Ledger ~30-60d + Worked Example Engine | emerging | 2 | AP-169 |
-| 9 | **Predictive Failure Insertion** | Atlas conhece exatamente onde voce vai falhar (gaps no grafo + decay overlay + dreyfus_stage + failure_signature historico). **Insere problema calibrado** que ativa Generation Effect personalizado | Knowledge Graph + Failure Tracker maduro | emerging | 4 | AP-170 |
+| 8 | **Personal Worked Examples Generator** | usa SEU codigo (commits, PRs), SUAS decisoes (Strategic Decision domain), SEUS Feynman antigos como worked examples com fading. Worked examples + fading com material proprio que nenhum tutor tem | Evidence Ledger ~30-60d + Worked Example Engine | scaffold | 2 | AP-169 |
+| 9 | **Predictive Failure Insertion** | Atlas conhece exatamente onde voce vai falhar (gaps no grafo + decay overlay + dreyfus_stage + failure_signature historico). **Insere problema calibrado** que ativa Generation Effect personalizado | Knowledge Graph + Failure Tracker maduro | scaffold | 4 | AP-170 |
 | 10 | **Process Pattern Personal Detector** | varre o ledger pessoal e destila padroes humanos emergentes ("voce aplicou abordagem X em 3 contextos diferentes em 90d - isso e um pattern; quer nomear?"). Process Pattern Catalog populado automaticamente com sua propria experiencia | Evidence Ledger maduro + Process Pattern Catalog | emerging | 3 | AP-COG-EDGE-10 |
 
 ## Capability 1 — Dreyfus Dynamic Pedagogy (Fase 1, AP-163)
@@ -87,7 +88,7 @@ Pedagogia muda por nivel detectado (5 niveis: novato → competente → proficie
 | Expert | desafios mal-estruturados, defesa adversarial, criacao |
 | Master | dialogo de pares, criacao de doutrina, formacao de outros |
 
-**Comando:** `atlas study laravel-queues` opera em modo expert; `atlas study agricultura-soja` opera em modo novato. **Pedagogia muda dentro da mesma sessao** conforme o nó visitado.
+**Comando canonico local:** `php artisan atlas:study laravel-queues` opera em modo expert; `php artisan atlas:study agricultura-soja` opera em modo novato. Product wrapper futuro pode expor `atlas study ...`.
 
 Detalhe completo: `docs/ap/AP-163-cognitive-dreyfus-dynamic-pedagogy.md`.
 
@@ -147,7 +148,7 @@ Programming domain (e Finance, Personal Dev, Strategic Decision) registra o que 
 | Proficiente | so problema + solucao final, raciocinio escondido |
 | Expert | so problema; voce reconstroi |
 
-**Comando:** `atlas worked-example <topic>` ou aparece automaticamente no `learning.deep_work` quando dreyfus_stage <= 3.
+**Comando canonico local:** `php artisan atlas:worked-example <topic>` ou aparece automaticamente no `learning.deep_work` quando dreyfus_stage <= 3.
 
 **Por que so o Atlas faz**: tutor humano nao tem seu codigo. ChatGPT direto nao tem seu historico longitudinal.
 
@@ -155,7 +156,7 @@ Programming domain (e Finance, Personal Dev, Strategic Decision) registra o que 
 
 Atlas conhece **exatamente onde voce vai falhar**: gaps no Knowledge Graph + decay overlay alto + dreyfus_stage baixo + failure_signature historico em area adjacente. Em vez de evitar a falha, **insere problema calibrado** que vai ativar Generation Effect personalizado.
 
-Implementa C14 (Active Inference: sem erro preditivo, sem aprendizado real) com calibracao pessoal.
+Implementa C14 como erro preditivo calibrado: insere problema que o operador provavelmente erra de forma util, registra divergencia e exige comparacao + transferencia. Nao e "hard mode" permanente.
 
 **Comando:** transparente — aparece em `learning.daily_plan` como "1 problema do dia que voce provavelmente vai errar" (calibrado em zona 80/20).
 
@@ -169,7 +170,7 @@ Varre seu ledger pessoal e destila padroes humanos emergentes:
 
 Operador nomeia (ex.: `cut-then-rebuild`), revisa estrutura sugerida, aceita. Vira nó cross-domain do Knowledge Graph + entrada formal no catalogo.
 
-**Comando:** `atlas pattern propose` (lista candidatos) e `atlas pattern catalog` (consulta).
+**Comando canonico local:** `php artisan atlas:pattern catalog`. `atlas pattern propose` fica para detector pessoal futuro.
 
 **Por que so o Atlas faz**: precisa do ledger transversal de meses para detectar repeticoes contextuais.
 
@@ -207,4 +208,4 @@ Plataforma de curso mede completion. Atlas mede transfer real, longitudinal, com
 
 ## Continuidade
 
-Cada capability cardinal tera AP dedicado quando entrar implementacao. AP-163 (Dreyfus) e o primeiro.
+Cada capability cardinal tera AP dedicado quando entrar implementacao. AP-163, AP-169 e AP-170 ja existem como specs numeradas; demais futuros podem usar AP-COG-EDGE ate serem promovidos.

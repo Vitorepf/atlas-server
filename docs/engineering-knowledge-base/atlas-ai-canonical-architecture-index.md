@@ -69,6 +69,7 @@ related_paths:
   - docs/ap/AP-146-provider-cost-rate-inbox-replay.md
   - docs/ap/AP-147-dynamic-compute-market-shadow-surface.md
   - docs/engineering-knowledge-base/cognitive/README.md
+  - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
   - docs/engineering-knowledge-base/cognitive/overview.md
   - docs/engineering-knowledge-base/cognitive/principles.md
   - docs/engineering-knowledge-base/cognitive/capabilities-core.md
@@ -165,15 +166,15 @@ Layer 4 - Domain Specs
 | Personal Development domain | `domains/personal-development.md` + `atlas-ai-master-architecture.md` |
 | Fluxo visual canonico e operating model geral | `atlas-ai-flow-visual-map.md` + `atlas-ai-operating-system.md` |
 | Triagem do corpus resolver | `atlas-ai-resolver-corpus-audit.md` |
-| Cognitive Development Plane (sub-arquitetura cognitiva, Pareto, Dreyfus, multiplier edge cognitivo) | `cognitive/README.md` (bootstrap) + `cognitive/overview.md` + `cognitive/principles.md` + `cognitive/capabilities-core.md` + `cognitive/multiplier-edge.md` + `cognitive/pipeline-overlay.md` + `cognitive/roadmap.md` |
-| Cognitive Dreyfus Dynamic Pedagogy (Fase 1, executavel) | `docs/ap/AP-163-cognitive-dreyfus-dynamic-pedagogy.md` |
-| Cognitive Worked Example Engine + Process Fading (eixo Tim Cook, executavel) | `docs/ap/AP-164-cognitive-worked-example-engine.md` |
-| Cognitive Process Pattern Catalog (Latticework formalizado, executavel) | `docs/ap/AP-165-cognitive-process-pattern-catalog.md` |
-| Cognitive Failure Signature Classifier + Bayesian Tracker (C20 operacional, executavel) | `docs/ap/AP-166-cognitive-failure-signature-tracker.md` |
-| Cognitive Self-Regulated Learning Orchestrator (Zimmerman overlay metacognitivo, executavel) | `docs/ap/AP-167-cognitive-self-regulated-learning-orchestrator.md` |
-| Cognitive Productive Failure Flow (Kapur 3 fases, executavel) | `docs/ap/AP-168-cognitive-productive-failure-flow.md` |
-| Cognitive Personal Worked Examples Generator (Multiplier Edge cardinal, executavel) | `docs/ap/AP-169-cognitive-personal-worked-examples-generator.md` |
-| Cognitive Predictive Failure Insertion (Multiplier Edge cardinal, executavel) | `docs/ap/AP-170-cognitive-predictive-failure-insertion.md` |
+| Cognitive Development Plane (sub-arquitetura cognitiva, Pareto, Dreyfus, multiplier edge cognitivo) | `cognitive/README.md` (bootstrap) + `cognitive/implementation-briefing.md` (implementacao) + `cognitive/overview.md` + `cognitive/principles.md` + `cognitive/capabilities-core.md` + `cognitive/multiplier-edge.md` + `cognitive/pipeline-overlay.md` + `cognitive/roadmap.md` |
+| Cognitive Dreyfus Dynamic Pedagogy (Fase 1, read-model operacional) | `docs/ap/AP-163-cognitive-dreyfus-dynamic-pedagogy.md` |
+| Cognitive Worked Example Engine + Process Fading (eixo Tim Cook, read-model operacional) | `docs/ap/AP-164-cognitive-worked-example-engine.md` |
+| Cognitive Process Pattern Catalog (Latticework formalizado, read-model operacional) | `docs/ap/AP-165-cognitive-process-pattern-catalog.md` |
+| Cognitive Failure Signature Classifier + Bayesian Tracker (C20 read-model operacional) | `docs/ap/AP-166-cognitive-failure-signature-tracker.md` |
+| Cognitive Self-Regulated Learning Orchestrator (Zimmerman overlay metacognitivo, read-model operacional) | `docs/ap/AP-167-cognitive-self-regulated-learning-orchestrator.md` |
+| Cognitive Productive Failure Flow (Kapur 3 fases, scaffold) | `docs/ap/AP-168-cognitive-productive-failure-flow.md` |
+| Cognitive Personal Worked Examples Generator (Multiplier Edge cardinal, scaffold) | `docs/ap/AP-169-cognitive-personal-worked-examples-generator.md` |
+| Cognitive Predictive Failure Insertion (Multiplier Edge cardinal, scaffold) | `docs/ap/AP-170-cognitive-predictive-failure-insertion.md` |
 
 ## Regra De Resolucao De Conflito
 Quando dois documentos parecerem conflitar:

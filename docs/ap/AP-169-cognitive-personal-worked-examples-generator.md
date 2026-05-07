@@ -157,16 +157,16 @@ final class PersonalWorkedExamplePrivacySafeGate {
 
 | Comando | Output |
 |---|---|
-| `atlas worked-example extract --source=programming_pr [--domain=...]` | varre + extrai sob demanda |
-| `atlas worked-example extract status` | ultimo run summary |
-| `atlas worked-example extract schedule on/off` | toggle scheduler |
-| `atlas worked-example personal --node=<knowledge_node_id>` | lista exemplos pessoais para nó |
-| `atlas worked-example extract review --status=discarded_privacy` | inspeciona descartados |
+| `php artisan atlas:worked-example extract --source=programming_pr [--domain=...]` | future CLI; varre + extrai sob demanda |
+| `php artisan atlas:worked-example extract status` | future CLI; ultimo run summary |
+| `php artisan atlas:worked-example extract schedule on/off` | future CLI; toggle scheduler |
+| `php artisan atlas:worked-example personal --node=<knowledge_node_id>` | future CLI; lista exemplos pessoais para nó |
+| `php artisan atlas:worked-example extract review --status=discarded_privacy` | future CLI; inspeciona descartados |
 
 ### Tela / Interacao tipica
 
 ```
-$ atlas worked-example extract --source=programming_pr --domain=programming
+$ php artisan atlas:worked-example extract --source=programming_pr --domain=programming
 
 Atlas escaneou 47 PRs nos ultimos 90 dias.
 
@@ -184,7 +184,7 @@ Top 3 extraidos:
   3. "Rate limiter por tenant via Redis" -> nó rate-limiting
 
 PERSONAL_WORKED_EXAMPLE_EXTRACTED x12. Inspecione com:
-  atlas worked-example show <id>
+  php artisan atlas:worked-example show <id>
 ```
 
 ## SLO Targets
@@ -235,10 +235,10 @@ php artisan atlas:ai:architecture-validate --json
 3. Quality Filter + Privacy Redactor + Serializer implementados e testados
 4. Ambos os gates executaveis e ligados ao policy compiler
 5. Scheduler semanal default registrado no `bootstrap/app.php`
-6. CLI `atlas worked-example extract` (run/status/schedule/review/personal) operacional
+6. CLI `php artisan atlas:worked-example extract` (run/status/schedule/review/personal) operacional
 7. Integracao com AP-164 funciona: WorkedExampleSelector com `source_preference=personal` retorna exemplos extraidos
 8. Architecture test garante zero leak de PII (`test_personal_worked_examples_never_leak_pii`) verde
 9. Ledger emite todos os 6 events em fluxo end-to-end
 10. SLOs registrados em `KernelSloTargets`
 11. `atlas:ai:architecture-validate --json` continua verde
-12. `cognitive/multiplier-edge.md` marca Capability 8 (Personal Worked Examples Generator) como `implemented`
+12. `cognitive/multiplier-edge.md` marca Capability 8 (Personal Worked Examples Generator) como status exato da taxonomia

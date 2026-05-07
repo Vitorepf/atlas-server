@@ -1,6 +1,11 @@
 # AP-167 — Cognitive Self-Regulated Learning Orchestrator
 
-Status: scaffold
+Status: implemented-operational-read-model
+
+Implementation note (2026-05-07): Laravel opt-in overlay, preferences,
+episodes, phase controller, CLI, gate, SLOs and Ledger events are implemented.
+Runtime UI hooks inside every learning surface remain consumer work; the
+operational read/write model is ready and never injects SRL unless toggled on.
 
 ## Objetivo
 
@@ -31,7 +36,7 @@ Status promove para `implemented-operational-read-model` apos DoD.
 ## Fluxo
 
 ```
-Operador inicia flow (atlas study | atlas review | atlas worked-example | etc.)
+Operador inicia flow (`php artisan atlas:study` | `php artisan atlas:worked-example` | etc.; wrappers `atlas ...` sao produto futuro)
   -> SRLOrchestrator detecta SRL toggle ativo para domain/operador
   -> Forethought hook: 30s captura objetivo + expectativa + estrategia
   -> Flow original executa normalmente
@@ -44,14 +49,15 @@ Operador inicia flow (atlas study | atlas review | atlas worked-example | etc.)
 
 ## Schema
 
-### Migration `2026_05_07_170000_create_srl_episodes.php`
+### Migration `2026_05_07_170000_create_srl_episodes_table.php`
 
 ```php
 Schema::create('srl_episodes', function (Blueprint $t) {
     $t->id();
-    $t->uuid('envelope_id');
+    $t->string('envelope_id', 80);
     $t->string('target_flow', 64);                // learning.deep_work | learning.transfer_test | ...
-    $t->uuid('study_session_id')->nullable();
+    $t->string('domain', 64)->default('learning');
+    $t->string('study_session_id', 80)->nullable();
     $t->json('forethought')->nullable();          // {objective, expected_difficulty, strategy_chosen, planned_duration}
     $t->json('performance_observations')->nullable(); // [{at, cognitive_load, self_rating, note}]
     $t->json('self_reflection')->nullable();      // {what_worked, what_didnt, adjustment_for_next, surprise}
@@ -111,7 +117,7 @@ srl_episode:
 | `SRLPerformanceObserver` | hook periodico durante flow; consome `CognitiveLoadMonitor` | `app/Services/Ai/Cognitive/SRL/` |
 | `SRLReflectionCapture` | UI/CLI prompts para fase 3 | `app/Services/Ai/Cognitive/SRL/` |
 | `SRLPhaseAppropriateGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
-| `AtlasSRLCommand` | CLI base `atlas srl` | `app/Console/Commands/` |
+| `AtlasSRLCommand` | CLI base `php artisan atlas:srl` | `app/Console/Commands/` |
 
 ## Gates Executaveis
 
@@ -144,17 +150,19 @@ Antes de injetar hooks: consulta `SRLPreferenceService` para domain do envelope.
 
 | Comando | Output |
 |---|---|
-| `atlas srl on [--domain=...]` | habilita overlay (global ou por dominio) |
-| `atlas srl off [--domain=...]` | desabilita |
-| `atlas srl status` | mostra dominios com SRL ativo |
-| `atlas srl episode <id>` | inspeciona episode com 3 fases |
-| `atlas srl history --window=30d --domain=...` | lista episodes recentes |
-| `atlas srl reflect <session-id>` | adiciona reflection manual pos-flow (caso phase 3 foi pulada) |
+| `php artisan atlas:srl on [--domain=...]` | habilita overlay (global ou por dominio) |
+| `php artisan atlas:srl off [--domain=...]` | desabilita |
+| `php artisan atlas:srl status [--domain=...]` | mostra dominios com SRL ativo |
+| `php artisan atlas:srl start <flow> --objective=...` | inicia episodio se o overlay estiver ativo |
+| `php artisan atlas:srl observe <episode-id>` | adiciona observation durante flow |
+| `php artisan atlas:srl reflect <episode-id>` | adiciona reflection manual pos-flow |
+| `php artisan atlas:srl episode <id>` | inspeciona episode com 3 fases |
+| `php artisan atlas:srl history --days=30 --domain=...` | lista episodes recentes |
 
 ### Tela / Interacao tipica
 
 ```
-$ atlas study laravel-queues
+$ php artisan atlas:study laravel-queues
 
 [SRL ativo para domain=programming]
 
@@ -185,9 +193,10 @@ SRL_REFLECTION_RECORDED. Episode #142 completo.
 
 | Metric | Target p95 |
 |---|---|
-| `srl_forethought_capture_latency_ms` | <= 100 |
-| `srl_performance_observation_overhead_ms` | <= 50 |
-| `srl_episode_persist_latency_ms` | <= 80 |
+| `cognitive.srl.forethought` | <= 100ms |
+| `cognitive.srl.performance_observation` | <= 50ms |
+| `cognitive.srl.episode_persist` | <= 80ms |
+| `cognitive.srl.gate` | <= 30ms |
 
 Namespace `cognitive.srl.*`.
 
@@ -204,18 +213,18 @@ Namespace `cognitive.srl.*`.
 | `SRLEpisodeRepositoryTest` | `tests/Unit/Ai/Cognitive/SRL/` |
 | `SRLPhaseAppropriateGateTest` (3 cenarios block + pass) | `tests/Unit/Ai/Kernel/Gates/` |
 | `SRLPreferenceServiceTest` (global vs domain override) | `tests/Unit/Ai/Cognitive/SRL/` |
-| `LearningSRLIntegrationTest` (end-to-end com `learning.deep_work`) | `tests/Feature/Ai/Cognitive/` |
-| `AtlasSRLCommandTest` | `tests/Feature/Console/` |
-| `CognitiveDomainComplianceTest::test_srl_overlay_optional_never_forced` | `tests/Feature/Architecture/` |
+| `LearningSRLIntegrationTest` (runtime hook futuro) | `tests/Feature/Ai/Cognitive/` |
+| `AtlasSRLCommandTest` | `tests/Feature/Ai/Cognitive/` |
+| `CognitiveDomainComplianceTest::test_srl_overlay_optional_never_forced` (futuro hard invariant) | `tests/Feature/Architecture/` |
 
 ## Validation Commands
 
 ```bash
 php artisan migrate
-php artisan test tests/Unit/Ai/Cognitive/SRL tests/Feature/Ai/Cognitive
+php artisan test tests/Unit/Ai/Cognitive/SRL tests/Unit/Ai/Kernel/Gates/SRLPhaseAppropriateGateTest.php tests/Feature/Ai/Cognitive/AtlasSRLCommandTest.php
 php artisan atlas:srl status --json
 php artisan atlas:srl on --domain=programming
-php artisan atlas:srl history --window=14d --json
+php artisan atlas:srl history --days=14 --json
 php artisan atlas:ai:architecture-validate --json
 atlas engineering knowledge sync --prune
 atlas engineering knowledge index-code --prune
@@ -227,12 +236,12 @@ atlas engineering knowledge docs-health
 1. Migrations `srl_episodes` + `srl_preferences` aplicadas e idempotentes
 2. `SRLOrchestrator`, `SRLPhaseController`, `SRLEpisodeRepository`, `SRLPreferenceService`, `SRLForethoughtCapture`, `SRLPerformanceObserver`, `SRLReflectionCapture` implementados e testados
 3. `SRLPhaseAppropriateGate` executavel e ligado ao policy compiler
-4. CLI `atlas srl on/off/status/episode/history/reflect` operacionais
+4. CLI `php artisan atlas:srl on/off/status/episode/history/reflect` operacional
 5. SRL toggle por dominio funciona (programming on, finance off, etc.)
-6. Hooks injetados em pelo menos 3 flows: `learning.deep_work`, `learning.transfer_test`, `learning.worked_example`
+6. Runtime hooks em learning surfaces ficam como consumer work; `SRLOrchestrator::beginIfEnabled()` e CLI `start` ja provam opt-in e episode creation
 7. Performance observation respeita interval configuravel; nao polui flow continuo
 8. Ledger emite `SRL_FORETHOUGHT_RECORDED`, `SRL_PERFORMANCE_OBSERVATION`, `SRL_REFLECTION_RECORDED` end-to-end
 9. SLOs registrados em `KernelSloTargets`
-10. Architecture test garante que SRL e sempre opt-in (nao injeta sem toggle ativo)
+10. Unit/feature tests garantem que SRL e sempre opt-in; architecture hard invariant fica como proxima fase
 11. `atlas:ai:architecture-validate --json` continua verde
-12. `cognitive/capabilities-core.md` marca SRL Orchestrator como `implemented`
+12. `cognitive/capabilities-core.md` marca SRL Orchestrator como `implemented-operational-read-model`

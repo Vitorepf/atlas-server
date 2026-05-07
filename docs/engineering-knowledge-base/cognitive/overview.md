@@ -31,6 +31,7 @@ maintenance:
   - Manter abaixo de 260 linhas (contrato canonico Doc-OS).
   - Atualizar quando tese, pilares, movimentos ou autoridade mudarem.
 related_paths:
+  - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
   - docs/engineering-knowledge-base/cognitive/README.md
   - docs/engineering-knowledge-base/cognitive/principles.md
   - docs/engineering-knowledge-base/cognitive/capabilities-core.md
@@ -50,7 +51,7 @@ Visao executiva. Detalhes operacionais nas specs irmas.
 
 ## Scope
 
-Sub-arquitetura especializada do Atlas AI responsavel por gerenciar trajetoria cognitiva completa do operador como **canal unico**: o que estudar, quando, como consolidar, como provar maestria, como antecipar a proxima area. Nao substitui o `learning` domain (implemented/ready com 4 flows base); expande-o.
+Sub-arquitetura especializada do Atlas AI responsavel por gerenciar trajetoria cognitiva completa do operador como **canal unico**: o que estudar, quando, como consolidar, como provar maestria, como antecipar a proxima area. Nao substitui o `learning` domain; expande-o com flows versionados e status governado por AP.
 
 ## Authority
 
@@ -60,7 +61,7 @@ Em conflito, ordem vence:
 2. Kernel (Layer 1) — contratos executaveis
 3. Master (Layer 2) — produto e planes
 4. Esta pasta `cognitive/` — design cognitivo
-5. AP correspondente em `docs/ap/AP-COG-*.md` — detalhe executavel
+5. AP correspondente em `docs/ap/AP-###-cognitive-*.md` — detalhe executavel
 6. `domains/learning.md` — semantica de domain
 
 ## A Tese Cognitiva
@@ -139,12 +140,18 @@ DECLARAR -> GERAR ERRO -> PRATICAR -> PROVAR -> REVISAR
 | Movimento | O que o operador faz | O que o Atlas faz | Fundamento |
 |---|---|---|---|
 | Declarar | "Quero dominar X em N meses" | Pareto curve discovery + curriculum | First Principles + objetivos SMART |
-| Gerar Erro | tenta resolver antes de aprender; falha intencional | apresenta problema cru pre-teoria | Generation Effect + Active Inference (Friston) |
+| Gerar Erro | faz previsao/hipotese antes de aprender | apresenta problema cru pre-teoria e captura `operator_prediction` | Generation Effect + Productive Failure |
 | Praticar | bloco focado em zona 80/20 + microsessoes intercaladas | escolhe nó proximo da fronteira; mistura dominios | Pratica Deliberada (Ericsson) + Desirable Difficulty (Bjork) + Interleaving |
 | Provar | Feynman em voz, caso real, artefato deployavel | scoreia clareza, marca lacuna, exige `transfer_proof` | Feynman + Construcionismo (Papert) + Transferencia Analogica |
 | Revisar | responde fila SRS do dia; aceita pausa difusa | calcula proxima revisao por nó (FSRS); propoe DMN/NSDR | FSRS + Spacing (Bjork) + DMN + NSDR |
 
-A inversao **"Gerar Erro" antes de "Praticar"** e a aplicacao direta do Generation Effect: tentar resolver antes de aprender ativa redes neurais que aceleram retencao quando a resposta correta chega.
+A inversao **"Gerar Erro" antes de "Praticar"** e a aplicacao pratica do erro preditivo calibrado: o operador registra uma hipotese, o Atlas revela a realidade validada, compara a divergencia e transforma a diferenca em atualizacao de modelo mental.
+
+```text
+previsao do operador -> realidade validada -> divergencia -> principio extraido -> transfer_test
+```
+
+Essa etapa nao e frustracao artificial. O problema precisa estar perto da fronteira real de habilidade (`dreyfus_stage`), com carga cognitiva aceitavel e com comparacao posterior obrigatoria. Sem comparacao e transferencia, "errar" vira ruido.
 
 ## Encaixe nos Layers Atlas
 
@@ -156,7 +163,7 @@ A inversao **"Gerar Erro" antes de "Praticar"** e a aplicacao direta do Generati
 | 1.5 Runtime Boundaries | Python AI/Data ganha papel cognitivo (SRS, NLP, Knowledge Graph) | Laravel decide; Python executa sob receipt |
 | 2 Master | Cognitive Plane vira vista sub-arquitetural sobre Domain Plane | os 7 planes |
 | 3 Topology | pipeline tem hooks cognitivos por etapa | as 17 etapas |
-| 4 Domains | `learning` expande para 18 flows; `personal_development.cognitive_load_review` reforcado; `self_improvement.cognitive_review` adicionado | Programming, Finance, etc. |
+| 4 Domains | `learning` expande para catalogo cognitivo versionado (22 flows implementados/planejados; status real vem do AP); `personal_development.cognitive_load_review` reforcado; `self_improvement.cognitive_review` adicionado | Programming, Finance, etc. |
 
 ## Cognitive Plane vs Domain Plane
 
@@ -181,6 +188,6 @@ Toda decisao no Cognitive Plane e auditada contra a pergunta-norte. Sem desvios.
 
 ## Continuidade
 
-- Detalhes operacionais nas 6 specs irmas (`README.md` desta pasta)
-- Detalhes executaveis nos APs em `docs/ap/AP-COG-*.md`
+- Detalhes operacionais nas specs irmas (`README.md` desta pasta)
+- Detalhes executaveis nos APs em `docs/ap/AP-###-cognitive-*.md`
 - Implementacao por fase conforme `roadmap.md` — Dreyfus first

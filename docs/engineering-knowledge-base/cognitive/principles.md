@@ -5,7 +5,7 @@ title: Atlas AI Cognitive Plane - Principles, Evidence Hierarchy, External Input
 status: scaffold
 category: architecture-governance
 priority: 95
-summary: 19 principios duros do Cognitive Plane (C1-C19) com fundamento cientifico, hierarquia de evidencia (consensus/emerging/contested/speculative) como gate de capability, filtro critico para contribuicoes de IA externa em 6 perguntas + 7 veredictos, anti-patterns transversais.
+summary: 22 principios duros do Cognitive Plane (C1-C22) com fundamento cientifico, hierarquia de evidencia (consensus/emerging/contested/speculative) como gate de capability, filtro critico para contribuicoes de IA externa em 6 perguntas + 7 veredictos, anti-patterns transversais.
 tags:
   - atlas-ai
   - cognitive
@@ -18,7 +18,7 @@ capabilities:
   - evidence_level_classifier
   - external_input_critical_filter
 decisions:
-  - 19 principios duros (C1-C19) governam toda decisao no Cognitive Plane; conflito entre principios e Tese central, Tese vence.
+  - 22 principios duros (C1-C22) governam toda decisao no Cognitive Plane; conflito entre principios e Tese central, Tese vence.
   - Toda capability cognitiva carrega `evidence_level` (consensus/emerging/contested/speculative); contested/speculative nao vira default sem Rivals validation.
   - Toda contribuicao de IA externa (Gemini, ChatGPT, livro, curso, guru) atravessa filtro de 6 perguntas e recebe 1 de 7 veredictos.
   - Texto de produto proibido prometer ganho cognitivo sem AP-99 longitudinal (C15).
@@ -42,9 +42,9 @@ Governanca dura do Cognitive Plane.
 
 ## Authority
 
-Em conflito: Tese central (Layer -1) > principios duros do Atlas (14) > principios cognitivos (19, este doc) > anti-patterns.
+Em conflito: Tese central (Layer -1) > principios duros do Atlas (14) > principios cognitivos (22, este doc) > anti-patterns.
 
-## Os 19 Principios Duros (C1-C19)
+## Os 22 Principios Duros (C1-C22)
 
 | # | Principio | Fundamento |
 |---|---|---|
@@ -61,7 +61,7 @@ Em conflito: Tese central (Layer -1) > principios duros do Atlas (14) > principi
 | C11 | IA externa e fonte ou proposta, nunca contrato direto. Filtro critico (secao abaixo). | Tese + governanca |
 | C12 | Compressao temporal e mensuravel. Sem Rivals-Learning, Cognitive Plane vira filosofia. | Rivals analogo |
 | C13 | Latencia do Atlas e funcao vital, nao UX. Lag cognitivo equivale a lapso de memoria; SLOs tem peso constitucional. | Mente Estendida (Clark/Chalmers) |
-| C14 | Sem erro preditivo nao ha aprendizado real. Estudar o que ja faz sentido nao gera neuroplasticidade. | Active Inference (Friston) + Desirable Difficulty (Bjork) |
+| C14 | Aprendizado profundo exige **erro preditivo calibrado**: o operador tenta prever/solver antes da resposta, compara com a realidade e atualiza o modelo mental. Dificuldade deve ser desejavel, nao frustracao aleatoria. | Generation Effect + Productive Failure + Active Inference como lente |
 | C15 | Honestidade cientifica e gate de capability. Toda capability carrega `evidence_level`. Contested/speculative nao vira default sem Rivals. Sem promessas "+X%" sem AP-99. | governanca cientifica |
 | C16 | Maestria gera artefato, nao resumo. `transfer_proof` exige output deployavel/publico/testavel. | Construcionismo |
 | C17 | Atlas e Red Team, nao Yes Man. Em decisoes, Atlas tenta quebrar logica e aponta vies. | Kahneman; agent_behavior_contract |
@@ -72,6 +72,34 @@ Em conflito: Tese central (Layer -1) > principios duros do Atlas (14) > principi
 | C22 | **Padroes humanos sao reusaveis como Design Patterns GoF.** Decisao/processo/comunicacao/recuperacao de falha tem padroes nomeados, com contexto, problema, solucao, evidencia pessoal e anti-patterns. Process Pattern Catalog e Latticework de Munger formalizado. | GoF Design Patterns + Munger Latticework |
 
 E heranca Atlas (14 principios duros): Surface nao decide o que estudar, Provider nao escolhe currículo, Tool nao promove mastery, Domain `learning` nao muta calendario, Self-Improvement nao auto-matricula, Tudo repetido vira Core.
+
+## C14 — Erro Preditivo Calibrado
+
+**Definicao:** erro preditivo e a diferenca entre o modelo mental atual do operador ("eu acho que a causa/solucao e X") e a realidade validada depois ("a causa/solucao era Y"). O Atlas usa essa diferenca como motor pedagogico.
+
+Nao e "fazer o operador errar por errar". E um ciclo controlado:
+
+```text
+prever / tentar -> revelar realidade -> comparar divergencia -> extrair principio -> transferir
+```
+
+### Contrato operacional
+
+| Campo | Obrigatorio |
+|---|---|
+| `prediction_prompt` | problema cru antes da teoria |
+| `operator_prediction` | hipotese, tentativa ou solucao inicial |
+| `validated_reality` | resposta canonica, worked example, teste ou evidencia real |
+| `prediction_error_delta` | o que divergiu entre previsao e realidade |
+| `model_update` | principio novo que corrige o modelo mental |
+| `transfer_probe` | caso futuro para provar que a correcao transferiu |
+
+### Guardrails
+
+- O problema deve ser calibrado por `dreyfus_stage`, carga cognitiva e contexto; muito facil gera tedio, muito dificil gera ruido.
+- C14 nunca autoriza humilhacao, overload, clickbait ou "hard mode" permanente.
+- Frases absolutas como "sem erro nao ha aprendizado" devem ser lidas como regra de design, nao como tese biologica literal.
+- Medidas de ganho exigem AP-99/Rivals-Learning; sem isso, usar linguagem: "pode aumentar retencao", "evidencia sugere", "experimento".
 
 ## Hierarquia de Evidencia Cientifica (gate de capability)
 
@@ -113,7 +141,7 @@ Esta secao e cardinal. O Atlas e canal unico. Toda contribuicao externa (Gemini,
 | Nao conhece o pipeline canonico de 17 etapas | propoe atalhos que pulam Decision Receipt |
 | Nao conhece anti-duplicacao Core vs Domain | mistura capability horizontal com domain |
 | Nao conhece runtime boundaries | sugere "build proprio" onde existe Core |
-| Nao conhece os 14 principios duros + 19 cognitivos | recomenda violacao silenciosa |
+| Nao conhece os 14 principios duros + 22 cognitivos | recomenda violacao silenciosa |
 | Conhece estado-da-arte academico | util como insumo, nunca como contrato |
 | Nao tem Evidence do operador | sugere generico, nao calibrado |
 
@@ -123,7 +151,7 @@ Toda contribuicao externa entra como `external_input_proposal` e atravessa:
 
 1. Multiplica output cognitivo do operador, ou compete com o canal Atlas?
 2. Cria capability horizontal (Core), domain (Domain) ou produto paralelo (descartar)?
-3. Viola algum dos 14 principios duros do Atlas ou os 19 cognitivos?
+3. Viola algum dos 14 principios duros do Atlas ou os 22 cognitivos?
 4. Pode ser absorvida como **fonte/insumo** dentro do pipeline canonico?
 5. Existe AP-99 ou Evidence que confirme ganho, ou e opiniao?
 6. Reduz o ciclo de maestria, ou apenas reorganiza-o?
@@ -174,4 +202,4 @@ Toda contribuicao externa entra como `external_input_proposal` e atravessa:
 
 ## Continuidade
 
-Capabilities cognitivas concretas em `capabilities-core.md` e `multiplier-edge.md`. Implementacao executavel em `docs/ap/AP-COG-*.md`.
+Capabilities cognitivas concretas em `capabilities-core.md` e `multiplier-edge.md`. Implementacao executavel em `docs/ap/AP-###-cognitive-*.md`; briefing operacional em `implementation-briefing.md`.

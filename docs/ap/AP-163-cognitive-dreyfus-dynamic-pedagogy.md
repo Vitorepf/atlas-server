@@ -6,7 +6,7 @@ Status: implemented-operational-read-model
 
 Implementar a **primeira capability cardinal** do Cognitive Multiplier Edge: pedagogia dinamica baseada em Dreyfus Stage Theory. Atlas detecta nivel real do operador por nó do Knowledge Graph (1=novato a 5=master) via evidencia auditavel cruzada de `programming`, `finance`, `learning` ledgers — e adapta apresentacao de conteudo, gates e flows do `learning` automaticamente.
 
-Resultado: `atlas study laravel-queues` opera em modo expert; `atlas study agricultura-soja` opera em modo novato. Mesma sessao pode mudar pedagogia conforme nó visitado.
+Resultado: `php artisan atlas:study laravel-queues` opera em modo expert; `php artisan atlas:study agricultura-soja` opera em modo novato. Mesma sessao pode mudar pedagogia conforme nó visitado.
 
 ## Nao Objetivo
 
@@ -27,7 +27,7 @@ Este AP nasce em scaffold; promove para `implemented-operational-read-model` som
 ## Fluxo
 
 ```
-Atlas Input (atlas study <topic>)
+Atlas Input (`php artisan atlas:study <topic>`)
   -> Surface Adapter canoniza (atlas_cli_study)
   -> Operation Envelope (input_kind=cognitive, dreyfus_stage_target)
   -> Intent / Routing (learning.deep_work | learning.daily_plan)
@@ -118,7 +118,7 @@ cognitive_decision:
 | `DreyfusPedagogyPromptBuilder` | constroi contrato de prompt modulado por nivel (regras explicitas vs caso ambiguo) | `app/Services/Ai/Cognitive/Dreyfus/` |
 | `PedagogyMatchesStageGate` | gate que valida policy carrega `dreyfus_stage_resolved` antes de invocar provider | `app/Services/Ai/Kernel/Gates/` |
 | `DreyfusReceiptExtensionContract` | injeta `cognitive_decision` no Decision Receipt v2 | `app/Services/Ai/Kernel/Decision/` |
-| `AtlasDreyfusCommand` | CLI `atlas dreyfus <node>` para inspecao | `app/Console/Commands/` |
+| `AtlasDreyfusCommand` | CLI `php artisan atlas:dreyfus <node>` para inspecao | `app/Console/Commands/` |
 | `AtlasDreyfusCommand --dispute/--resolve-dispute` | abre e resolve contestacao auditavel sem salvar motivo cru | `app/Console/Commands/` |
 
 ## Gates Executaveis
@@ -155,16 +155,16 @@ Knowledge Graph privacy class >=3 (sensitive) nunca enviado cru para provider ex
 
 | Comando | Flow | Output |
 |---|---|---|
-| `atlas study <topic>` | `learning.deep_work` | conteudo modulado por nivel detectado |
-| `atlas dreyfus <node>` | (inspecao) | overlay completo: nivel, confianca, evidencia, proxima validacao |
-| `atlas dreyfus <node> --dispute="..."` | (contestacao) | abre proposta para Curator com hash/tamanho do motivo |
-| `atlas dreyfus <node> --resolve-dispute="..."` | (contestacao) | registra resolucao auditavel da disputa |
-| `atlas dreyfus all --json` | (inspecao agregada) | tabela: dominio, nó, nivel, confianca, ultima validacao |
+| `php artisan atlas:study <topic>` | `learning.deep_work` | conteudo modulado por nivel detectado |
+| `php artisan atlas:dreyfus <node>` | (inspecao) | overlay completo: nivel, confianca, evidencia, proxima validacao |
+| `php artisan atlas:dreyfus <node> --dispute="..."` | (contestacao) | abre proposta para Curator com hash/tamanho do motivo |
+| `php artisan atlas:dreyfus <node> --resolve-dispute="..."` | (contestacao) | registra resolucao auditavel da disputa |
+| `php artisan atlas:dreyfus all --json` | (inspecao agregada) | tabela: dominio, nó, nivel, confianca, ultima validacao |
 
 ### Tela / Interacao tipica (CLI modo expert)
 
 ```
-$ atlas study laravel-queues
+$ php artisan atlas:study laravel-queues
 
 Atlas detected:
   domain        = programming
@@ -190,7 +190,7 @@ Cenario:
 ### Tela / Interacao tipica (CLI modo novato)
 
 ```
-$ atlas study agricultura-soja
+$ php artisan atlas:study agricultura-soja
 
 Atlas detected:
   domain        = learning
@@ -263,11 +263,11 @@ atlas engineering knowledge docs-health
 2. `DreyfusOverlayRepository`, `DreyfusEvidenceAggregator`, `DreyfusPedagogyResolver` implementados e testados
 3. `PedagogyMatchesStageGate` executavel e ligado ao policy compiler
 4. Decision Receipt v2 carrega `cognitive_decision.dreyfus_stage_resolved` quando `input_kind=cognitive`
-5. CLI `atlas dreyfus <node>`, `atlas dreyfus all --json`, `atlas dreyfus <node> --dispute`, `atlas dreyfus <node> --resolve-dispute` operacionais
-6. `atlas study <topic>` modula output em pelo menos 2 modos (novato e expert) com testes verificando contraste
+5. CLI `php artisan atlas:dreyfus <node>`, `php artisan atlas:dreyfus all --json`, `php artisan atlas:dreyfus <node> --dispute`, `php artisan atlas:dreyfus <node> --resolve-dispute` operacionais
+6. `php artisan atlas:study <topic>` modula output em pelo menos 2 modos (novato e expert) com testes verificando contraste
 7. Ledger emite os 4 events declarados em pelo menos 1 fluxo end-to-end
 8. SLOs registrados em `KernelSloTargets`; valores observados em `atlas:ai:slo --domain=cognitive --json`
 9. `atlas:ai:architecture-validate --json` continua verde
-10. `cognitive/multiplier-edge.md` atualizado com `status: implemented` para Capability 1; AP marcado `implemented-operational-read-model`
+10. `cognitive/multiplier-edge.md` atualizado com `implemented-operational-read-model` para Capability 1; AP marcado `implemented-operational-read-model`
 11. Tests cobrem: 5 niveis x 3 flows, dispute open/resolve, gate block/pass, evidence aggregation com ledger fake
 12. Documentacao da capability em `cognitive/multiplier-edge.md` aponta para este AP

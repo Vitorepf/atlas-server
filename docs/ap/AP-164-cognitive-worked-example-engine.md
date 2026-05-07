@@ -8,13 +8,13 @@ Implementar capability Core que apresenta **solucao completa de processo/decisao
 
 Eixo operacional: alta performance em construir e otimizar processos (referencia Tim Cook). Cardinal para `learning.process_engineering`, `learning.operational_excellence`, programming, finance, strategic_decision.
 
-E base para o **Personal Worked Examples Generator** (AP-COG-EDGE-08, futuro) — capability cardinal Multiplier Edge que consome esta engine usando material proprio do operador.
+E base para o **Personal Worked Examples Generator** (AP-169, scaffold) — capability cardinal Multiplier Edge que consome esta engine usando material proprio do operador.
 
 ## Nao Objetivo
 
 Nao implementar:
 
-- Personal Worked Examples Generator (AP-COG-EDGE-08; consome esta engine)
+- Personal Worked Examples Generator (AP-169; consome esta engine)
 - Auto-geracao de exemplos por LLM sem fonte canonica ou ledger pessoal
 - Substituicao do `learning.deep_work` (este flow e novo, nao substituto)
 - Promover exemplo gerado a memoria canonica sem review humano
@@ -29,7 +29,7 @@ Status promove para `implemented-operational-read-model` apos DoD.
 ## Fluxo
 
 ```
-Atlas Input (atlas worked-example <topic> | learning.deep_work com stage<=3)
+Atlas Input (`php artisan atlas:worked-example <topic>` | learning.deep_work com stage<=3)
   -> Surface Adapter canoniza
   -> Operation Envelope (input_kind=cognitive)
   -> Domain / Profile / Flow (learning.worked_example)
@@ -104,7 +104,7 @@ cognitive_payload:
 | `ProcessFadingScheduler` | calcula `fading_level` a partir de dreyfus_overlay; aplica `fading_levels` map para esconder/mostrar etapas | `app/Services/Ai/Cognitive/WorkedExample/` |
 | `WorkedExampleRenderer` | formata output por nivel (novato: completo + raciocinio; competente: 2-3 etapas faltando; proficiente: so problema+solucao final; expert: so problema) | `app/Services/Ai/Cognitive/WorkedExample/` |
 | `LearningWorkedExampleFlow` | orchestrator do flow `learning.worked_example` | `app/Services/Ai/Domain/` |
-| `WorkedExampleAuthorService` | operador autora exemplo manual (CLI `atlas worked-example author`) | `app/Services/Ai/Cognitive/WorkedExample/` |
+| `WorkedExampleAuthorService` | operador autora exemplo manual (CLI `php artisan atlas:worked-example author`) | `app/Services/Ai/Cognitive/WorkedExample/` |
 | `WorkedExampleAppropriateForStageGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
 | `AtlasWorkedExampleCommand` | CLI `atlas:worked-example` para deliver/list/show/author | `app/Console/Commands/` |
 
@@ -147,7 +147,7 @@ Bloqueia envio para provider externo se `source=personal_ledger` e `author_evide
 ### Tela / Interacao tipica (modo competente — fading parcial)
 
 ```
-$ atlas worked-example pull-request-review
+$ php artisan atlas:worked-example pull-request-review
 
 Atlas detected:
   domain        = programming + operations
@@ -229,5 +229,5 @@ atlas engineering knowledge docs-health
 8. Ledger emite `WORKED_EXAMPLE_DELIVERED` em pelo menos 1 fluxo end-to-end
 9. SLOs registrados em `KernelSloTargets`
 10. `atlas:ai:architecture-validate --json` continua verde
-11. `cognitive/capabilities-core.md` atualizado com `status: implemented` para Worked Example Engine
-12. AP-COG-EDGE-08 (Personal Worked Examples Generator) pode consumir esta engine sem refactor
+11. `cognitive/capabilities-core.md` atualizado com `implemented-operational-read-model` para Worked Example Engine
+12. AP-169 (Personal Worked Examples Generator) pode consumir esta engine sem refactor

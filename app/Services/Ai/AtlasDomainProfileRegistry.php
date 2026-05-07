@@ -1053,6 +1053,9 @@ class AtlasDomainProfileRegistry
             'learning.review' => $this->learningFlow('learning.review', 'Review', 'LearningReviewRuntime', 'low', ['outcome_evidence', 'gap_map', 'next_iteration']),
             'learning.spaced_review' => $this->learningFlow('learning.spaced_review', 'Spaced Review', 'LearningSpacedReviewRuntime', 'low', ['spaced_review', 'retrieval_practice', 'forgetting_risk']),
             'learning.worked_example' => $this->learningFlow('learning.worked_example', 'Worked Example', 'LearningWorkedExampleRuntime', 'medium', ['worked_example_appropriate_for_stage', 'pedagogy_matches_stage', 'mastery_rubric']),
+            'learning.pattern_extraction' => $this->learningFlow('learning.pattern_extraction', 'Pattern Extraction', 'LearningPatternExtractionRuntime', 'low', ['pattern_structure_complete', 'pattern_personal_evidence_provider_safe']),
+            'learning.process_optimization' => $this->learningFlow('learning.process_optimization', 'Process Optimization', 'LearningProcessOptimizationRuntime', 'medium', ['pattern_structure_complete', 'outcome_evidence']),
+            'learning.failure_review' => $this->learningFlow('learning.failure_review', 'Failure Review', 'LearningFailureReviewRuntime', 'low', ['failure_signature_classified', 'failure_signature_provider_safety', 'outcome_evidence']),
         ];
     }
 
@@ -1744,6 +1747,7 @@ class AtlasDomainProfileRegistry
             ['self_improvement.provider_performance_review', 'Provider Performance Review', 'provider_performance_runtime', 'Provider and model performance review over failures, routing decisions, benchmark outcomes, and cost signals.'],
             ['self_improvement.agent_behavior_review', 'Agent Behavior Review', 'agent_behavior_review_runtime', 'Dedicated agent behavior review over verification gaps, unsurgical diffs, instruction drift, repeated finding codes, and provider/model clusters.'],
             ['self_improvement.voice_realtime_review', 'Voice Realtime Review', 'voice_realtime_review_runtime', 'Dedicated Voice Realtime review over readiness, runtime certification, Rivals-Voice baseline, VOICE_* evidence, and privacy gates.'],
+            ['self_improvement.failure_pattern_review', 'Failure Pattern Review', 'failure_pattern_review_runtime', 'Dedicated failure signature review over recurrence, diversity index, stagnant repeated failures, and reviewable improvement proposals.'],
             ['self_improvement.proposal_generation', 'Proposal Generation', 'proposal_generation_runtime', 'Final proposal synthesis flow that emits bounded, reviewable improvement proposals linked to evidence.'],
         ];
 

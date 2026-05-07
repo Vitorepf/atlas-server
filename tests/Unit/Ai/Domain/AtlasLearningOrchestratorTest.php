@@ -14,7 +14,7 @@ class AtlasLearningOrchestratorTest extends TestCase
         $this->assertSame('AtlasLearningOrchestrator', $orchestrator->orchestratorId());
         $this->assertSame(['learning'], $orchestrator->supportedDomains());
         $this->assertSame('implemented', $orchestrator->maturity());
-        $this->assertSame(['learning.plan', 'learning.practice', 'learning.review', 'learning.spaced_review', 'learning.worked_example'], $orchestrator->supportedFlows());
+        $this->assertSame(['learning.plan', 'learning.practice', 'learning.review', 'learning.spaced_review', 'learning.worked_example', 'learning.pattern_extraction', 'learning.process_optimization', 'learning.failure_review'], $orchestrator->supportedFlows());
 
         $plan = $orchestrator->plan('learning.practice', [
             'objective' => 'Treinar arquitetura do Atlas por exercicios.',

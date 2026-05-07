@@ -22,7 +22,7 @@ class AtlasLearningOrchestrator implements AtlasDomainOrchestrator
 
     public function supportedFlows(): array
     {
-        return ['learning.plan', 'learning.practice', 'learning.review', 'learning.spaced_review', 'learning.worked_example'];
+        return ['learning.plan', 'learning.practice', 'learning.review', 'learning.spaced_review', 'learning.worked_example', 'learning.pattern_extraction', 'learning.process_optimization', 'learning.failure_review'];
     }
 
     public function maturity(): string

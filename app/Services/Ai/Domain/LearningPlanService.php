@@ -287,6 +287,7 @@ class LearningPlanService
             'learning.review' => 'learning_review',
             'learning.spaced_review' => 'spaced_review_plan',
             'learning.worked_example' => 'worked_example_plan',
+            'learning.failure_review' => 'failure_review_plan',
             default => 'learning_plan',
         };
     }
@@ -301,6 +302,7 @@ class LearningPlanService
             'learning.review' => ['evidence_review' => true, 'gap_map' => true, 'next_iteration' => true],
             'learning.spaced_review' => ['review_schedule_proposal' => true, 'retrieval_prompts' => true, 'forgetting_risk' => true],
             'learning.worked_example' => ['worked_example' => true, 'fading_schedule' => true, 'operator_fill_hidden_steps' => true],
+            'learning.failure_review' => ['failure_signature_review' => true, 'diversity_index' => true, 'repetition_alerts' => true],
             default => ['learning_path' => true, 'practice_plan' => true, 'mastery_rubric' => true],
         };
     }

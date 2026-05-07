@@ -5,7 +5,7 @@ title: Atlas AI Cognitive Plane - Pipeline Overlay
 status: scaffold
 category: architecture
 priority: 94
-summary: Overlay cognitivo sobre o pipeline canonico de 17 etapas. Flows do `learning` v2 (de 4 para 18), hooks por etapa, memory artifacts (Knowledge Graph + 8 memory types), Evidence Ledger events cognitivos, surfaces educacionais (CLI/App/Mobile/Voice/StackChan/Constelacao), loops temporais.
+summary: Overlay cognitivo sobre o pipeline canonico de 17 etapas. Catalogo de flows do `learning` v2 (22 implementados/planejados), hooks por etapa, memory artifacts, Evidence Ledger events cognitivos, surfaces educacionais (CLI/App/Mobile/Voice/StackChan/Constelacao), loops temporais.
 tags:
   - atlas-ai
   - cognitive
@@ -23,7 +23,7 @@ capabilities:
   - cognitive_surfaces
 decisions:
   - Mesmo pipeline canonico de 17 etapas; cada etapa ganha hook cognitivo aditivo. Etapas inalteradas.
-  - Domain `learning` expande de 4 flows base para 18.
+  - Domain `learning` expande de 4 flows base para catalogo versionado; AP status e fonte de verdade.
   - Knowledge Graph e projection do Memory Core, recomputavel; verdade vive em Memory Registry + Verbatim Store.
   - Curriculum e artefato persistente revisavel.
   - Surfaces canonicas (CLI/App/Mobile/Voice/StackChan/Constelacao) - sem produto paralelo.
@@ -32,6 +32,7 @@ maintenance:
   - Manter abaixo de 260 linhas.
   - Atualizar quando flow novo entrar, ledger event mudar schema, ou surface ganhar capability cognitiva.
 related_paths:
+  - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
   - docs/engineering-knowledge-base/cognitive/README.md
   - docs/engineering-knowledge-base/cognitive/overview.md
   - docs/engineering-knowledge-base/cognitive/capabilities-core.md
@@ -51,32 +52,36 @@ Overlay cognitivo sobre o pipeline canonico. Mesmas 17 etapas; hooks aditivos.
 
 Em conflito: `atlas-ai-pipeline.md` (Layer 3, pipeline canonico) > `atlas-ai-flow-visual-map.md` > este doc > `domains/learning.md`.
 
-## Domain `learning` v2 — 18 flows
+## Domain `learning` v2 — catalogo de flows
 
-| Flow | Cadencia | Output |
-|---|---|---|
-| `learning.objective_design` | sob demanda | objetivo + criterio + horizonte |
-| `learning.curriculum_design` | sob demanda | trilha do cume com pre-requisitos |
-| `learning.predictive_curriculum` | semanal (Curator) | propostas antecipativas |
-| `learning.daily_plan` | diario | bloco do dia: prioridade, modo, duracao |
-| `learning.deep_work` | sob demanda | sessao longa com gates de saida |
-| `learning.micro_session` | sob demanda | 5-15min em vao do dia |
-| `learning.active_recall` | dentro de sessao | perguntas tipadas |
-| `learning.feynman_explain` | sob demanda | explicacao + scoring |
-| `learning.case_study` | sob demanda | caso real do dominio |
-| `learning.game_session` | sob demanda | desafio gamificado |
-| `learning.spaced_review` | diario | fila SRS (FSRS) |
-| `learning.consolidation` | pos-sessao | sintese para Knowledge Graph |
-| `learning.gap_detection` | semanal (Curator) | lacunas vs. objetivo |
-| `learning.transfer_test` | quinzenal | aplicacao em contexto novo |
-| `learning.mastery_review` | mensal | rubrica formal |
-| `learning.knowledge_graph_review` | quinzenal | analise do grafo |
-| `learning.forgetting_review` | mensal | descontinuacao auditada |
-| `learning.forge` | sob demanda + approval | sessao multi-flow pesada com Harness |
-| `learning.worked_example` | sob demanda + automatico em deep_work | exemplo trabalhado com fading conforme dreyfus_stage; eixo operacional |
-| `learning.process_optimization` | sob demanda | flow especifico para alta performance operacional (eixo Tim Cook): otimiza processo declarado pelo operador |
-| `learning.pattern_extraction` | semanal (Curator) | varre ledger; propoe padroes humanos emergentes para Process Pattern Catalog |
-| `learning.failure_review` | semanal | revisa `failure_signature` da semana; alerta repeticao; valida diversificacao |
+AP status e fonte de verdade. Um flow listado aqui pode estar `implemented-operational-read-model`, `implemented-runtime` ou `scaffold`.
+
+| Flow | Cadencia | Maturidade | Output |
+|---|---|---|---|
+| `learning.objective_design` | sob demanda | base | objetivo + criterio + horizonte |
+| `learning.curriculum_design` | sob demanda | base | trilha do cume com pre-requisitos |
+| `learning.predictive_curriculum` | semanal (Curator) | scaffold | propostas antecipativas |
+| `learning.daily_plan` | diario | base | bloco do dia: prioridade, modo, duracao |
+| `learning.deep_work` | sob demanda | base | sessao longa com gates de saida |
+| `learning.micro_session` | sob demanda | base | 5-15min em vao do dia |
+| `learning.active_recall` | dentro de sessao | scaffold | perguntas tipadas |
+| `learning.feynman_explain` | sob demanda | scaffold | explicacao + scoring |
+| `learning.case_study` | sob demanda | scaffold | caso real do dominio |
+| `learning.game_session` | sob demanda | scaffold | desafio gamificado |
+| `learning.spaced_review` | diario | scaffold | fila SRS (FSRS) |
+| `learning.consolidation` | pos-sessao | scaffold | sintese para Knowledge Graph |
+| `learning.gap_detection` | semanal (Curator) | base | lacunas vs. objetivo |
+| `learning.transfer_test` | quinzenal | scaffold | aplicacao em contexto novo |
+| `learning.mastery_review` | mensal | scaffold | rubrica formal |
+| `learning.knowledge_graph_review` | quinzenal | scaffold | analise do grafo |
+| `learning.forgetting_review` | mensal | scaffold | descontinuacao auditada |
+| `learning.forge` | sob demanda + approval | scaffold | sessao multi-flow pesada com Harness |
+| `learning.worked_example` | sob demanda + automatico em deep_work | AP-164 read-model | exemplo trabalhado com fading conforme dreyfus_stage; eixo operacional |
+| `learning.process_optimization` | sob demanda | scaffold | flow especifico para alta performance operacional (eixo Tim Cook) |
+| `learning.pattern_extraction` | semanal (Curator) | AP-165 read-model | varre ledger; propoe padroes humanos emergentes para Process Pattern Catalog |
+| `learning.failure_review` | semanal | AP-166 read-model | revisa `failure_signature`; alerta repeticao; valida diversificacao |
+| `learning.srl_episode` | por sessao opt-in | AP-167 read-model | forethought, performance observation e reflection |
+| `learning.productive_failure` | sob demanda | AP-168 scaffold | erro produtivo em 3 fases: generation, comparison, integration |
 
 ### Gates obrigatorios
 
@@ -90,7 +95,7 @@ Diagnosticar deficit cognitivo. Prescrever medicacao. Mutar calendario. Marcar d
 
 | # | Etapa canonica | Hook cognitivo |
 |---|---|---|
-| 1 | Surface Plane | `atlas study/review/explain/curriculum/knowledge/case/game/gap/dreyfus/mastery/socratic/debate` |
+| 1 | Surface Plane | comandos canonicos locais `php artisan atlas:*`; wrappers de produto `atlas ...` sao aliases futuros |
 | 2 | Surface Adapter | canoniza alias |
 | 3 | Atlas Input | objetivo, topico, duracao, tecnica, fonte, foto, audio |
 | 4 | Operation Envelope | `input_kind=cognitive`; carrega `study_session_id` + `cognitive_load_snapshot` + `dreyfus_stage_target` |
@@ -135,7 +140,9 @@ Nao e tabela primaria. E projecao recomputavel a partir de Memory Registry + Ver
 
 ## Evidence Ledger — eventos cognitivos canonicos
 
-`LEARNING_OBJECTIVE_DEFINED`, `CURRICULUM_PROPOSED`, `CURRICULUM_ACCEPTED`, `CURRICULUM_REJECTED`, `STUDY_SESSION_STARTED`, `STUDY_SESSION_COMPLETED`, `STUDY_SESSION_INTERRUPTED`, `ACTIVE_RECALL_QUESTION_GENERATED`, `ACTIVE_RECALL_ANSWERED`, `SPACED_REVIEW_TRIGGERED`, `SPACED_REVIEW_PASSED`, `SPACED_REVIEW_FAILED`, `FEYNMAN_EVALUATION_SCORED`, `MASTERY_DELTA_RECORDED`, `TRANSFER_TEST_PASSED`, `TRANSFER_TEST_FAILED`, `KNOWLEDGE_GAP_DETECTED`, `KNOWLEDGE_NODE_ADDED`, `KNOWLEDGE_EDGE_ADDED`, `KNOWLEDGE_GRAPH_PROJECTED`, `COGNITIVE_LOAD_ALERT`, `COGNITIVE_LOAD_RECOVERY`, `CASE_COMPLETED`, `GAME_SESSION_RESULT`, `FORGETTING_INTENT_RECORDED`, `PREDICTIVE_CURRICULUM_PROPOSED`, `PARETO_CURVE_MAPPED`, `EXTERNAL_INPUT_FILTERED`, `RIVALS_LEARNING_RUN`, `DREYFUS_LEVEL_DELTA_RECORDED`, `MASTERY_EVIDENCE_AGGREGATED`, `LATTICEWORK_CONNECTION_DETECTED`, `DEBATE_SESSION_COMPLETED`, `DEBATE_DISCORD_DETECTED`, `SOCRATIC_SESSION_COMPLETED`, `EVIDENCE_ROUTING_PASS_COMPLETED`, `COMPRESSION_METRIC_COMPUTED`, `COMPRESSION_DEGRADATION_ALERT`, **`WORKED_EXAMPLE_DELIVERED`**, **`WORKED_EXAMPLE_FADING_PROGRESSED`**, **`PROCESS_PATTERN_CANDIDATE_DETECTED`**, **`PROCESS_PATTERN_CATALOGED`**, **`PROCESS_PATTERN_APPLIED`**, **`FAILURE_SIGNATURE_RECORDED`**, **`FAILURE_REPETITION_ALERT`**, **`FAILURE_DIVERSITY_INDEX_COMPUTED`**, **`PREDICTIVE_FAILURE_INSERTED`**.
+Eventos podem estar implementados ou planejados; AP status e fonte de verdade.
+
+`LEARNING_OBJECTIVE_DEFINED`, `CURRICULUM_PROPOSED`, `CURRICULUM_ACCEPTED`, `CURRICULUM_REJECTED`, `STUDY_SESSION_STARTED`, `STUDY_SESSION_COMPLETED`, `STUDY_SESSION_INTERRUPTED`, `ACTIVE_RECALL_QUESTION_GENERATED`, `ACTIVE_RECALL_ANSWERED`, `SPACED_REVIEW_TRIGGERED`, `SPACED_REVIEW_PASSED`, `SPACED_REVIEW_FAILED`, `FEYNMAN_EVALUATION_SCORED`, `MASTERY_DELTA_RECORDED`, `TRANSFER_TEST_PASSED`, `TRANSFER_TEST_FAILED`, `KNOWLEDGE_GAP_DETECTED`, `KNOWLEDGE_NODE_ADDED`, `KNOWLEDGE_EDGE_ADDED`, `KNOWLEDGE_GRAPH_PROJECTED`, `COGNITIVE_LOAD_ALERT`, `COGNITIVE_LOAD_RECOVERY`, `CASE_COMPLETED`, `GAME_SESSION_RESULT`, `FORGETTING_INTENT_RECORDED`, `PREDICTIVE_CURRICULUM_PROPOSED`, `PARETO_CURVE_MAPPED`, `EXTERNAL_INPUT_FILTERED`, `RIVALS_LEARNING_RUN`, `DREYFUS_LEVEL_DELTA_RECORDED`, `MASTERY_EVIDENCE_AGGREGATED`, `LATTICEWORK_CONNECTION_DETECTED`, `DEBATE_SESSION_COMPLETED`, `DEBATE_DISCORD_DETECTED`, `SOCRATIC_SESSION_COMPLETED`, `EVIDENCE_ROUTING_PASS_COMPLETED`, `COMPRESSION_METRIC_COMPUTED`, `COMPRESSION_DEGRADATION_ALERT`, **`WORKED_EXAMPLE_DELIVERED`**, **`WORKED_EXAMPLE_FADING_PROGRESSED`**, **`PROCESS_PATTERN_CANDIDATE_DETECTED`**, **`PROCESS_PATTERN_CATALOGED`**, **`PROCESS_PATTERN_APPLIED`**, **`FAILURE_SIGNATURE_RECORDED`**, **`FAILURE_REPETITION_ALERT`**, **`FAILURE_DIVERSITY_INDEX_COMPUTED`**, **`SRL_OVERLAY_TOGGLED`**, **`SRL_FORETHOUGHT_RECORDED`**, **`SRL_PERFORMANCE_OBSERVATION`**, **`SRL_REFLECTION_RECORDED`**, **`PREDICTIVE_FAILURE_INSERTED`**.
 
 Todos `LedgerEventType` aditivos, taxonomia fechada. Replay reconstroi: trajetoria de meses, mastery por nó por dia, padrao de quando rende, regressao por area.
 
@@ -145,7 +152,7 @@ Canonicas. Especializadas em conteudo, sem produto paralelo.
 
 | Surface | Comandos / Interacao tipica |
 |---|---|
-| CLI | `atlas study/review/explain/curriculum/knowledge/case/game/gap/continue/dreyfus/mastery/socratic/debate/compression/latticework/routing` |
+| CLI | Canonico local: `php artisan atlas:*`. Product aliases: `atlas study/review/explain/...` podem existir como wrappers, mas nao sao contrato de runtime. |
 | App / Mobile | Daily Plan card, Inbox com Curator preditivo, Knowledge Graph view, push governado |
 | Voice Realtime | Feynman por voz, recall em movimento, Atlas-Vitor Socratico verbal |
 | StackChan (futuro) | tutor presencial, leitura de expressao, reflex local, continuidade afetiva, mute fisico class-3 |
@@ -164,4 +171,4 @@ Canonicas. Especializadas em conteudo, sem produto paralelo.
 
 ## Continuidade
 
-Schema de cada memory type, migration, indexes e SLOs concretos vivem em APs (`docs/ap/AP-COG-*.md`). Roadmap em `roadmap.md`.
+Schema de cada memory type, migration, indexes e SLOs concretos vivem em APs (`docs/ap/AP-###-cognitive-*.md`). Briefing operacional em `implementation-briefing.md`; roadmap em `roadmap.md`.

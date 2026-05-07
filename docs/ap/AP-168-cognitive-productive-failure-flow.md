@@ -2,6 +2,8 @@
 
 Status: scaffold
 
+Implementation prerequisite: `Generation Engine / Pretest` e `Deep Transfer Probe` estao documentados como capabilities, mas ainda nao sao runtimes completos. A implementacao deste AP deve incluir um runtime minimo interno (`ProductiveFailureProblemSelector`, `ArticulationCapture`, `TransferTestProposalBuilder`) OU criar APs pre-requisito antes de promover status. Proibido marcar este AP como implementado apenas por registrar flow/CLI.
+
 ## Objetivo
 
 Implementar **flow integrado** `learning.productive_failure` que orquestra 3 fases formais de Manu Kapur (Productive Failure):
@@ -13,6 +15,21 @@ Implementar **flow integrado** `learning.productive_failure` que orquestra 3 fas
 Combina capabilities ja documentadas: Generation Engine (Pretest), Worked Example Engine (AP-164), Transfer Probe. Nao e capability nova; e flow integrado que **fecha o ciclo** do principio C14 + C16 + C20.
 
 Diferenca do `learning.active_recall` (que pergunta sobre material ja estudado) e do `learning.worked_example` standalone: PF e processo estruturado de **errar para aprender** com framework formal.
+
+## Contrato de Erro Preditivo
+
+Este AP implementa C14 como contrato mensuravel, nao como slogan. Cada sessao registra:
+
+| Campo | Fonte | Funcao |
+|---|---|---|
+| `prediction_prompt` | Fase 1 | problema cru antes da teoria |
+| `operator_prediction` | Fase 1 | hipotese/tentativa inicial |
+| `validated_reality` | Fase 2 | worked example, teste ou resposta canonica |
+| `prediction_error_delta` | Fase 2 | divergencia entre previsao e realidade |
+| `model_update` | Fase 3 | principio corrigido extraido pelo operador |
+| `transfer_probe` | Fase 3 | caso futuro para provar transferencia |
+
+Sessao sem `prediction_error_delta` nao pode marcar `PRODUCTIVE_FAILURE_COMPLETED`; vira `incomplete_comparison` ou continua em fase 2.
 
 ## Nao Objetivo
 
@@ -32,7 +49,7 @@ Status promove para `implemented-operational-read-model` apos DoD.
 ## Fluxo
 
 ```
-Atlas Input (atlas productive-failure <topic>)
+Atlas Input (future product alias `atlas productive-failure <topic>` / canonical local `php artisan atlas:productive-failure <topic>`)
   -> Surface Adapter canoniza
   -> Operation Envelope (input_kind=cognitive)
   -> Domain / Profile / Flow (learning.productive_failure)
@@ -59,11 +76,11 @@ Schema::create('productive_failure_sessions', function (Blueprint $t) {
     $t->uuid('knowledge_node_id');
     $t->string('domain', 64);
     $t->unsignedTinyInteger('dreyfus_stage_target');  // 1..5; PF usual em 2-4
-    $t->json('phase_1_problem');                       // {description, context, expected_difficulty, source}
-    $t->json('phase_1_attempt')->nullable();           // {solution_attempt, time_spent_min, confidence_pre, surrender_reason}
+    $t->json('phase_1_problem');                       // {prediction_prompt, context, expected_difficulty, source}
+    $t->json('phase_1_attempt')->nullable();           // {operator_prediction, solution_attempt, time_spent_min, confidence_pre, surrender_reason}
     $t->foreignId('phase_2_worked_example_id')->nullable()->constrained('worked_examples');
-    $t->json('phase_2_comparison')->nullable();        // {what_matched, what_diverged, surprise_points}
-    $t->json('phase_3_articulation')->nullable();      // {key_insight, why_attempt_failed, principle_extracted}
+    $t->json('phase_2_comparison')->nullable();        // {validated_reality, prediction_error_delta, what_matched, what_diverged, surprise_points}
+    $t->json('phase_3_articulation')->nullable();      // {model_update, key_insight, why_attempt_failed, principle_extracted}
     $t->foreignId('phase_3_transfer_test_id')->nullable();  // ref a transfer_tests table (futura)
     $t->string('completion_status', 32);               // in_progress | complete | abandoned_phase_1 | abandoned_phase_2 | abandoned_phase_3
     $t->timestamp('phase_1_started_at')->nullable();
@@ -87,6 +104,7 @@ Schema::create('productive_failure_sessions', function (Blueprint $t) {
 | `ProductiveFailureProblemSelector` | escolhe problema mal-estruturado calibrado para zona 80/20 do dreyfus_stage | `app/Services/Ai/Cognitive/ProductiveFailure/` |
 | `ProductiveFailureAttemptCapture` | captura tentativa do operador na fase 1 | `app/Services/Ai/Cognitive/ProductiveFailure/` |
 | `ProductiveFailureComparisonEngine` | apresenta worked_example (consome AP-164) + facilita comparacao estruturada | `app/Services/Ai/Cognitive/ProductiveFailure/` |
+| `PredictiveErrorDeltaExtractor` | calcula divergencia entre `operator_prediction` e `validated_reality`; bloqueia comparacao vazia | `app/Services/Ai/Cognitive/ProductiveFailure/` |
 | `ProductiveFailureArticulationCapture` | captura insight + principio extraido | `app/Services/Ai/Cognitive/ProductiveFailure/` |
 | `ProductiveFailureTransferTestScheduler` | agenda transfer_test para 7-14 dias futuros | `app/Services/Ai/Cognitive/ProductiveFailure/` |
 | `ProductiveFailureSessionRepository` | CRUD + queries | `app/Services/Ai/Cognitive/ProductiveFailure/` |
@@ -106,6 +124,9 @@ final class ProductiveFailurePhaseCompleteGate {
         }
         if ($advancingTo === 'phase_3' && empty($s->phase_2_comparison)) {
             return GateResult::block('productive_failure_phase_2_comparison_missing');
+        }
+        if ($advancingTo === 'complete' && empty($s->phase_2_comparison['prediction_error_delta'] ?? null)) {
+            return GateResult::block('productive_failure_prediction_error_delta_missing');
         }
         if ($advancingTo === 'complete' && empty($s->phase_3_articulation)) {
             return GateResult::block('productive_failure_phase_3_articulation_missing');
@@ -137,15 +158,15 @@ final class ProductiveFailureProblemCalibratedGate {
 
 | Comando | Output |
 |---|---|
-| `atlas productive-failure <topic>` | inicia flow; conduz pelas 3 fases |
-| `atlas productive-failure status` | sessao em curso (se houver) |
-| `atlas productive-failure history --window=30d` | sessoes completas + abandonadas |
-| `atlas productive-failure resume <session-id>` | retoma sessao em fase 2 ou 3 |
+| `php artisan atlas:productive-failure <topic>` | inicia flow; conduz pelas 3 fases |
+| `php artisan atlas:productive-failure status` | sessao em curso (se houver) |
+| `php artisan atlas:productive-failure history --window=30d` | sessoes completas + abandonadas |
+| `php artisan atlas:productive-failure resume <session-id>` | retoma sessao em fase 2 ou 3 |
 
 ### Tela / Interacao tipica
 
 ```
-$ atlas productive-failure queue-batching
+$ php artisan atlas:productive-failure queue-batching
 
 [Fase 1/3 — Generation, 5-15min]
   Problema:
@@ -230,11 +251,11 @@ php artisan atlas:ai:architecture-validate --json
 2. Todos os components implementados e testados
 3. Ambos os gates executaveis e ligados ao policy compiler
 4. Flow `learning.productive_failure` integrado ao Domain Profile Registry
-5. CLI `atlas productive-failure` (start/status/history/resume) operacional
+5. CLI `php artisan atlas:productive-failure` (start/status/history/resume) operacional
 6. Integracao com AP-164 (Worked Example Engine) funciona end-to-end
 7. Phase 3 Transfer Test e agendado automaticamente para 7-14d futuros
 8. Ledger emite todos os 8 events declarados em fluxo end-to-end completo
 9. SLOs registrados em `KernelSloTargets`
 10. `atlas:ai:architecture-validate --json` continua verde
-11. `cognitive/pipeline-overlay.md` lista flow `learning.productive_failure` como `implemented`
+11. `cognitive/pipeline-overlay.md` lista flow `learning.productive_failure` com status exato da taxonomia
 12. Architecture test garante zero pulo de fase em sessao marcada como `complete`

@@ -31,6 +31,18 @@ final class KernelSloTargets
         'cognitive.worked_example.select',
         'cognitive.worked_example.render',
         'cognitive.worked_example.gate',
+        'cognitive.process_pattern.catalog',
+        'cognitive.process_pattern.matcher',
+        'cognitive.process_pattern.gate',
+        'cognitive.failure.classify',
+        'cognitive.failure.similarity',
+        'cognitive.failure.diversity',
+        'cognitive.failure.alert',
+        'cognitive.failure.gate',
+        'cognitive.srl.forethought',
+        'cognitive.srl.performance_observation',
+        'cognitive.srl.episode_persist',
+        'cognitive.srl.gate',
     ];
 
     /**
@@ -82,6 +94,18 @@ final class KernelSloTargets
             'cognitive.worked_example.select' => new KernelSloTarget('cognitive.worked_example.select', 50, 150, 400, 99.0, 'medium', 'Select an appropriate worked example for node, domain and source preference.'),
             'cognitive.worked_example.render' => new KernelSloTarget('cognitive.worked_example.render', 75, 300, 750, 99.0, 'medium', 'Render worked example with fading schedule.'),
             'cognitive.worked_example.gate' => new KernelSloTarget('cognitive.worked_example.gate', 5, 50, 120, 99.5, 'medium', 'Validate worked example fading level matches Dreyfus stage.'),
+            'cognitive.process_pattern.catalog' => new KernelSloTarget('cognitive.process_pattern.catalog', 25, 100, 250, 99.0, 'medium', 'Query the process pattern catalog.'),
+            'cognitive.process_pattern.matcher' => new KernelSloTarget('cognitive.process_pattern.matcher', 100, 600, 1500, 98.0, 'medium', 'Rank applicable process patterns for a problem description.'),
+            'cognitive.process_pattern.gate' => new KernelSloTarget('cognitive.process_pattern.gate', 5, 50, 120, 99.5, 'medium', 'Validate process pattern structure before cataloging or provider use.'),
+            'cognitive.failure.classify' => new KernelSloTarget('cognitive.failure.classify', 50, 250, 600, 99.0, 'medium', 'Classify ledger failures into provider-safe cognitive failure signatures.'),
+            'cognitive.failure.similarity' => new KernelSloTarget('cognitive.failure.similarity', 75, 400, 1000, 98.0, 'medium', 'Compute similarity and recurrence against previous failure signatures.'),
+            'cognitive.failure.diversity' => new KernelSloTarget('cognitive.failure.diversity', 250, 2500, 10000, 98.0, 'medium', 'Compute failure diversity index and repeated-signature read model.'),
+            'cognitive.failure.alert' => new KernelSloTarget('cognitive.failure.alert', 100, 1000, 60000, 99.0, 'medium', 'Emit repeated failure alerts within the C20 productive-failure window.'),
+            'cognitive.failure.gate' => new KernelSloTarget('cognitive.failure.gate', 5, 50, 120, 99.5, 'medium', 'Validate failure signatures before provider/runtime use.'),
+            'cognitive.srl.forethought' => new KernelSloTarget('cognitive.srl.forethought', 25, 100, 250, 99.0, 'medium', 'Capture opt-in SRL forethought before a learning flow.'),
+            'cognitive.srl.performance_observation' => new KernelSloTarget('cognitive.srl.performance_observation', 10, 50, 150, 99.0, 'medium', 'Persist lightweight SRL performance observation without disrupting the flow.'),
+            'cognitive.srl.episode_persist' => new KernelSloTarget('cognitive.srl.episode_persist', 25, 80, 250, 99.0, 'medium', 'Persist SRL reflection and episode completion.'),
+            'cognitive.srl.gate' => new KernelSloTarget('cognitive.srl.gate', 5, 30, 100, 99.5, 'medium', 'Validate SRL phase ordering and opt-in safety.'),
         ];
     }
 
