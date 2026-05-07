@@ -50,6 +50,15 @@ return [
                 'atlas.context.compose',
             ],
         ],
+        'atlas_voice' => [
+            'label' => 'Atlas Voice Realtime',
+            'capabilities' => [
+                'atlas.input.text',
+                'atlas.input.voice_audio',
+                'atlas.memory.recall',
+                'atlas.context.compose',
+            ],
+        ],
         'atlas_api' => [
             'label' => 'Atlas API',
             'capabilities' => [
@@ -96,7 +105,7 @@ return [
             'title' => 'Text Input',
             'owner' => 'atlas.input',
             'description' => 'Accept text input from an operator or automation surface.',
-            'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_api', 'atlas_worker', 'atlas_vault'],
+            'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_voice', 'atlas_api', 'atlas_worker', 'atlas_vault'],
             'optional_surfaces' => [],
             'not_supported' => [
                 [
@@ -119,6 +128,10 @@ return [
             'optional_surfaces' => [],
             'not_supported' => [
                 [
+                    'surface' => 'atlas_voice',
+                    'reason' => 'Voice Realtime accepts audio/transcript turns; it does not read clipboard image paste.',
+                ],
+                [
                     'surface' => 'atlas_mcp_readonly',
                     'reason' => 'The current MCP surface is read-only and does not accept binary upload.',
                 ],
@@ -136,6 +149,37 @@ return [
                 'tests/Unit/AtlasImageAttachmentServiceTest.php',
             ],
         ],
+        'atlas.input.voice_audio' => [
+            'schema_version' => 'atlas.capability.v1',
+            'id' => 'atlas.input.voice_audio',
+            'version' => '1.0.0',
+            'title' => 'Voice Audio Input',
+            'owner' => 'atlas.input',
+            'description' => 'Normalize push-to-talk or realtime voice audio turns as governed Atlas input without persisting raw audio as durable memory.',
+            'required_surfaces' => ['atlas_voice'],
+            'optional_surfaces' => ['atlas_app', 'atlas_api'],
+            'not_supported' => [
+                [
+                    'surface' => 'atlas_cli',
+                    'reason' => 'CLI may trigger voice commands later, but it is not the realtime voice capture surface.',
+                ],
+                [
+                    'surface' => 'atlas_worker',
+                    'reason' => 'Workers receive normalized voice turns from upstream surfaces and do not capture audio.',
+                ],
+                [
+                    'surface' => 'atlas_mcp_readonly',
+                    'reason' => 'Read-only MCP exposes context resources and does not capture or stream audio.',
+                ],
+                [
+                    'surface' => 'atlas_vault',
+                    'reason' => 'AtlasVault stores managed human notes and is not an audio capture surface.',
+                ],
+            ],
+            'test_suite' => [
+                'tests/Unit/Ai/Surface/SurfaceAdaptersTest.php',
+            ],
+        ],
         'atlas.input.file_attachment' => [
             'schema_version' => 'atlas.capability.v1',
             'id' => 'atlas.input.file_attachment',
@@ -146,6 +190,10 @@ return [
             'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_api', 'atlas_vault'],
             'optional_surfaces' => ['atlas_worker'],
             'not_supported' => [
+                [
+                    'surface' => 'atlas_voice',
+                    'reason' => 'Voice Realtime receives audio/transcript turns; file attachments remain upstream mobile/app/API responsibilities.',
+                ],
                 [
                     'surface' => 'atlas_mcp_readonly',
                     'reason' => 'The read-only MCP surface returns context resources and does not accept uploaded files.',
@@ -163,7 +211,7 @@ return [
             'title' => 'Memory Recall',
             'owner' => 'atlas.memory',
             'description' => 'Retrieve provider-safe memory, knowledge, and context references.',
-            'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_api', 'atlas_worker', 'atlas_mcp_readonly'],
+            'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_voice', 'atlas_api', 'atlas_worker', 'atlas_mcp_readonly'],
             'optional_surfaces' => [],
             'not_supported' => [
                 [
@@ -183,7 +231,7 @@ return [
             'title' => 'Context Compose',
             'owner' => 'atlas.context',
             'description' => 'Build a deterministic context pack from memory, docs, code refs, conversation, and attachments.',
-            'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_api', 'atlas_worker', 'atlas_mcp_readonly'],
+            'required_surfaces' => ['atlas_cli', 'atlas_app', 'atlas_voice', 'atlas_api', 'atlas_worker', 'atlas_mcp_readonly'],
             'optional_surfaces' => [],
             'not_supported' => [
                 [
@@ -205,6 +253,10 @@ return [
             'required_surfaces' => ['atlas_cli', 'atlas_api', 'atlas_worker'],
             'optional_surfaces' => ['atlas_app'],
             'not_supported' => [
+                [
+                    'surface' => 'atlas_voice',
+                    'reason' => 'Voice Realtime is an input/output surface; tool execution remains governed by Kernel runtime after DecisionReceipt.',
+                ],
                 [
                     'surface' => 'atlas_mcp_readonly',
                     'reason' => 'The read-only MCP surface can inspect memory/context but cannot execute local tools.',
@@ -236,6 +288,10 @@ return [
                 [
                     'surface' => 'atlas_app',
                     'reason' => 'The app can inspect and manage vault workflows, but it is not the Obsidian workspace surface.',
+                ],
+                [
+                    'surface' => 'atlas_voice',
+                    'reason' => 'Voice Realtime can discuss human knowledge, but it is not the AtlasVault/Obsidian workspace.',
                 ],
                 [
                     'surface' => 'atlas_api',
@@ -272,6 +328,10 @@ return [
                 [
                     'surface' => 'atlas_app',
                     'reason' => 'The app can display projection status, but managed markdown notes are written to AtlasVault.',
+                ],
+                [
+                    'surface' => 'atlas_voice',
+                    'reason' => 'Voice Realtime may create reviewed proposals, but it does not write managed AtlasVault notes directly.',
                 ],
                 [
                     'surface' => 'atlas_api',

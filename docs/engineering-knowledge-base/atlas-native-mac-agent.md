@@ -124,10 +124,12 @@ Somente com AP proprio, privacy review e opt-in explicito:
 5. modelos locais com acesso a dados privados;
 6. daemon always-on com contexto ambiental longitudinal.
 
-## Escopo Ativo Especializado: Voice Realtime Edge
+## Escopo Futuro Especializado: Voice Realtime Edge
 
-Voz/microfone era escopo futuro deste documento. Foi destravado por AP proprio
-e governanca em `atlas-ai-voice-realtime-surface.md`, sob as seguintes
+Voz/microfone no Mac e escopo futuro especializado deste documento. A primeira
+experiencia de voz deve nascer no app mobile, conforme
+`atlas-ai-voice-realtime-surface.md`. O Mac/Swift entra depois como edge
+ambiental local para wake word, mic/AirPods e contexto opt-in, sob as seguintes
 restricoes constitutivas:
 
 1. wake word detectado **localmente**; audio ambiente nao streama antes;
@@ -214,7 +216,7 @@ Toda operacao Swift deve registrar:
 | App focus | metadata only + no hidden content capture |
 | LaunchAgent | opt-in + health + user-visible disable |
 | XPC helper | signed helper + least privilege |
-| Microphone | wake word local + eclipse + privacy class + LED visivel; ver `atlas-ai-voice-realtime-surface.md` |
+| Microphone | future phase after mobile voice; wake word local + eclipse + privacy class + LED visivel; ver `atlas-ai-voice-realtime-surface.md` |
 | Endpoint Security | future/blocked + AP + entitlement review |
 
 ## Implementation Roadmap

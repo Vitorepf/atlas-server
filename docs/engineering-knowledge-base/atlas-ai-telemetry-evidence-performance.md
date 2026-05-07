@@ -24,6 +24,7 @@ maintenance:
   - Atualizar quando comandos de telemetry, reports, SLOs, ledger replay ou cost model mudarem.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
+  - docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
   - docs/atlas-ai-telemetry.md
   - docs/atlas-ai-aggregator-versions.md
   - docs/atlas-ai-performance-reports.md
@@ -128,6 +129,30 @@ Performance reports sao projecoes para acao humana. Eles devem conter:
 - Personal Development, Finance e Health-like signals exigem resumo
   conservador e link para detalhe autenticado.
 - Evidence usado por self-improvement deve preservar origem e confidence.
+
+## Eventos Voice Realtime
+
+A familia `VOICE_*` no Evidence Ledger e governada por
+`atlas-ai-voice-realtime-surface.md`. Eventos canonicos:
+
+- `VOICE_SESSION_STARTED`
+- `VOICE_WAKE_WORD_DETECTED`
+- `VOICE_TURN_AUDIO_RECEIVED`
+- `VOICE_TURN_TRANSCRIBED`
+- `VOICE_TURN_DECIDED`
+- `VOICE_TURN_SYNTHESIZED`
+- `VOICE_TURN_PLAYED`
+- `VOICE_TURN_INTERRUPTED`
+- `VOICE_RUNTIME_FAILED`
+- `VOICE_ECLIPSE_TRIGGERED`
+- `VOICE_ECLIPSE_LIFTED`
+- `VOICE_SESSION_ENDED`
+- `VOICE_PROVIDER_HEALTH_DEGRADED`
+
+SLO de voz (`turn_to_first_audio_p95`, `wake_word_detection_p95`) e medido pelo
+Self-Improvement em `voice_latency_review`. Audio raw nunca persiste em
+nenhuma tabela; somente `audio_hash` (sha256) sob privacy class do domain.
+Eclipse window ativa bloqueia turno e emite `VOICE_ECLIPSE_TRIGGERED`.
 
 ## Source Material
 

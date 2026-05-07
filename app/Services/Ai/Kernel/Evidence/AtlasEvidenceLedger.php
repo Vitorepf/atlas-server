@@ -513,6 +513,88 @@ class AtlasEvidenceLedger
     }
 
     /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $context
+     */
+    public function recordVoiceEvent(
+        LedgerEventType $type,
+        array $payload,
+        array $context = [],
+    ): ?AtlasLedgerEvent {
+        if (! str_starts_with($type->value, 'VOICE_')) {
+            throw new \InvalidArgumentException('recordVoiceEvent only accepts VOICE_* ledger event types.');
+        }
+
+        $payload = $this->sanitizeVoicePayload($payload);
+
+        return $this->record($type, [
+            'schema_version' => 'atlas.voice.ledger_event.v1',
+            'privacy_class' => $payload['privacy_class'] ?? 'p3_audio',
+            'surface_id' => $payload['surface_id'] ?? 'voice_realtime',
+            'voice' => $payload,
+        ], [
+            'tenant_id' => $context['tenant_id'] ?? data_get($payload, 'operator.tenant_id', 'default'),
+            'operator_id' => $context['operator_id'] ?? data_get($payload, 'operator.operator_id', 'system'),
+            'envelope_id' => $context['envelope_id'] ?? data_get($payload, 'envelope_id', 'voice_realtime'),
+            'receipt_id' => $context['receipt_id'] ?? data_get($payload, 'receipt_id'),
+            'trace_id' => $context['trace_id'] ?? data_get($payload, 'trace_id'),
+            'correlation_id' => $context['correlation_id']
+                ?? data_get($payload, 'session_id')
+                ?? data_get($payload, 'turn_id')
+                ?? data_get($payload, 'envelope_id')
+                ?? 'voice_realtime',
+            'causation_id' => $context['causation_id'] ?? data_get($payload, 'causation_id'),
+            'emitter_stage' => $context['emitter_stage'] ?? 'atlas.voice_realtime',
+            'emitter_version' => $context['emitter_version'] ?? 'atlas.voice.v1',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function sanitizeVoicePayload(array $payload): array
+    {
+        $forbiddenKeys = [
+            'audio',
+            'audio_bytes',
+            'audio_blob',
+            'audio_buffer',
+            'audio_raw',
+            'raw_audio',
+            'raw_audio_bytes',
+            'pcm',
+            'wav',
+        ];
+
+        foreach ($forbiddenKeys as $key) {
+            unset($payload[$key]);
+        }
+
+        if (isset($payload['transcript']) && is_string($payload['transcript'])) {
+            $payload['transcript_hash'] ??= hash('sha256', $payload['transcript']);
+            $payload['transcript_length'] ??= mb_strlen($payload['transcript']);
+            unset($payload['transcript']);
+        }
+
+        foreach (['response_text', 'synthesized_text', 'tts_text'] as $textKey) {
+            if (isset($payload[$textKey]) && is_string($payload[$textKey])) {
+                $hashKey = $textKey.'_hash';
+                $lengthKey = $textKey.'_length';
+                $payload[$hashKey] ??= hash('sha256', $payload[$textKey]);
+                $payload[$lengthKey] ??= mb_strlen($payload[$textKey]);
+                unset($payload[$textKey]);
+            }
+        }
+
+        if (isset($payload['audio_hash']) && is_scalar($payload['audio_hash'])) {
+            $payload['audio_hash'] = $this->string((string) $payload['audio_hash'], 120);
+        }
+
+        return $payload;
+    }
+
+    /**
      * @param  array<string,mixed>  $context
      * @return array<string,string>
      */

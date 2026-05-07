@@ -152,6 +152,16 @@ atlas continue-> mesmo domain/intent com state resume
 Em todos os casos, a surface entra no mesmo pipeline. A diferenca e profile,
 policy, intensidade e estado, nao um produto interno diferente.
 
+Surfaces canonicas que entram no pipeline:
+
+- `cli` (atlas dev/forge/ask/chat/voice/...)
+- `app` (Mac/desktop)
+- `mobile` (mobile gateway + inbox + push)
+- `api` (HTTP REST/WS)
+- `mcp` (Atlas Open Brain MCP server)
+- `voice_realtime` (Voice Realtime Surface — mobile-first + LiveKit Agents SDK + Swift Mac edge futuro; ver `atlas-ai-voice-realtime-surface.md`)
+- `worker` (jobs/scheduler/background)
+
 ## Contrato De Implementacao
 
 Todo domain precisa declarar:

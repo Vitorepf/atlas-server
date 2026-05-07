@@ -21,6 +21,9 @@ final class KernelSloTargets
         'repair.loop',
         'learning.project',
         'output.render',
+        'voice.wake_word_detect',
+        'voice.turn_to_first_audio',
+        'voice.interruption_stop_audio',
     ];
 
     /**
@@ -62,6 +65,9 @@ final class KernelSloTargets
             'repair.loop' => new KernelSloTarget('repair.loop', 10000, 180000, 600000, 95.0, 'medium', 'Bounded repair loops.'),
             'learning.project' => new KernelSloTarget('learning.project', 250, 2500, 10000, 98.0, 'medium', 'Evidence to memory/curation projections.'),
             'output.render' => new KernelSloTarget('output.render', 100, 500, 1500, 99.5, 'medium', 'Surface-neutral output packet rendering.'),
+            'voice.wake_word_detect' => new KernelSloTarget('voice.wake_word_detect', 50, 250, 600, 99.0, 'critical', 'Local wake-word/VAD detection before any audio stream leaves the device.'),
+            'voice.turn_to_first_audio' => new KernelSloTarget('voice.turn_to_first_audio', 250, 600, 1200, 98.5, 'critical', 'Realtime voice turn latency from accepted transcript to first synthesized audio.'),
+            'voice.interruption_stop_audio' => new KernelSloTarget('voice.interruption_stop_audio', 60, 250, 500, 99.0, 'critical', 'Barge-in latency from interruption request to audio stop acknowledgement.'),
         ];
     }
 

@@ -1403,6 +1403,7 @@ Surfaces permitidas:
 - MCP;
 - IDE;
 - mobile;
+- voice_realtime (Voice Realtime Surface — mobile-first + LiveKit Agents SDK + Swift Mac edge futuro; adapter Kernel inicial implementado; ver `atlas-ai-voice-realtime-surface.md`);
 - automations.
 
 Contrato de surface:

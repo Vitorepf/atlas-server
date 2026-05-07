@@ -4,9 +4,9 @@ namespace Tests\Unit\Ai\Kernel;
 
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
-use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Failure\FailureClassification;
 use App\Services\Ai\Kernel\Failure\FailureDomain;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineContract;
@@ -284,6 +284,54 @@ class EvidenceLedgerTest extends TestCase
         $this->assertSame(['latency_above_p99'], data_get($event->payload, 'violations'));
         $this->assertSame(900, data_get($event->payload, 'slo.duration_ms'));
         $this->assertSame(750, data_get($event->payload, 'slo.target.p99_ms'));
+    }
+
+    public function test_records_voice_event_without_persisting_raw_audio_or_transcript(): void
+    {
+        $event = app(AtlasEvidenceLedger::class)->recordVoiceEvent(LedgerEventType::VoiceTurnTranscribed, [
+            'envelope_id' => 'env_voice_01',
+            'receipt_id' => 'receipt_voice_01',
+            'session_id' => 'voice_session_01',
+            'turn_id' => 'voice_turn_01',
+            'surface_id' => 'voice_realtime',
+            'audio_hash' => hash('sha256', 'audio-bytes'),
+            'audio_bytes' => 'raw audio must not be stored',
+            'raw_audio' => 'raw audio must not be stored',
+            'transcript' => 'texto sensivel falado pelo usuario',
+            'response_text' => 'resposta sensivel falada pelo atlas',
+            'latency_ms' => 312,
+        ], [
+            'tenant_id' => 'tenant-voice',
+            'operator_id' => 'operator-voice',
+        ]);
+
+        $this->assertInstanceOf(AtlasLedgerEvent::class, $event);
+        $this->assertSame(LedgerEventType::VoiceTurnTranscribed->value, $event->event_type);
+        $this->assertSame('atlas.voice_realtime', $event->emitter_stage);
+        $this->assertSame('tenant-voice', $event->tenant_id);
+        $this->assertSame('operator-voice', $event->operator_id);
+        $this->assertSame('env_voice_01', $event->envelope_id);
+        $this->assertSame('receipt_voice_01', $event->receipt_id);
+        $this->assertSame('voice_session_01', $event->correlation_id);
+        $this->assertSame('atlas.voice.ledger_event.v1', data_get($event->payload, 'schema_version'));
+        $this->assertSame('p3_audio', data_get($event->payload, 'privacy_class'));
+        $this->assertSame(hash('sha256', 'texto sensivel falado pelo usuario'), data_get($event->payload, 'voice.transcript_hash'));
+        $this->assertSame(34, data_get($event->payload, 'voice.transcript_length'));
+        $this->assertSame(hash('sha256', 'resposta sensivel falada pelo atlas'), data_get($event->payload, 'voice.response_text_hash'));
+        $this->assertSame(35, data_get($event->payload, 'voice.response_text_length'));
+        $this->assertArrayNotHasKey('audio_bytes', data_get($event->payload, 'voice'));
+        $this->assertArrayNotHasKey('raw_audio', data_get($event->payload, 'voice'));
+        $this->assertArrayNotHasKey('transcript', data_get($event->payload, 'voice'));
+        $this->assertArrayNotHasKey('response_text', data_get($event->payload, 'voice'));
+    }
+
+    public function test_rejects_non_voice_event_in_voice_recorder(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        app(AtlasEvidenceLedger::class)->recordVoiceEvent(LedgerEventType::DecisionIssued, [
+            'envelope_id' => 'env_voice_bad',
+        ]);
     }
 
     public function test_records_repair_decision_as_canonical_ledger_event(): void

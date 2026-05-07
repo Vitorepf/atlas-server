@@ -132,7 +132,7 @@ Layer 4 - Domain Specs
 | Model selection, Atlas Decide, AP-99, provider performance e cost governance | `atlas-ai-model-selection-strategy.md` + `atlas-ai-telemetry-evidence-performance.md` + `docs/ap/AP-146-provider-cost-rate-inbox-replay.md` + `docs/ap/AP-147-dynamic-compute-market-shadow-surface.md` |
 | Scenario simulation, MiroFish/OASIS patterns e outcome calibration | `atlas-ai-scenario-simulation-harness.md` + `atlas-ai-autonomy-power-backlog.md` |
 | Mobile surface, mobile gateway, push e inbox | `atlas-ai-mobile-surface-gateway.md` + `atlas-ai-operating-system.md` |
-| Voice Realtime Surface, LiveKit pipeline, atlas-voice-edge Swift, eclipse modes e Rivals-Voice | `atlas-ai-voice-realtime-surface.md` + `atlas-native-mac-agent.md` + `atlas-ai-runtime-language-boundaries.md` |
+| Voice Realtime Surface mobile-first, LiveKit Agents SDK, Swift Mac edge futuro, eclipse modes e Rivals-Voice | `atlas-ai-voice-realtime-surface.md` + `atlas-ai-mobile-surface-gateway.md` + `atlas-native-mac-agent.md` + `atlas-ai-runtime-language-boundaries.md` |
 | Constelacao / Motor de Serendipidade mobile | `atlas-constelacao-surface.md` + source material constitucional em `atlas-vault-backup/00-constituicao/constelacao-*.md` |
 | CLI multimodal, paste de imagem e anexos | `atlas-ai-cli-multimodal.md` + `docs/paste-image-setup.md` |
 | Skill system | `atlas-ai-skill-system.md` + `atlas-ai-kernel-architecture.md` |

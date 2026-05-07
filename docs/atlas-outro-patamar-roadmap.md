@@ -277,7 +277,11 @@ Atlas deixa de ser **inquilino em infraestrutura alheia**.
 - On-device frontier (Llama 4/Qwen 3 local em qualidade frontier-2024)
 - TEE/Secure Enclave para domínios sensíveis (Finance, Saúde,
   Self-Improvement)
-- **P1** (voz: AirPods + Whisper local + Kokoro TTS)
+- **P1** (voz: AirPods + Whisper local + Kokoro TTS) — spec canônica
+  executável em
+  [`atlas-ai-voice-realtime-surface.md`](engineering-knowledge-base/atlas-ai-voice-realtime-surface.md)
+  com LiveKit self-hosted (Go) + LiveKit Agents (Python) +
+  `atlas-voice-edge` (Swift), eclipse modes class-3 e Rivals-Voice
 - **P3** (contexto: CoreLocation + EventKit + Focus Modes)
 - **P7** (cloud apenas com TEE attestation)
 - Federação entre dispositivos do Vitor (Mac casa, Mac trabalho, mobile,

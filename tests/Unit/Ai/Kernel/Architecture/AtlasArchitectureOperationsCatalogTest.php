@@ -15,7 +15,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('arquitetura_mae', $catalog->sectionKey());
         $this->assertSame('atlas.architecture_operations.v1', $summary['schema_version']);
         $this->assertSame('arquitetura_mae', $summary['section']);
-        $this->assertSame(25, $summary['command_count']);
+        $this->assertSame(28, $summary['command_count']);
         $this->assertSame($catalog->commands(), $summary['commands']);
         $this->assertSame([
             'architecture_operations',
@@ -24,6 +24,9 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'knowledge_sync',
             'code_intelligence_index',
             'kernel_slo_report',
+            'voice_realtime_contract',
+            'voice_realtime_bootstrap',
+            'voice_python_runtime_contract_test',
             'kernel_pipeline_report',
             'repair_report',
             'provider_performance_report',
@@ -53,6 +56,9 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
         $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
         $this->assertContains('atlas ai slo --hours=24 --json', $commands);
+        $this->assertContains('atlas ai voice contract --json', $commands);
+        $this->assertContains('atlas ai voice bootstrap --json', $commands);
+        $this->assertContains('PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests', $commands);
         $this->assertContains('atlas ai kernel-pipeline-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai repair-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai provider-performance --hours=24 --json', $commands);
@@ -80,22 +86,26 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('validation', data_get($summary, 'commands.2.kind'));
         $this->assertSame('maintenance', data_get($summary, 'commands.3.kind'));
         $this->assertSame('maintenance', data_get($summary, 'commands.4.kind'));
+        $this->assertSame('surface_contract', data_get($summary, 'commands.6.kind'));
+        $this->assertSame('surface_contract', data_get($summary, 'commands.7.kind'));
+        $this->assertSame('runtime_contract', data_get($summary, 'commands.8.kind'));
         $this->assertSame('evidence_report', data_get($summary, 'commands.9.kind'));
-        $this->assertSame('evidence_report', data_get($summary, 'commands.10.kind'));
-        $this->assertSame('curator_review', data_get($summary, 'commands.11.kind'));
-        $this->assertSame('curator_review', data_get($summary, 'commands.12.kind'));
+        $this->assertSame('evidence_report', data_get($summary, 'commands.12.kind'));
         $this->assertSame('evidence_report', data_get($summary, 'commands.13.kind'));
-        $this->assertSame('review_action', data_get($summary, 'commands.14.kind'));
-        $this->assertSame('maturity_report', data_get($summary, 'commands.15.kind'));
-        $this->assertSame('maturity_report', data_get($summary, 'commands.16.kind'));
-        $this->assertSame('review_queue', data_get($summary, 'commands.17.kind'));
-        $this->assertSame('review_action', data_get($summary, 'commands.18.kind'));
-        $this->assertSame('planning_surface', data_get($summary, 'commands.19.kind'));
-        $this->assertSame('evidence_report', data_get($summary, 'commands.20.kind'));
-        $this->assertSame('evidence_report', data_get($summary, 'commands.21.kind'));
-        $this->assertSame('maintenance', data_get($summary, 'commands.22.kind'));
+        $this->assertSame('curator_review', data_get($summary, 'commands.14.kind'));
+        $this->assertSame('curator_review', data_get($summary, 'commands.15.kind'));
+        $this->assertSame('evidence_report', data_get($summary, 'commands.16.kind'));
+        $this->assertSame('review_action', data_get($summary, 'commands.17.kind'));
+        $this->assertSame('maturity_report', data_get($summary, 'commands.18.kind'));
+        $this->assertSame('maturity_report', data_get($summary, 'commands.19.kind'));
+        $this->assertSame('review_queue', data_get($summary, 'commands.20.kind'));
+        $this->assertSame('review_action', data_get($summary, 'commands.21.kind'));
+        $this->assertSame('planning_surface', data_get($summary, 'commands.22.kind'));
         $this->assertSame('evidence_report', data_get($summary, 'commands.23.kind'));
         $this->assertSame('evidence_report', data_get($summary, 'commands.24.kind'));
+        $this->assertSame('maintenance', data_get($summary, 'commands.25.kind'));
+        $this->assertSame('evidence_report', data_get($summary, 'commands.26.kind'));
+        $this->assertSame('evidence_report', data_get($summary, 'commands.27.kind'));
     }
 
     public function test_catalog_filters_architecture_operations_by_id_and_kind(): void
@@ -117,6 +127,14 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $byMaintenance = $catalog->summary(['kind' => 'maintenance']);
         $this->assertSame(3, $byMaintenance['command_count']);
         $this->assertSame(['knowledge_sync', 'code_intelligence_index', 'ledger_projection_worker'], $byMaintenance['operation_ids']);
+
+        $bySurfaceContract = $catalog->summary(['kind' => 'surface_contract']);
+        $this->assertSame(2, $bySurfaceContract['command_count']);
+        $this->assertSame(['voice_realtime_contract', 'voice_realtime_bootstrap'], $bySurfaceContract['operation_ids']);
+
+        $byRuntimeContract = $catalog->summary(['kind' => 'runtime_contract']);
+        $this->assertSame(1, $byRuntimeContract['command_count']);
+        $this->assertSame(['voice_python_runtime_contract_test'], $byRuntimeContract['operation_ids']);
 
         $this->assertSame(['kind' => 'evidence_report'], $byKind['filters']);
         $this->assertSame(11, $byKind['command_count']);

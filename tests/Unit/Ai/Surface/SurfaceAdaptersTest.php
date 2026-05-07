@@ -3,12 +3,11 @@
 namespace Tests\Unit\Ai\Surface;
 
 use App\Services\Ai\Kernel\Envelope\KernelInput;
+use App\Services\Ai\Kernel\Surface\SurfaceAdapter;
 use App\Services\Ai\Kernel\Surface\SurfaceAttachmentKind;
 use App\Services\Ai\Kernel\Surface\SurfaceCapability;
 use App\Services\Ai\Kernel\Surface\SurfaceDomainFlowHintKey;
 use App\Services\Ai\Kernel\Surface\SurfaceHintKey;
-use App\Services\Ai\Kernel\Surface\SurfaceAdapter;
-use App\Services\Ai\Surface\Adapters\BaseSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasApiInteractionSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasAppSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliChatSurfaceAdapter;
@@ -16,7 +15,9 @@ use App\Services\Ai\Surface\Adapters\AtlasCliDevSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliForgeSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasMcpReadonlySurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasVaultSurfaceAdapter;
+use App\Services\Ai\Surface\Adapters\AtlasVoiceRealtimeSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasWorkerSurfaceAdapter;
+use App\Services\Ai\Surface\Adapters\BaseSurfaceAdapter;
 use App\Services\Ai\Surface\SurfaceAdapterRegistry;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -38,6 +39,7 @@ class SurfaceAdaptersTest extends TestCase
             'worker' => [new AtlasWorkerSurfaceAdapter, 'atlas_worker'],
             'mcp readonly' => [new AtlasMcpReadonlySurfaceAdapter, 'atlas_mcp_readonly'],
             'atlas vault' => [new AtlasVaultSurfaceAdapter, 'atlas_vault'],
+            'voice realtime' => [new AtlasVoiceRealtimeSurfaceAdapter, 'voice_realtime'],
         ];
     }
 
@@ -123,12 +125,15 @@ class SurfaceAdaptersTest extends TestCase
             'images' => [
                 ['id' => 'image-1', 'mime_type' => 'image/png'],
             ],
+            'audio_attachments' => [
+                ['id' => 'audio-1', 'mime_type' => 'audio/wav'],
+            ],
             'files' => [
                 ['id' => 'file-1', 'path' => '/tmp/input.txt'],
             ],
         ]);
 
-        $this->assertCount(3, $input->attachments);
+        $this->assertCount(4, $input->attachments);
         $this->assertSame('application/json', $input->attachments[0]['type']);
         $this->assertSame(SurfaceAttachmentKind::ATTACHMENT, $input->attachments[0]['surface_attachment_kind']);
         $this->assertSame('attachments', $input->attachments[0]['surface_attachment_source']);
@@ -137,9 +142,13 @@ class SurfaceAdaptersTest extends TestCase
         $this->assertSame(SurfaceAttachmentKind::IMAGE, $input->attachments[1]['surface_attachment_kind']);
         $this->assertSame('images', $input->attachments[1]['surface_attachment_source']);
 
-        $this->assertSame('file-1', $input->attachments[2]['id']);
-        $this->assertSame(SurfaceAttachmentKind::FILE, $input->attachments[2]['surface_attachment_kind']);
-        $this->assertSame('files', $input->attachments[2]['surface_attachment_source']);
+        $this->assertSame('audio-1', $input->attachments[2]['id']);
+        $this->assertSame(SurfaceAttachmentKind::AUDIO, $input->attachments[2]['surface_attachment_kind']);
+        $this->assertSame('audio_attachments', $input->attachments[2]['surface_attachment_source']);
+
+        $this->assertSame('file-1', $input->attachments[3]['id']);
+        $this->assertSame(SurfaceAttachmentKind::FILE, $input->attachments[3]['surface_attachment_kind']);
+        $this->assertSame('files', $input->attachments[3]['surface_attachment_source']);
     }
 
     #[DataProvider('adapters')]
@@ -210,7 +219,7 @@ class SurfaceAdaptersTest extends TestCase
 
     public function test_domain_flow_capable_adapters_expose_selection_hints(): void
     {
-        foreach ([new AtlasCliDevSurfaceAdapter, new AtlasCliForgeSurfaceAdapter, new AtlasApiInteractionSurfaceAdapter, new AtlasAppSurfaceAdapter] as $adapter) {
+        foreach ([new AtlasCliDevSurfaceAdapter, new AtlasCliForgeSurfaceAdapter, new AtlasApiInteractionSurfaceAdapter, new AtlasAppSurfaceAdapter, new AtlasVoiceRealtimeSurfaceAdapter] as $adapter) {
             $hints = $adapter->supportedDomainFlowHints();
 
             $this->assertSame($adapter->surfaceId(), $hints[SurfaceDomainFlowHintKey::SURFACE_ID]);
@@ -222,6 +231,11 @@ class SurfaceAdaptersTest extends TestCase
         $this->assertSame('programming.forge', $forgeHints[SurfaceDomainFlowHintKey::DEFAULT_FLOW_ID]);
         $this->assertSame('programming.forge', $forgeHints[SurfaceDomainFlowHintKey::TASK_FLOW_MAP]['heavy']);
         $this->assertContains('programming.forge', $forgeHints[SurfaceDomainFlowHintKey::SUPPORTED_FLOW_IDS]);
+
+        $voiceHints = (new AtlasVoiceRealtimeSurfaceAdapter)->supportedDomainFlowHints();
+        $this->assertSame('general.answer', $voiceHints[SurfaceDomainFlowHintKey::DEFAULT_FLOW_ID]);
+        $this->assertSame('programming.repair', $voiceHints[SurfaceDomainFlowHintKey::TASK_FLOW_MAP]['debug']);
+        $this->assertContains('marketing.copywriting', $voiceHints[SurfaceDomainFlowHintKey::SUPPORTED_FLOW_IDS]);
     }
 
     public function test_cli_programming_and_chat_surfaces_support_image_paste(): void
@@ -261,6 +275,18 @@ class SurfaceAdaptersTest extends TestCase
         $this->assertNotContains(SurfaceCapability::MEMORY_RECALL, $vault->supportedCapabilities());
         $this->assertNotContains(SurfaceCapability::CONTEXT_COMPOSE, $vault->supportedCapabilities());
         $this->assertNotContains(SurfaceCapability::TOOLS_RUNTIME, $vault->supportedCapabilities());
+    }
+
+    public function test_voice_realtime_surface_declares_voice_audio_without_tool_execution(): void
+    {
+        $voice = new AtlasVoiceRealtimeSurfaceAdapter;
+
+        $this->assertContains(SurfaceCapability::TEXT, $voice->supportedCapabilities());
+        $this->assertContains(SurfaceCapability::VOICE_AUDIO, $voice->supportedCapabilities());
+        $this->assertContains(SurfaceCapability::MEMORY_RECALL, $voice->supportedCapabilities());
+        $this->assertContains(SurfaceCapability::CONTEXT_COMPOSE, $voice->supportedCapabilities());
+        $this->assertContains(SurfaceCapability::DOMAIN_FLOW_SELECTION, $voice->supportedCapabilities());
+        $this->assertNotContains(SurfaceCapability::TOOLS_RUNTIME, $voice->supportedCapabilities());
     }
 
     public function test_unknown_surface_capability_fails_compliance(): void
@@ -362,6 +388,7 @@ class SurfaceAdaptersTest extends TestCase
             'atlas_worker',
             'atlas_mcp_readonly',
             'atlas_vault',
+            'voice_realtime',
         ], $registry->surfaceIds());
 
         $this->assertSame([
@@ -379,6 +406,9 @@ class SurfaceAdaptersTest extends TestCase
             'obsidian' => 'atlas_vault',
             'atlas_obsidian' => 'atlas_vault',
             'atlasvault' => 'atlas_vault',
+            'atlas_voice' => 'voice_realtime',
+            'voice' => 'voice_realtime',
+            'voice_realtime_mobile' => 'voice_realtime',
         ], $registry->aliases());
 
         $this->assertSame('atlas_cli_dev', $registry->canonicalSurfaceId('atlas_cli'));
@@ -391,6 +421,8 @@ class SurfaceAdaptersTest extends TestCase
         $this->assertSame('atlas_vault', $registry->canonicalSurfaceId('obsidian'));
         $this->assertSame('atlas_vault', $registry->canonicalSurfaceId('atlasvault'));
         $this->assertSame('atlas_app', $registry->canonicalSurfaceId('atlas_app'));
+        $this->assertSame('voice_realtime', $registry->canonicalSurfaceId('voice'));
+        $this->assertSame('voice_realtime', $registry->canonicalSurfaceId('atlas_voice'));
         $this->assertSame('atlas_cli_dev', $registry->get('atlas_cli')->surfaceId());
         $this->assertSame('atlas_cli_chat', $registry->get('atlas_ask')->surfaceId());
         $this->assertSame('atlas_cli_dev', $registry->get('atlas_cli_continue')->surfaceId());
@@ -398,6 +430,7 @@ class SurfaceAdaptersTest extends TestCase
         $this->assertSame('atlas_worker', $registry->get('atlas_worker')->surfaceId());
         $this->assertSame('atlas_mcp_readonly', $registry->get('atlas_mcp_readonly')->surfaceId());
         $this->assertSame('atlas_vault', $registry->get('obsidian')->surfaceId());
+        $this->assertSame('voice_realtime', $registry->get('voice')->surfaceId());
 
         foreach ($registry->surfaceIds() as $surfaceId) {
             $adapter = $registry->get($surfaceId);
@@ -416,10 +449,11 @@ class SurfaceAdaptersTest extends TestCase
 
         $this->assertTrue($report['ok'], implode("\n", $report['errors']));
         $this->assertSame([], $report['errors']);
-        $this->assertSame(8, $report['count']);
+        $this->assertSame(9, $report['count']);
         $this->assertSame('atlas_cli_chat', $report['aliases']['atlas_ask']);
         $this->assertSame('atlas_cli_dev', $report['aliases']['atlas_cli_continue']);
         $this->assertSame('atlas_vault', $report['aliases']['obsidian']);
+        $this->assertSame('voice_realtime', $report['aliases']['voice']);
         $this->assertSame([
             'atlas_cli_dev',
             'atlas_cli_chat',
@@ -429,6 +463,7 @@ class SurfaceAdaptersTest extends TestCase
             'atlas_worker',
             'atlas_mcp_readonly',
             'atlas_vault',
+            'voice_realtime',
         ], $report['surfaces']);
     }
 }

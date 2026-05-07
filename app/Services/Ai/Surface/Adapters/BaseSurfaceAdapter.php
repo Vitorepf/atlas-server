@@ -4,11 +4,11 @@ namespace App\Services\Ai\Surface\Adapters;
 
 use App\Services\Ai\Kernel\Envelope\KernelInput;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Kernel\Surface\SurfaceAdapter;
 use App\Services\Ai\Kernel\Surface\SurfaceAttachmentKind;
 use App\Services\Ai\Kernel\Surface\SurfaceCapability;
 use App\Services\Ai\Kernel\Surface\SurfaceDomainFlowHintKey;
 use App\Services\Ai\Kernel\Surface\SurfaceHintKey;
-use App\Services\Ai\Kernel\Surface\SurfaceAdapter;
 use Throwable;
 
 abstract class BaseSurfaceAdapter implements SurfaceAdapter
@@ -215,6 +215,12 @@ abstract class BaseSurfaceAdapter implements SurfaceAdapter
         foreach (['image_attachments', 'images'] as $key) {
             foreach ($this->arrayList($payload[$key] ?? null) as $attachment) {
                 $attachments[] = $this->surfaceAttachment($attachment, SurfaceAttachmentKind::IMAGE, $key);
+            }
+        }
+
+        foreach (['audio_attachments', 'audio', 'voice_audio'] as $key) {
+            foreach ($this->arrayList($payload[$key] ?? null) as $attachment) {
+                $attachments[] = $this->surfaceAttachment($attachment, SurfaceAttachmentKind::AUDIO, $key);
             }
         }
 

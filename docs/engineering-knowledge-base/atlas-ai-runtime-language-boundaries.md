@@ -108,9 +108,6 @@ Nao use Python para:
 5. executar acao destrutiva sem receipt e approval;
 6. virar source of truth de Evidence.
 
-Status inicial recomendado: `scaffold/future` ate existir contrato de payload,
-worker, health, replay e testes.
-
 Uso de 48GB RAM, RAG local, rerank, cache, modelos locais e precomputacao vive
 em `atlas-ai-local-performance-memory-strategy.md`.
 
@@ -136,9 +133,6 @@ Nao use Go para:
 4. gravar dados finais sem passar por event contract;
 5. manter banco paralelo de estado canonico.
 
-Status inicial recomendado: `future/scaffold` ate existir necessidade real de
-alto volume, streaming, agent local ou rede persistente.
-
 ## Papel Do Swift
 
 Swift e o Native Mac Runtime. Use para:
@@ -149,8 +143,9 @@ Swift e o Native Mac Runtime. Use para:
 4. Accessibility opt-in (selected text only) e ScreenCaptureKit manual;
 5. Core Spotlight, Shortcuts/App Intents e deep links;
 6. Core ML leve para classificacao/embedding/STT local sem substituir Decide;
-7. Voice Realtime Edge: wake word local, VAD, echo cancel, captura de mic e
-   AirPods, LiveKit Swift SDK como cliente WebRTC.
+7. Voice Realtime Edge futuro no Mac: wake word local, VAD, echo cancel,
+   captura de mic/AirPods e LiveKit Swift SDK como cliente WebRTC. A primeira
+   surface de voz continua sendo mobile-first.
 
 Identidade canonica do runtime: `swift_native_mac`.
 
@@ -160,7 +155,7 @@ audio/video ambiente sem wake word/eclipse/policy do Kernel.
 
 Contratos detalhados:
 - `atlas-native-mac-agent.md` — contrato base de capabilities Apple.
-- `atlas-ai-voice-realtime-surface.md` — voice edge (`atlas-voice-edge`).
+- `atlas-ai-voice-realtime-surface.md` — voice mobile-first + Swift edge futuro.
 
 ## Matriz De Decisao
 
@@ -220,13 +215,9 @@ Laravel valida a resposta, grava evidence, roda gates e decide proximo passo.
 | Modo | Quando usar | Status |
 |---|---|---|
 | CLI JSON local | primeiro prototipo seguro | recomendado para inicio |
-| Worker de fila | tarefas assincronas com retry | medio prazo |
 | FastAPI local | serviço persistente de RAG/ML | quando houver hot path real |
 | Go daemon | ingestao/edge sempre ligado | quando houver volume real |
 | Swift app/helper | APIs Apple, approvals e contexto local | com AP e opt-in |
-| Microservicos separados | escala ou isolamento forte | somente com AP proprio |
-
-Comecar simples. Promover apenas quando evidence provar necessidade.
 
 ## Evidence Obrigatoria
 
@@ -238,8 +229,6 @@ Todo runtime Python, Go ou Swift deve registrar:
 4. artifact refs sem vazar dados sensiveis;
 5. finding normalizado quando houver erro, drift ou gap;
 6. link para `DecisionReceipt`.
-
-Sem evidence, o runtime nao existe operacionalmente.
 
 ## Anti-Duplicacao
 

@@ -53,10 +53,12 @@ capabilities:
   - finance_domain
   - personal_development_domain
   - atlas_ai_evolution_phase_0_audit
+  - voice_realtime_surface
 decisions:
   - Atlas AI Session Bootstrap e o primeiro pacote curto para novas sessoes responderem o que e Atlas, o que existe, o que falta e como evoluir.
   - Atlas AI Documentation Operating System define limites de tamanho, ownership, anti-hallucination, promocao e sync/index para documentacao de alta performance.
   - Atlas AI Runtime Language Boundaries separa Laravel Kernel, Python AI/Data Runtime, Go Edge/Concurrency Runtime e Swift Native Mac Runtime.
+  - Atlas AI Voice Realtime Surface define Voice como surface canonica mobile-first com Surface Adapter `voice_realtime`, LiveKit Agents SDK (Python), LiveKit/WebRTC, Swift Mac edge futuro, eclipse modes class-3 e Rivals-Voice.
   - Atlas Native Mac Agent define Swift/macOS como camada nativa local para Keychain, Touch ID, notificacoes, FSEvents, Menu Bar e contexto opt-in, sem virar Kernel.
   - Atlas AI Local Performance Memory Strategy define como usar 48GB RAM para hot context, RAG local, rerank, cache, modelos locais e precompute sem criar cerebro paralelo.
   - Atlas AI Content Intelligence And Knowledge Curation define como capturar, filtrar, descartar, rotear e promover conteudo sem poluir memoria ou dominios.
@@ -264,6 +266,7 @@ detalhe de modulo com docs/testes.
 | `atlas-ai-continuity-session-state.md` | Contrato canonico para continuidade, compactacao, handoff de provider/surface e session snapshots |
 | `atlas-ai-telemetry-evidence-performance.md` | Contrato canonico para telemetry, Evidence Ledger projections, aggregator_version, health gates, reports, custo e performance |
 | `atlas-ai-mobile-surface-gateway.md` | Contrato canonico para mobile como surface, pairing, push, inbox, discussion handoff e domain catalog |
+| `atlas-ai-voice-realtime-surface.md` | Contrato canonico do Voice Realtime Surface: mobile-first, Surface Adapter `voice_realtime` no Kernel, LiveKit Agents SDK, LiveKit/WebRTC, Swift Mac edge futuro, eclipse modes class-3, evidence VOICE_*, latency SLO e Rivals-Voice |
 | `atlas-ai-cli-multimodal.md` | Contrato canonico para input multimodal no CLI, paste de imagem, anexos clicaveis e fallbacks por terminal |
 | `atlas-ai-skill-system.md` | Contrato canonico para skills provider-neutral, lifecycle, evals, governance e traceability |
 | `atlas-ai-runtime-packets.md` | Mapa canonico dos packets legados para envelopes, receipts, ledger, tool events, permissions, memory deltas e router decisions |

@@ -27,6 +27,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
   - docs/engineering-knowledge-base/atlas-constelacao-surface.md
   - docs/engineering-knowledge-base/surface-domain-catalog-integration-plan.md
+  - docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
   - resolver-o-que-vale-a-pena/docs/atlas-ai-mobile-operating-model.md
   - resolver-o-que-vale-a-pena/docs/mobile-gateway-push-inbox-implementation.md
 ---
@@ -123,6 +124,26 @@ Um mobile gateway pronto deve ter:
 - cleanup/expire stale;
 - alert-check dry-run/apply;
 - smoke de device real documentado quando push for declarado pronto.
+
+## Cross-Surface: Voice Realtime
+
+Mobile e a primeira surface canonica do Voice Realtime Surface
+(`voice_realtime`). A primeira entrega deve ser push-to-talk mobile; depois o
+mesmo fluxo evolui para realtime com LiveKit Agents SDK. Quando ativa, mobile
+mostra:
+
+- estado da sessao de voz (clear, eclipsed, recovered);
+- session id e source de origem (mobile_app, cli, mac_edge);
+- indicador visivel de captura ativa;
+- push-to-talk/mute;
+- transcript parcial/final quando permitido por policy;
+- botao de encerrar sessao com efeito imediato.
+
+Mobile pode capturar e transmitir audio via LiveKit SDK, mas nao decide modelo,
+nao chama provider direto e nao persiste audio raw. STT/TTS/turn detection vivem
+no LiveKit Agents SDK, sempre subordinado ao Kernel. Swift/macOS entra depois
+como edge ambiental local, nao como primeiro produto de voz. Detalhes em
+`atlas-ai-voice-realtime-surface.md`.
 
 ## Source Material
 

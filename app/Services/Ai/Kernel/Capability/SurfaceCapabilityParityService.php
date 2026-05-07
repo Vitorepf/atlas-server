@@ -113,6 +113,7 @@ class SurfaceCapabilityParityService
             'atlas_worker' => ['atlas_worker'],
             'atlas_mcp_readonly' => ['atlas_mcp_readonly'],
             'atlas_vault' => ['atlas_vault'],
+            'atlas_voice' => ['voice_realtime'],
         ];
     }
 
@@ -129,6 +130,9 @@ class SurfaceCapabilityParityService
                 'atlas_cli' => [SurfaceCapability::IMAGE_PASTE],
                 'atlas_app' => [SurfaceCapability::IMAGE_PASTE, SurfaceCapability::IMAGE_UPLOADS, SurfaceCapability::ATTACHMENTS],
                 'atlas_api' => [SurfaceCapability::IMAGE_PASTE, SurfaceCapability::IMAGE_UPLOADS, SurfaceCapability::ATTACHMENTS],
+            ],
+            'atlas.input.voice_audio' => [
+                'atlas_voice' => [SurfaceCapability::VOICE_AUDIO],
             ],
             'atlas.input.file_attachment' => [
                 'atlas_cli' => [SurfaceCapability::FILES, SurfaceCapability::ATTACHMENTS],

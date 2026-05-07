@@ -35,6 +35,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-autonomy-power-backlog.md
   - docs/engineering-knowledge-base/atlas-ai-governed-backlog.md
+  - docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
   - docs/engineering-knowledge-base/domains/self-improvement.md
   - docs/engineering-knowledge-base/domains/personal-development.md
   - app/Services/Ai/Kernel/Architecture/AtlasQualitativeLevelsReadModel.php
@@ -235,6 +236,24 @@ Antes de qualquer ambiente/voz/sensor, implementar:
 3. retention;
 4. local-first quando sensivel;
 5. no-auto-action.
+
+### QL-7 — Voice Realtime Surface (Eixo Z-P1 ativo)
+
+Status: spec canonica ativa em `atlas-ai-voice-realtime-surface.md` (Layer 3,
+status scaffold com Fases 0-3 declaradas). Destrava voz/microfone do escopo
+future do `atlas-native-mac-agent.md` sob:
+
+1. wake word local sem stream ambiente;
+2. atlas-voice-edge (Swift) registrado como `swift_native_mac` com capability
+   `voice.realtime.edge`;
+3. LiveKit Server self-hosted (Go) + LiveKit Agents (Python);
+4. eclipse modes class-3 imutaveis (calendar, focus, manual, domain rule);
+5. privacy class por domain;
+6. Rivals-Voice como medidor de multiplicador.
+
+QL-7 e o primeiro avanco real do Eixo Z (presenca ambiental) com governanca
+suficiente. Avancos posteriores (vision ambiente, sensores fisiologicos)
+permanecem future ate Curator+Constitutional class-3 estarem maduros.
 
 ## Regras De Implementacao
 

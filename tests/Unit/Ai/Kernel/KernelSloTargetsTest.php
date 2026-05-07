@@ -29,6 +29,9 @@ class KernelSloTargetsTest extends TestCase
         $this->assertContains('envelope.create', $report['stages']);
         $this->assertContains('decide.issue', $report['stages']);
         $this->assertContains('ledger.append', $report['stages']);
+        $this->assertContains('voice.wake_word_detect', $report['stages']);
+        $this->assertContains('voice.turn_to_first_audio', $report['stages']);
+        $this->assertContains('voice.interruption_stop_audio', $report['stages']);
 
         $decide = $targets->targetFor('decide.issue');
 
@@ -36,6 +39,19 @@ class KernelSloTargetsTest extends TestCase
         $this->assertSame(99.5, $decide->successRate);
         $this->assertSame('critical', $decide->severity);
         $this->assertSame('atlas.kernel.slo_target.v1', $decide->schemaVersion);
+
+        $voice = $targets->targetFor('voice.turn_to_first_audio');
+
+        $this->assertInstanceOf(KernelSloTarget::class, $voice);
+        $this->assertSame(600, $voice->p95Ms);
+        $this->assertSame(1200, $voice->p99Ms);
+        $this->assertSame('critical', $voice->severity);
+
+        $interruption = $targets->targetFor('voice.interruption_stop_audio');
+
+        $this->assertInstanceOf(KernelSloTarget::class, $interruption);
+        $this->assertSame(250, $interruption->p95Ms);
+        $this->assertSame(500, $interruption->p99Ms);
     }
 
     public function test_slo_assessment_marks_ok_warning_and_breach_deterministically(): void

@@ -5,7 +5,11 @@ namespace App\Services\Ai\Kernel\Surface;
 final class SurfaceAttachmentKind
 {
     public const ATTACHMENT = 'attachment';
+
+    public const AUDIO = 'audio';
+
     public const FILE = 'file';
+
     public const IMAGE = 'image';
 
     /**
@@ -15,6 +19,7 @@ final class SurfaceAttachmentKind
     {
         return [
             self::ATTACHMENT,
+            self::AUDIO,
             self::FILE,
             self::IMAGE,
         ];

@@ -36,13 +36,15 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertContains('ledger.append', data_get($payload, 'kernel.slo_targets.stages'));
         $this->assertSame([], data_get($payload, 'kernel.slo_targets.errors'));
         $this->assertTrue(data_get($payload, 'kernel.surface_adapters.valid'));
-        $this->assertGreaterThanOrEqual(8, data_get($payload, 'kernel.surface_adapters.count'));
+        $this->assertGreaterThanOrEqual(9, data_get($payload, 'kernel.surface_adapters.count'));
         $this->assertContains('atlas_cli_dev', data_get($payload, 'kernel.surface_adapters.surfaces'));
         $this->assertContains('atlas_worker', data_get($payload, 'kernel.surface_adapters.surfaces'));
         $this->assertContains('atlas_mcp_readonly', data_get($payload, 'kernel.surface_adapters.surfaces'));
         $this->assertContains('atlas_vault', data_get($payload, 'kernel.surface_adapters.surfaces'));
+        $this->assertContains('voice_realtime', data_get($payload, 'kernel.surface_adapters.surfaces'));
         $this->assertSame('atlas_cli_chat', data_get($payload, 'kernel.surface_adapters.aliases.atlas_ask'));
         $this->assertSame('atlas_cli_dev', data_get($payload, 'kernel.surface_adapters.aliases.atlas_cli_continue'));
+        $this->assertSame('voice_realtime', data_get($payload, 'kernel.surface_adapters.aliases.voice'));
         $this->assertSame([], data_get($payload, 'kernel.surface_adapters.errors'));
         $this->assertTrue(data_get($payload, 'kernel.provider_drivers.valid'));
         $this->assertGreaterThanOrEqual(4, data_get($payload, 'kernel.provider_drivers.count'));

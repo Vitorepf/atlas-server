@@ -10,6 +10,7 @@ use App\Services\Ai\Surface\Adapters\AtlasCliDevSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliForgeSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasMcpReadonlySurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasVaultSurfaceAdapter;
+use App\Services\Ai\Surface\Adapters\AtlasVoiceRealtimeSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasWorkerSurfaceAdapter;
 use InvalidArgumentException;
 
@@ -27,6 +28,7 @@ class SurfaceAdapterRegistry
         AtlasWorkerSurfaceAdapter::class,
         AtlasMcpReadonlySurfaceAdapter::class,
         AtlasVaultSurfaceAdapter::class,
+        AtlasVoiceRealtimeSurfaceAdapter::class,
     ];
 
     /**
@@ -47,6 +49,9 @@ class SurfaceAdapterRegistry
         'obsidian' => 'atlas_vault',
         'atlas_obsidian' => 'atlas_vault',
         'atlasvault' => 'atlas_vault',
+        'atlas_voice' => 'voice_realtime',
+        'voice' => 'voice_realtime',
+        'voice_realtime_mobile' => 'voice_realtime',
     ];
 
     /**
