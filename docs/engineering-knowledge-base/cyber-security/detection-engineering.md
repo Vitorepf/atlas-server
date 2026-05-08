@@ -46,6 +46,7 @@ Detection-as-code para Cyber extension.
 | DE5 | Layered detection. Multiplas regras por tecnica em data sources diferentes. |
 | DE6 | Severity = priority. Nao inflar. |
 | DE7 | Lifecycle visivel: draft -> staged -> live -> deprecated. |
+| DE8 | **Verdict-First / Anomaly over Confirmation**. Detection nao e so signature match — privilegia desvio comportamental sobre assinatura conhecida. Endpoint que comeca a enviar trafego criptografado para dominio nao categorizado dispara alert mesmo sem CVE conhecido. Reduz blind-spot a 0-day; aumenta requisito de baseline estavel. Trade-off explicito: anomaly tem FP higher; pareado com behavioral correlation (multipla sinal) reduz. Alvo: 30%+ das regras `live` em categoria `behavioral` ate fim do ano de promotion. |
 
 ## Tipos de Detection
 

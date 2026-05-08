@@ -62,7 +62,9 @@ OWASP Top 10 + WSTG. Sub-tecnicas:
 - **Input Validation** (CWE-79, CWE-89, CWE-78, CWE-22, CWE-918, CWE-94, CWE-502, CWE-611, CWE-601): XSS (reflected/stored/DOM/mutation), SQLi (union/blind/time/error/second-order), SSRF (cloud metadata, DNS rebind, file://), command injection, path traversal/LFI/RFI, deserialization, XXE, open redirect.
 - **Mass Assignment** (CWE-915): role escalation via body, account_balance, email_verified.
 - **Business Logic**: workflow ordering, race conditions (cupom, transfer), limit bypass (negative qty, >100% discount), insecure direct purpose, rate limit semantic.
+- **Single-Packet Race Conditions** (Kettle 2023-2024 state-of-the-art): envio de N requests em uma unica janela TCP/HTTP2 (TCP segmentation + last-byte sync) elimina jitter de rede que mascara race conditions classicas. Explora limit bypass em pagamento (claim cupom 2x), votacao (vote 2x), saldo (transfer simultanea), MFA (consumir token N vezes). Tool canonica: `turbo-intruder` (Burp extension de Kettle) com engine `--engine=enginemodes`. Detection raro — bug paga premium em BB enterprise.
 - **Client-side** (CWE-1021, CWE-352): CORS misconfig, postmessage, CSP bypass, service worker, websocket origin.
+- **HTTP Request Smuggling** (CWE-444): descompasso de parsing entre proxy frontend e backend de origem na delimitacao da request. Variantes canonicas: **CL.TE** (frontend usa Content-Length, backend usa Transfer-Encoding), **TE.CL** (inverso), **TE.TE** (ofuscacao do header TE para um lado ignorar). Impacto: cache poisoning, request hijacking, bypass de WAF/auth frontend, atingir endpoints internos. Tools: `smuggler.py`, Burp Repeater com header manipulation, Caido workflows. Referencia obrigatoria: trabalho do James Kettle (PortSwigger albinowax) — papers "HTTP Desync Attacks" 2019/2022/2023 e Browser-Powered Desync Attacks. 99% dos scanners genericos ignoram; payload alto.
 
 Skill primaria: `cyber-pentest-webapp`.
 
@@ -109,6 +111,8 @@ CIS + ATT&CK Cloud. Sub-tecnicas:
 - **Kubernetes**: API server externo, RBAC cluster-admin, Network Policies ausentes, pods root/privileged, hostNetwork/hostPID, ConfigMaps com secrets, container escapes.
 - **Container images**: CVEs em packages, secrets em layers, Dockerfile misconfig.
 - **Supply chain cloud**: registries publicos, untrusted images, Helm sem verify.
+- **IaC ofensivo** (Terraform/CFN/Pulumi/Helm/Kustomize): templates com `*` policy, secrets hardcoded, modulos publicos nao verificados, drift entre IaC declarado e estado real (recursos orfaos = surface invisivel). Tools: `checkov` (canonico, ja em registry), `tfsec`, `kics`, `terrascan`.
+- **Attack boxes efemeras** (pattern ofensivo): provisionar VM/container atacante via IaC (Terraform + cloud-init) que: (a) instala toolset (`nuclei`, `ffuf`, etc.), (b) executa scope-bound, (c) exfiltra evidence redacted via Atlas Evidence Ledger, (d) auto-destroi. Reduz attribution e cleanup manual. Constraint: scope_proof obrigatorio + cost gate; viola refusal cyber-ref-052 se atinge sistema critico em prod.
 
 Skill primaria: futuro `cyber-pentest-cloud`.
 
@@ -125,6 +129,8 @@ MITRE ATT&CK. Sub-tecnicas:
 - **Privesc**: BloodHound shortest path, DCSync, delegation abuse, ACL abuse.
 - **Lateral**: WMI exec, WinRM, SMB exec, RDP.
 - **Credential dumping**: LSASS (apenas sandbox), SAM offline, DPAPI.
+- **GPP Decryption** (CVE-2014-1812): cpassword exposto em SYSVOL Group Policy Preferences; key publica conhecida da MS, decrypt offline com gpp-decrypt/PowerSploit `Get-GPPPassword`. Lega quando dominio nao migrou para LAPS.
+- **AD CS abuse** (Certified Pre-Owned ESC1-15): template de certificado com `EnrolleeSuppliesSubject=true` permite request com SAN arbitrario (ESC1); CA com `EDITF_ATTRIBUTESUBJECTALTNAME2` (ESC6); access control fraco em template (ESC4); enroll via vulnerable web endpoints HTTP (ESC8). Tools: `certipy-ad`, `Certify`, BloodHound com `+CertCollector`.
 - **Persistence**: apenas com clausula explicita.
 
 Skill primaria: futuro `cyber-pentest-network-ad`.
@@ -182,6 +188,7 @@ OWASP LLM Top 10 + MITRE ATLAS. Sub-tecnicas:
 
 - **LLM01 Prompt Injection**: direct + indirect (payload em conteudo lido), multi-turn degradation, cross-language.
 - **LLM02 Insecure Output Handling**: output -> eval/SQL/HTML sem escape.
+- **RAG Poisoning / Vector Store Contamination**: injetar documentos maliciosos no corpus RAG do alvo (via web crawl, upload features, public scraping) que serao indexados e influenciam respostas a queries futuras. Sub-tecnicas: (a) prompt injection escondido em conteudo plain (LLM lê e segue), (b) embedding inversion attacks (queries craftadas que extraem chunks proximos a target embedding), (c) vector index manipulation (se index e re-treinado com input do atacante), (d) cross-tenant leak via shared vector store sem isolation por tenant. Detection: monitorar diff de respostas a mesma query ao longo do tempo + audit de novos documentos indexados.
 - **LLM03 Training Data Poisoning** (apenas se modelo treinado pelo cliente).
 - **LLM04 Model DoS**: infinite loop, recursive function calls em agents.
 - **LLM05 Supply Chain**: HF model verified, pickle unsafe, model signing.
@@ -248,6 +255,21 @@ MITRE ATT&CK Enterprise. Sub-tecnicas (apenas com clausula `red-team-c2`):
 - White cell informada, crawl-walk-run em OPSEC.
 
 Skill primaria: futuro `cyber-red-teamer`.
+
+## Reference Library
+
+Recursos canonicos indexados pelo Atlas Open Brain (consulta antes de gerar payload novo). Skills cyber-* podem referenciar sem copiar conteudo.
+
+| Recurso | Tipo | Funcao no Atlas |
+|---|---|---|
+| **PayloadsAllTheThings** (swisskyrepo/PayloadsAllTheThings) | Repo GitHub — payloads + bypass por categoria | Atlas indexa para gerar variacoes (WAF bypass, encoding tricks, polyglot). Skills consultam antes de testar variantes manuais. |
+| **Real-World Bug Hunting** (Peter Yaworski) | Livro / metodologia | Mentalidade logica para BOLA/IDOR/business logic. Skill `cyber-pentest-webapp` usa o framework "what did the dev forget?" como heuristica. |
+| **HackTricks** (carlospolop/hacktricks) | Wiki tecnica massiva | Cobertura per-tecnica com snippets executaveis; Atlas usa como deep-dive quando KB interna nao cobre subcategoria. |
+| **OWASP Cheat Sheet Series** | Defensivo | Pareado com remediation-patterns.md — Atlas valida fix proposto contra cheat sheet aplicavel. |
+| **PortSwigger Web Security Academy** | Treinamento + papers | Fonte primaria para HTTP Smuggling, prototype pollution, browser exploitation. Papers do James Kettle indexados para Atlas raciocinar sobre desync. |
+| **Bug Bounty Reports Templates** (jhaddix/tbhm) | Templates + war stories | Skill `cyber-bb-triage` usa para format de payload por plataforma. |
+
+Atlas Open Brain mantem indice atualizado destes recursos via `atlas engineering knowledge sync --prune`. Recursos novos entram via change-protocol canonico.
 
 ## Anti-padroes cross-categoria
 

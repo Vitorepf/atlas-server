@@ -202,6 +202,75 @@ Refactor playbook: como aplicar em codebase grande
 
 **Variants para PoC**: timing diff, mensagem distinta user existente vs inexistente.
 
+## Negative PoC standalone (entregavel para regression perpetuo)
+
+Alem do Negative PoC integrado em CI (test em `tests/security/<finding_id>_repro_must_fail.test.ts` que roda automaticamente), Atlas gera **script standalone** entregavel ao operador (e opcionalmente ao programa BB):
+
+```
+check_<finding_id>.py    # OU .sh, .ts, .go conforme stack do alvo
+```
+
+Script:
+
+1. **Self-contained**: zero dependencia do projeto Atlas — roda standalone com requirements basicos (requests/curl/etc.).
+2. **Configuravel**: target URL + creds via env var ou flags.
+3. **Deterministico**: executa exploit original + variants conhecidas (mesma taxonomy do Patch).
+4. **Output binario**: exit code 0 = fix permanece valido; exit code 1 = REGRESSION (variant passa novamente).
+5. **CI-friendly**: pode ser integrado em pipeline do programa como gate semestral.
+
+Template canonico:
+
+```python
+#!/usr/bin/env python3
+"""
+check_F-<finding_id>.py — Regression test standalone para finding F-<finding_id>
+
+Original finding: <CWE>: <impact em uma linha>
+Pattern de remediacao: cyber-rem-<slug>
+Esperado pos-fix: TODAS as variants abaixo devem ser bloqueadas (status seguro).
+
+Uso:
+    export TARGET_URL="https://...."
+    export CRED_TOKEN="..."
+    python3 check_F-<finding_id>.py
+    # exit 0 = fix permanece OK
+    # exit 1 = REGRESSION — variant passa novamente
+"""
+import os, sys, requests
+
+TARGET = os.environ["TARGET_URL"]
+TOKEN = os.environ.get("CRED_TOKEN", "")
+
+VARIANTS = [
+    # (variant_name, request_kwargs, expected_safe_status)
+    ("original_exploit", {...}, [403, 401, 422]),
+    ("variant_encoded", {...}, [403, 401, 422]),
+    ("variant_double_encoded", {...}, [403, 401, 422]),
+    # ... taxonomy completa do pattern
+]
+
+failures = []
+for name, req, safe_codes in VARIANTS:
+    r = requests.request(**req, headers={"Authorization": f"Bearer {TOKEN}"})
+    if r.status_code not in safe_codes:
+        failures.append((name, r.status_code, r.text[:200]))
+
+if failures:
+    print(f"REGRESSION DETECTED ({len(failures)} variants passing):")
+    for name, code, body in failures:
+        print(f"  - {name}: status {code} body[:200]={body}")
+    sys.exit(1)
+
+print(f"OK — all {len(VARIANTS)} variants blocked. Fix remains valid.")
+sys.exit(0)
+```
+
+Utilidade dupla:
+- **Operador (Vitor)**: roda mensalmente para garantir que programa BB nao introduziu regression silenciosa em release nova.
+- **Programa BB**: pode adotar em CI como gate semestral — Atlas entrega como bonus (alguns programas valorizam isso explicitamente).
+
+Variants cobertas no script == taxonomy listada na §"Variants para PoC" de cada pattern.
+
 ## Variants taxonomy (cobertura obrigatoria em Negative PoC)
 
 Cada variant listada acima DEVE aparecer em Negative PoC do Patch que aplica o pattern. Skill desenvolvedor gera Negative PoC a partir desta taxonomy.

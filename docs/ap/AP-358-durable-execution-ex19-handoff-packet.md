@@ -25,7 +25,7 @@ Evidence Ledger.
 
 ## Position
 
-AP-357 reporta a decisao AP-352. AP-358 consome apenas o receipt aceito e
+AP-357 reporta a decisao AP-356. AP-358 consome apenas o receipt aceito e
 prepara o pacote revisavel para um futuro AP.
 
 Se o receipt nao estiver aceito, o handoff bloqueia. Se a evidencia do handoff

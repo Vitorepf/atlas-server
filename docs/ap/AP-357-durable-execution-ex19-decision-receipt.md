@@ -25,7 +25,7 @@ sem escrever no Evidence Ledger.
 
 ## Position in the mother structure
 
-AP-356 normaliza a decisao humana sobre o preflight AP-351.
+AP-356 normaliza a decisao humana sobre o preflight AP-355.
 
 AP-357 sela essa decisao como receipt declarativo. O receipt informa se o proximo
 passo pode consumir o aceite, deve voltar para reparo ou deve parar ate o escopo
@@ -33,7 +33,7 @@ ser reaberto.
 
 ## Contract
 
-Entrada: array produzido por `AtlasApAgentWorkflowAp352DecisionContract`.
+Entrada: array produzido por `AtlasApAgentWorkflowAp356DecisionContract`.
 
 Saida:
 

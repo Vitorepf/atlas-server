@@ -99,6 +99,76 @@ Skills cyber-* podem usar IMEDIATAMENTE (verificar via `atlas tools list`):
   execution_tier: T0
   sandbox: true
   used_by_skills: [cyber-recon]
+
+- tool_slug: httpx
+  recipe_name: probe-json
+  category: discovery
+  argv: [-l, "{hosts_file}", -status-code, -title, -tech-detect, -json, -o, "{output}"]
+  dry_run_default: true
+  creates_evidence: true
+  execution_tier: T0
+  sandbox: true
+  used_by_skills: [cyber-recon]
+  notes: ProjectDiscovery; complementa subfinder/amass com probe HTTP + tech detect.
+
+- tool_slug: bbot
+  recipe_name: recursive-recon-graph
+  category: recon_recursive
+  argv: [-t, "{target}", -p, "{preset}", -o, "{output_dir}", --output-modules, json,asset_inventory,neo4j]
+  dry_run_default: true
+  creates_evidence: true
+  blocking_capable: false
+  execution_tier: T1
+  sandbox: true
+  privacy_level: scope_only
+  task_type: recursive_recon
+  authority_group: recon_advanced
+  used_by_skills: [cyber-recon]
+  notes: |
+    BBOT (BlackLanternSecurity) — framework recursivo. Encadeia tools automaticamente
+    (DNS -> port scan -> HTTP probe -> tech detect -> vuln scan) em grafo de relacionamento.
+    Diferente de subfinder/amass pontuais, BBOT alimenta output de uma tool em outra.
+    Output canonico = neo4j-importable graph para asset relationship analysis.
+    Constraint: scope.in injetado via preset customizado (cada modulo respeita).
+
+- tool_slug: cve-monitor
+  recipe_name: twitter-github-watch
+  category: threat_intel_realtime
+  argv: [monitor, --keywords, "{stack_keywords}", --sources, "twitter,github,nvd", --output, "{output}", --since, "{since}"]
+  dry_run_default: true
+  creates_evidence: true
+  blocking_capable: false
+  execution_tier: T0
+  sandbox: true
+  privacy_level: provider_safe
+  task_type: cve_realtime_watch
+  used_by_skills: [cyber-recon, cyber-bb-runner]
+  notes: |
+    Monitora menções a CVEs novos / PoCs em X (Twitter), GitHub trending, NVD feed,
+    e repos de exploit publicos. Filtra por stack do alvo (extraido de cyber-recon
+    asset map: tech fingerprint). Trigger: novo CVE relevante a stack do alvo →
+    notificacao no Inbox + sugestao de retest cyber.recon.continuous focado.
+
+- tool_slug: axiom
+  recipe_name: distributed-scan
+  category: recon_distributed
+  argv: [axiom-scan, "{hosts_file}", -m, "{module}", -o, "{output}"]
+  dry_run_default: true
+  creates_evidence: true
+  blocking_capable: true
+  execution_tier: T2
+  sandbox: vm
+  privacy_level: scope_only
+  task_type: distributed_recon
+  authority_group: cloud_distributed
+  requires_extra_approval: true
+  used_by_skills: [cyber-recon]
+  notes: |
+    Distribui scanners (Nuclei/ffuf/etc.) em N instancias cloud paralelas — acelera recon
+    de escopo grande de horas para minutos. Constraints: cost gate obrigatorio (operador
+    confirma teto USD), scope check em cada instancia individual, cleanup automatico
+    (auto-destroi instancias apos run). Risco de scope drift via instancia mal-configurada;
+    wrapper deve injetar scope.in em CADA fanned task.
 ```
 
 ### Webapp / API
@@ -148,6 +218,67 @@ Skills cyber-* podem usar IMEDIATAMENTE (verificar via `atlas tools list`):
   execution_tier: T1
   sandbox: true
   used_by_skills: [cyber-pentest-webapp]
+
+- tool_slug: smuggler-custom
+  recipe_name: http-desync-suite
+  category: webapp_advanced
+  argv: [smuggler.py, -u, "{target}", -m, "{method}", --timeout, "{timeout}", --output, "{output}"]
+  dry_run_default: true
+  creates_evidence: true
+  blocking_capable: false
+  execution_tier: T2
+  sandbox: vm
+  privacy_level: scope_only
+  task_type: http_request_smuggling
+  authority_group: webapp_pentest
+  requires_extra_approval: true
+  used_by_skills: [cyber-pentest-webapp]
+  notes: |
+    HTTP Request Smuggling (CL.TE/TE.CL/TE.TE) baseado em scripts de James Kettle
+    (defparam/smuggler) + turbo-intruder (Burp extension). Cobre tambem H2C smuggling
+    e Browser-Powered Desync Attacks. Sandbox VM porque pode causar request hijacking
+    em outras conexoes (efeito colateral em proxies compartilhados). Constraint:
+    target em scope.in + RoE permite testes que afetam state de proxy/cache.
+
+- tool_slug: js-dynamic-analyzer
+  recipe_name: shadow-api-discovery
+  category: webapp_recon_deep
+  argv: [analyze, --target, "{target}", --headless, --output, "{output_dir}"]
+  dry_run_default: true
+  creates_evidence: true
+  blocking_capable: false
+  execution_tier: T1
+  sandbox: vm
+  privacy_level: scope_only
+  task_type: js_runtime_analysis
+  authority_group: webapp_pentest
+  used_by_skills: [cyber-recon, cyber-pentest-webapp]
+  notes: |
+    Analise dinamica de JS em runtime via headless browser (Playwright/Puppeteer):
+    LinkFinder + JSFScan + trufflehog para descobrir Shadow APIs (rotas nao
+    documentadas referenciadas em bundle), secrets embutidos em JS minificado,
+    endpoints internos revelados em chamadas XHR/fetch. Pareado com nuclei para
+    fingerprint adicional. Asset map gerado complementa cyber-recon padrao.
+
+- tool_slug: caido
+  recipe_name: workflow-automate
+  category: proxy_automation
+  argv: [caido-cli, --workflow, "{workflow_yaml}", --target, "{target}", --output, "{output}"]
+  dry_run_default: true
+  creates_evidence: true
+  blocking_capable: false
+  execution_tier: T1
+  sandbox: true
+  privacy_level: scope_only
+  task_type: webapp_automation
+  authority_group: webapp_pentest
+  used_by_skills: [cyber-pentest-webapp]
+  notes: |
+    Caido — proxy escrito em Rust (alternativa moderna ao Burp). Vantagem: leve,
+    rapido, workflows scriptaveis em YAML. Atlas usa para automacao pesada de
+    interceptacao + manipulacao de request em tempo real (request smuggling tests,
+    massive parameter fuzzing, replay com mutacao). Pode rodar em servidor remoto
+    + API conectada ao Atlas. Sandbox container suficiente (sem persistence).
 ```
 
 ### Mobile (futuro skill cyber-pentest-mobile)
@@ -224,6 +355,97 @@ Skills cyber-* podem usar IMEDIATAMENTE (verificar via `atlas tools list`):
   execution_tier: T2
   sandbox: true
   requires_extra_approval: true
+
+- tool_slug: cloudsplaining
+  recipe_name: iam-audit-json
+  category: cloud_iam_audit
+  argv: [scan, --input-file, "{iam_authz_details}", --output, "{output_dir}"]
+  dry_run_default: true
+  creates_evidence: true
+  execution_tier: T0
+  sandbox: true
+  privacy_level: cred_safe
+  task_type: cloud_iam_audit
+  used_by_skills: [cyber-recon, cyber-pentest-webapp]
+  notes: |
+    Salesforce CloudSplaining — analisa AWS IAM policies para identificar privilege
+    escalation paths, data exfiltration, infra modification e resource exposure
+    (writes recursos sem condition). Pareado com prowler/scout-suite: prowler
+    identifica misconfig; CloudSplaining identifica risco de exploit. Apenas
+    leitura de IAM policies — zero impacto.
+
+- tool_slug: pacu
+  recipe_name: aws-privesc-orchestrate
+  category: cloud_pentest_active
+  argv: [--session, "{session_name}", --module, "{module}"]
+  dry_run_default: true
+  creates_evidence: true
+  blocking_capable: true
+  execution_tier: T2
+  sandbox: vm
+  privacy_level: scope_only
+  task_type: cloud_privesc
+  authority_group: cloud_active_pentest
+  requires_extra_approval: true
+  used_by_skills: [cyber-pentest-webapp]
+  notes: |
+    Pacu (RhinoSecurityLabs) — "Metasploit da nuvem" para AWS. Modulos para enum
+    + privesc + persistence + exfil em ambiente AWS comprometido. Apenas com
+    clausula explicita do programa BB autorizando cloud active pentest + scope.in
+    contendo AWS account ID alvo. Refusal automatica para AWS Organizations sem
+    autorizacao explicita do management account.
+```
+
+### Red Team C2 (futuro skill cyber-red-teamer; apenas com clausula `red-team-c2`)
+
+```yaml
+- tool_slug: sliver
+  recipe_name: c2-listener-implant
+  category: red_team_c2
+  argv: [server, --config, "{config}"]
+  dry_run_default: true
+  creates_evidence: true
+  blocking_capable: true
+  execution_tier: T2
+  sandbox: vm
+  privacy_level: scope_only
+  task_type: red_team_c2
+  authority_group: red_team_c2
+  requires_extra_approval: true
+  notes: |
+    BishopFox Sliver (Go-based, open source) — alternativa moderna ao Cobalt Strike.
+    Apenas com clausula `red-team-c2` no programa BB OU contrato red team explicito.
+    VM dedicada por engagement; cleanup obrigatorio (implants + persistence) ao fim.
+    Refusal automatica se scope.in nao tem dominio AD ou network range autorizado.
+
+- tool_slug: havoc
+  recipe_name: c2-listener-implant
+  category: red_team_c2
+  argv: [havoc, server, --profile, "{profile}"]
+  dry_run_default: true
+  creates_evidence: true
+  blocking_capable: true
+  execution_tier: T2
+  sandbox: vm
+  requires_extra_approval: true
+  notes: |
+    HavocFramework (open source moderno). Mesmas constraints de Sliver.
+    Operador escolhe sliver vs havoc baseado em maturidade do detection do alvo
+    (havoc tem TTPs distintos — usar pra adversary emulation diversificado).
+
+- tool_slug: invisibility-cloak
+  recipe_name: csharp-obfuscate
+  category: red_team_evasion
+  argv: [InvisibilityCloak.ps1, "{input_csharp}", "{output_obfuscated}"]
+  dry_run_default: true
+  creates_evidence: true
+  execution_tier: T2
+  sandbox: vm
+  requires_extra_approval: true
+  notes: |
+    Ofuscacao C#/.NET para bypass de EDR/AV. Apenas com clausula `red-team-c2`
+    + adversary emulation declarada (cyber-ref-030). Output assinado em ledger
+    como artefato de adversary emulation; nao distribuir publicamente.
 ```
 
 ### Network / AD (futuro skill cyber-pentest-network-ad)
@@ -266,6 +488,32 @@ Skills cyber-* podem usar IMEDIATAMENTE (verificar via `atlas tools list`):
   creates_evidence: true
   execution_tier: T2
   sandbox: vm
+
+- tool_slug: certipy-ad
+  recipe_name: adcs-find-vulnerable
+  category: ad_attack
+  argv: [find, -u, "{user}@{domain}", -p, "{pass}", -dc-ip, "{dc_ip}", -vulnerable]
+  dry_run_default: true
+  creates_evidence: true
+  execution_tier: T2
+  sandbox: vm
+  requires_extra_approval: true
+  notes: |
+    AD CS abuse (Certified Pre-Owned ESC1-15). Detecta templates vulneraveis
+    e CA misconfig. Exploit subsequente (ESC1 SAN abuse, ESC8 web enrollment, etc.)
+    via certipy-ad mode `req`/`auth` com clausula explicita.
+
+- tool_slug: gpp-decrypt
+  recipe_name: sysvol-cpassword-decrypt
+  category: ad_legacy
+  argv: [-f, "{cpassword}"]
+  dry_run_default: false
+  creates_evidence: true
+  execution_tier: T0
+  sandbox: true
+  notes: |
+    GPP Decryption (CVE-2014-1812) offline com chave publica MS conhecida.
+    Apenas decrypt — coleta de cpassword do SYSVOL via crackmapexec / smbclient.
 ```
 
 ### AI/ML red-team (futuro skill cyber-llm-redteamer)

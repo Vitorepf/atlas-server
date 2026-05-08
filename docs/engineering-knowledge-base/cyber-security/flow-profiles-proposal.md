@@ -109,6 +109,56 @@ evidence_required:
 output_target: handoff_to_cyber_pentest_or_inbox
 ```
 
+### `cyber.recon.continuous`
+
+Recon agendado em loop curto (6h-12h-24h) para captar 0-day windows: novo CVE divulgado em X/GitHub e Atlas ja testou todo o escopo antes de attacker generico chegar.
+
+```yaml
+flow_id: cyber.recon.continuous
+proposed_owner_domain: cyber (futuro) | programming (interim)
+extension_of: cyber.recon
+default_runtime: super_tool_runtime
+autonomy_default: low
+background_allowed: true
+scheduled: true
+schedule_cron_default: "0 */6 * * *"   # a cada 6h
+surfaces: [mac_cli, api, mcp, scheduled_task]
+primary_skill: cyber-recon
+auxiliary_skills: [cyber-pentest-webapp, orquestrador]
+required_gates:
+  - bb_program_proof_still_valid
+  - scope_validation
+  - rate_limit_compliance
+  - cost_quota_per_run
+  - refusal_matrix_check
+  - delta_only_processing  # so processa novos assets / mudancas
+refusal_matrix_ref: cyber-security/refusal-matrix.md
+evidence_required:
+  - asset_map_delta
+  - new_findings_since_last_run
+  - tool_run_traces
+output_target:
+  - proposal_inbox_human_review (apenas se delta gerou finding novo)
+  - silent_evidence_ledger (se delta zero — log mas nao notifica)
+notes: |
+  Padrao "verdict-first" pareado com Nuclei templates atualizados pela comunidade
+  diariamente. Custo controlado via cost_quota_per_run gate (operador define teto USD/mes).
+  Distribuicao opcional via recipe `axiom distributed-scan` quando escopo e grande.
+  Pode ser disparado por GitHub Actions / Atlas scheduler conforme decisao Codex futura.
+auto_triggers:
+  new_asset_detected:
+    condition: "delta inclui asset com priority_score >= 7"
+    action: "gerar Inbox alert tipo 'high-priority new asset' SEM auto-pentest"
+    operator_actions: [autorizar_pentest_imediato, agendar_pentest, marcar_falso_positivo, ignorar]
+    rationale: "Velocidade e diferencial competitivo em BB; novo subdomain pode ser janela 0-day. MAS Atlas observa nao corrige — operador autoriza execucao."
+  new_cve_relevant_to_stack:
+    condition: "recipe cve-monitor sinaliza CVE novo afetando tech do asset map"
+    action: "gerar Inbox alert tipo 'cve match' com priorizacao automatica de retest focado naquela tech"
+    operator_actions: [autorizar_retest_focado, agendar, ignorar]
+    rationale: "CVE em stack do alvo no momento de divulgacao = janela curta antes de attacker generico. Atlas prioriza, operador confirma."
+  cve_monitor_recipe: cve-monitor twitter-github-watch
+```
+
 ### `cyber.bb.full-flow`
 
 Flow flagship: orquestra fluxo BB completo (recon -> discovery -> exploit -> triage -> inbox).

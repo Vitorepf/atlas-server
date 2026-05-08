@@ -28,6 +28,12 @@ decisions:
   - Refusal matrix Cyber e EXTENSAO de policy do kernel; nao bypassa policy nem cria policy paralela.
   - Bug bounty fluxo end-to-end (recon -> exploit -> triage -> inbox) e orquestrado por skill `cyber-bb-runner` que monta um OperationEnvelope com sub-flows; output final vai ao Proposal Inbox / Human Review canonico.
   - MCP servers externos com capacidade ofensiva (e.g., HexStrike AI) sao integrados via skill wrapper canonica (e.g., `cyber-hexstrike-runner`) que aplica Receipt + scope_proof + refusal matrix + sandbox VM + evidence ledger antes de cada chamada; NUNCA conectados crus ao Atlas Decide via mcpServers config. Preserva governanca enquanto absorve capacidade autonoma validada (HexStrike resolveu CTF YesWeHack real). Ver cyber-security/recipes-catalog.md secao "External MCP Tooling".
+  - Encadeamento de findings (chains de exploit) e responsabilidade da skill `cyber-exploit-chainer` — ela analisa findings + asset map e propoe escalation de severity (Low+Low+Medium = Critical via composicao). Cada chain critica EXIGE checkpoint humano antes de executar elo escalando severidade. Atlas raciocina sobre encadeamento; operador autoriza execucao. Quebra de checkpoint = cyber-ref-103 derivada.
+  - Attack boxes efemeras (VPS provisionada via Terraform/Pulumi para engagement) sao orquestradas pela skill `cyber-infra-runner`. Refusal automatica se programa BB exige IP fixo allowlisted do tester (provisao com IP variavel quebra RoE — cyber-ref-030 derivada). Auto-destroy obrigatorio com orphan check pos-engagement.
+  - Supply chain detection e DETECT-ONLY via `cyber-supply-chain-scanner`. NUNCA publica package em registry, NUNCA registra typosquat, NUNCA submete PR malicioso (cyber-ref-020..023 hard, sem excecao). Skill detecta reachability + alerta operador; operador decide se reporta ao programa.
+  - BB Payload pode incluir como artifact opcional: (a) Sigma rule package pareada com a tecnica do finding (vendable como consultoria defensiva separada se operador preferir), (b) Negative PoC standalone (`check_<finding_id>.py`) entregue ao programa como gate de regression test perpetuo.
+  - Patch verification automatica: quando programa BB anuncia "fix released", `cyber-bb-triage` re-testa variants conhecidas do pattern aplicavel. Atualiza disclosure.verified_fixed_at em sucesso; reabre como "incomplete fix" se variant ainda passa.
+  - cyber.recon.continuous tem auto-triggers em (a) novo asset com priority_score >= 7 detectado, (b) CVE novo afetando tech do asset map (via recipe cve-monitor). Auto-trigger gera Inbox alert SEM auto-pentest — operador autoriza execucao.
 maintenance:
   - Atualize quando place-feature mudar a decisao canonica (e.g., Cyber promovido a domain proprio).
   - Atualize quando flows propostos forem promovidos a flow registrado em AtlasDomainProfileRegistry.
@@ -53,6 +59,10 @@ related_paths:
   - AtlasVault/_skills/cyber-pentest-webapp/SKILL.md
   - AtlasVault/_skills/cyber-bb-triage/SKILL.md
   - AtlasVault/_skills/cyber-purple-runner/SKILL.md
+  - AtlasVault/_skills/cyber-hexstrike-runner/SKILL.md
+  - AtlasVault/_skills/cyber-exploit-chainer/SKILL.md
+  - AtlasVault/_skills/cyber-infra-runner/SKILL.md
+  - AtlasVault/_skills/cyber-supply-chain-scanner/SKILL.md
 owner: atlas-ai
 layer: extension
 line_limit: 260
