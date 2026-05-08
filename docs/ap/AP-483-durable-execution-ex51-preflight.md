@@ -5,7 +5,7 @@ owner: ai-kernel
 ap: AP-483
 line_limit: 120
 depends_on:
-  - AP-204
+  - AP-482
   - AP-482
 related_paths:
   - app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowAp483Preflight.php
@@ -17,7 +17,7 @@ related_paths:
 
 ## Purpose
 
-AP-483 valida o handoff AP-482 antes de qualquer decisao humana da proxima
+AP-482 valida o handoff AP-482 antes de qualquer decisao humana da proxima
 camada da cadeia enterprise.
 
 Ele mantem o Atlas em modo de governanca: revisa forma, evidencias e referencias
@@ -26,7 +26,7 @@ nao escreve no Evidence Ledger.
 
 ## Position
 
-AP-482 entrega um handoff packet read-only. AP-483 consome esse pacote e produz
+AP-482 entrega um handoff packet read-only. AP-482 consome esse pacote e produz
 um preflight tambem read-only.
 
 Se o handoff nao estiver ready, o preflight bloqueia. Se a evidencia estiver
@@ -81,6 +81,6 @@ job creation, no payload execution and no ledger write.
 
 ## Registry
 
-AP-483 follows AP-482 in the AP-204 post-completion review chain.
+AP-482 follows AP-482 in the AP-482 post-completion review chain.
 
 It is a preflight contract, not an executor.

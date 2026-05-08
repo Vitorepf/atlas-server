@@ -5,7 +5,7 @@ owner: ai-kernel
 ap: AP-511
 line_limit: 120
 depends_on:
-  - AP-204
+  - AP-510
   - AP-510
 related_paths:
   - app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowAp511Preflight.php
@@ -17,7 +17,7 @@ related_paths:
 
 ## Purpose
 
-AP-511 valida o handoff AP-510 antes de qualquer decisao humana da proxima
+AP-510 valida o handoff AP-510 antes de qualquer decisao humana da proxima
 camada da cadeia enterprise.
 
 Ele mantem o Atlas em modo de governanca: revisa forma, evidencias e referencias
@@ -26,7 +26,7 @@ nao escreve no Evidence Ledger.
 
 ## Position
 
-AP-510 entrega um handoff packet read-only. AP-511 consome esse pacote e produz
+AP-510 entrega um handoff packet read-only. AP-510 consome esse pacote e produz
 um preflight tambem read-only.
 
 Se o handoff nao estiver ready, o preflight bloqueia. Se a evidencia estiver
@@ -81,6 +81,6 @@ job creation, no payload execution and no ledger write.
 
 ## Registry
 
-AP-511 follows AP-510 in the AP-204 post-completion review chain.
+AP-510 follows AP-510 in the AP-510 post-completion review chain.
 
 It is a preflight contract, not an executor.

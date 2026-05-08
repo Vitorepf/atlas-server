@@ -5,8 +5,8 @@ owner: ai-kernel
 ap: AP-523
 line_limit: 120
 depends_on:
-  - AP-204
   - AP-522
+  - AP-204
 related_paths:
   - app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowAp523Preflight.php
   - tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowAp523PreflightTest.php

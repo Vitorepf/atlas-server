@@ -5,8 +5,8 @@ owner: ai-kernel
 ap: AP-531
 line_limit: 120
 depends_on:
+  - AP-530
   - AP-204
-  - AP-522
 related_paths:
   - app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowAp531Preflight.php
   - tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowAp531PreflightTest.php
@@ -17,7 +17,7 @@ related_paths:
 
 ## Purpose
 
-AP-531 valida o handoff AP-522 antes de qualquer decisao humana da proxima
+AP-531 valida o handoff AP-530 antes de qualquer decisao humana da proxima
 camada da cadeia enterprise.
 
 Ele mantem o Atlas em modo de governanca: revisa forma, evidencias e referencias
@@ -26,7 +26,7 @@ nao escreve no Evidence Ledger.
 
 ## Position
 
-AP-522 entrega um handoff packet read-only. AP-531 consome esse pacote e produz
+AP-530 entrega um handoff packet read-only. AP-531 consome esse pacote e produz
 um preflight tambem read-only.
 
 Se o handoff nao estiver ready, o preflight bloqueia. Se a evidencia estiver
@@ -50,7 +50,7 @@ Ready output status:
 
 AP-531 requires explicit confirmation that:
 
-- AP-522 handoff was reviewed
+- AP-530 handoff was reviewed
 - handoff is ready for future AP
 - real execution surface is declared
 - append-only plan and idempotency strategy are declared
@@ -81,6 +81,6 @@ job creation, no payload execution and no ledger write.
 
 ## Registry
 
-AP-531 follows AP-522 in the AP-204 post-completion review chain.
+AP-531 follows AP-530 in the AP-204 post-completion review chain.
 
 It is a preflight contract, not an executor.

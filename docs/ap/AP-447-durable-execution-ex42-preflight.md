@@ -5,7 +5,7 @@ owner: ai-kernel
 ap: AP-447
 line_limit: 120
 depends_on:
-  - AP-204
+  - AP-446
   - AP-446
 related_paths:
   - app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowAp447Preflight.php
@@ -17,7 +17,7 @@ related_paths:
 
 ## Purpose
 
-AP-447 valida o handoff AP-446 antes de qualquer decisao humana da proxima
+AP-446 valida o handoff AP-446 antes de qualquer decisao humana da proxima
 camada da cadeia enterprise.
 
 Ele mantem o Atlas em modo de governanca: revisa forma, evidencias e referencias
@@ -26,7 +26,7 @@ nao escreve no Evidence Ledger.
 
 ## Position
 
-AP-446 entrega um handoff packet read-only. AP-447 consome esse pacote e produz
+AP-446 entrega um handoff packet read-only. AP-446 consome esse pacote e produz
 um preflight tambem read-only.
 
 Se o handoff nao estiver ready, o preflight bloqueia. Se a evidencia estiver
@@ -81,6 +81,6 @@ job creation, no payload execution and no ledger write.
 
 ## Registry
 
-AP-447 follows AP-446 in the AP-204 post-completion review chain.
+AP-446 follows AP-446 in the AP-446 post-completion review chain.
 
 It is a preflight contract, not an executor.

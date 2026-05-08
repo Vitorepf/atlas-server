@@ -5,7 +5,7 @@ owner: ai-kernel
 ap: AP-415
 line_limit: 120
 depends_on:
-  - AP-204
+  - AP-414
   - AP-414
 related_paths:
   - app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowAp415Preflight.php
@@ -17,7 +17,7 @@ related_paths:
 
 ## Purpose
 
-AP-415 valida o handoff AP-414 antes de qualquer decisao humana da proxima
+AP-414 valida o handoff AP-414 antes de qualquer decisao humana da proxima
 camada da cadeia enterprise.
 
 Ele mantem o Atlas em modo de governanca: revisa forma, evidencias e referencias
@@ -26,7 +26,7 @@ nao escreve no Evidence Ledger.
 
 ## Position
 
-AP-414 entrega um handoff packet read-only. AP-415 consome esse pacote e produz
+AP-414 entrega um handoff packet read-only. AP-414 consome esse pacote e produz
 um preflight tambem read-only.
 
 Se o handoff nao estiver ready, o preflight bloqueia. Se a evidencia estiver
@@ -81,6 +81,6 @@ job creation, no payload execution and no ledger write.
 
 ## Registry
 
-AP-415 follows AP-414 in the AP-204 post-completion review chain.
+AP-414 follows AP-414 in the AP-414 post-completion review chain.
 
 It is a preflight contract, not an executor.
