@@ -11,7 +11,7 @@ depends_on:
   - AP-201
   - AP-202
   - AP-205
-  - AP-206..AP-239
+  - AP-206..AP-297
 ---
 
 # AP-204 - AP Agent Workflow Registry
@@ -21,18 +21,16 @@ Ele nao executa contratos; registra sequencia para humanos e IAs nao criarem flu
 ## Posicao
 Pertence ao Documentation Operating System e deve ser lido antes de abrir, validar ou fechar sessao documentada.
 ## Sequencia
-### Trace Primario Do Agente
+### Trace Primario
 1. AP-200 monta handoff, intake, contexto alvo e checklist inicial
 2. AP-201 traduz problemas documentais em propostas humanas de reparo
 3. AP-202 decide se a sessao pode comecar
 4. AP-205 valida o shape da evidencia final
 5. AP-203 fecha a sessao com gate, shape valido e checklist
-
-AP-203 continua terminal no trace primario para impedir revisao humana ou
-integracao manual fingida dentro do mesmo trace.
+AP-203 continua terminal no trace primario para impedir revisao humana ou integracao manual fingida no mesmo trace.
 
 ### Cadeia Pos-Completion
-Depois do completion, a revisao enterprise fica em cadeia separada:
+Depois do completion, a revisao enterprise segue em cadeia separada:
 
 1. AP-206 valida transicoes do trace primario
 2. AP-207 audita o trace completo
@@ -68,28 +66,37 @@ Depois do completion, a revisao enterprise fica em cadeia separada:
 32. AP-237 emite receipt read-only da implementacao
 33. AP-238 valida preflight de ativacao sem ativar
 34. AP-239 normaliza decisao humana de ativacao
-
+35. AP-240 emite receipt read-only da ativacao
+36. AP-241 valida preflight de runtime execution sem executar
+37. AP-242 normaliza decisao humana de runtime execution
+38. AP-243 emite receipt read-only da runtime execution
+39. AP-244 entrega handoff da runtime execution sem executar
+40. AP-245 valida preflight de implementacao da runtime execution
+41. AP-246 normaliza decisao humana da implementacao runtime
+42. AP-247 emite receipt read-only da implementacao runtime
+43. AP-248 valida preflight de ativacao runtime sem ativar
+44. AP-249 normaliza decisao humana da ativacao runtime
+45. AP-250 emite receipt read-only da ativacao runtime
+46. AP-251 entrega handoff da ativacao runtime sem ativar
+47. AP-252 valida preflight de implementacao da ativacao runtime
+48. AP-253 normaliza decisao humana da implementacao da ativacao runtime
+49. AP-254 emite receipt read-only da implementacao da ativacao runtime
+50. AP-255 entrega handoff da implementacao da ativacao runtime sem ativar
+51. AP-256 valida preflight de execucao da implementacao da ativacao runtime
+52. AP-257 normaliza decisao humana da execucao da implementacao da ativacao runtime
+53. AP-258 emite receipt read-only da execucao da implementacao da ativacao runtime
+54. AP-259 entrega handoff da execucao da implementacao da ativacao runtime sem executar
+55. AP-260 sela resultado declarado da execucao da implementacao da ativacao runtime
+56. AP-261 revisa resultado declarado da execucao da implementacao da ativacao runtime
+57. AP-262 emite receipt read-only do resultado da execucao da implementacao da ativacao runtime; 58. AP-263 valida preflight de persistencia do resultado sem ledger write; 59. AP-264 normaliza decisao humana de persistencia do resultado sem ledger write; 60. AP-265 emite receipt read-only da persistencia do resultado sem ledger write; 61. AP-266 entrega handoff de persistencia do resultado sem ledger write; 62. AP-267 valida preflight de execucao da persistencia do resultado sem ledger write; 63. AP-268 normaliza decisao humana da execucao da persistencia sem ledger write; 64. AP-269 emite receipt read-only da execucao da persistencia sem ledger write; 65. AP-270 entrega handoff da execucao da persistencia sem ledger write; 66. AP-271 valida preflight de ledger write da persistencia sem ledger write; 67. AP-272 normaliza decisao humana de ledger write da persistencia sem ledger write; 68. AP-273 emite receipt read-only da decisao de ledger write sem ledger write; 69. AP-274 entrega handoff da decisao de ledger write sem ledger write; 70. AP-275 valida preflight de execucao de ledger write sem ledger write; 71. AP-276 normaliza decisao humana da execucao de ledger write sem ledger write; 72. AP-277 emite receipt read-only da decisao da execucao de ledger write sem ledger write; 73. AP-278 entrega handoff da decisao da execucao de ledger write sem ledger write; 74. AP-279 valida preflight duravel da execucao de ledger write sem ledger write; 75. AP-280 normaliza decisao humana duravel da execucao de ledger write sem ledger write; 76. AP-281 emite receipt read-only da decisao duravel da execucao de ledger write sem ledger write; 77. AP-282 entrega handoff da decisao duravel da execucao de ledger write sem ledger write; 78. AP-283 valida preflight da execucao real duravel de ledger write sem ledger write; 79. AP-284 normaliza decisao humana da execucao real duravel de ledger write sem ledger write; 80. AP-285 emite receipt read-only da decisao da execucao real duravel de ledger write sem ledger write; 81. AP-286 entrega handoff da decisao da execucao real duravel de ledger write sem ledger write; 82. AP-287 valida preflight do executor da execucao real duravel de ledger write sem ledger write; 83. AP-288 normaliza decisao humana do executor da execucao real duravel de ledger write sem ledger write; 84. AP-289 emite receipt read-only da decisao do executor da execucao real duravel de ledger write sem ledger write; 85. AP-290 entrega handoff da decisao do executor da execucao real duravel de ledger write sem ledger write; 86. AP-291 valida preflight do payload do executor da execucao real duravel de ledger write sem ledger write; 87. AP-292 normaliza decisao humana do payload do executor da execucao real duravel de ledger write sem ledger write; 88. AP-293 emite receipt read-only da decisao do payload do executor da execucao real duravel de ledger write sem ledger write; 89. AP-294 entrega handoff da decisao do payload do executor da execucao real duravel de ledger write sem ledger write; 90. AP-295 valida preflight da execucao do payload do executor da execucao real duravel de ledger write sem ledger write; 91. AP-296 normaliza decisao humana da execucao do payload do executor da execucao real duravel de ledger write sem ledger write; 92. AP-297 emite receipt read-only da decisao da execucao do payload do executor da execucao real duravel de ledger write sem ledger write
 ## Saida
-Schema: `atlas.ap_agent_workflow_registry.v1`  
-Modo: `read_only_workflow_registry`  
-Autoridade: `ap_agent_workflow_registry_only_no_execution`
+Schema: `atlas.ap_agent_workflow_registry.v1`; modo: `read_only_workflow_registry`; autoridade: `ap_agent_workflow_registry_only_no_execution`
 
 ## Campos Principais
-- `workflow_id`
-- `steps`
-- `terminal_statuses`
-- `required_validation_commands`
-- `handoff_summary`
-- `guardrails`
+- `workflow_id`, `steps`, `terminal_statuses`, `required_validation_commands`, `handoff_summary`, `guardrails`
 
 ## Comandos Declarados
-- focused tests
-- docs-health
-- architecture-validate
-- architecture-readiness
-- knowledge sync
-- code intelligence index
-- diff check
+focused tests; docs-health; architecture-validate; architecture-readiness; knowledge sync; code intelligence index; diff check.
 
 Os comandos sao apenas declarados. O registry nao executa nada.
 
@@ -104,12 +111,10 @@ Os comandos sao apenas declarados. O registry nao executa nada.
 - nao substitui completion report
 
 ## Beneficio
-Um Codex novo carrega a ordem correta antes de tocar no codigo, reduzindo
-duplicacao de contrato, AP fora de hora e conclusao sem evidencia.
+Um Codex novo carrega a ordem correta antes de tocar no codigo, reduzindo duplicacao, AP fora de hora e conclusao sem evidencia.
 
 ## Criterios de Aceite
 - registry lista AP-200, AP-201, AP-202, AP-205 e AP-203 na ordem correta
-- registry lista AP-206 ate AP-239 como cadeia pos-completion separada
+- registry lista AP-206 ate AP-297 como cadeia pos-completion separada
 - cada step declara componente, schema, proposito e bloqueios
-- comandos de validacao aparecem como contrato declarativo
-- guardrails impedem execucao ou escrita
+- comandos declarativos e guardrails impedem execucao ou escrita
