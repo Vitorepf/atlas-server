@@ -147,6 +147,31 @@ final class AtlasApAgentWorkflowRegistryTest extends TestCase
             'AP-331',
             'AP-332',
             'AP-333',
+            'AP-334',
+            'AP-335',
+            'AP-336',
+            'AP-337',
+            'AP-338',
+            'AP-339',
+            'AP-340',
+            'AP-341',
+            'AP-342',
+            'AP-343',
+            'AP-344',
+            'AP-345',
+            'AP-346',
+            'AP-347',
+            'AP-348',
+            'AP-349',
+            'AP-350',
+            'AP-351',
+            'AP-352',
+            'AP-353',
+            'AP-354',
+            'AP-355',
+            'AP-356',
+            'AP-357',
+            'AP-358',
         ], array_column($payload['post_completion_review_chain'], 'ap'));
         $this->assertSame([
             'AtlasApAgentHandoffPacket',
@@ -648,6 +673,106 @@ final class AtlasApAgentWorkflowRegistryTest extends TestCase
         $this->assertSame(
             'AtlasApAgentWorkflowAp333DecisionReceipt',
             data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp334HandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp335Preflight',
+            data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp336DecisionContract',
+            data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp337DecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp338HandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp339Preflight',
+            data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp340DecisionContract',
+            data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp341DecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp342HandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp343Preflight',
+            data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp344DecisionContract',
+            data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp345DecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp346HandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp347Preflight',
+            data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp348DecisionContract',
+            data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp349DecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp350HandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp351Preflight',
+            data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp352DecisionContract',
+            data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp353DecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp354HandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp355Preflight',
+            data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp356DecisionContract',
+            data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp357DecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp358HandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
         );
         $this->assertSame(['AP-201', 'AP-202'], data_get($payload, 'steps.0.allowed_next_steps'));
         $this->assertSame(['proposal_count_greater_than_zero'], data_get($payload, 'steps.1.blocks_when'));
