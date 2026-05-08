@@ -78,6 +78,10 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
             collect(data_get($payload, 'documentation.required_docs', []))->pluck('path')->all(),
         );
         $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md',
+            collect(data_get($payload, 'documentation.required_docs', []))->pluck('path')->all(),
+        );
+        $this->assertContains(
             'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md',
             collect(data_get($payload, 'documentation.required_docs', []))->pluck('path')->all(),
         );
@@ -188,6 +192,10 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertContains('ap131_self_improvement_architecture_operations_review', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap132_architecture_operations_metadata_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap133_architecture_operations_filter_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap173_session_bootstrap_docs_split_plan_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap174_session_bootstrap_architecture_operations_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap175_feature_placement_architecture_operations_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap176_architecture_readiness_snapshot', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap134_decision_receipt_hash_runtime_guard', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap135_decision_receipt_determinism_test', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap136_decision_receipt_chain_replay', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
@@ -395,6 +403,8 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap103_retrieval_required_source_availability_contract.violations'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap104_retrieval_review_signal_next_action_contract.valid'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap104_retrieval_review_signal_next_action_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap176_architecture_readiness_snapshot.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap176_architecture_readiness_snapshot.violations'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.valid'));
         $this->assertGreaterThanOrEqual(39, data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.checked'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.violations'));

@@ -22,6 +22,7 @@ capabilities:
   - documentation_preservation
 decisions:
   - A memoria pertence ao Atlas, nao ao provider.
+  - Provider Dreams e working memory sao camadas externas proposal-only; so o Atlas promove memoria canonica.
   - Docs canonicos e Postgres formam a fonte operacional de verdade.
   - Provider files sao projecoes geradas, nao origem da memoria.
   - ChromaDB, Streamable HTTP completo/SSE e sync Open Brain multiusuario exigem fase propria e DoD explicito.
@@ -38,6 +39,7 @@ related_paths:
   - docs/engineering-knowledge-base/memory-core-failure-modes.md
   - docs/engineering-knowledge-base/memory-core-maturity-dod.md
   - docs/engineering-knowledge-base/open-brain-context-injection.md
+  - docs/ap/AP-171-provider-dream-memory-layer-contract.md
 ---
 
 # Atlas AI Memory Context Core - Open Brain
@@ -110,6 +112,8 @@ Provider Projections controladas
 - Docs canonicos do repo sao a fonte de verdade para arquitetura, ADRs e playbooks.
 - Postgres e a fonte de verdade para estado vivo, indices, auditoria, runs e relacoes.
 - `CLAUDE.md`, `AGENTS.md`, Obsidian/AtlasVault, Cursor, Claude, Codex e ChatGPT sao consumidores ou superficies auxiliares.
+- Provider working memory/Dreams pode melhorar o provider como motor, mas entra
+  como candidate/proposal e nunca substitui Memory Core, docs ou Evidence.
 - Obsidian/AtlasVault segue o contrato canonico de `obsidian-atlas-vault.md`: import/export bidirecional seguro, com privacy, frontmatter, backlinks e review.
 - Conversa de IA nao vira memoria canonica sem promocao explicita, revisavel e auditavel.
 - Provider projections podem ser regeneradas a partir do Atlas; elas nao devem ser editadas como se fossem memoria primaria.

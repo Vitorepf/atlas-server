@@ -13,6 +13,7 @@ tags:
   - documentation-governance
 capabilities:
   - session_bootstrap
+  - knowledge_governance_system
   - anti_hallucination_context
   - implementation_status_navigation
   - evolution_navigation
@@ -23,6 +24,7 @@ capabilities:
 decisions:
   - Toda sessao nova deve conseguir responder o que e Atlas, o que existe, o que falta e como evoluir lendo este bootstrap e os docs apontados.
   - Nenhuma IA deve declarar que algo nao existe sem verificar docs canonicos, indice de codigo e busca local.
+  - Toda sessao nova deve tratar repo docs canonicos como fonte autoral, Postgres/Code Intelligence como read model, Obsidian como Human Knowledge Surface e AGENTS/CLAUDE como provider projection.
   - Este documento e intencionalmente curto; detalhes vivem nos docs donos de cada assunto.
 maintenance:
   - Manter abaixo de 180 linhas.
@@ -30,6 +32,7 @@ maintenance:
   - Rodar atlas engineering knowledge sync --prune depois de alterar.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
@@ -45,8 +48,7 @@ related_paths:
 
 # Atlas AI Session Bootstrap
 
-Este e o primeiro arquivo para uma sessao nova entender o Atlas sem depender de
-historico de chat.
+Este e o primeiro arquivo para uma sessao nova entender o Atlas sem depender de historico de chat.
 
 ## Atlas Em Uma Frase
 
@@ -65,6 +67,7 @@ passar pelo kernel e pelos dominios, nao ficar presa em uma surface.
 | O que ja existe? | `atlas-ai-canonical-architecture-index.md` + indice de codigo |
 | O que falta evoluir? | `atlas-ai-evolution-roadmap.md` + backlog governado |
 | Como evoluir sem bagunca? | `atlas-ai-documentation-operating-system.md` + Kernel |
+| Qual camada e fonte de verdade? | `atlas-ai-knowledge-governance-system.md` |
 | Qual doc manda em caso de conflito? | `atlas-ai-canonical-architecture-index.md` |
 | Uma ideia e core, domain ou surface? | `atlas-ai-core-vs-domain.md` |
 | Python ou Go fazem sentido? | `atlas-ai-runtime-language-boundaries.md` |
@@ -113,6 +116,8 @@ passar pelo kernel e pelos dominios, nao ficar presa em uma surface.
 Antes de dizer "nao tem" ou "ja tem", execute pelo menos:
 
 ```bash
+php artisan atlas:ai:session-bootstrap --task="<task>" --json
+php artisan atlas:ai:place-feature "<feature>" --json
 rg "termo|classe|comando|capability" app config database routes docs tests
 atlas engineering knowledge status
 atlas engineering knowledge code-status
@@ -126,6 +131,10 @@ atlas engineering knowledge index-code --prune
 ```
 
 Use testes focados quando alterar codigo.
+`place-feature` devolve `gate_status`, `implementation_contract`,
+`blocked_when`, escopos permitidos/proibidos e proximas acoes canonicas.
+`session-bootstrap` propaga `session_gate`, `docs_split_plan` (AP-173 Session Bootstrap Docs Split Plan Contract) e `architecture_operations` (AP-174 Session Bootstrap Architecture Operations Contract; `ap173_session_bootstrap_docs_split_plan_contract`; `ap174_session_bootstrap_architecture_operations_contract`).
+CLI/API/MCP devem suportar strict gate para `gate_status=blocked`.
 
 ## Como Evoluir O Atlas
 
@@ -163,6 +172,7 @@ Antes de entregar alteracao estrutural, rode:
 
 ```bash
 atlas engineering knowledge docs-health
+php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json
 atlas ai architecture-validate --json
 ```
 

@@ -10,6 +10,11 @@ use App\Models\AtlasTaskEvent;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
+use App\Services\Ai\Kernel\Architecture\AtlasDocumentationSplitPlanService;
+use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
+use App\Services\Ai\Kernel\Architecture\AtlasGovernanceGateService;
+use App\Services\Ai\Kernel\Architecture\AtlasProviderReleaseIntelligenceService;
+use App\Services\Ai\Kernel\Architecture\AtlasSessionBootstrapService;
 use App\Services\Ai\Kernel\Decision\DynamicComputeMarketReportService;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -41,6 +46,11 @@ class AtlasOpenBrainMcpService
         private readonly AtlasAiDomainCatalogService $domainCatalog,
         private readonly AtlasAiArchitectureValidationService $architectureValidation,
         private readonly AtlasArchitectureOperationsCatalog $architectureOperations,
+        private readonly AtlasSessionBootstrapService $sessionBootstrap,
+        private readonly AtlasFeaturePlacementService $featurePlacement,
+        private readonly AtlasGovernanceGateService $governanceGate,
+        private readonly AtlasDocumentationSplitPlanService $documentationSplitPlan,
+        private readonly AtlasProviderReleaseIntelligenceService $providerReleaseIntelligence,
         private readonly AtlasSelfImprovementScheduleService $selfImprovementSchedule,
         private readonly AtlasLedgerReplayService $ledgerReplay,
         private readonly ProviderPerformanceProjection $providerPerformance,
@@ -253,6 +263,50 @@ class AtlasOpenBrainMcpService
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
             [
+                'name' => 'atlas_session_bootstrap',
+                'title' => 'Atlas Session Bootstrap',
+                'description' => 'Retorna pacote canonico de inicio de sessao: docs obrigatorios, placement, KB status, provider projection, validacoes e riscos. Read-only.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'task' => ['type' => 'string', 'description' => 'Tarefa, bug, feature ou pergunta desta sessao.'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace usado para status de provider projection.'],
+                        'strict' => ['type' => 'boolean', 'description' => 'Quando true, retorna ok=false se gate_status=blocked.'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_feature_placement',
+                'title' => 'Atlas Feature Placement',
+                'description' => 'Localiza feature em Core/Domain/Surface/Runtime/AP antes de implementar, apontando owner docs, duplicacoes e riscos.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'feature' => ['type' => 'string', 'description' => 'Feature, bug, pergunta ou capability a posicionar na arquitetura.'],
+                        'hints' => ['type' => 'object', 'description' => 'Hints opcionais key=value, por exemplo domain=programming.'],
+                        'strict' => ['type' => 'boolean', 'description' => 'Quando true, retorna ok=false se gate_status=blocked.'],
+                    ],
+                    'required' => ['feature'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_docs_split_plan',
+                'title' => 'Atlas Docs Split Plan',
+                'description' => 'Transforma docs split_required em backlog operacional priorizado para manter alta performance documental.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'owner' => ['type' => 'string', 'description' => 'Filtra por owner_area, por exemplo kernel_architecture ou memory_open_brain.'],
+                        'severity' => ['type' => 'string', 'description' => 'Filtra por severity, por exemplo critical, high, medium ou legacy_critical.'],
+                        'status' => ['type' => 'string', 'description' => 'Filtra por status, por exemplo split_required ou split_required_grandfathered.'],
+                    ],
+                    'required' => [],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
                 'name' => 'atlas_self_improvement_schedule',
                 'title' => 'Atlas Self-Improvement Schedule',
                 'description' => 'Retorna o plano recorrente e health do Self-Improvement/Curator, incluindo cadencia, next_run_at por comando, plan_hash e scheduler_registration. Read-only.',
@@ -400,6 +454,25 @@ class AtlasOpenBrainMcpService
                         'specialist_profile' => ['type' => 'string', 'description' => 'Specialist profile, por exemplo programming.frontend.'],
                     ],
                     'required' => ['provider'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_provider_release_review',
+                'title' => 'Atlas Provider Release Review',
+                'description' => 'Classifica lancamentos de Claude, OpenAI, Gemini, Codex e labs em Provider Release Envelope com docs donos, APs, Rivals e sinal seguro para Decide. Nao altera policy.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'provider' => ['type' => 'string', 'description' => 'Provider ou lab, por exemplo anthropic, openai, google, codex.'],
+                        'title' => ['type' => 'string', 'description' => 'Titulo do lancamento.'],
+                        'url' => ['type' => 'string', 'description' => 'URL fonte para evidencia humana. O tool nao busca a URL.'],
+                        'type' => ['type' => 'string', 'description' => 'Tipo opcional: vertical_agents, model, connector, tool_use, realtime, memory, coding, design, marketing, finance, capability_update.'],
+                        'domain' => ['type' => 'array', 'description' => 'Dominios afetados sugeridos, ex: finance, programming, marketing.'],
+                        'capability' => ['type' => 'array', 'description' => 'Capabilities mencionadas pelo lancamento.'],
+                        'connector' => ['type' => 'array', 'description' => 'Connectors mencionados pelo lancamento.'],
+                    ],
+                    'required' => ['title'],
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
@@ -697,6 +770,9 @@ class AtlasOpenBrainMcpService
                 'atlas_domain_catalog' => $this->toolResponse($id, $this->domainCatalog($arguments)),
                 'atlas_architecture_validate' => $this->toolResponse($id, $this->architectureValidate($arguments)),
                 'atlas_architecture_operations' => $this->toolResponse($id, $this->architectureOperations($arguments)),
+                'atlas_session_bootstrap' => $this->toolResponse($id, $this->sessionBootstrap($arguments)),
+                'atlas_feature_placement' => $this->toolResponse($id, $this->featurePlacement($arguments)),
+                'atlas_docs_split_plan' => $this->toolResponse($id, $this->docsSplitPlan($arguments)),
                 'atlas_self_improvement_schedule' => $this->toolResponse($id, $this->selfImprovementSchedule($arguments)),
                 'atlas_self_improvement_schedule_report' => $this->toolResponse($id, $this->selfImprovementScheduleReport($arguments)),
                 'atlas_kernel_slo_report' => $this->toolResponse($id, $this->kernelSloReport($arguments)),
@@ -706,6 +782,7 @@ class AtlasOpenBrainMcpService
                 'atlas_agent_behavior_report' => $this->toolResponse($id, $this->agentBehaviorReport($arguments)),
                 'atlas_provider_performance_report' => $this->toolResponse($id, $this->providerPerformanceReport($arguments)),
                 'atlas_dynamic_compute_market_report' => $this->toolResponse($id, $this->dynamicComputeMarketReport($arguments)),
+                'atlas_provider_release_review' => $this->toolResponse($id, $this->providerReleaseReview($arguments)),
                 'atlas_ledger_projection_health' => $this->toolResponse($id, $this->ledgerProjectionHealth($arguments)),
                 'atlas_decision_receipt_report' => $this->toolResponse($id, $this->decisionReceiptReport($arguments)),
                 'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
@@ -1081,6 +1158,70 @@ class AtlasOpenBrainMcpService
      * @param  array<string,mixed>  $arguments
      * @return array<string,mixed>
      */
+    private function sessionBootstrap(array $arguments): array
+    {
+        $payload = $this->sessionBootstrap->bootstrap(
+            $this->string($arguments['task'] ?? null) ?? '',
+            ['workspace' => $this->string($arguments['workspace'] ?? null) ?? base_path()],
+        );
+        $strictBlocked = $this->governanceGate->strictBlocked($payload, ($arguments['strict'] ?? false) === true);
+
+        return [
+            'ok' => ($payload['status'] ?? null) === 'ok' && ! $strictBlocked,
+            'tool' => 'atlas_session_bootstrap',
+            'error' => $strictBlocked ? $this->governanceGate->mcpError('atlas_session_bootstrap') : null,
+            ...$payload,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function featurePlacement(array $arguments): array
+    {
+        $feature = $this->string($arguments['feature'] ?? null);
+        if ($feature === null) {
+            return [
+                'ok' => false,
+                'tool' => 'atlas_feature_placement',
+                'error' => 'feature_required',
+                'writes' => false,
+            ];
+        }
+
+        $payload = $this->featurePlacement->place($feature, $this->onlyScalarFilters((array) ($arguments['hints'] ?? []), ['domain', 'surface', 'runtime', 'flow']));
+        $strictBlocked = $this->governanceGate->strictBlocked($payload, ($arguments['strict'] ?? false) === true);
+
+        return [
+            'ok' => ($payload['status'] ?? null) === 'ok' && ! $strictBlocked,
+            'tool' => 'atlas_feature_placement',
+            'error' => $strictBlocked ? $this->governanceGate->mcpError('atlas_feature_placement') : null,
+            ...$payload,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function docsSplitPlan(array $arguments): array
+    {
+        $payload = $this->documentationSplitPlan->plan($this->onlyScalarFilters($arguments, ['owner', 'severity', 'status']));
+
+        return [
+            'ok' => ($payload['status'] ?? null) === 'ok',
+            'tool' => 'atlas_docs_split_plan',
+            ...$payload,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
     private function selfImprovementSchedule(array $arguments): array
     {
         $detail = $this->string($arguments['detail'] ?? null) ?: 'health';
@@ -1336,6 +1477,40 @@ class AtlasOpenBrainMcpService
         return [
             'ok' => ($payload['status'] ?? null) === 'ok',
             'tool' => 'atlas_dynamic_compute_market_report',
+            ...$payload,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function providerReleaseReview(array $arguments): array
+    {
+        $title = $this->string($arguments['title'] ?? null);
+        if ($title === null) {
+            return [
+                'ok' => false,
+                'tool' => 'atlas_provider_release_review',
+                'error' => 'title_required',
+                'writes' => false,
+            ];
+        }
+
+        $payload = $this->providerReleaseIntelligence->review([
+            'provider' => $this->string($arguments['provider'] ?? null),
+            'title' => $title,
+            'url' => $this->string($arguments['url'] ?? null),
+            'type' => $this->string($arguments['type'] ?? null),
+            'domains' => $this->stringList($arguments['domain'] ?? ($arguments['domains'] ?? [])),
+            'capabilities' => $this->stringList($arguments['capability'] ?? ($arguments['capabilities'] ?? [])),
+            'connectors' => $this->stringList($arguments['connector'] ?? ($arguments['connectors'] ?? [])),
+        ]);
+
+        return [
+            'ok' => ($payload['status'] ?? null) === 'ok',
+            'tool' => 'atlas_provider_release_review',
             ...$payload,
             'writes' => false,
         ];
@@ -2175,6 +2350,19 @@ class AtlasOpenBrainMcpService
         $value = trim((string) $value);
 
         return $value !== '' ? $value : null;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function stringList(mixed $value): array
+    {
+        $values = is_array($value) ? $value : [$value];
+
+        return array_values(array_unique(array_filter(array_map(
+            fn (mixed $item): ?string => $this->string($item),
+            $values,
+        ))));
     }
 
     private function positiveInt(mixed $value): ?int

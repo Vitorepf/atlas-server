@@ -1,0 +1,167 @@
+{
+  "schema_version": "atlas.voice_realtime.callback_payload_fixtures.v1",
+  "valid": [
+    {
+      "callback": "participant_joined",
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "participant_identity": "mobile:vitor",
+        "room_name": "atlas-voice-01HYSAFE",
+        "client_surface": "mobile",
+        "transport": "livekit",
+        "privacy_class": "p3_audio"
+      }
+    },
+    {
+      "callback": "transcript_final",
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "turn_id": "turn_01HYSAFE000000000000000001",
+        "transcript": "Qual foi a decisao do Atlas neste turno?",
+        "language": "pt-BR",
+        "domain_hint": "programming",
+        "flow_hint": "voice_realtime_review"
+      }
+    },
+    {
+      "callback": "wake_word_detected",
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "wake_word_engine": "local_only",
+        "confidence": 0.92,
+        "latency_ms": 84
+      }
+    },
+    {
+      "callback": "tts_synthesized",
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "turn_id": "turn_01HYSAFE000000000000000001",
+        "response_text_hash": "sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+        "audio_hash": "sha256:fcde2b2edba56bf408601fb721fe9b5c338d10ee429e3f3b6b8f1b3a9ddf0f32",
+        "audio_duration_ms": 1780,
+        "tts_provider": "anthropic",
+        "provider": "anthropic",
+        "model": "claude-sonnet",
+        "latency_ms": 430
+      }
+    },
+    {
+      "callback": "audio_played",
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "turn_id": "turn_01HYSAFE000000000000000001",
+        "played_duration_ms": 1780,
+        "latency_ms": 35
+      }
+    },
+    {
+      "callback": "barge_in",
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "turn_id": "turn_01HYSAFE000000000000000001",
+        "reason": "user_interrupt",
+        "interrupted_stage": "tts_playback",
+        "latency_ms": 21
+      }
+    },
+    {
+      "callback": "runtime_failed",
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "turn_id": "turn_01HYSAFE000000000000000001",
+        "failure_code": "provider_timeout",
+        "error_class": "recoverable",
+        "latency_ms": 1200
+      }
+    },
+    {
+      "callback": "provider_health_degraded",
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "turn_id": "turn_01HYSAFE000000000000000001",
+        "provider": "anthropic",
+        "reason": "latency_p95_above_threshold",
+        "latency_ms": 1550
+      }
+    },
+    {
+      "callback": "participant_left",
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "reason": "user_closed_mobile_session"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "transcript_final_rejects_raw_audio_and_tool_call",
+      "callback": "transcript_final",
+      "expected_errors": [
+        "prohibited_field:raw_audio",
+        "prohibited_field:tool_call"
+      ],
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "turn_id": "turn_01HYSAFE000000000000000001",
+        "transcript": "Execute direto no provider",
+        "raw_audio": "base64-redacted",
+        "tool_call": {
+          "name": "provider.direct"
+        }
+      }
+    },
+    {
+      "name": "tts_synthesized_rejects_raw_text_and_audio",
+      "callback": "tts_synthesized",
+      "expected_errors": [
+        "prohibited_field:response_text",
+        "prohibited_field:audio_bytes"
+      ],
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "turn_id": "turn_01HYSAFE000000000000000001",
+        "response_text": "Texto cru que nao pode persistir",
+        "audio_bytes": "base64-redacted"
+      }
+    },
+    {
+      "name": "provider_health_rejects_nested_secret",
+      "callback": "provider_health_degraded",
+      "expected_errors": [
+        "unknown_field:metadata",
+        "prohibited_field:metadata.provider_api_key"
+      ],
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "turn_id": "turn_01HYSAFE000000000000000001",
+        "provider": "anthropic",
+        "metadata": {
+          "provider_api_key": "sk-redacted"
+        }
+      }
+    },
+    {
+      "name": "participant_joined_requires_identity",
+      "callback": "participant_joined",
+      "expected_errors": [
+        "missing_required:participant_identity"
+      ],
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "room_name": "atlas-voice-01HYSAFE"
+      }
+    },
+    {
+      "name": "participant_left_rejects_livekit_token",
+      "callback": "participant_left",
+      "expected_errors": [
+        "prohibited_field:livekit_token"
+      ],
+      "payload": {
+        "session_id": "voice_session_01HYSAFE000000000000000001",
+        "livekit_token": "jwt-redacted"
+      }
+    }
+  ]
+}

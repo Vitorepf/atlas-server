@@ -208,13 +208,16 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After AP-156: 16 + 5 new tools + domain/architecture/operations/schedule/kernel/provider/market/inbox/agent/receipt/projection reports = 35.
-        $this->assertCount(35, $structured['tools']);
+        // After Governance MCP: 16 + 5 new tools + domain/architecture/governance/schedule/kernel/provider/market/release/inbox/agent/receipt/projection reports = 39.
+        $this->assertCount(39, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_domain_catalog', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_architecture_validate', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_architecture_operations', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_session_bootstrap', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_feature_placement', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_docs_split_plan', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_self_improvement_schedule', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_self_improvement_schedule_report', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_kernel_slo_report', array_column($structured['tools'], 'name'));
@@ -224,6 +227,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('atlas_agent_behavior_report', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_provider_performance_report', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_dynamic_compute_market_report', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_provider_release_review', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_ledger_projection_health', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_decision_receipt_report', array_column($structured['tools'], 'name'));
     }
@@ -394,8 +398,14 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertFalse($structured['writes']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($structured, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($structured, 'architecture_operations.section'));
-        $this->assertSame(45, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame(53, data_get($structured, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('architecture_readiness', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('session_bootstrap', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('feature_placement', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('documentation_split_plan', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('provider_projection_status', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('provider_release_review', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_preflight', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_activation_contract', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_production_loop_plan', data_get($structured, 'architecture_operations.operation_ids'));
@@ -413,6 +423,9 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('atlas engineering knowledge docs-health --json', array_column($commands, 'command'));
         $this->assertContains('atlas engineering knowledge sync --prune --json', array_column($commands, 'command'));
         $this->assertContains('atlas engineering knowledge index-code --prune --json', array_column($commands, 'command'));
+        $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', array_column($commands, 'command'));
+        $providerRelease = collect($commands)->firstWhere('id', 'provider_release_review');
+        $this->assertSame('/ai/provider-release-review', data_get($providerRelease, 'api_endpoint'));
         $this->assertContains('atlas ai voice callback-smoke --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai voice callback-sequence-smoke --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai voice callback-loop-check --json', array_column($commands, 'command'));
@@ -423,6 +436,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('atlas ai voice runtime-certify --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', array_column($commands, 'command'));
+        $this->assertContains('atlas ai self-improve --flow=provider_release_review --hours=168 --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', array_column($commands, 'command'));
@@ -535,6 +549,158 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame(1, data_get($structured, 'architecture_operations.command_count'));
         $this->assertSame('atlas ai voice production-loop-plan --json', data_get($structured, 'architecture_operations.commands.0.command'));
         $this->assertSame('runtime_contract', data_get($structured, 'architecture_operations.commands.0.kind'));
+    }
+
+    public function test_governance_tools_expose_session_bootstrap_feature_placement_and_split_plan(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+
+        $bootstrap = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 767,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_session_bootstrap',
+                'arguments' => ['task' => 'voice realtime no mobile'],
+            ],
+        ])['result']['structuredContent'];
+
+        $this->assertTrue($bootstrap['ok']);
+        $this->assertSame('atlas_session_bootstrap', $bootstrap['tool']);
+        $this->assertSame('voice_realtime', data_get($bootstrap, 'placement.surface'));
+        $this->assertSame('knowledge_governance', data_get($bootstrap, 'docs_split_plan.owner'));
+        $this->assertSame(
+            'php artisan atlas:ai:docs-split-plan --owner=knowledge_governance --json',
+            data_get($bootstrap, 'docs_split_plan.command'),
+        );
+        $this->assertArrayHasKey('session_gate', $bootstrap);
+        $this->assertArrayHasKey('implementation_contract', $bootstrap);
+        $this->assertContains('architecture_readiness', data_get($bootstrap, 'architecture_operations.operation_ids'));
+        $this->assertContains('session_bootstrap', data_get($bootstrap, 'architecture_operations.operation_ids'));
+        $this->assertContains('feature_placement', data_get($bootstrap, 'architecture_operations.operation_ids'));
+        $this->assertContains('documentation_split_plan', data_get($bootstrap, 'architecture_operations.operation_ids'));
+        $this->assertContains('architecture_validate', data_get($bootstrap, 'architecture_operations.operation_ids'));
+        $this->assertContains('docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md', $bootstrap['read_first']);
+        $this->assertFalse($bootstrap['writes']);
+
+        $placement = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 768,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_feature_placement',
+                'arguments' => ['feature' => 'Anthropic Finance Agents provider release'],
+            ],
+        ])['result']['structuredContent'];
+
+        $this->assertTrue($placement['ok']);
+        $this->assertSame('atlas_feature_placement', $placement['tool']);
+        $this->assertSame('provider_evolution', data_get($placement, 'placement.layer'));
+        $this->assertSame('provider_evolution.review', data_get($placement, 'placement.flow'));
+        $this->assertContains('architecture_readiness', data_get($placement, 'architecture_operations.operation_ids'));
+        $this->assertContains('feature_placement', data_get($placement, 'architecture_operations.operation_ids'));
+        $this->assertContains('session_bootstrap', data_get($placement, 'architecture_operations.operation_ids'));
+        $this->assertContains('documentation_split_plan', data_get($placement, 'architecture_operations.operation_ids'));
+        $this->assertContains('architecture_validate', data_get($placement, 'architecture_operations.operation_ids'));
+        $this->assertFalse($placement['writes']);
+
+        $splitPlan = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 769,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_docs_split_plan',
+                'arguments' => ['status' => 'split_required'],
+            ],
+        ])['result']['structuredContent'];
+
+        $this->assertTrue($splitPlan['ok']);
+        $this->assertSame('atlas_docs_split_plan', $splitPlan['tool']);
+        $this->assertSame('split_required', data_get($splitPlan, 'filters.status'));
+        $this->assertGreaterThan(0, $splitPlan['split_required_count']);
+        $this->assertSame('EngineeringDocumentationHealthService', data_get($splitPlan, 'policy.line_limits_source'));
+        $this->assertNotEmpty($splitPlan['execution_order']);
+        $this->assertSame(
+            ['split_required'],
+            collect($splitPlan['docs'])->pluck('status')->unique()->values()->all(),
+        );
+        $this->assertSame(
+            'If a split_required doc is touched, the change must either reduce it or add a focused child spec and backlink.',
+            data_get($splitPlan, 'policy.growth_gate'),
+        );
+        $this->assertNotEmpty(data_get($splitPlan, 'docs.0.proposed_child_docs'));
+        $this->assertContains('sync_and_index_code_are_rerun', data_get($splitPlan, 'docs.0.acceptance_criteria'));
+        $this->assertFalse($splitPlan['writes']);
+    }
+
+    public function test_session_bootstrap_tool_strict_mode_reports_blocked_gate(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 770,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_session_bootstrap',
+                'arguments' => [
+                    'task' => 'coisa generica sem owner claro',
+                    'strict' => true,
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('atlas_session_bootstrap', $structured['tool']);
+        $this->assertSame('session_bootstrap_blocked_by_strict_gate', $structured['error']);
+        $this->assertSame('blocked', $structured['gate_status']);
+        $this->assertTrue(data_get($structured, 'session_gate.strict_blocks_session'));
+        $this->assertFalse($structured['writes']);
+    }
+
+    public function test_feature_placement_tool_requires_feature(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 770,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_feature_placement',
+                'arguments' => [],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('feature_required', $structured['error']);
+        $this->assertFalse($structured['writes']);
+    }
+
+    public function test_feature_placement_tool_strict_mode_reports_blocked_gate(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 771,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_feature_placement',
+                'arguments' => [
+                    'feature' => 'coisa generica sem owner claro',
+                    'strict' => true,
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('feature_placement_blocked_by_strict_gate', $structured['error']);
+        $this->assertSame('blocked', $structured['gate_status']);
+        $this->assertContains('ambiguous_placement_requires_more_specific_feature_or_hint', $structured['blocked_when']);
+        $this->assertFalse($structured['writes']);
     }
 
     public function test_self_improvement_schedule_tool_exposes_recurring_health(): void
@@ -1355,6 +1521,62 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('collect_ap99_evidence_before_policy_change', data_get($structured, 'dynamic_compute_market.recommended_next_action'));
         $this->assertFalse((bool) data_get($structured, 'dynamic_compute_market.routing_control.changes_provider'));
         $this->assertFalse((bool) data_get($structured, 'dynamic_compute_market.ap99.available'));
+    }
+
+    public function test_provider_release_review_tool_classifies_external_provider_launches_without_writes(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 196,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_provider_release_review',
+                'arguments' => [
+                    'provider' => 'anthropic',
+                    'title' => 'Anthropic Finance Agents',
+                    'url' => 'https://www.anthropic.com/news/finance-agents',
+                    'domain' => ['finance'],
+                    'capability' => ['agentic_finance_research'],
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_provider_release_review', $structured['tool']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame('atlas.provider_release_review.v1', data_get($structured, 'schema_version'));
+        $this->assertSame('atlas.provider_release.v1', data_get($structured, 'release_envelope.schema_version'));
+        $this->assertSame('anthropic', data_get($structured, 'release_envelope.provider'));
+        $this->assertSame('anthropic-finance-agents-2026-05', data_get($structured, 'release_envelope.release_id'));
+        $this->assertSame('vertical_agents', data_get($structured, 'release_envelope.release_type'));
+        $this->assertContains('finance', data_get($structured, 'release_envelope.affected_domains'));
+        $this->assertSame('benchmark', data_get($structured, 'recommended_action'));
+        $this->assertTrue((bool) data_get($structured, 'rivals_required'));
+        $this->assertFalse((bool) data_get($structured, 'decide_signal.changes_routing'));
+    }
+
+    public function test_provider_release_review_tool_requires_title(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 197,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_provider_release_review',
+                'arguments' => ['provider' => 'openai'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('atlas_provider_release_review', $structured['tool']);
+        $this->assertSame('title_required', $structured['error']);
+        $this->assertFalse($structured['writes']);
     }
 
     public function test_agent_behavior_report_summarizes_gate_findings(): void

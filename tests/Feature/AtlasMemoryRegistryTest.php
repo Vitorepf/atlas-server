@@ -2302,7 +2302,7 @@ class AtlasMemoryRegistryTest extends TestCase
         }
     }
 
-    public function test_provider_projection_status_flags_empty_provider_safe_memory(): void
+    public function test_provider_projection_status_uses_canonical_governance_when_registry_memory_is_empty(): void
     {
         $this->migrateMemoryTable();
         $workspace = sys_get_temp_dir().'/atlas_projection_empty_'.str_replace('-', '', (string) Str::uuid());
@@ -2317,7 +2317,8 @@ class AtlasMemoryRegistryTest extends TestCase
             ]);
 
             $this->assertFileExists($workspace.'/CLAUDE.md');
-            $this->assertStringContainsString('No provider-safe Atlas memory was available', (string) file_get_contents($workspace.'/CLAUDE.md'));
+            $this->assertStringContainsString('atlas-ai-knowledge-governance-system.md', (string) file_get_contents($workspace.'/CLAUDE.md'));
+            $this->assertStringContainsString('Feature nova precisa de placement', (string) file_get_contents($workspace.'/CLAUDE.md'));
 
             $exitCode = Artisan::call('atlas:memory:projection', [
                 'action' => 'status',
@@ -2328,10 +2329,9 @@ class AtlasMemoryRegistryTest extends TestCase
             $payload = json_decode(Artisan::output(), true);
 
             $this->assertSame(0, $exitCode);
-            $this->assertSame('needs_review', data_get($payload, 'status'));
-            $this->assertSame(1, data_get($payload, 'summary.empty_memory'));
-            $this->assertSame(0, data_get($payload, 'summary.provider_safe_memory_count'));
-            $this->assertStringContainsString('seed-core', implode("\n", (array) data_get($payload, 'next_actions', [])));
+            $this->assertSame('passed', data_get($payload, 'status'));
+            $this->assertSame(0, data_get($payload, 'summary.empty_memory'));
+            $this->assertGreaterThanOrEqual(4, data_get($payload, 'summary.provider_safe_memory_count'));
         } finally {
             File::deleteDirectory($workspace);
         }

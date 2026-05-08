@@ -1,0 +1,165 @@
+{
+  "schema_version": "atlas.voice_realtime.callback_sequence_fixtures.v1",
+  "valid": [
+    {
+      "name": "normal_mobile_turn",
+      "events": [
+        {
+          "callback": "participant_joined",
+          "payload": {
+            "session_id": "voice_session_sequence_001",
+            "participant_identity": "mobile:vitor",
+            "room_name": "atlas-voice-sequence",
+            "client_surface": "mobile",
+            "transport": "livekit_webrtc",
+            "privacy_class": "p3_audio"
+          }
+        },
+        {
+          "callback": "wake_word_detected",
+          "payload": {
+            "session_id": "voice_session_sequence_001",
+            "wake_word_engine": "mobile_local",
+            "confidence": 0.93,
+            "latency_ms": 70
+          }
+        },
+        {
+          "callback": "transcript_final",
+          "payload": {
+            "session_id": "voice_session_sequence_001",
+            "turn_id": "turn_sequence_001",
+            "transcript": "Continue a implementacao do Atlas",
+            "language": "pt-BR",
+            "domain_hint": "programming",
+            "flow_hint": "programming.implementation"
+          }
+        },
+        {
+          "callback": "tts_synthesized",
+          "payload": {
+            "session_id": "voice_session_sequence_001",
+            "turn_id": "turn_sequence_001",
+            "response_text_hash": "sha256:2dc22a58640459efd97ef7d5fee1abfb32c8189dd1f5e4cfe4d58ce3fc498c33",
+            "audio_hash": "sha256:de9215788823aab3a5785b8b5678c30d0026c81907064d1fadd9542aa74852ea",
+            "audio_duration_ms": 900,
+            "tts_provider": "mock_tts",
+            "provider": "anthropic",
+            "model": "claude-sonnet",
+            "latency_ms": 180
+          }
+        },
+        {
+          "callback": "audio_played",
+          "payload": {
+            "session_id": "voice_session_sequence_001",
+            "turn_id": "turn_sequence_001",
+            "played_duration_ms": 900,
+            "latency_ms": 60
+          }
+        },
+        {
+          "callback": "participant_left",
+          "payload": {
+            "session_id": "voice_session_sequence_001",
+            "reason": "sequence_completed"
+          }
+        }
+      ]
+    }
+  ],
+  "invalid": [
+    {
+      "name": "turn_before_join",
+      "expected_errors": [
+        "event_0:participant_joined_required_before_transcript_final"
+      ],
+      "events": [
+        {
+          "callback": "transcript_final",
+          "payload": {
+            "session_id": "voice_session_sequence_002",
+            "turn_id": "turn_sequence_002",
+            "transcript": "Comecou fora de ordem"
+          }
+        }
+      ]
+    },
+    {
+      "name": "tts_before_transcript",
+      "expected_errors": [
+        "event_1:tts_synthesized_requires_transcript_final_for_same_turn"
+      ],
+      "events": [
+        {
+          "callback": "participant_joined",
+          "payload": {
+            "session_id": "voice_session_sequence_003",
+            "participant_identity": "mobile:vitor",
+            "room_name": "atlas-voice-sequence"
+          }
+        },
+        {
+          "callback": "tts_synthesized",
+          "payload": {
+            "session_id": "voice_session_sequence_003",
+            "turn_id": "turn_sequence_003",
+            "response_text_hash": "sha256:2dc22a58640459efd97ef7d5fee1abfb32c8189dd1f5e4cfe4d58ce3fc498c33",
+            "audio_hash": "sha256:de9215788823aab3a5785b8b5678c30d0026c81907064d1fadd9542aa74852ea"
+          }
+        }
+      ]
+    },
+    {
+      "name": "event_after_left",
+      "expected_errors": [
+        "event_2:event_after_participant_left"
+      ],
+      "events": [
+        {
+          "callback": "participant_joined",
+          "payload": {
+            "session_id": "voice_session_sequence_004",
+            "participant_identity": "mobile:vitor",
+            "room_name": "atlas-voice-sequence"
+          }
+        },
+        {
+          "callback": "participant_left",
+          "payload": {
+            "session_id": "voice_session_sequence_004",
+            "reason": "finished"
+          }
+        },
+        {
+          "callback": "wake_word_detected",
+          "payload": {
+            "session_id": "voice_session_sequence_004"
+          }
+        }
+      ]
+    },
+    {
+      "name": "session_changes_mid_sequence",
+      "expected_errors": [
+        "event_1:session_id_changed"
+      ],
+      "events": [
+        {
+          "callback": "participant_joined",
+          "payload": {
+            "session_id": "voice_session_sequence_005",
+            "participant_identity": "mobile:vitor",
+            "room_name": "atlas-voice-sequence"
+          }
+        },
+        {
+          "callback": "wake_word_detected",
+          "payload": {
+            "session_id": "voice_session_sequence_changed"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -14,6 +14,7 @@ class EngineeringDocumentationHealthService
     private const REQUIRED_DOCS = [
         'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md' => 180,
         'docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md' => 260,
+        'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md' => 260,
         'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md' => 260,
         'docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md' => 260,
         'docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md' => 180,

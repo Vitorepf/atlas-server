@@ -124,18 +124,35 @@ class AiObservabilityKernelSloTest extends TestCase
 
         $this->assertSame(count($commands), $response->json('architecture_operations.command_count'));
         $this->assertContains('atlas engineering knowledge docs-health --json', $commands);
+        $this->assertContains('php artisan atlas:ai:session-bootstrap --task="<task>" --json', $commands);
+        $this->assertContains('php artisan atlas:ai:place-feature "<feature>" --json', $commands);
+        $this->assertContains('php artisan atlas:ai:docs-split-plan --json', $commands);
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
         $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
         $this->assertContains('atlas ai provider-performance --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $commands);
         $this->assertContains('atlas ai agent-behavior-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $commands);
         $this->assertContains('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', $commands);
+        $this->assertContains('atlas ai self-improve --flow=provider_release_review --hours=168 --json', $commands);
         $this->assertContains('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', $commands);
         $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', $commands);
         $this->assertContains('atlas ai self-improvement-schedule-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', $commands);
         $this->assertContains('atlas ledger replay --envelope=<id> --json', $commands);
         $this->assertContains('architecture_operations', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('session_bootstrap', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('feature_placement', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('documentation_split_plan', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('provider_release_review', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('provider_release_curator_review', $response->json('architecture_operations.operation_ids'));
+
+        $commandsById = collect($response->json('architecture_operations.commands'))->keyBy('id');
+        $this->assertSame('/ai/session-bootstrap', data_get($commandsById, 'session_bootstrap.api_endpoint'));
+        $this->assertSame('/ai/feature-placement', data_get($commandsById, 'feature_placement.api_endpoint'));
+        $this->assertSame('/ai/docs-split-plan', data_get($commandsById, 'documentation_split_plan.api_endpoint'));
+        $this->assertSame('provider_evolution', data_get($commandsById, 'provider_release_review.kind'));
+        $this->assertSame('/ai/provider-release-review', data_get($commandsById, 'provider_release_review.api_endpoint'));
     }
 
     public function test_observability_payload_includes_provider_performance_summary(): void

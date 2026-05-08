@@ -22,9 +22,11 @@ decisions:
   - ROI legado ajuda triagem, mas nao substitui safety, domain owner, evidence e current roadmap.
   - Patamares qualitativos entram por `atlas-ai-qualitative-levels-roadmap.md` e fila QL, nao por execucao direta do roadmap longo.
   - Agent Behavior Contract entra como backlog ativo de qualidade de programacao, nao como prompt solto.
+  - Novidades de labs/providers entram por Provider Release Ingestion: benchmark, AP, connector, skill pack, policy signal ou descarte governado.
 maintenance:
   - Atualizar quando itens do resolver/root-md forem promovidos para domain specs, ADRs ou plans ativos.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md
   - docs/engineering-knowledge-base/atlas-ai-autonomy-power-backlog.md
   - docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md
@@ -81,3 +83,7 @@ automatico.
   tipo Karpathy como contrato verificavel de agentes: suposicoes explicitas,
   simplicidade, diff cirurgico e loop de verificacao. Deve virar provider/identity
   fragment, Programming Domain contract e Quality Gate futuro.
+- Provider releases: lancamentos como finance agents, realtime voice, long
+  context, managed agents, connectors ou tool use avancado devem ser triados
+  contra a tese. Se multiplicam Atlas, viram AP/benchmark/skill pack/connector;
+  se so competem com provider, sao descartados ou viram baseline Rivals.

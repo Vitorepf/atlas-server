@@ -14,6 +14,7 @@ tags:
   - anti-duplication
 capabilities:
   - documentation_operating_system
+  - knowledge_governance_system
   - ai_readability_contract
   - canonical_source_governance
   - documentation_health
@@ -21,6 +22,7 @@ capabilities:
 decisions:
   - Documentacao e parte do produto Atlas, nao tarefa secundaria.
   - Toda sessao nova deve conseguir descobrir status real sem depender de memoria de chat.
+  - A hierarquia entre repo docs, Postgres, Obsidian, provider projections e chat e definida por `atlas-ai-knowledge-governance-system.md`.
   - Docs ativos devem ser curtos, indexaveis, com ownership claro e links para implementacao.
   - Docs longos devem ser divididos em specs menores antes de receber novas responsabilidades.
 maintenance:
@@ -29,6 +31,7 @@ maintenance:
   - Rodar sync e index-code depois de alterar docs canonicos.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
+  - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/START_HERE.md
   - docs/engineering-knowledge-base/README.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
@@ -78,6 +81,7 @@ Toda organizacao documental deve permitir responder rapidamente:
 | Bootstrap | resposta curta para nova sessao | `atlas-ai-session-bootstrap.md` |
 | Authority | hierarquia e conflito entre docs | `atlas-ai-canonical-architecture-index.md` |
 | Documentation OS | regras de documentacao | este documento |
+| Knowledge Governance | fonte de verdade entre repo docs, Postgres, Obsidian, provider projections e chat | `atlas-ai-knowledge-governance-system.md` |
 | Kernel | contratos executaveis | `atlas-ai-kernel-architecture.md` e specs fatiadas |
 | Master | produto, planes, dominios e estrategia | `atlas-ai-master-architecture.md` |
 | Domain Specs | comportamento por dominio | `domains/*.md` |
@@ -98,17 +102,7 @@ Docs ativos precisam caber bem em context packs e leitura de IA.
 | Audit report | 350 linhas | dividir findings por area |
 | Source material / archive | sem limite rigido | nao usar como doc ativo direto |
 
-Documento acima do limite nao e automaticamente errado, mas entra em estado
-`split_required` para novas expansoes.
-
-## Docs Atualmente Acima Do Alvo
-
-| Doc | Situacao | Proxima acao |
-|---|---|---|
-| `atlas-ai-kernel-architecture.md` | grande demais para bootstrap | extrair specs por Kernel AP: envelope, receipt, ledger, provider, surface, SLO |
-| `atlas-ai-master-architecture.md` | grande demais para leitura inicial | manter como referencia Layer 2 e extrair domain playbooks |
-| `atlas-ai-evolution-roadmap.md` | grande demais para execucao diaria | dividir em AP specs e fase atual |
-| `START_HERE.md` | util, mas longo | manter por enquanto e criar bootstrap curto oficial |
+Documento acima do limite entra em `split_required` para novas expansoes.
 
 ## Frontmatter Obrigatorio
 
@@ -221,8 +215,9 @@ Toda nova sessao deve comecar por:
 1. `atlas-ai-session-bootstrap.md`
 2. `atlas-ai-canonical-architecture-index.md`
 3. este documento
-4. `START_HERE.md`
-5. doc dono do assunto
+4. `atlas-ai-knowledge-governance-system.md`
+5. `START_HERE.md`
+6. doc dono do assunto
 
 Se a sessao nao leu isso, ela nao deve propor refactor estrutural.
 
@@ -231,6 +226,9 @@ Se a sessao nao leu isso, ela nao deve propor refactor estrutural.
 Use:
 
 ```bash
+php artisan atlas:ai:session-bootstrap --task="<task>" --json
+php artisan atlas:ai:place-feature "<feature>" --json
+php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json
 atlas engineering knowledge sync --prune
 atlas engineering knowledge index-code --prune
 atlas engineering knowledge docs-health

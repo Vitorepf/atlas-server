@@ -346,6 +346,10 @@ class AtlasAiArchitectureValidationService
             'ap131_self_improvement_architecture_operations_review' => $staticScanReport['ap131_self_improvement_architecture_operations_review'],
             'ap132_architecture_operations_metadata_contract' => $staticScanReport['ap132_architecture_operations_metadata_contract'],
             'ap133_architecture_operations_filter_contract' => $staticScanReport['ap133_architecture_operations_filter_contract'],
+            'ap173_session_bootstrap_docs_split_plan_contract' => $staticScanReport['ap173_session_bootstrap_docs_split_plan_contract'],
+            'ap174_session_bootstrap_architecture_operations_contract' => $staticScanReport['ap174_session_bootstrap_architecture_operations_contract'],
+            'ap175_feature_placement_architecture_operations_contract' => $staticScanReport['ap175_feature_placement_architecture_operations_contract'],
+            'ap176_architecture_readiness_snapshot' => $staticScanReport['ap176_architecture_readiness_snapshot'],
             'ap33_surface_capability_parity' => [
                 'valid' => $surfaceCapabilityReport['ok'],
                 'checked' => $surfaceCapabilityReport['checked'],

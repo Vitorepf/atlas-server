@@ -2597,9 +2597,11 @@ descoberta operacional e autoavaliacao.
 
 Status atual: implementado em AP-132. O catalogo operacional agora publica
 schema `atlas.architecture_operations.v1`, `operation_ids` estaveis e metadados
-por comando: `id`, `surface`, `kind` e `output`. Isso preserva a leitura humana
+por comando: `id`, `surface`, `kind`, `output` e, quando aplicavel, contratos
+como `strict_command`, `mcp_tool` e `strict_gate`. Isso preserva a leitura humana
 do `command + description`, mas da a automacoes, Open Brain, Curator e App/API
-um contrato machine-readable para agrupar operacoes por tipo sem parsear strings.
+um contrato machine-readable para agrupar operacoes e bloquear sessoes erradas
+sem parsear strings.
 CLI, API, Observability e MCP retornam o mesmo shape via
 `AtlasArchitectureOperationsCatalog::summary()`. O scanner publica
 `ap132_architecture_operations_metadata_contract`.
@@ -2616,6 +2618,42 @@ Status atual: implementado em AP-133. Como as operacoes agora possuem `id` e
 Isso deixa agentes e automacoes buscarem uma operacao especifica sem parsear o
 catalogo inteiro. O scanner publica
 `ap133_architecture_operations_filter_contract`.
+
+### Fase 1AJ — Session Bootstrap Docs Split Plan Contract
+
+Status atual: implementado em AP-173. `session-bootstrap` agora anexa
+`docs_split_plan` filtrado pelo owner provavel da tarefa, preservando `owner`,
+`status`, contagens, `execution_order`, `first_doc` e o comando canonico
+`php artisan atlas:ai:docs-split-plan --owner=<owner> --json`. CLI, API e MCP
+recebem o mesmo contrato, e o output humano mostra `Docs split owner` para que
+uma IA nova saiba imediatamente qual divida documental atacar sem parsear o
+plano global. `architecture_operations.session_bootstrap.output_contract`
+tambem declara `docs_split_plan` para descoberta sem execucao. O scanner publica
+`ap173_session_bootstrap_docs_split_plan_contract`.
+
+### Fase 1AK — Session Bootstrap Architecture Operations Contract
+
+Status atual: implementado em AP-174. `session-bootstrap` agora anexa
+`architecture_operations` com o subconjunto operacional essencial da arquitetura
+mae: `session_bootstrap`, `feature_placement`, `documentation_split_plan`,
+`architecture_readiness`, `architecture_operations`, `architecture_validate`,
+`documentation_health`, `provider_projection_status`, `knowledge_sync` e
+`code_intelligence_index`.
+CLI, API e MCP recebem o mesmo bloco para que uma IA nova tenha comandos
+canonicos de descoberta, governanca, projection e validacao sem abrir outro
+catalogo. O scanner publica
+`ap174_session_bootstrap_architecture_operations_contract`.
+
+### Fase 1AL — Feature Placement Architecture Operations Contract
+
+Status atual: implementado em AP-175. `place-feature` agora anexa
+`architecture_operations` com as operacoes essenciais para quem entra direto
+pelo gate de feature: `feature_placement`, `session_bootstrap`,
+`architecture_readiness`, `documentation_split_plan`, `architecture_validate`,
+`documentation_health`, `knowledge_sync` e `code_intelligence_index`. CLI, API e MCP recebem o mesmo
+bloco, evitando que uma IA use o atalho de placement sem os comandos canonicos
+de governanca e validacao. O scanner publica
+`ap175_feature_placement_architecture_operations_contract`.
 
 ### Fase 2 — Decision Receipt v2 Determinista
 
@@ -3631,6 +3669,11 @@ Invariantes:
   `mcp_replay_unavailable_review_signal`, que falha se qualquer tool MCP de
   replay perder `ok=false`, `writes=false` ou o `review_signal` canonico quando
   o ledger estiver indisponivel.
+- `atlas:ai:architecture-validate --json` inclui AP-176
+  `ap176_architecture_readiness_snapshot` (Architecture Readiness Snapshot), que falha se o snapshot read-only de
+  readiness deixar de agregar `architecture-validate`, docs split plan,
+  provider projection e Architecture Operations Catalog numa unica resposta de
+  bootstrap para sessoes novas.
 
 Integracao futura:
 

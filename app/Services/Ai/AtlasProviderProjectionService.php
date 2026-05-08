@@ -36,8 +36,9 @@ class AtlasProviderProjectionService
         $maxLines = $this->projectionInput()->maxLines($options['max_lines'] ?? null);
         $memoryLimit = $this->projectionInput()->memoryLimit($options['memory_limit'] ?? null);
         $entries = $this->providerSafeEntries($target, $context + ['workspace' => $workspace], $memoryLimit);
+        $canonicalMemoryLines = $this->canonicalProviderMemoryLines();
         $manualContent = $this->manualContent($workspace.DIRECTORY_SEPARATOR.$this->filename($target), $options);
-        $body = $this->body($target, $workspace, $entries, max(1, $maxLines - 1), $manualContent);
+        $body = $this->body($target, $workspace, $entries, $canonicalMemoryLines, max(1, $maxLines - 1), $manualContent);
         $checksum = $this->checksum($body);
         $generatedAt = now()->toJSON();
         $content = $this->header($target, $generatedAt, $checksum)."\n".$body;
@@ -51,7 +52,7 @@ class AtlasProviderProjectionService
             'generated_at' => $generatedAt,
             'checksum' => $checksum,
             'line_count' => substr_count($content, "\n") + 1,
-            'memory_count' => $entries->count(),
+            'memory_count' => $entries->count() + count($canonicalMemoryLines),
             'content' => $content,
         ];
     }
@@ -674,8 +675,9 @@ class AtlasProviderProjectionService
 
     /**
      * @param  Collection<int,AtlasMemoryEntry>  $entries
+     * @param  array<int,string>  $canonicalMemoryLines
      */
-    private function body(string $target, string $workspace, Collection $entries, int $maxLines, string $manualContent): string
+    private function body(string $target, string $workspace, Collection $entries, array $canonicalMemoryLines, int $maxLines, string $manualContent): string
     {
         $title = $target === 'claude' ? 'CLAUDE.md' : 'AGENTS.md';
         $lines = [
@@ -687,8 +689,16 @@ class AtlasProviderProjectionService
             '## Operating Contract',
             '- Use the Atlas memory registry and Context Pack as canonical context.',
             '- Treat this file as a compact bootstrap for external tools.',
+            '- Read `docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md` before trusting Obsidian, Postgres KB, Code Intelligence, provider projections or chat as implementation context.',
             '- Do not expose Atlas internal IDs, traces, prompts or provider details unless the operator asks for audit.',
             '- If context is missing or stale, ask Atlas for fresh context instead of inventing facts.',
+            '',
+            '## Canonical Knowledge Governance',
+            '- Repo docs in `docs/engineering-knowledge-base` are the authoring source of truth.',
+            '- Postgres KB and Code Intelligence are read models, not authoring sources.',
+            '- Evidence Ledger proves runtime events; Obsidian/AtlasVault is a Human Knowledge Surface.',
+            '- This file is generated provider projection; it never overrides canonical docs.',
+            '- Before implementation, run or emulate `php artisan atlas:ai:session-bootstrap --task="..." --json` and `php artisan atlas:ai:place-feature "..." --json`.',
             '',
             '## Provider-Safe Memory',
         ];
@@ -708,17 +718,19 @@ class AtlasProviderProjectionService
         $pointerBudget = $includePointers ? count($pointers) : 0;
         $availableMemoryLines = max(1, $maxLines - count($lines) - $manualFrameLines - $pointerBudget - 1);
 
-        $memoryLines = [];
-        if ($entries->isEmpty()) {
-            $memoryLines[] = '- No provider-safe Atlas memory was available for this workspace.';
-        }
+        $entryLines = $entries
+            ->map(fn (AtlasMemoryEntry $entry): string => $this->entryLine($entry))
+            ->filter(fn (string $line): bool => $line !== '')
+            ->values();
+        $entryBudget = $entryLines->isNotEmpty()
+            ? max(1, $availableMemoryLines - min(count($canonicalMemoryLines), max(0, $availableMemoryLines - 1)))
+            : 0;
+        $canonicalBudget = max(0, $availableMemoryLines - $entryBudget);
+        $memoryLines = array_merge(
+            array_slice($canonicalMemoryLines, 0, $canonicalBudget),
+            $entryLines->take($entryBudget)->all(),
+        );
 
-        foreach ($entries->take($availableMemoryLines) as $entry) {
-            $line = $this->entryLine($entry);
-            if ($line !== '') {
-                $memoryLines[] = $line;
-            }
-        }
         if ($memoryLines === []) {
             $lines[] = '- No provider-safe Atlas memory was available for this workspace.';
         } else {
@@ -758,6 +770,19 @@ class AtlasProviderProjectionService
         $scope = $entry->scope_id ? $entry->scope_type : ($entry->scope_type ?: 'global');
 
         return '- ['.$entry->memory_type.']['.$scope.'] '.Str::limit((string) $title, 80, '').': '.$text;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function canonicalProviderMemoryLines(): array
+    {
+        return [
+            '- [decision][global] Docs canônicos do repo governam implementação: leia `atlas-ai-knowledge-governance-system.md` antes de confiar em Postgres, Obsidian, projections ou chat.',
+            '- [decision][global] Feature nova precisa de placement: rode `php artisan atlas:ai:place-feature "..." --json` antes de criar fluxo, domain, surface, runtime ou AP.',
+            '- [decision][global] Sessão nova precisa de bootstrap: rode `php artisan atlas:ai:session-bootstrap --task="..." --json` e leia os owner docs antes de programar.',
+            '- [harness_learning][global] Depois de docs/código, sincronize KB e Code Intelligence: `atlas engineering knowledge sync --prune` e `atlas engineering knowledge index-code --prune`.',
+        ];
     }
 
     private function header(string $target, string $generatedAt, string $checksum): string

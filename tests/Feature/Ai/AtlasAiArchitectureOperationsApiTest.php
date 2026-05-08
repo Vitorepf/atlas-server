@@ -22,7 +22,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
             ->assertJsonPath('architecture_operations.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 45)
+            ->assertJsonPath('architecture_operations.command_count', 53)
             ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_operations')
             ->assertJsonPath('architecture_operations.commands.0.kind', 'catalog')
             ->assertJsonPath('architecture_operations.commands.0.surface', 'cli');
@@ -31,7 +31,14 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
 
         $this->assertContains('atlas ai architecture-operations --json', $commands);
         $this->assertContains('atlas ai architecture-validate', $commands);
+        $this->assertContains('php artisan atlas:ai:architecture-readiness --json', $commands);
         $this->assertContains('atlas engineering knowledge docs-health --json', $commands);
+        $this->assertContains('php artisan atlas:ai:session-bootstrap --task="<task>" --json', $commands);
+        $this->assertContains('php artisan atlas:ai:place-feature "<feature>" --json', $commands);
+        $this->assertContains('php artisan atlas:ai:docs-split-plan --json', $commands);
+        $this->assertContains('php artisan atlas:memory:projection status --target=all --workspace=<workspace> --json', $commands);
+        $this->assertContains('php artisan atlas:memory:projection write --target=all --workspace=<workspace> --force --json', $commands);
+        $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $commands);
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
         $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
         $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $commands);
@@ -55,6 +62,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('atlas ai voice rivals --hours=24 --json', $commands);
         $this->assertContains('atlas ai agent-behavior-report --hours=24 --json', $commands);
         $this->assertContains('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', $commands);
+        $this->assertContains('atlas ai self-improve --flow=provider_release_review --hours=168 --json', $commands);
         $this->assertContains('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', $commands);
         $this->assertContains('atlas ai self-improve --flow=voice_realtime_review --hours=168 --json', $commands);
         $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', $commands);
@@ -105,11 +113,50 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('architecture_operations.command_count', 1)
             ->assertJsonPath('architecture_operations.commands.0.command', 'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json');
 
+        $this->getJson('/ai/architecture/operations?id=architecture_readiness', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.id', 'architecture_readiness')
+            ->assertJsonPath('architecture_operations.command_count', 1)
+            ->assertJsonPath('architecture_operations.commands.0.command', 'php artisan atlas:ai:architecture-readiness --json')
+            ->assertJsonPath('architecture_operations.commands.0.kind', 'readiness')
+            ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/architecture/readiness');
+
+        $this->getJson('/ai/architecture/operations?kind=provider_evolution', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.kind', 'provider_evolution')
+            ->assertJsonPath('architecture_operations.command_count', 1)
+            ->assertJsonPath('architecture_operations.operation_ids.0', 'provider_release_review')
+            ->assertJsonPath('architecture_operations.commands.0.command', 'php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json')
+            ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/provider-release-review');
+
+        $this->getJson('/ai/architecture/operations?kind=bootstrap', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.kind', 'bootstrap')
+            ->assertJsonPath('architecture_operations.command_count', 1)
+            ->assertJsonPath('architecture_operations.operation_ids.0', 'session_bootstrap')
+            ->assertJsonPath('architecture_operations.commands.0.command', 'php artisan atlas:ai:session-bootstrap --task="<task>" --json')
+            ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/session-bootstrap');
+
+        $this->getJson('/ai/architecture/operations?kind=governance_gate', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.kind', 'governance_gate')
+            ->assertJsonPath('architecture_operations.command_count', 2)
+            ->assertJsonPath('architecture_operations.operation_ids.0', 'feature_placement')
+            ->assertJsonPath('architecture_operations.operation_ids.1', 'documentation_split_plan')
+            ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/feature-placement')
+            ->assertJsonPath('architecture_operations.commands.1.api_endpoint', '/ai/docs-split-plan');
+
         $this->getJson('/ai/architecture/operations?id=provider_performance_curator_review', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.id', 'provider_performance_curator_review')
             ->assertJsonPath('architecture_operations.command_count', 1)
             ->assertJsonPath('architecture_operations.commands.0.command', 'atlas ai self-improve --flow=provider_performance_review --hours=168 --json');
+
+        $this->getJson('/ai/architecture/operations?id=provider_release_curator_review', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.id', 'provider_release_curator_review')
+            ->assertJsonPath('architecture_operations.command_count', 1)
+            ->assertJsonPath('architecture_operations.commands.0.command', 'atlas ai self-improve --flow=provider_release_review --hours=168 --json');
 
         $this->getJson('/ai/architecture/operations?id=agent_behavior_curator_review', $this->headers)
             ->assertOk()

@@ -13,6 +13,8 @@ tags:
 capabilities:
   - session_bootstrap
   - documentation_operating_system
+  - knowledge_governance_system
+  - provider_evolution_intelligence
   - runtime_language_boundaries
   - native_mac_agent
   - local_ai_performance_strategy
@@ -57,7 +59,9 @@ capabilities:
   - cognitive_plane_governance
 decisions:
   - Atlas AI Session Bootstrap e o primeiro pacote curto para novas sessoes responderem o que e Atlas, o que existe, o que falta e como evoluir.
+  - Atlas AI Provider Evolution Intelligence define como absorver lancamentos de Claude, ChatGPT, Gemini, Codex e labs sem virar wrapper fragil.
   - Atlas AI Documentation Operating System define limites de tamanho, ownership, anti-hallucination, promocao e sync/index para documentacao de alta performance.
+  - Atlas AI Knowledge Governance System define a fonte de verdade entre repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat source material.
   - Atlas AI Runtime Language Boundaries separa Laravel Kernel, Python AI/Data Runtime, Go Edge/Concurrency Runtime e Swift Native Mac Runtime.
   - Atlas AI Voice Realtime Surface define Voice como surface canonica mobile-first com Surface Adapter `voice_realtime`, LiveKit Agents SDK (Python), LiveKit/WebRTC, Swift Mac edge futuro, eclipse modes class-3 e Rivals-Voice.
   - Atlas Native Mac Agent define Swift/macOS como camada nativa local para Keychain, Touch ID, notificacoes, FSEvents, Menu Bar e contexto opt-in, sem virar Kernel.
@@ -84,7 +88,11 @@ decisions:
   - Cognitive Plane e sub-arquitetura canonica seria para desenvolvimento cognitivo; `cognitive/implementation-briefing.md` governa APs, status, comandos e validacoes para IAs implementarem sem confundir scaffold com runtime.
 maintenance:
   - Leia atlas-ai-session-bootstrap.md no inicio de qualquer sessao nova.
+  - Leia atlas-ai-provider-evolution-intelligence.md antes de reagir a lancamento de provider, vertical agents, connectors, realtime, model release ou skill pack externo.
+  - Rode `php artisan atlas:ai:session-bootstrap --task="<task>" --json` e `php artisan atlas:ai:place-feature "<feature>" --json` antes de implementacao estrutural.
   - Leia atlas-ai-documentation-operating-system.md antes de criar, dividir, promover, arquivar ou expandir docs canonicos.
+  - Rode `php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json` antes de expandir qualquer doc `split_required`; use `severity` e `status` para reduzir contexto quando a sessao tiver escopo estreito.
+  - Leia atlas-ai-knowledge-governance-system.md antes de iniciar feature com owner incerto, alterar bootstrap, provider projection, KB sync, Obsidian/vault flow ou contexto para agentes.
   - Leia atlas-ai-runtime-language-boundaries.md, atlas-native-mac-agent.md, atlas-ai-local-performance-memory-strategy.md, atlas-ai-content-intelligence-curation.md e atlas-ai-scenario-simulation-harness.md antes de propor Python, Go, Swift, microservico, worker externo, daemon, RAG local, cache, modelos locais, uso dos 48GB RAM, YouTube ingestion, feeds, scraping, curadoria de fontes, swarm ou simulacao multiagente.
   - Leia atlas-ai-business-contexts.md antes de tratar Blackink, empresas futuras, product domains, app mobile routing domain, captura empresarial ou privacidade de empresa em producao.
   - Leia atlas-ai-agent-behavior-contract.md antes de alterar prompts de agentes, provider identity fragments, Programming Domain, Review Mode, worker prompts ou gates contra overengineering/diff lateral.
@@ -110,7 +118,9 @@ maintenance:
   - Revise indexed_at e content_hash antes de confiar em uma sessao longa.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
+  - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
@@ -230,6 +240,7 @@ detalhe de modulo com docs/testes.
 |---|---|
 | `atlas-ai-session-bootstrap.md` | Pacote curto para uma nova sessao entender o que e Atlas, o que existe, o que falta e como evoluir sem ler conversa antiga |
 | `atlas-ai-documentation-operating-system.md` | Contrato de documentacao de alta performance: limites de tamanho, status, ownership, anti-hallucination, promocao e sync/index |
+| `atlas-ai-knowledge-governance-system.md` | Contrato enterprise de fonte de verdade entre repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat source material |
 | `atlas-ai-runtime-language-boundaries.md` | Contrato de fronteira entre Laravel Kernel, Python AI/Data Runtime, Go Edge/Concurrency Runtime e Swift Native Mac Runtime |
 | `atlas-native-mac-agent.md` | Contrato canonico para Swift/macOS: Keychain, Touch ID, notificacoes, FSEvents, Menu Bar, Accessibility e ScreenCaptureKit opt-in |
 | `atlas-ai-local-performance-memory-strategy.md` | Contrato canonico para usar 48GB RAM em hot context, RAG local, rerank, cache, modelos locais, KV cache e precompute |

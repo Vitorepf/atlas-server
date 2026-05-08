@@ -158,7 +158,11 @@ class KernelArchitectureStaticScanner
      *   ap130_architecture_operations_direct_surfaces:array{valid:bool,violations:array<int,string>},
      *   ap131_self_improvement_architecture_operations_review:array{valid:bool,violations:array<int,string>},
      *   ap132_architecture_operations_metadata_contract:array{valid:bool,violations:array<int,string>},
-     *   ap133_architecture_operations_filter_contract:array{valid:bool,violations:array<int,string>}
+     *   ap133_architecture_operations_filter_contract:array{valid:bool,violations:array<int,string>},
+     *   ap173_session_bootstrap_docs_split_plan_contract:array{valid:bool,violations:array<int,string>},
+     *   ap174_session_bootstrap_architecture_operations_contract:array{valid:bool,violations:array<int,string>},
+     *   ap175_feature_placement_architecture_operations_contract:array{valid:bool,violations:array<int,string>},
+     *   ap176_architecture_readiness_snapshot:array{valid:bool,violations:array<int,string>}
      * }
      */
     public function complianceReport(): array
@@ -361,6 +365,10 @@ class KernelArchitectureStaticScanner
         $selfImprovementArchitectureOperationsReview = $this->scanSelfImprovementArchitectureOperationsReview();
         $architectureOperationsMetadataContract = $this->scanArchitectureOperationsMetadataContract();
         $architectureOperationsFilterContract = $this->scanArchitectureOperationsFilterContract();
+        $sessionBootstrapDocsSplitPlanContract = $this->scanSessionBootstrapDocsSplitPlanContract();
+        $sessionBootstrapArchitectureOperationsContract = $this->scanSessionBootstrapArchitectureOperationsContract();
+        $featurePlacementArchitectureOperationsContract = $this->scanFeaturePlacementArchitectureOperationsContract();
+        $architectureReadinessSnapshot = $this->scanArchitectureReadinessSnapshot();
 
         return [
             'ok' => $surfaceProviderBypass === []
@@ -512,7 +520,11 @@ class KernelArchitectureStaticScanner
                 && $architectureOperationsDirectSurfaces === []
                 && $selfImprovementArchitectureOperationsReview === []
                 && $architectureOperationsMetadataContract === []
-                && $architectureOperationsFilterContract === [],
+                && $architectureOperationsFilterContract === []
+                && $sessionBootstrapDocsSplitPlanContract === []
+                && $sessionBootstrapArchitectureOperationsContract === []
+                && $featurePlacementArchitectureOperationsContract === []
+                && $architectureReadinessSnapshot === [],
             'ap1_surface_provider_bypass' => [
                 'valid' => $surfaceProviderBypass === [],
                 'violations' => $surfaceProviderBypass,
@@ -1113,6 +1125,22 @@ class KernelArchitectureStaticScanner
                 'valid' => $architectureOperationsFilterContract === [],
                 'violations' => $architectureOperationsFilterContract,
             ],
+            'ap173_session_bootstrap_docs_split_plan_contract' => [
+                'valid' => $sessionBootstrapDocsSplitPlanContract === [],
+                'violations' => $sessionBootstrapDocsSplitPlanContract,
+            ],
+            'ap174_session_bootstrap_architecture_operations_contract' => [
+                'valid' => $sessionBootstrapArchitectureOperationsContract === [],
+                'violations' => $sessionBootstrapArchitectureOperationsContract,
+            ],
+            'ap175_feature_placement_architecture_operations_contract' => [
+                'valid' => $featurePlacementArchitectureOperationsContract === [],
+                'violations' => $featurePlacementArchitectureOperationsContract,
+            ],
+            'ap176_architecture_readiness_snapshot' => [
+                'valid' => $architectureReadinessSnapshot === [],
+                'violations' => $architectureReadinessSnapshot,
+            ],
         ];
     }
 
@@ -1252,6 +1280,433 @@ class KernelArchitectureStaticScanner
     /**
      * @return array<int,string>
      */
+    private function scanSessionBootstrapDocsSplitPlanContract(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/Kernel/Architecture/AtlasSessionBootstrapService.php');
+        $commandPath = app_path('Console/Commands/AtlasAiSessionBootstrapCommand.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiGovernanceApiTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiSessionBootstrapCommandTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $sessionDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md');
+        $apDocPath = base_path('docs/ap/AP-173-session-bootstrap-docs-split-plan-contract.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $sessionDoc = File::exists($sessionDocPath) ? File::get($sessionDocPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'AtlasDocumentationSplitPlanService $splitPlan',
+            '$splitOwner = $this->splitOwner',
+            "\$splitPlan = \$this->splitPlan->plan(['owner' => \$splitOwner])",
+            "'docs_split_plan' => [",
+            "'owner' => \$splitOwner",
+            "'execution_order' => \$splitPlan['execution_order'] ?? []",
+            "'first_doc' => data_get(\$splitPlan, 'docs.0')",
+            "'command' => 'php artisan atlas:ai:docs-split-plan --owner='.\$splitOwner.' --json'",
+            'private function splitOwner(array $placement, string $task): string',
+            "return 'memory_open_brain'",
+            "return 'human_knowledge_surface'",
+            "return 'tool_runtime'",
+            "return 'domain_architecture'",
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasSessionBootstrapService.php: AP-173 session bootstrap must include focused docs_split_plan [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Docs split owner',
+            "data_get(\$payload, 'docs_split_plan.owner')",
+            "data_get(\$payload, 'docs_split_plan.split_required_count')",
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiSessionBootstrapCommand.php: AP-173 CLI must surface focused docs split owner [{$token}]";
+            }
+        }
+
+        $operationsCatalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
+        $operationsCatalog = File::exists($operationsCatalogPath) ? File::get($operationsCatalogPath) : '';
+        foreach ([
+            "'id' => 'session_bootstrap'",
+            "'output_contract' => [",
+            "'docs_split_plan' => [",
+            "'split_required_count'",
+            "'total_split_required_count'",
+            "'first_doc'",
+        ] as $token) {
+            if (! str_contains($operationsCatalog, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-173 session_bootstrap operation must declare docs_split_plan output contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            "assertJsonPath('docs_split_plan.owner', 'knowledge_governance')",
+            "assertJsonPath('docs_split_plan.command', 'php artisan atlas:ai:docs-split-plan --owner=knowledge_governance --json')",
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiGovernanceApiTest.php: AP-173 API bootstrap docs_split_plan must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            "data_get(\$payload, 'docs_split_plan.owner')",
+            "data_get(\$payload, 'docs_split_plan.command')",
+            'test_session_bootstrap_focuses_docs_split_plan_for_memory_tasks',
+            "'php artisan atlas:ai:docs-split-plan --owner=memory_open_brain --json'",
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiSessionBootstrapCommandTest.php: AP-173 CLI bootstrap docs_split_plan must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            "data_get(\$bootstrap, 'docs_split_plan.owner')",
+            "data_get(\$bootstrap, 'docs_split_plan.command')",
+        ] as $token) {
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-173 MCP bootstrap docs_split_plan must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-173',
+            'Session Bootstrap Docs Split Plan Contract',
+            'docs_split_plan',
+            'ap173_session_bootstrap_docs_split_plan_contract',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-173 session bootstrap docs split plan contract must be documented [{$token}]";
+            }
+            if (! str_contains($sessionDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md: AP-173 bootstrap doc must mention docs split plan contract [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-173-session-bootstrap-docs-split-plan-contract.md: AP-173 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanSessionBootstrapArchitectureOperationsContract(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/Kernel/Architecture/AtlasSessionBootstrapService.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiGovernanceApiTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiSessionBootstrapCommandTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $sessionDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md');
+        $apDocPath = base_path('docs/ap/AP-174-session-bootstrap-architecture-operations-contract.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $sessionDoc = File::exists($sessionDocPath) ? File::get($sessionDocPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'AtlasArchitectureOperationsCatalog $operations',
+            "'architecture_operations' => \$this->sessionOperations()",
+            'private function sessionOperations(): array',
+            "'architecture_readiness'",
+            "'session_bootstrap'",
+            "'feature_placement'",
+            "'documentation_split_plan'",
+            "'architecture_validate'",
+            "'provider_projection_status'",
+            "'code_intelligence_index'",
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasSessionBootstrapService.php: AP-174 session bootstrap must include focused architecture_operations [{$token}]";
+            }
+        }
+
+        foreach ([
+            "assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')",
+            'architecture_operations.operation_ids',
+            "'architecture_readiness'",
+            "'architecture_validate'",
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiGovernanceApiTest.php: AP-174 API bootstrap architecture_operations must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            "data_get(\$payload, 'architecture_operations.schema_version')",
+            "data_get(\$payload, 'architecture_operations.operation_ids')",
+            "'architecture_readiness'",
+            "'provider_projection_status'",
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiSessionBootstrapCommandTest.php: AP-174 CLI bootstrap architecture_operations must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            "data_get(\$bootstrap, 'architecture_operations.operation_ids')",
+            "'architecture_readiness'",
+            "'documentation_split_plan'",
+            "'architecture_validate'",
+        ] as $token) {
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-174 MCP bootstrap architecture_operations must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-174',
+            'Session Bootstrap Architecture Operations Contract',
+            'architecture_operations',
+            'ap174_session_bootstrap_architecture_operations_contract',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-174 session bootstrap architecture operations contract must be documented [{$token}]";
+            }
+            if (! str_contains($sessionDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md: AP-174 bootstrap doc must mention architecture operations contract [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-174-session-bootstrap-architecture-operations-contract.md: AP-174 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanFeaturePlacementArchitectureOperationsContract(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/Kernel/Architecture/AtlasFeaturePlacementService.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiGovernanceApiTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiSessionBootstrapCommandTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-175-feature-placement-architecture-operations-contract.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'AtlasArchitectureOperationsCatalog $operations',
+            "'architecture_operations' => \$this->placementOperations()",
+            'private function placementOperations(): array',
+            "'architecture_readiness'",
+            "'feature_placement'",
+            "'session_bootstrap'",
+            "'documentation_split_plan'",
+            "'architecture_validate'",
+            "'code_intelligence_index'",
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasFeaturePlacementService.php: AP-175 feature placement must include focused architecture_operations [{$token}]";
+            }
+        }
+
+        foreach ([
+            "assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')",
+            'architecture_operations.operation_ids',
+            "'architecture_readiness'",
+            "'feature_placement'",
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiGovernanceApiTest.php: AP-175 API feature placement architecture_operations must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            "data_get(\$payload, 'architecture_operations.schema_version')",
+            "data_get(\$payload, 'architecture_operations.operation_ids')",
+            "'architecture_readiness'",
+            "'feature_placement'",
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiSessionBootstrapCommandTest.php: AP-175 CLI feature placement architecture_operations must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            "data_get(\$placement, 'architecture_operations.operation_ids')",
+            "'architecture_readiness'",
+            "'feature_placement'",
+            "'architecture_validate'",
+        ] as $token) {
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-175 MCP feature placement architecture_operations must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-175',
+            'Feature Placement Architecture Operations Contract',
+            'architecture_operations',
+            'ap175_feature_placement_architecture_operations_contract',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-175 feature placement architecture operations contract must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-175-feature-placement-architecture-operations-contract.md: AP-175 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanArchitectureReadinessSnapshot(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureReadinessService.php');
+        $commandPath = app_path('Console/Commands/AtlasAiArchitectureReadinessCommand.php');
+        $controllerPath = app_path('Http/Controllers/AtlasAiGovernanceController.php');
+        $routesPath = base_path('routes/api.php');
+        $catalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureReadinessCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiGovernanceApiTest.php');
+        $catalogTestPath = base_path('tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-176-architecture-readiness-snapshot.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
+        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
+        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $catalogTest = File::exists($catalogTestPath) ? File::get($catalogTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'AtlasAiArchitectureValidationService $validation',
+            'AtlasDocumentationSplitPlanService $splitPlan',
+            'AtlasProviderProjectionService $projection',
+            'AtlasArchitectureOperationsCatalog $operations',
+            "'schema_version' => 'atlas.architecture_readiness.v1'",
+            "'checks' => \$checks",
+            "'docs_split_plan' => [",
+            "'provider_projection' => [",
+            "'architecture_operations' => \$this->readinessOperations()",
+            "'review_signal' => [",
+            'private function readinessOperations(): array',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureReadinessService.php: AP-176 readiness snapshot must aggregate existing governance authorities [{$token}]";
+            }
+        }
+
+        foreach ([
+            "protected \$signature = 'atlas:ai:architecture-readiness",
+            'AtlasArchitectureReadinessService $readiness',
+            "'workspace' => \$this->option('workspace')",
+            "'owner' => \$this->option('owner')",
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiArchitectureReadinessCommand.php: AP-176 CLI must expose readiness snapshot [{$token}]";
+            }
+        }
+
+        foreach ([
+            'public function architectureReadiness(Request $request, AtlasArchitectureReadinessService $readiness): JsonResponse',
+            "'workspace' => ['nullable', 'string', 'max:500']",
+            "'owner' => ['nullable', 'string', 'max:120']",
+            '$readiness->snapshot($data)',
+        ] as $token) {
+            if (! str_contains($controller, $token)) {
+                $violations[] = "app/Http/Controllers/AtlasAiGovernanceController.php: AP-176 API controller must expose readiness snapshot [{$token}]";
+            }
+        }
+
+        if (! str_contains($routes, "Route::get('/ai/architecture/readiness', [AtlasAiGovernanceController::class, 'architectureReadiness'])")) {
+            $violations[] = 'routes/api.php: AP-176 API route /ai/architecture/readiness must exist';
+        }
+
+        foreach ([
+            "'id' => 'architecture_readiness'",
+            "'command' => 'php artisan atlas:ai:architecture-readiness --json'",
+            "'kind' => 'readiness'",
+            "'api_endpoint' => '/ai/architecture/readiness'",
+        ] as $token) {
+            if (! str_contains($catalog, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-176 catalog must publish architecture_readiness [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_command_returns_architecture_readiness_snapshot_as_json',
+            "data_get(\$payload, 'schema_version')",
+            'architecture_readiness',
+            'review_signal.required_next_commands',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiArchitectureReadinessCommandTest.php: AP-176 command tests must cover readiness output [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_architecture_readiness_api_returns_governance_snapshot',
+            '/ai/architecture/readiness?owner=kernel_architecture',
+            "assertJsonPath('schema_version', 'atlas.architecture_readiness.v1')",
+            "assertJsonPath('architecture_operations.commands.0.id', 'architecture_readiness')",
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiGovernanceApiTest.php: AP-176 API tests must cover readiness output [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'architecture_readiness'",
+            "'php artisan atlas:ai:architecture-readiness --json'",
+            "summary(['kind' => 'readiness'])",
+        ] as $token) {
+            if (! str_contains($catalogTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php: AP-176 catalog tests must cover readiness operation [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-176',
+            'Architecture Readiness Snapshot',
+            'ap176_architecture_readiness_snapshot',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-176 readiness snapshot must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-176-architecture-readiness-snapshot.md: AP-176 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
     private function scanArchitectureOperationsMetadataContract(): array
     {
         $violations = [];
@@ -1373,6 +1828,7 @@ class KernelArchitectureStaticScanner
             'missing_architecture_operation',
             'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
             'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
+            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
             'atlas ai telemetry cost-rates --missing --hours=168 --json',
             'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
         ] as $token) {
@@ -1389,6 +1845,7 @@ class KernelArchitectureStaticScanner
             'missing_architecture_operation',
             'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
             'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
+            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
             'atlas ai telemetry cost-rates --missing --hours=168 --json',
             'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
         ] as $token) {
@@ -1423,6 +1880,7 @@ class KernelArchitectureStaticScanner
         $violations = [];
         $commandPath = app_path('Console/Commands/AtlasAiArchitectureOperationsCommand.php');
         $controllerPath = app_path('Http/Controllers/AtlasAiArchitectureOperationsController.php');
+        $governanceControllerPath = app_path('Http/Controllers/AtlasAiGovernanceController.php');
         $routesPath = base_path('routes/api.php');
         $commandTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsCommandTest.php');
         $apiTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsApiTest.php');
@@ -1431,6 +1889,7 @@ class KernelArchitectureStaticScanner
 
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
+        $governanceController = File::exists($governanceControllerPath) ? File::get($governanceControllerPath) : '';
         $routes = File::exists($routesPath) ? File::get($routesPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
@@ -1461,8 +1920,18 @@ class KernelArchitectureStaticScanner
         foreach ([
             'AtlasAiArchitectureOperationsController',
             "Route::get('/ai/architecture/operations', AtlasAiArchitectureOperationsController::class)",
+            'AtlasAiGovernanceController',
+            "Route::get('/ai/session-bootstrap', [AtlasAiGovernanceController::class, 'sessionBootstrap'])",
+            "Route::get('/ai/feature-placement', [AtlasAiGovernanceController::class, 'placeFeature'])",
+            "Route::get('/ai/docs-split-plan', [AtlasAiGovernanceController::class, 'docsSplitPlan'])",
+            "'strict' => ['nullable', 'boolean']",
+            "'owner' => ['nullable', 'string', 'max:120']",
+            "'severity' => ['nullable', 'string', 'max:120']",
+            "'status' => ['nullable', 'string', 'max:120']",
+            'AtlasGovernanceGateService $gate',
+            '$gate->httpStatus($payload',
         ] as $token) {
-            if (! str_contains($routes, $token)) {
+            if (! str_contains($routes.$controller.$governanceController, $token)) {
                 $violations[] = "routes/api.php: AP-130 architecture operations API route must exist [{$token}]";
             }
         }
@@ -1485,6 +1954,9 @@ class KernelArchitectureStaticScanner
             '/ai/architecture/operations',
             'architecture_operations.command_count',
             'atlas ai architecture-operations --json',
+            '/ai/session-bootstrap',
+            '/ai/feature-placement',
+            '/ai/docs-split-plan',
         ] as $token) {
             if (! str_contains($apiTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasAiArchitectureOperationsApiTest.php: AP-130 architecture operations API must be covered [{$token}]";
@@ -1516,21 +1988,44 @@ class KernelArchitectureStaticScanner
     {
         $violations = [];
         $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
+        $gatePath = app_path('Services/Ai/Kernel/Architecture/AtlasGovernanceGateService.php');
         $testPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-129-architecture-operations-mcp-tool.md');
 
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $gate = File::exists($gatePath) ? File::get($gatePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = File::exists($docsPath) ? File::get($docsPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
             'AtlasArchitectureOperationsCatalog $architectureOperations',
+            'AtlasSessionBootstrapService $sessionBootstrap',
+            'AtlasFeaturePlacementService $featurePlacement',
+            'AtlasDocumentationSplitPlanService $documentationSplitPlan',
             "'name' => 'atlas_architecture_operations'",
+            "'name' => 'atlas_session_bootstrap'",
+            "'name' => 'atlas_feature_placement'",
+            "'name' => 'atlas_docs_split_plan'",
             "'atlas_architecture_operations' => \$this->toolResponse(\$id, \$this->architectureOperations(\$arguments))",
+            "'atlas_session_bootstrap' => \$this->toolResponse(\$id, \$this->sessionBootstrap(\$arguments))",
+            "'atlas_feature_placement' => \$this->toolResponse(\$id, \$this->featurePlacement(\$arguments))",
+            "'atlas_docs_split_plan' => \$this->toolResponse(\$id, \$this->docsSplitPlan(\$arguments))",
             'private function architectureOperations(array $arguments): array',
+            'private function sessionBootstrap(array $arguments): array',
+            'private function featurePlacement(array $arguments): array',
+            'private function docsSplitPlan(array $arguments): array',
             "\$this->architectureOperations->summary(\$this->onlyScalarFilters(\$arguments, ['id', 'kind']))",
+            "\$this->documentationSplitPlan->plan(\$this->onlyScalarFilters(\$arguments, ['owner', 'severity', 'status']))",
+            "'owner' => ['type' => 'string'",
+            "'severity' => ['type' => 'string'",
+            "'status' => ['type' => 'string'",
+            "'strict' => ['type' => 'boolean'",
+            '$strictBlocked',
+            'AtlasGovernanceGateService $governanceGate',
+            '$this->governanceGate->strictBlocked',
+            '$this->governanceGate->mcpError',
             "'writes' => false",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
@@ -1539,14 +2034,37 @@ class KernelArchitectureStaticScanner
         }
 
         foreach ([
+            'session_bootstrap_blocked_by_strict_gate',
+            'feature_placement_blocked_by_strict_gate',
+        ] as $token) {
+            if (! str_contains($gate, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasGovernanceGateService.php: AP-129 strict MCP gate errors must stay centralized [{$token}]";
+            }
+        }
+
+        foreach ([
             'test_architecture_operations_tool_exposes_shared_operations_catalog',
             'atlas_architecture_operations',
+            'atlas_session_bootstrap',
+            'atlas_feature_placement',
+            'atlas_docs_split_plan',
             'architecture_operations.section',
             'architecture_operations.command_count',
             'agent_behavior_report',
+            'test_governance_tools_expose_session_bootstrap_feature_placement_and_split_plan',
+            'test_session_bootstrap_tool_strict_mode_reports_blocked_gate',
+            'test_feature_placement_tool_requires_feature',
+            'test_feature_placement_tool_strict_mode_reports_blocked_gate',
+            "'arguments' => ['status' => 'split_required']",
+            "data_get(\$splitPlan, 'filters.status')",
+            'session_bootstrap_blocked_by_strict_gate',
+            'feature_placement_blocked_by_strict_gate',
             'atlas ai agent-behavior-report --hours=24 --json',
+            'provider_release_review',
+            'php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json',
             'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
             'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
+            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
             'atlas ai telemetry cost-rates --missing --hours=168 --json',
             'atlas ai inbox-action-report --hours=24 --json',
         ] as $token) {
@@ -1604,11 +2122,22 @@ class KernelArchitectureStaticScanner
             "'atlas ai architecture-operations --json'",
             "'atlas ai architecture-validate'",
             "'atlas engineering knowledge docs-health --json'",
+            "'php artisan atlas:ai:session-bootstrap --task=\"<task>\" --json'",
+            "'php artisan atlas:ai:place-feature \"<feature>\" --json'",
+            "'php artisan atlas:ai:docs-split-plan --json'",
+            "'focused_command' => 'php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json'",
+            "'filter_options' => ['owner', 'severity', 'status']",
+            "'mcp_tool' => 'atlas_docs_split_plan'",
+            "'api_endpoint' => '/ai/session-bootstrap'",
+            "'api_endpoint' => '/ai/feature-placement'",
+            "'api_endpoint' => '/ai/docs-split-plan'",
             "'atlas engineering knowledge sync --prune --json'",
             "'atlas engineering knowledge index-code --prune --json'",
             "'atlas ai agent-behavior-report --hours=24 --json'",
             "'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json'",
             "'atlas ai self-improve --flow=provider_performance_review --hours=168 --json'",
+            "'php artisan atlas:ai:provider-release-review --provider=<provider> --title=\"<release>\" --json'",
+            "'atlas ai self-improve --flow=provider_release_review --hours=168 --json'",
             "'atlas ai telemetry cost-rates --missing --hours=168 --json'",
             "'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json'",
             "'atlas ai inbox-action-report --hours=24 --json'",
@@ -1642,11 +2171,22 @@ class KernelArchitectureStaticScanner
             "'arquitetura_mae'",
             'atlas ai architecture-operations --json',
             'atlas engineering knowledge docs-health --json',
+            'php artisan atlas:ai:session-bootstrap --task="<task>" --json',
+            'php artisan atlas:ai:place-feature "<feature>" --json',
+            'php artisan atlas:ai:docs-split-plan --json',
+            'php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json',
+            "data_get(\$commandsById, 'documentation_split_plan.filter_options')",
+            "data_get(\$commandsById, 'documentation_split_plan.mcp_tool')",
+            '/ai/session-bootstrap',
+            '/ai/feature-placement',
+            '/ai/docs-split-plan',
             'atlas engineering knowledge sync --prune --json',
             'atlas engineering knowledge index-code --prune --json',
             'atlas ai agent-behavior-report --hours=24 --json',
             'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
             'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
+            'php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json',
+            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
             'atlas ai telemetry cost-rates --missing --hours=168 --json',
             'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
             'atlas ai inbox-action-report --hours=24 --json',
@@ -1662,11 +2202,19 @@ class KernelArchitectureStaticScanner
             "\$this->assertSame(count(\$commands), \$response->json('architecture_operations.command_count'))",
             'atlas ai architecture-operations --json',
             'atlas engineering knowledge docs-health --json',
+            'php artisan atlas:ai:session-bootstrap --task="<task>" --json',
+            'php artisan atlas:ai:place-feature "<feature>" --json',
+            'php artisan atlas:ai:docs-split-plan --json',
+            '/ai/session-bootstrap',
+            '/ai/feature-placement',
+            '/ai/docs-split-plan',
             'atlas engineering knowledge sync --prune --json',
             'atlas engineering knowledge index-code --prune --json',
             'atlas ai agent-behavior-report --hours=24 --json',
             'atlas ai self-improvement-schedule-report --hours=24 --json',
             'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
+            'php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json',
+            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
             'atlas ledger replay --envelope=<id> --json',
             'atlas ai telemetry cost-rates --missing --hours=168 --json',
         ] as $token) {
@@ -1728,9 +2276,11 @@ class KernelArchitectureStaticScanner
             "'command' => 'atlas ai kernel-pipeline-report --hours=24 --json'",
             "'command' => 'atlas ai repair-report --hours=24 --json'",
             "'command' => 'atlas ai provider-performance --hours=24 --json'",
+            "'command' => 'php artisan atlas:ai:provider-release-review --provider=<provider> --title=\"<release>\" --json'",
             "'command' => 'atlas ai agent-behavior-report --hours=24 --json'",
             "'command' => 'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json'",
             "'command' => 'atlas ai self-improve --flow=provider_performance_review --hours=168 --json'",
+            "'command' => 'atlas ai self-improve --flow=provider_release_review --hours=168 --json'",
             "'command' => 'atlas ai self-improvement-schedule-report --hours=24 --json'",
             "'command' => 'atlas ai inbox-action-report --hours=24 --json'",
         ] as $token) {
@@ -1747,9 +2297,11 @@ class KernelArchitectureStaticScanner
             'atlas ai kernel-pipeline-report --hours=24 --json',
             'atlas ai repair-report --hours=24 --json',
             'atlas ai provider-performance --hours=24 --json',
+            'php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json',
             'atlas ai agent-behavior-report --hours=24 --json',
             'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
             'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
+            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
             'atlas ai self-improvement-schedule-report --hours=24 --json',
             'atlas ai inbox-action-report --hours=24 --json',
         ] as $token) {

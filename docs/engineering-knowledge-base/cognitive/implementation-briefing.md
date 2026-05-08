@@ -24,6 +24,8 @@ maintenance:
   - Manter abaixo de 260 linhas.
   - Atualizar sempre que um AP cognitivo mudar de status, criar migration, command, gate, SLO ou event family.
 related_paths:
+  - docs/engineering-knowledge-base/cognitive/visual-map.md
+  - docs/engineering-knowledge-base/assets/cognitive-plane-visual-map-v1.png
   - docs/engineering-knowledge-base/cognitive/README.md
   - docs/engineering-knowledge-base/cognitive/overview.md
   - docs/engineering-knowledge-base/cognitive/principles.md
@@ -52,6 +54,14 @@ Este doc e o pacote operacional para Codex, Claude, Gemini ou humano implementar
 ## Definicao
 
 O **Cognitive Development Plane** governa a trajetoria cognitiva do operador: estudo, consolidacao, dominio, transferencia, descoberta de Pareto, reuso de padroes humanos e aprendizado por falha diferente, sempre dentro do pipeline canonico de 17 etapas.
+
+## Visual de referencia
+
+Antes de implementar, consulte
+`docs/engineering-knowledge-base/cognitive/visual-map.md` e o asset
+`docs/engineering-knowledge-base/assets/cognitive-plane-visual-map-v1.png` para
+entender camadas, loops temporais, capabilities, evidence e Curator. O visual
+nao substitui AP, schema, service, gate, teste ou DoD.
 
 ## Ordem obrigatoria de leitura
 
@@ -134,7 +144,7 @@ php artisan migrate
 php artisan test tests/Unit/Ai/Cognitive tests/Feature/Ai/Cognitive
 php artisan atlas:ai:architecture-validate --json
 atlas engineering knowledge sync --prune
-php -d memory_limit=1G artisan atlas:engineering:knowledge index-code --prune
+atlas engineering knowledge index-code --prune
 atlas engineering knowledge docs-health
 ```
 

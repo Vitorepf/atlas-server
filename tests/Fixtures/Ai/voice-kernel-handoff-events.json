@@ -1,0 +1,68 @@
+{
+  "schema_version": "atlas.voice_realtime.kernel_handoff_fixtures.v1",
+  "turn_event": {
+    "event_kind": "transcribed_turn",
+    "session_id": "voice_session_handoff_001",
+    "turn_id": "turn_handoff_001",
+    "transcript": "Como o Atlas deve continuar esta implementacao?",
+    "language": "pt-BR",
+    "domain_hint": "programming",
+    "flow_hint": "programming.implementation"
+  },
+  "callback_event": {
+    "event_kind": "synthesized",
+    "session_id": "voice_session_handoff_001",
+    "turn_id": "turn_handoff_001",
+    "response_text_hash": "sha256:2dc22a58640459efd97ef7d5fee1abfb32c8189dd1f5e4cfe4d58ce3fc498c33",
+    "audio_hash": "sha256:de9215788823aab3a5785b8b5678c30d0026c81907064d1fadd9542aa74852ea",
+    "audio_duration_ms": 900,
+    "tts_provider": "mock_tts",
+    "provider": "anthropic",
+    "model": "claude-sonnet",
+    "latency_ms": 180
+  },
+  "sequence": [
+    {
+      "event_kind": "room_connected",
+      "session_id": "voice_session_handoff_002",
+      "participant_identity": "mobile:vitor",
+      "room_name": "atlas-voice-handoff",
+      "client_surface": "mobile",
+      "transport": "livekit_webrtc",
+      "privacy_class": "p3_audio"
+    },
+    {
+      "event_kind": "transcribed_turn",
+      "session_id": "voice_session_handoff_002",
+      "turn_id": "turn_handoff_002",
+      "transcript": "Continue com segurança",
+      "language": "pt-BR",
+      "domain_hint": "programming",
+      "flow_hint": "programming.implementation"
+    },
+    {
+      "event_kind": "synthesized",
+      "session_id": "voice_session_handoff_002",
+      "turn_id": "turn_handoff_002",
+      "response_text_hash": "sha256:2dc22a58640459efd97ef7d5fee1abfb32c8189dd1f5e4cfe4d58ce3fc498c33"
+    },
+    {
+      "event_kind": "played",
+      "session_id": "voice_session_handoff_002",
+      "turn_id": "turn_handoff_002",
+      "played_duration_ms": 900
+    },
+    {
+      "event_kind": "room_disconnected",
+      "session_id": "voice_session_handoff_002",
+      "reason": "operator_finished"
+    }
+  ],
+  "invalid_event": {
+    "event_kind": "transcribed_turn",
+    "session_id": "voice_session_handoff_003",
+    "turn_id": "turn_handoff_003",
+    "transcript": "evento invalido",
+    "raw_audio": "base64-redacted"
+  }
+}

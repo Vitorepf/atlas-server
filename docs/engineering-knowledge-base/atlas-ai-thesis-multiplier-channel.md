@@ -20,7 +20,9 @@ capabilities:
 decisions:
   - Atlas e multiplicador, nao somador. Cada feature do Atlas amplifica o output bruto de provider.
   - Atlas nao compete com providers. Atlas e dono da relacao entre Vitor e qualquer provider.
+  - Atlas substitui o uso direto de Claude, ChatGPT, Gemini, Codex e futuros providers como canal operacional; nao precisa substituir os modelos brutos.
   - Cada melhoria de provider alimenta Atlas. Nunca ameaca. Antifragilidade estrutural.
+  - Release disruptivo de provider deve virar capability, benchmark, connector, skill pack, runtime option, AP ou policy signal dentro do Atlas.
   - Atlas vive em dimensoes que providers nao podem ocupar por modelo de negocio.
   - A pergunta-norte de cada feature: multiplica o output do provider, ou compete com ele?
   - Atlas precisa ser canal UNICO. Uso direto de provider, fora do Atlas, quebra o ciclo Evidence -> Curator -> Multiplicador.
@@ -35,6 +37,7 @@ maintenance:
   - Toda decisao arquitetural deve ser auditada contra a pergunta-norte.
   - Atualizar exemplos e matematica conforme novos providers entram no mercado, nunca a tese.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-ai-vision.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
@@ -57,6 +60,12 @@ related_paths:
 ## A Tese em Uma Frase
 
 > **Atlas e o canal unico e soberano atraves do qual toda a inteligencia do mundo passa, e multiplicada pelo ecossistema pessoal do Vitor, e entregue como output que nenhum provider sozinho pode produzir — agora ou no futuro.**
+
+Formula operacional:
+
+> **Atlas nao compete com Claude, ChatGPT, Gemini, Codex ou futuros labs no
+> nivel do modelo. Atlas substitui o uso direto deles como canal operacional,
+> incorporando, orquestrando e multiplicando cada avanco que eles lancarem.**
 
 Atlas nao e produto. Atlas nao e tool. Atlas nao e wrapper. Atlas e **arquitetura
 de multiplicacao cognitiva pessoal** que cresce automaticamente com a evolucao
@@ -129,6 +138,23 @@ fortalece em vez de ameacar:
 | Provider treina no seu dado | Privacy break | Privacy layer impede vazamento |
 
 Cada cenario, Atlas **sai mais forte**, nao mais fraco.
+
+### Provider Release Ingestion Protocol
+
+Quando Anthropic, OpenAI, Google, xAI, Meta, Apple, Cursor, Codex ou outro lab
+lancar uma capacidade nova, Atlas nao deve reagir como concorrente assustado.
+Deve tratar o lancamento como material de evolucao:
+
+1. **Catalogar**: qual capability, domain, surface, runtime ou connector mudou?
+2. **Comparar**: isso supera Atlas direto, melhora um provider ou cria novo benchmark?
+3. **Posicionar**: virar driver, skill pack, AP, policy signal, connector, harness,
+   benchmark rival, runtime option ou backlog descartado.
+4. **Medir**: criar Rivals especifico quando a novidade afeta qualidade real.
+5. **Absorver**: integrar sem hardcode, mantendo Atlas Decide e Evidence Ledger.
+
+Regra: se um provider lancou algo forte, Atlas deve ficar mais forte por usar
+essa novidade dentro do seu ecossistema. Se a novidade torna uma parte do Atlas
+obsoleta, essa parte deve virar adapter, benchmark ou ser removida.
 
 ---
 
@@ -401,7 +427,11 @@ com inteligencia aplicada multiplicada por contexto pessoal.
 
 E mais: **quanto mais eles competem, mais rapido a inteligencia bruta cresce,
 mais rapido Atlas cresce**. A guerra deles te beneficia. Atlas e torcedor
-neutro de todos os times.
+neutro de todos os times. A funcao estrategica do Atlas e observar para onde os
+labs vao, absorver o que eles fazem melhor, e construir nas zonas que eles nao
+podem ou nao querem ocupar: continuidade pessoal, canal unico, neutralidade,
+audit/replay, memoria soberana, business contexts, cognitive development,
+governanca documental e Curator longitudinal.
 
 ---
 

@@ -1315,12 +1315,14 @@ class EngineeringCodeIntelligenceService
     private function persistSymbols(array $symbolRows, array $moduleIds, bool $prune): array
     {
         $ids = [];
-        $seenHashes = [];
+        $indexedAt = now()->startOfSecond();
         foreach ($symbolRows as $row) {
             $moduleSlug = (string) ($row['module_slug'] ?? '');
             unset($row['module_slug']);
             $row['module_id'] = $moduleIds[$moduleSlug] ?? null;
-            $seenHashes[] = $row['source_hash'];
+            $row['status'] = 'active';
+            $row['archived_at'] = null;
+            $row['indexed_at'] = $indexedAt;
             $symbol = AtlasEngineeringCodeSymbol::query()->updateOrCreate(
                 ['symbol_type' => $row['symbol_type'], 'source_hash' => $row['source_hash']],
                 $row,
@@ -1328,14 +1330,43 @@ class EngineeringCodeIntelligenceService
             $ids[$row['source_hash']] = $symbol->id;
         }
 
-        if ($prune && $seenHashes !== []) {
-            AtlasEngineeringCodeSymbol::query()
-                ->whereNotIn('source_hash', $seenHashes)
-                ->where('status', '!=', 'archived')
-                ->update(['status' => 'archived', 'archived_at' => now()]);
+        if ($prune && $symbolRows !== []) {
+            $this->archiveStaleSymbols($indexedAt);
         }
 
         return $ids;
+    }
+
+    private function archiveStaleSymbols(Carbon $indexedAt): int
+    {
+        $archivedAt = now();
+        $count = 0;
+
+        AtlasEngineeringCodeSymbol::query()
+            ->where('status', '!=', 'archived')
+            ->where(function (Builder $query) use ($indexedAt): void {
+                $query
+                    ->whereNull('indexed_at')
+                    ->orWhere('indexed_at', '<', $indexedAt);
+            })
+            ->select('id')
+            ->chunkById(1000, function (Collection $symbols) use ($archivedAt, &$count): void {
+                $ids = $symbols->pluck('id')->all();
+                if ($ids === []) {
+                    return;
+                }
+
+                AtlasEngineeringCodeSymbol::query()
+                    ->whereIn('id', $ids)
+                    ->update([
+                        'status' => 'archived',
+                        'archived_at' => $archivedAt,
+                    ]);
+
+                $count += count($ids);
+            });
+
+        return $count;
     }
 
     private function syncDocLinks(string $workspace, bool $prune): int
@@ -1357,8 +1388,8 @@ class EngineeringCodeIntelligenceService
         $modules = AtlasEngineeringCodeModule::query()
             ->active()
             ->get(['id', 'slug', 'root_path']);
-        $seen = [];
         $count = 0;
+        $pruneStartedAt = now();
 
         foreach ($knowledgeItems as $item) {
             $paths = collect($item->related_paths_json ?? [])
@@ -1390,7 +1421,6 @@ class EngineeringCodeIntelligenceService
                     'link_type' => $matchedPath ? 'module_path' : 'module_capability',
                     'metadata' => ['module_slug' => $module->slug, 'capability' => $matchedCapability],
                 ]);
-                $seen[] = $link['link_hash'];
                 AtlasEngineeringDocLink::query()->updateOrCreate(['link_hash' => $link['link_hash']], $link);
                 $count++;
             }
@@ -1399,7 +1429,7 @@ class EngineeringCodeIntelligenceService
                 ->active()
                 ->whereIn('file_path', $paths->all())
                 ->select(['id', 'symbol_name', 'symbol_type', 'file_path'])
-                ->chunkById(500, function (Collection $symbols) use ($workspace, $item, &$seen, &$count): void {
+                ->chunkById(500, function (Collection $symbols) use ($workspace, $item, &$count): void {
                     foreach ($symbols as $symbol) {
                         $link = $this->docLinkRow($workspace, $item, [
                             'symbol_id' => $symbol->id,
@@ -1407,21 +1437,31 @@ class EngineeringCodeIntelligenceService
                             'link_type' => 'symbol_path',
                             'metadata' => ['symbol_name' => $symbol->symbol_name, 'symbol_type' => $symbol->symbol_type],
                         ]);
-                        $seen[] = $link['link_hash'];
                         AtlasEngineeringDocLink::query()->updateOrCreate(['link_hash' => $link['link_hash']], $link);
                         $count++;
                     }
                 });
         }
 
-        if ($prune && $seen !== []) {
-            AtlasEngineeringDocLink::query()
-                ->whereNotIn('link_hash', $seen)
-                ->whereNull('archived_at')
-                ->update(['status' => 'archived', 'archived_at' => now()]);
+        if ($prune) {
+            $this->archiveStaleDocLinks($pruneStartedAt);
         }
 
         return $count;
+    }
+
+    private function archiveStaleDocLinks(Carbon $pruneStartedAt): void
+    {
+        $archivedAt = now();
+
+        DB::table('atlas_engineering_doc_links')
+            ->whereNull('archived_at')
+            ->where(function ($query) use ($pruneStartedAt): void {
+                $query
+                    ->whereNull('indexed_at')
+                    ->orWhere('indexed_at', '<', $pruneStartedAt);
+            })
+            ->update(['status' => 'archived', 'archived_at' => $archivedAt]);
     }
 
     /**
@@ -1491,27 +1531,6 @@ class EngineeringCodeIntelligenceService
             ];
         }
 
-        $symbolDocs = [];
-
-        foreach (DB::table('atlas_engineering_doc_links')
-            ->select(['symbol_id', 'knowledge_item_id'])
-            ->whereNotNull('symbol_id')
-            ->whereNull('archived_at')
-            ->where('status', 'current')
-            ->orderBy('symbol_id')
-            ->cursor() as $link) {
-            $symbolId = (string) $link->symbol_id;
-            $knowledgeItemId = (string) $link->knowledge_item_id;
-
-            if ($knowledgeItemId !== '') {
-                $symbolDocs[$symbolId][] = $knowledgeItemId;
-            }
-        }
-
-        foreach ($symbolDocs as $symbolId => $knowledgeItemIds) {
-            $symbolDocs[$symbolId] = array_values(array_unique($knowledgeItemIds));
-        }
-
         $documentedModuleIds = [];
         $now = now();
 
@@ -1544,7 +1563,9 @@ class EngineeringCodeIntelligenceService
             ->where('status', 'active')
             ->whereNull('archived_at')
             ->orderBy('id')
-            ->chunkById(500, function ($symbols) use ($symbolDocs, $documentedModuleIds, $now): void {
+            ->chunkById(500, function ($symbols) use ($documentedModuleIds, $now): void {
+                $symbolDocs = $this->symbolDocsForChunk($symbols->pluck('id')->map(fn ($id): string => (string) $id)->all());
+
                 foreach ($symbols as $symbol) {
                     $symbolId = (string) $symbol->id;
                     $relatedDocIds = $symbolDocs[$symbolId] ?? [];
@@ -1557,6 +1578,40 @@ class EngineeringCodeIntelligenceService
                     ]);
                 }
             });
+    }
+
+    /**
+     * @param  array<int,string>  $symbolIds
+     * @return array<string,array<int,string>>
+     */
+    private function symbolDocsForChunk(array $symbolIds): array
+    {
+        if ($symbolIds === []) {
+            return [];
+        }
+
+        $symbolDocs = [];
+
+        foreach (DB::table('atlas_engineering_doc_links')
+            ->select(['symbol_id', 'knowledge_item_id'])
+            ->whereIn('symbol_id', $symbolIds)
+            ->whereNull('archived_at')
+            ->where('status', 'current')
+            ->orderBy('symbol_id')
+            ->cursor() as $link) {
+            $symbolId = (string) $link->symbol_id;
+            $knowledgeItemId = (string) $link->knowledge_item_id;
+
+            if ($knowledgeItemId !== '') {
+                $symbolDocs[$symbolId][$knowledgeItemId] = true;
+            }
+        }
+
+        foreach ($symbolDocs as $symbolId => $knowledgeItemIds) {
+            $symbolDocs[$symbolId] = array_keys($knowledgeItemIds);
+        }
+
+        return $symbolDocs;
     }
 
     /**

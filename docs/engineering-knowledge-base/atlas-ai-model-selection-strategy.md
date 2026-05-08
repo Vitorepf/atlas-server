@@ -21,12 +21,14 @@ decisions:
   - Surfaces podem solicitar override manual, mas isso vira `manual_override` auditavel e policy dura ainda vence.
   - `auto_best_allowed` e o default de produto; `auto_best_available` so quando autorizado por budget/policy.
   - AP-99 Provider Performance Contract deve alimentar a escolha com outcome real por domain, flow, task_type e specialist_profile.
+  - Novas capacidades de provider entram como sinais e benchmarks; nunca como hardcode permanente em surface ou domain.
   - Specialist profiles de Programming devem influenciar selecao sem criar provider hardcoded na surface.
 maintenance:
   - Manter abaixo de 240 linhas.
   - Atualizar quando Atlas Decide, ModelSelectionContractFactory, AP-99, provider performance, specialist profiles ou provider matrix mudarem.
   - Nao colocar tabela hardcoded eterna de modelos; registrar principios, sinais e fallback ate haver metricas reais suficientes.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - app/Services/Ai/Kernel/Decision/ModelSelectionContractFactory.php
   - app/Services/Ai/AtlasDecideService.php
   - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
@@ -78,7 +80,11 @@ Atlas Decide deve considerar:
 10. budget e latencia;
 11. AP-99 outcome historico por provider/model/domain/flow/task_type;
 12. repair success e regression rate;
-13. preferencia do operador apenas como sinal, nao autoridade.
+13. provider release capabilities catalogadas por Curator/Rivals;
+14. preferencia do operador apenas como sinal, nao autoridade.
+
+Release novo de provider pode aumentar prioridade temporaria de benchmark, mas
+nao troca roteamento critico sem evidence suficiente ou override auditado.
 
 ## Programming Specialist Matrix
 

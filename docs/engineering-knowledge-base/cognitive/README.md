@@ -23,6 +23,8 @@ maintenance:
   - Manter abaixo de 180 linhas (limite Doc-OS para bootstrap/index).
   - Atualizar quando spec nova for promovida ou quando AP cognitivo mudar de status.
 related_paths:
+  - docs/engineering-knowledge-base/cognitive/visual-map.md
+  - docs/engineering-knowledge-base/assets/cognitive-plane-visual-map-v1.png
   - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
   - docs/engineering-knowledge-base/cognitive/overview.md
   - docs/engineering-knowledge-base/cognitive/principles.md
@@ -50,6 +52,15 @@ line_limit: 180
 
 Porta de entrada do **Cognitive Development Plane** do Atlas AI. Sub-arquitetura especializada que gerencia trajetoria cognitiva do operador: declarar dominancia, descobrir Pareto, treinar 4 pilares (teorico/pratico/cognitivo/transferencial), consolidar via Evidence, evitar ciclo de gurus, comprimir tempo ate maestria em 3-10x.
 
+## Mapa visual canonico
+
+Doc visual: [`visual-map.md`](visual-map.md).
+Imagem oficial: [`assets/cognitive-plane-visual-map-v1.png`](../assets/cognitive-plane-visual-map-v1.png).
+
+Use este fluxo para explicar a arquitetura final do Cognitive Plane antes de
+implementar AP, surface, capability ou memory artifact. A imagem e orientativa;
+o contrato executavel continua nos docs desta pasta e nos APs.
+
 ## Mapa de leitura — sequencia obrigatoria
 
 | # | Doc | Funcao | Linhas |
@@ -60,7 +71,8 @@ Porta de entrada do **Cognitive Development Plane** do Atlas AI. Sub-arquitetura
 | 4 | [`multiplier-edge.md`](multiplier-edge.md) | 10 capabilities cardinais Atlas-unicas (Dreyfus, Evidence-driven SA, Latticework, Multi-Provider Debate, Atlas-Vitor Socratic, Cross-Domain Routing, Compression, personal examples, predictive failure, process detector) | ~210 |
 | 5 | [`pipeline-overlay.md`](pipeline-overlay.md) | catalogo de flows `learning`, hooks por etapa do pipeline canonico, memory artifacts, ledger events, surfaces | ~170 |
 | 6 | [`roadmap.md`](roadmap.md) | C0-C13 (Cognitive Plane) + Fases 1-6 (Multiplier Edge) — Dreyfus first | ~160 |
-| 7 | [`implementation-briefing.md`](implementation-briefing.md) | briefing operacional para IA implementar APs sem confundir status, comandos ou fronteiras | ~150 |
+| 7 | [`visual-map.md`](visual-map.md) | especificacao visual canonica do Cognitive Plane e asset aprovado | ~100 |
+| 8 | [`implementation-briefing.md`](implementation-briefing.md) | briefing operacional para IA implementar APs sem confundir status, comandos ou fronteiras | ~150 |
 
 ## Caminho rapido por papel
 

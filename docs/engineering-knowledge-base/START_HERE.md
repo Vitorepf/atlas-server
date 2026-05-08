@@ -14,6 +14,8 @@ tags:
 capabilities:
   - session_bootstrap
   - documentation_operating_system
+  - knowledge_governance_system
+  - provider_evolution_intelligence
   - runtime_language_boundaries
   - native_mac_agent
   - local_ai_performance_strategy
@@ -41,7 +43,11 @@ capabilities:
   - personal_development_domain
 decisions:
   - Toda IA nova deve ler Atlas AI Session Bootstrap para entender rapidamente o que e Atlas, o que existe, o que falta e como evoluir.
+  - Toda IA nova deve ler Atlas AI Provider Evolution Intelligence antes de avaliar lancamento de Claude, ChatGPT, Gemini, Codex, vertical agents, connectors ou skill packs externos.
+  - Toda IA nova deve rodar `php artisan atlas:ai:session-bootstrap --task="<task>" --json` e `php artisan atlas:ai:place-feature "<feature>" --json` antes de implementar feature estrutural.
   - Toda IA nova deve ler Atlas AI Documentation Operating System antes de criar docs, expandir specs grandes ou declarar que algo nao existe.
+  - Toda IA nova deve rodar `php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json` antes de expandir docs grandes, usando `severity`/`status` quando precisar de contexto menor.
+  - Toda IA nova deve ler Atlas AI Knowledge Governance System antes de depender de Obsidian, AGENTS/CLAUDE, Postgres KB ou chat como contexto para implementacao.
   - Toda IA nova deve ler Atlas AI Runtime Language Boundaries antes de propor Python, Go, Swift, microservico, worker externo ou daemon.
   - Toda IA nova deve ler Atlas AI Local Performance Memory Strategy antes de propor RAG local, modelos locais, cache, reranker, Graph RAG, KV cache ou uso dos 48GB RAM.
   - Toda IA nova deve ler Atlas AI Content Intelligence And Knowledge Curation antes de propor YouTube ingestion, feed/RSS, scraping, source reputation, blacklist ou promocao de conteudo para memoria.
@@ -63,7 +69,9 @@ maintenance:
   - Antes de trocar de maquina, confirme que este arquivo e os docs relacionados foram commitados e enviados ao remoto.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
+  - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
@@ -118,6 +126,7 @@ related_paths:
   - docs/atlas-cli-release-checklist.md
   - docs/ap/AP-146-provider-cost-rate-inbox-replay.md
   - docs/ap/AP-147-dynamic-compute-market-shadow-surface.md
+  - docs/ap/AP-171-provider-dream-memory-layer-contract.md
   - atlas-app/app/open-brain.tsx
 ---
 
@@ -136,6 +145,7 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
 1. `atlas-ai-canonical-architecture-index.md`
 1. `atlas-ai-flow-visual-map.md`
 1. `atlas-ai-documentation-operating-system.md`
+1. `atlas-ai-knowledge-governance-system.md`
 1. `atlas-ai-runtime-language-boundaries.md` quando envolver Python, Go, Swift ou runtime externo
 1. `atlas-ai-local-performance-memory-strategy.md` quando envolver 48GB RAM, RAG local, rerank, cache, modelos locais ou Graph RAG
 1. `atlas-ai-content-intelligence-curation.md` quando envolver YouTube, RSS, scraping, source quality, blacklist ou promocao de conteudo
@@ -144,6 +154,7 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
 1. `atlas-ai-model-selection-strategy.md` quando envolver melhor modelo por tarefa, Atlas Decide, AP-99, provider performance, cost governance, override manual ou specialist profiles
 1. `docs/ap/AP-146-provider-cost-rate-inbox-replay.md` quando envolver Provider Cost Rate Inbox Replay, `configure_provider_cost_rates` ou fechamento de custo unknown pelo replay
 1. `docs/ap/AP-147-dynamic-compute-market-shadow-surface.md` quando envolver Dynamic Compute Market, arbitragem shadow, benchmark candidate ou report read-only de provider
+1. `docs/ap/AP-171-provider-dream-memory-layer-contract.md` quando envolver Claude Dreams, provider working memory, memoria em camadas ou reflexao externa de provider
 1. `atlas-ai-qualitative-levels-roadmap.md` quando envolver outro patamar, co-estrategista ou memoria longitudinal
 1. este `START_HERE.md`
 1. o documento dono do assunto especifico

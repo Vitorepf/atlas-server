@@ -1,0 +1,109 @@
+{
+  "schema_version": "atlas.voice_realtime.runtime_event_fixtures.v1",
+  "valid_sequence": [
+    {
+      "event_kind": "room_connected",
+      "session_id": "voice_session_runtime_001",
+      "participant_identity": "mobile:vitor",
+      "room_name": "atlas-voice-runtime",
+      "client_surface": "mobile",
+      "transport": "livekit_webrtc",
+      "privacy_class": "p3_audio",
+      "sdk_object": "ignored_by_normalizer"
+    },
+    {
+      "event_kind": "transcribed_turn",
+      "session_id": "voice_session_runtime_001",
+      "turn_id": "turn_runtime_001",
+      "transcript": "Continue a implementacao profissional do Atlas",
+      "language": "pt-BR",
+      "domain_hint": "programming",
+      "flow_hint": "programming.implementation"
+    },
+    {
+      "event_kind": "synthesized",
+      "session_id": "voice_session_runtime_001",
+      "turn_id": "turn_runtime_001",
+      "response_text_hash": "sha256:2dc22a58640459efd97ef7d5fee1abfb32c8189dd1f5e4cfe4d58ce3fc498c33",
+      "audio_hash": "sha256:de9215788823aab3a5785b8b5678c30d0026c81907064d1fadd9542aa74852ea",
+      "audio_duration_ms": 900,
+      "tts_provider": "mock_tts",
+      "latency_ms": 180
+    },
+    {
+      "event_kind": "played",
+      "session_id": "voice_session_runtime_001",
+      "turn_id": "turn_runtime_001",
+      "played_duration_ms": 900,
+      "latency_ms": 60
+    },
+    {
+      "event_kind": "room_disconnected",
+      "session_id": "voice_session_runtime_001",
+      "reason": "sequence_completed"
+    }
+  ],
+  "valid_payload_wrapped_event": {
+    "callback_kind": "participant_joined",
+    "payload": {
+      "session_id": "voice_session_runtime_002",
+      "participant_identity": "mobile:vitor",
+      "room_name": "atlas-voice-runtime",
+      "client_surface": "mobile",
+      "transport": "livekit_webrtc",
+      "privacy_class": "p3_audio",
+      "ignored_nested_runtime_object": "dropped"
+    }
+  },
+  "invalid_events": [
+    {
+      "name": "unsupported_direct_provider_event",
+      "event": {
+        "event_kind": "direct_provider_call",
+        "session_id": "voice_session_runtime_003"
+      },
+      "expected_errors": [
+        "unsupported_event_kind"
+      ]
+    },
+    {
+      "name": "raw_audio_is_rejected_before_dropping",
+      "event": {
+        "event_kind": "transcribed_turn",
+        "session_id": "voice_session_runtime_004",
+        "turn_id": "turn_runtime_004",
+        "transcript": "texto seguro",
+        "raw_audio": "base64-redacted"
+      },
+      "expected_errors": [
+        "forbidden_runtime_field:raw_audio"
+      ]
+    },
+    {
+      "name": "nested_secret_is_rejected_before_payload_validation",
+      "event": {
+        "event_kind": "provider_health_degraded",
+        "session_id": "voice_session_runtime_005",
+        "turn_id": "turn_runtime_005",
+        "provider": "anthropic",
+        "diagnostics": {
+          "provider_api_key": "sk-redacted"
+        }
+      },
+      "expected_errors": [
+        "forbidden_runtime_field:diagnostics.provider_api_key"
+      ]
+    },
+    {
+      "name": "missing_required_payload_field_is_rejected",
+      "event": {
+        "event_kind": "room_connected",
+        "session_id": "voice_session_runtime_006",
+        "room_name": "atlas-voice-runtime"
+      },
+      "expected_errors": [
+        "payload_missing_required:participant_identity"
+      ]
+    }
+  ]
+}

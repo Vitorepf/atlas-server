@@ -14,11 +14,14 @@ tags:
 capabilities:
   - canonical_architecture_index
   - documentation_governance
+  - knowledge_governance_system
   - architecture_layering
   - runtime_language_boundaries
   - qualitative_levels_roadmap
 decisions:
   - Atlas AI Thesis (Multiplier/Channel) e o ponto fixo constitucional acima de toda arquitetura. Toda decisao e auditada contra ela.
+  - Atlas AI Provider Evolution Intelligence governa como lancamentos de Claude, ChatGPT, Gemini, Codex e labs viram capability, benchmark, connector, skill pack, AP, policy signal ou descarte.
+  - Atlas AI Knowledge Governance System define como repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat se relacionam sem competir por autoridade.
   - Atlas AI Runtime Language Boundaries define Laravel como Kernel/Maestro, Python como AI/Data Runtime, Go como Edge/Concurrency Runtime e Swift como Native Mac Runtime.
   - Atlas AI Qualitative Levels Roadmap governa os patamares P1-P7 como norte qualitativo e fila QL de implementacao.
   - Atlas AI Master Architecture e a camada Layer 2 de produto, planes, dominios, roadmap e estrategia.
@@ -31,7 +34,9 @@ maintenance:
   - Usar este documento como primeira leitura operacional antes de escolher qual spec seguir.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
+  - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
   - docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md
@@ -69,6 +74,8 @@ related_paths:
   - docs/ap/AP-146-provider-cost-rate-inbox-replay.md
   - docs/ap/AP-147-dynamic-compute-market-shadow-surface.md
   - docs/engineering-knowledge-base/cognitive/README.md
+  - docs/engineering-knowledge-base/cognitive/visual-map.md
+  - docs/engineering-knowledge-base/assets/cognitive-plane-visual-map-v1.png
   - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
   - docs/engineering-knowledge-base/cognitive/overview.md
   - docs/engineering-knowledge-base/cognitive/principles.md
@@ -98,7 +105,8 @@ Layer 0 - Constitution / Human Knowledge
   identidade, leis, glossary, master prompt, AtlasVault humano e principios permanentes
 
 Layer 0.5 - Documentation Operating System
-  bootstrap de sessao, limites de linhas, ownership, anti-hallucination e promocao
+  bootstrap de sessao, feature placement, split plan, limites de linhas, ownership e promocao
+  comandos: atlas:ai:session-bootstrap, atlas:ai:place-feature, atlas:ai:docs-split-plan
 
 Layer 1 - Kernel Architecture
   contratos executaveis: envelope, receipt, ledger, manifests, SDKs, tests, SLOs
@@ -127,6 +135,7 @@ Layer 4 - Domain Specs
 | Identidade, leis, glossario humano | `atlas-ai-layer-0-glossary.md` |
 | Bootstrap de sessao nova | `atlas-ai-session-bootstrap.md` |
 | Documentacao de alta performance, limite de linhas e promocao | `atlas-ai-documentation-operating-system.md` |
+| Fonte de verdade entre repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat | `atlas-ai-knowledge-governance-system.md` + `atlas-ai-documentation-operating-system.md` + `obsidian-atlas-vault.md` |
 | Fronteira Laravel/Python/Go/Swift e APIs Apple | `atlas-ai-runtime-language-boundaries.md` + `atlas-native-mac-agent.md` |
 | Patamares P1-P7, outro patamar e co-estrategista | `atlas-ai-qualitative-levels-roadmap.md` |
 | Obsidian/AtlasVault como Human Knowledge Surface / Personal Knowledge Workspace | `obsidian-atlas-vault.md` + `atlas-ai-master-architecture.md` |

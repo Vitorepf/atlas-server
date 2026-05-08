@@ -1482,10 +1482,14 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertContains('atlas ai voice readiness --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai voice rivals --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertSame('/ai/provider-release-review', data_get($finding, 'metadata.expected_api_endpoints.provider_release_review'));
+        $this->assertSame('/ai/provider-release-review', data_get($finding, 'metadata.missing_api_endpoints.provider_release_review.expected'));
         $this->assertContains('atlas ai agent-behavior-report --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai decision-receipt-report --envelope=<id> --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas ai self-improve --flow=provider_release_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai self-improve --flow=voice_realtime_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
@@ -2343,8 +2347,9 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
 
         $this->assertSame(0, $listExit);
         $this->assertSame('ok', $listPayload['status']);
-        $this->assertSame(14, $listPayload['count']);
+        $this->assertSame(16, $listPayload['count']);
         $this->assertContains('self_improvement.provider_performance_review', $listPayload['flows']);
+        $this->assertContains('self_improvement.provider_release_review', $listPayload['flows']);
         $this->assertContains('self_improvement.agent_behavior_review', $listPayload['flows']);
         $this->assertContains('self_improvement.voice_realtime_review', $listPayload['flows']);
         $this->assertContains('self_improvement.repair_loop_review', $listPayload['flows']);

@@ -34,6 +34,7 @@ decisions:
   - Toda tarefa operacional relevante deve passar por Profile Resolution, Policy Resolution, Decision Receipt, Domain Orchestrator, Runtime, Gates, Evidence e Learning.
   - Atlas Decide e o compilador operacional; ele decide e emite receipt, mas nao executa dominios.
   - Por padrao, Atlas Decide deve escolher o melhor provider/modelo permitido para a tarefa; override manual de modelo e excecao auditada.
+  - Novidades de Claude, ChatGPT, Gemini, Codex e labs nao sao ameaca por padrao; sao insumos para Provider Release Ingestion, Rivals, skill packs, connectors, APs e policy signals.
   - Domain Orchestrators sao donos da semantica de execucao; Runtime executa; Gates julgam evidencia.
   - Super Tool Runtime e Core compartilhado, consumido por Dev, Forge, QA, Security, Finance, Personal Development e Curator.
   - Atlas vence Claude Code nao por um modelo melhor isolado, mas por memoria, contexto, ferramentas, gates, repair, evidencia, continuidade e aprendizado medido.
@@ -1724,6 +1725,12 @@ A arquitetura-mae esta pronta quando:
 ## Conclusao
 
 Atlas AI nao deve tentar ser apenas um Claude Code alternativo.
+
+Atlas AI tambem nao deve tentar competir com Claude, ChatGPT, Gemini ou Codex no
+nivel do modelo bruto. Ele deve substituir o uso direto deles como canal
+operacional: quando um lab lancar algo disruptivo, Atlas deve catalogar, medir,
+absorver e multiplicar essa novidade dentro de domains, tools, connectors,
+runtime, evidence e Curator.
 
 Atlas AI deve ser a camada operacional que torna qualquer modelo melhor,
 qualquer ferramenta auditavel, qualquer fluxo mensuravel e qualquer aprendizado

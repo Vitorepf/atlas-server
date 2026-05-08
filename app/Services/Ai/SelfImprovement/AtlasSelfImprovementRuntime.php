@@ -170,6 +170,9 @@ class AtlasSelfImprovementRuntime
             'self_improvement.agent_behavior_review' => [
                 ...$this->agentBehaviorReplayFindings($hours, $filters),
             ],
+            'self_improvement.provider_release_review' => [
+                ...$this->providerReleaseGovernanceFindings($filters),
+            ],
             'self_improvement.voice_realtime_review' => [
                 ...$this->voiceRealtimeFindings($hours, ['surface_id' => 'voice_realtime', ...$filters]),
             ],
@@ -346,6 +349,58 @@ class AtlasSelfImprovementRuntime
                 'required_unavailable_source_counts' => $requiredUnavailableSourceCounts,
                 'recommended_action_counts' => $recommendedActionCounts,
                 'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
+            ],
+        ]];
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function providerReleaseGovernanceFindings(array $filters = []): array
+    {
+        $summary = $this->architectureOperations->summary(['kind' => 'provider_evolution']);
+        $operationIds = (array) ($summary['operation_ids'] ?? []);
+        $missing = [];
+
+        if (! in_array('provider_release_review', $operationIds, true)) {
+            $missing[] = 'provider_release_review_operation_missing';
+        }
+        if (! is_file(base_path('docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md'))) {
+            $missing[] = 'provider_evolution_doc_missing';
+        }
+
+        if ($missing === []) {
+            return [];
+        }
+
+        return [[
+            'title' => 'Restaurar governanca de Provider Evolution',
+            'category' => 'self_improvement',
+            'finding' => 'O fluxo de Provider Evolution perdeu parte do contrato executavel que impede lancamentos externos de virarem hardcode ou canal direto.',
+            'problem' => 'Sem review governado, Atlas pode reagir a novidades de Claude/OpenAI/Gemini como wrapper fragil em vez de absorver via Decide, Rivals, skill packs e APs.',
+            'solution' => 'Restaurar o comando provider-release-review, doc canonico e catalogo de arquitetura antes de qualquer policy ou maturidade de domain baseada em release externo.',
+            'worth_it' => 'Vale porque protege a tese central: providers melhoram, Atlas multiplica sem perder o canal unico.',
+            'best_solution_rationale' => 'Auditar a superficie executavel no Curator e mais seguro do que depender de memoria humana ou prompt solto.',
+            'alternatives' => ['Arquivar o release ate a governanca voltar.', 'Rodar apenas benchmark manual sem promocao para policy.'],
+            'source_refs' => [
+                ['type' => 'architecture_operations', 'id' => 'provider_evolution'],
+                ['type' => 'doc', 'id' => 'docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md'],
+            ],
+            'dedupe_key' => 'self-improvement:provider-release-governance:'.sha1(implode('|', $missing)),
+            'confidence' => 0.96,
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.provider_release_governance.v1',
+                'missing' => $missing,
+                'filters' => $this->normalizedProviderReleaseFilters($filters),
+                'recommended_action' => 'restore_provider_release_governance_contract',
+                'review_signal' => [
+                    'status' => 'breach',
+                    'severity' => 'high',
+                    'review_required' => true,
+                    'reasons' => $missing,
+                    'recommended_action' => 'restore_provider_release_governance_contract',
+                ],
             ],
         ]];
     }
@@ -1352,9 +1407,11 @@ class AtlasSelfImprovementRuntime
             'atlas ai kernel-pipeline-report --hours=24 --json',
             'atlas ai repair-report --hours=24 --json',
             'atlas ai provider-performance --hours=24 --json',
+            'php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json',
             'atlas ai agent-behavior-report --hours=24 --json',
             'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
             'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
+            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
             'atlas ai self-improve --flow=agent_behavior_review --hours=168 --json',
             'atlas ai self-improve --flow=voice_realtime_review --hours=168 --json',
             'atlas ai telemetry cost-rates --missing --hours=168 --json',
@@ -1371,6 +1428,7 @@ class AtlasSelfImprovementRuntime
             'atlas ai inbox-action-report --hours=24 --json',
         ];
         $expectedApiEndpoints = [
+            'provider_release_review' => '/ai/provider-release-review',
             'voice_realtime_contract' => '/ai/voice/runtime/contract',
             'voice_realtime_bootstrap' => '/ai/voice/runtime/bootstrap',
             'voice_realtime_dependencies' => '/ai/voice/runtime/dependencies',
@@ -2653,7 +2711,25 @@ class AtlasSelfImprovementRuntime
             ...$this->normalizedInboxActionFilters($filters),
             ...$this->normalizedDecisionReceiptFilters($filters),
             ...$this->normalizedAgentBehaviorFilters($filters),
+            ...$this->normalizedProviderReleaseFilters($filters),
         ];
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<string,string>
+     */
+    private function normalizedProviderReleaseFilters(array $filters): array
+    {
+        $normalized = [];
+        foreach (['provider', 'release_type', 'domain', 'recommended_action'] as $key) {
+            $value = $filters[$key] ?? null;
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                $normalized[$key] = trim((string) $value);
+            }
+        }
+
+        return $normalized;
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AtlasEngineeringDocLink;
 use App\Models\AtlasEngineeringKnowledgeItem;
 use App\Models\AtlasTask;
 use App\Models\AtlasToolRun;
@@ -126,6 +127,10 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
         $this->assertSame(0, data_get($payload, 'summary.frontmatter_violation_count'));
         $this->assertContains(
             'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md',
+            collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md',
             collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
         );
         $this->assertContains(
@@ -418,6 +423,22 @@ PHP);
                 'metadata' => [],
                 'indexed_at' => now(),
             ]);
+            $staleDocLinkHash = hash('sha256', 'stale-doc-link');
+            AtlasEngineeringDocLink::query()->create([
+                'knowledge_item_id' => null,
+                'module_id' => null,
+                'symbol_id' => null,
+                'link_type' => 'symbol_path',
+                'status' => 'current',
+                'canonical_path' => 'docs/engineering-knowledge-base/stale.md',
+                'target_path' => 'app/Stale.php',
+                'doc_hash' => null,
+                'target_hash' => null,
+                'link_hash' => $staleDocLinkHash,
+                'metadata' => [],
+                'indexed_at' => now()->subDay(),
+                'archived_at' => null,
+            ]);
 
             $service = app(EngineeringCodeIntelligenceService::class);
             $runContextId = (string) Str::uuid();
@@ -455,6 +476,10 @@ PHP);
             $this->assertDatabaseHas('atlas_engineering_doc_links', [
                 'target_path' => 'app/Services/Engineering/FooService.php',
                 'status' => 'current',
+            ]);
+            $this->assertDatabaseHas('atlas_engineering_doc_links', [
+                'link_hash' => $staleDocLinkHash,
+                'status' => 'archived',
             ]);
             $this->assertDatabaseHas('atlas_tool_runs', [
                 'tool_slug' => 'atlas_code_intelligence',

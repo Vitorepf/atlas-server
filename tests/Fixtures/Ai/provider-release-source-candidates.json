@@ -1,0 +1,77 @@
+[
+  {
+    "name": "anthropic_finance_agents",
+    "url": "https://www.anthropic.com/news/finance-agents",
+    "title": "Anthropic Finance Agents",
+    "content_hash": "fixture-anthropic-finance-agents",
+    "published_at": "2026-05-05T00:00:00Z",
+    "expected": {
+      "source_id": "anthropic_news",
+      "tier": "tier_1_official",
+      "release_type": "vertical_agents",
+      "recommended_triage_action": "run_provider_release_review",
+      "can_create_release_envelope_draft": true,
+      "primary_source_required": false
+    }
+  },
+  {
+    "name": "anthropic_claude_dreams",
+    "url": "https://docs.anthropic.com/en/docs/managed-agents/dreams",
+    "title": "Managed Agents Dreams",
+    "content_hash": "fixture-anthropic-dreams",
+    "published_at": null,
+    "expected": {
+      "source_id": "unmatched_source",
+      "tier": "tier_3_weak_signal",
+      "release_type": "memory",
+      "recommended_triage_action": "treat_as_unconfirmed_signal",
+      "can_create_release_envelope_draft": false,
+      "primary_source_required": true
+    }
+  },
+  {
+    "name": "openai_api_changelog_model",
+    "url": "https://platform.openai.com/docs/changelog",
+    "title": "New model availability in API",
+    "content_hash": "fixture-openai-api-model",
+    "published_at": null,
+    "expected": {
+      "source_id": "openai_api_changelog",
+      "tier": "tier_1_official",
+      "release_type": "model",
+      "recommended_triage_action": "run_provider_release_review",
+      "can_create_release_envelope_draft": true,
+      "primary_source_required": false
+    }
+  },
+  {
+    "name": "cursor_agent_mode",
+    "url": "https://www.cursor.com/changelog",
+    "title": "Agent mode improvements for coding",
+    "content_hash": "fixture-cursor-agent-mode",
+    "published_at": null,
+    "expected": {
+      "source_id": "cursor_changelog",
+      "tier": "tier_1_official",
+      "release_type": "vertical_agents",
+      "recommended_triage_action": "run_provider_release_review",
+      "can_create_release_envelope_draft": true,
+      "primary_source_required": false
+    }
+  },
+  {
+    "name": "weak_signal_rumor",
+    "url": "https://example.com/rumor/secret-model",
+    "title": "Rumor: secret model launch",
+    "content_hash": "fixture-weak-signal",
+    "published_at": null,
+    "expected": {
+      "source_id": "unmatched_source",
+      "tier": "tier_3_weak_signal",
+      "release_type": "model",
+      "recommended_triage_action": "treat_as_unconfirmed_signal",
+      "can_create_release_envelope_draft": false,
+      "primary_source_required": true
+    }
+  }
+]

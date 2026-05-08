@@ -63,6 +63,22 @@ class AtlasSelfImprovementOrchestratorTest extends TestCase
         $this->assertSame('proposal_only', data_get($plan, 'domain_profile.gate_policy.autonomy_ceiling'));
     }
 
+    public function test_failure_pattern_review_flow_is_supported_by_orchestrator(): void
+    {
+        $orchestrator = app(AtlasSelfImprovementOrchestrator::class);
+
+        $this->assertContains('self_improvement.failure_pattern_review', $orchestrator->supportedFlows());
+
+        $plan = $orchestrator->flowPlan('failure_pattern_review', [
+            'hours' => 48,
+            'limit' => 6,
+            'emit' => false,
+        ]);
+
+        $this->assertSame('self_improvement.failure_pattern_review', $plan['flow']);
+        $this->assertSame('failure_pattern_review_runtime', data_get($plan, 'execution_policy.executor_preference'));
+    }
+
     public function test_flow_plan_reuses_runtime_window_and_limit_contract(): void
     {
         $plan = app(AtlasSelfImprovementOrchestrator::class)->flowPlan('nightly_review', [
@@ -135,6 +151,36 @@ class AtlasSelfImprovementOrchestratorTest extends TestCase
             'model' => 'gpt-5.2',
         ], data_get($plan, 'options.filters'));
         $this->assertTrue((bool) data_get($plan, 'execution_policy.proposal_only'));
+    }
+
+    public function test_provider_release_review_plan_uses_dedicated_executor_contract(): void
+    {
+        $plan = app(AtlasSelfImprovementOrchestrator::class)->flowPlan('provider_release_review', [
+            'hours' => 24,
+            'limit' => 5,
+            'provider' => 'anthropic',
+        ]);
+
+        $this->assertSame('self_improvement.provider_release_review', $plan['flow']);
+        $this->assertSame('provider_release_review_runtime', data_get($plan, 'execution_policy.executor_preference'));
+        $this->assertSame([
+            'provider' => 'anthropic',
+        ], data_get($plan, 'options.filters'));
+        $this->assertTrue((bool) data_get($plan, 'execution_policy.proposal_only'));
+    }
+
+    public function test_provider_release_review_runtime_is_proposal_only_when_contract_is_healthy(): void
+    {
+        $result = app(AtlasSelfImprovementOrchestrator::class)->executeFlow('provider_release_review', [
+            'hours' => 24,
+            'limit' => 5,
+            'emit' => false,
+        ]);
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertSame('self_improvement.provider_release_review', data_get($result, 'plan.flow'));
+        $this->assertSame('provider_release_review_runtime', data_get($result, 'plan.execution_policy.executor_preference'));
+        $this->assertSame([], data_get($result, 'runtime.findings'));
     }
 
     public function test_voice_realtime_review_plan_uses_dedicated_executor_contract(): void
