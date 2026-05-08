@@ -50,6 +50,7 @@ final class AtlasArchitectureOperationsCatalog
                 'kind' => 'readiness',
                 'output' => 'json',
                 'api_endpoint' => '/ai/architecture/readiness',
+                'mcp_tool' => 'atlas_architecture_readiness',
             ],
             [
                 'id' => 'documentation_health',
@@ -115,6 +116,15 @@ final class AtlasArchitectureOperationsCatalog
                 'mcp_tool' => 'atlas_docs_split_plan',
                 'filter_options' => ['owner', 'severity', 'status'],
                 'focused_command' => 'php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json',
+            ],
+            [
+                'id' => 'ap_agent_workflow_registry',
+                'command' => 'php artisan atlas:ai:ap-agent-workflow --json',
+                'description' => 'Exibe a sequencia canonica AP-200..AP-225 para sessoes de agentes, incluindo handoff, gates, revisao humana e dry-run sem efeitos colaterais.',
+                'surface' => 'cli',
+                'kind' => 'governance_gate',
+                'output' => 'json',
+                'doc' => 'docs/ap/AP-204-ap-agent-workflow-registry.md',
             ],
             [
                 'id' => 'provider_projection_status',

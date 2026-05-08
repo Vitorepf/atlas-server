@@ -208,13 +208,14 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After Governance MCP: 16 + 5 new tools + domain/architecture/governance/schedule/kernel/provider/market/release/inbox/agent/receipt/projection reports = 39.
-        $this->assertCount(39, $structured['tools']);
+        // After Governance MCP: 16 + 5 new tools + domain/architecture/governance/schedule/kernel/provider/market/release/inbox/agent/receipt/projection/readiness reports = 40.
+        $this->assertCount(40, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_domain_catalog', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_architecture_validate', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_architecture_operations', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_architecture_readiness', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_session_bootstrap', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_feature_placement', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_docs_split_plan', array_column($structured['tools'], 'name'));
@@ -398,7 +399,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertFalse($structured['writes']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($structured, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($structured, 'architecture_operations.section'));
-        $this->assertSame(53, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame(54, data_get($structured, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_readiness', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('session_bootstrap', data_get($structured, 'architecture_operations.operation_ids'));
@@ -406,6 +407,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('documentation_split_plan', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('provider_projection_status', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('provider_release_review', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('ap_agent_workflow_registry', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_preflight', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_activation_contract', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_production_loop_plan', data_get($structured, 'architecture_operations.operation_ids'));
@@ -416,6 +418,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('catalog', data_get($structured, 'architecture_operations.commands.0.kind'));
         $this->assertSame('cli', data_get($structured, 'architecture_operations.commands.0.surface'));
         $this->assertSame('atlas ai architecture-operations --json', data_get($structured, 'architecture_operations.commands.0.command'));
+        $readinessOperation = collect(data_get($structured, 'architecture_operations.commands'))->firstWhere('id', 'architecture_readiness');
+        $this->assertSame('atlas_architecture_readiness', data_get($readinessOperation, 'mcp_tool'));
 
         $commands = data_get($structured, 'architecture_operations.commands');
 
@@ -443,6 +447,43 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('atlas ledger replay --envelope=<id> --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', array_column($commands, 'command'));
         $this->assertContains('atlas ai agent-behavior-report --hours=24 --json', array_column($commands, 'command'));
+    }
+
+    public function test_architecture_readiness_tool_exposes_preimplementation_snapshot(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 766,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_architecture_readiness',
+                'arguments' => [
+                    'workspace' => base_path(),
+                    'owner' => 'kernel_architecture',
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_architecture_readiness', $structured['tool']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame('atlas.architecture_readiness.v1', data_get($structured, 'architecture_readiness.schema_version'));
+        $this->assertSame('ready', data_get($structured, 'architecture_readiness.status'));
+        $this->assertSame('kernel_architecture', data_get($structured, 'architecture_readiness.owner'));
+        $this->assertTrue(data_get($structured, 'architecture_readiness.checks.architecture_validate.ok'));
+        $this->assertTrue(data_get($structured, 'architecture_readiness.checks.documentation_health.ok'));
+        $this->assertSame('architecture_readiness', data_get($structured, 'architecture_readiness.architecture_operations.commands.0.id'));
+        $this->assertContains(
+            'feature_placement',
+            data_get($structured, 'architecture_readiness.architecture_operations.related_operation_ids')
+        );
+        $this->assertSame(
+            'continue_implementation_with_session_bootstrap_and_feature_placement',
+            data_get($structured, 'architecture_readiness.review_signal.recommended_action')
+        );
     }
 
     public function test_architecture_operations_tool_filters_shared_operations_catalog(): void
@@ -573,6 +614,13 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
             'php artisan atlas:ai:docs-split-plan --owner=knowledge_governance --json',
             data_get($bootstrap, 'docs_split_plan.command'),
         );
+        $this->assertSame('atlas.architecture_readiness.v1', data_get($bootstrap, 'architecture_readiness.schema_version'));
+        $this->assertSame('ready', data_get($bootstrap, 'architecture_readiness.status'));
+        $this->assertSame('knowledge_governance', data_get($bootstrap, 'architecture_readiness.owner'));
+        $this->assertSame(
+            'php artisan atlas:ai:architecture-readiness --owner=knowledge_governance --json',
+            data_get($bootstrap, 'architecture_readiness.command'),
+        );
         $this->assertArrayHasKey('session_gate', $bootstrap);
         $this->assertArrayHasKey('implementation_contract', $bootstrap);
         $this->assertContains('architecture_readiness', data_get($bootstrap, 'architecture_operations.operation_ids'));
@@ -580,6 +628,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('feature_placement', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', data_get($bootstrap, 'architecture_operations.operation_ids'));
+        $this->assertContains('ap_agent_workflow_registry', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertContains('docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md', $bootstrap['read_first']);
         $this->assertFalse($bootstrap['writes']);
 

@@ -22,7 +22,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
             ->assertJsonPath('architecture_operations.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 53)
+            ->assertJsonPath('architecture_operations.command_count', 54)
             ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_operations')
             ->assertJsonPath('architecture_operations.commands.0.kind', 'catalog')
             ->assertJsonPath('architecture_operations.commands.0.surface', 'cli');
@@ -36,6 +36,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('php artisan atlas:ai:session-bootstrap --task="<task>" --json', $commands);
         $this->assertContains('php artisan atlas:ai:place-feature "<feature>" --json', $commands);
         $this->assertContains('php artisan atlas:ai:docs-split-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:ap-agent-workflow --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection status --target=all --workspace=<workspace> --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection write --target=all --workspace=<workspace> --force --json', $commands);
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $commands);
@@ -140,11 +141,13 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->getJson('/ai/architecture/operations?kind=governance_gate', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.kind', 'governance_gate')
-            ->assertJsonPath('architecture_operations.command_count', 2)
+            ->assertJsonPath('architecture_operations.command_count', 3)
             ->assertJsonPath('architecture_operations.operation_ids.0', 'feature_placement')
             ->assertJsonPath('architecture_operations.operation_ids.1', 'documentation_split_plan')
+            ->assertJsonPath('architecture_operations.operation_ids.2', 'ap_agent_workflow_registry')
             ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/feature-placement')
-            ->assertJsonPath('architecture_operations.commands.1.api_endpoint', '/ai/docs-split-plan');
+            ->assertJsonPath('architecture_operations.commands.1.api_endpoint', '/ai/docs-split-plan')
+            ->assertJsonPath('architecture_operations.commands.2.command', 'php artisan atlas:ai:ap-agent-workflow --json');
 
         $this->getJson('/ai/architecture/operations?id=provider_performance_curator_review', $this->headers)
             ->assertOk()

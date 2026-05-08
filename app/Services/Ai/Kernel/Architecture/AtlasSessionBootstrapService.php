@@ -11,6 +11,7 @@ class AtlasSessionBootstrapService
     public function __construct(
         private readonly AtlasFeaturePlacementService $placement,
         private readonly AtlasDocumentationSplitPlanService $splitPlan,
+        private readonly AtlasArchitectureReadinessService $readiness,
         private readonly AtlasArchitectureOperationsCatalog $operations,
         private readonly EngineeringDocumentationHealthService $docs,
         private readonly EngineeringKnowledgeBaseService $knowledge,
@@ -33,8 +34,13 @@ class AtlasSessionBootstrapService
         $placement = $this->placement->place($task);
         $splitOwner = $this->splitOwner($placement['placement'] ?? [], $task);
         $splitPlan = $this->splitPlan->plan(['owner' => $splitOwner]);
+        $readiness = $this->readiness->snapshot([
+            'workspace' => $options['workspace'] ?? base_path(),
+            'owner' => $splitOwner,
+        ]);
         $risks = array_values(array_unique(array_merge(
             (array) $placement['risks'],
+            $this->readinessRisks($readiness),
             $this->bootstrapRisks($docs, $kb, $projection),
         )));
 
@@ -42,13 +48,7 @@ class AtlasSessionBootstrapService
             'schema_version' => 'atlas.session_bootstrap.v1',
             'status' => 'ok',
             'task' => $task,
-            'read_first' => [
-                'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md',
-                'docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md',
-                'docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md',
-                'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md',
-                'docs/engineering-knowledge-base/START_HERE.md',
-            ],
+            'read_first' => $this->readFirst($task),
             'placement' => $placement['placement'],
             'gate_status' => $placement['gate_status'] ?? 'unknown',
             'owner_docs' => $placement['owner_docs'],
@@ -61,6 +61,15 @@ class AtlasSessionBootstrapService
                 'execution_order' => $splitPlan['execution_order'] ?? [],
                 'first_doc' => data_get($splitPlan, 'docs.0'),
                 'command' => 'php artisan atlas:ai:docs-split-plan --owner='.$splitOwner.' --json',
+            ],
+            'architecture_readiness' => [
+                'schema_version' => $readiness['schema_version'] ?? 'atlas.architecture_readiness.v1',
+                'status' => $readiness['status'] ?? 'unknown',
+                'ready' => (bool) ($readiness['ready'] ?? false),
+                'owner' => $readiness['owner'] ?? $splitOwner,
+                'checks' => $readiness['checks'] ?? [],
+                'review_signal' => $readiness['review_signal'] ?? [],
+                'command' => 'php artisan atlas:ai:architecture-readiness --owner='.$splitOwner.' --json',
             ],
             'implementation_contract' => $placement['implementation_contract'] ?? [],
             'pre_implementation_checklist' => $placement['pre_implementation_checklist'] ?? [],
@@ -103,6 +112,7 @@ class AtlasSessionBootstrapService
                 'blocked_when' => $placement['blocked_when'] ?? [],
                 'required_before_code' => [
                     'read_read_first_docs',
+                    'review_ap_agent_workflow_registry_when_touching_ap_or_architecture_governance',
                     'review_owner_docs',
                     'confirm_placement_and_business_context',
                     'review_duplicate_candidates',
@@ -129,6 +139,7 @@ class AtlasSessionBootstrapService
             'provider_projection_status',
             'knowledge_sync',
             'code_intelligence_index',
+            'ap_agent_workflow_registry',
         ];
         $commands = collect((array) ($summary['commands'] ?? []))
             ->filter(fn (array $command): bool => in_array((string) ($command['id'] ?? ''), $requiredIds, true))
@@ -145,6 +156,27 @@ class AtlasSessionBootstrapService
             'command_count' => count($commands),
             'commands' => $commands,
         ];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function readFirst(string $task): array
+    {
+        $docs = [
+            'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md',
+            'docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md',
+            'docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md',
+            'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md',
+            'docs/engineering-knowledge-base/START_HERE.md',
+        ];
+
+        $text = strtolower($task);
+        if (str_contains($text, 'ap') || str_contains($text, 'architecture') || str_contains($text, 'arquitetura') || str_contains($text, 'governanca') || str_contains($text, 'governança')) {
+            $docs[] = 'docs/ap/AP-204-ap-agent-workflow-registry.md';
+        }
+
+        return array_values(array_unique($docs));
     }
 
     /**
@@ -198,5 +230,18 @@ class AtlasSessionBootstrapService
         }
 
         return $risks;
+    }
+
+    /**
+     * @param  array<string,mixed>  $readiness
+     * @return array<int,string>
+     */
+    private function readinessRisks(array $readiness): array
+    {
+        if (($readiness['status'] ?? null) === 'ready') {
+            return [];
+        }
+
+        return ['architecture_readiness_attention_fix_before_structural_expansion'];
     }
 }

@@ -15,7 +15,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('arquitetura_mae', $catalog->sectionKey());
         $this->assertSame('atlas.architecture_operations.v1', $summary['schema_version']);
         $this->assertSame('arquitetura_mae', $summary['section']);
-        $this->assertSame(53, $summary['command_count']);
+        $this->assertSame(54, $summary['command_count']);
         $this->assertSame($catalog->commands(), $summary['commands']);
         $this->assertSame([
             'architecture_operations',
@@ -25,6 +25,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'session_bootstrap',
             'feature_placement',
             'documentation_split_plan',
+            'ap_agent_workflow_registry',
             'provider_projection_status',
             'provider_projection_write',
             'provider_release_review',
@@ -82,6 +83,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('php artisan atlas:ai:session-bootstrap --task="<task>" --json', $commands);
         $this->assertContains('php artisan atlas:ai:place-feature "<feature>" --json', $commands);
         $this->assertContains('php artisan atlas:ai:docs-split-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:ap-agent-workflow --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection status --target=all --workspace=<workspace> --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection write --target=all --workspace=<workspace> --force --json', $commands);
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $commands);
@@ -130,8 +132,8 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('atlas ai inbox-action-report --hours=24 --json', $commands);
         $this->assertSame('architecture_operations', data_get($summary, 'commands.0.id'));
         $this->assertSame('cli', data_get($summary, 'commands.0.surface'));
-        $this->assertSame('provider_evolution', data_get($summary, 'commands.9.kind'));
-        $this->assertSame('maintenance', data_get($summary, 'commands.10.kind'));
+        $this->assertSame('provider_evolution', data_get($summary, 'commands.10.kind'));
+        $this->assertSame('maintenance', data_get($summary, 'commands.11.kind'));
 
         $commandsById = collect($summary['commands'])->keyBy('id');
         $this->assertSame('catalog', data_get($commandsById, 'architecture_operations.kind'));
@@ -139,6 +141,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('json', data_get($commandsById, 'architecture_operations.output'));
         $this->assertSame('readiness', data_get($commandsById, 'architecture_readiness.kind'));
         $this->assertSame('/ai/architecture/readiness', data_get($commandsById, 'architecture_readiness.api_endpoint'));
+        $this->assertSame('atlas_architecture_readiness', data_get($commandsById, 'architecture_readiness.mcp_tool'));
         $this->assertSame('bootstrap', data_get($commandsById, 'session_bootstrap.kind'));
         $this->assertSame('/ai/session-bootstrap', data_get($commandsById, 'session_bootstrap.api_endpoint'));
         $this->assertSame('atlas_session_bootstrap', data_get($commandsById, 'session_bootstrap.mcp_tool'));
@@ -165,9 +168,12 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('atlas_docs_split_plan', data_get($commandsById, 'documentation_split_plan.mcp_tool'));
         $this->assertSame(['owner', 'severity', 'status'], data_get($commandsById, 'documentation_split_plan.filter_options'));
         $this->assertSame('php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json', data_get($commandsById, 'documentation_split_plan.focused_command'));
+        $this->assertSame('governance_gate', data_get($commandsById, 'ap_agent_workflow_registry.kind'));
+        $this->assertSame('docs/ap/AP-204-ap-agent-workflow-registry.md', data_get($commandsById, 'ap_agent_workflow_registry.doc'));
         $this->assertSame('provider_projection', data_get($commandsById, 'provider_projection_status.kind'));
         $this->assertSame('provider_projection', data_get($commandsById, 'provider_projection_write.kind'));
         $this->assertSame('provider_evolution', data_get($commandsById, 'provider_release_review.kind'));
+        $this->assertSame('maintenance', data_get($commandsById, 'knowledge_sync.kind'));
         $this->assertSame('surface_contract', data_get($commandsById, 'voice_realtime_contract.kind'));
         $this->assertSame('surface_contract', data_get($commandsById, 'voice_realtime_bootstrap.kind'));
         $this->assertSame('/ai/voice/runtime/contract', data_get($commandsById, 'voice_realtime_contract.api_endpoint'));
@@ -221,8 +227,8 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame(['session_bootstrap'], $byBootstrap['operation_ids']);
 
         $byGovernanceGate = $catalog->summary(['kind' => 'governance_gate']);
-        $this->assertSame(2, $byGovernanceGate['command_count']);
-        $this->assertSame(['feature_placement', 'documentation_split_plan'], $byGovernanceGate['operation_ids']);
+        $this->assertSame(3, $byGovernanceGate['command_count']);
+        $this->assertSame(['feature_placement', 'documentation_split_plan', 'ap_agent_workflow_registry'], $byGovernanceGate['operation_ids']);
 
         $byProviderProjection = $catalog->summary(['kind' => 'provider_projection']);
         $this->assertSame(2, $byProviderProjection['command_count']);

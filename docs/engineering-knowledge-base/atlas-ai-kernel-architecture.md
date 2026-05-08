@@ -2642,7 +2642,10 @@ mae: `session_bootstrap`, `feature_placement`, `documentation_split_plan`,
 CLI, API e MCP recebem o mesmo bloco para que uma IA nova tenha comandos
 canonicos de descoberta, governanca, projection e validacao sem abrir outro
 catalogo. O scanner publica
-`ap174_session_bootstrap_architecture_operations_contract`.
+`ap174_session_bootstrap_architecture_operations_contract`. O bootstrap tambem
+carrega um resumo `architecture_readiness` derivado de AP-176/AP-177, com
+`status`, `ready`, `checks`, `review_signal` e comando focado por owner; o
+snapshot completo continua nas surfaces dedicadas.
 
 ### Fase 1AL — Feature Placement Architecture Operations Contract
 
@@ -2654,6 +2657,29 @@ pelo gate de feature: `feature_placement`, `session_bootstrap`,
 bloco, evitando que uma IA use o atalho de placement sem os comandos canonicos
 de governanca e validacao. O scanner publica
 `ap175_feature_placement_architecture_operations_contract`.
+
+### Fase 1AM — Architecture Readiness Snapshot
+
+Status atual: implementado em AP-176. `atlas:ai:architecture-readiness`,
+`/ai/architecture/readiness` e `AtlasArchitectureReadinessService::snapshot()`
+agregam `architecture-validate`, docs split plan, provider projection e
+Architecture Operations Catalog em um unico pacote read-only de prontidao. O
+payload `atlas.architecture_readiness.v1` retorna `status=ready|attention`,
+checks, comandos obrigatorios e `review_signal` para orientar sessoes novas sem
+duplicar validadores. O scanner publica
+`ap176_architecture_readiness_snapshot`.
+
+### Fase 1AN — Architecture Readiness MCP Tool
+
+Status atual: implementado em AP-177. Open Brain/MCP expoe
+`atlas_architecture_readiness`, consumindo diretamente
+`AtlasArchitectureReadinessService::snapshot()`. A tool aceita `workspace` e
+`owner`, retorna `architecture_readiness`, `ok`, `writes=false` e aparece no
+inventario de `atlas_capabilities`. `AtlasArchitectureOperationsCatalog` tambem
+marca a operacao `architecture_readiness` com
+`mcp_tool=atlas_architecture_readiness`, para que agentes descubram o caminho
+direto sem shellar comandos. O scanner publica
+`ap177_architecture_readiness_mcp_tool`.
 
 ### Fase 2 — Decision Receipt v2 Determinista
 
@@ -3674,6 +3700,12 @@ Invariantes:
   readiness deixar de agregar `architecture-validate`, docs split plan,
   provider projection e Architecture Operations Catalog numa unica resposta de
   bootstrap para sessoes novas.
+- `atlas:ai:architecture-validate --json` inclui AP-177
+  `ap177_architecture_readiness_mcp_tool` (Architecture Readiness MCP Tool), que
+  falha se Open Brain/MCP perder a tool read-only
+  `atlas_architecture_readiness`, o inventario `atlas_capabilities`, o
+  roteamento `tools/call`, `writes=false` ou a metadata `mcp_tool` no catalogo
+  de operacoes.
 
 Integracao futura:
 

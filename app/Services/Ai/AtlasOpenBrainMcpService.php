@@ -9,6 +9,7 @@ use App\Models\AtlasTask;
 use App\Models\AtlasTaskEvent;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
+use App\Services\Ai\Kernel\Architecture\AtlasArchitectureReadinessService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use App\Services\Ai\Kernel\Architecture\AtlasDocumentationSplitPlanService;
 use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
@@ -45,6 +46,7 @@ class AtlasOpenBrainMcpService
         private readonly EngineeringCodeIntelligenceService $code,
         private readonly AtlasAiDomainCatalogService $domainCatalog,
         private readonly AtlasAiArchitectureValidationService $architectureValidation,
+        private readonly AtlasArchitectureReadinessService $architectureReadiness,
         private readonly AtlasArchitectureOperationsCatalog $architectureOperations,
         private readonly AtlasSessionBootstrapService $sessionBootstrap,
         private readonly AtlasFeaturePlacementService $featurePlacement,
@@ -257,6 +259,20 @@ class AtlasOpenBrainMcpService
                     'properties' => [
                         'id' => ['type' => 'string', 'description' => 'Filtra por stable operation id, por exemplo provider_performance_report.'],
                         'kind' => ['type' => 'string', 'description' => 'Filtra por kind: catalog, validation ou evidence_report.'],
+                    ],
+                    'required' => [],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_architecture_readiness',
+                'title' => 'Atlas Architecture Readiness',
+                'description' => 'Retorna snapshot de prontidao da arquitetura mae antes de implementar: architecture validate, docs health, split plan, provider projection e comandos obrigatorios.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace local para provider projection e paths. Default: base_path().'],
+                        'owner' => ['type' => 'string', 'description' => 'Owner documental opcional, por exemplo kernel_architecture, programming_domain ou memory_open_brain.'],
                     ],
                     'required' => [],
                 ],
@@ -770,6 +786,7 @@ class AtlasOpenBrainMcpService
                 'atlas_domain_catalog' => $this->toolResponse($id, $this->domainCatalog($arguments)),
                 'atlas_architecture_validate' => $this->toolResponse($id, $this->architectureValidate($arguments)),
                 'atlas_architecture_operations' => $this->toolResponse($id, $this->architectureOperations($arguments)),
+                'atlas_architecture_readiness' => $this->toolResponse($id, $this->architectureReadiness($arguments)),
                 'atlas_session_bootstrap' => $this->toolResponse($id, $this->sessionBootstrap($arguments)),
                 'atlas_feature_placement' => $this->toolResponse($id, $this->featurePlacement($arguments)),
                 'atlas_docs_split_plan' => $this->toolResponse($id, $this->docsSplitPlan($arguments)),
@@ -1150,6 +1167,22 @@ class AtlasOpenBrainMcpService
             'ok' => true,
             'tool' => 'atlas_architecture_operations',
             'architecture_operations' => $this->architectureOperations->summary($this->onlyScalarFilters($arguments, ['id', 'kind'])),
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function architectureReadiness(array $arguments): array
+    {
+        $payload = $this->architectureReadiness->snapshot($this->onlyScalarFilters($arguments, ['workspace', 'owner']));
+
+        return [
+            'ok' => ($payload['status'] ?? null) === 'ready',
+            'tool' => 'atlas_architecture_readiness',
+            'architecture_readiness' => $payload,
             'writes' => false,
         ];
     }

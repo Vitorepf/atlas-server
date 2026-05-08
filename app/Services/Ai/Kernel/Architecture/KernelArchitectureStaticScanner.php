@@ -162,7 +162,9 @@ class KernelArchitectureStaticScanner
      *   ap173_session_bootstrap_docs_split_plan_contract:array{valid:bool,violations:array<int,string>},
      *   ap174_session_bootstrap_architecture_operations_contract:array{valid:bool,violations:array<int,string>},
      *   ap175_feature_placement_architecture_operations_contract:array{valid:bool,violations:array<int,string>},
-     *   ap176_architecture_readiness_snapshot:array{valid:bool,violations:array<int,string>}
+     *   ap176_architecture_readiness_snapshot:array{valid:bool,violations:array<int,string>},
+     *   ap177_architecture_readiness_mcp_tool:array{valid:bool,violations:array<int,string>},
+     *   ap200_ap_agent_workflow_contracts:array{valid:bool,violations:array<int,string>}
      * }
      */
     public function complianceReport(): array
@@ -369,6 +371,8 @@ class KernelArchitectureStaticScanner
         $sessionBootstrapArchitectureOperationsContract = $this->scanSessionBootstrapArchitectureOperationsContract();
         $featurePlacementArchitectureOperationsContract = $this->scanFeaturePlacementArchitectureOperationsContract();
         $architectureReadinessSnapshot = $this->scanArchitectureReadinessSnapshot();
+        $architectureReadinessMcpTool = $this->scanArchitectureReadinessMcpTool();
+        $apAgentWorkflowContracts = $this->scanApAgentWorkflowContracts();
 
         return [
             'ok' => $surfaceProviderBypass === []
@@ -524,7 +528,9 @@ class KernelArchitectureStaticScanner
                 && $sessionBootstrapDocsSplitPlanContract === []
                 && $sessionBootstrapArchitectureOperationsContract === []
                 && $featurePlacementArchitectureOperationsContract === []
-                && $architectureReadinessSnapshot === [],
+                && $architectureReadinessSnapshot === []
+                && $architectureReadinessMcpTool === []
+                && $apAgentWorkflowContracts === [],
             'ap1_surface_provider_bypass' => [
                 'valid' => $surfaceProviderBypass === [],
                 'violations' => $surfaceProviderBypass,
@@ -1141,6 +1147,14 @@ class KernelArchitectureStaticScanner
                 'valid' => $architectureReadinessSnapshot === [],
                 'violations' => $architectureReadinessSnapshot,
             ],
+            'ap177_architecture_readiness_mcp_tool' => [
+                'valid' => $architectureReadinessMcpTool === [],
+                'violations' => $architectureReadinessMcpTool,
+            ],
+            'ap200_ap_agent_workflow_contracts' => [
+                'valid' => $apAgentWorkflowContracts === [],
+                'violations' => $apAgentWorkflowContracts,
+            ],
         ];
     }
 
@@ -1707,6 +1721,79 @@ class KernelArchitectureStaticScanner
     /**
      * @return array<int,string>
      */
+    private function scanArchitectureReadinessMcpTool(): array
+    {
+        $violations = [];
+        $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
+        $catalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $catalogTestPath = base_path('tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php');
+        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
+        $apDocPath = base_path('docs/ap/AP-177-architecture-readiness-mcp-tool.md');
+
+        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $catalogTest = File::exists($catalogTestPath) ? File::get($catalogTestPath) : '';
+        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        foreach ([
+            'AtlasArchitectureReadinessService',
+            'private readonly AtlasArchitectureReadinessService $architectureReadiness',
+            "'name' => 'atlas_architecture_readiness'",
+            "'title' => 'Atlas Architecture Readiness'",
+            "'workspace' => ['type' => 'string'",
+            "'owner' => ['type' => 'string'",
+            "'atlas_architecture_readiness' => \$this->toolResponse(\$id, \$this->architectureReadiness(\$arguments))",
+            'private function architectureReadiness(array $arguments): array',
+            "'tool' => 'atlas_architecture_readiness'",
+            "'architecture_readiness' => \$payload",
+            "'writes' => false",
+        ] as $token) {
+            if (! str_contains($mcp, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-177 MCP must expose architecture readiness as read-only tool [{$token}]";
+            }
+        }
+
+        if (! str_contains($catalog, "'mcp_tool' => 'atlas_architecture_readiness'")) {
+            $violations[] = 'app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-177 architecture_readiness operation must declare mcp_tool atlas_architecture_readiness';
+        }
+
+        foreach ([
+            'test_architecture_readiness_tool_exposes_preimplementation_snapshot',
+            "'atlas_architecture_readiness'",
+            "'atlas.architecture_readiness.v1'",
+            "'continue_implementation_with_session_bootstrap_and_feature_placement'",
+        ] as $token) {
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-177 MCP tests must lock readiness output [{$token}]";
+            }
+        }
+
+        if (! str_contains($catalogTest, "'atlas_architecture_readiness'")) {
+            $violations[] = 'tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php: AP-177 catalog test must lock architecture_readiness mcp_tool metadata';
+        }
+
+        foreach ([
+            'AP-177',
+            'Architecture Readiness MCP Tool',
+            'ap177_architecture_readiness_mcp_tool',
+        ] as $token) {
+            if (! str_contains($docs, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-177 MCP readiness tool must be documented [{$token}]";
+            }
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-177-architecture-readiness-mcp-tool.md: AP-177 contract doc must exist [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
     private function scanArchitectureOperationsMetadataContract(): array
     {
         $violations = [];
@@ -1749,7 +1836,7 @@ class KernelArchitectureStaticScanner
             'commands.0.id',
             'commands.0.kind',
             'commands.0.surface',
-            'commands.9.kind',
+            'commands.10.kind',
         ] as $token) {
             if (! str_contains($unitTest, $token)) {
                 $violations[] = "tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php: AP-132 catalog metadata must be unit tested [{$token}]";
@@ -13018,6 +13105,297 @@ class KernelArchitectureStaticScanner
         ] as $token) {
             if (! str_contains($selfImprovementContents, $token)) {
                 $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: Self-Improvement must consume Kernel Pipeline replay evidence [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanApAgentWorkflowContracts(): array
+    {
+        $violations = [];
+        $contracts = [
+            'AP-200' => [
+                'doc' => 'docs/ap/AP-200-ap-agent-handoff-packet.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentHandoffPacket.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentHandoffPacketTest.php',
+            ],
+            'AP-201' => [
+                'doc' => 'docs/ap/AP-201-ap-governance-repair-proposal-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApGovernanceRepairProposalContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApGovernanceRepairProposalContractTest.php',
+            ],
+            'AP-202' => [
+                'doc' => 'docs/ap/AP-202-ap-agent-session-gate.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentSessionGate.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentSessionGateTest.php',
+            ],
+            'AP-203' => [
+                'doc' => 'docs/ap/AP-203-ap-agent-completion-report.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentCompletionReport.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentCompletionReportTest.php',
+            ],
+            'AP-204' => [
+                'doc' => 'docs/ap/AP-204-ap-agent-workflow-registry.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowRegistry.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowRegistryTest.php',
+            ],
+            'AP-205' => [
+                'doc' => 'docs/ap/AP-205-ap-validation-evidence-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApValidationEvidenceContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApValidationEvidenceContractTest.php',
+            ],
+            'AP-206' => [
+                'doc' => 'docs/ap/AP-206-ap-agent-workflow-transition-policy.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowTransitionPolicy.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowTransitionPolicyTest.php',
+            ],
+            'AP-207' => [
+                'doc' => 'docs/ap/AP-207-ap-agent-workflow-trace-audit.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowTraceAudit.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowTraceAuditTest.php',
+            ],
+            'AP-208' => [
+                'doc' => 'docs/ap/AP-208-ap-agent-workflow-execution-receipt.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowExecutionReceipt.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowExecutionReceiptTest.php',
+            ],
+            'AP-209' => [
+                'doc' => 'docs/ap/AP-209-ap-agent-workflow-human-review-packet.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowHumanReviewPacket.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowHumanReviewPacketTest.php',
+            ],
+            'AP-210' => [
+                'doc' => 'docs/ap/AP-210-ap-agent-workflow-human-decision-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowHumanDecisionContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowHumanDecisionContractTest.php',
+            ],
+            'AP-211' => [
+                'doc' => 'docs/ap/AP-211-ap-agent-workflow-integrator-handoff-packet.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowIntegratorHandoffPacket.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowIntegratorHandoffPacketTest.php',
+            ],
+            'AP-212' => [
+                'doc' => 'docs/ap/AP-212-ap-agent-workflow-integrator-readiness-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowIntegratorReadinessContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowIntegratorReadinessContractTest.php',
+            ],
+            'AP-213' => [
+                'doc' => 'docs/ap/AP-213-ap-agent-workflow-manual-integration-receipt.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowManualIntegrationReceipt.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowManualIntegrationReceiptTest.php',
+            ],
+            'AP-214' => [
+                'doc' => 'docs/ap/AP-214-ap-agent-workflow-final-audit-packet.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowFinalAuditPacket.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowFinalAuditPacketTest.php',
+            ],
+            'AP-215' => [
+                'doc' => 'docs/ap/AP-215-ap-agent-workflow-final-closeout-decision-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowFinalCloseoutDecisionContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowFinalCloseoutDecisionContractTest.php',
+            ],
+            'AP-216' => [
+                'doc' => 'docs/ap/AP-216-ap-agent-workflow-closeout-acceptance-receipt.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowCloseoutAcceptanceReceipt.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowCloseoutAcceptanceReceiptTest.php',
+            ],
+            'AP-217' => [
+                'doc' => 'docs/ap/AP-217-ap-agent-workflow-release-evidence-preflight.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidencePreflight.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidencePreflightTest.php',
+            ],
+            'AP-218' => [
+                'doc' => 'docs/ap/AP-218-ap-agent-workflow-release-evidence-handoff-packet.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceHandoffPacket.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceHandoffPacketTest.php',
+            ],
+            'AP-219' => [
+                'doc' => 'docs/ap/AP-219-ap-agent-workflow-release-evidence-candidate-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceCandidateContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceCandidateContractTest.php',
+            ],
+            'AP-220' => [
+                'doc' => 'docs/ap/AP-220-ap-agent-workflow-release-evidence-candidate-decision-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceCandidateDecisionContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceCandidateDecisionContractTest.php',
+            ],
+            'AP-221' => [
+                'doc' => 'docs/ap/AP-221-ap-agent-workflow-release-evidence-candidate-decision-receipt.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceCandidateDecisionReceipt.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceCandidateDecisionReceiptTest.php',
+            ],
+            'AP-222' => [
+                'doc' => 'docs/ap/AP-222-ap-agent-workflow-release-evidence-execution-readiness-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionReadinessContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionReadinessContractTest.php',
+            ],
+            'AP-223' => [
+                'doc' => 'docs/ap/AP-223-ap-agent-workflow-release-evidence-dry-run-plan-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceDryRunPlanContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceDryRunPlanContractTest.php',
+            ],
+            'AP-224' => [
+                'doc' => 'docs/ap/AP-224-ap-agent-workflow-release-evidence-dry-run-review-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceDryRunReviewContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceDryRunReviewContractTest.php',
+            ],
+            'AP-225' => [
+                'doc' => 'docs/ap/AP-225-ap-agent-workflow-release-evidence-dry-run-result-envelope-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceDryRunResultEnvelopeContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceDryRunResultEnvelopeContractTest.php',
+            ],
+            'AP-226' => [
+                'doc' => 'docs/ap/AP-226-ap-agent-workflow-release-evidence-dry-run-result-review-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceDryRunResultReviewContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceDryRunResultReviewContractTest.php',
+            ],
+            'AP-227' => [
+                'doc' => 'docs/ap/AP-227-ap-agent-workflow-release-evidence-post-dry-run-handoff-packet.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidencePostDryRunHandoffPacket.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidencePostDryRunHandoffPacketTest.php',
+            ],
+            'AP-228' => [
+                'doc' => 'docs/ap/AP-228-ap-agent-workflow-release-evidence-consumer-readiness-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceConsumerReadinessContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceConsumerReadinessContractTest.php',
+            ],
+            'AP-229' => [
+                'doc' => 'docs/ap/AP-229-ap-agent-workflow-release-evidence-consumer-readiness-decision-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceConsumerReadinessDecisionContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceConsumerReadinessDecisionContractTest.php',
+            ],
+            'AP-230' => [
+                'doc' => 'docs/ap/AP-230-ap-agent-workflow-release-evidence-consumer-readiness-decision-receipt.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceConsumerReadinessDecisionReceipt.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceConsumerReadinessDecisionReceiptTest.php',
+            ],
+            'AP-231' => [
+                'doc' => 'docs/ap/AP-231-ap-agent-workflow-release-evidence-execution-authorization-preflight.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationPreflight.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationPreflightTest.php',
+            ],
+            'AP-232' => [
+                'doc' => 'docs/ap/AP-232-ap-agent-workflow-release-evidence-execution-authorization-decision-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationDecisionContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationDecisionContractTest.php',
+            ],
+            'AP-233' => [
+                'doc' => 'docs/ap/AP-233-ap-agent-workflow-release-evidence-execution-authorization-decision-receipt.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationDecisionReceipt.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationDecisionReceiptTest.php',
+            ],
+            'AP-234' => [
+                'doc' => 'docs/ap/AP-234-ap-agent-workflow-release-evidence-execution-authorization-handoff-packet.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationHandoffPacket.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationHandoffPacketTest.php',
+            ],
+            'AP-235' => [
+                'doc' => 'docs/ap/AP-235-ap-agent-workflow-release-evidence-execution-implementation-preflight.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionImplementationPreflight.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionImplementationPreflightTest.php',
+            ],
+            'AP-236' => [
+                'doc' => 'docs/ap/AP-236-ap-agent-workflow-release-evidence-execution-implementation-decision-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionImplementationDecisionContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionImplementationDecisionContractTest.php',
+            ],
+            'AP-237' => [
+                'doc' => 'docs/ap/AP-237-ap-agent-workflow-release-evidence-execution-implementation-decision-receipt.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionImplementationDecisionReceipt.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionImplementationDecisionReceiptTest.php',
+            ],
+            'AP-238' => [
+                'doc' => 'docs/ap/AP-238-ap-agent-workflow-release-evidence-execution-activation-preflight.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionActivationPreflight.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionActivationPreflightTest.php',
+            ],
+            'AP-239' => [
+                'doc' => 'docs/ap/AP-239-ap-agent-workflow-release-evidence-execution-activation-decision-contract.md',
+                'class' => 'app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionActivationDecisionContract.php',
+                'test' => 'tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceExecutionActivationDecisionContractTest.php',
+            ],
+        ];
+
+        foreach ($contracts as $ap => $paths) {
+            foreach ($paths as $kind => $relativePath) {
+                if (! File::exists(base_path($relativePath))) {
+                    $violations[] = "{$relativePath}: missing {$kind} artifact for {$ap} AP agent workflow governance";
+                }
+            }
+        }
+
+        $registryPath = app_path('Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowRegistry.php');
+        $registry = File::exists($registryPath) ? File::get($registryPath) : '';
+        $registryDocPath = base_path('docs/ap/AP-204-ap-agent-workflow-registry.md');
+        $registryDoc = File::exists($registryDocPath) ? File::get($registryDocPath) : '';
+
+        foreach ([
+            "'post_completion_review_chain' => \$this->postCompletionReviewChain()",
+            'AP-223',
+            'AtlasApAgentWorkflowCloseoutAcceptanceReceipt',
+            'AtlasApAgentWorkflowReleaseEvidenceHandoffPacket',
+            'AtlasApAgentWorkflowReleaseEvidenceCandidateDecisionContract',
+            'AtlasApAgentWorkflowReleaseEvidenceExecutionReadinessContract',
+            'AtlasApAgentWorkflowReleaseEvidenceDryRunPlanContract',
+            'AtlasApAgentWorkflowReleaseEvidenceDryRunReviewContract',
+            'AtlasApAgentWorkflowReleaseEvidenceDryRunResultEnvelopeContract',
+            'AtlasApAgentWorkflowReleaseEvidenceDryRunResultReviewContract',
+            'AtlasApAgentWorkflowReleaseEvidencePostDryRunHandoffPacket',
+            'AtlasApAgentWorkflowReleaseEvidenceConsumerReadinessContract',
+            'AtlasApAgentWorkflowReleaseEvidenceConsumerReadinessDecisionContract',
+            'AtlasApAgentWorkflowReleaseEvidenceConsumerReadinessDecisionReceipt',
+            'AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationPreflight',
+            'AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationDecisionContract',
+            'AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationDecisionReceipt',
+            'AtlasApAgentWorkflowReleaseEvidenceExecutionAuthorizationHandoffPacket',
+            'AtlasApAgentWorkflowReleaseEvidenceExecutionImplementationPreflight',
+            'AtlasApAgentWorkflowReleaseEvidenceExecutionImplementationDecisionContract',
+            'AtlasApAgentWorkflowReleaseEvidenceExecutionImplementationDecisionReceipt',
+            'AtlasApAgentWorkflowReleaseEvidenceExecutionActivationPreflight',
+            'AtlasApAgentWorkflowReleaseEvidenceExecutionActivationDecisionContract',
+            'atlas engineering knowledge docs-health',
+            'php artisan atlas:ai:architecture-readiness --json',
+            'atlas engineering knowledge sync --prune',
+            'atlas engineering knowledge index-code --prune',
+        ] as $token) {
+            if (! str_contains($registry, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowRegistry.php: AP agent workflow registry must declare full enterprise workflow and canonical validation commands [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-203 continua terminal no trace primario',
+            'Cadeia Pos-Completion',
+            'AP-216 emite receipt read-only de aceite final',
+            'AP-218 entrega pacote read-only ao futuro owner release/evidence',
+            'AP-220 registra decisao humana sobre o candidate',
+            'AP-222 valida readiness para futura execucao release/ledger',
+            'AP-223 planeja dry-run sem executar nem mutar estado',
+            'AP-224 revisa plano de dry-run sem executar',
+            'AP-225 sela resultado declarado de dry-run sem ledger write',
+            'AP-226 revisa resultado de dry-run sem executar release',
+            'AP-227 entrega handoff pos-dry-run sem criar job',
+            'AP-228 valida readiness do futuro consumidor',
+            'AP-229 normaliza decisao humana da readiness',
+            'AP-230 emite receipt read-only da decisao da readiness',
+            'AP-231 faz preflight de autorizacao de execucao',
+            'AP-232 normaliza decisao humana de autorizacao',
+            'AP-233 emite receipt read-only da autorizacao',
+            'AP-234 entrega handoff de autorizacao para futuro AP de execucao',
+            'AP-235 valida preflight de implementacao de execucao',
+            'AP-236 normaliza decisao humana da implementacao',
+            'AP-237 emite receipt read-only da implementacao',
+            'AP-238 valida preflight de ativacao sem ativar',
+            'AP-239 normaliza decisao humana de ativacao',
+            'architecture-readiness',
+            'code intelligence index',
+        ] as $token) {
+            if (! str_contains($registryDoc, $token)) {
+                $violations[] = "docs/ap/AP-204-ap-agent-workflow-registry.md: registry doc must explain primary trace, post-completion chain, and validation commands [{$token}]";
             }
         }
 

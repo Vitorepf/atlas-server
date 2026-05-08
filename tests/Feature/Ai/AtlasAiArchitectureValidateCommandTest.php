@@ -405,6 +405,8 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap104_retrieval_review_signal_next_action_contract.violations'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap176_architecture_readiness_snapshot.valid'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap176_architecture_readiness_snapshot.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap200_ap_agent_workflow_contracts.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap200_ap_agent_workflow_contracts.violations'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.valid'));
         $this->assertGreaterThanOrEqual(39, data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.checked'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.violations'));

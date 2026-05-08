@@ -350,6 +350,8 @@ class AtlasAiArchitectureValidationService
             'ap174_session_bootstrap_architecture_operations_contract' => $staticScanReport['ap174_session_bootstrap_architecture_operations_contract'],
             'ap175_feature_placement_architecture_operations_contract' => $staticScanReport['ap175_feature_placement_architecture_operations_contract'],
             'ap176_architecture_readiness_snapshot' => $staticScanReport['ap176_architecture_readiness_snapshot'],
+            'ap177_architecture_readiness_mcp_tool' => $staticScanReport['ap177_architecture_readiness_mcp_tool'],
+            'ap200_ap_agent_workflow_contracts' => $staticScanReport['ap200_ap_agent_workflow_contracts'],
             'ap33_surface_capability_parity' => [
                 'valid' => $surfaceCapabilityReport['ok'],
                 'checked' => $surfaceCapabilityReport['checked'],

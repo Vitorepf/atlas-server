@@ -28,6 +28,13 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
             data_get($payload, 'docs_split_plan.command'),
         );
         $this->assertGreaterThanOrEqual(0, data_get($payload, 'docs_split_plan.split_required_count'));
+        $this->assertSame('atlas.architecture_readiness.v1', data_get($payload, 'architecture_readiness.schema_version'));
+        $this->assertSame('ready', data_get($payload, 'architecture_readiness.status'));
+        $this->assertSame('knowledge_governance', data_get($payload, 'architecture_readiness.owner'));
+        $this->assertSame(
+            'php artisan atlas:ai:architecture-readiness --owner=knowledge_governance --json',
+            data_get($payload, 'architecture_readiness.command'),
+        );
         $this->assertSame('atlas.architecture_operations.v1', data_get($payload, 'architecture_operations.schema_version'));
         $this->assertContains('architecture_readiness', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('session_bootstrap', data_get($payload, 'architecture_operations.operation_ids'));
@@ -35,7 +42,12 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('documentation_split_plan', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('provider_projection_status', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('ap_agent_workflow_registry', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('review_owner_docs', data_get($payload, 'session_gate.required_before_code'));
+        $this->assertContains(
+            'review_ap_agent_workflow_registry_when_touching_ap_or_architecture_governance',
+            data_get($payload, 'session_gate.required_before_code'),
+        );
         $this->assertContains(
             'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md',
             $payload['read_first'],
@@ -47,6 +59,28 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains(
             'docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md',
             collect($payload['owner_docs'])->pluck('path')->all(),
+        );
+    }
+
+    public function test_session_bootstrap_includes_ap_workflow_registry_for_ap_tasks(): void
+    {
+        $exit = Artisan::call('atlas:ai:session-bootstrap', [
+            '--task' => 'implementar AP cognitive productive failure',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertContains(
+            'docs/ap/AP-204-ap-agent-workflow-registry.md',
+            $payload['read_first'],
+        );
+        $this->assertContains('ap_agent_workflow_registry', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertSame(
+            'php artisan atlas:ai:ap-agent-workflow --json',
+            collect(data_get($payload, 'architecture_operations.commands', []))
+                ->firstWhere('id', 'ap_agent_workflow_registry')['command'] ?? null,
         );
     }
 

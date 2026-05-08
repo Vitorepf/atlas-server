@@ -32,6 +32,7 @@ class EngineeringCodeIntelligenceService
      */
     public function index(array $options = []): array
     {
+        $this->ensureIndexMemoryBudget();
         $this->ensureTables();
 
         $workspace = $this->workspace($options['workspace'] ?? base_path());
@@ -58,22 +59,54 @@ class EngineeringCodeIntelligenceService
         }
 
         $moduleIds = $this->persistModules($moduleRows, $prune);
-        $symbolIds = $this->persistSymbols($symbolRows, $moduleIds, $prune);
+        $symbolCount = $this->persistSymbols($symbolRows, $moduleIds, $prune);
         $docLinkCount = $this->syncDocLinks($workspace, $prune);
+        $summary = $this->scanSummary($moduleRows, $symbolRows, $docLinkCount);
+        unset($scan, $moduleRows, $symbolRows, $moduleIds);
         $this->refreshDocumentationStatus();
 
         $payload = [
             'ok' => true,
             'dry_run' => false,
             'workspace' => $workspace,
-            'summary' => $this->scanSummary($moduleRows, $symbolRows, $docLinkCount),
+            'summary' => $summary,
             'modules' => $this->catalog([], 30)['modules'],
-            'symbol_count' => count($symbolIds),
+            'symbol_count' => $symbolCount,
             'generated_at' => now()->toJSON(),
         ];
         $this->recordToolRuntimeEvidence('index', $workspace, $payload, $context);
 
         return $payload;
+    }
+
+    private function ensureIndexMemoryBudget(): void
+    {
+        $current = ini_get('memory_limit');
+        if ($current === false || $current === '-1') {
+            return;
+        }
+
+        if ($this->memoryLimitToBytes($current) < 512 * 1024 * 1024) {
+            ini_set('memory_limit', '512M');
+        }
+    }
+
+    private function memoryLimitToBytes(string $value): int
+    {
+        $normalized = trim($value);
+        if ($normalized === '') {
+            return 0;
+        }
+
+        $unit = strtolower(substr($normalized, -1));
+        $number = (int) $normalized;
+
+        return match ($unit) {
+            'g' => $number * 1024 * 1024 * 1024,
+            'm' => $number * 1024 * 1024,
+            'k' => $number * 1024,
+            default => (int) $normalized,
+        };
     }
 
     /**
@@ -1310,11 +1343,11 @@ class EngineeringCodeIntelligenceService
     /**
      * @param  array<int,array<string,mixed>>  $symbolRows
      * @param  array<string,string>  $moduleIds
-     * @return array<string,string>
+     * @return int
      */
-    private function persistSymbols(array $symbolRows, array $moduleIds, bool $prune): array
+    private function persistSymbols(array $symbolRows, array $moduleIds, bool $prune): int
     {
-        $ids = [];
+        $count = 0;
         $indexedAt = now()->startOfSecond();
         foreach ($symbolRows as $row) {
             $moduleSlug = (string) ($row['module_slug'] ?? '');
@@ -1323,18 +1356,18 @@ class EngineeringCodeIntelligenceService
             $row['status'] = 'active';
             $row['archived_at'] = null;
             $row['indexed_at'] = $indexedAt;
-            $symbol = AtlasEngineeringCodeSymbol::query()->updateOrCreate(
+            AtlasEngineeringCodeSymbol::query()->updateOrCreate(
                 ['symbol_type' => $row['symbol_type'], 'source_hash' => $row['source_hash']],
                 $row,
             );
-            $ids[$row['source_hash']] = $symbol->id;
+            $count++;
         }
 
         if ($prune && $symbolRows !== []) {
             $this->archiveStaleSymbols($indexedAt);
         }
 
-        return $ids;
+        return $count;
     }
 
     private function archiveStaleSymbols(Carbon $indexedAt): int
@@ -1425,11 +1458,13 @@ class EngineeringCodeIntelligenceService
                 $count++;
             }
 
-            AtlasEngineeringCodeSymbol::query()
-                ->active()
+            DB::table('atlas_engineering_code_symbols')
+                ->where('status', 'active')
+                ->whereNull('archived_at')
                 ->whereIn('file_path', $paths->all())
                 ->select(['id', 'symbol_name', 'symbol_type', 'file_path'])
-                ->chunkById(500, function (Collection $symbols) use ($workspace, $item, &$count): void {
+                ->orderBy('id')
+                ->chunkById(200, function (Collection $symbols) use ($workspace, $item, &$count): void {
                     foreach ($symbols as $symbol) {
                         $link = $this->docLinkRow($workspace, $item, [
                             'symbol_id' => $symbol->id,
@@ -1563,7 +1598,7 @@ class EngineeringCodeIntelligenceService
             ->where('status', 'active')
             ->whereNull('archived_at')
             ->orderBy('id')
-            ->chunkById(500, function ($symbols) use ($documentedModuleIds, $now): void {
+            ->chunkById(100, function ($symbols) use ($documentedModuleIds, $now): void {
                 $symbolDocs = $this->symbolDocsForChunk($symbols->pluck('id')->map(fn ($id): string => (string) $id)->all());
 
                 foreach ($symbols as $symbol) {

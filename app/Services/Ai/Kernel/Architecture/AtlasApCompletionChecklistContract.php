@@ -35,8 +35,11 @@ final class AtlasApCompletionChecklistContract
             'failed_checks' => $failed,
             'required_commands' => [
                 'focused_tests' => 'php artisan test <focused-test-files-or-filter>',
-                'docs_health' => 'php artisan atlas:engineering:knowledge docs-health --json',
+                'docs_health' => 'atlas engineering knowledge docs-health',
                 'architecture_validate' => 'php artisan atlas:ai:architecture-validate --json',
+                'architecture_readiness' => 'php artisan atlas:ai:architecture-readiness --json',
+                'knowledge_sync' => 'atlas engineering knowledge sync --prune',
+                'code_intelligence_index' => 'atlas engineering knowledge index-code --prune',
                 'diff_check' => 'git diff --check',
             ],
             'next_action' => $failed === []

@@ -17,9 +17,16 @@ governanca e validacao da propria sessao.
 - O bloco deve incluir pelo menos `architecture_readiness`,
   `session_bootstrap`, `feature_placement`, `documentation_split_plan`, `architecture_operations`,
   `architecture_validate`, `documentation_health`, `provider_projection_status`,
-  `knowledge_sync` e `code_intelligence_index`.
+  `knowledge_sync`, `code_intelligence_index` e `ap_agent_workflow_registry`.
+- Quando a tarefa mencionar AP, arquitetura ou governanca, `read_first` deve
+  incluir `docs/ap/AP-204-ap-agent-workflow-registry.md` para carregar a cadeia
+  AP-200..AP-234 antes de qualquer edicao.
 - CLI, API `/ai/session-bootstrap` e MCP `atlas_session_bootstrap` devem expor o
   mesmo bloco.
+- O payload deve conter tambem `architecture_readiness` resumido, derivado de
+  `AtlasArchitectureReadinessService::snapshot()`, com `status`, `ready`,
+  `checks`, `review_signal` e comando focado por owner. O snapshot completo
+  continua pertencendo a AP-176/AP-177; bootstrap apenas carrega o sinal leve.
 - O scanner deve publicar
   `ap174_session_bootstrap_architecture_operations_contract`.
 
@@ -34,6 +41,6 @@ governanca e validacao da propria sessao.
 ## Resultado
 
 Toda sessao nasce com os comandos essenciais de bootstrap, placement, split
-plan, projection e validacao. Isso reduz consultas secundarias, evita comandos
-antigos em prompts externos e torna o bootstrap uma unidade operacional
-completa.
+plan, projection, workflow AP, validacao e um sinal direto de readiness. Isso
+reduz consultas secundarias, evita comandos antigos em prompts externos e torna
+o bootstrap uma unidade operacional completa.

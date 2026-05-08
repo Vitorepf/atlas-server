@@ -129,11 +129,11 @@ Quando a pergunta envolver implementacao real, confirme com:
 atlas ai architecture-validate --json
 atlas engineering knowledge index-code --prune
 ```
-
 Use testes focados quando alterar codigo.
 `place-feature` devolve `gate_status`, `implementation_contract`,
 `blocked_when`, escopos permitidos/proibidos e proximas acoes canonicas.
-`session-bootstrap` propaga `session_gate`, `docs_split_plan` (AP-173 Session Bootstrap Docs Split Plan Contract) e `architecture_operations` (AP-174 Session Bootstrap Architecture Operations Contract; `ap173_session_bootstrap_docs_split_plan_contract`; `ap174_session_bootstrap_architecture_operations_contract`).
+`session-bootstrap` propaga `session_gate`, `docs_split_plan` (AP-173 Session Bootstrap Docs Split Plan Contract), `architecture_operations`, `ap_agent_workflow_registry` e um resumo `architecture_readiness` derivado de AP-176/AP-177 (AP-174 Session Bootstrap Architecture Operations Contract; AP-204 AP Agent Workflow Registry; `ap173_session_bootstrap_docs_split_plan_contract`; `ap174_session_bootstrap_architecture_operations_contract`).
+Se a tarefa mencionar AP, arquitetura ou governanca, `read_first` deve incluir `docs/ap/AP-204-ap-agent-workflow-registry.md` antes de qualquer edicao.
 CLI/API/MCP devem suportar strict gate para `gate_status=blocked`.
 
 ## Como Evoluir O Atlas

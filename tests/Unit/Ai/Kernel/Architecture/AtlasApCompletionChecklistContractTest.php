@@ -26,6 +26,18 @@ final class AtlasApCompletionChecklistContractTest extends TestCase
         $this->assertSame(7, $payload['passed_count']);
         $this->assertSame(0, $payload['failed_count']);
         $this->assertSame([], $payload['failed_checks']);
+        $this->assertSame(
+            'atlas engineering knowledge docs-health',
+            data_get($payload, 'required_commands.docs_health'),
+        );
+        $this->assertSame(
+            'php artisan atlas:ai:architecture-readiness --json',
+            data_get($payload, 'required_commands.architecture_readiness'),
+        );
+        $this->assertSame(
+            'atlas engineering knowledge index-code --prune',
+            data_get($payload, 'required_commands.code_intelligence_index'),
+        );
         $this->assertSame('mark_ap_block_complete_and_report_validation_evidence', $payload['next_action']);
         $this->assertFalse(data_get($payload, 'guardrails.writes_files'));
         $this->assertFalse(data_get($payload, 'guardrails.executes_commands'));
