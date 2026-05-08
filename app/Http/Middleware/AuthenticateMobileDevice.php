@@ -25,12 +25,12 @@ class AuthenticateMobileDevice
     {
         $header = (string) $request->header('Authorization', '');
         if (! str_starts_with($header, 'Bearer ')) {
-            return $this->unauthorized('Missing mobile bearer token.');
+            return $this->unauthorized('MOBILE_BEARER_MISSING', 'Missing mobile bearer token.');
         }
 
         $token = trim(substr($header, 7));
         if ($token === '') {
-            return $this->unauthorized('Invalid mobile bearer token.');
+            return $this->unauthorized('MOBILE_BEARER_MISSING', 'Invalid mobile bearer token.');
         }
 
         $hash = app(MobilePairingService::class)->hashSecret($token);
@@ -42,7 +42,19 @@ class AuthenticateMobileDevice
             // Não cachear o "não existe" — apaga a chave pra que retry
             // após pareamento veja o device imediatamente.
             Cache::forget($cacheKey);
-            return $this->unauthorized('Invalid or revoked mobile bearer token.');
+
+            // Distingue "não existe nenhum registro" (banco resetado, device
+            // nunca pareado, token forjado) de "device revogado" (existe mas
+            // tem revoked_at). Cliente usa o code pra decidir mensagem; ambos
+            // disparam a mesma limpeza de sessão local em mobileApiRequest.
+            $exists = AtlasMobileDevice::query()
+                ->where('device_token_hash', $hash)
+                ->exists();
+
+            return $this->unauthorized(
+                $exists ? 'MOBILE_BEARER_REVOKED' : 'MOBILE_BEARER_UNKNOWN',
+                $exists ? 'Mobile device foi revogado.' : 'Mobile device não existe (re-parear).',
+            );
         }
 
         $this->touchLastSeen($device);
@@ -99,11 +111,11 @@ class AuthenticateMobileDevice
         $device->setAttribute('last_seen_at', $now);
     }
 
-    private function unauthorized(string $message): Response
+    private function unauthorized(string $code, string $message): Response
     {
         return response()->json([
             'error' => [
-                'code' => 'UNAUTHORIZED',
+                'code' => $code,
                 'message' => $message,
             ],
         ], 401);

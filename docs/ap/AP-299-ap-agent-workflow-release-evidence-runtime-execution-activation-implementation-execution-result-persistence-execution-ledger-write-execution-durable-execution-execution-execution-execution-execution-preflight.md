@@ -1,0 +1,64 @@
+---
+title: AP-299 Durable Execution Execution Execution Execution Execution Preflight
+status: implemented
+owner: atlas-kernel
+line_limit: 120
+related_paths:
+  - app/Services/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceRuntimeExecutionActivationImplementationExecutionResultPersistenceExecutionLedgerWriteExecutionDurableExecutionExecutionExecutionExecutionExecutionPreflight.php
+  - tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowReleaseEvidenceRuntimeExecutionActivationImplementationExecutionResultPersistenceExecutionLedgerWriteExecutionDurableExecutionExecutionExecutionExecutionExecutionPreflightTest.php
+depends_on:
+  - AP-204
+  - AP-298
+---
+
+# AP-299 - Durable Execution Execution Execution Execution Execution Preflight
+## Proposito
+AP-299 valida o preflight do proximo estagio que recebe o handoff AP-298.
+Ele nao executa payload, nao cria runtime job e nao escreve no Evidence Ledger.
+
+## Posicao no Fluxo
+Vem depois do AP-298.
+Ele impede que o handoff do payload do executor vire execucao real sem nova revisao humana.
+
+## Entrada
+- handoff AP-298 com status `runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_handoff_ready_for_future_execution_ap`
+- evidencias booleanas de preflight
+- referencias de plano append-only, policy receipt, guards, payload hash e destino do receipt
+
+## Saida
+Schema: `atlas.ap_agent_workflow_release_evidence_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_preflight.v1`
+
+Campos principais:
+- `runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_handoff_summary`
+- `runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_preflight_evidence`
+- `real_durable_execution_executor_payload_execution_target`
+- `next_action`
+- `guardrails`
+
+## Status
+- pronto: `ready_for_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_review`
+- handoff bloqueado: `blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_handoff_packet`
+- shape invalido: `blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_preflight_shape`
+- evidencia incompleta: `runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_preflight_incomplete`
+
+## Guardrails
+- nao escreve arquivo
+- nao executa comando
+- nao persiste preflight
+- nao publica release
+- nao emite evento
+- nao escreve Evidence Ledger
+- nao cria runtime job
+- nao executa payload
+- nao faz ledger write
+- nao aceita sem handoff AP-298 pronto
+
+## Beneficio
+O Atlas ganha uma trava revisavel antes da futura execucao do payload do executor real duravel.
+
+## Criterios de Aceite
+- handoff AP-298 aceito + evidencias completas gera ready
+- handoff nao pronto bloqueia
+- shape invalido bloqueia
+- evidencia incompleta retorna attention
+- AP-204, registry e static scanner reconhecem AP-299

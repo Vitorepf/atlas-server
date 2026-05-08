@@ -111,6 +111,42 @@ final class AtlasApAgentWorkflowRegistryTest extends TestCase
             'AP-295',
             'AP-296',
             'AP-297',
+            'AP-298',
+            'AP-299',
+            'AP-300',
+            'AP-301',
+            'AP-302',
+            'AP-303',
+            'AP-304',
+            'AP-305',
+            'AP-306',
+            'AP-307',
+            'AP-308',
+            'AP-309',
+            'AP-310',
+            'AP-311',
+            'AP-312',
+            'AP-313',
+            'AP-314',
+            'AP-315',
+            'AP-316',
+            'AP-317',
+            'AP-318',
+            'AP-319',
+            'AP-320',
+            'AP-321',
+            'AP-322',
+            'AP-323',
+            'AP-324',
+            'AP-325',
+            'AP-326',
+            'AP-327',
+            'AP-328',
+            'AP-329',
+            'AP-330',
+            'AP-331',
+            'AP-332',
+            'AP-333',
         ], array_column($payload['post_completion_review_chain'], 'ap'));
         $this->assertSame([
             'AtlasApAgentHandoffPacket',
@@ -143,6 +179,10 @@ final class AtlasApAgentWorkflowRegistryTest extends TestCase
         $this->assertContains('blocked_by_closeout_decision_contract', data_get($payload, 'terminal_statuses.blocked'));
         $this->assertContains('ready_for_existing_ap_work', data_get($payload, 'terminal_statuses.ready'));
         $this->assertContains('complete', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_handoff_ready_for_future_execution_ap', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_acceptance_reported', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_accepted_by_human', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('ready_for_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_review', data_get($payload, 'terminal_statuses.ready'));
         $this->assertContains('closeout_acceptance_reported', data_get($payload, 'terminal_statuses.ready'));
         $this->assertContains('ready_for_release_evidence_owner_review', data_get($payload, 'terminal_statuses.ready'));
         $this->assertContains('release_evidence_candidate_accepted_by_human', data_get($payload, 'terminal_statuses.ready'));
@@ -220,6 +260,30 @@ final class AtlasApAgentWorkflowRegistryTest extends TestCase
         $this->assertContains('ready_for_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_review', data_get($payload, 'terminal_statuses.ready'));
         $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_accepted_by_human', data_get($payload, 'terminal_statuses.ready'));
         $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_acceptance_reported', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_handoff_ready_for_future_execution_ap', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('ready_for_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_review', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_accepted_by_human', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_acceptance_reported', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_handoff_ready_for_future_execution_ap', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('ready_for_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_review', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_accepted_by_human', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_acceptance_reported', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_handoff_ready_for_future_execution_ap', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('ready_for_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_review', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('ready_for_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_review', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_accepted_by_human', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_acceptance_reported', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_handoff_ready_for_future_execution_ap', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('ready_for_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_review', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_accepted_by_human', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_acceptance_reported', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_accepted_by_human', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_acceptance_reported', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_handoff_ready_for_future_execution_ap', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_accepted_by_human', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_acceptance_reported', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_handoff_ready_for_future_execution_ap', data_get($payload, 'terminal_statuses.ready'));
+        $this->assertContains('ready_for_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_review', data_get($payload, 'terminal_statuses.ready'));
         $this->assertContains('blocked_by_consumer_readiness_contract', data_get($payload, 'terminal_statuses.blocked'));
         $this->assertContains('blocked_invalid_consumer_readiness_decision', data_get($payload, 'terminal_statuses.blocked'));
         $this->assertContains('blocked_by_consumer_readiness_decision_contract', data_get($payload, 'terminal_statuses.blocked'));
@@ -339,6 +403,26 @@ final class AtlasApAgentWorkflowRegistryTest extends TestCase
         $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_decision', data_get($payload, 'terminal_statuses.blocked'));
         $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_preflight', data_get($payload, 'terminal_statuses.blocked'));
         $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_decision_contract', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_decision_receipt', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_handoff_shape', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_preflight_shape', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_preflight_shape', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_handoff_packet', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_handoff_packet', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_decision', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_preflight', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_decision_contract', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_handoff_shape', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_decision_receipt', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_handoff_packet', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_preflight_shape', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_decision', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_preflight', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_decision_receipt', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_handoff_shape', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_handoff_packet', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_decision_contract', data_get($payload, 'terminal_statuses.blocked'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_contract', data_get($payload, 'terminal_statuses.blocked'));
         $this->assertContains('consumer_readiness_changes_requested_by_human', data_get($payload, 'terminal_statuses.attention'));
         $this->assertContains('consumer_readiness_rejected_by_human', data_get($payload, 'terminal_statuses.attention'));
         $this->assertContains('consumer_readiness_returned_for_repair', data_get($payload, 'terminal_statuses.attention'));
@@ -444,6 +528,35 @@ final class AtlasApAgentWorkflowRegistryTest extends TestCase
         $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_rejected_by_human', data_get($payload, 'terminal_statuses.attention'));
         $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_returned_for_repair', data_get($payload, 'terminal_statuses.attention'));
         $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_stopped_by_rejection', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_handoff_evidence_incomplete', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_preflight_incomplete', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_preflight_incomplete', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_changes_requested_by_human', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_rejected_by_human', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_returned_for_repair', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_stopped_by_rejection', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_handoff_evidence_incomplete', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_preflight_incomplete', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_changes_requested_by_human', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_rejected_by_human', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_handoff_evidence_incomplete', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_returned_for_repair', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_stopped_by_rejection', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_returned_for_repair', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_stopped_by_rejection', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_preflight_incomplete', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_preflight_shape', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_handoff_packet', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_changes_requested_by_human', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_rejected_by_human', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_preflight', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_returned_for_repair', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_stopped_by_rejection', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_contract', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_handoff_evidence_incomplete', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('blocked_invalid_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_handoff_shape', data_get($payload, 'terminal_statuses.attention'));
+        $this->assertContains('blocked_by_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_receipt', data_get($payload, 'terminal_statuses.attention'));
         $this->assertContains('blocked_by_post_dry_run_handoff_packet', data_get($payload, 'terminal_statuses.blocked'));
         $this->assertContains('consumer_readiness_evidence_incomplete', data_get($payload, 'terminal_statuses.attention'));
         $this->assertContains('consumer_readiness_ready_for_future_release_or_ledger_decision', data_get($payload, 'terminal_statuses.ready'));
@@ -463,6 +576,78 @@ final class AtlasApAgentWorkflowRegistryTest extends TestCase
         $this->assertSame(
             'php artisan atlas:ai:architecture-validate --json',
             data_get($payload, 'required_validation_commands.architecture_validate'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowReleaseEvidenceRuntimeExecutionActivationImplementationExecutionResultPersistenceExecutionLedgerWriteExecutionDurableExecutionExecutionExecutionExecutionExecutionExecutionHandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowReleaseEvidenceRuntimeExecutionActivationImplementationExecutionResultPersistenceExecutionLedgerWriteExecutionDurableExecutionExecutionExecutionExecutionExecutionExecutionExecutionHandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowReleaseEvidenceRuntimeExecutionActivationImplementationExecutionResultPersistenceExecutionLedgerWriteExecutionDurableExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionDecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowReleaseEvidenceRuntimeExecutionActivationImplementationExecutionResultPersistenceExecutionLedgerWriteExecutionDurableExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionDecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowReleaseEvidenceRuntimeExecutionActivationImplementationExecutionResultPersistenceExecutionLedgerWriteExecutionDurableExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionPreflight',
+            data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowReleaseEvidenceRuntimeExecutionActivationImplementationExecutionResultPersistenceExecutionLedgerWriteExecutionDurableExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionDecisionContract',
+            data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowReleaseEvidenceRuntimeExecutionActivationImplementationExecutionResultPersistenceExecutionLedgerWriteExecutionDurableExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionHandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowReleaseEvidenceRuntimeExecutionActivationImplementationExecutionResultPersistenceExecutionLedgerWriteExecutionDurableExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionExecutionPreflight',
+            data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp324DecisionContract',
+            data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp325DecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp326HandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp327Preflight',
+            data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp328DecisionContract',
+            data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp329DecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp330HandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp331Preflight',
+            data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp332DecisionContract',
+            data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp333DecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_decision_with'),
         );
         $this->assertSame(['AP-201', 'AP-202'], data_get($payload, 'steps.0.allowed_next_steps'));
         $this->assertSame(['proposal_count_greater_than_zero'], data_get($payload, 'steps.1.blocks_when'));
