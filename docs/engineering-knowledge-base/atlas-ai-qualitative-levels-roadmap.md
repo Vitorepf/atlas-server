@@ -38,6 +38,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
   - docs/engineering-knowledge-base/domains/self-improvement.md
   - docs/engineering-knowledge-base/domains/personal-development.md
+  - docs/engineering-knowledge-base/roadmap/qualitative-levels-implementation.md
   - app/Services/Ai/Kernel/Architecture/AtlasQualitativeLevelsReadModel.php
   - app/Services/Ai/Kernel/Architecture/AtlasRivalsStrategyReadModel.php
   - app/Console/Commands/AtlasAiQualitativeLevelsCommand.php
@@ -55,15 +56,8 @@ Base, context packs e governanca.
 
 ## Veredito Critico
 
-Faz sentido, com ressalvas.
-
-O conceito e forte porque separa evolucao qualitativa de feature list. Atlas ja
-mudou de natureza uma vez: deixou de ser wrapper de Claude/Codex e virou
-ecossistema com Kernel, Decide, Evidence, Memory, Domains, Tools, Curator,
-surfaces e governance. Portanto faz sentido medir proximos saltos por mudanca
-de relacao, nao por "mais comandos".
-
-Mas isso nao pode virar fantasia operacional. Cada patamar precisa de:
+O conceito e forte porque separa evolucao qualitativa de feature list, mas nao
+pode virar fantasia operacional. Cada patamar precisa de:
 
 1. contrato canonico;
 2. capability registry;
@@ -122,9 +116,8 @@ evidence longitudinal.
 | X autonomia operacional | quanto Atlas age sem supervisao continua? | receipt, budget, gates, approvals |
 | Z presenca ambiental | onde Atlas aparece no ambiente? | opt-in, privacy, no-surveillance, eclipse modes |
 
-O avanco saudavel exige equilibrio. Presenca ambiental sem profundidade vira
-notificacao irritante. Autonomia sem Kernel vira agente solto. Profundidade sem
-agency humana vira risco de dependencia.
+O avanco saudavel exige equilibrio: presenca sem profundidade irrita, autonomia
+sem Kernel solta agente, profundidade sem agency humana cria dependencia.
 
 ## Dominio Futuro: Decisao Estrategica
 
@@ -176,16 +169,13 @@ Gates obrigatorios:
 
 ## Fila Governada De Implementacao
 
+Detalhes de implementacao vivem em `roadmap/qualitative-levels-implementation.md`.
+
 ### QL-0 — Promocao documental
 
 Status: feito por este documento.
 
-DoD:
-
-1. source roadmap preservado;
-2. spec curta na KB;
-3. indice canonico atualizado;
-4. docs-health verde.
+DoD: source preservado, spec curta na KB, indice atualizado e docs-health verde.
 
 ### QL-1 — Patamar maturity model
 
@@ -251,25 +241,19 @@ future do `atlas-native-mac-agent.md` sob:
 5. privacy class por domain;
 6. Rivals-Voice como medidor de multiplicador.
 
-QL-7 e o primeiro avanco real do Eixo Z (presenca ambiental) com governanca
-suficiente. Avancos posteriores (vision ambiente, sensores fisiologicos)
-permanecem future ate Curator+Constitutional class-3 estarem maduros.
+QL-7 avanca Eixo Z com governanca; vision ambiente e sensores ficam future ate Curator+class-3 maduros.
 
 ## Regras De Implementacao
 
-1. Nenhum item P4+ entra sem Evidence Ledger.
-2. Nenhum item de estrategia executa acao externa.
-3. Nenhum sensor entra sem privacy review.
-4. Nenhum domain novo vira ready sem Rivals ou benchmark proprio.
-5. Nenhuma memoria pessoal crua vai para provider sem redaction.
-6. Nenhum Curator auto-aplica mudanca estrutural sem classe de mutacao.
+- Nenhum item P4+ entra sem Evidence Ledger.
+- Estrategia nao executa acao externa.
+- Sensor exige privacy review.
+- Domain novo exige Rivals/benchmark proprio.
+- Memoria pessoal crua nao vai para provider sem redaction.
+- Curator nao auto-aplica mudanca estrutural sem classe de mutacao.
 
 ## Conclusao
 
-O roadmap faz sentido como norte de alto nivel. A parte mais valiosa e tratar
-"outro patamar" como mudanca qualitativa: interrupcao util, discordancia
-epistemica, auto-evolucao auditada e memoria longitudinal.
-
-A parte perigosa e transformar essa visao em autonomia, ambiente ou decisao
-estrategica sem safeguards. Portanto o caminho correto e: medir patamar antes,
-criar Rivals Strategy, depois domain scaffold, depois co-estrategista plan-only.
+O roadmap e norte qualitativo: interrupcao util, discordancia epistemica,
+auto-evolucao auditada e memoria longitudinal. O caminho seguro e medir patamar,
+validar com Rivals, usar scaffold e manter co-estrategista em plan-only.

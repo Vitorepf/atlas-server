@@ -272,9 +272,16 @@ detalhe de modulo com docs/testes.
 | `START_HERE.md` | Ponto de entrada para humanos e IAs |
 | `atlas-ai-canonical-architecture-index.md` | Indice oficial da hierarquia entre Constitution, Kernel, Master Architecture, Topology e Domain Specs |
 | `atlas-ai-layer-0-glossary.md` | Constituicao operacional enxuta e glossario canonico de Layer 0; impede que providers, prompts ou docs legados disputem a identidade do Atlas AI |
-| `atlas-ai-kernel-architecture.md` | Especificacao kernel formal: OperationEnvelope, DecisionReceipt tipado, Evidence Ledger, SDKs, failure domains e SLOs |
+| `atlas-ai-kernel-architecture.md` | Indice compacto da especificacao kernel formal |
+| `kernel/contracts.md` | Contratos executaveis: Operation Envelope, Decision Receipt, Evidence Ledger, SDKs, Policy/Profile, SLO e tenancy |
+| `kernel/static-scans.md` | Static scans e compliance tests que impedem bypass de surface, provider, receipt, capability e docs |
+| `kernel/roadmap-ap-index.md` | Roadmap AP do Kernel: fases, familias de APs e aceite de implementacao |
 | `kernel/failure-domain-taxonomy.md` | Taxonomia canonica de FailureDomain, FailureClassifier e FailureHandlerRegistry |
-| `atlas-ai-master-architecture.md` | Especificacao enterprise da arquitetura-mae: planes, autoridade unica, contratos canonicos, dominios, runtimes, evidence, learning e estrategia para superar Claude Code |
+| `atlas-ai-master-architecture.md` | Indice compacto da arquitetura-mae enterprise do Atlas AI |
+| `master-architecture/planes-and-authority.md` | Planes do Atlas AI e fronteiras de autoridade entre Control, Domain, Runtime, Evidence, Learning e Surface |
+| `master-architecture/domain-onboarding.md` | Protocolo enterprise para adicionar dominios sem duplicar fluxos ou confundir empresa/projeto com dominio |
+| `master-architecture/runtime-evidence-learning.md` | Como Runtime, Evidence e Learning se conectam no produto final |
+| `master-architecture/competitive-strategy.md` | Como Atlas absorve lancamentos de Claude, ChatGPT, Gemini, Codex e labs sem virar wrapper fragil |
 | `atlas-ai-vision.md` | Documento fundador curto: Atlas AI como inteligencia unica do produto |
 | `atlas-ai-pipeline.md` | Pipeline unico de qualquer requisicao Atlas AI |
 | `atlas-ai-core-vs-domain.md` | Regra de decisao entre Core, Domain e Surface |
@@ -292,9 +299,11 @@ detalhe de modulo com docs/testes.
 | `domains/background.md` | Spec canonica do dominio implemented/ready Background Safety: revisao de jobs recorrentes, schedules, permissoes e stop conditions sem iniciar jobs |
 | `domains/general.md` | Spec canonica do dominio implemented/ready General: resposta simples e triagem governada sem substituir dominios especializados |
 | `domains/health.md` | Spec canonica do dominio implemented/ready Health: review nao clinico de bem-estar e seguranca sem diagnostico ou tratamento |
-| `atlas-ai-resolver-corpus-audit.md` | Auditoria da pasta `resolver-o-que-vale-a-pena`: o que vira canonico, referencia, futuro ou arquivo historico |
-| `legacy-documentation-cleanup-report.md` | Inventario e registro de limpeza de docs legados, duplicados, humanos, arquivados e pendentes de promocao |
-| `legacy-documentation-cleanup-plan.md` | Plano seguro para futuras ondas de promocao, redirect, arquivo e delete candidate |
+| `atlas-ai-resolver-corpus-audit.md` | Indice compacto da auditoria da pasta `resolver-o-que-vale-a-pena` |
+| `resolver-corpus/README.md` | Subindice de promocoes P0 e modelo Domain/Profile/Policy extraidos do corpus resolver |
+| `legacy-documentation-cleanup-report.md` | Indice compacto do inventario e registro de limpeza de docs legados, duplicados, humanos, arquivados e pendentes de promocao |
+| `legacy-documentation-cleanup-plan.md` | Indice compacto do plano seguro para futuras ondas de promocao, redirect, arquivo e delete candidate |
+| `legacy-cleanup/README.md` | Subindice focado para inventario, promocoes executadas, ondas, gates e handoff de limpeza legacy |
 | `atlas-ai-operating-system.md` | Arquitetura macro do Atlas AI: dominios, pipeline comum, anti-duplicacao e ownership entre dev, forge, decide, memoria, tools e curadoria |
 | `operating-system/README.md` | Indice local dos contratos focados do Atlas AI Operating System |
 | `operating-system/surfaces-and-profiles.md` | Surfaces, aliases, Domain/Flow Profiles e autoridade do Atlas Decide |
@@ -309,8 +318,15 @@ detalhe de modulo com docs/testes.
 | `atlas-ai-runtime-packets.md` | Mapa canonico dos packets legados para envelopes, receipts, ledger, tool events, permissions, memory deltas e router decisions |
 | `atlas-local-agent-surface.md` | Contrato canonico para Mac Agent/local automation como surface, readiness e background jobs, separado do Native Mac Agent Swift |
 | `atlas-ai-governed-backlog.md` | Contrato para preservar backlog legado sem transformar notas pessoais ou ideias cruas em runtime/roadmap automatico |
-| `atlas-ai-architecture-audit.md` | Analise rigorosa de consolidacao dos docs: capacidades existentes, duplicacoes, lacunas e ordem recomendada para reorganizar o Atlas AI |
-| `atlas-ai-evolution-roadmap.md` | Roadmap de evolucao do Atlas AI: Agentic RAG, Self-Reflection Gate, memoria episodica, Provider Strategy Matrix, Graph/Vector/Evidence routing e fases 0-4 |
+| `atlas-ai-architecture-audit.md` | Indice compacto da auditoria de consolidacao: capacidades existentes, duplicacoes, lacunas e ordem recomendada |
+| `architecture-audit/README.md` | Subindice das conclusoes, ownership map e pipeline alvo de Programming |
+| `atlas-ai-evolution-roadmap.md` | Indice operacional curto do roadmap de evolucao do Atlas AI |
+| `evolution/README.md` | Bootstrap dos playbooks de evolucao: Context Builder, providers, backlog avancado, memoria longitudinal e handoff |
+| `evolution/context-builder-roadmap.md` | Roteamento governado entre Vector RAG, Graph RAG, Evidence Replay, Code Intelligence e Memory Signals |
+| `evolution/provider-performance-roadmap.md` | AP-99, selecao de modelo, launches de providers e Dynamic Compute Market |
+| `evolution/advanced-capabilities-backlog.md` | Backlog de autonomia, tool synthesis, simulacoes, swarms, modelos locais e loops de mundo real |
+| `evolution/personal-longitudinal-roadmap.md` | Memoria pessoal longitudinal, AtlasVault, privacy vault e sinais corpo-cognicao |
+| `evolution/implementation-handoff.md` | Ordem de APs, regras de handoff, validacao e DoD do roadmap de evolucao |
 | `atlas-ai-evolution-phase-0-audit.md` | Auditoria rigorosa da Fase 0/AP-99: provider usage/performance contract, ganhos esperados, lacunas, criterios de aceite e o que nao deve virar subsistema paralelo |
 | `atlas-ai-thesis-multiplier-channel.md` | Tese Layer -1: Atlas como canal soberano multiplicador acima dos providers |
 | `thesis/README.md` | Indice local da tese constitucional |
@@ -326,17 +342,20 @@ detalhe de modulo com docs/testes.
 | `vault/runbook.md` | Operacao CLI/API, smoke checks e validacao de AtlasVault |
 | `code-intelligence.md` | Indice de codigo, modulos, simbolos e doc links |
 | `engineering-blueprint.md` | Produto final do Engineering Blueprint System |
-| `engineering-blueprint-contracts.md` | Contratos de blueprint, task, inventory, scenarios, evidencias e findings |
+| `engineering-blueprint-contracts.md` | Indice compacto dos contratos de blueprint, task, inventory, scenarios, evidencias e findings |
 | `engineering-blueprint-quality-gates.md` | QA, deep review, Postgres gate, thresholds e DoD de qualidade |
-| `engineering-blueprint-runbook.md` | Operacao app/CLI/API para blueprint, run, QA, review e sync |
-| `engineering-blueprint-maturity-dod.md` | Estado real, plano por fases e DoD final dos 7 itens |
+| `engineering-blueprint-runbook.md` | Indice compacto da operacao app/CLI/API para blueprint, run, QA, review e sync |
+| `engineering-blueprint-maturity-dod.md` | Indice compacto do estado real, plano por fases e DoD final dos 7 itens |
+| `engineering-blueprint/README.md` | Subindice focado para surfaces, lifecycle, schemas e maturidade do Blueprint System |
 | `super-tool-runtime-core.md` | Registry, politica, executor e evidence store genericos para ferramentas |
 | `tool-runtime/README.md` | Indice local dos contratos focados do Super Tool Runtime |
 | `tool-runtime/contracts.md` | Registry, policy engine, tiers, authority matrix e boundary de agentes externos |
 | `tool-runtime/evidence-gates.md` | Evidence Store, normalizers, gates, release gate e API Contract Harness |
 | `tool-runtime/catalog-roadmap.md` | Familias de ferramentas para programacao pesada e backlog opcional |
 | `tool-runtime/runbook.md` | Operacao CLI/API de tools, evidence, gates, approvals e waivers |
-| `programming-power-tools-catalog.md` | Catalogo operacional de ferramentas para programacao pesada, tiers T0-T3, autoridade, lacunas e backlog |
+| `programming-power-tools-catalog.md` | Indice compacto de ferramentas para programacao pesada, tiers T0-T3, autoridade, lacunas e backlog |
+| `tool-runtime/programming-tool-families.md` | Familias de ferramentas de programacao, autoridade primaria e complementos |
+| `tool-runtime/programming-tool-backlog.md` | Backlog de recipes, normalizers, gates e UX operacional de ferramentas |
 | `memory-core-runbook.md` | Runbook diario de memoria, sync, privacy, projection e validacao |
 | `memory-core-contracts.md` | Contratos de tabelas, refs, APIs, CLI e config |
 | `memory-core-security-privacy.md` | Politica de privacy, redaction e provider-safety |
@@ -367,7 +386,7 @@ historico, auditoria e compatibilidade de links antigos.
 | `mcp-tools-contract.md` | archived | `atlas-ai-memory-context-core-open-brain.md`, `open-brain-context-injection.md`, `memory-core-contracts.md` |
 | `mcp-tools-rollout-report.md` | archived | Tests MCP, command describe e docs de Memory/Open Brain |
 | `../superpowers/plans/*` e `../superpowers/specs/*` | archived/source material | `super-tool-runtime-core.md`, `programming-power-tools-catalog.md`, `paste-image-setup.md`, `atlas-cli-final-product.md` |
-| `../../resolver-o-que-vale-a-pena/**` | governed legacy corpus | `atlas-ai-resolver-corpus-audit.md`, `legacy-documentation-cleanup-report.md`, docs canonicos por familia |
+| `../../resolver-o-que-vale-a-pena/**` | governed legacy corpus | `atlas-ai-resolver-corpus-audit.md`, `legacy-documentation-cleanup-report.md`, `legacy-cleanup/README.md`, docs canonicos por familia |
 
 ## O Que Entra Aqui
 

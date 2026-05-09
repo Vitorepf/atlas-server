@@ -28,6 +28,10 @@ related_paths:
   - atlas-server/docs/engineering-knowledge-base/cyber-security/compliance-mapping.md
   - atlas-server/docs/engineering-knowledge-base/cyber-security/flow-profiles-proposal.md
   - atlas-server/docs/engineering-knowledge-base/cyber-security/recipes-catalog.md
+  - atlas-server/docs/engineering-knowledge-base/cyber-security/recipes-existing-tools.md
+  - atlas-server/docs/engineering-knowledge-base/cyber-security/recipes-offensive-families.md
+  - atlas-server/docs/engineering-knowledge-base/cyber-security/recipes-external-mcp.md
+  - atlas-server/docs/engineering-knowledge-base/cyber-security/recipes-promotion-runbook.md
 owner: atlas-ai
 layer: extension
 line_limit: 120
@@ -47,12 +51,16 @@ Knowledge Base tecnica da Cyber Security extension. Consumida por skills `cyber-
 | `refusal-matrix.md` | Regras canonicas de refusal Cyber, integracao com Policy do kernel | Toda skill cyber-* |
 | `compliance-mapping.md` | LGPD/GDPR/HIPAA/PCI-DSS/DFARS/SOC2/ISO27001 quando programa BB toca | Skill cyber-bb-runner para validar escopo de programa |
 | `flow-profiles-proposal.md` | Flows propostos para registro em AtlasDomainProfileRegistry | Operador humano + Codex avaliando promotion |
-| `recipes-catalog.md` | Recipes ofensivas propostas para Super Tool Runtime canonico | Operador humano + Super Tool Runtime team |
+| `recipes-catalog.md` | Indice compacto das recipes propostas para Super Tool Runtime canonico | Operador humano + Super Tool Runtime team |
+| `recipes-existing-tools.md` | Tools defensivas ja existentes que nao devem ser recriadas | Cyber skills + Tool Runtime team |
+| `recipes-offensive-families.md` | Familias ofensivas candidatas por categoria | Operador humano + Tool Runtime team |
+| `recipes-external-mcp.md` | Governanca para MCP ofensivo externo via wrapper | Security reviewer + Tool Runtime team |
+| `recipes-promotion-runbook.md` | Processo de promocao de recipe individual | Codex implementando recipe |
 
 ## Como navegar
 
 - Vai escrever skill nova cyber-*? Le `cyber-security-extension.md` + `refusal-matrix.md` + 1 skill exemplo (`AtlasVault/_skills/cyber-bb-runner/SKILL.md`).
-- Vai propor recipe nova? Le `recipes-catalog.md` + `super-tool-runtime-core.md`.
+- Vai propor recipe nova? Le `recipes-catalog.md` + `recipes-promotion-runbook.md` + `super-tool-runtime-core.md`.
 - Vai propor flow profile novo? Le `flow-profiles-proposal.md` + `domains/programming.md` + `atlas-ai-core-vs-domain.md`.
 - Vai estender refusal matrix? Le `refusal-matrix.md` + `atlas-ai-knowledge-governance-system.md`.
 

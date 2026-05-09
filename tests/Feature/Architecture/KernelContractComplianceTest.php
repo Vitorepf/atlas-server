@@ -95,10 +95,12 @@ class KernelContractComplianceTest extends TestCase
     {
         $this->assertSame([
             SurfaceAttachmentKind::ATTACHMENT,
+            SurfaceAttachmentKind::AUDIO,
             SurfaceAttachmentKind::FILE,
             SurfaceAttachmentKind::IMAGE,
         ], SurfaceAttachmentKind::all());
         $this->assertTrue(SurfaceAttachmentKind::isKnown(SurfaceAttachmentKind::ATTACHMENT));
+        $this->assertTrue(SurfaceAttachmentKind::isKnown(SurfaceAttachmentKind::AUDIO));
         $this->assertTrue(SurfaceAttachmentKind::isKnown(SurfaceAttachmentKind::FILE));
         $this->assertTrue(SurfaceAttachmentKind::isKnown(SurfaceAttachmentKind::IMAGE));
 

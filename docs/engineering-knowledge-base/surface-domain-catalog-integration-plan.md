@@ -53,6 +53,8 @@ Campos ja expostos para surfaces:
 - `flows[].autonomy`, `background_allowed`, `destructive_requires_approval`, `executor_preference`.
 - `summary.ready_domains`, `summary.executable_incomplete_domains`.
 - `validation.valid/errors/warnings`.
+- MCP `onboarding_status parity` must expose or preserve `onboarding_status` so Open Brain and
+  surface clients can distinguish ready, scaffold and incomplete domain states.
 
 ## Surface Map
 

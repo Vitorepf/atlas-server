@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\File;
 
 class KernelArchitectureStaticScanner
 {
+    private ?string $kernelDocumentationCorpus = null;
+
     /**
      * @return array{
      *   ok:bool,
@@ -1183,7 +1185,7 @@ class KernelArchitectureStaticScanner
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -1311,7 +1313,7 @@ class KernelArchitectureStaticScanner
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $sessionDoc = File::exists($sessionDocPath) ? File::get($sessionDocPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
@@ -1427,7 +1429,7 @@ class KernelArchitectureStaticScanner
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $sessionDoc = File::exists($sessionDocPath) ? File::get($sessionDocPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
@@ -1518,7 +1520,7 @@ class KernelArchitectureStaticScanner
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -1612,7 +1614,7 @@ class KernelArchitectureStaticScanner
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $catalogTest = File::exists($catalogTestPath) ? File::get($catalogTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -1735,7 +1737,7 @@ class KernelArchitectureStaticScanner
         $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
         $catalogTest = File::exists($catalogTestPath) ? File::get($catalogTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -1812,7 +1814,7 @@ class KernelArchitectureStaticScanner
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -1903,7 +1905,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -1980,7 +1982,7 @@ class KernelArchitectureStaticScanner
         $routes = File::exists($routesPath) ? File::get($routesPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -2083,7 +2085,7 @@ class KernelArchitectureStaticScanner
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $gate = File::exists($gatePath) ? File::get($gatePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -2197,7 +2199,7 @@ class KernelArchitectureStaticScanner
         $observability = File::exists($observabilityPath) ? File::get($observabilityPath) : '';
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -2343,7 +2345,7 @@ class KernelArchitectureStaticScanner
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -2430,7 +2432,7 @@ class KernelArchitectureStaticScanner
 
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -2493,7 +2495,7 @@ class KernelArchitectureStaticScanner
         $routes = File::exists($routesPath) ? File::get($routesPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -2586,7 +2588,7 @@ class KernelArchitectureStaticScanner
 
         $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -2641,7 +2643,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -2704,7 +2706,7 @@ class KernelArchitectureStaticScanner
 
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -2766,7 +2768,7 @@ class KernelArchitectureStaticScanner
 
         $replay = File::exists($replayPath) ? File::get($replayPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -2831,7 +2833,7 @@ class KernelArchitectureStaticScanner
         $eventType = File::exists($eventTypePath) ? File::get($eventTypePath) : '';
         $actions = File::exists($actionsPath) ? File::get($actionsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         if (! str_contains($eventType, "case InboxActionRecorded = 'INBOX_ACTION_RECORDED'")) {
@@ -2893,7 +2895,7 @@ class KernelArchitectureStaticScanner
 
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -2949,7 +2951,7 @@ class KernelArchitectureStaticScanner
 
         $actions = File::exists($actionsPath) ? File::get($actionsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -3006,7 +3008,7 @@ class KernelArchitectureStaticScanner
 
         $emitter = File::exists($emitterPath) ? File::get($emitterPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -3064,7 +3066,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -3122,7 +3124,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -3185,7 +3187,7 @@ class KernelArchitectureStaticScanner
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -3262,7 +3264,7 @@ class KernelArchitectureStaticScanner
 
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -3316,7 +3318,7 @@ class KernelArchitectureStaticScanner
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -3394,7 +3396,7 @@ class KernelArchitectureStaticScanner
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         foreach ([
@@ -3466,7 +3468,7 @@ class KernelArchitectureStaticScanner
 
         $replay = File::exists($replayPath) ? File::get($replayPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'private function selfImprovementCompletionByEnvelope(CarbonInterface $since, CarbonInterface $until): array',
@@ -3515,7 +3517,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'LedgerEventType::OperationCompleted',
@@ -3562,7 +3564,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             '$emittedByDedupeKey = [];',
@@ -3612,7 +3614,7 @@ class KernelArchitectureStaticScanner
 
         $emitter = File::exists($emitterPath) ? File::get($emitterPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'private function proposalPayload(array $data, string $problem, string $solution, string $worthIt): array',
@@ -3662,7 +3664,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             '$metadata = (array) ($finding[\'metadata\'] ?? []);',
@@ -3711,7 +3713,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'use App\Models\AtlasOpenBrainAccessLog;',
@@ -3763,7 +3765,7 @@ class KernelArchitectureStaticScanner
 
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             "'review_signal' => \$reviewSignal",
@@ -3815,7 +3817,7 @@ class KernelArchitectureStaticScanner
 
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'private function retrievalSourceAvailability(array $selected, array $contextRefs, array $knowledgeRefs, array $codeRefs, array $contextPack): array',
@@ -3868,7 +3870,7 @@ class KernelArchitectureStaticScanner
 
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             "'retrieval_plan' => \$retrievalPlan",
@@ -3924,7 +3926,7 @@ class KernelArchitectureStaticScanner
         $builder = File::exists($builderPath) ? File::get($builderPath) : '';
         $pack = File::exists($packPath) ? File::get($packPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class ContextRetrievalRouter',
@@ -3998,7 +4000,7 @@ class KernelArchitectureStaticScanner
         $contextPack = File::exists($contextPackPath) ? File::get($contextPackPath) : '';
         $gate = File::exists($gatePath) ? File::get($gatePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'private function withManifest(array $data, array $contextRefs): array',
@@ -4657,7 +4659,7 @@ class KernelArchitectureStaticScanner
 
         $observability = File::exists($observabilityPath) ? File::get($observabilityPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'AtlasAiArchitectureValidationService',
@@ -4718,7 +4720,7 @@ class KernelArchitectureStaticScanner
         $routes = File::exists($routesPath) ? File::get($routesPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'class AtlasAiArchitectureValidationService',
@@ -4805,7 +4807,7 @@ class KernelArchitectureStaticScanner
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $kernelDocs = $this->kernelDocumentationCorpus();
         $operatingDocs = File::exists($operatingDocsPath) ? File::get($operatingDocsPath) : '';
 
         foreach ([
@@ -4870,7 +4872,7 @@ class KernelArchitectureStaticScanner
 
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $kernelDocs = $this->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
         foreach ([
@@ -4925,8 +4927,8 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'AtlasAiArchitectureValidationService',
@@ -4985,8 +4987,8 @@ class KernelArchitectureStaticScanner
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         if (! str_contains($config, 'nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review,agent_behavior_review')) {
             $violations[] = 'config/atlas_ai.php: ATLAS_AI_SELF_IMPROVEMENT_FLOWS default must include weekly_architecture_audit between nightly and repair reviews';
@@ -5043,8 +5045,8 @@ class KernelArchitectureStaticScanner
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             "'cadence' => \$this->cadenceForFlow(\$flow)",
@@ -5108,8 +5110,8 @@ class KernelArchitectureStaticScanner
 
         $schedule = File::exists($schedulePath) ? File::get($schedulePath) : '';
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             "'next_run_at' => \$this->nextRunAtForCommand(",
@@ -5159,8 +5161,8 @@ class KernelArchitectureStaticScanner
 
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'AtlasSelfImprovementScheduleService',
@@ -5211,8 +5213,8 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'AtlasSelfImprovementScheduleService $schedule',
@@ -5266,8 +5268,8 @@ class KernelArchitectureStaticScanner
         $eventType = File::exists($eventTypePath) ? File::get($eventTypePath) : '';
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         if (! str_contains($eventType, "case SelfImprovementScheduleObserved = 'SELF_IMPROVEMENT_SCHEDULE_OBSERVED';")) {
             $violations[] = 'app/Services/Ai/Kernel/Evidence/LedgerEventType.php: missing SELF_IMPROVEMENT_SCHEDULE_OBSERVED ledger event type';
@@ -5324,8 +5326,8 @@ class KernelArchitectureStaticScanner
         $observability = File::exists($observabilityPath) ? File::get($observabilityPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'public function selfImprovementScheduleReportForWindow(CarbonInterface $since, ?CarbonInterface $until = null): array',
@@ -5399,8 +5401,8 @@ class KernelArchitectureStaticScanner
         $routes = File::exists($routesPath) ? File::get($routesPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'atlas:ai:self-improvement-schedule-report',
@@ -5477,8 +5479,8 @@ class KernelArchitectureStaticScanner
 
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'AtlasLedgerReplayService $ledgerReplay',
@@ -5529,8 +5531,8 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             '...$this->selfImprovementScheduleReplayFindings($hours, $filters)',
@@ -5586,8 +5588,8 @@ class KernelArchitectureStaticScanner
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             '$reviewSignal = $this->selfImprovementScheduleReviewSignal($events, $warningCount, $issueCounts)',
@@ -5661,8 +5663,8 @@ class KernelArchitectureStaticScanner
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             "data_get(\$report, 'review_signal.status'",
@@ -5752,8 +5754,8 @@ class KernelArchitectureStaticScanner
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             '$reviewSignal = $this->kernelPipelineReviewSignal($health, $events->pluck(\'violations\')->flatten()->filter()->countBy()->all())',
@@ -5862,8 +5864,8 @@ class KernelArchitectureStaticScanner
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             '$reviewSignal = $this->repairReviewSignal($events, $statusCounts, $strategyCounts, $reasonCounts, $requiresHumanReview)',
@@ -5980,8 +5982,8 @@ class KernelArchitectureStaticScanner
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
+        $kernelDocs = $this->kernelDocumentationCorpus();
 
         foreach ([
             '$reviewSignal = $this->sloReviewSignal($observations, $worstStatus, $worstSeverity, $failureCount, $stages)',
@@ -6089,7 +6091,7 @@ class KernelArchitectureStaticScanner
 
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
         foreach ([
@@ -6141,7 +6143,7 @@ class KernelArchitectureStaticScanner
 
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
         foreach ([
@@ -6193,7 +6195,7 @@ class KernelArchitectureStaticScanner
 
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
         foreach ([
@@ -6246,7 +6248,7 @@ class KernelArchitectureStaticScanner
         $replay = File::exists($replayPath) ? File::get($replayPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             "...array_diff_key(\$this->repairEventSummary(collect()), ['events' => true])",
@@ -6302,7 +6304,7 @@ class KernelArchitectureStaticScanner
         $replay = File::exists($replayPath) ? File::get($replayPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             '...$this->sloObservationSummary(new Collection)',
@@ -6355,7 +6357,7 @@ class KernelArchitectureStaticScanner
         $violations = [];
 
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
         foreach ([
@@ -6400,7 +6402,7 @@ class KernelArchitectureStaticScanner
         $replay = File::exists($replayPath) ? File::get($replayPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             "...array_diff_key(\$this->selfImprovementScheduleEventSummary(collect()), ['events' => true])",
@@ -6455,7 +6457,7 @@ class KernelArchitectureStaticScanner
 
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'private function reportWindowHours(array $arguments): int',
@@ -6503,7 +6505,7 @@ class KernelArchitectureStaticScanner
 
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             "return \$this->onlyScalarFilters(\$arguments, ['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id'])",
@@ -6564,7 +6566,7 @@ class KernelArchitectureStaticScanner
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class KernelReplayReportInput',
@@ -6632,7 +6634,7 @@ class KernelArchitectureStaticScanner
 
         $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;',
@@ -6693,7 +6695,7 @@ class KernelArchitectureStaticScanner
             }
         }
 
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         foreach ([
             'replay report validation limit contract',
             'AP-68',
@@ -6720,7 +6722,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'public const DEFAULT_REVIEW_WINDOW_HOURS = 24',
@@ -6790,7 +6792,7 @@ class KernelArchitectureStaticScanner
 
         $schedule = File::exists($schedulePath) ? File::get($schedulePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS',
@@ -6840,7 +6842,7 @@ class KernelArchitectureStaticScanner
 
         $orchestrator = File::exists($orchestratorPath) ? File::get($orchestratorPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS',
@@ -6897,7 +6899,7 @@ class KernelArchitectureStaticScanner
         $healthCommand = File::exists($healthCommandPath) ? File::get($healthCommandPath) : '';
         $rollupCommand = File::exists($rollupCommandPath) ? File::get($rollupCommandPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class AiTelemetryWindowInput',
@@ -6973,7 +6975,7 @@ class KernelArchitectureStaticScanner
         $budgetService = File::exists($budgetServicePath) ? File::get($budgetServicePath) : '';
         $policyService = File::exists($policyServicePath) ? File::get($policyServicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'public const DEFAULT_BUDGET_WINDOW_HOURS = 24',
@@ -7040,7 +7042,7 @@ class KernelArchitectureStaticScanner
         $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'public const DEFAULT_SUMMARY_LIMIT = 25',
@@ -7134,7 +7136,7 @@ class KernelArchitectureStaticScanner
         $executionRequest = File::exists($executionRequestPath) ? File::get($executionRequestPath) : '';
         $chatCommand = File::exists($chatCommandPath) ? File::get($chatCommandPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class ProgrammingIterationPolicy',
@@ -7208,7 +7210,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class OpenBrainMcpInput',
@@ -7316,7 +7318,7 @@ class KernelArchitectureStaticScanner
         $governanceCommand = File::exists($governanceCommandPath) ? File::get($governanceCommandPath) : '';
         $privacyCommand = File::exists($privacyCommandPath) ? File::get($privacyCommandPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class MemoryQueryInput',
@@ -7525,7 +7527,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class ProviderProjectionAuditInput',
@@ -7591,7 +7593,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $builder = File::exists($builderPath) ? File::get($builderPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class ConversationContextInput',
@@ -7659,7 +7661,7 @@ class KernelArchitectureStaticScanner
         $prompt = File::exists($promptPath) ? File::get($promptPath) : '';
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class RetrievalRankInput',
@@ -7738,7 +7740,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $kernelDocs = $this->kernelDocumentationCorpus();
         $vaultDocs = File::exists($vaultDocsPath) ? File::get($vaultDocsPath) : '';
 
         foreach ([
@@ -7804,7 +7806,7 @@ class KernelArchitectureStaticScanner
         $retrieval = File::exists($retrievalPath) ? File::get($retrievalPath) : '';
         $composer = File::exists($composerPath) ? File::get($composerPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $kernelDocs = $this->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
         foreach ([
@@ -7898,7 +7900,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $builder = File::exists($builderPath) ? File::get($builderPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $kernelDocs = $this->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
         foreach ([
@@ -7976,7 +7978,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $builder = File::exists($builderPath) ? File::get($builderPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $kernelDocs = $this->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
         foreach ([
@@ -8039,7 +8041,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class ProviderProjectionInput',
@@ -8109,7 +8111,7 @@ class KernelArchitectureStaticScanner
         $resolver = File::exists($resolverPath) ? File::get($resolverPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $resolverTest = File::exists($resolverTestPath) ? File::get($resolverTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class TestCommandInput',
@@ -8169,7 +8171,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $runner = File::exists($runnerPath) ? File::get($runnerPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class EngineeringHarnessRunnerInput',
@@ -8230,7 +8232,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class EngineeringHarnessabilityInput',
@@ -8289,7 +8291,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class EngineeringDockerHarnessInput',
@@ -8365,7 +8367,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class EngineeringTestMatrixInput',
@@ -8445,7 +8447,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class EngineeringClaudeCodeBaselineInput',
@@ -8508,7 +8510,7 @@ class KernelArchitectureStaticScanner
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class EngineeringBenchmarkInput',
@@ -8595,7 +8597,7 @@ class KernelArchitectureStaticScanner
         $artifact = File::exists($artifactPath) ? File::get($artifactPath) : '';
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class EngineeringContextIntelligenceInput',
@@ -8703,7 +8705,7 @@ class KernelArchitectureStaticScanner
         $benchmarkReport = File::exists($benchmarkReportPath) ? File::get($benchmarkReportPath) : '';
         $benchmarkCalibrate = File::exists($benchmarkCalibratePath) ? File::get($benchmarkCalibratePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class AtlasCliLimitInput',
@@ -8802,7 +8804,7 @@ class KernelArchitectureStaticScanner
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class AtlasSchedulerInput',
@@ -8879,7 +8881,7 @@ class KernelArchitectureStaticScanner
         $schedule = File::exists($schedulePath) ? File::get($schedulePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class AtlasSelfImprovementInput',
@@ -8989,7 +8991,7 @@ class KernelArchitectureStaticScanner
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'final class KernelLedgerEnvelopeInput',
@@ -9076,7 +9078,7 @@ class KernelArchitectureStaticScanner
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             'class KernelLedgerEnvelopeReportService',
@@ -10123,7 +10125,7 @@ class KernelArchitectureStaticScanner
         $issuer = File::exists($issuerPath) ? File::get($issuerPath) : '';
         $worker = File::exists($workerPath) ? File::get($workerPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         $violations = [];
@@ -10204,7 +10206,7 @@ class KernelArchitectureStaticScanner
         $apDocPath = base_path('docs/ap/AP-135-decision-receipt-determinism-test.md');
 
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         $violations = [];
@@ -10254,7 +10256,7 @@ class KernelArchitectureStaticScanner
         $ledger = File::exists($ledgerPath) ? File::get($ledgerPath) : '';
         $replay = File::exists($replayPath) ? File::get($replayPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         $violations = [];
@@ -10335,7 +10337,7 @@ class KernelArchitectureStaticScanner
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         $violations = [];
@@ -10453,7 +10455,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         $violations = [];
@@ -10513,7 +10515,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         $violations = [];
@@ -10578,7 +10580,7 @@ class KernelArchitectureStaticScanner
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $catalogTest = File::exists($catalogTestPath) ? File::get($catalogTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         $violations = [];
@@ -10666,7 +10668,7 @@ class KernelArchitectureStaticScanner
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         $violations = [];
@@ -10757,7 +10759,7 @@ class KernelArchitectureStaticScanner
         $registry = File::exists($registryPath) ? File::get($registryPath) : '';
         $cli = File::exists($cliPath) ? File::get($cliPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         $violations = [];
@@ -10834,7 +10836,7 @@ class KernelArchitectureStaticScanner
         $emitter = File::exists($emitterPath) ? File::get($emitterPath) : '';
         $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
         $emitterTest = File::exists($emitterTestPath) ? File::get($emitterTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         $violations = [];
@@ -10929,7 +10931,7 @@ class KernelArchitectureStaticScanner
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
         $violations = [];
@@ -11068,7 +11070,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
         $docOs = File::exists($docOsPath) ? File::get($docOsPath) : '';
         $violations = [];
@@ -11448,7 +11450,7 @@ class KernelArchitectureStaticScanner
         $orchestrator = File::exists($orchestratorPath) ? File::get($orchestratorPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
-        $programmingDoc = File::exists($programmingDocPath) ? File::get($programmingDocPath) : '';
+        $programmingDoc = $this->programmingDomainDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
         $violations = [];
 
@@ -11529,7 +11531,7 @@ class KernelArchitectureStaticScanner
         $harness = File::exists($harnessPath) ? File::get($harnessPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
-        $programmingDoc = File::exists($programmingDocPath) ? File::get($programmingDocPath) : '';
+        $programmingDoc = $this->programmingDomainDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
         $violations = [];
 
@@ -12036,9 +12038,9 @@ class KernelArchitectureStaticScanner
         $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
         $catalogTest = File::exists($catalogTestPath) ? File::get($catalogTestPath) : '';
         $domainProfileTest = File::exists($domainProfileTestPath) ? File::get($domainProfileTestPath) : '';
-        $domainDoc = File::exists($domainDocPath) ? File::get($domainDocPath) : '';
+        $domainDoc = $this->selfImprovementDomainDocumentationCorpus();
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
-        $kernelDoc = File::exists($kernelDocPath) ? File::get($kernelDocPath) : '';
+        $kernelDoc = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
         $violations = [];
 
@@ -12258,9 +12260,9 @@ class KernelArchitectureStaticScanner
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $kernelDocs = $this->kernelDocumentationCorpus();
         $indexDocs = File::exists($indexDocsPath) ? File::get($indexDocsPath) : '';
-        $domainDocs = File::exists($domainDocsPath) ? File::get($domainDocsPath) : '';
+        $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
         $tests = implode("\n", [$unitTest, $featureTest, $apiTest, $mcpTest, $observabilityTest]);
         $docs = implode("\n", [$kernelDocs, $indexDocs, $domainDocs, $apDoc]);
@@ -12325,7 +12327,7 @@ class KernelArchitectureStaticScanner
 
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
-        $kernelDocs = File::exists($kernelDocsPath) ? File::get($kernelDocsPath) : '';
+        $kernelDocs = $this->kernelDocumentationCorpus();
         $behaviorDocs = File::exists($behaviorDocsPath) ? File::get($behaviorDocsPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
         $docs = implode("\n", [$kernelDocs, $behaviorDocs, $apDoc]);
@@ -12405,7 +12407,7 @@ class KernelArchitectureStaticScanner
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
         $violations = [];
 
@@ -15532,7 +15534,7 @@ class KernelArchitectureStaticScanner
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
         $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
         $selfImprovementTest = File::exists($selfImprovementTestPath) ? File::get($selfImprovementTestPath) : '';
-        $docs = File::exists($docsPath) ? File::get($docsPath) : '';
+        $docs = $this->kernelDocumentationCorpus();
 
         foreach ([
             '$health = $this->kernelPipelineHealth($eventCount, $acceptedCount, $rejectedCount)',
@@ -16002,5 +16004,70 @@ class KernelArchitectureStaticScanner
         }
 
         return $violations;
+    }
+
+    private function kernelDocumentationCorpus(): string
+    {
+        if ($this->kernelDocumentationCorpus !== null) {
+            return $this->kernelDocumentationCorpus;
+        }
+
+        $paths = [
+            base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md'),
+            base_path('docs/engineering-knowledge-base/kernel/contracts.md'),
+            base_path('docs/engineering-knowledge-base/kernel/static-scans.md'),
+            base_path('docs/engineering-knowledge-base/kernel/roadmap-ap-index.md'),
+            base_path('docs/engineering-knowledge-base/kernel/failure-domain-taxonomy.md'),
+            base_path('docs/engineering-knowledge-base/archive/source-material/kernel/atlas-ai-kernel-architecture-full-2026-05-08.md'),
+        ];
+
+        foreach (glob(base_path('docs/ap/AP-*.md')) ?: [] as $apDocPath) {
+            $paths[] = $apDocPath;
+        }
+
+        $contents = [];
+        foreach (array_values(array_unique($paths)) as $path) {
+            if (is_string($path) && File::exists($path)) {
+                $contents[] = File::get($path);
+            }
+        }
+
+        return $this->kernelDocumentationCorpus = implode("\n\n---\n\n", $contents);
+    }
+
+    private function programmingDomainDocumentationCorpus(): string
+    {
+        return $this->documentationCorpus([
+            base_path('docs/engineering-knowledge-base/domains/programming.md'),
+            base_path('docs/engineering-knowledge-base/domains/programming-surfaces.md'),
+            base_path('docs/engineering-knowledge-base/domains/programming-repair-contract.md'),
+            base_path('docs/engineering-knowledge-base/domains/programming-frontend-superpower.md'),
+            base_path('docs/engineering-knowledge-base/archive/source-material/domains-programming-full-2026-05-08.md'),
+        ]);
+    }
+
+    private function selfImprovementDomainDocumentationCorpus(): string
+    {
+        return $this->documentationCorpus([
+            base_path('docs/engineering-knowledge-base/domains/self-improvement.md'),
+            base_path('docs/engineering-knowledge-base/domains/self-improvement-flows.md'),
+            base_path('docs/engineering-knowledge-base/domains/self-improvement-runtime.md'),
+            base_path('docs/engineering-knowledge-base/archive/source-material/domains-self-improvement-full-2026-05-08.md'),
+        ]);
+    }
+
+    /**
+     * @param array<int,string> $paths
+     */
+    private function documentationCorpus(array $paths): string
+    {
+        $contents = [];
+        foreach (array_values(array_unique($paths)) as $path) {
+            if (File::exists($path)) {
+                $contents[] = File::get($path);
+            }
+        }
+
+        return implode("\n\n---\n\n", $contents);
     }
 }
