@@ -149,17 +149,25 @@ Ele nao deve apontar para OpenAI/Claude/Gemini direto.
 
 Implementado agora: adapter `voice_realtime`, capability `atlas.input.voice_audio`,
 endpoints Fase 0, session lease com token LiveKit opt-in, eclipse, Envelope/Receipt,
-preflight/activation contract, callback router/sequence smoke, maquina de estado por turno aceito, gate de callback loop, contrato/bootstrap/start-check, Rivals-Voice, runtime Python e SLOs.
+preflight/activation contract, callback router/sequence smoke, maquina de estado por turno aceito,
+gate fail-closed para callback sem `VOICE_TURN_DECIDED`, gate de callback loop,
+contrato/bootstrap/start-check, Rivals-Voice, runtime Python e SLOs.
+O app mobile tambem possui contrato cliente para iniciar/encerrar sessao
+`/v1/mobile/ai/voice/session/*` e abrir o Voice Mode com fallback local quando
+o server ainda nao estiver acessivel. Isso nao significa audio realtime pronto:
+LiveKit media streaming, STT/TTS e UX final continuam pendentes.
 
 | Classe | Responsabilidade |
 |---|---|
 | `AtlasVoiceRealtimeSurfaceAdapter` | registra `voice_realtime` como surface |
-| `AtlasVoiceRealtimeService` | scaffold Fase 0: sessao, turno, envelope, receipt, callbacks, ledger, SLO |
+| `AtlasVoiceRealtimeService` | scaffold Fase 0: sessao, turno, envelope, receipt, callbacks fail-closed, ledger, SLO |
 | `AtlasVoiceEclipseGuard` | bloqueia captura/resposta quando necessario |
 | `AtlasVoiceLiveKitTokenIssuer` | emite JWT LiveKit opt-in; token nunca entra no Ledger |
 | `AtlasVoiceRuntimeCertificationService` | certifica preflight, callback sequence, production-loop smoke e start bloqueado; usado por CLI, API e mobile |
 | `KernelSloTargets` | declara `voice.wake_word_detect` e `voice.turn_to_first_audio` |
 | `AtlasVoiceRivalsRunner` | relatorio read-only Atlas Voice vs baseline direto; bloqueia maturidade se runtime certification falhar |
+| `atlas-app/lib/api/client.ts` | cliente mobile para `start/end/readiness` de voice session |
+| `atlas-app/components/sheets/AtlasAiSheet.tsx` | abre Voice Mode mobile-first e tenta registrar sessao no Kernel com fallback local |
 
 Endpoints:
 
@@ -207,7 +215,7 @@ synthesized, played, interrupted, runtime failed, provider degraded, eclipse.
 
 | Fase | Escopo | Prioridade | Estimativa |
 |---|---|---:|---:|
-| 0 | Mobile push-to-talk + Kernel turn API + transcript/TTS basico | P0 | 5-8 dias uteis |
+| 0 | Mobile push-to-talk + Kernel turn API + transcript/TTS basico | P0 | backend/client parcial; media real pendente |
 | 1 | LiveKit Agents SDK + rooms + STT/TTS streaming + interruption | P0 | 2-4 semanas |
 | 2 | Swift Mac edge com wake word local e contexto opt-in | P1 | 3-6 semanas |
 | 3 | Multi-device continuity: mobile, Mac, AirPods, Watch/Vision futuro | P2 | 6-12+ semanas |
@@ -216,10 +224,16 @@ Fase 0 sai antes de always-on; Fase 1 permite comparar contra voice modes.
 
 ## Runtime Certification Gate
 
-`/ai/voice/runtime/certification` e `atlas ai voice runtime-certify --json`
-agregam preflight, callback sequence, production-loop smoke e worker-start
-blocked check. O certificado e sanitizado: nao expõe token, API key, secret,
-audio raw, transcript cru ou payload de provider.
+`/ai/voice/runtime/certification` e `php artisan atlas:ai:voice runtime-certify --json`
+agregam foundation registry AP-185, preflight, callback sequence,
+production-loop smoke e worker-start blocked check. O certificado e sanitizado:
+nao expõe token, API key, secret, audio raw, transcript cru ou payload de
+provider.
+
+O gate `certification_artifacts_sanitized` e obrigatorio. Ele deve aparecer
+verde em CLI, API interna, mobile gateway e Rivals-Voice summary antes de
+qualquer maturidade acima de scaffold. Se `forbidden_key_count>0`, Voice fica
+bloqueado mesmo que os demais smokes passem.
 
 Rivals-Voice deve consumir apenas o resumo do certificado. Se o runtime nao
 estiver `certified_scaffold`, o report fica `not_ready` e recomenda corrigir
@@ -231,7 +245,7 @@ quando houver atividade VOICE_* sem readiness/certification/baseline fechados.
 
 Voice v1 esta pronto quando:
 
-1. app mobile inicia sessao push-to-talk;
+1. app mobile inicia sessao push-to-talk; parcialmente pronto via session start/end + fallback local;
 2. LiveKit Agents SDK roda com plugin STT/TTS configuravel;
 3. cada turno cria Operation Envelope e Decision Receipt;
 4. provider/modelo e escolhido por Atlas Decide, salvo override manual auditado;

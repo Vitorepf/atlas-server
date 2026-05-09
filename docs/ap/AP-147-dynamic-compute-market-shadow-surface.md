@@ -1,6 +1,6 @@
 # AP-147 — Dynamic Compute Market Shadow Surface
 
-Status: implemented-shadow-contract
+Status: implemented-shadow-evidence-contract
 
 ## Problema
 
@@ -31,6 +31,20 @@ Toda resposta deve declarar:
 - `routing_control.changes_provider=false`;
 - `routing_control.routing_authority=atlas_decide`;
 - `provider_change_requires` contendo `policy_patch` e `decision_receipt`.
+- `proposal_gate.schema_version=atlas.dynamic_compute_market.proposal_gate.v1`;
+- `proposal_gate.mode=proposal_only`;
+- `proposal_gate.can_change_provider=false`;
+- `proposal_gate.can_change_policy=false`;
+- `proposal_gate.can_mutate_decision_receipt=false`.
+- `proposal_gate.proposal_evidence_contract.schema_version=atlas.dynamic_compute_market.proposal_evidence.v1`;
+- `proposal_gate.proposal_evidence_contract.replay_required=true`;
+- `proposal_gate.proposal_evidence_contract.policy_patch_status=draft_only_until_benchmark_and_review`.
+
+O `proposal_gate` e o contrato que impede confusao entre conselho de mercado e
+roteamento. Ele pode abrir proposta, benchmark controlado ou rascunho de policy
+para review humano, mas nunca altera provider, policy ou receipt.
+Qualquer policy patch futuro precisa carregar replay AP-99, benchmark controlado,
+review humano e um novo Decision Receipt para rota futura.
 
 ## Surfaces
 
@@ -40,7 +54,7 @@ schema `atlas.dynamic_compute_market_report.v1`, `mode=report_only` e
 
 Surfaces implementadas:
 
-- CLI: `atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json`;
+- CLI: `php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json`;
 - API: `/ai/dynamic-compute-market?provider=<provider>`.
 - MCP read-only: `atlas_dynamic_compute_market_report`.
 
@@ -57,7 +71,10 @@ um candidato melhor por latencia ou custo, o Curator emite finding
 `atlas.self_improvement.dynamic_compute_market.v1` com acao primaria
 `run_provider_benchmark`. Esse finding nunca troca rota: ele preserva
 `routing_control.changes_provider=false` e exige `policy_patch` +
-`decision_receipt` antes de qualquer mudanca futura em Atlas Decide.
+`decision_receipt` antes de qualquer mudanca futura em Atlas Decide. A surface
+tambem preserva `proposal_gate.prohibited_actions` com `provider_routing_change`,
+`silent_policy_patch`, `decision_receipt_mutation` e
+`provider_preference_hardcode`.
 
 ## Nao Escopo
 

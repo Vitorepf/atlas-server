@@ -12,6 +12,7 @@ tags:
   - maturity
   - definition-of-done
 capabilities:
+  - cognitive_immune_gate
   - maturity_model
   - release_gates
   - documentation_hardening
@@ -19,12 +20,14 @@ capabilities:
   - open_brain_context_injection
 decisions:
   - Cada fase deve declarar o que foi entregue, validado e deixado para depois.
+  - O Memory Core so escala quando captura, evidencia, learning signal, memoria, contexto e decisao permanecem separados.
   - ChromaDB, Streamable HTTP completo/SSE, sync multiusuario e embedding externo so entram com fase propria e DoD explicito.
   - Open Brain automatico em CLI/app so pode ser marcado implementado com trace metadata, audit log e testes.
 maintenance:
   - Atualize status de maturidade apos cada fase relevante.
   - Nao promova camada para madura sem teste e runbook.
 related_paths:
+  - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
   - tests/Feature/AtlasMemoryRegistryTest.php
   - tests/Feature/AtlasEngineeringKnowledgeBaseTest.php
   - app/Services/Ai/AtlasMemoryContextComposer.php
@@ -54,6 +57,7 @@ capacidade vire "pronta" apenas porque existe codigo.
 | L11 | Open Brain multi-tool | context export e MCP auditavel | Implementado como API/CLI/MCP local e HTTP JSON-RPC autenticado; SSE/sessoes futuras |
 | L12 | Open Brain automatic injection | `atlas dev`, `atlas continue`, `atlas chat` e Atlas AI App usam Open Brain automaticamente em codigo/review/debug | Implementado |
 | L13 | Learning promotion and memory quality | promocao automatica conservadora de deltas aceitos, scorecard read-only, snapshots e Open Brain quality gate | Implementado backend/API/CLI/injection |
+| L14 | Cognitive Immune Learning Kernel | raw capture quarantine, noise filtering, promotion gates, embedding quarantine, forgetting receipts e evals de dano/ganho | Contrato ativo; implementacao completa pendente |
 
 ## Definition Of Done Global
 
@@ -83,6 +87,7 @@ Toda fase que altera Memory Core deve entregar:
 | Code Intelligence | modules, symbols, doc links, code refs, routes/API/CLI e teste fixture |
 | App UI | estados loading/error/empty, sync seguro, typecheck e teste front |
 | Open Brain Injection | service central, policy auto/off/required, trace metadata, audit log, dedupe de prompt e testes CLI/app |
+| Cognitive Immune Kernel | classificacao de captura, default deny para memoria/context/embedding/Constelacao, promotion gates, anti-memory, deletion cascade e evals |
 
 ## Metricas De Saude
 
@@ -105,6 +110,9 @@ Toda fase que altera Memory Core deve entregar:
 | accepted learning backlog | zero apos `atlas memory maintain` | deltas `accepted` acumulando sem virar registry |
 | trusted auto candidate promotion | somente com flag explicita e confianca alta | pending nao revisado promovido sem gate |
 | source orphan count | zero para fontes verificaveis | memoria aponta para delta/run/verbatim inexistente |
+| noise admission rate | trivial/operacional nao vira memoria/contexto | notas bobas aparecem em Memory/Constelacao |
+| memory attributable harm | zero ou queda continua | memoria usada piora resposta ou decisao |
+| forgetting receipt coverage | despromocao/delete tem motivo e propagacao | delete deixa embedding/cache/estrela viva |
 
 ## Gates Para Futuras Fases
 
@@ -133,6 +141,24 @@ Gate de manutencao:
 - fallback deterministico existir;
 - testes provarem que conteudo bloqueado nao entra em recall provider-safe nem em embedding externo;
 - custos, storage e retention estiverem documentados.
+
+### Cognitive Immune Learning Kernel
+
+Status: contrato ativo em `memory/cognitive-immune-learning-kernel.md`.
+Implementacao completa ainda requer AP proprio.
+
+Gate de implementacao:
+
+- toda captura nasce `memory_eligible=false`, `context_eligible=false`,
+  `constellation_eligible=false` e `embedding_allowed=false`;
+- classificador separa trivial, operacional, tarefa, evidence, insight,
+  sensivel, untrusted e prompt injection;
+- promotion gate exige fonte, escopo, privacy, utilidade, outcome e review;
+- retrieval bloqueia raw/unclassified/tombstoned/out-of-scope antes de ranking;
+- embeddings carregam trust, privacy, retention, expires_at e tombstone status;
+- Constelacao exige `constellation_eligible=true` e semantic value;
+- delete propaga para memoria, embeddings, caches, summaries e Constelacao;
+- evals medem noise admission, memory attributable gain/harm e regressao.
 
 ### Open Brain MCP/Remoto
 

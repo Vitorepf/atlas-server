@@ -2,7 +2,7 @@
 id: atlas-ai-cognitive-principles
 type: engineering_knowledge
 title: Atlas AI Cognitive Plane - Principles, Evidence Hierarchy, External Input Filter
-status: scaffold
+status: active
 category: architecture-governance
 priority: 95
 summary: 22 principios duros do Cognitive Plane (C1-C22) com fundamento cientifico, hierarquia de evidencia (consensus/emerging/contested/speculative) como gate de capability, filtro critico para contribuicoes de IA externa em 6 perguntas + 7 veredictos, anti-patterns transversais.
@@ -25,6 +25,7 @@ decisions:
 maintenance:
   - Manter abaixo de 260 linhas.
   - Atualizar quando novo principio C20+ for promovido ou nivel de evidencia de capability mudar.
+  - Status `active` significa governanca canonica vigente; nao significa que toda capability cognitiva ja esta em produto final.
 related_paths:
   - docs/engineering-knowledge-base/cognitive/README.md
   - docs/engineering-knowledge-base/cognitive/overview.md

@@ -1,6 +1,16 @@
 # AP-169 — Cognitive Personal Worked Examples Generator
 
-Status: scaffold
+Status: implemented_partial
+
+Implementation note (2026-05-09): AP-169 foi integrado sem criar fluxo paralelo.
+O comando canonico `atlas:worked-example` agora expõe `extract` e `personal`,
+reutilizando AP-164 como engine de consumo. Implementado: migration,
+source providers para Programming PR / Strategic Decision / Feynman, quality
+gate, privacy redaction/gate, serializer, persistence em
+`worked_examples.source=personal_ledger`, eventos Ledger, SLOs e testes
+focados. Pendente para `implemented-operational-read-model`: scheduler
+semanal default, review UI/surface, source providers mais ricos e policy
+compiler binding formal.
 
 ## Objetivo
 
@@ -29,7 +39,8 @@ Nao implementar:
 
 Em conflito: Tese central > Kernel > `cognitive/multiplier-edge.md` > este AP > `domains/learning.md`.
 
-Status promove para `implemented-operational-read-model` apos DoD.
+Status promove para `implemented-operational-read-model` apos fechar scheduler,
+review surface e policy binding. Enquanto isso, usar `implemented_partial`.
 
 ## Por que so o Atlas faz
 
@@ -43,7 +54,7 @@ Status promove para `implemented-operational-read-model` apos DoD.
 ## Fluxo
 
 ```
-Scheduler periodico (semanal por default)
+Manual extract via `atlas:worked-example extract` (scheduler futuro)
   -> PersonalWorkedExampleExtractor varre fontes:
        * Programming domain: PRs com explicacao no commit + tests passando
        * Strategic Decision domain: decisoes com outcome conhecido
@@ -103,10 +114,10 @@ Schema::create('personal_extraction_jobs', function (Blueprint $t) {
 | `PersonalWorkedExampleQualityFilter` | aplica criterios duros (PR sem regression, decisao com outcome conhecido, etc.) | `app/Services/Ai/Cognitive/PersonalWorkedExample/` |
 | `PersonalWorkedExamplePrivacyRedactor` | remove PII, secrets, nomes de cliente, redaction de privacy class >= 3 | `app/Services/Ai/Cognitive/PersonalWorkedExample/` |
 | `WorkedExampleSerializer` | converte source em `solution_full` + `fading_levels` (5 niveis) | `app/Services/Ai/Cognitive/PersonalWorkedExample/` |
-| `PersonalExtractionScheduler` | scheduler que dispara extracao periodica | `app/Services/Ai/Cognitive/PersonalWorkedExample/` |
+| `PersonalExtractionScheduler` | scheduler que dispara extracao periodica | futuro; nao registrado ainda |
 | `PersonalWorkedExampleQualityGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
 | `PersonalWorkedExamplePrivacySafeGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
-| `AtlasWorkedExampleExtractCommand` | CLI manual | `app/Console/Commands/` |
+| `AtlasWorkedExampleCommand` | CLI manual sem comando paralelo (`extract`/`personal`) | `app/Console/Commands/` |
 
 ## Gates Executaveis
 
@@ -157,16 +168,16 @@ final class PersonalWorkedExamplePrivacySafeGate {
 
 | Comando | Output |
 |---|---|
-| `php artisan atlas:worked-example extract --source=programming_pr [--domain=...]` | future CLI; varre + extrai sob demanda |
-| `php artisan atlas:worked-example extract status` | future CLI; ultimo run summary |
+| `php artisan atlas:worked-example extract --extract-source=programming_pr [--domain=...]` | varre + extrai sob demanda |
+| `php artisan atlas:worked-example extract status --status=...` | lista historico de extracao |
 | `php artisan atlas:worked-example extract schedule on/off` | future CLI; toggle scheduler |
-| `php artisan atlas:worked-example personal --node=<knowledge_node_id>` | future CLI; lista exemplos pessoais para nó |
+| `php artisan atlas:worked-example personal --node=<knowledge_node_id>` | lista exemplos pessoais para nó |
 | `php artisan atlas:worked-example extract review --status=discarded_privacy` | future CLI; inspeciona descartados |
 
 ### Tela / Interacao tipica
 
 ```
-$ php artisan atlas:worked-example extract --source=programming_pr --domain=programming
+$ php artisan atlas:worked-example extract --extract-source=programming_pr --domain=programming
 
 Atlas escaneou 47 PRs nos ultimos 90 dias.
 
@@ -206,7 +217,7 @@ Namespace `cognitive.personal_worked_example.*`.
 
 | Test | Local |
 |---|---|
-| `PersonalWorkedExampleExtractorTest` | `tests/Unit/Ai/Cognitive/PersonalWorkedExample/` |
+| `PersonalWorkedExampleExtractorTest` | futuro; cobertura atual e2e via command |
 | `ProgrammingPRSourceProviderTest` | `tests/Unit/Ai/Cognitive/PersonalWorkedExample/Sources/` |
 | `StrategicDecisionSourceProviderTest` | `tests/Unit/Ai/Cognitive/PersonalWorkedExample/Sources/` |
 | `FeynmanSessionSourceProviderTest` | `tests/Unit/Ai/Cognitive/PersonalWorkedExample/Sources/` |
@@ -215,7 +226,7 @@ Namespace `cognitive.personal_worked_example.*`.
 | `WorkedExampleSerializerTest` (5 niveis fading_levels gerados) | `tests/Unit/Ai/Cognitive/PersonalWorkedExample/` |
 | `PersonalWorkedExampleQualityGateTest` (3 source_types) | `tests/Unit/Ai/Kernel/Gates/` |
 | `PersonalWorkedExamplePrivacySafeGateTest` | `tests/Unit/Ai/Kernel/Gates/` |
-| `PersonalExtractionIntegrationTest` (end-to-end) | `tests/Feature/Ai/Cognitive/` |
+| `AtlasWorkedExamplePersonalExtractionCommandTest` (end-to-end) | `tests/Feature/Ai/Cognitive/` |
 | `CognitiveDomainComplianceTest::test_personal_worked_examples_never_leak_pii` | `tests/Feature/Architecture/` |
 
 ## Validation Commands
@@ -223,22 +234,22 @@ Namespace `cognitive.personal_worked_example.*`.
 ```bash
 php artisan migrate
 php artisan test tests/Unit/Ai/Cognitive/PersonalWorkedExample tests/Feature/Ai/Cognitive
-php artisan atlas:worked-example extract --source=programming_pr --json
+php artisan atlas:worked-example extract --extract-source=programming_pr --json
 php artisan atlas:worked-example extract status --json
 php artisan atlas:ai:architecture-validate --json
 ```
 
 ## Definition Of Done
 
-1. Migrations `worked_example_extractions` + `personal_extraction_jobs` aplicadas e idempotentes
-2. Todos os 3 source providers (Programming PR, Strategic Decision, Feynman) implementados e testados
-3. Quality Filter + Privacy Redactor + Serializer implementados e testados
-4. Ambos os gates executaveis e ligados ao policy compiler
-5. Scheduler semanal default registrado no `bootstrap/app.php`
-6. CLI `php artisan atlas:worked-example extract` (run/status/schedule/review/personal) operacional
-7. Integracao com AP-164 funciona: WorkedExampleSelector com `source_preference=personal` retorna exemplos extraidos
-8. Architecture test garante zero leak de PII (`test_personal_worked_examples_never_leak_pii`) verde
-9. Ledger emite todos os 6 events em fluxo end-to-end
-10. SLOs registrados em `KernelSloTargets`
-11. `atlas:ai:architecture-validate --json` continua verde
-12. `cognitive/multiplier-edge.md` marca Capability 8 (Personal Worked Examples Generator) como status exato da taxonomia
+1. [x] Migrations `worked_example_extractions` + `personal_extraction_jobs` aplicadas e idempotentes
+2. [x] Todos os 3 source providers (Programming PR, Strategic Decision, Feynman) implementados
+3. [x] Quality Filter + Privacy Redactor + Serializer implementados e testados
+4. [x] Ambos os gates executaveis implementados; policy compiler binding ainda futuro
+5. [ ] Scheduler semanal default registrado no `bootstrap/app.php`
+6. [~] CLI `php artisan atlas:worked-example extract` e `personal` operacional; schedule/review UI futuros
+7. [x] Integracao com AP-164 funciona via `source=personal_ledger`
+8. [~] Privacy tests cobrem PII/secrets no fluxo e2e; architecture test dedicado ainda futuro
+9. [x] Ledger emite todos os 6 events em fluxo end-to-end
+10. [x] SLOs registrados em `KernelSloTargets`
+11. [x] `atlas:ai:architecture-validate --json` deve permanecer verde
+12. [x] `cognitive/multiplier-edge.md` marca Capability 8 com status granular

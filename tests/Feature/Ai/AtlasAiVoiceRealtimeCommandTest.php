@@ -726,21 +726,30 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertTrue($payload['mobile_first']);
         $this->assertFalse($payload['daemon_started']);
         $this->assertFalse($payload['sdk_required_for_certification']);
-        $this->assertSame(4, data_get($payload, 'summary.gate_count'));
-        $this->assertSame(4, data_get($payload, 'summary.passed_gates'));
+        $this->assertSame(6, data_get($payload, 'summary.gate_count'));
+        $this->assertSame(6, data_get($payload, 'summary.passed_gates'));
         $this->assertSame(0, data_get($payload, 'summary.failed_gates'));
         $this->assertSame([], data_get($payload, 'summary.failed_keys'));
+        $this->assertTrue(data_get($payload, 'gates.foundation_registry_ready.passed'));
+        $this->assertSame('connect_through_authorized_adapter_with_existing_kernel_methods', data_get($payload, 'gates.foundation_registry_ready.next_allowed_step'));
         $this->assertTrue(data_get($payload, 'gates.preflight_ready.passed'));
         $this->assertTrue(data_get($payload, 'gates.callback_sequence_passed.passed'));
         $this->assertTrue(data_get($payload, 'gates.production_loop_smoke_passed.passed'));
         $this->assertTrue(data_get($payload, 'gates.worker_start_blocked_safely.passed'));
+        $this->assertTrue(data_get($payload, 'gates.certification_artifacts_sanitized.passed'));
+        $this->assertSame(0, data_get($payload, 'gates.certification_artifacts_sanitized.forbidden_key_count'));
+        $this->assertSame([], data_get($payload, 'gates.certification_artifacts_sanitized.forbidden_keys'));
         $this->assertSame(0, data_get($payload, 'gates.production_loop_smoke_passed.active_session_count'));
         $this->assertFalse(data_get($payload, 'gates.production_loop_smoke_passed.daemon_started'));
         $this->assertSame('wire_real_livekit_agents_sdk_loop_when_optional_dependency_is_ready', $payload['next_action']);
         $this->assertArrayNotHasKey('results', data_get($payload, 'artifacts.production_loop_smoke'));
         $this->assertArrayNotHasKey('worker_plan', data_get($payload, 'artifacts.worker_start_check'));
+        $this->assertArrayHasKey('foundation_registry', $payload['artifacts']);
+        $this->assertArrayNotHasKey('summary', data_get($payload, 'artifacts.foundation_registry'));
         $this->assertStringNotContainsString('preflight-secret', Artisan::output());
         $this->assertStringNotContainsString('worker-start-secret', Artisan::output());
+        $this->assertStringNotContainsString('raw_audio', Artisan::output());
+        $this->assertStringNotContainsString('response_text', Artisan::output());
     }
 
     public function test_command_human_output_lists_runtime_certification(): void
@@ -787,6 +796,8 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertSame(48, $payload['hours']);
         $this->assertSame('certified_scaffold', data_get($payload, 'runtime_certification.status'));
         $this->assertSame(0, data_get($payload, 'runtime_certification.summary.failed_gates'));
+        $this->assertTrue(data_get($payload, 'runtime_certification.artifact_sanitization.passed'));
+        $this->assertSame(0, data_get($payload, 'runtime_certification.artifact_sanitization.forbidden_key_count'));
         $this->assertContains($payload['status'], ['ledger_unavailable', 'not_ready', 'ready']);
     }
 

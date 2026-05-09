@@ -28,7 +28,7 @@ de falhas como `agent.verification_missing` ou `agent.unsurgical_diff`.
 
 AP-159 promove essa capacidade para o flow dedicado
 `self_improvement.agent_behavior_review`, invocado por
-`atlas ai self-improve --flow=agent_behavior_review --hours=168 --json`.
+`php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json`.
 Esse flow nao substitui `weekly_architecture_audit` nem
 `provider_performance_review`; ele existe para auditorias focadas em qualidade
 de agentes quando o operador quer investigar comportamento, nao custo/modelo.
@@ -61,7 +61,7 @@ O Curator nao le traces crus, prompts soltos ou logs paralelos. Ele chama
 - A validação arquitetural deve falhar se o runtime parar de consumir
   `agentBehaviorReportForWindow`.
 - O catalogo operacional deve expor
-  `atlas ai self-improve --flow=agent_behavior_review --hours=168 --json`.
+  `php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json`.
 
 ## Verificacao
 

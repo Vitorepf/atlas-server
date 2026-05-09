@@ -306,7 +306,7 @@ class AtlasRivalsStrategyReadModel
             'status' => $review->status,
             'review_due_at' => $review->review_due_at?->toJSON(),
             'record_command' => sprintf(
-                'atlas ai rivals-strategy record-review --review-id=%s --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
+                'php artisan atlas:ai:rivals-strategy record-review --review-id=%s --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
                 escapeshellarg((string) $review->id),
             ),
         ];

@@ -1,6 +1,6 @@
 # AP-172 - Provider Release Source Watchlist
 
-Status: foundation-registry-implemented
+Status: foundation-registry-connected-to-review
 
 ## Problema
 
@@ -154,25 +154,51 @@ Nao deve produzir:
 
 ## Fundacao Implementada
 
-Implementado como bloco lateral seguro, sem crawler, API, MCP, scheduler,
-Architecture Operations ou Atlas Decide:
+Implementado como bloco lateral seguro, sem crawler, MCP, scheduler, persistence,
+Inbox automatico, Evidence Ledger ou Atlas Decide:
 
 - `AtlasProviderReleaseSourceRegistry`: registry read-only com fontes, filtros,
   contagens, guardrails e candidate a partir de URL/titulo;
+- `continuous_ingestion_contract`: contrato fail-closed para crawler futuro,
+  exigindo AP, rate limits, canonical URL/hash, source gate, Ledger,
+  Rivals/AP-99 e review humano antes de qualquer rede, write ou signal;
 - `ProviderReleaseCandidateFingerprint`: canonical URL, content hash e dedupe
   key deterministico para o crawler futuro;
 - `ProviderReleaseSourceTrustPolicy`: policy Tier 1/2/3, outputs permitidos e
   outputs proibidos;
 - `ProviderReleaseSource`: value object provider-safe;
+- `atlas:ai:provider-release-sources`: CLI read-only para listar watchlist ou
+  gerar candidate preview a partir de URL/titulo;
+- `GET /ai/provider-release-sources`: API read-only com os mesmos filtros e
+  candidate preview;
+- `atlas_provider_release_sources`: MCP read-only dedicado para watchlist e
+  candidate preview, sem rede, write, envelope ou routing;
+- Architecture Operations publica `provider_release_sources` como operacao de
+  provider evolution, consumivel indiretamente pelo MCP
+  `atlas_architecture_operations`;
 - `tests/Fixtures/Ai/provider-release-source-candidates.json`: corpus offline para
   releases/candidates sem depender de rede;
 - `AtlasProviderReleaseSourceRegistryTest`: cobre fontes oficiais, filtros,
   candidate Tier 1, weak signal, fixtures offline, fingerprint/dedupe e
   proibicao de policy/routing/code/memory write.
+- `AtlasAiProviderReleaseSourcesCommandTest` e
+  `AtlasAiProviderReleaseSourcesApiTest`: cobrem CLI/API sem network, sem write e
+  sem routing.
 
-O Codex principal deve conectar depois, se aprovado, em command/API/MCP,
-Architecture Operations, Curator, Evidence Ledger e scanner. Esta fundacao nao
-faz rede e nao promove release sozinha.
+## Conexao Implementada No Review
+
+O comando/API/MCP `provider-release-review` agora consome a fundacao read-only:
+
+- URL + titulo geram `source_candidate` via `AtlasProviderReleaseSourceRegistry`;
+- fonte primaria retorna `draft_allowed_from_primary_source`;
+- fonte fraca/desconhecida retorna `classification_only_pending_primary_source`;
+- `source_gate` bloqueia signal de Decide quando `primary_source_required=true`;
+- `source_registry_context` expõe watchlist e guardrails sem rede e sem write.
+
+Ainda nao implementado: crawler continuo real, scheduler, persistencia append-only de candidates, Inbox/Curator
+automatico e Evidence Ledger. O contrato de ingestao continua ja bloqueia esses
+passos ate existir AP/fetch runtime governado. A conexao atual impede duplicacao
+e garante que o review oficial seja o unico ponto de promocao manual.
 
 ## Nao Escopo
 

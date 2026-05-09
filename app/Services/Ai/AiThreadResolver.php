@@ -33,7 +33,7 @@ class AiThreadResolver
                 $thread->update(['status' => 'active']);
             }
 
-            return new AiThreadResolution($this->updateThreadModeFromPayload($thread->refresh(), $payload), 'explicit_thread_id', false);
+            return new AiThreadResolution($this->updateThreadModeFromPayload($thread->refresh(), $payload, $options), 'explicit_thread_id', false);
         }
 
         $explicitSessionId = $this->firstString(
@@ -51,7 +51,7 @@ class AiThreadResolver
                 $session->thread->update(['status' => 'active']);
             }
 
-            return new AiThreadResolution($this->updateThreadModeFromPayload($session->thread->refresh(), $payload), 'explicit_session_id', false);
+            return new AiThreadResolution($this->updateThreadModeFromPayload($session->thread->refresh(), $payload, $options), 'explicit_session_id', false);
         }
 
         if ($this->allowsImplicitContinuation($options, $payload)) {
@@ -95,6 +95,13 @@ class AiThreadResolver
     private function createThread(string $input, array $options, string $reason): AiThread
     {
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $agent = $this->requestedAgent($payload, $options);
+        $workflowMode = $this->workflowMode($payload);
+        $mode = $this->threadMode($payload, $options);
+        $focus = $this->threadFocus($payload, $mode);
+        $routingTask = $this->routingTask($payload, $workflowMode);
+        $routingDomain = $this->routingDomain($payload, $mode);
+        $providerGovernance = $this->providerGovernance($payload, $options);
 
         return AiThread::query()->create([
             'title' => $this->titleFromInput($input),
@@ -106,18 +113,27 @@ class AiThreadResolver
             'metadata' => [
                 'created_by' => 'ai_thread_resolver',
                 'creation_reason' => $reason,
-                'requested_agent' => data_get($payload, 'requested_agent'),
+                'requested_agent' => $agent,
+                'last_agent_slug' => $agent,
                 'requested_provider' => data_get($payload, 'requested_provider')
                     ?: (data_get($payload, 'decision_mode') === 'manual_override' ? ($options['provider'] ?? null) : null),
                 'selected_provider' => $options['provider'] ?? null,
+                'execution_provider' => data_get($providerGovernance, 'execution_provider') ?: ($options['provider'] ?? null),
+                'operator_requested_provider' => data_get($payload, 'operator_requested_provider'),
+                'decision_mode' => data_get($providerGovernance, 'decision_mode') ?: data_get($payload, 'decision_mode'),
+                'decision_authority' => data_get($providerGovernance, 'decision_authority'),
+                'provider_governance' => $providerGovernance,
                 'app_surface' => data_get($payload, 'app_surface'),
-                'atlas_focus' => data_get($payload, 'atlas_focus'),
-                'initial_focus' => data_get($payload, 'atlas_focus'),
-                'current_focus' => data_get($payload, 'atlas_focus'),
-                'atlas_mode' => data_get($payload, 'atlas_mode'),
-                'current_mode' => data_get($payload, 'atlas_mode'),
-                'routing_task' => data_get($payload, 'routing_task'),
-                'routing_domain' => data_get($payload, 'routing_domain'),
+                'atlas_workflow_mode' => $workflowMode,
+                'workflow_mode' => $workflowMode,
+                'atlas_focus' => $focus,
+                'initial_focus' => $focus,
+                'current_focus' => $focus,
+                'atlas_mode' => $mode,
+                'initial_mode' => $mode,
+                'current_mode' => $mode,
+                'routing_task' => $routingTask,
+                'routing_domain' => $routingDomain,
                 'created_from' => data_get($payload, 'created_from'),
                 'origin_type' => data_get($payload, 'origin_type'),
                 'origin_label' => data_get($payload, 'origin_label'),
@@ -131,16 +147,19 @@ class AiThreadResolver
         ]);
     }
 
-    private function updateThreadModeFromPayload(AiThread $thread, array $payload): AiThread
+    private function updateThreadModeFromPayload(AiThread $thread, array $payload, array $options = []): AiThread
     {
-        $focus = $this->firstString(data_get($payload, 'atlas_focus'));
-        $mode = $this->firstString(data_get($payload, 'atlas_mode'));
-        $routingTask = $this->firstString(data_get($payload, 'routing_task'));
-        $routingDomain = $this->firstString(data_get($payload, 'routing_domain'));
+        $workflowMode = $this->workflowMode($payload);
+        $agent = $this->requestedAgent($payload, $options);
+        $mode = $this->threadMode($payload, $options);
+        $focus = $this->threadFocus($payload, $mode);
+        $routingTask = $this->routingTask($payload, $workflowMode);
+        $routingDomain = $this->routingDomain($payload, $mode);
         $requestedProvider = $this->firstString(data_get($payload, 'requested_provider'));
         $selectedProvider = $this->firstString(data_get($payload, 'selected_provider'));
+        $providerGovernance = $this->providerGovernance($payload, $options);
 
-        if (! $focus && ! $mode && ! $routingTask && ! $routingDomain && ! $requestedProvider && ! $selectedProvider) {
+        if (! $focus && ! $mode && ! $routingTask && ! $routingDomain && ! $requestedProvider && ! $selectedProvider && ! $workflowMode && ! $agent && ! $providerGovernance) {
             return $thread;
         }
 
@@ -182,15 +201,28 @@ class AiThreadResolver
         }
 
         foreach ([
+            'atlas_workflow_mode' => $workflowMode,
+            'workflow_mode' => $workflowMode,
+            'requested_agent' => $agent,
+            'last_agent_slug' => $agent,
             'routing_task' => $routingTask,
             'routing_domain' => $routingDomain,
             'requested_provider' => $requestedProvider,
             'selected_provider' => $selectedProvider,
+            'execution_provider' => data_get($providerGovernance, 'execution_provider'),
+            'operator_requested_provider' => $this->firstString(data_get($payload, 'operator_requested_provider')),
+            'decision_mode' => $this->firstString(data_get($providerGovernance, 'decision_mode'), data_get($payload, 'decision_mode')),
+            'decision_authority' => $this->firstString(data_get($providerGovernance, 'decision_authority')),
         ] as $key => $value) {
             if ($value && ($metadata[$key] ?? null) !== $value) {
                 $metadata[$key] = $value;
                 $changed = true;
             }
+        }
+
+        if ($providerGovernance && ($metadata['provider_governance'] ?? null) !== $providerGovernance) {
+            $metadata['provider_governance'] = $providerGovernance;
+            $changed = true;
         }
 
         if (! $changed) {
@@ -222,6 +254,179 @@ class AiThreadResolver
             'system' => 'system',
             default => 'atlas_ai_sheet',
         };
+    }
+
+    private function requestedAgent(array $payload, array $options): ?string
+    {
+        return $this->firstString(
+            data_get($payload, 'requested_agent'),
+            data_get($payload, 'last_agent_slug'),
+            $options['agent_slug'] ?? null,
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>|null
+     */
+    private function providerGovernance(array $payload, array $options): ?array
+    {
+        $governance = data_get($payload, 'provider_governance');
+        if (is_array($governance) && ($governance['schema_version'] ?? null) === 'atlas.provider_governance.v1') {
+            return $governance;
+        }
+
+        $decisionMode = $this->firstString(data_get($payload, 'decision_mode'));
+        $selectedProvider = $this->firstString(data_get($payload, 'selected_provider'), $options['provider'] ?? null);
+        $requestedProvider = $this->firstString(data_get($payload, 'requested_provider'));
+        $operatorRequestedProvider = $this->firstString(data_get($payload, 'operator_requested_provider'));
+
+        if (! $decisionMode && ! $selectedProvider && ! $requestedProvider && ! $operatorRequestedProvider) {
+            return null;
+        }
+
+        $decisionMode ??= $requestedProvider ? 'manual_override' : 'atlas_decide';
+        $manualOverride = $decisionMode !== 'atlas_decide';
+
+        return [
+            'schema_version' => 'atlas.provider_governance.v1',
+            'surface' => data_get($payload, 'app_surface') ?: data_get($payload, 'surface') ?: 'unknown',
+            'workflow_mode' => $this->workflowMode($payload),
+            'decision_mode' => $decisionMode,
+            'decision_authority' => $manualOverride ? 'operator_override' : 'atlas_decide',
+            'model_selection_authority' => data_get($payload, 'model_selection_contract.authority') ?: 'atlas_decide',
+            'operator_requested_provider' => $operatorRequestedProvider ?: ($manualOverride ? $requestedProvider : 'auto'),
+            'requested_provider' => $requestedProvider,
+            'candidate_provider' => $this->firstString(data_get($payload, 'candidate_provider')),
+            'execution_provider' => $selectedProvider,
+            'selected_provider' => $selectedProvider,
+            'fallback_provider' => $this->firstString(data_get($payload, 'fallback_provider')),
+            'fallback_reason' => $this->firstString(data_get($payload, 'fallback_reason')),
+            'manual_override' => $manualOverride,
+            'fair_mode' => (bool) data_get($payload, 'fair_mode.fair_mode'),
+            'separation_contract' => [
+                'atlas_decide_is_decision_layer' => ! $manualOverride,
+                'provider_is_executor_only' => true,
+                'provider_may_not_be_treated_as_atlas_identity' => true,
+                'manual_override_must_remain_visible' => $manualOverride,
+            ],
+        ];
+    }
+
+    private function workflowMode(array $payload): ?string
+    {
+        return $this->normalizeKey($this->firstString(
+            data_get($payload, 'atlas_workflow_mode'),
+            data_get($payload, 'workflow_mode'),
+            data_get($payload, 'open_brain.workflow_mode'),
+        ));
+    }
+
+    private function threadMode(array $payload, array $options): ?string
+    {
+        return $this->normalizeMode($this->firstString(
+            data_get($payload, 'atlas_mode'),
+            data_get($payload, 'current_mode'),
+        ))
+            ?? $this->modeFromWorkflow($this->workflowMode($payload))
+            ?? $this->modeFromRoutingTask($this->firstString(data_get($payload, 'routing_task')))
+            ?? $this->modeFromAgent($this->requestedAgent($payload, $options))
+            ?? $this->modeFromProgrammingContract($payload);
+    }
+
+    private function threadFocus(array $payload, ?string $mode): ?string
+    {
+        return $this->normalizeKey($this->firstString(
+            data_get($payload, 'atlas_focus'),
+            data_get($payload, 'current_focus'),
+        )) ?? match ($mode) {
+            'programming' => 'programming',
+            'operational' => 'operational',
+            default => null,
+        };
+    }
+
+    private function routingTask(array $payload, ?string $workflowMode): ?string
+    {
+        return $this->normalizeKey($this->firstString(data_get($payload, 'routing_task')))
+            ?? ($this->modeFromWorkflow($workflowMode) === 'programming' ? $workflowMode : null);
+    }
+
+    private function routingDomain(array $payload, ?string $mode): ?string
+    {
+        return $this->normalizeKey($this->firstString(data_get($payload, 'routing_domain')))
+            ?? ($mode === 'programming' ? 'programming' : null);
+    }
+
+    private function normalizeMode(?string $mode): ?string
+    {
+        $mode = $this->normalizeKey($mode);
+
+        return match ($mode) {
+            'dev', 'debug', 'execute', 'quality_repair', 'programacao', 'programming' => 'programming',
+            'operacional', 'operational', 'research', 'pesquisa' => 'operational',
+            default => $mode,
+        };
+    }
+
+    private function modeFromWorkflow(?string $workflowMode): ?string
+    {
+        return match ($workflowMode) {
+            'dev', 'debug', 'execute', 'quality_repair' => 'programming',
+            default => null,
+        };
+    }
+
+    private function modeFromRoutingTask(?string $routingTask): ?string
+    {
+        return match ($this->normalizeKey($routingTask)) {
+            'dev', 'debug', 'execute', 'quality_repair' => 'programming',
+            default => null,
+        };
+    }
+
+    private function modeFromAgent(?string $agent): ?string
+    {
+        $agent = $this->normalizeKey($agent);
+        if (! $agent) {
+            return null;
+        }
+
+        return match ($agent) {
+            'desenvolvedor', 'engenheiro', 'programador', 'developer', 'programmer', 'engineer', 'coder' => 'programming',
+            'pesquisador', 'analista', 'consultor', 'researcher', 'analyst', 'advisor' => 'operational',
+            default => str_contains($agent, 'dev') || str_contains($agent, 'code') || str_contains($agent, 'program')
+                ? 'programming'
+                : null,
+        };
+    }
+
+    private function modeFromProgrammingContract(array $payload): ?string
+    {
+        $flow = $this->normalizeKey($this->firstString(
+            data_get($payload, 'programming_chat_contract.programming_flow'),
+            data_get($payload, 'programming_dispatch.flow'),
+            data_get($payload, 'kernel_pipeline.input.safe_hints.flow'),
+        ));
+
+        return $flow && str_starts_with($flow, 'programming') ? 'programming' : null;
+    }
+
+    private function normalizeKey(?string $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        $normalized = Str::of($value)
+            ->ascii()
+            ->lower()
+            ->replace([' ', '-', '.'], '_')
+            ->trim('_')
+            ->value();
+
+        return $normalized !== '' ? $normalized : null;
     }
 
     private function workspace(array $payload): ?string

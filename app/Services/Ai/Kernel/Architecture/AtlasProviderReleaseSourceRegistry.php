@@ -39,6 +39,7 @@ final class AtlasProviderReleaseSourceRegistry
             ],
             'sources' => $sources->map(fn (ProviderReleaseSource $source): array => $this->sourcePayload($source))->all(),
             'guardrails' => $this->guardrails(),
+            'continuous_ingestion_contract' => $this->continuousIngestionContract(),
         ];
     }
 
@@ -140,6 +141,43 @@ final class AtlasProviderReleaseSourceRegistry
             'changes_routing' => false,
             'requires_primary_source_for_tier_2_or_3' => true,
             'crawler_contract_doc' => 'docs/ap/AP-172-provider-release-source-watchlist.md',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function continuousIngestionContract(): array
+    {
+        return [
+            'schema_version' => 'atlas.provider_release.continuous_ingestion_contract.v1',
+            'status' => 'planned_fail_closed',
+            'mode' => 'proposal_only_no_network_no_writes',
+            'network_fetching_enabled' => false,
+            'writes_release_envelope' => false,
+            'changes_decide_policy' => false,
+            'allowed_until_activation' => [
+                'list_watchlist_sources',
+                'preview_manual_candidate_from_url',
+                'run_provider_release_review',
+                'emit_self_improvement_proposal',
+            ],
+            'activation_requires' => [
+                'dedicated_AP_for_fetch_runtime',
+                'source_rate_limits_and_robot_policy_review',
+                'content_hash_and_canonical_url',
+                'primary_source_gate',
+                'Evidence Ledger event for each candidate',
+                'Rivals/AP-99 gate before Decide promotion',
+                'human_review',
+            ],
+            'forbidden_shortcuts' => [
+                'background_web_crawler_without_AP',
+                'secondary_news_to_decide_signal',
+                'provider_release_to_routing_policy_patch',
+                'memory_promotion_without_curator_review',
+            ],
+            'review_flow' => 'self_improvement.provider_release_review',
         ];
     }
 

@@ -24,15 +24,17 @@ final class ContextRetrievalRouter
         $mode = (string) ($taskData['desired_mode'] ?? 'direct');
 
         $sources = [
-            $this->source('vector_retrieval', true, 'semantic_similarity_baseline', 10, false),
-            $this->source('memory_signals', ($options['include_memory_registry'] ?? true) !== false, 'operator_memory_and_preferences', 8, false),
-            $this->source('code_intelligence', $this->needsCode($taskType, $domain, $mode, $text), 'programming_or_debug_context', 12, false),
-            $this->source('evidence_replay', $this->needsEvidence($payload, $taskType, $risk, $text), 'audit_replay_or_high_risk_context', 8, in_array($risk, ['high', 'irreversible'], true)),
-            $this->source('graph_retrieval', $this->needsGraph($taskType, $domain, $text), 'relationship_causality_dependency_context', 6, false),
+            $this->source('vector_retrieval', true, 'semantic_similarity_baseline', 10, false, 'implemented_partial', true, 'laravel_kernel', 'docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md'),
+            $this->source('memory_signals', ($options['include_memory_registry'] ?? true) !== false, 'operator_memory_and_preferences', 8, false, 'implemented_ready', true, 'laravel_kernel', 'docs/engineering-knowledge-base/memory-core-contracts.md'),
+            $this->source('code_intelligence', $this->needsCode($taskType, $domain, $mode, $text), 'programming_or_debug_context', 12, false, 'implemented_ready', true, 'laravel_kernel', 'docs/engineering-knowledge-base/code-intelligence.md'),
+            $this->source('evidence_replay', $this->needsEvidence($payload, $taskType, $risk, $text), 'audit_replay_or_high_risk_context', 8, in_array($risk, ['high', 'irreversible'], true), 'implemented_ready', true, 'laravel_kernel', 'docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md'),
+            $this->source('graph_retrieval', $this->needsGraph($taskType, $domain, $text), 'relationship_causality_dependency_context', 6, false, 'future_governed', false, 'python_ai_data_candidate', 'docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md'),
         ];
 
         $selected = array_values(array_filter($sources, fn (array $source): bool => (bool) $source['enabled']));
         usort($selected, fn (array $a, array $b): int => ((int) $a['priority']) <=> ((int) $b['priority']));
+        $unavailableSelected = array_values(array_filter($selected, fn (array $source): bool => ! (bool) $source['available']));
+        $requiredUnavailable = array_values(array_filter($unavailableSelected, fn (array $source): bool => (bool) $source['required']));
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -49,6 +51,12 @@ final class ContextRetrievalRouter
                 'provider_safe_only' => true,
                 'do_not_create_parallel_memory' => true,
                 'router_decides_sources_only' => true,
+                'provider_bypass_allowed' => false,
+            ],
+            'readiness' => [
+                'status' => $requiredUnavailable !== [] ? 'blocked' : ($unavailableSelected !== [] ? 'degraded' : 'ready'),
+                'unavailable_selected_sources' => array_column($unavailableSelected, 'type'),
+                'required_unavailable_sources' => array_column($requiredUnavailable, 'type'),
             ],
         ];
     }
@@ -56,11 +64,24 @@ final class ContextRetrievalRouter
     /**
      * @return array<string,mixed>
      */
-    private function source(string $type, bool $enabled, string $reason, int $limit, bool $required): array
-    {
+    private function source(
+        string $type,
+        bool $enabled,
+        string $reason,
+        int $limit,
+        bool $required,
+        string $status,
+        bool $available,
+        string $runtime,
+        string $ownerDoc,
+    ): array {
         return [
             'type' => $type,
             'enabled' => $enabled,
+            'available' => $available,
+            'status' => $status,
+            'runtime' => $runtime,
+            'owner_doc' => $ownerDoc,
             'reason' => $reason,
             'priority' => match ($type) {
                 'evidence_replay' => 10,
@@ -71,6 +92,7 @@ final class ContextRetrievalRouter
             },
             'limit' => $limit,
             'required' => $required,
+            'provider_bypass_allowed' => false,
             'unavailable_action' => $required ? 'fail_closed_or_request_review' : 'degrade_with_review_signal',
         ];
     }

@@ -6,6 +6,10 @@ use Illuminate\Support\Str;
 
 final class AtlasProviderReleaseIntelligenceService
 {
+    public function __construct(
+        private readonly AtlasProviderReleaseSourceRegistry $sourceRegistry = new AtlasProviderReleaseSourceRegistry,
+    ) {}
+
     private const PROVIDERS = [
         'anthropic',
         'openai',
@@ -40,6 +44,14 @@ final class AtlasProviderReleaseIntelligenceService
     {
         $title = $this->cleanString($input['title'] ?? null) ?: 'untitled-provider-release';
         $url = $this->cleanString($input['url'] ?? null);
+        $sourceCandidate = $url !== null
+            ? $this->sourceRegistry->candidateFromDetection(
+                url: $url,
+                title: $title,
+                contentHash: $this->cleanString($input['content_hash'] ?? null),
+                publishedAt: $this->cleanString($input['published_at'] ?? null),
+            )
+            : null;
         $provider = $this->provider($input['provider'] ?? null, $title.' '.$url);
         $releaseType = $this->releaseType($input['type'] ?? null, $title.' '.$url);
         $domains = $this->domains((array) ($input['domains'] ?? []), $title.' '.$url.' '.$releaseType);
@@ -49,6 +61,19 @@ final class AtlasProviderReleaseIntelligenceService
         $recommendedAction = $this->recommendedAction($releaseType, $domains, $capabilities, $connectors);
         $secondaryActions = $this->secondaryActions($recommendedAction, $releaseType);
         $ownerDocs = $this->ownerDocs($domains, $releaseType);
+        $rivalsRequired = $this->rivalsRequired($releaseType, $domains);
+        $sourceGate = $this->sourceGate($sourceCandidate);
+        $reviewSignal = $this->reviewSignal($recommendedAction, $rivalsRequired, $sourceGate);
+        $suggestedAps = $this->suggestedAps($provider, $releaseId, $releaseType, $domains, $recommendedAction);
+        $absorptionPlan = $this->absorptionPlan(
+            provider: $provider,
+            releaseId: $releaseId,
+            releaseType: $releaseType,
+            domains: $domains,
+            recommendedAction: $recommendedAction,
+            rivalsRequired: $rivalsRequired,
+            sourceGate: $sourceGate,
+        );
 
         return [
             'schema_version' => 'atlas.provider_release_review.v1',
@@ -56,6 +81,7 @@ final class AtlasProviderReleaseIntelligenceService
             'generated_at' => now()->toIso8601String(),
             'release_envelope' => [
                 'schema_version' => 'atlas.provider_release.v1',
+                'draft_status' => $this->envelopeDraftStatus($sourceCandidate),
                 'provider' => $provider,
                 'release_id' => $releaseId,
                 'title' => $title,
@@ -71,6 +97,9 @@ final class AtlasProviderReleaseIntelligenceService
                 'potential_multiplier' => $this->potentialMultiplier($releaseType, $domains, $capabilities, $connectors),
                 'recommended_action' => $recommendedAction,
             ],
+            'source_candidate' => $sourceCandidate,
+            'source_gate' => $sourceGate,
+            'source_registry_context' => $this->sourceRegistryContext($provider, $sourceCandidate),
             'classification' => [
                 'provider_category' => $provider === 'other' ? 'unknown_or_emerging_lab' : 'known_provider',
                 'release_family' => $this->releaseFamily($releaseType),
@@ -80,16 +109,20 @@ final class AtlasProviderReleaseIntelligenceService
             'recommended_action' => $recommendedAction,
             'secondary_actions' => $secondaryActions,
             'owner_docs' => $ownerDocs,
-            'suggested_aps' => $this->suggestedAps($provider, $releaseId, $releaseType, $domains, $recommendedAction),
-            'rivals_required' => $this->rivalsRequired($releaseType, $domains),
+            'suggested_aps' => $suggestedAps,
+            'absorption_plan' => $absorptionPlan,
+            'rivals_required' => $rivalsRequired,
             'decide_signal' => [
                 'schema_version' => 'atlas.decide.provider_release_signal.v1',
                 'signal_only' => true,
                 'changes_routing' => false,
+                'source_trust_allows_signal' => (bool) data_get($sourceCandidate, 'source_trust.decide_signal_allowed', $sourceCandidate === null),
                 'manual_override_required_for_critical_use' => true,
                 'promotion_requires' => ['AP-99 evidence', 'Rivals benchmark', 'owner doc update', 'human review'],
             ],
-            'risks' => $this->risks($releaseType, $recommendedAction),
+            'review_signal' => $reviewSignal,
+            'curator_proposal' => $this->curatorProposal($releaseId, $recommendedAction, $reviewSignal, $ownerDocs, $suggestedAps, $absorptionPlan),
+            'risks' => $this->risks($releaseType, $recommendedAction, $sourceCandidate),
             'required_validation' => [
                 'php artisan atlas:ai:architecture-validate --json',
                 'atlas engineering knowledge docs-health',
@@ -102,6 +135,273 @@ final class AtlasProviderReleaseIntelligenceService
                 'No domain maturity promotion without evidence.',
                 'No connector credential storage in this review command.',
             ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $sourceGate
+     * @return array<string,mixed>
+     */
+    private function reviewSignal(string $recommendedAction, bool $rivalsRequired, array $sourceGate): array
+    {
+        $sourceVerified = (bool) ($sourceGate['can_create_release_envelope_draft'] ?? false);
+        if (! $sourceVerified) {
+            return [
+                'schema_version' => 'atlas.provider_release.review_signal.v1',
+                'status' => 'blocked_pending_primary_source',
+                'severity' => 'medium',
+                'recommended_action' => 'attach_primary_source_before_ap_or_decide_signal',
+                'stop_the_line_for_routing' => true,
+                'proposal_allowed' => false,
+                'evidence_required' => ['primary_source_url', 'source_gate.primary_source_verified'],
+            ];
+        }
+
+        if ($recommendedAction === 'bypass') {
+            return [
+                'schema_version' => 'atlas.provider_release.review_signal.v1',
+                'status' => 'archive_or_monitor',
+                'severity' => 'low',
+                'recommended_action' => 'archive_source_material_without_policy_change',
+                'stop_the_line_for_routing' => false,
+                'proposal_allowed' => true,
+                'evidence_required' => ['archive_reason'],
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.provider_release.review_signal.v1',
+            'status' => $rivalsRequired ? 'ready_for_rivals_proposal' : 'ready_for_absorption_proposal',
+            'severity' => $rivalsRequired ? 'high' : 'medium',
+            'recommended_action' => $rivalsRequired
+                ? 'create_rivals_ap_before_absorption_or_decide_promotion'
+                : 'create_absorption_ap_with_owner_doc_update',
+            'stop_the_line_for_routing' => true,
+            'proposal_allowed' => true,
+            'evidence_required' => $rivalsRequired
+                ? ['Provider Release Envelope', 'Rivals benchmark AP', 'AP-99 calibration', 'human review']
+                : ['Provider Release Envelope', 'owner doc update', 'human review'],
+        ];
+    }
+
+    /**
+     * @param  array<int,array{path:string,exists:bool,reason:string}>  $ownerDocs
+     * @param  array<int,array<string,string>>  $suggestedAps
+     * @param  array<string,mixed>  $reviewSignal
+     * @param  array<string,mixed>  $absorptionPlan
+     * @return array<string,mixed>
+     */
+    private function curatorProposal(string $releaseId, string $recommendedAction, array $reviewSignal, array $ownerDocs, array $suggestedAps, array $absorptionPlan): array
+    {
+        $proposalAllowed = (bool) ($reviewSignal['proposal_allowed'] ?? false);
+
+        return [
+            'schema_version' => 'atlas.provider_release.curator_proposal.v1',
+            'proposal_only' => true,
+            'auto_apply' => false,
+            'status' => $proposalAllowed ? 'proposal_ready' : 'blocked',
+            'release_id' => $releaseId,
+            'target_flow' => 'self_improvement.provider_release_review',
+            'recommended_action' => $recommendedAction,
+            'review_signal_status' => (string) ($reviewSignal['status'] ?? 'unknown'),
+            'required_human_review' => true,
+            'target_owner_docs' => collect($ownerDocs)
+                ->pluck('path')
+                ->values()
+                ->all(),
+            'suggested_ap_ids' => collect($suggestedAps)
+                ->pluck('id')
+                ->values()
+                ->all(),
+            'absorption_plan_ref' => [
+                'schema_version' => (string) ($absorptionPlan['schema_version'] ?? 'atlas.provider_release.absorption_plan.v1'),
+                'status' => (string) ($absorptionPlan['status'] ?? 'unknown'),
+                'stage_count' => count((array) ($absorptionPlan['stages'] ?? [])),
+                'next_stage' => (string) data_get($absorptionPlan, 'stages.0.id', 'none'),
+            ],
+            'forbidden_actions' => [
+                'auto_change_atlas_decide_routing',
+                'auto_store_provider_credentials',
+                'declare_domain_implemented_without_rivals',
+                'call_provider_vertical_directly_outside_atlas',
+            ],
+            'next_action' => $proposalAllowed
+                ? 'open_reviewable_curator_item_or_create_ap_from_suggested_ids'
+                : 'resolve_review_signal_blocker_before_proposal',
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $domains
+     * @param  array<string,mixed>  $sourceGate
+     * @return array<string,mixed>
+     */
+    private function absorptionPlan(string $provider, string $releaseId, string $releaseType, array $domains, string $recommendedAction, bool $rivalsRequired, array $sourceGate): array
+    {
+        $blocked = (bool) ($sourceGate['can_create_release_envelope_draft'] ?? false) === false;
+        $primaryDomain = $domains[0] ?? 'general';
+
+        return [
+            'schema_version' => 'atlas.provider_release.absorption_plan.v1',
+            'status' => $blocked ? 'blocked_pending_source_gate' : 'proposal_ready',
+            'mode' => 'proposal_only_no_routing_change',
+            'provider' => $provider,
+            'release_id' => $releaseId,
+            'release_type' => $releaseType,
+            'primary_domain' => $primaryDomain,
+            'recommended_action' => $recommendedAction,
+            'rivals_required' => $rivalsRequired,
+            'source_gate_status' => (string) ($sourceGate['status'] ?? 'unknown'),
+            'stages' => $this->absorptionStages($releaseType, $primaryDomain, $recommendedAction, $rivalsRequired, $blocked),
+            'promotion_rules' => [
+                'may_create_ap' => ! $blocked,
+                'may_create_skill_pack' => ! $blocked && in_array($recommendedAction, ['benchmark', 'absorb', 'exploit_gap'], true),
+                'may_emit_decide_signal' => ! $blocked,
+                'may_change_routing_policy' => false,
+                'routing_policy_requires' => ['human_review', 'AP-99 evidence', 'Rivals benchmark when required', 'Decision Receipt'],
+            ],
+            'ledger_events_expected' => [
+                'PROVIDER_RELEASE_REVIEWED',
+                'RIVALS_BENCHMARK_RECORDED',
+                'PROVIDER_DECIDE_SIGNAL_PROPOSED',
+                'PROVIDER_CAPABILITY_ABSORPTION_REVIEWED',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function absorptionStages(string $releaseType, string $primaryDomain, string $recommendedAction, bool $rivalsRequired, bool $blocked): array
+    {
+        if ($blocked) {
+            return [[
+                'id' => 'source_gate',
+                'owner' => 'provider_evolution',
+                'status' => 'blocked',
+                'action' => 'attach_primary_source_before_any_absorption',
+                'writes_policy' => false,
+            ]];
+        }
+
+        $stages = [[
+            'id' => 'release_envelope',
+            'owner' => 'provider_evolution',
+            'status' => 'ready',
+            'action' => 'keep_provider_release_envelope_as_source_of_truth',
+            'writes_policy' => false,
+        ]];
+
+        if ($rivalsRequired) {
+            $stages[] = [
+                'id' => 'rivals_benchmark',
+                'owner' => 'rivals',
+                'status' => 'required',
+                'action' => 'create_or_run_rivals_suite_before_absorption',
+                'writes_policy' => false,
+            ];
+        }
+
+        if (in_array($recommendedAction, ['benchmark', 'absorb', 'exploit_gap'], true)) {
+            $stages[] = [
+                'id' => $releaseType === 'vertical_agents' ? 'domain_skill_pack' : 'capability_adapter',
+                'owner' => $primaryDomain,
+                'status' => 'proposal_only',
+                'action' => $releaseType === 'vertical_agents'
+                    ? 'extract_flows_tools_gates_and_evidence_schema'
+                    : 'map_capability_to_existing_core_or_runtime_adapter',
+                'writes_policy' => false,
+            ];
+        }
+
+        $stages[] = [
+            'id' => 'decide_signal',
+            'owner' => 'atlas_decide',
+            'status' => $recommendedAction === 'bypass' ? 'archive_only' : 'candidate_signal',
+            'action' => $recommendedAction === 'bypass'
+                ? 'archive_without_decide_signal'
+                : 'propose_temporary_signal_without_routing_change',
+            'writes_policy' => false,
+        ];
+
+        $stages[] = [
+            'id' => 'human_review',
+            'owner' => 'operator',
+            'status' => 'required',
+            'action' => 'approve_ap_skill_pack_or_archive_decision',
+            'writes_policy' => false,
+        ];
+
+        return $stages;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $sourceCandidate
+     * @return array<string,mixed>
+     */
+    private function sourceRegistryContext(string $provider, ?array $sourceCandidate): array
+    {
+        $summary = $this->sourceRegistry->summary([
+            'provider' => $provider === 'other' ? null : $provider,
+        ]);
+
+        return [
+            'schema_version' => 'atlas.provider_release.source_registry_context.v1',
+            'mode' => 'read_only_context',
+            'matched_source_id' => data_get($sourceCandidate, 'source.id'),
+            'provider_source_count' => $summary['source_count'],
+            'provider_source_ids' => array_values(array_map(
+                fn (array $source): string => (string) $source['id'],
+                array_slice($summary['sources'], 0, 12),
+            )),
+            'guardrails' => $summary['guardrails'],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $sourceCandidate
+     */
+    private function envelopeDraftStatus(?array $sourceCandidate): string
+    {
+        if ($sourceCandidate === null) {
+            return 'manual_review_no_source_candidate';
+        }
+
+        return data_get($sourceCandidate, 'source_trust.can_create_release_envelope_draft') === true
+            ? 'draft_allowed_from_primary_source'
+            : 'classification_only_pending_primary_source';
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $sourceCandidate
+     * @return array<string,mixed>
+     */
+    private function sourceGate(?array $sourceCandidate): array
+    {
+        if ($sourceCandidate === null) {
+            return [
+                'schema_version' => 'atlas.provider_release.source_gate.v1',
+                'status' => 'manual_input_without_source_candidate',
+                'can_create_release_envelope_draft' => false,
+                'primary_source_required' => true,
+                'next_action' => 'attach_primary_source_url_or_human_review',
+                'prohibited_outputs' => ['code_change', 'policy_patch', 'provider_routing_change', 'memory_core_promotion'],
+            ];
+        }
+
+        $trust = (array) data_get($sourceCandidate, 'source_trust', []);
+
+        return [
+            'schema_version' => 'atlas.provider_release.source_gate.v1',
+            'status' => data_get($trust, 'can_create_release_envelope_draft') === true
+                ? 'primary_source_verified'
+                : 'primary_source_required',
+            'source_id' => data_get($sourceCandidate, 'source.id'),
+            'source_tier' => data_get($trust, 'tier'),
+            'can_create_release_envelope_draft' => (bool) data_get($trust, 'can_create_release_envelope_draft'),
+            'primary_source_required' => (bool) data_get($trust, 'primary_source_required', true),
+            'next_action' => (string) data_get($sourceCandidate, 'recommended_triage_action'),
+            'prohibited_outputs' => (array) data_get($trust, 'prohibited_outputs', []),
         ];
     }
 
@@ -381,10 +681,17 @@ final class AtlasProviderReleaseIntelligenceService
     /**
      * @return array<int,string>
      */
-    private function risks(string $releaseType, string $recommendedAction): array
+    /**
+     * @param  array<string,mixed>|null  $sourceCandidate
+     * @return array<int,string>
+     */
+    private function risks(string $releaseType, string $recommendedAction, ?array $sourceCandidate = null): array
     {
         $risks = ['press_release_hype_without_evidence', 'hardcoded_provider_routing', 'surface_bypass_of_kernel'];
 
+        if ($sourceCandidate !== null && data_get($sourceCandidate, 'source_trust.primary_source_required') === true) {
+            $risks[] = 'source_not_primary_enough_for_release_envelope';
+        }
         if ($recommendedAction === 'benchmark') {
             $risks[] = 'benchmark_debt_if_no_rivals_suite_is_created';
         }

@@ -13,6 +13,7 @@ use App\Services\Ai\AiCompactionService;
 use App\Services\Ai\AiProviderHandoffService;
 use App\Services\Ai\AiSessionManager;
 use App\Services\Ai\AiSessionStateService;
+use App\Services\Ai\AiThreadDeletionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,20 +21,39 @@ class AiThreadController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        // ROUND 3.5 (atlas-app) · TODO cursor pagination
+        // -----------------------------------------------
+        // Hoje só aceitamos `limit` (max 100). Mobile carrega 50 e fim.
+        // Para usuários com 200+ threads históricos, precisamos:
+        //   1. Adicionar param `before_id: ?string` (uuid) e/ou
+        //      `before_last_message_at: ?datetime`
+        //   2. Aplicar keyset pagination:
+        //        ->when($beforeTs, fn($q) => $q->where('last_message_at', '<', $beforeTs))
+        //   3. Retornar `next_cursor` no response quando count == limit
+        //   4. Frontend migra pra useInfiniteQuery + getNextPageParam
+        // Skip por enquanto · 50 threads cobre 99% dos casos de uso atuais.
         $data = $request->validate([
             'status' => ['nullable', 'string', 'in:active,archived,closed,all'],
             'surface' => ['nullable', 'string', 'max:80'],
             'workspace' => ['nullable', 'string', 'max:500'],
             'limit' => ['nullable', 'integer', 'between:1,100'],
             'include_messages' => ['nullable', 'boolean'],
+            // 2026-05 · light=1 omite relations pesadas (activeSession,
+            // activeState, latestCompaction, latestProviderHandoff, lastTrace).
+            // Payload cai ~80× (1.2MB → ~15KB pra 10 threads). Histórico
+            // mobile usa light=1 · só precisa de id/title/meta pra listar.
+            // Quando user abre uma thread específica, show() carrega tudo.
+            'light' => ['nullable', 'boolean'],
         ]);
+
+        $light = $request->boolean('light');
 
         $threads = AiThread::query()
             ->when(($data['status'] ?? null) && $data['status'] !== 'all', fn ($query) => $query->where('status', $data['status']))
             ->when($data['surface'] ?? null, fn ($query, $surface) => $query->where('surface', $surface))
             ->when($data['workspace'] ?? null, fn ($query, $workspace) => $query->where('workspace', $workspace))
             ->when($request->boolean('include_messages'), fn ($query) => $query->with(['messages' => fn ($messages) => $messages->latest('position')->limit(30)]))
-            ->with(['activeSession', 'activeState', 'latestCompaction', 'latestProviderHandoff', 'lastTrace'])
+            ->when(! $light, fn ($query) => $query->with(['activeSession', 'activeState', 'latestCompaction', 'latestProviderHandoff', 'lastTrace']))
             ->orderByRaw('last_message_at DESC NULLS LAST')
             ->orderByDesc('created_at')
             ->limit(min((int) ($data['limit'] ?? 30), 100))
@@ -99,6 +119,22 @@ class AiThreadController extends Controller
 
         return response()->json([
             'thread' => (new AiThreadResource($thread->refresh()))->resolve(),
+        ]);
+    }
+
+    public function destroy(AiThread $thread, AiThreadDeletionService $deletion): JsonResponse
+    {
+        $summary = $deletion->delete($thread);
+
+        return response()->json([
+            'ok' => true,
+            'deleted_thread_id' => $summary['thread_id'],
+            'deletion' => [
+                'content_purged' => $summary['content_purged'],
+                'traces_tombstoned' => $summary['traces_tombstoned'],
+                'counts' => $summary['counts'],
+                'deleted_at' => $summary['deleted_at'],
+            ],
         ]);
     }
 

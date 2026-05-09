@@ -266,6 +266,85 @@ class AiSessionManagerTest extends TestCase
         $this->assertFalse($resolution->created);
     }
 
+    public function test_thread_resolver_infers_programming_metadata_for_atlas_dev_threads(): void
+    {
+        $resolution = app(AiThreadResolver::class)->resolve('como que esta a estrutura do atlas ?', [
+            'source_type' => 'manual',
+            'agent_slug' => 'desenvolvedor',
+            'provider' => 'claude_cli',
+            'payload' => [
+                'app_surface' => 'atlas_cli',
+                'atlas_workflow_mode' => 'dev',
+                'workspace' => base_path(),
+                'requested_agent' => 'desenvolvedor',
+            ],
+        ]);
+
+        $metadata = $resolution->thread->metadata;
+
+        $this->assertTrue($resolution->created);
+        $this->assertSame('atlas_cli', $resolution->thread->surface);
+        $this->assertSame('desenvolvedor', $metadata['requested_agent']);
+        $this->assertSame('desenvolvedor', $metadata['last_agent_slug']);
+        $this->assertSame('dev', $metadata['atlas_workflow_mode']);
+        $this->assertSame('dev', $metadata['workflow_mode']);
+        $this->assertSame('programming', $metadata['atlas_mode']);
+        $this->assertSame('programming', $metadata['initial_mode']);
+        $this->assertSame('programming', $metadata['current_mode']);
+        $this->assertSame('programming', $metadata['atlas_focus']);
+        $this->assertSame('programming', $metadata['initial_focus']);
+        $this->assertSame('programming', $metadata['current_focus']);
+        $this->assertSame('dev', $metadata['routing_task']);
+        $this->assertSame('programming', $metadata['routing_domain']);
+        $this->assertSame('atlas.provider_governance.v1', data_get($metadata, 'provider_governance.schema_version'));
+        $this->assertSame('atlas_decide', data_get($metadata, 'provider_governance.decision_authority'));
+        $this->assertSame('claude_cli', data_get($metadata, 'provider_governance.execution_provider'));
+        $this->assertTrue(data_get($metadata, 'provider_governance.separation_contract.provider_is_executor_only'));
+    }
+
+    public function test_thread_resolver_updates_existing_cli_thread_with_programming_metadata(): void
+    {
+        $thread = AiThread::query()->create([
+            'title' => 'Thread CLI antiga',
+            'status' => 'active',
+            'surface' => 'atlas_cli',
+            'workspace' => base_path(),
+            'metadata' => [
+                'created_by' => 'ai_thread_resolver',
+                'atlas_mode' => null,
+                'current_mode' => null,
+            ],
+        ]);
+
+        $resolution = app(AiThreadResolver::class)->resolve('continua', [
+            'thread_id' => $thread->id,
+            'source_type' => 'manual',
+            'agent_slug' => 'desenvolvedor',
+            'provider' => 'claude_cli',
+            'payload' => [
+                'app_surface' => 'atlas_cli',
+                'atlas_workflow_mode' => 'dev',
+                'requested_agent' => 'desenvolvedor',
+            ],
+        ]);
+
+        $metadata = $resolution->thread->metadata;
+
+        $this->assertFalse($resolution->created);
+        $this->assertSame('explicit_thread_id', $resolution->strategy);
+        $this->assertSame('programming', $metadata['atlas_mode']);
+        $this->assertSame('programming', $metadata['current_mode']);
+        $this->assertSame('programming', $metadata['atlas_focus']);
+        $this->assertSame('dev', $metadata['routing_task']);
+        $this->assertSame('programming', $metadata['routing_domain']);
+        $this->assertSame('desenvolvedor', $metadata['requested_agent']);
+        $this->assertSame('desenvolvedor', $metadata['last_agent_slug']);
+        $this->assertSame('dev', $metadata['atlas_workflow_mode']);
+        $this->assertSame('atlas.provider_governance.v1', data_get($metadata, 'provider_governance.schema_version'));
+        $this->assertSame('atlas_decide', data_get($metadata, 'provider_governance.decision_authority'));
+        $this->assertSame('claude_cli', data_get($metadata, 'provider_governance.execution_provider'));
+    }
+
     public function test_thread_resolver_creates_new_thread_by_default_even_for_short_continuation_text(): void
     {
         $workspace = (string) config('atlas.ai.workdir');

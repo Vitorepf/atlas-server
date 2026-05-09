@@ -89,11 +89,11 @@ o contrato executavel continua nos docs desta pasta e nos APs.
 | Item | Estado |
 |---|---|
 | Design conceitual | active; sub-arquitetura canonica |
-| APs operacionais | AP-163, AP-164, AP-165, AP-166, AP-167 em `implemented-operational-read-model` |
-| APs scaffold | AP-168, AP-169, AP-170 |
-| Schemas/migrations | Dreyfus, Worked Examples, Process Patterns, Failure Signatures e SRL implementados |
-| Services Laravel | Read models + gates + CLI das ondas AP-163..167 implementados |
-| Gaps conhecidos | AP-166 proposal emission, AP-167 hooks de surface, AP-168 runtime produtivo, AP-169/170 dependem de ledger/grafo maduros |
+| APs operacionais | AP-163, AP-164, AP-165, AP-166, AP-167 em `implemented-operational-read-model`; AP-168/AP-169 em runtime minimo parcial |
+| APs scaffold | AP-170 |
+| Schemas/migrations | Dreyfus, Worked Examples, Process Patterns, Failure Signatures, SRL, Productive Failure e Personal Worked Example extraction implementados |
+| Services Laravel | Read models + gates + CLI das ondas AP-163..169 implementados |
+| Gaps conhecidos | AP-166 proposal emission, AP-167 hooks de surface, AP-168 UX/transfer consumer, AP-169 scheduler/review UI/source maturity, AP-170 depende de ledger/grafo maduro |
 
 ## Pre-requisitos de leitura
 

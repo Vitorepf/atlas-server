@@ -37,7 +37,7 @@ related_paths:
 
 # Atlas AI Implemented vs Scaffold Matrix
 
-Snapshot read-only gerado em 2026-05-08 para ajudar a estrutura mae a seguir
+Snapshot read-only atualizado em 2026-05-09 para ajudar a estrutura mae a seguir
 sem perder o que ja existe, sem duplicar fluxo e sem confundir scaffold com
 produto final.
 
@@ -81,7 +81,7 @@ Comandos usados:
 ```bash
 php artisan atlas:ai:architecture-validate --json
 php artisan atlas:ai:architecture-readiness --json
-php artisan atlas:engineering:knowledge docs-health --json
+atlas engineering knowledge docs-health --json
 git status --short
 ```
 
@@ -89,38 +89,38 @@ Resultado do snapshot:
 
 | Area | Resultado |
 |---|---|
-| Documentation health | `ok`: 193 docs, 0 missing required, 0 oversized, 0 frontmatter violations. |
-| Architecture readiness | `attention`: nao expandir sem olhar o failed static scan. |
-| Static scanner | 158/159 checks passing. |
-| Blocker atual | `ap173_session_bootstrap_docs_split_plan_contract` em `atlas-ai-kernel-architecture.md`. |
+| Documentation health | `ok`: 0 missing required, 0 oversized, 0 frontmatter violations. |
+| Architecture readiness | `ready`: architecture-validate verde, docs-health verde, provider projection passed. |
+| Static scanner | 0 failed static scans no readiness atual. |
+| Blocker atual | Nenhum blocker ativo no readiness atual. |
 | Provider projection | `passed`. |
-| Architecture operations | `published`, 54 commands. |
+| Architecture operations | `published`, 58 commands. |
 
-Observacao: o blocker mudou durante a higiene documental. Isso indica trabalho
-ativo do Codex principal nos docs/scanner; nao editar essa area sem coordenar.
+Observacao: esta matriz continua read-only; confirmar estado real com readiness
+e testes focados antes de expandir qualquer bloco.
 
 ## Implemented Ready
 
 | Bloco | Status | Evidencia | Proximo cuidado |
 |---|---|---|---|
-| Kernel contracts | implemented_ready | Surface Adapter, Provider Driver, failure domains, classifier, SLOs e static scans majoritariamente verdes. | Corrigir AP-173 antes de chamar tudo de verde. |
+| Kernel contracts | implemented_ready | Surface Adapter, Provider Driver, failure domains, classifier, SLOs e static scans verdes no readiness atual. | Manter architecture-validate verde antes de expandir. |
 | Surface adapters | implemented_ready | 9 surfaces mapeadas: CLI dev/chat/forge, API, app, worker, MCP readonly, Vault, voice. | Nao criar surface paralela para capacidade ja mapeada. |
 | Provider drivers | implemented_ready | 4 providers: `claude_cli`, `codex_cli`, `gemini_cli`, `claude_codex`. | Provider nao decide fluxo, memoria ou policy. |
-| Domain plane | implemented_ready | Validador reporta 15 domains ready e 92 flows. | Reconciliar docs que ainda digam scaffold apos higiene. |
+| Domain plane | implemented_ready | Validador reporta 15 domains ready e 93 flows. | Reconciliar docs que ainda digam scaffold apos higiene. |
 | Evidence Ledger foundation | implemented_ready | Append-only model, commands/API, replay service e 3 projections ready. | Ledger projection drift ainda depende de ledger presente. |
 | Decision Receipt v2 | implemented_ready | Receipt issuer, runtime guard, hash, replay/report tests e AP scans verdes. | Runtime nao pode executar sem receipt onde contrato exige. |
 | Architecture Operations | implemented_ready | Catalogo publicado e readiness command/API/MCP declarados. | Usar antes de expandir arquitetura. |
 | Documentation OS | implemented_ready | docs-health verde e limites de linha respeitados nos docs obrigatorios. | Manter indices sincronizados depois da higiene. |
 | Self-Improvement base | implemented_ready | Runtime, schedule, health/report, proposal inbox e filtros por replay existem. | Curator recomenda/revisa; nao aplica mudanca sozinho. |
 | AP-99/AP-146 provider cost/performance | implemented_ready | Provider performance, cost rates, inbox replay e Curator finding para rates nao aplicados. | Rates continuam humanos/revisaveis. |
-| Dynamic Compute Market | implemented_partial | Advisor/report e recomendacoes existem em modo shadow/proposal. | Nao virar roteador automatico sem AP e gates. |
-| Cognitive development plane | implemented_partial | Dreyfus, worked examples, patterns, failure tracker e SRL tem servicos/testes/comandos. | Validar maturidade por dominio antes de vender como tutor final. |
+| Dynamic Compute Market | implemented_partial | Advisor/report, proposal gate, evidence contract, Curator proposal e recomendacoes existem em modo shadow/proposal. | Nao virar roteador automatico sem benchmark, review humano, policy patch e novo receipt. |
+| Cognitive development plane | implemented_partial | Dreyfus, worked examples, patterns, failure tracker, SRL, Productive Failure e Personal Worked Examples tem servicos/testes/comandos. | AP-168 ainda tem transfer test proposal-only; AP-169 ainda nao tem scheduler/review UI; validar maturidade por dominio antes de vender como tutor final. |
 | Provider Projection | implemented_ready | Projection status passed para `claude` e `agents`; AGENTS/CLAUDE sao artefatos gerenciados. | Nao editar bloco gerenciado manualmente fora do projection flow. |
 | AtlasVault boundary | implemented_ready | Vault docs/contracts/runbook definem sync gerenciado, frontmatter e promocao para Memory. | Vault nao e fonte operacional crua. |
 | Telemetry / Observability | implemented_ready | SLOs, provider performance, telemetry commands e reports existem. | Observability reporta; nao decide policy sozinho. |
 | Mobile gateway base | implemented_partial | Mobile surface e rotas voice/AI existem em camada API. | UX mobile final e contratos por feature ainda precisam maturidade. |
 | Attachments / multimodal input | implemented_partial | Attachment index, chunked upload, file/image attachment services e tests existem. | Garantir que tudo entre por Atlas Input/context policy. |
-| Search / retrieval surfaces | implemented_partial | Session search, retrieval inputs e context router existem. | RAG local/graph/rerank ainda e futuro governado. |
+| Search / retrieval surfaces | implemented_partial | Session search, retrieval inputs, context router, `atlas:ai:local-rag-readiness`, corpus benchmark, contrato `LOCAL_RAG_*` e AP-683 review gate proposal-only existem. | Graph RAG/rerank Python ainda e futuro governado; falta review humano/Curator antes de policy patch real. |
 | Inbox / Proposal loop | implemented_ready | Inbox actions, proposal commands, mobile inbox, action replay report e Curator refs existem. | Inbox e review humano continuam gate; nao auto-aplicar proposals. |
 | Open Brain MCP surfaces | implemented_ready | Open Brain MCP service, context command/API e architecture operations MCP reports existem. | MCP e read-only/projection; nao vira executor oculto. |
 | Engineering Knowledge / Code Intelligence | implemented_ready | KB sync, docs-health, code-index, code-status, API e commands existem. | Reindexar depois de docs/codigo grandes. |
@@ -131,10 +131,10 @@ ativo do Codex principal nos docs/scanner; nao editar essa area sem coordenar.
 
 | Bloco | Status | O que existe | O que falta |
 |---|---|---|---|
-| Voice Realtime | implemented_partial/scaffold | Doc canonico, adapter `voice_realtime`, rotas API, health/readiness/rivals, callbacks, certification tests. | LiveKit Agents runtime real, audio streaming de produto, UX mobile completa e uso em producao. |
-| Constelacao | scaffold | Doc canonico encaixado, spec/vault source material, cliente mobile parcial com domain+jitter. | Endpoint server-side de posicoes, embeddings/Graph RAG, privacy/evidence e troca do fallback no app. |
-| Provider Release Intelligence | implemented_partial | Source registry, release review command/API e docs de provider evolution. | Ingestao continua/web sources, review recorrente e impacto automatico em Decide via proposta. |
-| Open Brain / Memory context | implemented_partial | Context injection, retrieval inputs, memory services e provider projections. | RAG local/graph/reranker e quality scoring avancado. |
+| Voice Realtime | implemented_partial/scaffold | Doc canonico, adapter `voice_realtime`, rotas API/mobile, health/readiness/rivals, callbacks fail-closed sem `VOICE_TURN_DECIDED`, certification tests, artifact sanitization gate, cliente mobile start/end/readiness e Voice Mode com fallback local. | LiveKit Agents runtime real, audio streaming de produto, UX mobile completa e uso em producao. |
+| Constelacao | implemented_partial | Backend v1 de posicoes, rota API/mobile, consumo mobile, fallback deterministico, privacy/evidence, readiness semantico, promotion gate vector-only, contrato UI Lente 1, telemetria mobile open/load/fail/tap e Curator usage review existem. | Embeddings/Graph RAG benchmarkado, review humano para promocao e uso real por 30 dias antes de Lente 2. |
+| Provider Release Intelligence | implemented_partial | Source registry, source watchlist CLI/API read-only, `continuous_ingestion_contract` fail-closed, release review command/API/MCP, `absorption_plan` proposal-only, Architecture Operations, docs de provider evolution e Self-Improvement default schedule proposal-only. | Crawler/fetch runtime real e promocao de sinais em Decide sempre via proposta, AP-99/Rivals e review humano. |
+| Open Brain / Memory context | implemented_partial | Context injection, retrieval inputs, memory services, provider projections e readiness de RAG local. | Graph RAG/reranker e quality scoring avancado. |
 | Programming harness | implemented_partial | CLI dev/fix/continue/forge, repair aliases, receipts, gates e tests. | Fechar unificacao com workers/runtime pesado e durable execution real. |
 | Finance domain | implemented_partial | Domain contract, runtime, compliance gate, profile factory e tests. | Skill packs/agentes financeiros profundos e benchmarks contra agentes especializados. |
 | Strategic Decision | implemented_partial | Domain contract, command/API e QL roadmap. | QL-5 curator/mutation e simulacoes robustas. |
@@ -142,7 +142,7 @@ ativo do Codex principal nos docs/scanner; nao editar essa area sem coordenar.
 | Mac Agent service | implemented_partial | `MacAgentService` tem readiness, power helper, wake/background checks e API local relacionada. | Produto nativo/Swift futuro ainda nao substitui runtime governado. |
 | Skills system | implemented_partial | Skill store/parser/discovery e dev quality gates existem. | Promotion para skill packs enterprise por dominio ainda precisa APs. |
 | Engineering Blueprint / Harness | implemented_partial | Blueprint commands/API, engineering runs, gates, benchmark, visual/API/security scans e replay existem. | Durable execution enterprise e worker runtime pesado ainda precisam fechamento. |
-| Scheduler / background jobs | implemented_partial | Scheduler inputs, tick command, self-improvement schedules e recurring review surfaces existem. | Jobs autonomos precisam stop conditions, evidence e proposal gates por fluxo. |
+| Scheduler / background jobs | implemented_partial | Scheduler inputs, tick command, Self-Improvement schedules, Provider Release recurring review proposal-only e recurring review surfaces existem. | Jobs autonomos precisam stop conditions, evidence e proposal gates por fluxo. |
 | Semantic notes/search layer | implemented_partial | Semantic commands/controllers para notes, search, activation e curation proposals existem. | Nao promover como Graph RAG final ate encaixar em Memory/Context/Policy. |
 
 ## Product Substrate Snapshot
@@ -171,35 +171,35 @@ ativo do Codex principal nos docs/scanner; nao editar essa area sem coordenar.
 
 | Bloco | Status | Dono documental | Nao fazer agora |
 |---|---|---|---|
+| Cognitive future APs | scaffold | `docs/ap/AP-170-*` | AP-168/AP-169 ja tem runtime minimo parcial; nao confundir specs cognitivas ativas com APs futuros; implementar AP por AP. |
 | Native Mac Agent | future | `atlas-native-mac-agent.md` | Nao transformar em primeira surface de voz antes do mobile. |
 | Local Graph RAG / embeddings / reranker | future | `atlas-ai-local-performance-memory-strategy.md` | Nao criar cerebro Python paralelo ao Kernel. |
 | Hot Context Pack Cache | future | `atlas-ai-local-performance-memory-strategy.md` | Nao cachear sem freshness, hashes e privacy gate. |
 | Evidence distillation | future | `atlas-ai-local-performance-memory-strategy.md` | Nao resumir evidence sem fonte/citacao. |
 | Local model triage / KV cache | future | `atlas-ai-local-performance-memory-strategy.md` | Nao decidir policy/provider fora do Laravel Kernel. |
+| External Graph Harness / Graphify AP-684 | implemented_partial | `code-intelligence/external-graph-harness.md` + `docs/ap/AP-684-graphify-external-graph-harness.md` | P0/P2 tem contrato, validator, CLI/API e Architecture Operations read-only; nao rodar Graphify direto em memoria/docs privados nem promover `graph.json` para contexto. |
 | Cyber Security extension | scaffold | `cyber-security-extension.md` e `cyber-security/README.md` | Nao promover recipes ofensivas sem policy/refusal/tool gates. |
-| Personal worked examples generator AP-169 | scaffold | AP-169 docs | Nao criar gerador solto sem fluxo Cognitive/Memory. |
+| Personal worked examples generator AP-169 | implemented_partial | AP-169 docs + `atlas:worked-example extract/personal` | Nao criar gerador solto; continuar pelo fluxo existente de Worked Example/AP-164. |
 | QL-5 Curator mutation classes | future | `atlas-ai-qualitative-levels-roadmap.md` | Curator nao deve mutar sistema sem Proposal Inbox/review. |
 
 ## Conflicts To Reconcile
 
 | Sinal | Risco | Acao segura |
 |---|---|---|
-| Validador diz 15 domains ready, alguns docs falam scaffold. | IA pode subestimar ou superestimar dominio. | Depois da higiene, rodar busca por `status: scaffold` e reconciliar doc dono. |
-| Voice tem muitas rotas e testes, mas doc ainda `status: scaffold`. | Confundir contrato com produto final realtime. | Manter como `implemented_partial/scaffold` ate LiveKit/runtime/UX real. |
+| Domain readiness e produto final sao coisas diferentes. | IA pode vender dominio ready como produto final completo. | `15 domains ready` significa contrato/orchestrator/flows/gates prontos; maturidade de produto vive nas linhas partial/scaffold desta matriz. |
+| Cognitive Plane specs sao ativas, mas AP-170 segue scaffold e AP-168/AP-169 sao parciais. | IA pode criar capability solta fora do AP. | Ler `cognitive/implementation-briefing.md`; implementar AP por AP, com status granular. |
+| Voice tem muitas rotas e testes, mas doc ainda `status: scaffold`. | Confundir contrato com produto final realtime. | Manter como `implemented_partial/scaffold` ate LiveKit Agents/runtime de audio/UX real. |
 | AP static scan muda enquanto docs sao editados. | Snapshot fica obsoleto rapido. | Sempre rerodar readiness antes de implementar. |
-| Architecture-audit folder e indices estao sujos/untracked. | Risco de conflito com Codex principal. | Adicionar docs novos isolados; linkar indices so depois da higiene estabilizar. |
+| Feature Placement bloqueia relatorios novos quando scanner existente cobre o caso. | Risco de criar governanca duplicada. | Reusar `architecture-validate`, docs-health, readiness e esta matriz; so criar comando novo com placement desbloqueado. |
 
 ## Safe Next Blocks
 
 | Ordem | Bloco | Porque e seguro | DoD minimo |
 |---:|---|---|---|
-| 1 | Fechar AP-173 docs split plan contract | E o blocker unico do readiness atual. | `architecture-validate --json` verde. |
-| 2 | Rodar matriz pos-higiene | Confirma que docs/scanner estabilizaram. | Atualizar este snapshot com novo failed/passed count. |
-| 3 | Provider Release Intelligence ingest/review | Complementa AP-99 sem tocar voice/mobile. | Sources, envelope, command, report, tests, docs. |
-| 4 | Dynamic Compute Market proposal gates | Continua shadow/read-only, sem risco de auto-route. | Proposals revisaveis e replay evidence. |
-| 5 | Voice Realtime phase 0 hardening | Ja tem contratos e testes; falta produto real. | Certification verde, callback loop, mobile contract, privacy gates. |
-| 6 | Constelacao backend v1 | Escopo claro e isolado por endpoint. | Positions endpoint, fallback, privacy, evidence, tests. |
-| 7 | Local RAG readiness AP | Prepara Graph RAG sem bagunca Python. | Contract, language boundary, index schema, no provider bypass. |
+| 1 | Voice Realtime phase 0 hardening | Ja tem contratos, certification artifact sanitization e testes; falta produto real. | Certification verde, callback loop, mobile contract, privacy gates. |
+| 2 | AP-683 Local RAG promotion review | Readiness + benchmark + contrato `LOCAL_RAG_*` + finding `proposal_only` estao prontos sem criar cerebro Python paralelo. | Manter `LOCAL_RAG_GRAPH_PROMOTION_BLOCKED` como autoridade ate review humano/Curator e AP futuro de Graph RAG/Python. |
+| 3 | AP-684 External Graph Harness | Contrato, validação de candidato, privacy/confidence gates, CLI/API e report Architecture Operations foram implementados read-only. | Usar apenas como candidato de Code Intelligence; nao promover Graphify para memoria/contexto/runtime sem AP futuro. |
+| 4 | Constelacao Lente 1 usage review | UX mobile contemplativa, tap/detail, telemetria de uso, zero elementos operacionais na Lente 1 e finding `atlas.self_improvement.constelacao_usage_review.v1` ja estao governados. | Coletar uso real por 30 dias, revisar `constelacao_*` telemetry e manter Graph RAG bloqueado ate AP/review. |
 
 ## Handoff Rule
 

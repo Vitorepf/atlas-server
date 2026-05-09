@@ -30,13 +30,13 @@ O Curator deve ter um flow dedicado para revisar comportamento de agentes:
 O comando canonico e:
 
 ```bash
-atlas ai self-improve --flow=agent_behavior_review --hours=168 --json
+php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json
 ```
 
 AP-160 adiciona filtros diretos para uso operacional:
 
 ```bash
-atlas ai self-improve --flow=agent_behavior_review --agent-slug=programming_agent --finding-code=agent.verification_missing --contract-id=atlas-ai.agent-behavior.v1 --agent-status=needs_review --json
+php artisan atlas:ai:self-improve --flow=agent_behavior_review --agent-slug=programming_agent --finding-code=agent.verification_missing --contract-id=atlas-ai.agent-behavior.v1 --agent-status=needs_review --json
 ```
 
 ## Por que

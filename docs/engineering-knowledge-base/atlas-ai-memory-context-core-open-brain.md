@@ -13,6 +13,7 @@ tags:
   - open-brain
   - source-of-truth
 capabilities:
+  - cognitive_immune_gate
   - memory_registry
   - context_pack_recall
   - engineering_knowledge_base
@@ -22,6 +23,7 @@ capabilities:
   - documentation_preservation
 decisions:
   - Atlas memory belongs to Atlas, not providers.
+  - Raw capture is not memory, evidence, context or decision.
   - Repo docs plus Postgres operational registries are the operational source of truth.
   - Provider files, Obsidian and chat are surfaces or projections, not primary memory.
   - Open Brain exports context with audit, policy and provider-safe redaction.
@@ -33,6 +35,7 @@ maintenance:
   - Run docs-health, architecture-validate, sync and index-code after changes.
 related_paths:
   - docs/engineering-knowledge-base/memory/README.md
+  - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
   - docs/engineering-knowledge-base/memory/contracts.md
   - docs/engineering-knowledge-base/memory/retrieval-and-context.md
   - docs/engineering-knowledge-base/memory/open-brain-mcp.md
@@ -58,6 +61,7 @@ It is source material only. Active contracts live in the child specs below.
 | Question | Owner doc |
 |---|---|
 | What is Atlas memory? | `memory/contracts.md` |
+| How does Atlas prevent noisy capture from becoming memory/context? | `memory/cognitive-immune-learning-kernel.md` |
 | How is context selected for prompts? | `memory/retrieval-and-context.md` |
 | How does Open Brain expose context to tools/MCP/HTTP? | `memory/open-brain-mcp.md` |
 | How do operators run, debug and maintain memory? | `memory-core-runbook.md` |
@@ -70,6 +74,12 @@ It is source material only. Active contracts live in the child specs below.
 
 ```text
 Repo Canonical Docs + Code + Runs + Feedback
+        |
+        v
+Cognitive Immune Gate
+  - raw capture quarantine
+  - promotion gates
+  - learning signal filtering
         |
         v
 Postgres Operational Registries
@@ -102,7 +112,10 @@ Provider-safe projections and exports
 - Evidence Ledger owns important runtime events and replayable decisions.
 - `CLAUDE.md` and `AGENTS.md` are generated provider projections.
 - Obsidian/AtlasVault is Human Knowledge Surface and managed sync surface.
-- Chat history is source material until promoted through governed memory flow.
+- Chat history and notes are source material until promoted through governed
+  memory flow.
+- Raw capture, trivial queries, reminders and untrusted content never enter
+  context, embeddings, Constelacao or provider projections by default.
 - ChromaDB, vector stores, Streamable HTTP/SSE and multiuser sync require their
   own AP/spec and must not be smuggled into this file.
 
@@ -110,6 +123,7 @@ Provider-safe projections and exports
 
 | Layer | Status | Active owner |
 |---|---|---|
+| Cognitive Immune Learning Kernel | contract active, implementation pending | `memory/cognitive-immune-learning-kernel.md` |
 | Memory Registry | implemented | `memory/contracts.md` |
 | Context Pack memory refs | implemented | `memory/retrieval-and-context.md` |
 | Verbatim Store + privacy guard | implemented | `memory/contracts.md` |
@@ -124,11 +138,13 @@ Provider-safe projections and exports
 ## Edit Rules
 
 1. Do not add new implementation diary sections here.
-2. If changing schema/API/contracts, edit `memory/contracts.md`.
-3. If changing context selection, budget or ranking, edit `memory/retrieval-and-context.md`.
-4. If changing MCP/Open Brain exposure, edit `memory/open-brain-mcp.md`.
-5. If importing historical details, cite the archived source instead of copying bulk text.
-6. After edits run:
+2. If changing capture quarantine, memory promotion, noise filtering, forgetting
+   or learning evals, edit `memory/cognitive-immune-learning-kernel.md`.
+3. If changing schema/API/contracts, edit `memory/contracts.md`.
+4. If changing context selection, budget or ranking, edit `memory/retrieval-and-context.md`.
+5. If changing MCP/Open Brain exposure, edit `memory/open-brain-mcp.md`.
+6. If importing historical details, cite the archived source instead of copying bulk text.
+7. After edits run:
 
 ```bash
 atlas engineering knowledge docs-health --json

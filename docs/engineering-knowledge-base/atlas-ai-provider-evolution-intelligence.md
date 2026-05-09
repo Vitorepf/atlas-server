@@ -57,19 +57,10 @@ cada avanco externo em vantagem interna do Atlas.
 Atlas nao compete no nivel do modelo bruto. Atlas substitui o uso direto dos
 providers como canal operacional.
 
-Quando um provider melhora, Atlas deve melhorar junto e multiplicar o ganho por:
-
-- memoria soberana;
-- contexto pessoal/empresarial;
-- Atlas Decide;
-- skill packs;
-- connectors;
-- Evidence Ledger;
-- Quality Gates;
-- Curator;
-- Rivals;
-- human review;
-- continuidade multi-provider.
+Quando um provider melhora, Atlas deve melhorar junto e multiplicar o ganho por
+memoria soberana, contexto pessoal/empresarial, Atlas Decide, skill packs,
+connectors, Evidence Ledger, Quality Gates, Curator, Rivals, human review e
+continuidade multi-provider.
 
 Se uma novidade deixa um modulo Atlas obsoleto, o modulo deve virar adapter,
 benchmark ou ser removido. Nunca defender codigo por orgulho.
@@ -115,6 +106,18 @@ Fontes padrao de monitoramento diario vivem em
 `docs/ap/AP-172-provider-release-source-watchlist.md`. Elas geram candidates,
 nao implementacao direta.
 
+Superficies read-only disponiveis:
+
+- `php artisan atlas:ai:provider-release-sources --json`;
+- `GET /ai/provider-release-sources`;
+- `php artisan atlas:ai:provider-release-sources --url="<url>" --title="<title>" --json`.
+
+Essas superficies apenas listam watchlist ou candidate preview. Elas nao fazem
+crawler, nao escrevem envelope, nao alteram policy e nao mudam Atlas Decide.
+O output inclui `continuous_ingestion_contract` fail-closed: crawler futuro
+precisa de AP dedicado, rate limits, canonical URL/hash, source gate, Ledger,
+Rivals/AP-99 e review humano antes de qualquer rede, write ou signal.
+
 ## Cinco Acoes Possiveis
 
 | Acao | Quando usar | Saida |
@@ -138,38 +141,18 @@ threat_to_atlas: low, se Atlas absorver
 recommended_action: benchmark_and_absorb
 ```
 
-Absorver:
-
-- 10 workflows como gaps/flows Finance;
-- formato skill + connector + subagent;
-- Claude plugin como provider runtime opcional;
-- Office/Excel/PPT como surface futura;
-- human sign-off e audit log como gates;
-- Rivals-Finance como benchmark obrigatorio.
-
-Nao fazer:
-
-- chamar Claude Finance direto fora do Atlas;
-- hardcodar "finance sempre Claude";
-- declarar Atlas Finance pronto sem Rivals-Finance;
-- copiar skill sem adaptar a policy, privacy, evidence e review do Atlas.
+Absorver: workflows como gaps/flows Finance, skill + connector + subagent,
+provider runtime opcional, Office/Excel/PPT como surface futura, human sign-off,
+audit log e Rivals-Finance. Nao chamar Claude Finance direto fora do Atlas,
+hardcodar "finance sempre Claude", declarar Atlas Finance pronto sem benchmark
+ou copiar skill sem policy, privacy, evidence e review.
 
 ## Vertical Skill Pack Protocol
 
-Quando provider lancar vertical forte, Atlas deve extrair:
-
-1. flows nomeados;
-2. skills reutilizaveis;
-3. slash commands ou comandos equivalentes;
-4. connectors;
-5. specialist profiles/subagents;
-6. templates;
-7. gates;
-8. evidence schema;
-9. human review policy;
-10. rivals benchmark.
-
-Isso vira `Domain Skill Pack`, nao prompt solto.
+Quando provider lancar vertical forte, Atlas extrai flows, skills, commands,
+connectors, specialist profiles/subagents, templates, gates, evidence schema,
+human review policy e rivals benchmark. Isso vira `Domain Skill Pack`, nao
+prompt solto.
 
 ## Impacto Em Atlas Decide
 
@@ -190,6 +173,7 @@ Use antes de qualquer implementacao baseada em lancamento externo:
 php artisan atlas:ai:provider-release-review \
   --provider=anthropic \
   --title="Anthropic Finance Agents" \
+  --url="https://www.anthropic.com/news/finance-agents" \
   --type=vertical_agents \
   --domain=finance \
   --json
@@ -206,43 +190,52 @@ php artisan atlas:ai:session-bootstrap \
 O placement correto deve retornar `layer=provider_evolution` e
 `flow=provider_evolution.review`.
 
+O output inclui tres blocos de fonte:
+
+- `source_candidate`: candidato derivado da URL/titulo, com fonte, tier,
+  canonical URL, hash e acao de triagem;
+- `source_gate`: diz se pode criar envelope draft ou se a classificacao fica
+  pendente de fonte primaria;
+- `source_registry_context`: contexto read-only do watchlist governado. Ele nao
+  faz rede, nao muda policy e nao altera roteamento.
+
+Sem fonte primaria, o review pode classificar, mas o envelope fica
+`classification_only_pending_primary_source` e `source_trust_allows_signal=false`.
+Isso evita que rumor ou noticia secundaria vire implementacao.
+
+O output tambem inclui:
+
+- `review_signal`: status, severidade, evidence required e stop-the-line para
+  impedir rota de Decide antes de fonte primaria/Rivals/AP-99/human review;
+- `absorption_plan`: plano proposal-only com stages de envelope, Rivals,
+  skill pack/adapter, signal de Decide e review humano. Ele nunca altera
+  routing, policy, credenciais ou maturidade de domain diretamente;
+- `curator_proposal`: proposta revisavel para
+  `self_improvement.provider_release_review`, sempre `auto_apply=false`.
+
 Para surfaces externas, use API ou MCP read-only:
-
-```bash
-GET /ai/provider-release-review?provider=anthropic&title=Anthropic%20Finance%20Agents&domain[]=finance
-```
-
-```json
-{
-  "tool": "atlas_provider_release_review",
-  "title": "Anthropic Finance Agents",
-  "provider": "anthropic",
-  "domain": ["finance"]
-}
-```
+`GET /ai/provider-release-sources?...`, `GET /ai/provider-release-review?...`,
+tool `atlas_provider_release_sources` ou tool `atlas_provider_release_review`.
 
 O Curator dedicado roda sem autoaplicar mudancas:
 
 ```bash
-atlas ai self-improve --flow=provider_release_review --hours=168 --json
+php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json
 ```
+
+O flow tambem faz parte do schedule default de Self-Improvement via
+`AtlasSelfImprovementScheduleService`. Isso significa observacao recorrente e
+proposal-only, nao crawler: a watchlist continua read-only, rede continua
+desligada neste contrato, e nenhuma mudanca de policy/Decide acontece sem
+envelope, source gate, Rivals/AP-99 e review humano.
 
 ## Onde Atlas Deve Construir, Nao Absorver
 
 Mesmo com verticals dos labs, Atlas deve construir onde providers nao podem:
-
-- canal unico pessoal;
-- memoria soberana multi-decade;
-- continuidade entre providers;
-- Evidence Ledger proprio;
-- business contexts privados;
-- cognitive development;
-- governanca documental;
-- AtlasVault humano;
-- Curator longitudinal;
-- neutralidade real;
-- privacy local/mac/mobile;
-- Rivals cross-provider.
+canal unico pessoal, memoria soberana multi-decade, continuidade entre
+providers, Evidence Ledger proprio, business contexts privados, cognitive
+development, governanca documental, AtlasVault humano, Curator longitudinal,
+neutralidade real, privacy local/mac/mobile e Rivals cross-provider.
 
 ## Definition Of Done
 

@@ -17,6 +17,7 @@ use App\Http\Controllers\AtlasAiArchitectureValidateController;
 use App\Http\Controllers\AtlasAiDecisionReceiptReportController;
 use App\Http\Controllers\AtlasAiDomainCatalogController;
 use App\Http\Controllers\AtlasAiDynamicComputeMarketController;
+use App\Http\Controllers\AtlasAiExternalGraphHarnessController;
 use App\Http\Controllers\AtlasAiGovernanceController;
 use App\Http\Controllers\AtlasAiInboxActionReportController;
 use App\Http\Controllers\AtlasAiKernelPipelineReportController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\AtlasAiPipelineController;
 use App\Http\Controllers\AtlasAiPolicyController;
 use App\Http\Controllers\AtlasAiProviderPerformanceController;
 use App\Http\Controllers\AtlasAiProviderReleaseReviewController;
+use App\Http\Controllers\AtlasAiProviderReleaseSourcesController;
 use App\Http\Controllers\AtlasAiQualitativeLevelsController;
 use App\Http\Controllers\AtlasAiRepairController;
 use App\Http\Controllers\AtlasAiRepairReportController;
@@ -36,6 +38,7 @@ use App\Http\Controllers\AtlasAiSloController;
 use App\Http\Controllers\AtlasAiStrategicDecisionController;
 use App\Http\Controllers\AtlasAiVoiceRealtimeController;
 use App\Http\Controllers\AtlasCalendarBlockController;
+use App\Http\Controllers\AtlasConstelacaoController;
 use App\Http\Controllers\AtlasDomainController;
 use App\Http\Controllers\AtlasMemoryController;
 use App\Http\Controllers\AtlasMemoryMaintenanceController;
@@ -148,6 +151,7 @@ Route::prefix('v1/mobile')->group(function () use ($registerAtlasVoiceRoutes): v
         Route::get('/ai/recommendations', [MobileRecommendationController::class, 'index']);
         Route::get('/ai/recommendations/{recommendation}', [MobileRecommendationController::class, 'show']);
         Route::post('/ai/recommendations/{recommendation}/transition', [MobileRecommendationController::class, 'transition']);
+        Route::get('/atlas/celestial/positions', [AtlasConstelacaoController::class, 'positions']);
         $registerAtlasVoiceRoutes();
 
         Route::post('/threads/from-inbox/{inboxItem}', [MobileThreadController::class, 'fromInbox']);
@@ -331,6 +335,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/semantic/cognitive-games/today', [CognitiveGameController::class, 'today']);
     Route::post('/semantic/cognitive-games', [CognitiveGameController::class, 'start']);
     Route::post('/semantic/cognitive-games/{game}/answer', [CognitiveGameController::class, 'answer']);
+    Route::get('/atlas/celestial/positions', [AtlasConstelacaoController::class, 'positions']);
 
     Route::get('/ai/interactions', [AiInteractionController::class, 'index']);
     Route::get('/ai/decisions', [AiDecisionController::class, 'index']);
@@ -342,6 +347,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::patch('/ai/policies/flows/{flow}', [AtlasAiPolicyController::class, 'updateFlow']);
     Route::get('/ai/domains', AtlasAiDomainCatalogController::class);
     Route::get('/ai/dynamic-compute-market', AtlasAiDynamicComputeMarketController::class);
+    Route::match(['GET', 'POST'], '/ai/external-graph-harness', AtlasAiExternalGraphHarnessController::class);
     Route::get('/ai/architecture/validate', AtlasAiArchitectureValidateController::class);
     Route::get('/ai/architecture/operations', AtlasAiArchitectureOperationsController::class);
     Route::get('/ai/architecture/readiness', [AtlasAiGovernanceController::class, 'architectureReadiness']);
@@ -355,6 +361,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/kernel-pipeline/report', AtlasAiKernelPipelineReportController::class);
     Route::post('/ai/pipeline', AtlasAiPipelineController::class);
     Route::get('/ai/provider-performance', AtlasAiProviderPerformanceController::class);
+    Route::get('/ai/provider-release-sources', AtlasAiProviderReleaseSourcesController::class);
     Route::get('/ai/provider-release-review', AtlasAiProviderReleaseReviewController::class);
     Route::get('/ai/qualitative-levels', AtlasAiQualitativeLevelsController::class);
     Route::post('/ai/repair', AtlasAiRepairController::class);
@@ -440,6 +447,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/threads/{thread}/snapshots', [AiThreadController::class, 'snapshots']);
     Route::get('/ai/threads/{thread}', [AiThreadController::class, 'show']);
     Route::patch('/ai/threads/{thread}', [AiThreadController::class, 'update']);
+    Route::delete('/ai/threads/{thread}', [AiThreadController::class, 'destroy']);
 
     Route::get('/ai/jobs', [AiJobController::class, 'index']);
     Route::get('/ai/jobs/{job}', [AiJobController::class, 'show']);

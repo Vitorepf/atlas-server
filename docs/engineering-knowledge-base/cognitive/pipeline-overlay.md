@@ -2,7 +2,7 @@
 id: atlas-ai-cognitive-pipeline-overlay
 type: engineering_knowledge
 title: Atlas AI Cognitive Plane - Pipeline Overlay
-status: scaffold
+status: active
 category: architecture
 priority: 94
 summary: Overlay cognitivo sobre o pipeline canonico de 17 etapas. Catalogo de flows do `learning` v2 (22 implementados/planejados), hooks por etapa, memory artifacts, Evidence Ledger events cognitivos, surfaces educacionais (CLI/App/Mobile/Voice/StackChan/Constelacao), loops temporais.
@@ -31,6 +31,7 @@ decisions:
 maintenance:
   - Manter abaixo de 260 linhas.
   - Atualizar quando flow novo entrar, ledger event mudar schema, ou surface ganhar capability cognitiva.
+  - Status `active` significa overlay canonico do pipeline; flows/APs individuais podem continuar scaffold, partial ou future.
 related_paths:
   - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
   - docs/engineering-knowledge-base/cognitive/README.md
@@ -81,7 +82,7 @@ AP status e fonte de verdade. Um flow listado aqui pode estar `implemented-opera
 | `learning.pattern_extraction` | semanal (Curator) | AP-165 read-model | varre ledger; propoe padroes humanos emergentes para Process Pattern Catalog |
 | `learning.failure_review` | semanal | AP-166 read-model | revisa `failure_signature`; alerta repeticao; valida diversificacao |
 | `learning.srl_episode` | por sessao opt-in | AP-167 read-model | forethought, performance observation e reflection |
-| `learning.productive_failure` | sob demanda | AP-168 scaffold | erro produtivo em 3 fases: generation, comparison, integration |
+| `learning.productive_failure` | sob demanda | AP-168 implemented_partial | erro produtivo em 3 fases: generation, comparison, integration; runtime minimo + CLI; transfer test proposal-only |
 
 ### Gates obrigatorios
 
@@ -142,7 +143,7 @@ Nao e tabela primaria. E projecao recomputavel a partir de Memory Registry + Ver
 
 Eventos podem estar implementados ou planejados; AP status e fonte de verdade.
 
-`LEARNING_OBJECTIVE_DEFINED`, `CURRICULUM_PROPOSED`, `CURRICULUM_ACCEPTED`, `CURRICULUM_REJECTED`, `STUDY_SESSION_STARTED`, `STUDY_SESSION_COMPLETED`, `STUDY_SESSION_INTERRUPTED`, `ACTIVE_RECALL_QUESTION_GENERATED`, `ACTIVE_RECALL_ANSWERED`, `SPACED_REVIEW_TRIGGERED`, `SPACED_REVIEW_PASSED`, `SPACED_REVIEW_FAILED`, `FEYNMAN_EVALUATION_SCORED`, `MASTERY_DELTA_RECORDED`, `TRANSFER_TEST_PASSED`, `TRANSFER_TEST_FAILED`, `KNOWLEDGE_GAP_DETECTED`, `KNOWLEDGE_NODE_ADDED`, `KNOWLEDGE_EDGE_ADDED`, `KNOWLEDGE_GRAPH_PROJECTED`, `COGNITIVE_LOAD_ALERT`, `COGNITIVE_LOAD_RECOVERY`, `CASE_COMPLETED`, `GAME_SESSION_RESULT`, `FORGETTING_INTENT_RECORDED`, `PREDICTIVE_CURRICULUM_PROPOSED`, `PARETO_CURVE_MAPPED`, `EXTERNAL_INPUT_FILTERED`, `RIVALS_LEARNING_RUN`, `DREYFUS_LEVEL_DELTA_RECORDED`, `MASTERY_EVIDENCE_AGGREGATED`, `LATTICEWORK_CONNECTION_DETECTED`, `DEBATE_SESSION_COMPLETED`, `DEBATE_DISCORD_DETECTED`, `SOCRATIC_SESSION_COMPLETED`, `EVIDENCE_ROUTING_PASS_COMPLETED`, `COMPRESSION_METRIC_COMPUTED`, `COMPRESSION_DEGRADATION_ALERT`, **`WORKED_EXAMPLE_DELIVERED`**, **`WORKED_EXAMPLE_FADING_PROGRESSED`**, **`PROCESS_PATTERN_CANDIDATE_DETECTED`**, **`PROCESS_PATTERN_CATALOGED`**, **`PROCESS_PATTERN_APPLIED`**, **`FAILURE_SIGNATURE_RECORDED`**, **`FAILURE_REPETITION_ALERT`**, **`FAILURE_DIVERSITY_INDEX_COMPUTED`**, **`SRL_OVERLAY_TOGGLED`**, **`SRL_FORETHOUGHT_RECORDED`**, **`SRL_PERFORMANCE_OBSERVATION`**, **`SRL_REFLECTION_RECORDED`**, **`PREDICTIVE_FAILURE_INSERTED`**.
+`LEARNING_OBJECTIVE_DEFINED`, `CURRICULUM_PROPOSED`, `CURRICULUM_ACCEPTED`, `CURRICULUM_REJECTED`, `STUDY_SESSION_STARTED`, `STUDY_SESSION_COMPLETED`, `STUDY_SESSION_INTERRUPTED`, `ACTIVE_RECALL_QUESTION_GENERATED`, `ACTIVE_RECALL_ANSWERED`, `SPACED_REVIEW_TRIGGERED`, `SPACED_REVIEW_PASSED`, `SPACED_REVIEW_FAILED`, `FEYNMAN_EVALUATION_SCORED`, `MASTERY_DELTA_RECORDED`, `TRANSFER_TEST_PASSED`, `TRANSFER_TEST_FAILED`, `KNOWLEDGE_GAP_DETECTED`, `KNOWLEDGE_NODE_ADDED`, `KNOWLEDGE_EDGE_ADDED`, `KNOWLEDGE_GRAPH_PROJECTED`, `COGNITIVE_LOAD_ALERT`, `COGNITIVE_LOAD_RECOVERY`, `CASE_COMPLETED`, `GAME_SESSION_RESULT`, `FORGETTING_INTENT_RECORDED`, `PREDICTIVE_CURRICULUM_PROPOSED`, `PARETO_CURVE_MAPPED`, `EXTERNAL_INPUT_FILTERED`, `RIVALS_LEARNING_RUN`, `DREYFUS_LEVEL_DELTA_RECORDED`, `MASTERY_EVIDENCE_AGGREGATED`, `LATTICEWORK_CONNECTION_DETECTED`, `DEBATE_SESSION_COMPLETED`, `DEBATE_DISCORD_DETECTED`, `SOCRATIC_SESSION_COMPLETED`, `EVIDENCE_ROUTING_PASS_COMPLETED`, `COMPRESSION_METRIC_COMPUTED`, `COMPRESSION_DEGRADATION_ALERT`, **`WORKED_EXAMPLE_DELIVERED`**, **`WORKED_EXAMPLE_FADING_PROGRESSED`**, **`PERSONAL_WORKED_EXAMPLE_EXTRACTION_STARTED`**, **`PERSONAL_WORKED_EXAMPLE_EXTRACTED`**, **`PERSONAL_WORKED_EXAMPLE_DISCARDED_QUALITY`**, **`PERSONAL_WORKED_EXAMPLE_DISCARDED_PRIVACY`**, **`PERSONAL_WORKED_EXAMPLE_DISCARDED_DUPLICATE`**, **`PERSONAL_EXTRACTION_BATCH_COMPLETED`**, **`PROCESS_PATTERN_CANDIDATE_DETECTED`**, **`PROCESS_PATTERN_CATALOGED`**, **`PROCESS_PATTERN_APPLIED`**, **`FAILURE_SIGNATURE_RECORDED`**, **`FAILURE_REPETITION_ALERT`**, **`FAILURE_DIVERSITY_INDEX_COMPUTED`**, **`SRL_OVERLAY_TOGGLED`**, **`SRL_FORETHOUGHT_RECORDED`**, **`SRL_PERFORMANCE_OBSERVATION`**, **`SRL_REFLECTION_RECORDED`**, **`PRODUCTIVE_FAILURE_PHASE_1_STARTED`**, **`PRODUCTIVE_FAILURE_PHASE_1_ATTEMPT_RECORDED`**, **`PRODUCTIVE_FAILURE_PHASE_2_STARTED`**, **`PRODUCTIVE_FAILURE_PHASE_2_COMPARISON_RECORDED`**, **`PRODUCTIVE_FAILURE_PHASE_3_STARTED`**, **`PRODUCTIVE_FAILURE_ARTICULATION_RECORDED`**, **`PRODUCTIVE_FAILURE_COMPLETED`**, **`PRODUCTIVE_FAILURE_ABANDONED`**, **`PREDICTIVE_FAILURE_INSERTED`**.
 
 Todos `LedgerEventType` aditivos, taxonomia fechada. Replay reconstroi: trajetoria de meses, mastery por nó por dia, padrao de quando rende, regressao por area.
 

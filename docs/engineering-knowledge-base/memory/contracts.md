@@ -11,12 +11,14 @@ tags:
   - memory
   - contracts
 capabilities:
+  - cognitive_immune_gate
   - memory_registry
   - verbatim_store
   - engineering_knowledge_base
   - code_intelligence_index
   - provider_projection
 decisions:
+  - Raw capture, evidence, learning signal, memory, context and decision are separate layers.
   - Atlas memory is canonical only after governed promotion.
   - Provider projections are generated from Atlas memory and may be regenerated.
   - Privacy and redaction apply before provider context or projection.
@@ -24,6 +26,7 @@ maintenance:
   - Keep schema and API changes here, not in the compact parent index.
   - Link implementation APs or tests instead of pasting long histories.
 related_paths:
+  - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
   - docs/engineering-knowledge-base/memory-core-contracts.md
   - docs/engineering-knowledge-base/memory-core-security-privacy.md
@@ -39,6 +42,29 @@ related_paths:
 
 This spec owns active memory contracts. It does not own retrieval ranking or Open
 Brain transport; those live in sibling specs.
+
+## Cognitive Immune Law
+
+The Memory Core must preserve this separation:
+
+```text
+Raw Capture != Evidence != Learning Signal != Memory != Context != Decision
+```
+
+Every raw note, chat, voice transcript, CLI prompt, file, capture or vault item
+starts with:
+
+```text
+memory_eligible=false
+context_eligible=false
+constellation_eligible=false
+embedding_allowed=false
+promotion_status=unclassified
+```
+
+Promotion is earned by evidence, scope, privacy, utility, outcome and review.
+Delete/archive/manual cleanup are helpful hygiene, but they are not the primary
+intelligence filter.
 
 ## Sources
 
@@ -61,6 +87,8 @@ Brain transport; those live in sibling specs.
 - `resolution`
 - `benchmark_observation`
 - `harness_learning`
+- `anti_memory`
+- `strategic_insight`
 - cognitive and domain-specific types only when declared by their domain specs
 
 ## Reference Contracts
@@ -153,4 +181,5 @@ Managed notes must:
 - No ChromaDB/vector search without AP.
 - No provider-owned memory.
 - No silent promotion from chat transcript.
+- No raw capture, trivial query, operational reminder or prompt injection as canonical memory.
 - No Obsidian-as-operational-primary behavior.

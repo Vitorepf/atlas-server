@@ -16,15 +16,22 @@ capabilities:
   - docs_to_code_links
   - context_pack_code_recall
   - maintenance_navigation
+  - external_graph_candidate
 decisions:
   - Docs canonicos continuam sendo a fonte de verdade conceitual.
   - O indice de codigo e a fonte operacional para localizar implementacao real.
   - Context packs devem carregar refs de docs e refs de codigo juntos.
+  - Grafos externos sao candidatos read-only e precisam passar por AP-684 antes de influenciar Code Intelligence.
 maintenance:
   - Rode atlas engineering knowledge index-code --prune depois de mudar Harness, CLI, API, migrations, testes ou docs canonicos.
   - Rode atlas engineering knowledge modules --docs-status=undocumented para achar lacunas de documentacao.
   - Rode atlas engineering knowledge sync --prune antes do index-code quando alterar esta pasta.
+  - Leia code-intelligence/external-graph-harness.md antes de usar Graphify ou outro grafo externo.
 related_paths:
+  - docs/engineering-knowledge-base/code-intelligence/README.md
+  - docs/engineering-knowledge-base/code-intelligence/external-graph-harness.md
+  - docs/ap/AP-684-graphify-external-graph-harness.md
+  - docs/engineering-knowledge-base/archive/source-material/code-intelligence/graphify-v0-7-11-dissection-2026-05-09.md
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
   - app/Services/Engineering/EngineeringContextPackService.php
   - app/Services/Engineering/EngineeringBlueprintService.php
@@ -173,3 +180,16 @@ analise profunda por AST completa. O proximo salto profissional e adicionar:
 - historico temporal de mudancas em simbolos;
 - grafo de dependencias entre modulos;
 - health score de documentacao por modulo.
+
+## External Graph Harness
+
+Ferramentas como Graphify podem acelerar cartografia de codigo, comunidades,
+god nodes e relacoes surpreendentes, mas entram apenas como evidencia externa
+read-only.
+
+O contrato canonico esta em
+`code-intelligence/external-graph-harness.md`; a primeira implementacao planejada
+esta em `docs/ap/AP-684-graphify-external-graph-harness.md`.
+
+Regra curta: grafo externo pode sugerir melhoria do Code Intelligence, mas nao
+pode escrever memoria, contexto, Constelacao, Policy/Profile, Decide ou runtime.

@@ -40,6 +40,8 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         Schema::dropIfExists('atlas_ledger_events');
         Schema::dropIfExists('atlas_strategy_rivals_reviews');
         Schema::dropIfExists('atlas_strategy_rivals_cases');
+        Schema::dropIfExists('ai_attachment_index_entries');
+        Schema::dropIfExists('semantic_notes');
 
         parent::tearDown();
     }
@@ -208,6 +210,90 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
             'kind' => 'self_improvement_tool_runtime_review',
             'status' => 'succeeded',
         ]);
+    }
+
+    public function test_docs_drift_review_emits_local_rag_graph_promotion_proposal_when_benchmark_is_ready(): void
+    {
+        $this->createLocalRagTables();
+        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'docs_drift_review',
+            emit: false,
+            hours: 24,
+            limit: 20,
+        );
+
+        $finding = collect($result['findings'])->firstWhere('title', 'Revisar promocao de Graph RAG/Python');
+
+        $this->assertIsArray($finding);
+        $this->assertSame('atlas.self_improvement.local_rag_graph_promotion.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('open_reviewable_graph_rag_promotion_proposal', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('proposal_only', data_get($finding, 'metadata.policy_patch_candidate.status'));
+        $this->assertFalse(data_get($finding, 'metadata.policy_patch_candidate.auto_apply'));
+        $this->assertSame('passed', data_get($finding, 'metadata.benchmark.status'));
+        $this->assertSame('passed', data_get($finding, 'metadata.benchmark.quality_corpus_status'));
+        $this->assertContains('evidence_ledger_contract', data_get($finding, 'metadata.benchmark.completed_prerequisites'));
+        $this->assertContains('human_review_or_curator_proposal', data_get($finding, 'metadata.benchmark.remaining_prerequisites'));
+        $this->assertSame('review_graph_rag_promotion', data_get($finding, 'available_actions.0.id'));
+        $this->assertSame('docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md', data_get($finding, 'source_refs.1.id'));
+        $this->assertSame('docs/ap/AP-683-local-rag-graph-promotion-review.md', data_get($finding, 'metadata.review_signal.review_ap'));
+        $this->assertContains('docs/ap/AP-683-local-rag-graph-promotion-review.md', collect(data_get($finding, 'source_refs', []))->pluck('id')->all());
+    }
+
+    public function test_docs_drift_review_emits_constelacao_lens_usage_review_without_graph_promotion(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::ConstelacaoPositionsServed, [
+            'schema_version' => 'atlas.constelacao.ledger_event.v1',
+            'surface_id' => 'constelacao',
+            'privacy_class' => 'p2_metadata',
+            'raw_content_exposed' => false,
+            'semantic_positioning_mode' => 'fallback_until_promotion_gate_passes',
+            'graph_rag_status' => 'future_governed',
+            'semantic_readiness_status' => 'ready',
+            'lens' => 'bilderatlas',
+            'item_count' => 2,
+            'source_counts' => [
+                'semantic_note' => 1,
+                'capture' => 1,
+            ],
+            'promotion_gate' => [
+                'vector_positioning_allowed' => true,
+                'graph_rag_promotion_allowed' => false,
+                'python_runtime_allowed' => false,
+                'requires_human_review' => true,
+                'requires_decision_receipt' => true,
+            ],
+            'payload_hash' => hash('sha256', 'constelacao-test'),
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'vitor',
+            'envelope_id' => 'constelacao_positions:test',
+            'correlation_id' => 'constelacao_positions',
+            'emitter_stage' => 'atlas.constelacao_surface',
+            'emitter_version' => 'atlas.constelacao.positions.v1',
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'docs_drift_review',
+            emit: false,
+            hours: 24,
+            limit: 20,
+            filters: ['surface_id' => 'constelacao'],
+        );
+
+        $finding = collect($result['findings'])->firstWhere('title', 'Revisar uso real da Constelacao Lente 1');
+
+        $this->assertIsArray($finding);
+        $this->assertSame('atlas.self_improvement.constelacao_usage_review.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('watch', data_get($finding, 'metadata.review_signal.status'));
+        $this->assertSame('review_constelacao_lens1_usage_after_observation_window', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame(1, data_get($finding, 'metadata.hours_window_contains_event_count'));
+        $this->assertSame(1, data_get($finding, 'metadata.lens_counts.bilderatlas'));
+        $this->assertSame(1, data_get($finding, 'metadata.source_counts.semantic_note'));
+        $this->assertFalse(data_get($finding, 'metadata.promotion_gate.graph_rag_promotion_allowed'));
+        $this->assertFalse(data_get($finding, 'metadata.promotion_gate.python_runtime_allowed'));
+        $this->assertContains('docs/engineering-knowledge-base/atlas-constelacao-surface.md', collect(data_get($finding, 'source_refs', []))->pluck('id')->all());
     }
 
     public function test_provider_performance_review_emits_reviewable_policy_patch_candidate(): void
@@ -424,6 +510,8 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('sufficient', data_get($finding, 'metadata.candidate.sample_status'));
         $this->assertFalse((bool) data_get($finding, 'metadata.routing_control.changes_provider'));
         $this->assertSame(['policy_patch', 'decision_receipt'], data_get($finding, 'metadata.routing_control.provider_change_requires'));
+        $this->assertSame('atlas.dynamic_compute_market.proposal_evidence.v1', data_get($finding, 'metadata.proposal_evidence_contract.schema_version'));
+        $this->assertSame('draft_only_until_benchmark_and_review', data_get($finding, 'metadata.proposal_evidence_contract.policy_patch_status'));
         $this->assertSame('run_provider_benchmark', data_get($finding, 'available_actions.0.id'));
         $this->assertSame('draft_model_selection_policy_patch', data_get($finding, 'metadata.available_actions.1.id'));
     }
@@ -509,6 +597,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertFalse((bool) data_get($finding, 'metadata.routing_control.changes_provider'));
         $this->assertSame('atlas_decide', data_get($finding, 'metadata.routing_control.routing_authority'));
         $this->assertSame(['policy_patch', 'decision_receipt'], data_get($finding, 'metadata.routing_control.provider_change_requires'));
+        $this->assertTrue(data_get($finding, 'metadata.proposal_evidence_contract.replay_required'));
     }
 
     public function test_self_improvement_detects_kernel_slo_drift_from_replay_service(): void
@@ -1430,7 +1519,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
     {
         $this->app->instance(AtlasArchitectureOperationsCatalog::class, new AtlasArchitectureOperationsCatalog(commandsOverride: [
             [
-                'command' => 'atlas ai architecture-validate',
+                'command' => 'php artisan atlas:ai:architecture-validate',
                 'description' => 'Temporary drifted catalog for test.',
             ],
         ]));
@@ -1455,58 +1544,58 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame(1, data_get($finding, 'metadata.command_count'));
         $this->assertSame(1, data_get($finding, 'metadata.actual_command_count'));
         $this->assertFalse((bool) data_get($finding, 'metadata.count_mismatch'));
-        $this->assertContains('atlas ai architecture-operations --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:architecture-operations --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas engineering knowledge docs-health --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas engineering knowledge sync --prune --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas engineering knowledge index-code --prune --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice contract --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice bootstrap --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice dependencies --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice contract --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice bootstrap --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice dependencies --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertSame('/ai/voice/runtime/certification', data_get($finding, 'metadata.expected_api_endpoints.voice_realtime_runtime_certification'));
         $this->assertSame('/v1/mobile/ai/voice/runtime/certification', data_get($finding, 'metadata.expected_mobile_endpoints.voice_realtime_runtime_certification'));
         $this->assertSame('/ai/voice/runtime/certification', data_get($finding, 'metadata.missing_api_endpoints.voice_realtime_runtime_certification.expected'));
         $this->assertSame('/v1/mobile/ai/voice/runtime/certification', data_get($finding, 'metadata.missing_mobile_endpoints.voice_realtime_runtime_certification.expected'));
-        $this->assertContains('atlas ai voice scripted-example --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice scripted-smoke --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice callback-smoke --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice callback-sequence-smoke --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice callback-loop-check --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice preflight --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice activation-contract --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice sdk-check --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice worker-plan --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice production-loop-plan --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice production-loop-smoke --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice worker-start-check --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice runtime-certify --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice readiness --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai voice rivals --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice scripted-example --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice scripted-smoke --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice callback-smoke --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice callback-sequence-smoke --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice callback-loop-check --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice preflight --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice activation-contract --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice sdk-check --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice worker-plan --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice production-loop-plan --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice production-loop-smoke --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice worker-start-check --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice runtime-certify --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice readiness --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:voice rivals --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertSame('/ai/provider-release-review', data_get($finding, 'metadata.expected_api_endpoints.provider_release_review'));
         $this->assertSame('/ai/provider-release-review', data_get($finding, 'metadata.missing_api_endpoints.provider_release_review.expected'));
-        $this->assertContains('atlas ai agent-behavior-report --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai decision-receipt-report --envelope=<id> --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai self-improve --flow=provider_release_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai self-improve --flow=voice_realtime_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai qualitative-levels --hours=720 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai rivals-strategy report --hours=8760 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai rivals-strategy due-reviews --due-days=30 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai strategic-decision review --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ledger replay --envelope=<id> --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai ledger-project --limit=500 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas ai inbox-action-report --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:agent-behavior-report --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:decision-receipt-report --envelope=<id> --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:self-improve --flow=voice_realtime_review --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:qualitative-levels --hours=720 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:rivals-strategy report --hours=8760 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:rivals-strategy due-reviews --due-days=30 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:strategic-decision review --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:ledger <id> --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:ledger-project --limit=500 --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('php artisan atlas:ai:inbox-action-report --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertSame('warning', data_get($finding, 'metadata.review_signal.status'));
         $this->assertSame('high', data_get($finding, 'metadata.review_signal.severity'));
         $this->assertSame('restore_architecture_operations_catalog', data_get($finding, 'metadata.review_signal.recommended_action'));
         $this->assertSame('missing_architecture_operation', data_get($finding, 'source_refs.0.type'));
-        $this->assertSame('atlas ai architecture-operations --json', data_get($finding, 'source_refs.0.id'));
+        $this->assertSame('php artisan atlas:ai:architecture-operations --json', data_get($finding, 'source_refs.0.id'));
     }
 
     public function test_self_improvement_detects_architecture_operations_endpoint_drift(): void
@@ -2378,7 +2467,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
     public function test_command_can_render_recurring_schedule_plan(): void
     {
         config()->set('atlas_ai.self_improvement.enabled', true);
-        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review', 'voice_realtime_review']);
+        config()->set('atlas_ai.self_improvement.flows', ['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review', 'provider_release_review', 'voice_realtime_review']);
         config()->set('atlas_ai.self_improvement.time', '02:00');
         config()->set('atlas_ai.self_improvement.hours', 24);
         config()->set('atlas_ai.self_improvement.limit', 5);
@@ -2398,16 +2487,16 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertArrayHasKey('next_run_at', $payload);
         $this->assertTrue($payload['schedulable']);
         $this->assertSame('registered', data_get($payload, 'scheduler_registration.status'));
-        $this->assertSame(6, data_get($payload, 'scheduler_registration.registered_command_count'));
+        $this->assertSame(7, data_get($payload, 'scheduler_registration.registered_command_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['plan_hash']);
         $this->assertSame('sha256', $payload['plan_hash_algorithm']);
-        $this->assertSame(['daily' => 5, 'weekly' => 1], $payload['cadence_counts']);
-        $this->assertSame(6, $payload['count']);
-        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review', 'voice_realtime_review'], $payload['configured_flows']);
+        $this->assertSame(['daily' => 6, 'weekly' => 1], $payload['cadence_counts']);
+        $this->assertSame(7, $payload['count']);
+        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review', 'provider_release_review', 'voice_realtime_review'], $payload['configured_flows']);
         $this->assertSame([], $payload['invalid_flows']);
         $this->assertFalse($payload['defaulted']);
         $this->assertSame('healthy', data_get($payload, 'health.status'));
-        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review', 'voice_realtime_review'], $payload['flows']);
+        $this->assertSame(['nightly_review', 'weekly_architecture_audit', 'repair_loop_review', 'kernel_pipeline_review', 'agent_behavior_review', 'provider_release_review', 'voice_realtime_review'], $payload['flows']);
         $this->assertSame('atlas:ai:self-improve --flow=weekly_architecture_audit --hours=24 --limit=5 --json', data_get($payload, 'commands.1.command'));
         $this->assertSame('weekly', data_get($payload, 'commands.1.cadence'));
         $this->assertSame(1, data_get($payload, 'commands.1.week_day'));
@@ -2417,8 +2506,10 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('daily', data_get($payload, 'commands.3.cadence'));
         $this->assertSame('atlas:ai:self-improve --flow=agent_behavior_review --hours=24 --limit=5 --json', data_get($payload, 'commands.4.command'));
         $this->assertSame('daily', data_get($payload, 'commands.4.cadence'));
-        $this->assertSame('atlas:ai:self-improve --flow=voice_realtime_review --hours=24 --limit=5 --json', data_get($payload, 'commands.5.command'));
+        $this->assertSame('atlas:ai:self-improve --flow=provider_release_review --hours=24 --limit=5 --json', data_get($payload, 'commands.5.command'));
         $this->assertSame('daily', data_get($payload, 'commands.5.cadence'));
+        $this->assertSame('atlas:ai:self-improve --flow=voice_realtime_review --hours=24 --limit=5 --json', data_get($payload, 'commands.6.command'));
+        $this->assertSame('daily', data_get($payload, 'commands.6.cadence'));
         $this->assertSame(0, AtlasInitiativeRun::query()->count(), 'Schedule-plan must not create initiative runs.');
     }
 
@@ -2641,6 +2732,21 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         });
 
         (require database_path('migrations/2026_05_06_120000_create_atlas_strategy_rivals_tables.php'))->up();
+    }
+
+    private function createLocalRagTables(): void
+    {
+        Schema::create('semantic_notes', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->text('embedding')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('ai_attachment_index_entries', function (Blueprint $table): void {
+            $table->id();
+            $table->text('embedding')->nullable();
+            $table->timestamps();
+        });
     }
 
     /**

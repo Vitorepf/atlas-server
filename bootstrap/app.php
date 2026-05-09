@@ -21,7 +21,10 @@ use App\Console\Commands\AtlasAiDomainsCommand;
 use App\Console\Commands\AtlasAiDynamicComputeMarketCommand;
 use App\Console\Commands\AtlasAiLedgerCommand;
 use App\Console\Commands\AtlasAiLedgerProjectionCommand;
+use App\Console\Commands\AtlasAiLocalRagBenchmarkCommand;
+use App\Console\Commands\AtlasAiLocalRagReadinessCommand;
 use App\Console\Commands\AtlasAiProviderPerformanceCommand;
+use App\Console\Commands\AtlasAiProviderReleaseSourcesCommand;
 use App\Console\Commands\AtlasAiQualitativeLevelsCommand;
 use App\Console\Commands\AtlasAiRivalsStrategyCommand;
 use App\Console\Commands\AtlasAiSelfImproveCommand;
@@ -83,6 +86,7 @@ use App\Console\Commands\AtlasOpenBrainContextCommand;
 use App\Console\Commands\AtlasOpenBrainMcpCommand;
 use App\Console\Commands\AtlasProposalCommand;
 use App\Console\Commands\AtlasProposalScanCommand;
+use App\Console\Commands\AtlasProductiveFailureCommand;
 use App\Console\Commands\AtlasRivalsCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
 use App\Console\Commands\AtlasSchedulerTickCommand;
@@ -134,7 +138,10 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiDynamicComputeMarketCommand::class,
         AtlasAiLedgerCommand::class,
         AtlasAiLedgerProjectionCommand::class,
+        AtlasAiLocalRagBenchmarkCommand::class,
+        AtlasAiLocalRagReadinessCommand::class,
         AtlasAiProviderPerformanceCommand::class,
+        AtlasAiProviderReleaseSourcesCommand::class,
         AtlasAiQualitativeLevelsCommand::class,
         AtlasAiRivalsStrategyCommand::class,
         AtlasAiSelfImproveCommand::class,
@@ -162,6 +169,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCliProvidersCommand::class,
         AtlasProposalCommand::class,
         AtlasProposalScanCommand::class,
+        AtlasProductiveFailureCommand::class,
         AtlasMemoryMaintenanceCommand::class,
         AtlasMemoryQualityCommand::class,
         AtlasMemoryRecallCommand::class,

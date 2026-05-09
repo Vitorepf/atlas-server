@@ -8,6 +8,7 @@ final class AtlasVoiceRuntimeCertificationService
 {
     public function __construct(
         private readonly AtlasVoiceRealtimeService $voice,
+        private readonly AtlasVoiceRealtimeFoundationRegistry $foundation,
     ) {}
 
     /**
@@ -44,9 +45,25 @@ final class AtlasVoiceRuntimeCertificationService
         $callbackSequence = $this->runCallbackSequenceSmoke($runtime, $baseUrl);
         $productionLoop = $this->runProductionLoopSmoke($runtime, $baseUrl);
         $workerStart = $this->runWorkerStartCheck($runtime, $baseUrl);
+        $foundation = $this->foundation->readiness();
 
+        $artifacts = [
+            'foundation_registry' => $this->certificationArtifact($foundation, ['summary', 'gates']),
+            'preflight' => $this->certificationArtifact($preflight, ['preflight']),
+            'callback_sequence' => $this->certificationArtifact($callbackSequence, ['callback_sequence']),
+            'production_loop_smoke' => $this->certificationArtifact($productionLoop, ['bridge_contract', 'results']),
+            'worker_start_check' => $this->certificationArtifact($workerStart, ['worker_plan', 'activation_contract', 'production_loop_plan', 'sdk_wiring_contract']),
+        ];
+        $forbiddenArtifactKeys = $this->forbiddenArtifactKeys($artifacts);
         $workerStatus = (string) ($workerStart['status'] ?? 'unknown');
         $gates = [
+            'foundation_registry_ready' => [
+                'passed' => ($foundation['status'] ?? null) === 'ready'
+                    && ($foundation['next_allowed_step'] ?? null) === 'connect_through_authorized_adapter_with_existing_kernel_methods',
+                'status' => $foundation['status'] ?? 'unknown',
+                'next_allowed_step' => $foundation['next_allowed_step'] ?? null,
+                'failed_gate_count' => $foundation['failed_gate_count'] ?? null,
+            ],
             'preflight_ready' => [
                 'passed' => ($preflight['status'] ?? null) === 'ready',
                 'status' => $preflight['status'] ?? 'unknown',
@@ -73,6 +90,11 @@ final class AtlasVoiceRuntimeCertificationService
                 'started' => $workerStart['started'] ?? null,
                 'reason' => $workerStart['reason'] ?? null,
             ],
+            'certification_artifacts_sanitized' => [
+                'passed' => $forbiddenArtifactKeys === [],
+                'forbidden_key_count' => count($forbiddenArtifactKeys),
+                'forbidden_keys' => $forbiddenArtifactKeys,
+            ],
         ];
 
         $failed = collect($gates)
@@ -97,12 +119,7 @@ final class AtlasVoiceRuntimeCertificationService
                 'failed_gates' => count($failed),
                 'failed_keys' => $failed,
             ],
-            'artifacts' => [
-                'preflight' => $this->certificationArtifact($preflight, ['preflight']),
-                'callback_sequence' => $this->certificationArtifact($callbackSequence, ['callback_sequence']),
-                'production_loop_smoke' => $this->certificationArtifact($productionLoop, ['bridge_contract', 'results']),
-                'worker_start_check' => $this->certificationArtifact($workerStart, ['worker_plan', 'activation_contract', 'production_loop_plan', 'sdk_wiring_contract']),
-            ],
+            'artifacts' => $artifacts,
             'next_action' => $failed === []
                 ? 'wire_real_livekit_agents_sdk_loop_when_optional_dependency_is_ready'
                 : 'fix_failed_runtime_certification_gates',
@@ -326,12 +343,61 @@ final class AtlasVoiceRuntimeCertificationService
      */
     private function sanitize(array $payload): array
     {
-        $forbidden = ['access_token', 'token', 'livekit_token', 'api_key', 'api_secret'];
+        $forbidden = $this->forbiddenArtifactKeyNames();
 
         return collect($payload)
             ->reject(fn (mixed $_, string|int $key): bool => in_array((string) $key, $forbidden, true))
             ->map(fn (mixed $value): mixed => is_array($value) ? $this->sanitize($value) : $value)
             ->all();
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function forbiddenArtifactKeyNames(): array
+    {
+        return [
+            'access_token',
+            'token',
+            'livekit_token',
+            'api_key',
+            'api_secret',
+            'raw_audio',
+            'audio_bytes',
+            'pcm',
+            'wav',
+            'response_text',
+            'raw_response_text',
+            'tts_text',
+            'tool_call',
+            'tool_args',
+            'provider_api_key',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<int,string>
+     */
+    private function forbiddenArtifactKeys(array $payload, string $prefix = ''): array
+    {
+        $forbidden = $this->forbiddenArtifactKeyNames();
+        $matches = [];
+
+        foreach ($payload as $key => $value) {
+            $path = $prefix === '' ? (string) $key : $prefix.'.'.(string) $key;
+            if (in_array((string) $key, $forbidden, true)) {
+                $matches[] = $path;
+            }
+
+            if (is_array($value)) {
+                array_push($matches, ...$this->forbiddenArtifactKeys($value, $path));
+            }
+        }
+
+        sort($matches);
+
+        return array_values(array_unique($matches));
     }
 
     /**

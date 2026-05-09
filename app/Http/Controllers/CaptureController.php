@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateCaptureRequest;
 use App\Http\Resources\CaptureResource;
 use App\Http\Resources\SemanticCurationProposalResource;
 use App\Models\Capture;
+use App\Services\CaptureDeletionService;
 use App\Services\CaptureService;
 use App\Services\Semantic\CurationProposalService;
 use Illuminate\Http\JsonResponse;
@@ -101,11 +102,20 @@ class CaptureController extends Controller
         return new CaptureResource($this->withDestinationLinks($capture->refresh()));
     }
 
-    public function destroy(Capture $capture): CaptureResource
+    public function destroy(Capture $capture, CaptureDeletionService $deletion): JsonResponse
     {
-        $capture->delete();
+        $summary = $deletion->delete($capture);
 
-        return new CaptureResource($this->withDestinationLinks($capture->refresh()));
+        return response()->json([
+            'ok' => true,
+            'deleted_capture_id' => $summary['capture_id'],
+            'deletion' => [
+                'content_purged' => $summary['content_purged'],
+                'file_deleted' => $summary['file_deleted'],
+                'counts' => $summary['counts'],
+                'deleted_at' => $summary['deleted_at'],
+            ],
+        ]);
     }
 
     public function retryTranscription(Capture $capture, CaptureService $captures): JsonResponse

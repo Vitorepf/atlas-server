@@ -2,7 +2,7 @@
 id: atlas-ai-cognitive-overview
 type: engineering_knowledge
 title: Atlas AI Cognitive Plane - Overview
-status: scaffold
+status: active
 category: architecture
 priority: 95
 summary: Visao executiva Layer 2 do Cognitive Plane. Tese cognitiva, piramide de Pareto vs ciclo de gurus, 4 pilares (teorico/pratico/cognitivo/transferencial), 5 movimentos (declarar/gerar erro/praticar/provar/revisar), encaixe nos layers Atlas, autoridade.
@@ -30,6 +30,7 @@ decisions:
 maintenance:
   - Manter abaixo de 260 linhas (contrato canonico Doc-OS).
   - Atualizar quando tese, pilares, movimentos ou autoridade mudarem.
+  - Status `active` significa que a spec e canonica; maturidade de runtime continua nos APs e na matriz implemented-vs-scaffold.
 related_paths:
   - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
   - docs/engineering-knowledge-base/cognitive/README.md

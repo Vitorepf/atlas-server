@@ -113,6 +113,11 @@ final class AtlasVoiceRivalsRunner
                 'failed_gates' => 1,
                 'failed_keys' => ['runtime_certification_unavailable'],
             ],
+            'artifact_sanitization' => $certification['gates']['certification_artifacts_sanitized'] ?? [
+                'passed' => false,
+                'forbidden_key_count' => 1,
+                'forbidden_keys' => ['runtime_certification_unavailable'],
+            ],
             'next_action' => $certification['next_action'] ?? 'fix_failed_runtime_certification_gates',
         ];
     }

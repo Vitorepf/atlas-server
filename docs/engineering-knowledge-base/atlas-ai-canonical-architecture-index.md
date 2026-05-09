@@ -41,6 +41,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-evolution-roadmap.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
   - docs/engineering-knowledge-base/domains/README.md
+  - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
+  - docs/engineering-knowledge-base/code-intelligence.md
+  - docs/engineering-knowledge-base/code-intelligence/external-graph-harness.md
 ---
 
 # Atlas AI Canonical Architecture Index
@@ -79,6 +82,8 @@ or Kernel.
 | Product architecture | `atlas-ai-master-architecture.md` |
 | Evolution roadmap | `atlas-ai-evolution-roadmap.md` + `evolution/README.md` |
 | Universal pipeline | `atlas-ai-pipeline.md` |
+| Memory noise immunity and promotion | `memory/cognitive-immune-learning-kernel.md` |
+| Code Intelligence and external graph candidates | `code-intelligence.md` + `code-intelligence/external-graph-harness.md` |
 | Domains | `domains/README.md` |
 
 ## Conflict Resolution

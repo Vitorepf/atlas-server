@@ -344,6 +344,58 @@ class EvidenceLedgerTest extends TestCase
         ]);
     }
 
+    public function test_records_local_rag_event_without_persisting_raw_context_or_query(): void
+    {
+        $event = app(AtlasEvidenceLedger::class)->recordLocalRagEvent(LedgerEventType::LocalRagQualityCorpusEvaluated, [
+            'envelope_id' => 'env_rag_01',
+            'receipt_id' => 'receipt_rag_01',
+            'benchmark_id' => 'local_rag_controlled_router_quality_v1',
+            'query' => 'consulta privada que nao deve persistir',
+            'raw_context' => 'contexto bruto que nao deve persistir',
+            'documents' => [['content' => 'documento bruto que nao deve persistir']],
+            'sources' => [
+                ['source_id' => 'doc_01', 'source_hash' => hash('sha256', 'doc')],
+            ],
+            'quality_corpus' => [
+                'status' => 'passed',
+                'latency_p95_ms' => 0.42,
+            ],
+            'privacy_class' => 'restricted',
+            'api_key' => 'must-not-persist',
+        ], [
+            'tenant_id' => 'tenant-rag',
+            'operator_id' => 'operator-rag',
+        ]);
+
+        $this->assertInstanceOf(AtlasLedgerEvent::class, $event);
+        $this->assertSame(LedgerEventType::LocalRagQualityCorpusEvaluated->value, $event->event_type);
+        $this->assertSame('atlas.context_retrieval', $event->emitter_stage);
+        $this->assertSame('tenant-rag', $event->tenant_id);
+        $this->assertSame('operator-rag', $event->operator_id);
+        $this->assertSame('env_rag_01', $event->envelope_id);
+        $this->assertSame('receipt_rag_01', $event->receipt_id);
+        $this->assertSame('local_rag_controlled_router_quality_v1', $event->correlation_id);
+        $this->assertSame('atlas.local_rag.ledger_event.v1', data_get($event->payload, 'schema_version'));
+        $this->assertSame('restricted', data_get($event->payload, 'privacy_class'));
+        $this->assertSame(hash('sha256', 'consulta privada que nao deve persistir'), data_get($event->payload, 'local_rag.query_hash'));
+        $this->assertSame(mb_strlen('consulta privada que nao deve persistir'), data_get($event->payload, 'local_rag.query_length'));
+        $this->assertSame('doc_01', data_get($event->payload, 'local_rag.sources.0.source_id'));
+        $this->assertSame('passed', data_get($event->payload, 'local_rag.quality_corpus.status'));
+        $this->assertArrayNotHasKey('query', data_get($event->payload, 'local_rag'));
+        $this->assertArrayNotHasKey('raw_context', data_get($event->payload, 'local_rag'));
+        $this->assertArrayNotHasKey('documents', data_get($event->payload, 'local_rag'));
+        $this->assertArrayNotHasKey('api_key', data_get($event->payload, 'local_rag'));
+    }
+
+    public function test_rejects_non_local_rag_event_in_local_rag_recorder(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        app(AtlasEvidenceLedger::class)->recordLocalRagEvent(LedgerEventType::DecisionIssued, [
+            'envelope_id' => 'env_rag_bad',
+        ]);
+    }
+
     public function test_records_repair_decision_as_canonical_ledger_event(): void
     {
         $request = app(RepairRequestFactory::class)->fromKernelContext(

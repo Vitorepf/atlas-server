@@ -32,6 +32,8 @@ class KernelSloTargetsTest extends TestCase
         $this->assertContains('voice.wake_word_detect', $report['stages']);
         $this->assertContains('voice.turn_to_first_audio', $report['stages']);
         $this->assertContains('voice.interruption_stop_audio', $report['stages']);
+        $this->assertContains('cognitive.productive_failure.problem_selection', $report['stages']);
+        $this->assertContains('cognitive.productive_failure.phase_gate', $report['stages']);
 
         $decide = $targets->targetFor('decide.issue');
 

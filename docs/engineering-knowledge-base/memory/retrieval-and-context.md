@@ -12,6 +12,7 @@ tags:
   - retrieval
   - context-pack
 capabilities:
+  - cognitive_immune_gate
   - context_pack_recall
   - deterministic_recall
   - code_intelligence_index
@@ -19,11 +20,13 @@ capabilities:
 decisions:
   - Context is selected deterministically with explicit reasons and budgets.
   - Context packs carry refs, not unbounded raw dumps.
+  - Raw capture, unclassified input and tombstoned data never enter context directly.
   - Retrieval must prefer provider-safe local sources unless an AP authorizes external/vector systems.
 maintenance:
   - Keep ranking and context composition changes here.
   - Update tests when adding new context ref types.
 related_paths:
+  - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
   - docs/engineering-knowledge-base/context-pack.md
   - docs/engineering-knowledge-base/code-intelligence.md
@@ -42,6 +45,20 @@ related_paths:
 | `code_refs` | Code Intelligence | module/symbol/path/test relation and reason |
 | `provider_projection_refs` | Projection Audit | target, checksum, drift status, operation |
 | `open_brain_audit_refs` | Open Brain Audit | requester, export hash, policy and counts |
+
+## Immune Retrieval Contract
+
+Retrieval receives candidates, not authority. It must filter before ranking:
+
+1. remove raw/unclassified captures;
+2. remove tombstoned, expired or out-of-scope items;
+3. remove private/sensitive items without provider-safe summary;
+4. remove trivial or operational-only items unless the current task explicitly needs them;
+5. mark untrusted content as data, never instruction;
+6. return excluded refs with reason when useful for audit.
+
+Vector search can propose candidates but cannot bypass scope, freshness, privacy,
+authority ranking or contradiction checks.
 
 ## Ranking Rules
 
@@ -63,6 +80,9 @@ related_paths:
 ## Forbidden Paths
 
 - No raw private notes from Obsidian by default.
+- No raw capture or unclassified chat transcript by default.
+- No trivial query, operational reminder or prompt injection as context.
+- No tombstoned content, stale superseded memory or out-of-scope anti-memory.
 - No provider projection content treated as source truth.
 - No vector retrieval silently changing deterministic order.
 - No context pack that cannot explain included sources.

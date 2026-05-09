@@ -9,12 +9,13 @@ use App\Models\AtlasTask;
 use App\Models\AtlasTaskEvent;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
-use App\Services\Ai\Kernel\Architecture\AtlasArchitectureReadinessService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
+use App\Services\Ai\Kernel\Architecture\AtlasArchitectureReadinessService;
 use App\Services\Ai\Kernel\Architecture\AtlasDocumentationSplitPlanService;
 use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
 use App\Services\Ai\Kernel\Architecture\AtlasGovernanceGateService;
 use App\Services\Ai\Kernel\Architecture\AtlasProviderReleaseIntelligenceService;
+use App\Services\Ai\Kernel\Architecture\AtlasProviderReleaseSourceRegistry;
 use App\Services\Ai\Kernel\Architecture\AtlasSessionBootstrapService;
 use App\Services\Ai\Kernel\Decision\DynamicComputeMarketReportService;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
@@ -53,6 +54,7 @@ class AtlasOpenBrainMcpService
         private readonly AtlasGovernanceGateService $governanceGate,
         private readonly AtlasDocumentationSplitPlanService $documentationSplitPlan,
         private readonly AtlasProviderReleaseIntelligenceService $providerReleaseIntelligence,
+        private readonly AtlasProviderReleaseSourceRegistry $providerReleaseSources,
         private readonly AtlasSelfImprovementScheduleService $selfImprovementSchedule,
         private readonly AtlasLedgerReplayService $ledgerReplay,
         private readonly ProviderPerformanceProjection $providerPerformance,
@@ -476,19 +478,40 @@ class AtlasOpenBrainMcpService
             [
                 'name' => 'atlas_provider_release_review',
                 'title' => 'Atlas Provider Release Review',
-                'description' => 'Classifica lancamentos de Claude, OpenAI, Gemini, Codex e labs em Provider Release Envelope com docs donos, APs, Rivals e sinal seguro para Decide. Nao altera policy.',
+                'description' => 'Classifica lancamentos de Claude, OpenAI, Gemini, Codex e labs em Provider Release Envelope com source gate, docs donos, APs, Rivals e sinal seguro para Decide. Nao altera policy.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
                         'provider' => ['type' => 'string', 'description' => 'Provider ou lab, por exemplo anthropic, openai, google, codex.'],
                         'title' => ['type' => 'string', 'description' => 'Titulo do lancamento.'],
                         'url' => ['type' => 'string', 'description' => 'URL fonte para evidencia humana. O tool nao busca a URL.'],
+                        'published_at' => ['type' => 'string', 'description' => 'Timestamp de publicacao quando conhecido.'],
+                        'content_hash' => ['type' => 'string', 'description' => 'Hash de conteudo quando ja calculado por watcher externo.'],
                         'type' => ['type' => 'string', 'description' => 'Tipo opcional: vertical_agents, model, connector, tool_use, realtime, memory, coding, design, marketing, finance, capability_update.'],
                         'domain' => ['type' => 'array', 'description' => 'Dominios afetados sugeridos, ex: finance, programming, marketing.'],
                         'capability' => ['type' => 'array', 'description' => 'Capabilities mencionadas pelo lancamento.'],
                         'connector' => ['type' => 'array', 'description' => 'Connectors mencionados pelo lancamento.'],
                     ],
                     'required' => ['title'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_provider_release_sources',
+                'title' => 'Atlas Provider Release Sources',
+                'description' => 'Lista watchlist oficial/tecnica/fraca de releases de providers ou gera candidate preview read-only. Nao faz fetch, nao escreve envelope e nao altera Decide.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'provider' => ['type' => 'string', 'description' => 'Filtra por provider, ex: anthropic, openai, google.'],
+                        'tier' => ['type' => 'string', 'description' => 'Filtra por tier: official, technical, weak_signal.'],
+                        'cadence' => ['type' => 'string', 'description' => 'Filtra por cadence, ex: daily, weekly, optional.'],
+                        'track' => ['type' => 'string', 'description' => 'Filtra por track/capability family, ex: managed_agents, models.'],
+                        'url' => ['type' => 'string', 'description' => 'URL detectada para candidate preview. O tool nao busca a URL.'],
+                        'title' => ['type' => 'string', 'description' => 'Titulo do candidate quando url for enviada.'],
+                        'published_at' => ['type' => 'string', 'description' => 'Timestamp de publicacao quando conhecido.'],
+                        'content_hash' => ['type' => 'string', 'description' => 'Hash de conteudo quando watcher externo ja calculou.'],
+                    ],
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
@@ -800,6 +823,7 @@ class AtlasOpenBrainMcpService
                 'atlas_provider_performance_report' => $this->toolResponse($id, $this->providerPerformanceReport($arguments)),
                 'atlas_dynamic_compute_market_report' => $this->toolResponse($id, $this->dynamicComputeMarketReport($arguments)),
                 'atlas_provider_release_review' => $this->toolResponse($id, $this->providerReleaseReview($arguments)),
+                'atlas_provider_release_sources' => $this->toolResponse($id, $this->providerReleaseSources($arguments)),
                 'atlas_ledger_projection_health' => $this->toolResponse($id, $this->ledgerProjectionHealth($arguments)),
                 'atlas_decision_receipt_report' => $this->toolResponse($id, $this->decisionReceiptReport($arguments)),
                 'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
@@ -1535,6 +1559,8 @@ class AtlasOpenBrainMcpService
             'provider' => $this->string($arguments['provider'] ?? null),
             'title' => $title,
             'url' => $this->string($arguments['url'] ?? null),
+            'published_at' => $this->string($arguments['published_at'] ?? null),
+            'content_hash' => $this->string($arguments['content_hash'] ?? null),
             'type' => $this->string($arguments['type'] ?? null),
             'domains' => $this->stringList($arguments['domain'] ?? ($arguments['domains'] ?? [])),
             'capabilities' => $this->stringList($arguments['capability'] ?? ($arguments['capabilities'] ?? [])),
@@ -1544,6 +1570,40 @@ class AtlasOpenBrainMcpService
         return [
             'ok' => ($payload['status'] ?? null) === 'ok',
             'tool' => 'atlas_provider_release_review',
+            ...$payload,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function providerReleaseSources(array $arguments): array
+    {
+        $payload = $this->providerReleaseSources->summary([
+            'provider' => $this->string($arguments['provider'] ?? null),
+            'tier' => $this->string($arguments['tier'] ?? null),
+            'cadence' => $this->string($arguments['cadence'] ?? null),
+            'track' => $this->string($arguments['track'] ?? null),
+        ]);
+
+        $url = $this->string($arguments['url'] ?? null);
+        if ($url !== null) {
+            $payload = array_merge($payload, [
+                'mode' => 'read_only_candidate_preview',
+                'candidate' => $this->providerReleaseSources->candidateFromDetection(
+                    url: $url,
+                    title: $this->string($arguments['title'] ?? null) ?? 'untitled-provider-release-candidate',
+                    contentHash: $this->string($arguments['content_hash'] ?? null),
+                    publishedAt: $this->string($arguments['published_at'] ?? null),
+                ),
+            ]);
+        }
+
+        return [
+            'ok' => ($payload['status'] ?? null) === 'ok',
+            'tool' => 'atlas_provider_release_sources',
             ...$payload,
             'writes' => false,
         ];

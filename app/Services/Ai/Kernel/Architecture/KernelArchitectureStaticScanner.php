@@ -1915,11 +1915,11 @@ class KernelArchitectureStaticScanner
             'atlas.self_improvement.architecture_operations.v1',
             'restore_architecture_operations_catalog',
             'missing_architecture_operation',
-            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
-            'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
-            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
-            'atlas ai telemetry cost-rates --missing --hours=168 --json',
-            'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
+            'php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json',
+            'php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json',
+            'php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json',
+            'php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
         ] as $token) {
             if (! str_contains($runtime, $token)) {
                 $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-131 Self-Improvement must review Architecture Operations catalog drift [{$token}]";
@@ -1932,11 +1932,11 @@ class KernelArchitectureStaticScanner
             'atlas.self_improvement.architecture_operations.v1',
             'restore_architecture_operations_catalog',
             'missing_architecture_operation',
-            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
-            'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
-            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
-            'atlas ai telemetry cost-rates --missing --hours=168 --json',
-            'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
+            'php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json',
+            'php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json',
+            'php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json',
+            'php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
         ] as $token) {
             if (! str_contains($test, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-131 Self-Improvement architecture operations review must be covered [{$token}]";
@@ -2030,7 +2030,7 @@ class KernelArchitectureStaticScanner
             'test_command_human_output_lists_architecture_operations',
             'atlas:ai:architecture-operations',
             'architecture_operations.command_count',
-            'atlas ai architecture-operations --json',
+            'php artisan atlas:ai:architecture-operations --json',
         ] as $token) {
             if (! str_contains($commandTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasAiArchitectureOperationsCommandTest.php: AP-130 architecture operations CLI must be covered [{$token}]";
@@ -2042,7 +2042,7 @@ class KernelArchitectureStaticScanner
             'test_api_requires_atlas_token',
             '/ai/architecture/operations',
             'architecture_operations.command_count',
-            'atlas ai architecture-operations --json',
+            'php artisan atlas:ai:architecture-operations --json',
             '/ai/session-bootstrap',
             '/ai/feature-placement',
             '/ai/docs-split-plan',
@@ -2148,14 +2148,14 @@ class KernelArchitectureStaticScanner
             "data_get(\$splitPlan, 'filters.status')",
             'session_bootstrap_blocked_by_strict_gate',
             'feature_placement_blocked_by_strict_gate',
-            'atlas ai agent-behavior-report --hours=24 --json',
+            'php artisan atlas:ai:agent-behavior-report --hours=24 --json',
             'provider_release_review',
             'php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json',
-            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
-            'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
-            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
-            'atlas ai telemetry cost-rates --missing --hours=168 --json',
-            'atlas ai inbox-action-report --hours=24 --json',
+            'php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json',
+            'php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json',
+            'php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json',
+            'php artisan atlas:ai:inbox-action-report --hours=24 --json',
         ] as $token) {
             if (! str_contains($test, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-129 MCP architecture operations tool must be covered [{$token}]";
@@ -2208,8 +2208,8 @@ class KernelArchitectureStaticScanner
             'public function commands(): array',
             'public function summary(array $filters = []): array',
             "'command_count' => count(\$commands)",
-            "'atlas ai architecture-operations --json'",
-            "'atlas ai architecture-validate'",
+            "'php artisan atlas:ai:architecture-operations --json'",
+            "'php artisan atlas:ai:architecture-validate'",
             "'atlas engineering knowledge docs-health --json'",
             "'php artisan atlas:ai:session-bootstrap --task=\"<task>\" --json'",
             "'php artisan atlas:ai:place-feature \"<feature>\" --json'",
@@ -2222,14 +2222,14 @@ class KernelArchitectureStaticScanner
             "'api_endpoint' => '/ai/docs-split-plan'",
             "'atlas engineering knowledge sync --prune --json'",
             "'atlas engineering knowledge index-code --prune --json'",
-            "'atlas ai agent-behavior-report --hours=24 --json'",
-            "'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json'",
-            "'atlas ai self-improve --flow=provider_performance_review --hours=168 --json'",
+            "'php artisan atlas:ai:agent-behavior-report --hours=24 --json'",
+            "'php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json'",
+            "'php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json'",
             "'php artisan atlas:ai:provider-release-review --provider=<provider> --title=\"<release>\" --json'",
-            "'atlas ai self-improve --flow=provider_release_review --hours=168 --json'",
-            "'atlas ai telemetry cost-rates --missing --hours=168 --json'",
-            "'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json'",
-            "'atlas ai inbox-action-report --hours=24 --json'",
+            "'php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json'",
+            "'php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json'",
+            "'php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json'",
+            "'php artisan atlas:ai:inbox-action-report --hours=24 --json'",
         ] as $token) {
             if (! str_contains($catalog, $token)) {
                 $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-128 shared architecture operations catalog must exist [{$token}]";
@@ -2258,7 +2258,7 @@ class KernelArchitectureStaticScanner
             'test_catalog_exposes_canonical_architecture_operations',
             'AtlasArchitectureOperationsCatalog',
             "'arquitetura_mae'",
-            'atlas ai architecture-operations --json',
+            'php artisan atlas:ai:architecture-operations --json',
             'atlas engineering knowledge docs-health --json',
             'php artisan atlas:ai:session-bootstrap --task="<task>" --json',
             'php artisan atlas:ai:place-feature "<feature>" --json',
@@ -2271,14 +2271,14 @@ class KernelArchitectureStaticScanner
             '/ai/docs-split-plan',
             'atlas engineering knowledge sync --prune --json',
             'atlas engineering knowledge index-code --prune --json',
-            'atlas ai agent-behavior-report --hours=24 --json',
-            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
-            'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
+            'php artisan atlas:ai:agent-behavior-report --hours=24 --json',
+            'php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json',
             'php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json',
-            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
-            'atlas ai telemetry cost-rates --missing --hours=168 --json',
-            'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
-            'atlas ai inbox-action-report --hours=24 --json',
+            'php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json',
+            'php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json',
+            'php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
+            'php artisan atlas:ai:inbox-action-report --hours=24 --json',
         ] as $token) {
             if (! str_contains($unitTest, $token)) {
                 $violations[] = "tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php: AP-128 catalog must be unit tested [{$token}]";
@@ -2289,7 +2289,7 @@ class KernelArchitectureStaticScanner
             'test_observability_payload_includes_architecture_operations_catalog',
             "assertJsonPath('architecture_operations.section', 'arquitetura_mae')",
             "\$this->assertSame(count(\$commands), \$response->json('architecture_operations.command_count'))",
-            'atlas ai architecture-operations --json',
+            'php artisan atlas:ai:architecture-operations --json',
             'atlas engineering knowledge docs-health --json',
             'php artisan atlas:ai:session-bootstrap --task="<task>" --json',
             'php artisan atlas:ai:place-feature "<feature>" --json',
@@ -2299,13 +2299,13 @@ class KernelArchitectureStaticScanner
             '/ai/docs-split-plan',
             'atlas engineering knowledge sync --prune --json',
             'atlas engineering knowledge index-code --prune --json',
-            'atlas ai agent-behavior-report --hours=24 --json',
-            'atlas ai self-improvement-schedule-report --hours=24 --json',
-            'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
+            'php artisan atlas:ai:agent-behavior-report --hours=24 --json',
+            'php artisan atlas:ai:self-improvement-schedule-report --hours=24 --json',
+            'php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json',
             'php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json',
-            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
-            'atlas ledger replay --envelope=<id> --json',
-            'atlas ai telemetry cost-rates --missing --hours=168 --json',
+            'php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json',
+            'php artisan atlas:ai:ledger <id> --json',
+            'php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json',
         ] as $token) {
             if (! str_contains($observabilityTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-128 Observability architecture operations catalog must be covered [{$token}]";
@@ -2359,19 +2359,19 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             "return 'arquitetura_mae'",
-            "'command' => 'atlas ai architecture-operations --json'",
-            "'command' => 'atlas ai architecture-validate'",
-            "'command' => 'atlas ai slo --hours=24 --json'",
-            "'command' => 'atlas ai kernel-pipeline-report --hours=24 --json'",
-            "'command' => 'atlas ai repair-report --hours=24 --json'",
-            "'command' => 'atlas ai provider-performance --hours=24 --json'",
+            "'command' => 'php artisan atlas:ai:architecture-operations --json'",
+            "'command' => 'php artisan atlas:ai:architecture-validate'",
+            "'command' => 'php artisan atlas:ai:slo --hours=24 --json'",
+            "'command' => 'php artisan atlas:ai:kernel-pipeline-report --hours=24 --json'",
+            "'command' => 'php artisan atlas:ai:repair-report --hours=24 --json'",
+            "'command' => 'php artisan atlas:ai:provider-performance --hours=24 --json'",
             "'command' => 'php artisan atlas:ai:provider-release-review --provider=<provider> --title=\"<release>\" --json'",
-            "'command' => 'atlas ai agent-behavior-report --hours=24 --json'",
-            "'command' => 'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json'",
-            "'command' => 'atlas ai self-improve --flow=provider_performance_review --hours=168 --json'",
-            "'command' => 'atlas ai self-improve --flow=provider_release_review --hours=168 --json'",
-            "'command' => 'atlas ai self-improvement-schedule-report --hours=24 --json'",
-            "'command' => 'atlas ai inbox-action-report --hours=24 --json'",
+            "'command' => 'php artisan atlas:ai:agent-behavior-report --hours=24 --json'",
+            "'command' => 'php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json'",
+            "'command' => 'php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json'",
+            "'command' => 'php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json'",
+            "'command' => 'php artisan atlas:ai:self-improvement-schedule-report --hours=24 --json'",
+            "'command' => 'php artisan atlas:ai:inbox-action-report --hours=24 --json'",
         ] as $token) {
             if (! str_contains($catalog, $token)) {
                 $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-127 architecture operation commands must remain discoverable [{$token}]";
@@ -2380,19 +2380,19 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             'arquitetura_mae',
-            'atlas ai architecture-operations --json',
-            'atlas ai architecture-validate',
-            'atlas ai slo --hours=24 --json',
-            'atlas ai kernel-pipeline-report --hours=24 --json',
-            'atlas ai repair-report --hours=24 --json',
-            'atlas ai provider-performance --hours=24 --json',
+            'php artisan atlas:ai:architecture-operations --json',
+            'php artisan atlas:ai:architecture-validate',
+            'php artisan atlas:ai:slo --hours=24 --json',
+            'php artisan atlas:ai:kernel-pipeline-report --hours=24 --json',
+            'php artisan atlas:ai:repair-report --hours=24 --json',
+            'php artisan atlas:ai:provider-performance --hours=24 --json',
             'php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json',
-            'atlas ai agent-behavior-report --hours=24 --json',
-            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
-            'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
-            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
-            'atlas ai self-improvement-schedule-report --hours=24 --json',
-            'atlas ai inbox-action-report --hours=24 --json',
+            'php artisan atlas:ai:agent-behavior-report --hours=24 --json',
+            'php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json',
+            'php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json',
+            'php artisan atlas:ai:self-improvement-schedule-report --hours=24 --json',
+            'php artisan atlas:ai:inbox-action-report --hours=24 --json',
         ] as $token) {
             if (! str_contains($test, $token)) {
                 $violations[] = "tests/Feature/AtlasCliHelpCommandTest.php: AP-127 CLI help architecture operations must be covered [{$token}]";
@@ -2403,9 +2403,9 @@ class KernelArchitectureStaticScanner
             'AP-127',
             'CLI Help Architecture Operations Discovery',
             'arquitetura_mae',
-            'atlas ai architecture-operations --json',
-            'atlas ai agent-behavior-report --hours=24 --json',
-            'atlas ai inbox-action-report --hours=24 --json',
+            'php artisan atlas:ai:architecture-operations --json',
+            'php artisan atlas:ai:agent-behavior-report --hours=24 --json',
+            'php artisan atlas:ai:inbox-action-report --hours=24 --json',
             'ap127_cli_help_architecture_operations_discovery',
         ] as $token) {
             if (! str_contains($docs, $token)) {
@@ -4208,6 +4208,9 @@ class KernelArchitectureStaticScanner
             "'authority' => 'advisory_only_atlas_decide_remains_authority'",
             "'routing_control'",
             "'changes_provider' => false",
+            "'proposal_evidence_contract'",
+            'atlas.dynamic_compute_market.proposal_evidence.v1',
+            'draft_only_until_benchmark_and_review',
             "'quality_basis'",
             "'latency_basis'",
             "'cost_basis'",
@@ -4503,6 +4506,7 @@ class KernelArchitectureStaticScanner
             'atlas.self_improvement.dynamic_compute_market.v1',
             'routing_control.changes_provider',
             'routing_control.routing_authority',
+            'metadata.proposal_evidence_contract',
         ] as $token) {
             if (! str_contains($selfImprovementRuntimeTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-147 Curator proposal-only contract must be covered [{$token}]";
@@ -4590,7 +4594,7 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             'AP-147',
-            'implemented-shadow-contract',
+            'implemented-shadow-evidence-contract',
             'atlas.dynamic_compute_market_report.v1',
             'read_only_no_routing_change',
             'routing_control.changes_provider=false',
@@ -4990,13 +4994,13 @@ class KernelArchitectureStaticScanner
         $domainDocs = $this->selfImprovementDomainDocumentationCorpus();
         $kernelDocs = $this->kernelDocumentationCorpus();
 
-        if (! str_contains($config, 'nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review,agent_behavior_review')) {
-            $violations[] = 'config/atlas_ai.php: ATLAS_AI_SELF_IMPROVEMENT_FLOWS default must include weekly_architecture_audit between nightly and repair reviews';
+        if (! str_contains($config, 'nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review,agent_behavior_review,provider_release_review,voice_realtime_review')) {
+            $violations[] = 'config/atlas_ai.php: ATLAS_AI_SELF_IMPROVEMENT_FLOWS default must include architecture, repair, kernel, agent, provider release and voice reviews';
         }
 
         foreach ([
-            "'nightly_review',\n            'weekly_architecture_audit',\n            'repair_loop_review',\n            'kernel_pipeline_review',\n            'agent_behavior_review'",
-            'Restore the default nightly_review, weekly_architecture_audit, repair_loop_review, kernel_pipeline_review, and agent_behavior_review schedule.',
+            "'nightly_review',\n            'weekly_architecture_audit',\n            'repair_loop_review',\n            'kernel_pipeline_review',\n            'agent_behavior_review',\n            'provider_release_review',\n            'voice_realtime_review'",
+            'Restore the default nightly_review, weekly_architecture_audit, repair_loop_review, kernel_pipeline_review, agent_behavior_review, provider_release_review, and voice_realtime_review schedule.',
         ] as $token) {
             if (! str_contains($schedule, $token)) {
                 $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementScheduleService.php: default schedule must include architecture audit [{$token}]";
@@ -5004,7 +5008,7 @@ class KernelArchitectureStaticScanner
         }
 
         foreach ([
-            'test_default_schedule_runs_nightly_architecture_repair_and_kernel_pipeline_reviews',
+            'test_default_schedule_runs_nightly_architecture_repair_kernel_pipeline_agent_and_provider_release_reviews',
             "'weekly_architecture_audit'",
             'registered_command_count',
             'atlas:ai:self-improve --flow=weekly_architecture_audit --hours=24 --limit=5 --json',
@@ -10387,7 +10391,7 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             "'id' => 'decision_receipt_report'",
-            'atlas ai decision-receipt-report --envelope=<id> --json',
+            'php artisan atlas:ai:decision-receipt-report --envelope=<id> --json',
             'DecisionReceipt',
         ] as $token) {
             if (! str_contains($catalog, $token)) {
@@ -10601,7 +10605,7 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             "'id' => 'ledger_replay'",
-            "'command' => 'atlas ledger replay --envelope=<id> --json'",
+            "'command' => 'php artisan atlas:ai:ledger <id> --json'",
             "'kind' => 'evidence_report'",
         ] as $token) {
             if (! str_contains($catalog, $token)) {
@@ -10609,7 +10613,7 @@ class KernelArchitectureStaticScanner
             }
         }
 
-        if (! str_contains($runtime, 'atlas ledger replay --envelope=<id> --json')) {
+        if (! str_contains($runtime, 'php artisan atlas:ai:ledger <id> --json')) {
             $violations[] = 'app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-140 Self-Improvement must protect ledger replay in architecture operations expected commands';
         }
 
@@ -10626,7 +10630,7 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             'ledger_replay',
-            'atlas ledger replay --envelope=<id> --json',
+            'php artisan atlas:ai:ledger <id> --json',
         ] as $token) {
             if (! str_contains($catalogTest, $token)) {
                 $violations[] = "tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php: AP-140 catalog discovery must be tested [{$token}]";
@@ -10955,7 +10959,7 @@ class KernelArchitectureStaticScanner
             "'id' => 'record_rivals_review'",
             "'payload' => [",
             "'due_reviews' =>",
-            "'record_command_template' => 'atlas ai rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json'",
+            "'record_command_template' => 'php artisan atlas:ai:rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json'",
             "'rivals_strategy_due_review'",
         ] as $token) {
             if (! str_contains($runtime, $token)) {
@@ -11951,7 +11955,7 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             'agent_behavior_report',
-            'atlas ai agent-behavior-report --hours=24 --json',
+            'php artisan atlas:ai:agent-behavior-report --hours=24 --json',
         ] as $token) {
             if (! str_contains($catalog, $token)) {
                 $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-158 must be discoverable in operations catalog [{$token}]";
@@ -12073,7 +12077,7 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             'agent_behavior_curator_review',
-            'atlas ai self-improve --flow=agent_behavior_review --hours=168 --json',
+            'php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json',
             'curator_review',
         ] as $token) {
             if (! str_contains($catalog, $token)) {
@@ -12084,7 +12088,7 @@ class KernelArchitectureStaticScanner
             }
         }
 
-        foreach (['atlas ai self-improve --flow=agent_behavior_review --hours=168 --json'] as $token) {
+        foreach (['php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json'] as $token) {
             if (! str_contains($mcpTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-159 MCP catalog parity must be covered [{$token}]";
             }
@@ -12123,7 +12127,7 @@ class KernelArchitectureStaticScanner
             }
         }
 
-        foreach (['ABC-12', 'AP-159', 'self_improvement.agent_behavior_review', 'atlas ai self-improve --flow=agent_behavior_review --hours=168 --json'] as $token) {
+        foreach (['ABC-12', 'AP-159', 'self_improvement.agent_behavior_review', 'php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json'] as $token) {
             if (! str_contains($contractDoc, $token)) {
                 $violations[] = "docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md: AP-159 behavior contract doc must include dedicated flow [{$token}]";
             }
@@ -12269,7 +12273,7 @@ class KernelArchitectureStaticScanner
         $violations = [];
 
         foreach ([
-            'nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review,agent_behavior_review',
+            'nightly_review,weekly_architecture_audit,repair_loop_review,kernel_pipeline_review,agent_behavior_review,provider_release_review,voice_realtime_review',
             "'self_improvement.agent_behavior_review'",
         ] as $token) {
             if (! str_contains($config, $token)) {
@@ -12279,7 +12283,9 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             "'agent_behavior_review'",
-            'Restore the default nightly_review, weekly_architecture_audit, repair_loop_review, kernel_pipeline_review, and agent_behavior_review schedule.',
+            "'provider_release_review'",
+            "'voice_realtime_review'",
+            'Restore the default nightly_review, weekly_architecture_audit, repair_loop_review, kernel_pipeline_review, agent_behavior_review, provider_release_review, and voice_realtime_review schedule.',
             'public function defaultFlows(): array',
         ] as $token) {
             if (! str_contains($schedule, $token)) {
@@ -16057,7 +16063,7 @@ class KernelArchitectureStaticScanner
     }
 
     /**
-     * @param array<int,string> $paths
+     * @param  array<int,string>  $paths
      */
     private function documentationCorpus(array $paths): string
     {

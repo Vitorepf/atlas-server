@@ -12,18 +12,22 @@ tags:
   - privacy
   - security
 capabilities:
+  - cognitive_immune_gate
   - privacy_review
   - redaction
   - provider_safety
   - projection_guardrails
 decisions:
   - Conteudo privado nunca deve depender de confianca implicita no provider.
+  - Captura bruta nasce inelegivel para memoria, contexto, embedding e projection.
   - Redaction deve ocorrer antes de context pack ou projection.
   - Segredos nao pertencem a memoria; pertencem a secret storage apropriado.
+  - Delete/tombstone deve bloquear memoria, embedding, cache, resumo e Constelacao.
 maintenance:
   - Atualize esta politica quando classes de privacy, redaction ou provider rules mudarem.
   - Teste qualquer relaxamento de policy com fixture dedicado.
 related_paths:
+  - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
   - app/Services/Ai/AtlasMemoryPrivacyService.php
   - app/Services/Ai/AtlasMemorySourcePrivacyPolicy.php
   - app/Services/Ai/AtlasProviderProjectionService.php
@@ -134,9 +138,28 @@ Nao permitido:
 - exportar/importar nota do vault sem privacy, redaction, frontmatter e origem
   auditavel.
 
+## Quarentena Cognitiva
+
+Security/privacy tambem protege a qualidade cognitiva do Atlas. Captura bruta
+de conversa, nota, audio, CLI ou surface nao pode ser assumida como memoria,
+contexto, evidence, embedding ou projection.
+
+Antes de qualquer uso cognitivo, o item deve passar pelos gates definidos em
+`memory/cognitive-immune-learning-kernel.md`:
+
+- classificar trivial, operacional, candidato real, privado, sensivel, secret,
+  untrusted ou prompt injection;
+- bloquear embedding para captura nao classificada, privada, secret, trivial,
+  operacional efemera ou tombstoned;
+- manter prompt injection como dado hostil, nunca como instrucao;
+- exigir source refs, escopo, motivo e review state para toda promocao;
+- registrar exclusao ou bloqueio quando o item quase entrou em contexto.
+
 ## Retencao E Arquivamento
 
 - memoria errada deve ser arquivada, nao apagada silenciosamente;
+- delete humano deve propagar tombstone para memoria, verbatim, embeddings,
+  caches, summaries, context packs e Constelacao;
 - projection audits podem ser purgados por politica, com dry-run/fingerprint;
 - docs canonicos removidos devem arquivar knowledge items via `sync --prune`;
 - code modules/symbols removidos devem arquivar via `index-code --prune`;
@@ -151,3 +174,4 @@ Nao permitido:
 5. O texto e curto o bastante para o budget?
 6. Existe motivo de inclusao no context pack?
 7. Existe rastro de auditoria se for memoria usada?
+8. O item passou pela quarentena cognitiva e nao esta tombstoned/superseded?

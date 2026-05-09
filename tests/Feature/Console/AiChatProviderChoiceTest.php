@@ -245,6 +245,13 @@ class AiChatProviderChoiceTest extends TestCase
         $this->assertSame('programming', data_get($job?->payload, 'model_selection_contract.domain'));
         $this->assertSame('programming.repair', data_get($job?->payload, 'model_selection_contract.flow'));
         $this->assertNull(data_get($job?->payload, 'model_selection_contract.specialist_profile'));
+        $this->assertSame('atlas.provider_governance.v1', data_get($job?->payload, 'provider_governance.schema_version'));
+        $this->assertSame('atlas_decide', data_get($job?->payload, 'provider_governance.decision_mode'));
+        $this->assertSame('atlas_decide', data_get($job?->payload, 'provider_governance.decision_authority'));
+        $this->assertSame('auto', data_get($job?->payload, 'provider_governance.operator_requested_provider'));
+        $this->assertNotEmpty(data_get($job?->payload, 'provider_governance.execution_provider'));
+        $this->assertTrue(data_get($job?->payload, 'provider_governance.separation_contract.provider_is_executor_only'));
+        $this->assertTrue(data_get($job?->payload, 'provider_governance.separation_contract.provider_may_not_be_treated_as_atlas_identity'));
         $this->assertSame(data_get($job?->payload, 'model_selection_contract'), data_get($payload, 'model_selection_contract'));
         $this->assertSame(data_get($job?->payload, 'dev_execution_plan.kernel_pipeline'), data_get($job?->payload, 'kernel_pipeline'));
         $this->assertSame('AtlasProgrammingOrchestrator', data_get($job?->payload, 'programming_message_plan.orchestrator'));
@@ -559,5 +566,10 @@ class AiChatProviderChoiceTest extends TestCase
         $this->assertSame('codex_cli', data_get($job?->payload, 'ai_policy_override.default_provider'));
         $this->assertSame('gpt-5.5', data_get($job?->payload, 'ai_policy_override.providers.codex_cli.model'));
         $this->assertSame(['gpt-5.5'], data_get($job?->payload, 'ai_policy_override.allowed_models.codex_cli'));
+        $this->assertSame('manual_override', data_get($job?->payload, 'provider_governance.decision_mode'));
+        $this->assertSame('operator_override', data_get($job?->payload, 'provider_governance.decision_authority'));
+        $this->assertSame('codex_cli', data_get($job?->payload, 'provider_governance.operator_requested_provider'));
+        $this->assertSame('codex_cli', data_get($job?->payload, 'provider_governance.execution_provider'));
+        $this->assertTrue(data_get($job?->payload, 'provider_governance.separation_contract.manual_override_must_remain_visible'));
     }
 }

@@ -551,6 +551,43 @@ class AtlasEvidenceLedger
 
     /**
      * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $context
+     */
+    public function recordLocalRagEvent(
+        LedgerEventType $type,
+        array $payload,
+        array $context = [],
+    ): ?AtlasLedgerEvent {
+        if (! str_starts_with($type->value, 'LOCAL_RAG_')) {
+            throw new \InvalidArgumentException('recordLocalRagEvent only accepts LOCAL_RAG_* ledger event types.');
+        }
+
+        $payload = $this->sanitizeLocalRagPayload($payload);
+
+        return $this->record($type, [
+            'schema_version' => 'atlas.local_rag.ledger_event.v1',
+            'privacy_class' => $payload['privacy_class'] ?? 'internal',
+            'runtime_family' => $payload['runtime_family'] ?? 'laravel_kernel_now_python_ai_data_future',
+            'local_rag' => $payload,
+        ], [
+            'tenant_id' => $context['tenant_id'] ?? data_get($payload, 'operator.tenant_id', 'default'),
+            'operator_id' => $context['operator_id'] ?? data_get($payload, 'operator.operator_id', 'system'),
+            'envelope_id' => $context['envelope_id'] ?? data_get($payload, 'envelope_id', 'local_rag'),
+            'receipt_id' => $context['receipt_id'] ?? data_get($payload, 'receipt_id'),
+            'trace_id' => $context['trace_id'] ?? data_get($payload, 'trace_id'),
+            'correlation_id' => $context['correlation_id']
+                ?? data_get($payload, 'benchmark_id')
+                ?? data_get($payload, 'query_hash')
+                ?? data_get($payload, 'envelope_id')
+                ?? 'local_rag',
+            'causation_id' => $context['causation_id'] ?? data_get($payload, 'causation_id'),
+            'emitter_stage' => $context['emitter_stage'] ?? 'atlas.context_retrieval',
+            'emitter_version' => $context['emitter_version'] ?? 'atlas.local_rag.v1',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
     private function sanitizeVoicePayload(array $payload): array
@@ -601,10 +638,53 @@ class AtlasEvidenceLedger
 
     /**
      * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function sanitizeLocalRagPayload(array $payload): array
+    {
+        $forbiddenKeys = [
+            'api_key',
+            'api_secret',
+            'content',
+            'context',
+            'documents',
+            'excerpt',
+            'excerpts',
+            'raw_context',
+            'raw_documents',
+            'raw_query',
+            'secret',
+            'secrets',
+            'token',
+        ];
+
+        foreach (['query', 'prompt', 'input_text'] as $textKey) {
+            if (isset($payload[$textKey]) && is_string($payload[$textKey])) {
+                $payload[$textKey.'_hash'] ??= hash('sha256', $payload[$textKey]);
+                $payload[$textKey.'_length'] ??= mb_strlen($payload[$textKey]);
+                unset($payload[$textKey]);
+            }
+        }
+
+        return $this->removeForbiddenKeys($payload, $forbiddenKeys);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
      * @param  array<int,string>  $forbiddenKeys
      * @return array<string,mixed>
      */
     private function removeVoiceSecrets(array $payload, array $forbiddenKeys): array
+    {
+        return $this->removeForbiddenKeys($payload, $forbiddenKeys);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<int,string>  $forbiddenKeys
+     * @return array<string,mixed>
+     */
+    private function removeForbiddenKeys(array $payload, array $forbiddenKeys): array
     {
         foreach ($payload as $key => $value) {
             if (in_array($key, $forbiddenKeys, true)) {
@@ -614,7 +694,7 @@ class AtlasEvidenceLedger
             }
 
             if (is_array($value)) {
-                $payload[$key] = $this->removeVoiceSecrets($value, $forbiddenKeys);
+                $payload[$key] = $this->removeForbiddenKeys($value, $forbiddenKeys);
             }
         }
 

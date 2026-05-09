@@ -2132,7 +2132,7 @@ Dynamic Compute Market. Ele chama o mesmo `DynamicComputeMarketAdvisor` usado
 por Atlas Decide, mas publica apenas `atlas.dynamic_compute_market_report.v1`
 com `mode=report_only` e `authority=read_only_no_routing_change`.
 
-O comando `atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json`
+O comando `php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json`
 e a API `/ai/dynamic-compute-market?provider=<provider>` permitem auditar
 qualidade, custo, latencia, risco, candidate benchmark e next action sem emitir
 execucao, sem trocar provider e sem bypassar Decision Receipt.
@@ -2533,13 +2533,13 @@ Status atual: implementado em AP-127. O mapa principal `atlas:cli:help` agora
 tem a secao `arquitetura_mae`, que lista os comandos de operacao e auditoria da
 arquitetura mae em formato descobrivel: `atlas ai architecture-validate`,
 `atlas ai architecture-operations --json`,
-`atlas ai slo --hours=24 --json`,
-`atlas ai kernel-pipeline-report --hours=24 --json`,
-`atlas ai repair-report --hours=24 --json`,
-`atlas ai provider-performance --hours=24 --json`,
+`php artisan atlas:ai:slo --hours=24 --json`,
+`php artisan atlas:ai:kernel-pipeline-report --hours=24 --json`,
+`php artisan atlas:ai:repair-report --hours=24 --json`,
+`php artisan atlas:ai:provider-performance --hours=24 --json`,
 `atlas ai agent-behavior-report --hours=24 --json`,
-`atlas ai self-improve --flow=agent_behavior_review --hours=168 --json`,
-`atlas ai self-improvement-schedule-report --hours=24 --json` e
+`php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json`,
+`php artisan atlas:ai:self-improvement-schedule-report --hours=24 --json` e
 `atlas ai inbox-action-report --hours=24 --json`. O scanner publica
 `ap127_cli_help_architecture_operations_discovery`, impedindo que novas
 surfaces operacionais fiquem implementadas mas invisiveis para o operador.
@@ -2872,7 +2872,7 @@ consome `KernelLedgerEnvelopeReportService`, portanto nao cria replay paralelo,
 e preserva os mesmos filtros de `--limit`, `--slo`, `--repair` e `--kernel`.
 `AtlasArchitectureOperationsCatalog` publica `ledger_replay` como
 `evidence_report`, e `AtlasSelfImprovementRuntime::architectureOperationsFindings`
-trata `atlas ledger replay --envelope=<id> --json` como operacao critica da
+trata `php artisan atlas:ai:ledger <id> --json` como operacao critica da
 arquitetura mae. O scanner publica `ap140_ledger_replay_command_surface`.
 
 ### Fase 3.5 — Pipeline Kernel Scaffold

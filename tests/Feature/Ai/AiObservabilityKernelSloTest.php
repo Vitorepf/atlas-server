@@ -118,7 +118,7 @@ class AiObservabilityKernelSloTest extends TestCase
             ->assertJsonPath('architecture_operations.section', 'arquitetura_mae')
             ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_operations')
             ->assertJsonPath('architecture_operations.commands.0.kind', 'catalog')
-            ->assertJsonPath('architecture_operations.commands.0.command', 'atlas ai architecture-operations --json');
+            ->assertJsonPath('architecture_operations.commands.0.command', 'php artisan atlas:ai:architecture-operations --json');
 
         $commands = array_column($response->json('architecture_operations.commands'), 'command');
 
@@ -129,17 +129,17 @@ class AiObservabilityKernelSloTest extends TestCase
         $this->assertContains('php artisan atlas:ai:docs-split-plan --json', $commands);
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
         $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
-        $this->assertContains('atlas ai provider-performance --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:provider-performance --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $commands);
-        $this->assertContains('atlas ai agent-behavior-report --hours=24 --json', $commands);
-        $this->assertContains('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $commands);
-        $this->assertContains('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', $commands);
-        $this->assertContains('atlas ai self-improve --flow=provider_release_review --hours=168 --json', $commands);
-        $this->assertContains('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', $commands);
-        $this->assertContains('atlas ai telemetry cost-rates --missing --hours=168 --json', $commands);
-        $this->assertContains('atlas ai self-improvement-schedule-report --hours=24 --json', $commands);
-        $this->assertContains('atlas ai inbox-action-report --hours=24 --json', $commands);
-        $this->assertContains('atlas ledger replay --envelope=<id> --json', $commands);
+        $this->assertContains('php artisan atlas:ai:agent-behavior-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $commands);
+        $this->assertContains('php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:self-improvement-schedule-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:inbox-action-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:ledger <id> --json', $commands);
         $this->assertContains('architecture_operations', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('session_bootstrap', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('feature_placement', $response->json('architecture_operations.operation_ids'));

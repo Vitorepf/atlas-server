@@ -192,7 +192,7 @@ Nao muda comportamento. So mede.
 
 Status: implementado como storage/read model inicial.
 
-Superficie: `atlas ai rivals-strategy report --hours=8760 --json`.
+Superficie: `php artisan atlas:ai:rivals-strategy report --hours=8760 --json`.
 
 Registra decisao direta vs assistida por Atlas, revisitas 30/90/180/365 e
 scores de regret/alignment/agency. Precisa casos reais para liberar P4+.

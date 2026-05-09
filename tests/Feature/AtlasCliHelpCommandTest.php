@@ -44,19 +44,19 @@ class AtlasCliHelpCommandTest extends TestCase
         $this->assertStringContainsString('atlas dogfood', $output);
         $this->assertStringContainsString('atlas release', $output);
         $this->assertStringContainsString('arquitetura_mae', $output);
-        $this->assertStringContainsString('atlas ai architecture-operations --json', $output);
-        $this->assertStringContainsString('atlas ai architecture-validate', $output);
-        $this->assertStringContainsString('atlas ai slo --hours=24 --json', $output);
-        $this->assertStringContainsString('atlas ai kernel-pipeline-report --hours=24 --json', $output);
-        $this->assertStringContainsString('atlas ai repair-report --hours=24 --json', $output);
-        $this->assertStringContainsString('atlas ai provider-performance --hours=24 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:architecture-operations --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:architecture-validate', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:slo --hours=24 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:kernel-pipeline-report --hours=24 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:repair-report --hours=24 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:provider-performance --hours=24 --json', $output);
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $architectureCommands);
-        $this->assertStringContainsString('atlas ai agent-behavior-report --hours=24 --json', $output);
-        $this->assertStringContainsString('atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $output);
-        $this->assertStringContainsString('atlas ai self-improve --flow=provider_performance_review --hours=168 --json', $output);
-        $this->assertStringContainsString('atlas ai self-improve --flow=provider_release_review --hours=168 --json', $output);
-        $this->assertStringContainsString('atlas ai self-improve --flow=agent_behavior_review --hours=168 --json', $output);
-        $this->assertStringContainsString('atlas ai self-improvement-schedule-report --hours=24 --json', $output);
-        $this->assertStringContainsString('atlas ai inbox-action-report --hours=24 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:agent-behavior-report --hours=24 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:self-improvement-schedule-report --hours=24 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:inbox-action-report --hours=24 --json', $output);
     }
 }

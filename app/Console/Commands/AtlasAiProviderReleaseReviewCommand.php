@@ -11,6 +11,8 @@ class AtlasAiProviderReleaseReviewCommand extends Command
         {--provider= : Provider or lab name}
         {--title= : Release title}
         {--url= : Source URL}
+        {--published-at= : Source publication timestamp}
+        {--content-hash= : Optional precomputed content/body hash}
         {--type= : Release type}
         {--domain=* : Affected Atlas domain}
         {--capability=* : Capability mentioned by the release}
@@ -25,6 +27,8 @@ class AtlasAiProviderReleaseReviewCommand extends Command
             'provider' => $this->option('provider'),
             'title' => $this->option('title'),
             'url' => $this->option('url'),
+            'published_at' => $this->option('published-at'),
+            'content_hash' => $this->option('content-hash'),
             'type' => $this->option('type'),
             'domains' => (array) $this->option('domain'),
             'capabilities' => (array) $this->option('capability'),

@@ -2,7 +2,7 @@
 id: atlas-ai-cognitive-capabilities-core
 type: engineering_knowledge
 title: Atlas AI Cognitive Plane - Capabilities Core
-status: scaffold
+status: active
 category: architecture
 priority: 94
 summary: ~32 capabilities cognitivas horizontais que vivem no Core (servem learning + research + writing + self_improvement). Cada capability declara papel, runtime, evidence_level e fundamento cientifico. Anti-duplicacao Core vs Domain enforcada.
@@ -28,6 +28,7 @@ decisions:
 maintenance:
   - Manter abaixo de 260 linhas.
   - Atualizar quando capability mudar de evidence_level, sair de scaffold ou ganhar AP dedicado.
+  - Status `active` significa catalogo canonico; cada capability ainda precisa declarar maturidade propria em AP/teste/read-model.
 related_paths:
   - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
   - docs/engineering-knowledge-base/cognitive/README.md

@@ -218,13 +218,13 @@ autoalterar comportamento critico.
 
 AP-158 expoe a mesma leitura por CLI e API: `atlas:ai:agent-behavior-report`
 e `GET /ai/agent-behavior/report`. O catalogo de operacoes da arquitetura mae
-inclui `atlas ai agent-behavior-report --hours=24 --json`, permitindo App,
+inclui `php artisan atlas:ai:agent-behavior-report --hours=24 --json`, permitindo App,
 operador e novas IAs consultarem recorrencia comportamental sem depender apenas
 do MCP.
 
 AP-159 promove a leitura comportamental para um flow dedicado de Curator:
 `self_improvement.agent_behavior_review`, descoberto pelo catalogo como
-`atlas ai self-improve --flow=agent_behavior_review --hours=168 --json`. Esse
+`php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json`. Esse
 flow e proposal-only, preserva filtros de provider/model/finding code e nao
 altera prompts, providers, policies ou gates sem review humano.
 

@@ -47,6 +47,15 @@ class AtlasAiDynamicComputeMarketApiTest extends TestCase
             ->assertJsonPath('dynamic_compute_market.recommendation', 'benchmark_lower_latency_alternative')
             ->assertJsonPath('dynamic_compute_market.recommended_next_action', 'run_controlled_provider_benchmark_before_policy_change')
             ->assertJsonPath('dynamic_compute_market.routing_control.changes_provider', false)
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.schema_version', 'atlas.dynamic_compute_market.proposal_gate.v1')
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.mode', 'proposal_only')
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.can_open_proposal', true)
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.can_change_provider', false)
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.requires_benchmark', true)
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.proposal_evidence_contract.schema_version', 'atlas.dynamic_compute_market.proposal_evidence.v1')
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.proposal_evidence_contract.source', 'ap99_provider_usage_projection')
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.proposal_evidence_contract.replay_required', true)
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.proposal_evidence_contract.policy_patch_status', 'draft_only_until_benchmark_and_review')
             ->assertJsonPath('dynamic_compute_market.benchmark_candidate.provider', 'gemini_cli')
             ->assertJsonPath('dynamic_compute_market.benchmark_candidate.sample_status', 'sufficient');
     }
@@ -76,6 +85,7 @@ class AtlasAiDynamicComputeMarketApiTest extends TestCase
             ->assertJsonPath('authority', 'read_only_no_routing_change')
             ->assertJsonPath('dynamic_compute_market.recommendation', 'collect_ap99_evidence')
             ->assertJsonPath('dynamic_compute_market.routing_control.changes_provider', false)
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.can_open_proposal', false)
             ->assertJsonPath('dynamic_compute_market.ap99.available', false);
     }
 

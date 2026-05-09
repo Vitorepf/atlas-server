@@ -12,6 +12,7 @@ tags:
   - contracts
   - api
 capabilities:
+  - cognitive_immune_gate
   - memory_refs
   - knowledge_refs
   - code_refs
@@ -20,6 +21,7 @@ capabilities:
   - open_brain_context_injection
   - obsidian_atlas_vault
 decisions:
+  - Raw capture, evidence, learning signal, memory, context and decision are separate layers.
   - Context packs carry small traceable refs, not full dumps.
   - APIs and CLIs expose status, dry-run and stable errors for safe operations.
   - Memory contracts are public internal interfaces for Atlas runtimes and providers.
@@ -32,6 +34,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
   - docs/engineering-knowledge-base/memory/README.md
+  - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
   - docs/engineering-knowledge-base/memory/contracts.md
   - docs/engineering-knowledge-base/memory/retrieval-and-context.md
   - docs/engineering-knowledge-base/memory/open-brain-mcp.md
@@ -55,6 +58,7 @@ detailed ownership to focused specs so AI sessions can load only what they need.
 
 | Need | Read |
 |---|---|
+| Noise filtering, raw capture quarantine, promotion gates, forgetting and learning evals | `memory/cognitive-immune-learning-kernel.md` |
 | Memory source of truth, refs, APIs, CLI, provider projection | `memory/contracts.md` |
 | Context composition, ranking, budgets and provider-safe retrieval | `memory/retrieval-and-context.md` |
 | Open Brain MCP/API/HTTP export boundary | `memory/open-brain-mcp.md` |
@@ -88,6 +92,10 @@ All refs must be small, explainable, provider-safe and budgeted. Full content is
 exceptional. If a task needs more context, it should request files/docs through
 the proper runtime instead of stuffing prompts.
 
+Raw captures, trivial queries, operational reminders, untrusted content and
+prompt-injection text are not refs until the Cognitive Immune Learning Kernel
+classifies and promotes them.
+
 ## API And CLI
 
 The active API/CLI contract lives in `memory/contracts.md`. The rule is stable:
@@ -97,6 +105,8 @@ The active API/CLI contract lives in `memory/contracts.md`. The rule is stable:
 - provider projections are generated artifacts and can be regenerated;
 - memory promotion requires governance, privacy and redaction checks;
 - AtlasVault imports create reviewable candidates, not automatic memories.
+- raw capture starts with memory/context/embedding/Constelacao eligibility set
+  to false until explicit gates promote it.
 
 ## Open Brain Boundary
 
@@ -120,6 +130,7 @@ source for providers. The operational path is:
 
 - Provider-owned memory as source of truth.
 - Silent promotion from chat, Obsidian or Open Brain usage.
+- Raw capture, trivial queries or reminders as canonical memory.
 - Raw secret/private text in provider prompts.
 - ChromaDB/vector DB introduction without AP.
 - Surface-specific memory prompt assembly.

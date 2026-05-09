@@ -30,6 +30,7 @@ capabilities:
   - memory_core_preservation
   - engineering_knowledge_navigation
   - open_brain_context_injection
+  - cognitive_immune_gate
   - obsidian_atlas_vault
   - engineering_blueprint
   - project_blueprint_pipeline
@@ -51,6 +52,8 @@ decisions:
   - Toda IA nova deve ler Atlas AI Runtime Language Boundaries antes de propor Python, Go, Swift, microservico, worker externo ou daemon.
   - Toda IA nova deve ler Atlas AI Local Performance Memory Strategy antes de propor RAG local, modelos locais, cache, reranker, Graph RAG, KV cache ou uso dos 48GB RAM.
   - Toda IA nova deve ler Atlas AI Content Intelligence And Knowledge Curation antes de propor YouTube ingestion, feed/RSS, scraping, source reputation, blacklist ou promocao de conteudo para memoria.
+  - Toda IA nova deve ler Cognitive Immune Learning Kernel antes de alterar captura, promocao de memoria, embeddings, Constelacao, delete ou filtros contra ruido.
+  - Toda IA nova deve ler External Graph Harness antes de usar Graphify, Graph RAG externo, AST graph externo ou qualquer output de grafo como candidato para Code Intelligence.
   - Toda IA nova deve ler Atlas AI Qualitative Levels Roadmap antes de propor outro patamar, co-estrategista, ambiente, Curator auto-mutavel ou memoria longitudinal.
   - Toda IA nova deve ler este arquivo antes de alterar Memory Core, Knowledge Base ou Code Intelligence.
   - Toda IA nova deve ler Atlas AI Canonical Architecture Index antes de escolher entre Master, Kernel, Pipeline ou Domain Specs.
@@ -104,6 +107,10 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-governed-backlog.md
   - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
+  - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
+  - docs/engineering-knowledge-base/code-intelligence/README.md
+  - docs/engineering-knowledge-base/code-intelligence/external-graph-harness.md
+  - docs/ap/AP-684-graphify-external-graph-harness.md
   - docs/engineering-knowledge-base/README.md
   - docs/engineering-knowledge-base/memory-core-runbook.md
   - docs/engineering-knowledge-base/memory-core-contracts.md
@@ -149,6 +156,8 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
 1. `atlas-ai-runtime-language-boundaries.md` quando envolver Python, Go, Swift ou runtime externo
 1. `atlas-ai-local-performance-memory-strategy.md` quando envolver 48GB RAM, RAG local, rerank, cache, modelos locais ou Graph RAG
 1. `atlas-ai-content-intelligence-curation.md` quando envolver YouTube, RSS, scraping, source quality, blacklist ou promocao de conteudo
+1. `memory/cognitive-immune-learning-kernel.md` quando envolver captura, ruido, promocao de memoria, embeddings, Constelacao, delete ou aprendizado seletivo
+1. `code-intelligence/external-graph-harness.md` quando envolver Graphify, grafo externo, AST graph externo, import de `graph.json` ou relacoes surpreendentes de codigo
 1. `atlas-ai-business-contexts.md` quando envolver Blackink, empresa futura, product domain, business context ou app mobile routing domain
 1. `atlas-ai-agent-behavior-contract.md` quando envolver comportamento de agente, prompts de provider, programação, review, overengineering, diff lateral ou verificacao
 1. `atlas-ai-model-selection-strategy.md` quando envolver melhor modelo por tarefa, Atlas Decide, AP-99, provider performance, cost governance, override manual ou specialist profiles
@@ -389,6 +398,16 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
 
 1. `atlas-ai-memory-context-core-open-brain.md`
    Documento mestre: arquitetura, fases, status real e limites do Memory Core.
+
+1. `memory/cognitive-immune-learning-kernel.md`
+   Contrato core para impedir que notas bobas, tarefas operacionais, perguntas
+   triviais, prompt injection ou dados privados contaminem memoria, contexto,
+   embeddings, Constelacao, Decide ou provider projections.
+
+1. `code-intelligence/external-graph-harness.md`
+   Contrato para usar Graphify, AST graph externo ou `graph.json` externo como
+   candidato read-only de Code Intelligence, nunca como memoria, contexto,
+   Constelacao, Decide ou runtime paralelo.
 
 1. `atlas-ai-architecture-audit.md`
    Analise de consolidacao: capacidades existentes, verdades concorrentes,

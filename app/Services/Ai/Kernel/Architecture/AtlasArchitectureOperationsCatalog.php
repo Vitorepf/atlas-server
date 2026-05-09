@@ -28,7 +28,7 @@ final class AtlasArchitectureOperationsCatalog
         return [
             [
                 'id' => 'architecture_operations',
-                'command' => 'atlas ai architecture-operations --json',
+                'command' => 'php artisan atlas:ai:architecture-operations --json',
                 'description' => 'Lista o catalogo canonico de comandos da arquitetura mae consumido por CLI help, Observability e Open Brain MCP.',
                 'surface' => 'cli',
                 'kind' => 'catalog',
@@ -36,7 +36,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'architecture_validate',
-                'command' => 'atlas ai architecture-validate',
+                'command' => 'php artisan atlas:ai:architecture-validate',
                 'description' => 'Valida contratos executaveis da arquitetura mae: capabilities, domains, adapters, providers, SLOs e APs estaticos.',
                 'surface' => 'cli',
                 'kind' => 'validation',
@@ -152,6 +152,44 @@ final class AtlasArchitectureOperationsCatalog
                 'api_endpoint' => '/ai/provider-release-review',
             ],
             [
+                'id' => 'provider_release_sources',
+                'command' => 'php artisan atlas:ai:provider-release-sources --json',
+                'description' => 'Lista fontes oficiais/tecnicas/fracas de lancamentos de providers e gera candidate preview read-only sem crawler, write, policy ou routing.',
+                'surface' => 'cli',
+                'kind' => 'provider_evolution',
+                'output' => 'json',
+                'api_endpoint' => '/ai/provider-release-sources',
+                'doc' => 'docs/ap/AP-172-provider-release-source-watchlist.md',
+            ],
+            [
+                'id' => 'local_rag_readiness',
+                'command' => 'php artisan atlas:ai:local-rag-readiness --json',
+                'description' => 'Audita readiness de RAG local, embeddings, Semantic Memory e Retrieval Router sem criar memoria paralela nem bypass de provider.',
+                'surface' => 'cli',
+                'kind' => 'runtime_readiness',
+                'output' => 'json',
+                'doc' => 'docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md',
+            ],
+            [
+                'id' => 'local_rag_benchmark',
+                'command' => 'php artisan atlas:ai:local-rag-benchmark --json',
+                'description' => 'Executa benchmark controlado do router Local RAG antes de qualquer promocao de Graph RAG/Python runtime.',
+                'surface' => 'cli',
+                'kind' => 'runtime_benchmark',
+                'output' => 'json',
+                'doc' => 'docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md',
+            ],
+            [
+                'id' => 'external_graph_harness_report',
+                'command' => 'php artisan atlas:ai:external-graph-harness --json',
+                'description' => 'Publica contrato AP-684 e valida candidatos external_graph_candidate.v1 sem executar Graphify, provider, Memory, Context Builder ou Constelacao.',
+                'surface' => 'cli',
+                'kind' => 'code_intelligence_report',
+                'output' => 'json',
+                'api_endpoint' => '/ai/external-graph-harness',
+                'doc' => 'docs/ap/AP-684-graphify-external-graph-harness.md',
+            ],
+            [
                 'id' => 'knowledge_sync',
                 'command' => 'atlas engineering knowledge sync --prune --json',
                 'description' => 'Sincroniza docs canonicos para a Knowledge Base operacional e remove entradas obsoletas.',
@@ -169,7 +207,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'kernel_slo_report',
-                'command' => 'atlas ai slo --hours=24 --json',
+                'command' => 'php artisan atlas:ai:slo --hours=24 --json',
                 'description' => 'Audita SLOs do kernel por janela usando o Evidence Ledger e review_signal canonico.',
                 'surface' => 'cli',
                 'kind' => 'evidence_report',
@@ -177,7 +215,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_contract',
-                'command' => 'atlas ai voice contract --json',
+                'command' => 'php artisan atlas:ai:voice contract --json',
                 'api_endpoint' => '/ai/voice/runtime/contract',
                 'mobile_endpoint' => '/v1/mobile/ai/voice/runtime/contract',
                 'description' => 'Exibe contrato machine-readable do Voice Realtime para LiveKit Agents SDK sem permitir bypass do Kernel.',
@@ -187,7 +225,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_bootstrap',
-                'command' => 'atlas ai voice bootstrap --json',
+                'command' => 'php artisan atlas:ai:voice bootstrap --json',
                 'api_endpoint' => '/ai/voice/runtime/bootstrap',
                 'mobile_endpoint' => '/v1/mobile/ai/voice/runtime/bootstrap',
                 'description' => 'Gera manifesto de bootstrap para runtime LiveKit/Python subir obedecendo endpoints, auth, SLO e proibicoes do Kernel.',
@@ -197,7 +235,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_dependencies',
-                'command' => 'atlas ai voice dependencies --json',
+                'command' => 'php artisan atlas:ai:voice dependencies --json',
                 'api_endpoint' => '/ai/voice/runtime/dependencies',
                 'mobile_endpoint' => '/v1/mobile/ai/voice/runtime/dependencies',
                 'description' => 'Mostra manifesto versionado de dependencias do runtime Python de voz, separando core sem terceiros de LiveKit Agents SDK opcional.',
@@ -207,7 +245,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_scripted_worker_example',
-                'command' => 'atlas ai voice scripted-example --json',
+                'command' => 'php artisan atlas:ai:voice scripted-example --json',
                 'description' => 'Exibe o exemplo canonico e comando para ensaiar o worker LiveKit/Python sem SDK real, mantendo Kernel como unica autoridade.',
                 'surface' => 'cli',
                 'kind' => 'runtime_contract',
@@ -215,7 +253,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_scripted_smoke',
-                'command' => 'atlas ai voice scripted-smoke --json',
+                'command' => 'php artisan atlas:ai:voice scripted-smoke --json',
                 'description' => 'Executa smoke deterministico do worker LiveKit/Python contra Kernel mockado, validando session, turn, callbacks, sanitizacao e fechamento de sessao.',
                 'surface' => 'cli',
                 'kind' => 'validation',
@@ -223,7 +261,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_callback_smoke',
-                'command' => 'atlas ai voice callback-smoke --json',
+                'command' => 'php artisan atlas:ai:voice callback-smoke --json',
                 'description' => 'Valida uma callback LiveKit/Python isolada contra Kernel mockado e garante que callback router nao persiste audio, token ou texto cru.',
                 'surface' => 'cli',
                 'kind' => 'validation',
@@ -231,7 +269,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_callback_sequence_smoke',
-                'command' => 'atlas ai voice callback-sequence-smoke --json',
+                'command' => 'php artisan atlas:ai:voice callback-sequence-smoke --json',
                 'description' => 'Valida sequencia canonica de callbacks LiveKit/Python para impedir switches paralelos e drift entre turn, TTS, playback e health.',
                 'surface' => 'cli',
                 'kind' => 'validation',
@@ -239,7 +277,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_callback_loop_check',
-                'command' => 'atlas ai voice callback-loop-check --json',
+                'command' => 'php artisan atlas:ai:voice callback-loop-check --json',
                 'description' => 'Inspeciona se a camada de traducao de callbacks LiveKit esta completa e confirma que o loop SDK real ainda nao libera start sem gate.',
                 'surface' => 'cli',
                 'kind' => 'runtime_contract',
@@ -247,7 +285,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_preflight',
-                'command' => 'atlas ai voice preflight --json',
+                'command' => 'php artisan atlas:ai:voice preflight --json',
                 'description' => 'Executa preflight local do runtime Python de voz, checando env, bootstrap, SDK opcional e guardrails antes de qualquer worker.',
                 'surface' => 'cli',
                 'kind' => 'validation',
@@ -255,7 +293,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_activation_contract',
-                'command' => 'atlas ai voice activation-contract --json',
+                'command' => 'php artisan atlas:ai:voice activation-contract --json',
                 'description' => 'Publica contrato de ativacao do worker LiveKit real com gates, sequencia obrigatoria e atalhos proibidos.',
                 'surface' => 'cli',
                 'kind' => 'runtime_contract',
@@ -263,7 +301,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_sdk_check',
-                'command' => 'atlas ai voice sdk-check --json',
+                'command' => 'php artisan atlas:ai:voice sdk-check --json',
                 'description' => 'Inspeciona disponibilidade opcional do LiveKit Agents SDK no runtime Python sem importar provider, executar ferramenta ou persistir audio.',
                 'surface' => 'cli',
                 'kind' => 'runtime_contract',
@@ -271,7 +309,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_worker_plan',
-                'command' => 'atlas ai voice worker-plan --json',
+                'command' => 'php artisan atlas:ai:voice worker-plan --json',
                 'description' => 'Mostra o plano fail-closed para ativar o worker LiveKit Agents SDK real, incluindo adapters, env, guardrails e proximo gate.',
                 'surface' => 'cli',
                 'kind' => 'runtime_contract',
@@ -279,7 +317,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_production_loop_plan',
-                'command' => 'atlas ai voice production-loop-plan --json',
+                'command' => 'php artisan atlas:ai:voice production-loop-plan --json',
                 'description' => 'Mostra o plano fail-closed para conectar o loop real do LiveKit Agents SDK ao CallbackRouter sem iniciar daemon ou burlar o Kernel.',
                 'surface' => 'cli',
                 'kind' => 'runtime_contract',
@@ -287,7 +325,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_production_loop_smoke',
-                'command' => 'atlas ai voice production-loop-smoke --json',
+                'command' => 'php artisan atlas:ai:voice production-loop-smoke --json',
                 'description' => 'Executa eventos em formato LiveKit SDK pelo production-loop runner, bridge e Kernel mockado sem importar SDK, iniciar daemon ou persistir audio raw.',
                 'surface' => 'cli',
                 'kind' => 'validation',
@@ -295,7 +333,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_worker_start_check',
-                'command' => 'atlas ai voice worker-start-check --json',
+                'command' => 'php artisan atlas:ai:voice worker-start-check --json',
                 'description' => 'Executa uma tentativa governada de start do worker LiveKit; hoje deve bloquear sem SDK/callback loop real e provar que nada inicia fora do Kernel.',
                 'surface' => 'cli',
                 'kind' => 'runtime_contract',
@@ -303,7 +341,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_runtime_certification',
-                'command' => 'atlas ai voice runtime-certify --json',
+                'command' => 'php artisan atlas:ai:voice runtime-certify --json',
                 'api_endpoint' => '/ai/voice/runtime/certification',
                 'mobile_endpoint' => '/v1/mobile/ai/voice/runtime/certification',
                 'description' => 'Agrega preflight, callback sequence, production-loop smoke e worker-start check em um certificado canonico do runtime de voz sem iniciar daemon.',
@@ -313,7 +351,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_readiness',
-                'command' => 'atlas ai voice readiness --hours=24 --json',
+                'command' => 'php artisan atlas:ai:voice readiness --hours=24 --json',
                 'api_endpoint' => '/ai/voice/readiness',
                 'mobile_endpoint' => '/v1/mobile/ai/voice/readiness',
                 'description' => 'Audita eventos VOICE_*, SLOs e gates Rivals-Voice para confirmar que a surface de voz esta pronta sem persistir audio raw.',
@@ -323,7 +361,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_rivals_report',
-                'command' => 'atlas ai voice rivals --hours=24 --json',
+                'command' => 'php artisan atlas:ai:voice rivals --hours=24 --json',
                 'api_endpoint' => '/ai/voice/rivals',
                 'mobile_endpoint' => '/v1/mobile/ai/voice/rivals',
                 'description' => 'Compara readiness e evidencias do Atlas Voice contra baseline direto quando houver turnos comparaveis, sem executar provider ou gravar audio raw.',
@@ -341,7 +379,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'kernel_pipeline_report',
-                'command' => 'atlas ai kernel-pipeline-report --hours=24 --json',
+                'command' => 'php artisan atlas:ai:kernel-pipeline-report --hours=24 --json',
                 'description' => 'Mostra aceite/rejeicao do Kernel Pipeline por surface, flow, input mode e contract source.',
                 'surface' => 'cli',
                 'kind' => 'evidence_report',
@@ -349,7 +387,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'repair_report',
-                'command' => 'atlas ai repair-report --hours=24 --json',
+                'command' => 'php artisan atlas:ai:repair-report --hours=24 --json',
                 'description' => 'Resume Repair Loop por strategy, failure domain, status e recommended_action.',
                 'surface' => 'cli',
                 'kind' => 'evidence_report',
@@ -357,7 +395,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'provider_performance_report',
-                'command' => 'atlas ai provider-performance --hours=24 --json',
+                'command' => 'php artisan atlas:ai:provider-performance --hours=24 --json',
                 'description' => 'Projeta performance empirica de providers a partir do Ledger para apoiar Atlas Decide e Self-Improvement.',
                 'surface' => 'cli',
                 'kind' => 'evidence_report',
@@ -365,7 +403,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'agent_behavior_report',
-                'command' => 'atlas ai agent-behavior-report --hours=24 --json',
+                'command' => 'php artisan atlas:ai:agent-behavior-report --hours=24 --json',
                 'description' => 'Resume findings comportamentais dos agentes por provider, modelo, agente e contrato para apoiar Curator e review de qualidade.',
                 'surface' => 'cli',
                 'kind' => 'evidence_report',
@@ -373,7 +411,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'dynamic_compute_market_report',
-                'command' => 'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+                'command' => 'php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
                 'description' => 'Explica recomendacao shadow do Dynamic Compute Market sem trocar provider, sem executar tarefa e sem bypassar DecisionReceipt.',
                 'surface' => 'cli',
                 'kind' => 'evidence_report',
@@ -381,7 +419,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'provider_performance_curator_review',
-                'command' => 'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
+                'command' => 'php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json',
                 'description' => 'Roda o Curator proposal-only sobre AP-99 para abrir findings revisaveis de policy patch, cost rates e Dynamic Compute Market benchmark.',
                 'surface' => 'cli',
                 'kind' => 'curator_review',
@@ -389,7 +427,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'provider_release_curator_review',
-                'command' => 'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
+                'command' => 'php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json',
                 'description' => 'Roda o Curator proposal-only sobre Provider Evolution para revisar releases externos, Rivals pendente, skill packs e risco de hardcode.',
                 'surface' => 'cli',
                 'kind' => 'curator_review',
@@ -397,7 +435,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'agent_behavior_curator_review',
-                'command' => 'atlas ai self-improve --flow=agent_behavior_review --hours=168 --json',
+                'command' => 'php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json',
                 'description' => 'Roda o Curator proposal-only sobre comportamento dos agentes para revisar verificacao ausente, diffs pouco cirurgicos e drift de instrucoes.',
                 'surface' => 'cli',
                 'kind' => 'curator_review',
@@ -405,7 +443,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'voice_realtime_curator_review',
-                'command' => 'atlas ai self-improve --flow=voice_realtime_review --hours=168 --json',
+                'command' => 'php artisan atlas:ai:self-improve --flow=voice_realtime_review --hours=168 --json',
                 'description' => 'Roda o Curator proposal-only dedicado a Voice Realtime, revisando readiness, runtime certification, Rivals-Voice baseline e gates de privacidade.',
                 'surface' => 'cli',
                 'kind' => 'curator_review',
@@ -413,7 +451,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'provider_cost_rates_missing',
-                'command' => 'atlas ai telemetry cost-rates --missing --hours=168 --json',
+                'command' => 'php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json',
                 'description' => 'Lista pares provider/model sem cost rate ativo para fechar AP-99, Dynamic Compute Market e findings configure_provider_cost_rates.',
                 'surface' => 'cli',
                 'kind' => 'evidence_report',
@@ -421,7 +459,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'provider_cost_rates_upsert',
-                'command' => 'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
+                'command' => 'php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
                 'description' => 'Registra rate humano governado para provider/model; nao escolhe modelo, nao consulta preco externo e mantem override auditavel.',
                 'surface' => 'cli',
                 'kind' => 'review_action',
@@ -429,7 +467,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'qualitative_levels_report',
-                'command' => 'atlas ai qualitative-levels --hours=720 --json',
+                'command' => 'php artisan atlas:ai:qualitative-levels --hours=720 --json',
                 'description' => 'Declara current_level, evidence, missing_gates e next_level_blockers para o roadmap P1-P7 sem alterar comportamento.',
                 'surface' => 'cli',
                 'kind' => 'maturity_report',
@@ -437,7 +475,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'rivals_strategy_report',
-                'command' => 'atlas ai rivals-strategy report --hours=8760 --json',
+                'command' => 'php artisan atlas:ai:rivals-strategy report --hours=8760 --json',
                 'description' => 'Mede decisoes diretas vs assistidas por Atlas com revisitas 30/90/180/365 e scores de regret, alignment e agency.',
                 'surface' => 'cli',
                 'kind' => 'maturity_report',
@@ -445,7 +483,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'rivals_strategy_due_reviews',
-                'command' => 'atlas ai rivals-strategy due-reviews --due-days=30 --json',
+                'command' => 'php artisan atlas:ai:rivals-strategy due-reviews --due-days=30 --json',
                 'description' => 'Lista revisitas pendentes do Rivals Strategy e mostra o comando seguro para registrar scores humanos.',
                 'surface' => 'cli',
                 'kind' => 'review_queue',
@@ -453,7 +491,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'rivals_strategy_record_review',
-                'command' => 'atlas ai rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
+                'command' => 'php artisan atlas:ai:rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
                 'description' => 'Registra scores humanos de regret, alignment e agency para uma revisita do Rivals Strategy sem executar acao externa.',
                 'surface' => 'cli',
                 'kind' => 'review_action',
@@ -461,7 +499,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'strategic_decision_review',
-                'command' => 'atlas ai strategic-decision review --json',
+                'command' => 'php artisan atlas:ai:strategic-decision review --json',
                 'description' => 'Gera packet plan-only de decisao estrategica com cool-down, counterargument, values alignment, agency gate e Rivals Strategy.',
                 'surface' => 'cli',
                 'kind' => 'planning_surface',
@@ -469,7 +507,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'decision_receipt_report',
-                'command' => 'atlas ai decision-receipt-report --envelope=<id> --json',
+                'command' => 'php artisan atlas:ai:decision-receipt-report --envelope=<id> --json',
                 'description' => 'Audita replay de DecisionReceipt por envelope, verificando receipt_hash, chain_hash e review_signal.',
                 'surface' => 'cli',
                 'kind' => 'evidence_report',
@@ -477,7 +515,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'ledger_replay',
-                'command' => 'atlas ledger replay --envelope=<id> --json',
+                'command' => 'php artisan atlas:ai:ledger <id> --json',
                 'description' => 'Reproduz a timeline append-only do Evidence Ledger para um envelope, usando o mesmo report canonico de atlas ai ledger.',
                 'surface' => 'cli',
                 'kind' => 'evidence_report',
@@ -485,7 +523,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'ledger_projection_worker',
-                'command' => 'atlas ai ledger-project --limit=500 --json',
+                'command' => 'php artisan atlas:ai:ledger-project --limit=500 --json',
                 'description' => 'Projeta eventos append-only do Evidence Ledger para read models operacionais como ai_traces, atlas_engineering_runs e atlas_tool_runs.',
                 'surface' => 'cli',
                 'kind' => 'maintenance',
@@ -493,7 +531,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'self_improvement_schedule_report',
-                'command' => 'atlas ai self-improvement-schedule-report --hours=24 --json',
+                'command' => 'php artisan atlas:ai:self-improvement-schedule-report --hours=24 --json',
                 'description' => 'Audita schedule replay do Self-Improvement, proposals emitidas e refs do Inbox.',
                 'surface' => 'cli',
                 'kind' => 'evidence_report',
@@ -501,7 +539,7 @@ final class AtlasArchitectureOperationsCatalog
             ],
             [
                 'id' => 'inbox_action_report',
-                'command' => 'atlas ai inbox-action-report --hours=24 --json',
+                'command' => 'php artisan atlas:ai:inbox-action-report --hours=24 --json',
                 'description' => 'Audita acoes humanas do Inbox, incluindo review_patch, refs de diff e gaps que o Curator deve aprender.',
                 'surface' => 'cli',
                 'kind' => 'evidence_report',

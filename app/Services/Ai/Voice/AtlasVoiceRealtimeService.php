@@ -27,6 +27,12 @@ final class AtlasVoiceRealtimeService
 
     private const ALLOWED_PRIVACY_CLASSES = ['p1_public', 'p2_internal', 'p3_audio', 'p4_secret'];
 
+    private const CALLBACKS_REQUIRING_ACCEPTED_TURN = [
+        'VOICE_TURN_SYNTHESIZED',
+        'VOICE_TURN_PLAYED',
+        'VOICE_PROVIDER_HEALTH_DEGRADED',
+    ];
+
     private const CALLBACK_PAYLOAD_SCHEMAS = [
         'participant_joined' => [
             'required' => ['session_id', 'participant_identity', 'room_name'],
@@ -92,7 +98,7 @@ final class AtlasVoiceRealtimeService
     {
         $session = $this->baseSession($payload);
         $eclipse = $this->eclipseGuard->evaluate($payload);
-        $lease = $this->sessionLease($session, $payload);
+        $lease = $this->sessionLease($session, $payload, $eclipse);
         $event = $this->ledger->recordVoiceEvent(LedgerEventType::VoiceSessionStarted, [
             ...$session,
             'session_lease' => $lease,
@@ -923,7 +929,7 @@ final class AtlasVoiceRealtimeService
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
-    private function sessionLease(array $session, array $payload): array
+    private function sessionLease(array $session, array $payload, array $eclipse = []): array
     {
         $roomName = $this->string($payload['room_name'] ?? '', 120);
         if ($roomName === '') {
@@ -952,6 +958,20 @@ final class AtlasVoiceRealtimeService
             'turn_endpoint' => '/ai/voice/turn',
             'mobile_turn_endpoint' => '/v1/mobile/ai/voice/turn',
         ];
+
+        if ((bool) ($eclipse['active'] ?? false)) {
+            $lease['token_status'] = 'blocked_by_eclipse';
+            $lease['token_issuer'] = 'atlas_voice_eclipse_guard';
+            $lease['token_reason'] = 'voice_session_token_blocked_by_active_eclipse';
+            $lease['ttl_seconds'] = 0;
+            $lease['grant'] = [
+                'room_join' => false,
+                'room' => $roomName,
+            ];
+
+            return $lease;
+        }
+
         $token = $this->liveKitTokens->issue($session, $lease);
         $lease['token_status'] = $token['status'];
         $lease['token_issuer'] = $token['issuer'];
@@ -1031,6 +1051,35 @@ final class AtlasVoiceRealtimeService
     {
         $session = $this->baseSession($payload);
         $turnId = $this->string($payload['turn_id'] ?? (string) Str::ulid(), 80);
+
+        if ($this->callbackRequiresAcceptedTurn($type) && ! $this->hasAcceptedKernelTurn($session, $turnId)) {
+            $failure = $this->ledger->recordVoiceEvent(LedgerEventType::VoiceRuntimeFailed, [
+                ...$session,
+                'turn_id' => $turnId,
+                'runtime' => $this->string($payload['runtime'] ?? $session['runtime'], 120),
+                'failure_code' => 'kernel_turn_not_accepted',
+                'rejected_callback_event_type' => $type->value,
+                'requires_voice_turn_decided' => true,
+                'raw_audio_persisted' => false,
+                'raw_text_persisted' => false,
+            ], $this->ledgerContext($session));
+
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'status' => 'callback_rejected_missing_kernel_turn',
+                'session' => $session,
+                'turn' => [
+                    'turn_id' => $turnId,
+                    'event_type' => $type->value,
+                    'accepted_kernel_turn_required' => true,
+                    'raw_audio_persisted' => false,
+                    'raw_text_persisted' => false,
+                ],
+                'contract' => $this->contract(),
+                'evidence_ledger' => $this->ledgerEventPayload($failure),
+            ];
+        }
+
         $voicePayload = [
             ...$session,
             'turn_id' => $turnId,
@@ -1059,6 +1108,27 @@ final class AtlasVoiceRealtimeService
             'contract' => $this->contract(),
             'evidence_ledger' => $this->ledgerEventPayload($event),
         ];
+    }
+
+    private function callbackRequiresAcceptedTurn(LedgerEventType $type): bool
+    {
+        return in_array($type->value, self::CALLBACKS_REQUIRING_ACCEPTED_TURN, true);
+    }
+
+    /**
+     * @param  array<string,mixed>  $session
+     */
+    private function hasAcceptedKernelTurn(array $session, string $turnId): bool
+    {
+        if (! Schema::hasTable('atlas_ledger_events')) {
+            return false;
+        }
+
+        return AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceTurnDecided->value)
+            ->where('correlation_id', $session['session_id'])
+            ->get()
+            ->contains(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'voice.turn_id') === $turnId);
     }
 
     /**

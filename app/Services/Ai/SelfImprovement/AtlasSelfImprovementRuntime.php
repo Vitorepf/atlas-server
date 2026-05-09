@@ -5,6 +5,7 @@ namespace App\Services\Ai\SelfImprovement;
 use App\Models\AtlasInitiativeRun;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasOpenBrainAccessLog;
+use App\Services\Ai\Context\LocalRagBenchmarkService;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReadModel;
@@ -46,6 +47,7 @@ class AtlasSelfImprovementRuntime
         private readonly DynamicComputeMarketAdvisor $dynamicComputeMarket,
         private readonly AtlasRivalsStrategyReadModel $rivalsStrategy,
         private readonly AtlasVoiceRivalsRunner $voiceRivals,
+        private readonly LocalRagBenchmarkService $localRagBenchmark,
     ) {}
 
     /**
@@ -192,6 +194,8 @@ class AtlasSelfImprovementRuntime
                 ...$this->rivalsStrategyFindings($hours, $filters),
                 ...$this->voiceRealtimeFindings($hours, $filters),
                 ...$this->openBrainRetrievalFindings($hours, $filters),
+                ...$this->localRagPromotionFindings($filters),
+                ...$this->constelacaoUsageReviewFindings($events, $filters),
                 ...$this->domainOnboardingFindings($filters),
                 ...$this->sloDriftFindings($events, $filters),
                 ...$this->repairLoopFindings($events, $filters),
@@ -223,6 +227,8 @@ class AtlasSelfImprovementRuntime
                 ...$this->rivalsStrategyFindings($hours, $filters),
                 ...$this->voiceRealtimeFindings($hours, $filters),
                 ...$this->openBrainRetrievalFindings($hours, $filters),
+                ...$this->localRagPromotionFindings($filters),
+                ...$this->constelacaoUsageReviewFindings($events, $filters),
                 ...$this->domainOnboardingFindings($filters),
                 ...$this->sloDriftFindings($events, $filters),
                 ...$this->repairLoopFindings($events, $filters),
@@ -348,6 +354,173 @@ class AtlasSelfImprovementRuntime
                 'status_counts' => $statusCounts,
                 'required_unavailable_source_counts' => $requiredUnavailableSourceCounts,
                 'recommended_action_counts' => $recommendedActionCounts,
+                'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
+            ],
+        ]];
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function localRagPromotionFindings(array $filters = []): array
+    {
+        $report = $this->localRagBenchmark->report();
+
+        if (($report['status'] ?? null) !== 'passed') {
+            return [];
+        }
+
+        $remaining = (array) data_get($report, 'promotion_gate.remaining_prerequisites', []);
+        if (! in_array('human_review_or_curator_proposal', $remaining, true)) {
+            return [];
+        }
+
+        return [[
+            'title' => 'Revisar promocao de Graph RAG/Python',
+            'category' => 'self_improvement',
+            'finding' => 'Local RAG passou readiness, corpus controlado, latencia p95, privacy boundary e contrato LOCAL_RAG_*; Graph RAG/Python continua bloqueado ate review.',
+            'problem' => 'Sem proposta revisavel, uma IA pode interpretar benchmark verde como permissao para criar Graph RAG em Python e acabar criando memoria paralela ao Kernel.',
+            'solution' => 'Abrir proposta proposal-only para revisar se Graph RAG/Python deve avancar para AP/runtime, exigindo corpus real, policy patch, Decision Receipt e veto humano antes de qualquer promocao.',
+            'worth_it' => 'Vale porque transforma o proximo passo de performance local em decisao auditavel, preservando a tese: Python pode pensar pesado, mas Laravel/Kernel decide.',
+            'best_solution_rationale' => 'Usar Self-Improvement como review gate evita promocao automatica e registra a decisao no mesmo fluxo Evidence -> Learning -> Proposal.',
+            'alternatives' => ['Manter Graph RAG como future_governed.', 'Expandir primeiro o corpus real de retrieval answer quality.', 'Promover somente Vector RAG/reranker sem graph.'],
+            'available_actions' => [
+                ['id' => 'review_graph_rag_promotion', 'label' => 'Revisar promocao', 'style' => 'primary'],
+                ['id' => 'draft_graph_rag_ap', 'label' => 'Rascunhar AP Graph RAG', 'style' => 'secondary'],
+                ['id' => 'keep_future_governed', 'label' => 'Manter bloqueado', 'style' => 'secondary'],
+            ],
+            'source_refs' => [
+                ['type' => 'command', 'id' => 'php artisan atlas:ai:local-rag-benchmark --json'],
+                ['type' => 'doc', 'id' => 'docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md'],
+                ['type' => 'ap', 'id' => 'docs/ap/AP-683-local-rag-graph-promotion-review.md'],
+                ['type' => 'ledger_contract', 'id' => data_get($report, 'ledger_contract.schema_version')],
+            ],
+            'confidence' => 0.9,
+            'dedupe_key' => 'self-improvement:local-rag-graph-promotion:'.sha1((string) data_get($report, 'quality_corpus.corpus_id')),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.local_rag_graph_promotion.v1',
+                'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
+                'benchmark' => [
+                    'status' => $report['status'] ?? null,
+                    'readiness_status' => $report['readiness_status'] ?? null,
+                    'quality_corpus_status' => data_get($report, 'quality_corpus.status'),
+                    'latency_p95_ms' => data_get($report, 'quality_corpus.metrics.latency_p95_ms'),
+                    'completed_prerequisites' => data_get($report, 'promotion_gate.completed_prerequisites', []),
+                    'remaining_prerequisites' => $remaining,
+                ],
+                'review_signal' => [
+                    'status' => 'warning',
+                    'severity' => 'medium',
+                    'review_required' => true,
+                    'proposal_allowed' => true,
+                    'reasons' => ['graph_rag_promotion_requires_human_or_curator_review'],
+                    'recommended_action' => 'open_reviewable_graph_rag_promotion_proposal',
+                    'review_ap' => 'docs/ap/AP-683-local-rag-graph-promotion-review.md',
+                ],
+                'policy_patch_candidate' => [
+                    'status' => 'proposal_only',
+                    'target' => 'context_retrieval_router_graph_rag_runtime',
+                    'operation' => 'promote_python_graph_rag_from_future_governed_to_reviewed_runtime_candidate',
+                    'requires_human_review' => true,
+                    'auto_apply' => false,
+                ],
+            ],
+        ]];
+    }
+
+    /**
+     * @param  Collection<int,AtlasLedgerEvent>  $events
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function constelacaoUsageReviewFindings(Collection $events, array $filters = []): array
+    {
+        if ($filters !== [] && ($filters['surface_id'] ?? null) !== 'constelacao') {
+            return [];
+        }
+
+        $served = $events
+            ->filter(fn (AtlasLedgerEvent $event): bool => $event->event_type === LedgerEventType::ConstelacaoPositionsServed->value)
+            ->values();
+
+        if ($served->isEmpty()) {
+            return [];
+        }
+
+        $sourceCounts = [];
+        $lensCounts = [];
+        $readinessCounts = [];
+        $graphPromotionAllowed = false;
+        $pythonRuntimeAllowed = false;
+
+        foreach ($served as $event) {
+            foreach ((array) data_get($event->payload, 'source_counts', []) as $source => $count) {
+                $sourceCounts[(string) $source] = ($sourceCounts[(string) $source] ?? 0) + (int) $count;
+            }
+
+            $lens = (string) data_get($event->payload, 'lens', 'unknown');
+            $lensCounts[$lens] = ($lensCounts[$lens] ?? 0) + 1;
+
+            $readiness = (string) data_get($event->payload, 'semantic_readiness_status', 'unknown');
+            $readinessCounts[$readiness] = ($readinessCounts[$readiness] ?? 0) + 1;
+
+            $graphPromotionAllowed = $graphPromotionAllowed
+                || (bool) data_get($event->payload, 'promotion_gate.graph_rag_promotion_allowed', false);
+            $pythonRuntimeAllowed = $pythonRuntimeAllowed
+                || (bool) data_get($event->payload, 'promotion_gate.python_runtime_allowed', false);
+        }
+
+        $latest = $served->sortByDesc('occurred_at')->first();
+        $reviewStatus = ($graphPromotionAllowed || $pythonRuntimeAllowed) ? 'blocked' : 'watch';
+
+        return [[
+            'title' => 'Revisar uso real da Constelacao Lente 1',
+            'category' => 'self_improvement',
+            'finding' => 'A Constelacao serviu posicoes governadas no Ledger; o proximo passo e revisar uso real, taps e serenidade antes de qualquer Lente 2 ou promocao semantica.',
+            'problem' => 'Sem review de uso, uma IA pode promover Graph RAG, lineage ou UI operacional cedo demais e destruir a funcao contemplativa da Lente 1.',
+            'solution' => 'Manter Lente 1 como Bilderatlas contemplativo, revisar telemetria p2_metadata e coletar evidencias de conexoes uteis antes de Lente 2; Graph RAG/Python segue bloqueado.',
+            'worth_it' => 'Vale porque a Constelacao e uma surface sensivel de serendipidade: ela precisa provar valor cognitivo sem virar dashboard, Inbox paralelo ou graph view operacional.',
+            'best_solution_rationale' => 'O Curator usa somente eventos `CONSTELACAO_POSITIONS_SERVED` ja redigidos pelo Kernel, preservando privacy, Evidence Ledger e a fronteira AP-683/AP-684.',
+            'alternatives' => ['Manter Lente 1 sem mudancas por mais 30 dias.', 'Ajustar apenas UX contemplativa.', 'Abrir AP futuro para Lente 2 se houver evidencia real.'],
+            'available_actions' => [
+                ['id' => 'review_constelacao_lens1_usage', 'label' => 'Revisar uso Lente 1', 'style' => 'primary'],
+                ['id' => 'keep_bilderatlas_only', 'label' => 'Manter Bilderatlas', 'style' => 'secondary'],
+                ['id' => 'draft_lens2_ap', 'label' => 'Rascunhar AP Lente 2', 'style' => 'secondary'],
+                ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
+            ],
+            'source_refs' => [
+                ['type' => 'ledger_event', 'id' => LedgerEventType::ConstelacaoPositionsServed->value, 'count' => $served->count()],
+                ['type' => 'doc', 'id' => 'docs/engineering-knowledge-base/atlas-constelacao-surface.md'],
+                ['type' => 'doc', 'id' => 'docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md'],
+                ['type' => 'ap', 'id' => 'docs/ap/AP-683-local-rag-graph-promotion-review.md'],
+            ],
+            'confidence' => $reviewStatus === 'blocked' ? 0.94 : 0.78,
+            'dedupe_key' => 'self-improvement:constelacao-lens1-usage:'.sha1($served->count().':'.json_encode($lensCounts, JSON_THROW_ON_ERROR)),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.constelacao_usage_review.v1',
+                'hours_window_contains_event_count' => $served->count(),
+                'latest_event_id' => $latest?->event_id,
+                'lens_counts' => $lensCounts,
+                'source_counts' => $sourceCounts,
+                'semantic_readiness_counts' => $readinessCounts,
+                'review_signal' => [
+                    'status' => $reviewStatus,
+                    'severity' => $reviewStatus === 'blocked' ? 'high' : 'low',
+                    'review_required' => true,
+                    'reasons' => $reviewStatus === 'blocked'
+                        ? ['constelacao_runtime_promotion_gate_was_not_blocked']
+                        : ['constelacao_lens1_usage_requires_human_review_before_lens2'],
+                    'recommended_action' => $reviewStatus === 'blocked'
+                        ? 'block_constelacao_runtime_promotion_and_review_kernel_contract'
+                        : 'review_constelacao_lens1_usage_after_observation_window',
+                ],
+                'promotion_gate' => [
+                    'graph_rag_promotion_allowed' => false,
+                    'python_runtime_allowed' => false,
+                    'requires_human_review' => true,
+                    'requires_decision_receipt' => true,
+                ],
                 'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
             ],
         ]];
@@ -721,6 +894,7 @@ class AtlasSelfImprovementRuntime
                             'operation' => 'benchmark_then_adjust_provider_preference',
                             'requires_human_review' => true,
                         ],
+                        'proposal_evidence_contract' => data_get($market, 'proposal_gate.proposal_evidence_contract'),
                         'available_actions' => [
                             ['id' => 'run_provider_benchmark', 'label' => 'Run provider benchmark', 'mode' => 'assisted'],
                             ['id' => 'draft_model_selection_policy_patch', 'label' => 'Draft model selection policy patch', 'mode' => 'proposal_only'],
@@ -1379,53 +1553,53 @@ class AtlasSelfImprovementRuntime
             ->values()
             ->all();
         $expectedCommands = [
-            'atlas ai architecture-operations --json',
-            'atlas ai architecture-validate',
+            'php artisan atlas:ai:architecture-operations --json',
+            'php artisan atlas:ai:architecture-validate',
             'atlas engineering knowledge docs-health --json',
             'atlas engineering knowledge sync --prune --json',
             'atlas engineering knowledge index-code --prune --json',
-            'atlas ai slo --hours=24 --json',
-            'atlas ai voice contract --json',
-            'atlas ai voice bootstrap --json',
-            'atlas ai voice dependencies --json',
-            'atlas ai voice scripted-example --json',
-            'atlas ai voice scripted-smoke --json',
-            'atlas ai voice callback-smoke --json',
-            'atlas ai voice callback-sequence-smoke --json',
-            'atlas ai voice callback-loop-check --json',
-            'atlas ai voice preflight --json',
-            'atlas ai voice activation-contract --json',
-            'atlas ai voice sdk-check --json',
-            'atlas ai voice worker-plan --json',
-            'atlas ai voice production-loop-plan --json',
-            'atlas ai voice production-loop-smoke --json',
-            'atlas ai voice worker-start-check --json',
-            'atlas ai voice runtime-certify --json',
-            'atlas ai voice readiness --hours=24 --json',
-            'atlas ai voice rivals --hours=24 --json',
+            'php artisan atlas:ai:slo --hours=24 --json',
+            'php artisan atlas:ai:voice contract --json',
+            'php artisan atlas:ai:voice bootstrap --json',
+            'php artisan atlas:ai:voice dependencies --json',
+            'php artisan atlas:ai:voice scripted-example --json',
+            'php artisan atlas:ai:voice scripted-smoke --json',
+            'php artisan atlas:ai:voice callback-smoke --json',
+            'php artisan atlas:ai:voice callback-sequence-smoke --json',
+            'php artisan atlas:ai:voice callback-loop-check --json',
+            'php artisan atlas:ai:voice preflight --json',
+            'php artisan atlas:ai:voice activation-contract --json',
+            'php artisan atlas:ai:voice sdk-check --json',
+            'php artisan atlas:ai:voice worker-plan --json',
+            'php artisan atlas:ai:voice production-loop-plan --json',
+            'php artisan atlas:ai:voice production-loop-smoke --json',
+            'php artisan atlas:ai:voice worker-start-check --json',
+            'php artisan atlas:ai:voice runtime-certify --json',
+            'php artisan atlas:ai:voice readiness --hours=24 --json',
+            'php artisan atlas:ai:voice rivals --hours=24 --json',
             'PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests',
-            'atlas ai kernel-pipeline-report --hours=24 --json',
-            'atlas ai repair-report --hours=24 --json',
-            'atlas ai provider-performance --hours=24 --json',
+            'php artisan atlas:ai:kernel-pipeline-report --hours=24 --json',
+            'php artisan atlas:ai:repair-report --hours=24 --json',
+            'php artisan atlas:ai:provider-performance --hours=24 --json',
             'php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json',
-            'atlas ai agent-behavior-report --hours=24 --json',
-            'atlas ai dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
-            'atlas ai self-improve --flow=provider_performance_review --hours=168 --json',
-            'atlas ai self-improve --flow=provider_release_review --hours=168 --json',
-            'atlas ai self-improve --flow=agent_behavior_review --hours=168 --json',
-            'atlas ai self-improve --flow=voice_realtime_review --hours=168 --json',
-            'atlas ai telemetry cost-rates --missing --hours=168 --json',
-            'atlas ai telemetry cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
-            'atlas ai qualitative-levels --hours=720 --json',
-            'atlas ai rivals-strategy report --hours=8760 --json',
-            'atlas ai rivals-strategy due-reviews --due-days=30 --json',
-            'atlas ai rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
-            'atlas ai strategic-decision review --json',
-            'atlas ai decision-receipt-report --envelope=<id> --json',
-            'atlas ledger replay --envelope=<id> --json',
-            'atlas ai ledger-project --limit=500 --json',
-            'atlas ai self-improvement-schedule-report --hours=24 --json',
-            'atlas ai inbox-action-report --hours=24 --json',
+            'php artisan atlas:ai:agent-behavior-report --hours=24 --json',
+            'php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json',
+            'php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json',
+            'php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json',
+            'php artisan atlas:ai:self-improve --flow=agent_behavior_review --hours=168 --json',
+            'php artisan atlas:ai:self-improve --flow=voice_realtime_review --hours=168 --json',
+            'php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json',
+            'php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json',
+            'php artisan atlas:ai:qualitative-levels --hours=720 --json',
+            'php artisan atlas:ai:rivals-strategy report --hours=8760 --json',
+            'php artisan atlas:ai:rivals-strategy due-reviews --due-days=30 --json',
+            'php artisan atlas:ai:rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
+            'php artisan atlas:ai:strategic-decision review --json',
+            'php artisan atlas:ai:decision-receipt-report --envelope=<id> --json',
+            'php artisan atlas:ai:ledger <id> --json',
+            'php artisan atlas:ai:ledger-project --limit=500 --json',
+            'php artisan atlas:ai:self-improvement-schedule-report --hours=24 --json',
+            'php artisan atlas:ai:inbox-action-report --hours=24 --json',
         ];
         $expectedApiEndpoints = [
             'provider_release_review' => '/ai/provider-release-review',
@@ -1736,7 +1910,7 @@ class AtlasSelfImprovementRuntime
                     'rivals_strategy' => [
                         'due_review_count' => $dueCount,
                         'due_until' => $due['due_until'] ?? null,
-                        'record_command_template' => 'atlas ai rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
+                        'record_command_template' => 'php artisan atlas:ai:rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
                     ],
                     'due_reviews' => collect((array) ($due['due_reviews'] ?? []))
                         ->take(10)

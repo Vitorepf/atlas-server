@@ -80,7 +80,7 @@ Mobile nao pode:
 | Push delivery | Canal de entrega, com delivery receipts e retry/defer. |
 | Discussion bootstrap | Promove um item para conversa contextual governada. |
 | Domain catalog read model | Fonte de picker/status de domain/flow. |
-| Constelacao | Surface contemplativa de serendipidade; consome endpoint governado e nunca substitui Inbox. |
+| Constelacao | Surface contemplativa; consome `/v1/mobile/atlas/celestial/positions` e nunca substitui Inbox. |
 | Core reliability monitor | Watchdog para push, inbox, scheduler, jobs e degraded core. |
 
 ## Fluxos Principais
@@ -92,6 +92,7 @@ Mobile nao pode:
 | Job result importante | Falha ou resultado critico cria item e pode disparar push. |
 | Self-diagnostic | Monitor gera item quando scheduler, push, jobs ou health degradam. |
 | Discuss item | App cria thread/context bundle; runtime ainda passa por policy/receipt. |
+| Constelacao positions | App consome posicoes redigidas; backend registra evidence minima e usa fallback sem Graph RAG final. |
 
 ## Domain Catalog Nas Surfaces
 
@@ -138,6 +139,11 @@ mostra:
 - push-to-talk/mute;
 - transcript parcial/final quando permitido por policy;
 - botao de encerrar sessao com efeito imediato.
+
+Estado atual: o app mobile ja possui cliente API para `session/start`,
+`session/end` e `readiness`, e o Voice Mode tenta abrir sessao governada no
+Kernel antes de cair para fallback visual local. O audio realtime, LiveKit media
+streaming, STT/TTS e UX completa ainda nao estao implementados.
 
 Mobile pode capturar e transmitir audio via LiveKit SDK, mas nao decide modelo,
 nao chama provider direto e nao persiste audio raw. STT/TTS/turn detection vivem

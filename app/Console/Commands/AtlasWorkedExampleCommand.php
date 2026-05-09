@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Cognitive\Dreyfus\DreyfusPedagogyResolver;
+use App\Services\Ai\Cognitive\PersonalWorkedExample\PersonalWorkedExampleExtractionRepository;
+use App\Services\Ai\Cognitive\PersonalWorkedExample\PersonalWorkedExampleExtractor;
 use App\Services\Ai\Cognitive\WorkedExample\ProcessFadingScheduler;
 use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleRenderer;
 use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleRepository;
@@ -15,10 +17,15 @@ use Illuminate\Console\Command;
 class AtlasWorkedExampleCommand extends Command
 {
     protected $signature = 'atlas:worked-example
-        {actionOrTopic? : Topic, or action: list|show|author}
+        {actionOrTopic? : Topic, or action: list|show|author|extract|personal}
         {subject? : Example id for show, or topic for author}
         {--domain=learning : Domain for the example}
         {--source=any : Source preference: canonical_library|personal_ledger|operator_authored|any}
+        {--extract-source=all : Personal extraction source: all|programming_pr|strategic_decision|feynman_session}
+        {--window=90 : Extraction/history window in days}
+        {--limit=50 : Maximum extraction candidates or results}
+        {--status=any : Extraction status filter for extract status mode}
+        {--node= : Optional knowledge node id for personal mode}
         {--dreyfus-stage=auto : Explicit Dreyfus stage 1..5 or auto}
         {--title= : Title for author mode}
         {--problem= : Problem context for author mode}
@@ -34,6 +41,8 @@ class AtlasWorkedExampleCommand extends Command
         DreyfusPedagogyResolver $dreyfus,
         WorkedExampleAppropriateForStageGate $gate,
         AtlasEvidenceLedger $ledger,
+        PersonalWorkedExampleExtractor $personalExtractor,
+        PersonalWorkedExampleExtractionRepository $personalExtractions,
     ): int {
         $actionOrTopic = trim((string) ($this->argument('actionOrTopic') ?? ''));
         $subject = trim((string) ($this->argument('subject') ?? ''));
@@ -55,8 +64,47 @@ class AtlasWorkedExampleCommand extends Command
                 'example' => is_numeric($subject) ? $examples->find((int) $subject) : null,
             ]),
             'author' => $this->author($examples, $ledger, $subject, $domain),
+            'extract' => $this->extract($personalExtractor, $subject, $domain),
+            'personal' => $this->personal($examples, $personalExtractions, $domain),
             default => $this->deliver($selector, $fading, $renderer, $dreyfus, $gate, $ledger, $actionOrTopic, $domain, $source),
         };
+    }
+
+    private function extract(PersonalWorkedExampleExtractor $extractor, string $subject, string $domain): int
+    {
+        if ($subject === 'status') {
+            return $this->render($extractor->status(
+                status: trim((string) $this->option('status')) ?: 'any',
+                limit: $this->positiveIntOption('limit', 50),
+            ));
+        }
+
+        return $this->render($extractor->run(
+            source: trim((string) $this->option('extract-source')) ?: 'all',
+            domain: $domain === 'learning' ? 'any' : $domain,
+            days: $this->positiveIntOption('window', 90),
+            limit: $this->positiveIntOption('limit', 50),
+        ));
+    }
+
+    private function personal(WorkedExampleRepository $examples, PersonalWorkedExampleExtractionRepository $extractions, string $domain): int
+    {
+        $node = trim((string) ($this->option('node') ?? ''));
+        $items = $examples->list($domain, 'personal_ledger');
+
+        if ($node !== '') {
+            $items = array_values(array_filter($items, fn (array $example): bool => (string) ($example['knowledge_node_id'] ?? '') === $node));
+        }
+
+        return $this->render([
+            'schema_version' => 'atlas.cognitive.worked_example_cli.v1',
+            'status' => 'ok',
+            'mode' => 'personal',
+            'domain' => $domain,
+            'node' => $node ?: null,
+            'examples' => $items,
+            'recent_extractions' => $extractions->list('extracted', $this->positiveIntOption('limit', 50)),
+        ]);
     }
 
     private function author(WorkedExampleRepository $examples, AtlasEvidenceLedger $ledger, string $topic, string $domain): int
@@ -201,6 +249,13 @@ class AtlasWorkedExampleCommand extends Command
         $this->components->twoColumnDetail('Title', (string) data_get($payload, 'worked_example.title', data_get($payload, 'example.title', 'n/a')));
 
         return $exit;
+    }
+
+    private function positiveIntOption(string $name, int $default): int
+    {
+        $value = filter_var($this->option($name), FILTER_VALIDATE_INT);
+
+        return is_int($value) && $value > 0 ? $value : $default;
     }
 
     /**

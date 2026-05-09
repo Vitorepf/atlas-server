@@ -73,6 +73,7 @@ class DynamicComputeMarketAdvisor
                 'selected_model_preserved' => $selectedModel ?: 'selected-by-decide',
                 'provider_change_requires' => ['policy_patch', 'decision_receipt'],
             ],
+            'proposal_gate' => $this->proposalGate($recommendation, $confidence, $risk, $candidate),
             'dimensions' => [
                 'provider' => $selectedProvider,
                 'model' => $selectedModel ?: 'selected-by-decide',
@@ -158,6 +159,66 @@ class DynamicComputeMarketAdvisor
                 'available' => (bool) ($report['available'] ?? false),
                 'filters' => $report['filters'] ?? $filters,
                 'review_signal' => $report['review_signal'] ?? null,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $candidate
+     * @return array<string,mixed>
+     */
+    private function proposalGate(string $recommendation, string $confidence, string $risk, ?array $candidate): array
+    {
+        $opensProposal = in_array($recommendation, [
+            'review_provider_policy_patch',
+            'benchmark_lower_latency_alternative',
+            'configure_provider_cost_rates',
+        ], true);
+
+        return [
+            'schema_version' => 'atlas.dynamic_compute_market.proposal_gate.v1',
+            'mode' => 'proposal_only',
+            'can_open_proposal' => $opensProposal,
+            'can_change_provider' => false,
+            'can_change_policy' => false,
+            'can_mutate_decision_receipt' => false,
+            'requires_human_review' => $opensProposal,
+            'requires_benchmark' => $recommendation === 'benchmark_lower_latency_alternative',
+            'requires_cost_rate_action' => $recommendation === 'configure_provider_cost_rates',
+            'requires_policy_patch' => $recommendation === 'review_provider_policy_patch',
+            'requires_new_decision_receipt_for_future_route_change' => true,
+            'proposal_evidence_contract' => [
+                'schema_version' => 'atlas.dynamic_compute_market.proposal_evidence.v1',
+                'source' => 'ap99_provider_usage_projection',
+                'replay_required' => true,
+                'human_review_required' => $opensProposal,
+                'benchmark_required_before_policy_patch' => $opensProposal,
+                'policy_patch_status' => 'draft_only_until_benchmark_and_review',
+                'required_events' => [
+                    'PROVIDER_RETURNED',
+                    'PROVIDER_FALLBACK',
+                    'INBOX_ACTION_RECORDED',
+                ],
+                'required_artifacts' => [
+                    'dynamic_compute_market_report',
+                    'controlled_provider_benchmark',
+                    'policy_patch_candidate',
+                    'new_decision_receipt_for_future_route_change',
+                ],
+            ],
+            'review_status' => $opensProposal ? 'review_required_before_any_policy_change' : 'no_policy_change_recommended',
+            'confidence' => $confidence,
+            'risk' => $risk,
+            'candidate_provider' => $candidate['provider'] ?? null,
+            'candidate_sample_status' => $candidate['sample_status'] ?? null,
+            'allowed_actions' => $opensProposal
+                ? ['open_inbox_proposal', 'run_controlled_benchmark', 'draft_policy_patch_for_review', 'discard_with_reason']
+                : ['continue_monitoring'],
+            'prohibited_actions' => [
+                'provider_routing_change',
+                'silent_policy_patch',
+                'decision_receipt_mutation',
+                'provider_preference_hardcode',
             ],
         ];
     }

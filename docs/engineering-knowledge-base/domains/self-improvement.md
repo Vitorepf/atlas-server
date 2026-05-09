@@ -93,6 +93,7 @@ Self-Improvement deve consumir fontes auditaveis:
 - Code Intelligence;
 - tool evidence;
 - memory quality signals;
+- Local RAG readiness/benchmark e contrato `LOCAL_RAG_*`;
 - provider performance traces;
 - benchmark corpus;
 - user corrections and reviewed feedback.
@@ -128,6 +129,9 @@ Self-Improvement esta centrally registered como dominio Atlas AI implemented/rea
   dedicado `self_improvement.repair_loop_review` no catalogo.
 - `atlas:ai:architecture-validate --json` inclui Self-Improvement no ready
   domain count.
+- `docs_drift_review` tambem abre proposta `proposal_only` para promocao de
+  Graph RAG/Python quando `atlas:ai:local-rag-benchmark` passa e o unico
+  bloqueio restante e review humano/Curator.
 
 Validation:
 

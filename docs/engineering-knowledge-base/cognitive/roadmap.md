@@ -2,7 +2,7 @@
 id: atlas-ai-cognitive-roadmap
 type: engineering_knowledge
 title: Atlas AI Cognitive Plane - Roadmap
-status: scaffold
+status: active
 category: roadmap
 priority: 92
 summary: Roadmap unificado do Cognitive Plane combinando 14 fases do Cognitive Development Plane (C0-C13) e 6 fases do Multiplier Edge. Dreyfus first como regra de ouro. Cada fase entrega valor isolado com codigo+teste+doc+evidence+architecture-validate.
@@ -23,6 +23,7 @@ decisions:
 maintenance:
   - Manter abaixo de 200 linhas.
   - Atualizar quando fase mudar na taxonomia de status (`scaffold`, `implemented-operational-read-model`, `implemented-runtime`, `implemented-surface-integrated`, `implemented-self-improving`) ou quando ordem precisar mudar por evidencia nova.
+  - Status `active` significa roadmap canonico; itens internos continuam governados por fase/AP.
 related_paths:
   - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
   - docs/engineering-knowledge-base/cognitive/README.md
@@ -141,8 +142,8 @@ APs cognitivos com status canonico:
 | AP-165 | Process Pattern Catalog | `implemented-operational-read-model` | C13 Core + base Latticework |
 | AP-166 | Failure Signature Classifier + Bayesian Tracker | `implemented-operational-read-model` | C13 Core; proposal emission futura |
 | AP-167 | Self-Regulated Learning Orchestrator | `implemented-operational-read-model` | C13 Core; hooks de UI/surface sao consumers futuros |
-| AP-168 | Productive Failure Flow | `scaffold` | C13/C14 bridge |
-| AP-169 | Personal Worked Examples Generator | `scaffold` | Multiplier Edge 2-bis |
+| AP-168 | Productive Failure Flow | `implemented_partial` | C13/C14 bridge; runtime minimo + CLI + ledger; transfer proposal-only |
+| AP-169 | Personal Worked Examples Generator | `implemented_partial` | Multiplier Edge 2-bis; extract/personal CLI + ledger; scheduler/review UI futuros |
 | AP-170 | Predictive Failure Insertion | `scaffold` | Multiplier Edge 4-bis |
 
 APs futuros que dependem dos acima:

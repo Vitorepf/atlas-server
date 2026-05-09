@@ -106,6 +106,7 @@ class AiGatewayService
                 'runtime_graph' => $decisionPayload['runtime_graph'] ?? null,
             ],
         );
+        $payload['provider_governance'] = $this->providerGovernanceContract($payload, $provider, $decisionPayload, $candidateProvider, $fallbackReason);
         $options['payload'] = $payload;
         $threadResolution = $this->threads->resolve($input, $options);
         $session = $this->sessions->ensureActive($threadResolution->thread, $provider, $input, $options);
@@ -1567,6 +1568,41 @@ PROMPT;
         $candidate = $this->decide->operationalDecision($options)->selectedProvider();
 
         return $this->providerAllowedForInvocation($candidate, $options, explicitProvider: false);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $decisionPayload
+     * @return array<string,mixed>
+     */
+    private function providerGovernanceContract(array $payload, string $provider, array $decisionPayload, ?string $candidateProvider, ?string $fallbackReason): array
+    {
+        $decisionMode = (string) (data_get($payload, 'decision_mode') ?: data_get($decisionPayload, 'decision_mode') ?: 'atlas_decide');
+        $manualOverride = $decisionMode !== 'atlas_decide';
+
+        return [
+            'schema_version' => 'atlas.provider_governance.v1',
+            'surface' => data_get($payload, 'app_surface') ?: data_get($payload, 'surface') ?: 'unknown',
+            'workflow_mode' => data_get($payload, 'atlas_workflow_mode') ?: data_get($payload, 'workflow_mode'),
+            'decision_mode' => $decisionMode,
+            'decision_authority' => $manualOverride ? 'operator_override' : 'atlas_decide',
+            'model_selection_authority' => data_get($payload, 'model_selection_contract.authority') ?: 'atlas_decide',
+            'operator_requested_provider' => data_get($payload, 'operator_requested_provider') ?: ($manualOverride ? data_get($payload, 'requested_provider') : 'auto'),
+            'requested_provider' => data_get($payload, 'requested_provider'),
+            'candidate_provider' => $candidateProvider,
+            'execution_provider' => $provider,
+            'selected_provider' => $provider,
+            'fallback_provider' => $fallbackReason ? $provider : null,
+            'fallback_reason' => $fallbackReason,
+            'manual_override' => $manualOverride,
+            'fair_mode' => $this->isFairModeOptions(['payload' => $payload]),
+            'separation_contract' => [
+                'atlas_decide_is_decision_layer' => ! $manualOverride,
+                'provider_is_executor_only' => true,
+                'provider_may_not_be_treated_as_atlas_identity' => true,
+                'manual_override_must_remain_visible' => $manualOverride,
+            ],
+        ];
     }
 
     private function providerAllowedForInvocation(string $provider, array $options, bool $explicitProvider = false): string

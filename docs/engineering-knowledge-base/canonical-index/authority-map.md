@@ -34,6 +34,8 @@ related_paths:
 | Pipeline and topology | `atlas-ai-pipeline.md`, `atlas-ai-core-vs-domain.md`, `atlas-ai-operating-system.md` |
 | Model selection and AP-99 | `atlas-ai-model-selection-strategy.md`, telemetry/performance docs, AP-146/AP-147 |
 | Memory/Open Brain | `atlas-ai-memory-context-core-open-brain.md` + `memory/*.md` |
+| Memory noise immunity, capture quarantine and promotion gates | `memory/cognitive-immune-learning-kernel.md` |
+| Code Intelligence and external graph candidates | `code-intelligence.md` + `code-intelligence/external-graph-harness.md` |
 | AtlasVault/Obsidian | `obsidian-atlas-vault.md` + `vault/*.md` |
 | Mobile | `atlas-ai-mobile-surface-gateway.md` |
 | Voice realtime | `atlas-ai-voice-realtime-surface.md` |

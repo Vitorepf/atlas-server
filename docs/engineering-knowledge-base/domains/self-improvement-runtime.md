@@ -51,6 +51,13 @@ Unknown flows, invalid time or invalid timezone become visible warnings and do
 not silently execute. `plan_hash` is stable over effective configuration and
 health issues, not clock movement.
 
+Default recurring flows now include `provider_release_review` between agent
+behavior and voice realtime review. This keeps provider/lab launches under
+Curator observation without crawler, direct provider channel, policy write or
+routing mutation. The flow remains proposal-only and every release still needs
+source gate, Provider Release Envelope, AP/Rivals/AP-99 evidence and human
+review before any Decide signal can be promoted.
+
 ## Review Signals
 
 AP42-AP56 ensure recurring architecture audit, per-flow cadence, per-command

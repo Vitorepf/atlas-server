@@ -16,6 +16,8 @@ Ele existe para dar ao Codex principal e aos humanos um mapa claro da fundacao d
 - teste unitario dedicado
 - readiness gates de fundacao
 - boundaries explicitos para proxima integracao
+- gate `foundation_registry_ready` dentro de
+  `AtlasVoiceRuntimeCertificationService`
 
 ## 3. Autoridade
 
@@ -39,7 +41,7 @@ O registry nao executa runtime, nao chama Kernel, nao grava ledger e nao cria re
 - sequencia exige entrada antes de turno
 - normalizer mapeia aliases de runtime
 - handoff exige envelope/receipt para turn decision
-- callbacks de runtime exigem receipt existente
+- callbacks de runtime exigem receipt existente e `VOICE_TURN_DECIDED`; callback orfao falha fechado como `VOICE_RUNTIME_FAILED`
 - fundacao nao tem autoridade de execucao
 
 ## 6. Proximo Ponto Permitido
@@ -49,6 +51,19 @@ Quando a area quente estiver livre, o proximo passo permitido e:
 `connect_through_authorized_adapter_with_existing_kernel_methods`
 
 Isto significa conectar por adapter autorizado aos metodos existentes de `AtlasVoiceRealtimeService`, nao criar fluxo paralelo.
+
+## 6.1 Certificacao Runtime
+
+`atlas:ai:voice runtime-certify` e `/ai/voice/runtime/certification` consomem
+este registry como primeiro gate. A certificacao runtime so pode ficar
+`certified_scaffold` quando:
+
+- `readiness.status=ready`;
+- `next_allowed_step=connect_through_authorized_adapter_with_existing_kernel_methods`;
+- os artifacts sanitizados nao expõem `summary`, callbacks crus, tokens,
+  secrets, audio cru, texto cru de resposta ou payload de provider/tool;
+- o gate `certification_artifacts_sanitized` passa com `forbidden_key_count=0`
+  em CLI, API interna, mobile gateway e Rivals-Voice summary.
 
 ## 7. Nao Escopo
 
@@ -66,3 +81,4 @@ Isto significa conectar por adapter autorizado aos metodos existentes de `AtlasV
 - readiness retorna `ready`
 - boundaries declaram o que pode conectar e o que nao pode
 - testes provam ausencia de autoridade de execucao
+- runtime certification prova artifact sanitization como gate explicito

@@ -29,6 +29,8 @@ class ContextRetrievalRouterTest extends TestCase
         $this->assertContains('memory_signals', array_column($plan['selected_sources'], 'type'));
         $this->assertTrue(data_get($plan, 'policy.provider_safe_only'));
         $this->assertTrue(data_get($plan, 'policy.do_not_create_parallel_memory'));
+        $this->assertFalse(data_get($plan, 'policy.provider_bypass_allowed'));
+        $this->assertSame('ready', data_get($plan, 'readiness.status'));
     }
 
     public function test_marks_evidence_required_for_high_risk_and_graph_for_architecture_questions(): void
@@ -49,5 +51,12 @@ class ContextRetrievalRouterTest extends TestCase
         $this->assertTrue((bool) data_get($sources->get('evidence_replay'), 'required'));
         $this->assertSame('fail_closed_or_request_review', data_get($sources->get('evidence_replay'), 'unavailable_action'));
         $this->assertTrue($sources->has('graph_retrieval'));
+        $this->assertFalse((bool) data_get($sources->get('graph_retrieval'), 'available'));
+        $this->assertSame('future_governed', data_get($sources->get('graph_retrieval'), 'status'));
+        $this->assertSame('python_ai_data_candidate', data_get($sources->get('graph_retrieval'), 'runtime'));
+        $this->assertSame('docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md', data_get($sources->get('graph_retrieval'), 'owner_doc'));
+        $this->assertFalse((bool) data_get($sources->get('graph_retrieval'), 'provider_bypass_allowed'));
+        $this->assertSame('degraded', data_get($plan, 'readiness.status'));
+        $this->assertSame(['graph_retrieval'], data_get($plan, 'readiness.unavailable_selected_sources'));
     }
 }

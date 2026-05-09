@@ -38,6 +38,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
+  - docs/ap/AP-683-local-rag-graph-promotion-review.md
 ---
 
 # Atlas AI Local Performance Memory Strategy
@@ -185,12 +186,40 @@ Sem esses gates, a RAM vira acelerador de erro.
 Python pode pensar pesado, mas Laravel decide. Swift pode sentir o Mac, mas
 nao escolhe modelo. Go pode ingerir volume, mas nao aprende sozinho.
 
+## Retrieval Readiness Atual
+
+`ContextRetrievalRouter` ja declara `vector_retrieval`, `memory_signals`,
+`code_intelligence`, `evidence_replay` e `graph_retrieval` no plano de contexto.
+Graph RAG aparece como `future_governed`, `available=false`,
+`runtime=python_ai_data_candidate` e `provider_bypass_allowed=false`. Isso
+mantem perguntas arquiteturais conscientes da lacuna sem autorizar uma IA a
+criar um segundo cerebro RAG fora do Kernel.
+
+Use `php artisan atlas:ai:local-rag-readiness --json` para auditar substrato e
+`php artisan atlas:ai:local-rag-benchmark --json` para rodar o corpus
+controlado `local_rag_controlled_router_quality_v1`. Esse corpus cobre
+programacao, arquitetura, desenvolvimento pessoal e financas; mede score
+minimo, latencia p95 local e boundary de privacidade sintetico; e prova que o
+router seleciona fontes, bloqueia bypass e mantem Graph RAG como candidato
+futuro.
+
+Quando o corpus passa, estes pre-requisitos ficam satisfeitos:
+`retrieval_quality_corpus`, `latency_p95_measurement` e
+`privacy_redaction_verification`. O contrato de Evidence Ledger usa a familia
+`LOCAL_RAG_*` (`PLAN_CREATED`, `QUALITY_CORPUS_EVALUATED`,
+`GRAPH_PROMOTION_BLOCKED`) via `AtlasEvidenceLedger::recordLocalRagEvent` e
+nunca persiste query/contexto/documentos brutos. A promocao de Graph RAG/Python
+continua bloqueada ate existir `human_review_or_curator_proposal`; o flow
+`self_improvement.docs_drift_review` pode abrir essa proposta em modo
+`proposal_only`, mas nunca autoaplica policy patch. AP-683 e o review gate
+canonico para decidir se Graph RAG/Python merece AP futuro.
+
 ## Implementation Roadmap
 
 | Fase | Status | Entrega |
 |---|---|---|
 | LP-0 | active | spec canonica e fronteira de linguagem |
-| LP-1 | future | Hot Context Pack Cache com invalidacao |
+| LP-1 | active | Readiness + corpus controlado de qualidade do router |
 | LP-2 | future | Embeddings locais + reranker governado |
 | LP-3 | future | Graph RAG docs/codigo/ledger |
 | LP-4 | future | Evidence distillation e memory quality scoring |

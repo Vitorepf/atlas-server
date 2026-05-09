@@ -32,6 +32,7 @@ capabilities:
   - canonical_docs
   - postgres_registry
   - context_pack_recall
+  - cognitive_immune_gate
   - code_intelligence_index
   - memory_core_preservation
   - memory_core_runbook
@@ -83,6 +84,8 @@ decisions:
   - Obsidian/AtlasVault tem contrato proprio para import/export bidirecional seguro.
   - Engineering Blueprint define o contrato de produto e qualidade antes de execucao pelo Harness Runner.
   - Open Brain Context Injection define quando CLI/app devem usar memoria automaticamente em tarefas de codigo.
+  - Cognitive Immune Learning Kernel define a separacao entre raw capture, evidence, learning signal, memory, context e decision para bloquear ruido antes de memoria/contexto.
+  - External Graph Harness define como usar Graphify e grafos externos como candidatos read-only de Code Intelligence sem criar memoria/contexto/runtime paralelo.
   - Programming Power Tools Catalog define a bancada operacional de ferramentas, tiers, autoridade e lacunas para programacao pesada.
   - Fair Claude e Atlas Supercharged separam prova cientifica com o mesmo Claude do produto real multi-provider.
   - Cognitive Plane e sub-arquitetura canonica seria para desenvolvimento cognitivo; `cognitive/implementation-briefing.md` governa APs, status, comandos e validacoes para IAs implementarem sem confundir scaffold com runtime.
@@ -108,6 +111,8 @@ maintenance:
   - Leia archive/README.md antes de mover, arquivar ou apagar source material preservado.
   - Leia atlas-ai-operating-system.md antes de criar comando, fluxo, harness, dominio ou capability horizontal nova.
   - Leia START_HERE.md antes de continuar implementacoes de memoria/contexto.
+  - Leia memory/cognitive-immune-learning-kernel.md antes de alterar captura, promocao, embeddings, Constelacao, delete, retrieval filtering ou evals de memoria.
+  - Leia code-intelligence/external-graph-harness.md antes de usar Graphify, graph.json externo, AST graph externo ou relacoes surpreendentes para Code Intelligence.
   - Leia open-brain-context-injection.md antes de alterar atlas dev, atlas continue, atlas chat ou AtlasAiSheet.
   - Rode atlas engineering knowledge sync --prune depois de alterar estes docs.
   - Rode atlas engineering knowledge index-code --prune depois de alterar docs ou codigo core.
@@ -157,6 +162,9 @@ related_paths:
   - database/migrations/2026_05_02_010000_create_atlas_engineering_code_intelligence_tables.php
   - docs/engineering-knowledge-base/START_HERE.md
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
+  - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
+  - docs/engineering-knowledge-base/code-intelligence/external-graph-harness.md
+  - docs/ap/AP-684-graphify-external-graph-harness.md
   - docs/engineering-knowledge-base/memory-core-runbook.md
   - docs/engineering-knowledge-base/memory-core-contracts.md
   - docs/engineering-knowledge-base/memory-core-security-privacy.md
@@ -259,9 +267,12 @@ detalhe de modulo com docs/testes.
 | `atlas-ai-content-intelligence-curation.md` | Contrato canonico para curadoria de conteudo, YouTube global, source quality, descarte, roteamento e promocao de conhecimento |
 | `atlas-ai-memory-context-core-open-brain.md` | Entrada compacta para Memory, Context Core e Open Brain; aponta para filhos focados em `memory/` e preserva o historico no archive |
 | `memory/README.md` | Indice local dos contratos focados de memoria, retrieval/context e Open Brain |
+| `memory/cognitive-immune-learning-kernel.md` | Contrato core de quarentena cognitiva, filtros contra ruido, gates de promocao, embedding quarantine, Constelacao eligibility, forgetting e evals |
 | `memory/contracts.md` | Contratos ativos de Memory Registry, Verbatim Store, Engineering KB, Code Intelligence e Provider Projection |
 | `memory/retrieval-and-context.md` | Contrato de recall deterministico, context refs, budgets e composicao provider-safe |
 | `memory/open-brain-mcp.md` | Contrato de Open Brain via CLI/API/MCP/HTTP JSON-RPC, audit e fronteira de nao-decisao |
+| `code-intelligence/README.md` | Indice local dos contratos filhos de Code Intelligence |
+| `code-intelligence/external-graph-harness.md` | Contrato para usar Graphify/grafos externos como candidatos read-only de Code Intelligence, sem memoria/contexto/runtime paralelo |
 | `atlas-ai-scenario-simulation-harness.md` | Contrato alvo para simulacao multiagente, seed pack, graph/personas, outcome tracking e calibracao contra resultado real |
 | `atlas-constelacao-surface.md` | Encaixe canonico da tela Constelacao: surface contemplativa, motor de serendipidade, dependencias de embeddings e roadmap v1+ |
 | `atlas-ai-business-contexts.md` | Contrato canonico que separa Blackink e futuras empresas dos Atlas AI Domains e define product/business context |

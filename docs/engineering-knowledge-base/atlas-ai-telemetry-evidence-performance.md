@@ -154,6 +154,21 @@ Self-Improvement em `voice_latency_review`. Audio raw nunca persiste em
 nenhuma tabela; somente `audio_hash` (sha256) sob privacy class do domain.
 Eclipse window ativa bloqueia turno e emite `VOICE_ECLIPSE_TRIGGERED`.
 
+## Eventos Local RAG
+
+A familia `LOCAL_RAG_*` governa readiness, benchmark e promocao futura de
+Graph RAG/Python. Eventos canonicos:
+
+- `LOCAL_RAG_PLAN_CREATED`
+- `LOCAL_RAG_QUALITY_CORPUS_EVALUATED`
+- `LOCAL_RAG_GRAPH_PROMOTION_BLOCKED`
+
+Esses eventos usam `AtlasEvidenceLedger::recordLocalRagEvent`. Query, prompt,
+input bruto, contexto bruto, documentos e excerpts nunca persistem; o payload
+mantem hashes, ids de fonte, versao do corpus, scores, latencia e motivo de
+bloqueio/promocao. Nenhum evento `LOCAL_RAG_*` autoriza policy patch sozinho:
+promocao exige review humano ou proposta de Curator.
+
 ## Source Material
 
 - `docs/atlas-ai-telemetry.md`

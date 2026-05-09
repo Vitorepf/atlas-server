@@ -51,7 +51,7 @@ O `AtlasSelfImprovementOrchestrator` deve preservar esses filtros no plano, e o
 ## Exemplo
 
 ```bash
-atlas ai self-improve --flow=agent_behavior_review \
+php artisan atlas:ai:self-improve --flow=agent_behavior_review \
   --provider=codex_cli \
   --agent-slug=programming_agent \
   --finding-code=agent.verification_missing \

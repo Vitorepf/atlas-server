@@ -37,6 +37,8 @@ related_paths:
 - Ledger projections and replay health.
 - Self-Improvement recurring jobs and review signals.
 - Documentation governance, session bootstrap and feature placement.
+- Cognitive Immune Learning Kernel for memory quality and noise containment.
 - Cognitive Development APs.
+- AP-684 Graphify External Graph Harness as planned Code Intelligence source-material harvest, not runtime.
 
 Each block must ship code, tests and docs together.
