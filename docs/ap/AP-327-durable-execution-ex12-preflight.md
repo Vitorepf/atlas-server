@@ -9,7 +9,6 @@ related_paths:
   - tests/Unit/Ai/Kernel/Architecture/AtlasApAgentWorkflowAp327PreflightTest.php
 depends_on:
   - AP-326
-  - AP-326
 ---
 
 # AP-327 - Durable Execution Execution Execution Execution Execution Execution Execution Execution Execution Execution Execution Execution Preflight
@@ -17,7 +16,7 @@ depends_on:
 Este AP usa classe PHP curta por AP para evitar limite de filename do macOS. Schema e status seguem completos e canonicos.
 
 ## Proposito
-AP-326 valida o handoff AP-326 antes de qualquer futura decisao humana sobre nova execucao governada.
+AP-327 valida o handoff AP-326 antes de qualquer futura decisao humana sobre nova execucao governada.
 Ele nao executa payload, nao cria job e nao escreve Evidence Ledger.
 
 ## Posicao no Fluxo

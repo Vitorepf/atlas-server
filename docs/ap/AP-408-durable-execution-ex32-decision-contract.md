@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-407 valida o handoff AP-370. AP-408 exige que esse preflight esteja ready
+AP-407 valida o handoff AP-406. AP-408 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

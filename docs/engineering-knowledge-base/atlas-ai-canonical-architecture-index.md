@@ -41,6 +41,10 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
   - docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md
   - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
+  - docs/engineering-knowledge-base/thesis/README.md
+  - docs/engineering-knowledge-base/thesis/multiplier-channel.md
+  - docs/engineering-knowledge-base/thesis/provider-antifragility.md
+  - docs/engineering-knowledge-base/thesis/rivals-validation.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md
@@ -70,6 +74,10 @@ related_paths:
   - docs/engineering-knowledge-base/domains/general.md
   - docs/engineering-knowledge-base/domains/health.md
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
+  - docs/engineering-knowledge-base/operating-system/README.md
+  - docs/engineering-knowledge-base/operating-system/surfaces-and-profiles.md
+  - docs/engineering-knowledge-base/operating-system/domain-pipelines.md
+  - docs/engineering-knowledge-base/operating-system/governance-and-dod.md
   - docs/engineering-knowledge-base/atlas-ai-resolver-corpus-audit.md
   - docs/ap/AP-146-provider-cost-rate-inbox-replay.md
   - docs/ap/AP-147-dynamic-compute-market-shadow-surface.md
@@ -99,6 +107,7 @@ Indice oficial que impede documentos diferentes de disputarem autoridade arquite
 ```text
 Layer -1 - Tese Central (PONTO FIXO ACIMA DE TUDO)
   atlas-ai-thesis-multiplier-channel.md
+  thesis/*.md
   Multiplicador + Canal Unico + Antifragilidade. Imutavel. Toda decisao auditada aqui.
 
 Layer 0 - Constitution / Human Knowledge
@@ -135,10 +144,11 @@ Layer 4 - Domain Specs
 | Identidade, leis, glossario humano | `atlas-ai-layer-0-glossary.md` |
 | Bootstrap de sessao nova | `atlas-ai-session-bootstrap.md` |
 | Documentacao de alta performance, limite de linhas e promocao | `atlas-ai-documentation-operating-system.md` |
-| Fonte de verdade entre repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat | `atlas-ai-knowledge-governance-system.md` + `atlas-ai-documentation-operating-system.md` + `obsidian-atlas-vault.md` |
+| Fonte de verdade entre repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat | `atlas-ai-knowledge-governance-system.md` + `atlas-ai-documentation-operating-system.md` + `obsidian-atlas-vault.md` + `vault/contracts.md` |
+| Memory, Context Core, retrieval e Open Brain | `atlas-ai-memory-context-core-open-brain.md` + `memory/contracts.md` + `memory/retrieval-and-context.md` + `memory/open-brain-mcp.md` |
 | Fronteira Laravel/Python/Go/Swift e APIs Apple | `atlas-ai-runtime-language-boundaries.md` + `atlas-native-mac-agent.md` |
 | Patamares P1-P7, outro patamar e co-estrategista | `atlas-ai-qualitative-levels-roadmap.md` |
-| Obsidian/AtlasVault como Human Knowledge Surface / Personal Knowledge Workspace | `obsidian-atlas-vault.md` + `atlas-ai-master-architecture.md` |
+| Obsidian/AtlasVault como Human Knowledge Surface / Personal Knowledge Workspace | `obsidian-atlas-vault.md` + `vault/contracts.md` + `vault/runbook.md` + `atlas-ai-master-architecture.md` |
 | Contratos de runtime | `atlas-ai-kernel-architecture.md` |
 | Operation Envelope | `atlas-ai-kernel-architecture.md` |
 | Decision Receipt | `atlas-ai-kernel-architecture.md` |

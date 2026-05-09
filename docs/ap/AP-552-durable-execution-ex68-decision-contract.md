@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-551 valida o handoff AP-554. AP-552 exige que esse preflight esteja ready
+AP-551 valida o handoff AP-550. AP-552 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

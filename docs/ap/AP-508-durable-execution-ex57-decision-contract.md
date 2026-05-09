@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-507 valida o handoff AP-446. AP-508 exige que esse preflight esteja ready
+AP-507 valida o handoff AP-506. AP-508 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

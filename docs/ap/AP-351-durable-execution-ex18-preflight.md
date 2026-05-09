@@ -17,7 +17,7 @@ related_paths:
 
 ## Purpose
 
-AP-350 valida o handoff AP-350 antes de qualquer decisao humana da proxima
+AP-351 valida o handoff AP-350 antes de qualquer decisao humana da proxima
 camada da cadeia enterprise.
 
 Ele mantem o Atlas em modo de governanca: revisa forma, evidencias e referencias
@@ -26,7 +26,7 @@ nao escreve no Evidence Ledger.
 
 ## Position
 
-AP-350 entrega um handoff packet read-only. AP-350 consome esse pacote e produz
+AP-350 entrega um handoff packet read-only. AP-351 consome esse pacote e produz
 um preflight tambem read-only.
 
 Se o handoff nao estiver ready, o preflight bloqueia. Se a evidencia estiver
@@ -81,6 +81,6 @@ job creation, no payload execution and no ledger write.
 
 ## Registry
 
-AP-350 follows AP-350 in the AP-350 post-completion review chain.
+AP-351 follows AP-350 in the AP-204 post-completion review chain.
 
 It is a preflight contract, not an executor.

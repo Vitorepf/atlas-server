@@ -145,6 +145,10 @@ related_paths:
   - docs/engineering-knowledge-base/cognitive/README.md
   - docs/engineering-knowledge-base/archive/README.md
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
+  - docs/engineering-knowledge-base/operating-system/README.md
+  - docs/engineering-knowledge-base/operating-system/surfaces-and-profiles.md
+  - docs/engineering-knowledge-base/operating-system/domain-pipelines.md
+  - docs/engineering-knowledge-base/operating-system/governance-and-dod.md
   - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
   - app/Services/Engineering/EngineeringKnowledgeBaseService.php
   - app/Services/Engineering/EngineeringContextPackService.php
@@ -160,12 +164,20 @@ related_paths:
   - docs/engineering-knowledge-base/memory-core-maturity-dod.md
   - docs/engineering-knowledge-base/open-brain-context-injection.md
   - docs/engineering-knowledge-base/obsidian-atlas-vault.md
+  - docs/engineering-knowledge-base/vault/README.md
+  - docs/engineering-knowledge-base/vault/contracts.md
+  - docs/engineering-knowledge-base/vault/runbook.md
   - docs/engineering-knowledge-base/engineering-blueprint.md
   - docs/engineering-knowledge-base/engineering-blueprint-contracts.md
   - docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md
   - docs/engineering-knowledge-base/engineering-blueprint-runbook.md
   - docs/engineering-knowledge-base/engineering-blueprint-maturity-dod.md
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md
+  - docs/engineering-knowledge-base/tool-runtime/README.md
+  - docs/engineering-knowledge-base/tool-runtime/contracts.md
+  - docs/engineering-knowledge-base/tool-runtime/evidence-gates.md
+  - docs/engineering-knowledge-base/tool-runtime/catalog-roadmap.md
+  - docs/engineering-knowledge-base/tool-runtime/runbook.md
   - docs/atlas-cli-5x-claude-code-plan.md
   - docs/atlas-cli-fair-claude-benchmark.md
 ---
@@ -245,6 +257,11 @@ detalhe de modulo com docs/testes.
 | `atlas-native-mac-agent.md` | Contrato canonico para Swift/macOS: Keychain, Touch ID, notificacoes, FSEvents, Menu Bar, Accessibility e ScreenCaptureKit opt-in |
 | `atlas-ai-local-performance-memory-strategy.md` | Contrato canonico para usar 48GB RAM em hot context, RAG local, rerank, cache, modelos locais, KV cache e precompute |
 | `atlas-ai-content-intelligence-curation.md` | Contrato canonico para curadoria de conteudo, YouTube global, source quality, descarte, roteamento e promocao de conhecimento |
+| `atlas-ai-memory-context-core-open-brain.md` | Entrada compacta para Memory, Context Core e Open Brain; aponta para filhos focados em `memory/` e preserva o historico no archive |
+| `memory/README.md` | Indice local dos contratos focados de memoria, retrieval/context e Open Brain |
+| `memory/contracts.md` | Contratos ativos de Memory Registry, Verbatim Store, Engineering KB, Code Intelligence e Provider Projection |
+| `memory/retrieval-and-context.md` | Contrato de recall deterministico, context refs, budgets e composicao provider-safe |
+| `memory/open-brain-mcp.md` | Contrato de Open Brain via CLI/API/MCP/HTTP JSON-RPC, audit e fronteira de nao-decisao |
 | `atlas-ai-scenario-simulation-harness.md` | Contrato alvo para simulacao multiagente, seed pack, graph/personas, outcome tracking e calibracao contra resultado real |
 | `atlas-constelacao-surface.md` | Encaixe canonico da tela Constelacao: surface contemplativa, motor de serendipidade, dependencias de embeddings e roadmap v1+ |
 | `atlas-ai-business-contexts.md` | Contrato canonico que separa Blackink e futuras empresas dos Atlas AI Domains e define product/business context |
@@ -279,6 +296,10 @@ detalhe de modulo com docs/testes.
 | `legacy-documentation-cleanup-report.md` | Inventario e registro de limpeza de docs legados, duplicados, humanos, arquivados e pendentes de promocao |
 | `legacy-documentation-cleanup-plan.md` | Plano seguro para futuras ondas de promocao, redirect, arquivo e delete candidate |
 | `atlas-ai-operating-system.md` | Arquitetura macro do Atlas AI: dominios, pipeline comum, anti-duplicacao e ownership entre dev, forge, decide, memoria, tools e curadoria |
+| `operating-system/README.md` | Indice local dos contratos focados do Atlas AI Operating System |
+| `operating-system/surfaces-and-profiles.md` | Surfaces, aliases, Domain/Flow Profiles e autoridade do Atlas Decide |
+| `operating-system/domain-pipelines.md` | Shapes canonicos dos pipelines por dominio |
+| `operating-system/governance-and-dod.md` | Camadas horizontais, anti-duplicacao, ownership e DoD de fluxos |
 | `atlas-ai-continuity-session-state.md` | Contrato canonico para continuidade, compactacao, handoff de provider/surface e session snapshots |
 | `atlas-ai-telemetry-evidence-performance.md` | Contrato canonico para telemetry, Evidence Ledger projections, aggregator_version, health gates, reports, custo e performance |
 | `atlas-ai-mobile-surface-gateway.md` | Contrato canonico para mobile como surface, pairing, push, inbox, discussion handoff e domain catalog |
@@ -291,10 +312,18 @@ detalhe de modulo com docs/testes.
 | `atlas-ai-architecture-audit.md` | Analise rigorosa de consolidacao dos docs: capacidades existentes, duplicacoes, lacunas e ordem recomendada para reorganizar o Atlas AI |
 | `atlas-ai-evolution-roadmap.md` | Roadmap de evolucao do Atlas AI: Agentic RAG, Self-Reflection Gate, memoria episodica, Provider Strategy Matrix, Graph/Vector/Evidence routing e fases 0-4 |
 | `atlas-ai-evolution-phase-0-audit.md` | Auditoria rigorosa da Fase 0/AP-99: provider usage/performance contract, ganhos esperados, lacunas, criterios de aceite e o que nao deve virar subsistema paralelo |
+| `atlas-ai-thesis-multiplier-channel.md` | Tese Layer -1: Atlas como canal soberano multiplicador acima dos providers |
+| `thesis/README.md` | Indice local da tese constitucional |
+| `thesis/multiplier-channel.md` | Formula, canal unico, gravidade e filtro de features |
+| `thesis/provider-antifragility.md` | Como Atlas absorve lancamentos de providers e preserva moat estrutural |
+| `thesis/rivals-validation.md` | Como Rivals mede multiplicador positivo/neutro/negativo e aciona stop-the-line |
 | `archive/README.md` | Regras do arquivo documental: como ler source material preservado sem deixar docs legados competirem com a arquitetura canonica |
 | `atlas-ai-memory-context-core-open-brain.md` | Documento mestre versionado de memoria, contexto e recall |
 | `open-brain-context-injection.md` | Como CLI e app devem usar Open Brain automaticamente em dev, continue, chat, programming, review e debug |
 | `obsidian-atlas-vault.md` | Contrato para Obsidian/AtlasVault como Human Knowledge Surface / Personal Knowledge Workspace, sem virar fonte operacional primaria |
+| `vault/README.md` | Indice local dos contratos focados de AtlasVault |
+| `vault/contracts.md` | Frontmatter, links `atlas://`, tipos de nota, privacy e conflitos de AtlasVault |
+| `vault/runbook.md` | Operacao CLI/API, smoke checks e validacao de AtlasVault |
 | `code-intelligence.md` | Indice de codigo, modulos, simbolos e doc links |
 | `engineering-blueprint.md` | Produto final do Engineering Blueprint System |
 | `engineering-blueprint-contracts.md` | Contratos de blueprint, task, inventory, scenarios, evidencias e findings |
@@ -302,6 +331,11 @@ detalhe de modulo com docs/testes.
 | `engineering-blueprint-runbook.md` | Operacao app/CLI/API para blueprint, run, QA, review e sync |
 | `engineering-blueprint-maturity-dod.md` | Estado real, plano por fases e DoD final dos 7 itens |
 | `super-tool-runtime-core.md` | Registry, politica, executor e evidence store genericos para ferramentas |
+| `tool-runtime/README.md` | Indice local dos contratos focados do Super Tool Runtime |
+| `tool-runtime/contracts.md` | Registry, policy engine, tiers, authority matrix e boundary de agentes externos |
+| `tool-runtime/evidence-gates.md` | Evidence Store, normalizers, gates, release gate e API Contract Harness |
+| `tool-runtime/catalog-roadmap.md` | Familias de ferramentas para programacao pesada e backlog opcional |
+| `tool-runtime/runbook.md` | Operacao CLI/API de tools, evidence, gates, approvals e waivers |
 | `programming-power-tools-catalog.md` | Catalogo operacional de ferramentas para programacao pesada, tiers T0-T3, autoridade, lacunas e backlog |
 | `memory-core-runbook.md` | Runbook diario de memoria, sync, privacy, projection e validacao |
 | `memory-core-contracts.md` | Contratos de tabelas, refs, APIs, CLI e config |

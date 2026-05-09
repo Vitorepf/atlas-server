@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-463 valida o handoff AP-446. AP-464 exige que esse preflight esteja ready
+AP-463 valida o handoff AP-462. AP-464 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

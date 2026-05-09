@@ -17,7 +17,7 @@ related_paths:
 
 ## Purpose
 
-AP-478 valida o handoff AP-478 antes de qualquer decisao humana da proxima
+AP-479 valida o handoff AP-478 antes de qualquer decisao humana da proxima
 camada da cadeia enterprise.
 
 Ele mantem o Atlas em modo de governanca: revisa forma, evidencias e referencias
@@ -26,7 +26,7 @@ nao escreve no Evidence Ledger.
 
 ## Position
 
-AP-478 entrega um handoff packet read-only. AP-478 consome esse pacote e produz
+AP-478 entrega um handoff packet read-only. AP-479 consome esse pacote e produz
 um preflight tambem read-only.
 
 Se o handoff nao estiver ready, o preflight bloqueia. Se a evidencia estiver
@@ -81,6 +81,6 @@ job creation, no payload execution and no ledger write.
 
 ## Registry
 
-AP-478 follows AP-478 in the AP-478 post-completion review chain.
+AP-479 follows AP-478 in the AP-204 post-completion review chain.
 
 It is a preflight contract, not an executor.

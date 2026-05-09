@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-611 valida o handoff AP-614. AP-612 exige que esse preflight esteja ready
+AP-611 valida o handoff AP-610. AP-612 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

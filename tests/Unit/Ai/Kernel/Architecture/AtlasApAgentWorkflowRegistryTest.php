@@ -448,6 +448,54 @@ final class AtlasApAgentWorkflowRegistryTest extends TestCase
             'AP-632',
             'AP-633',
             'AP-634',
+            'AP-635',
+            'AP-636',
+            'AP-637',
+            'AP-638',
+            'AP-639',
+            'AP-640',
+            'AP-641',
+            'AP-642',
+            'AP-643',
+            'AP-644',
+            'AP-645',
+            'AP-646',
+            'AP-647',
+            'AP-648',
+            'AP-649',
+            'AP-650',
+            'AP-651',
+            'AP-652',
+            'AP-653',
+            'AP-654',
+            'AP-655',
+            'AP-656',
+            'AP-657',
+            'AP-658',
+            'AP-659',
+            'AP-660',
+            'AP-661',
+            'AP-662',
+            'AP-663',
+            'AP-664',
+            'AP-665',
+            'AP-666',
+            'AP-667',
+            'AP-668',
+            'AP-669',
+            'AP-670',
+            'AP-671',
+            'AP-672',
+            'AP-673',
+            'AP-674',
+            'AP-675',
+            'AP-676',
+            'AP-677',
+            'AP-678',
+            'AP-679',
+            'AP-680',
+            'AP-681',
+            'AP-682',
         ], array_column($payload['post_completion_review_chain'], 'ap'));
         $this->assertSame([
             'AtlasApAgentHandoffPacket',
@@ -1690,22 +1738,22 @@ final class AtlasApAgentWorkflowRegistryTest extends TestCase
             'AtlasApAgentWorkflowAp518HandoffPacket',
             data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_ex59_with'),
         );
-$this->assertSame(
-    'AtlasApAgentWorkflowAp519Preflight',
-    data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_ex60_with'),
-);
-$this->assertSame(
-    'AtlasApAgentWorkflowAp520DecisionContract',
-    data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_ex60_with'),
-);
-$this->assertSame(
-    'AtlasApAgentWorkflowAp521DecisionReceipt',
-    data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_ex60_decision_with'),
-);
-$this->assertSame(
-    'AtlasApAgentWorkflowAp522HandoffPacket',
-    data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_ex60_with'),
-);
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp519Preflight',
+            data_get($payload, 'handoff_summary.preflight_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_ex60_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp520DecisionContract',
+            data_get($payload, 'handoff_summary.decide_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_ex60_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp521DecisionReceipt',
+            data_get($payload, 'handoff_summary.receipt_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_ex60_decision_with'),
+        );
+        $this->assertSame(
+            'AtlasApAgentWorkflowAp522HandoffPacket',
+            data_get($payload, 'handoff_summary.handoff_runtime_execution_activation_implementation_execution_result_persistence_execution_ledger_write_execution_durable_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_execution_ex60_with'),
+        );
         $this->assertSame(['AP-201', 'AP-202'], data_get($payload, 'steps.0.allowed_next_steps'));
         $this->assertSame(['proposal_count_greater_than_zero'], data_get($payload, 'steps.1.blocks_when'));
         $this->assertSame(['AP-205'], data_get($payload, 'steps.2.allowed_next_steps'));

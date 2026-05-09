@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-563 valida o handoff AP-566. AP-564 exige que esse preflight esteja ready
+AP-563 valida o handoff AP-562. AP-564 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-391 valida o handoff AP-370. AP-392 exige que esse preflight esteja ready
+AP-391 valida o handoff AP-390. AP-392 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

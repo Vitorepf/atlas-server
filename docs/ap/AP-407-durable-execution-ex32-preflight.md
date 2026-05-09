@@ -17,7 +17,7 @@ related_paths:
 
 ## Purpose
 
-AP-406 valida o handoff AP-406 antes de qualquer decisao humana da proxima
+AP-407 valida o handoff AP-406 antes de qualquer decisao humana da proxima
 camada da cadeia enterprise.
 
 Ele mantem o Atlas em modo de governanca: revisa forma, evidencias e referencias
@@ -26,7 +26,7 @@ nao escreve no Evidence Ledger.
 
 ## Position
 
-AP-406 entrega um handoff packet read-only. AP-406 consome esse pacote e produz
+AP-406 entrega um handoff packet read-only. AP-407 consome esse pacote e produz
 um preflight tambem read-only.
 
 Se o handoff nao estiver ready, o preflight bloqueia. Se a evidencia estiver
@@ -81,6 +81,6 @@ job creation, no payload execution and no ledger write.
 
 ## Registry
 
-AP-406 follows AP-406 in the AP-406 post-completion review chain.
+AP-407 follows AP-406 in the AP-204 post-completion review chain.
 
 It is a preflight contract, not an executor.

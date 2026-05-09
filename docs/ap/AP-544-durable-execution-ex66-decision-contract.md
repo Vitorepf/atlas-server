@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-543 valida o handoff AP-546. AP-544 exige que esse preflight esteja ready
+AP-543 valida o handoff AP-542. AP-544 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

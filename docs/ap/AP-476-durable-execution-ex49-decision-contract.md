@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-475 valida o handoff AP-446. AP-476 exige que esse preflight esteja ready
+AP-475 valida o handoff AP-474. AP-476 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

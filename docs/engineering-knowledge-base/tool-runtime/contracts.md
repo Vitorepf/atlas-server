@@ -1,0 +1,98 @@
+---
+id: atlas-tool-runtime-contracts
+type: engineering_knowledge
+title: Atlas Tool Runtime Contracts
+status: active
+category: architecture
+priority: 98
+summary: Focused contract for Super Tool Runtime registry, policy, tiers, authority matrix and external agent boundaries.
+tags:
+  - atlas
+  - tools
+  - contracts
+capabilities:
+  - tool_registry
+  - tool_policy_engine
+  - tool_authority_matrix
+decisions:
+  - Every tool enters through the registry before recurring automation.
+  - Tool execution must be governed by tier, risk, privacy, sandbox and approvals.
+  - External coding agents are executors inside Atlas, never replacement control-planes.
+maintenance:
+  - Keep policy and authority changes here.
+related_paths:
+  - docs/engineering-knowledge-base/super-tool-runtime-core.md
+  - docs/engineering-knowledge-base/tool-runtime/evidence-gates.md
+  - app/Services/Tools/AtlasToolRegistryService.php
+  - app/Services/Tools/AtlasToolPolicyEngine.php
+  - app/Services/Tools/AtlasToolAuthorityMatrixService.php
+---
+
+# Atlas Tool Runtime Contracts
+
+## Core Tables
+
+- `atlas_tool_definitions`;
+- `atlas_tool_installations`;
+- `atlas_tool_policies`;
+- `atlas_tool_runs`;
+- `atlas_tool_artifacts`;
+- `atlas_tool_findings`.
+
+## Registry Contract
+
+Every tool definition declares:
+
+- slug, category and capabilities;
+- execution tier and expected cost;
+- default trigger and recommended surface;
+- authority group and authority role;
+- timeout, network posture, sandbox posture and failure policy;
+- safe command recipes when executable.
+
+Missing optional binaries produce `missing` or `skipped` with reason. They do not
+silently disappear and do not become mandatory paid dependencies.
+
+## Policy Contract
+
+`AtlasToolPolicyEngine` emits auditable decisions:
+
+- `allowed`;
+- `denied`;
+- `requires_approval`;
+- `skipped`.
+
+Inputs include tier, risk, network, cost, sandbox, privacy, task type,
+provider-safe requirement, approval status and workspace/global overrides.
+
+## Tier Contract
+
+| Tier | Use | Blocks? |
+|---|---|---|
+| T0 interactive | symbol lookup, rg, cheap context | No by itself |
+| T1 local fast | format/lint/typecheck/diff secret scan | Yes for scoped direct errors |
+| T2 PR/review | full static/security/API/a11y/architecture scans | Yes by severity/policy |
+| T3 release/nightly | mutation, license, deep vulnerability/performance | Yes for release/nightly |
+
+T3 must not block interactive flow. T0 must not write without approval.
+
+## Authority Matrix
+
+Overlapping tools need a declared authority group:
+
+- primary tools define default blocking severity;
+- complementary tools add evidence and may elevate when more precise;
+- fallbacks prevent total blind spots;
+- duplicate findings are correlated for gate counting, never deleted from evidence.
+
+Waivers attach to findings/fingerprints, not to entire tools.
+
+## External Agent Boundary
+
+Aider, Continue, OpenHands, Serena/MCP with writes and similar agents are tool
+executors inside Atlas.
+
+They receive Atlas context and constraints, run in worktree/sandbox, produce
+patch/artifacts, and are validated by Atlas tests/gates/evidence. They never mark
+work resolved, pick providers, bypass secrets policy or become the source of
+truth.

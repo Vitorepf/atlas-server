@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-535 valida o handoff AP-538. AP-536 exige que esse preflight esteja ready
+AP-535 valida o handoff AP-534. AP-536 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

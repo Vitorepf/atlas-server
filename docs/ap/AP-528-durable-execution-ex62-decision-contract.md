@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-527 valida o handoff AP-530. AP-528 exige que esse preflight esteja ready
+AP-527 valida o handoff AP-526. AP-528 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

@@ -17,7 +17,7 @@ related_paths:
 
 ## Purpose
 
-AP-422 valida o handoff AP-422 antes de qualquer decisao humana da proxima
+AP-423 valida o handoff AP-422 antes de qualquer decisao humana da proxima
 camada da cadeia enterprise.
 
 Ele mantem o Atlas em modo de governanca: revisa forma, evidencias e referencias
@@ -26,7 +26,7 @@ nao escreve no Evidence Ledger.
 
 ## Position
 
-AP-422 entrega um handoff packet read-only. AP-422 consome esse pacote e produz
+AP-422 entrega um handoff packet read-only. AP-423 consome esse pacote e produz
 um preflight tambem read-only.
 
 Se o handoff nao estiver ready, o preflight bloqueia. Se a evidencia estiver
@@ -81,6 +81,6 @@ job creation, no payload execution and no ledger write.
 
 ## Registry
 
-AP-422 follows AP-422 in the AP-422 post-completion review chain.
+AP-423 follows AP-422 in the AP-204 post-completion review chain.
 
 It is a preflight contract, not an executor.

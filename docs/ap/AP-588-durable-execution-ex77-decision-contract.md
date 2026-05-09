@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-587 valida o handoff AP-590. AP-588 exige que esse preflight esteja ready
+AP-587 valida o handoff AP-586. AP-588 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-379 valida o handoff AP-370. AP-380 exige que esse preflight esteja ready
+AP-379 valida o handoff AP-378. AP-380 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o

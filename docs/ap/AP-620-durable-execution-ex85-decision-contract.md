@@ -25,7 +25,7 @@ Ledger.
 
 ## Position
 
-AP-619 valida o handoff AP-622. AP-620 exige que esse preflight esteja ready
+AP-619 valida o handoff AP-618. AP-620 exige que esse preflight esteja ready
 antes de qualquer aceite humano.
 
 O contrato existe para separar revisao humana de execucao real. Mesmo quando o
