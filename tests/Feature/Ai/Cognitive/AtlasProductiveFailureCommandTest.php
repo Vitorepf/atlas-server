@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\Cognitive;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -118,5 +119,97 @@ class AtlasProductiveFailureCommandTest extends TestCase
 
         $this->assertSame('blocked', $blocked['status']);
         $this->assertSame('productive_failure_phase_2_comparison_missing', data_get($blocked, 'gate.reason'));
+    }
+
+    public function test_transfer_tests_action_returns_review_only_due_proposals(): void
+    {
+        Artisan::call('atlas:productive-failure', [
+            'actionOrTopic' => 'queue-batching',
+            '--domain' => 'programming',
+            '--json' => true,
+        ]);
+        $started = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $sessionId = (int) data_get($started, 'session.id');
+
+        Artisan::call('atlas:productive-failure', [
+            'actionOrTopic' => 'attempt',
+            'subject' => (string) $sessionId,
+            '--prediction' => 'Queue latency is Redis memory pressure.',
+            '--attempt' => 'Inspect Redis memory first.',
+            '--json' => true,
+        ]);
+        Artisan::call('atlas:productive-failure', [
+            'actionOrTopic' => 'compare',
+            'subject' => (string) $sessionId,
+            '--reality' => 'The latency was lock contention.',
+            '--delta' => 'Prediction missed lock contention.',
+            '--json' => true,
+        ]);
+        Artisan::call('atlas:productive-failure', [
+            'actionOrTopic' => 'articulate',
+            'subject' => (string) $sessionId,
+            '--insight' => 'Look for contention before capacity.',
+            '--why-failed' => 'Visible metrics distracted the diagnosis.',
+            '--principle' => 'When throughput stalls without saturation, inspect contention.',
+            '--json' => true,
+        ]);
+
+        $session = DB::table('productive_failure_sessions')->where('id', $sessionId)->first();
+        $transferTest = json_decode((string) $session->phase_3_transfer_test, true, flags: JSON_THROW_ON_ERROR);
+        $transferTest['scheduled_for'] = now()->subDay()->toDateString();
+        DB::table('productive_failure_sessions')->where('id', $sessionId)->update([
+            'phase_3_transfer_test' => json_encode($transferTest, JSON_THROW_ON_ERROR),
+        ]);
+
+        Artisan::call('atlas:productive-failure', [
+            'actionOrTopic' => 'transfer-tests',
+            '--domain' => 'programming',
+            '--due-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertTrue($payload['due_only']);
+        $this->assertSame('proposal_only', data_get($payload, 'review_contract.status'));
+        $this->assertFalse(data_get($payload, 'review_contract.auto_apply_to_curriculum'));
+        $this->assertCount(1, $payload['transfer_tests']);
+        $this->assertTrue(data_get($payload, 'transfer_tests.0.due'));
+        $this->assertSame('atlas.cognitive.productive_failure.transfer_test_review.v1', data_get($payload, 'transfer_tests.0.schema_version'));
+    }
+
+    public function test_productive_failure_requires_specific_topic_to_avoid_random_frustration(): void
+    {
+        $exit = Artisan::call('atlas:productive-failure', [
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $exit);
+        $this->assertSame('invalid_input', $payload['status']);
+        $this->assertSame('productive_failure_topic_required', $payload['reason']);
+        $this->assertTrue(data_get($payload, 'governance.specific_topic_required'));
+        $this->assertFalse(data_get($payload, 'governance.empty_topic_allowed'));
+        $this->assertFalse(data_get($payload, 'governance.random_frustration_allowed'));
+        $this->assertSame(0, DB::table('productive_failure_sessions')->count());
+        $this->assertSame(0, AtlasLedgerEvent::query()->count());
+    }
+
+    public function test_productive_failure_blocks_when_storage_is_unavailable(): void
+    {
+        Schema::dropIfExists('productive_failure_sessions');
+
+        $exit = Artisan::call('atlas:productive-failure', [
+            'actionOrTopic' => 'queue-batching',
+            '--domain' => 'programming',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $exit);
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame('productive_failure_storage_unavailable', $payload['reason']);
+        $this->assertSame('run_migrations_before_productive_failure', $payload['next_action']);
+        $this->assertSame(0, AtlasLedgerEvent::query()->count());
     }
 }

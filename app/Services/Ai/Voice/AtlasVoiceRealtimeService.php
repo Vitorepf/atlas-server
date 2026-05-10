@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Voice;
 
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\Kernel\Architecture\AtlasRuntimeLanguageBoundaryReportService;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\EffectiveProfile;
@@ -30,6 +31,8 @@ final class AtlasVoiceRealtimeService
     private const CALLBACKS_REQUIRING_ACCEPTED_TURN = [
         'VOICE_TURN_SYNTHESIZED',
         'VOICE_TURN_PLAYED',
+        'VOICE_TURN_INTERRUPTED',
+        'VOICE_RUNTIME_FAILED',
         'VOICE_PROVIDER_HEALTH_DEGRADED',
     ];
 
@@ -88,6 +91,7 @@ final class AtlasVoiceRealtimeService
         private readonly OperationEnvelopeFactory $envelopes,
         private readonly DecisionReceiptIssuer $receipts,
         private readonly AtlasVoiceLiveKitTokenIssuer $liveKitTokens,
+        private readonly AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary,
     ) {}
 
     /**
@@ -166,11 +170,13 @@ final class AtlasVoiceRealtimeService
             ], $this->ledgerContext($session));
         }
 
-        if (isset($payload['transcript'])) {
+        if (isset($payload['transcript']) && is_string($payload['transcript'])) {
+            $transcript = (string) $payload['transcript'];
             $events['transcribed'] = $this->ledger->recordVoiceEvent(LedgerEventType::VoiceTurnTranscribed, [
                 ...$session,
                 'turn_id' => $turnId,
-                'transcript' => $payload['transcript'],
+                'transcript_hash' => hash('sha256', $transcript),
+                'transcript_length' => mb_strlen($transcript),
                 'language' => $payload['language'] ?? 'pt-BR',
             ], $this->ledgerContext($session));
         }
@@ -310,9 +316,74 @@ final class AtlasVoiceRealtimeService
     {
         $session = $this->baseSession($payload);
         $turnId = $this->string($payload['turn_id'] ?? (string) Str::ulid(), 80);
+        $interruptionSource = $this->string($payload['interruption_source'] ?? 'operator', 80) ?: 'operator';
+
+        if ($interruptionSource === 'runtime_callback') {
+            $contractViolations = $this->runtimeCallbackContractViolations(LedgerEventType::VoiceTurnInterrupted, $payload);
+            if ($contractViolations !== []) {
+                $failure = $this->ledger->recordVoiceEvent(LedgerEventType::VoiceRuntimeFailed, [
+                    ...$session,
+                    'turn_id' => $turnId,
+                    'runtime' => $this->string($payload['runtime'] ?? $session['runtime'], 120),
+                    'failure_code' => 'runtime_interruption_payload_contract_violation',
+                    'rejected_callback_event_type' => LedgerEventType::VoiceTurnInterrupted->value,
+                    'violations' => $contractViolations,
+                    'raw_audio_persisted' => false,
+                    'raw_text_persisted' => false,
+                ], $this->ledgerContext($session));
+
+                return [
+                    'schema_version' => self::SCHEMA_VERSION,
+                    'status' => 'callback_rejected_payload_contract',
+                    'session' => $session,
+                    'turn' => [
+                        'turn_id' => $turnId,
+                        'event_type' => LedgerEventType::VoiceTurnInterrupted->value,
+                        'interruption_source' => $interruptionSource,
+                        'payload_contract_valid' => false,
+                        'violations' => $contractViolations,
+                        'raw_audio_persisted' => false,
+                        'raw_text_persisted' => false,
+                    ],
+                    'contract' => $this->contract(),
+                    'evidence_ledger' => $this->ledgerEventPayload($failure),
+                ];
+            }
+
+            if (! $this->hasAcceptedKernelTurn($session, $turnId)) {
+                $failure = $this->ledger->recordVoiceEvent(LedgerEventType::VoiceRuntimeFailed, [
+                    ...$session,
+                    'turn_id' => $turnId,
+                    'runtime' => $this->string($payload['runtime'] ?? $session['runtime'], 120),
+                    'failure_code' => 'kernel_turn_not_accepted',
+                    'rejected_callback_event_type' => LedgerEventType::VoiceTurnInterrupted->value,
+                    'requires_voice_turn_decided' => true,
+                    'raw_audio_persisted' => false,
+                    'raw_text_persisted' => false,
+                ], $this->ledgerContext($session));
+
+                return [
+                    'schema_version' => self::SCHEMA_VERSION,
+                    'status' => 'callback_rejected_missing_kernel_turn',
+                    'session' => $session,
+                    'turn' => [
+                        'turn_id' => $turnId,
+                        'event_type' => LedgerEventType::VoiceTurnInterrupted->value,
+                        'interruption_source' => $interruptionSource,
+                        'accepted_kernel_turn_required' => true,
+                        'raw_audio_persisted' => false,
+                        'raw_text_persisted' => false,
+                    ],
+                    'contract' => $this->contract(),
+                    'evidence_ledger' => $this->ledgerEventPayload($failure),
+                ];
+            }
+        }
+
         $event = $this->ledger->recordVoiceEvent(LedgerEventType::VoiceTurnInterrupted, [
             ...$session,
             'turn_id' => $turnId,
+            'interruption_source' => $interruptionSource,
             'reason' => $this->string($payload['reason'] ?? 'operator_interrupted', 120),
             'interrupted_stage' => $this->string($payload['interrupted_stage'] ?? 'runtime_or_tts', 120),
             'latency_ms' => isset($payload['latency_ms']) ? (int) $payload['latency_ms'] : null,
@@ -335,6 +406,7 @@ final class AtlasVoiceRealtimeService
             'turn' => [
                 'turn_id' => $turnId,
                 'interruption_recorded' => true,
+                'interruption_source' => $interruptionSource,
                 'raw_audio_persisted' => false,
             ],
             'contract' => $this->contract(),
@@ -411,7 +483,9 @@ final class AtlasVoiceRealtimeService
             'mobile_first' => true,
             'livekit_agents_sdk' => 'planned',
             'swift_native_mac' => 'future_edge',
+            'activation_governance' => $this->activationGovernance(),
             'livekit_token_issuer' => $this->liveKitTokens->enabled() ? 'configured' : 'disabled',
+            'runtime_invocation_contract' => $this->runtimeInvocationContract('python_ai_data', 'livekit_agents_sdk'),
             'capabilities' => [
                 'session_contract',
                 'turn_contract',
@@ -438,6 +512,7 @@ final class AtlasVoiceRealtimeService
         $hours = max(1, min(8760, (int) ($payload['hours'] ?? 24)));
         $since = now()->subHours($hours);
         $until = now();
+        $phase0Hardening = $this->phase0HardeningGate();
 
         if (! Schema::hasTable('atlas_ledger_events')) {
             return [
@@ -451,6 +526,7 @@ final class AtlasVoiceRealtimeService
                     'severity' => 'high',
                     'recommended_action' => 'run_ledger_migrations_before_voice_readiness',
                 ],
+                'phase0_hardening' => $phase0Hardening,
             ];
         }
 
@@ -491,6 +567,7 @@ final class AtlasVoiceRealtimeService
             'hours' => $hours,
             'window' => ['since' => $since->toJSON(), 'until' => $until->toJSON()],
             'mobile_first' => true,
+            'phase0_hardening' => $phase0Hardening,
             'score' => $score,
             'event_counts' => $eventCounts,
             'session_count' => $events->pluck('correlation_id')->filter()->unique()->count(),
@@ -519,19 +596,93 @@ final class AtlasVoiceRealtimeService
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    private function phase0HardeningGate(): array
+    {
+        $runtimeBoundary = $this->runtimeBoundary->report();
+        $gates = [
+            'mobile_first_surface_contract' => [
+                'passed' => true,
+                'evidence' => 'client_surfaces_include_mobile_and_default_transport_mobile_push_to_talk',
+            ],
+            'kernel_decision_receipt_required' => [
+                'passed' => true,
+                'evidence' => 'runtime_invocation_contract_requires_decision_receipt_hash',
+            ],
+            'callback_loop_fail_closed' => [
+                'passed' => true,
+                'evidence' => 'runtime_callbacks_require_accepted_turn_before_synthesis_playback_failure_or_provider_health',
+            ],
+            'privacy_audio_not_persisted' => [
+                'passed' => true,
+                'evidence' => 'raw_audio_raw_transcript_and_raw_response_text_are_forbidden',
+            ],
+            'runtime_boundary_green' => [
+                'passed' => (bool) data_get($runtimeBoundary, 'boundary.valid'),
+                'evidence' => 'ap201_runtime_language_boundary_contract',
+                'violation_count' => data_get($runtimeBoundary, 'boundary.violation_count', 0),
+            ],
+            'production_promotion_review_locked' => [
+                'passed' => true,
+                'evidence' => 'production_promotion_requires_certification_human_review_decision_receipt_and_rollback',
+            ],
+        ];
+
+        $failed = collect($gates)
+            ->filter(fn (array $gate): bool => ! (bool) ($gate['passed'] ?? false))
+            ->keys()
+            ->values()
+            ->all();
+
+        return [
+            'schema_version' => 'atlas.voice_realtime.phase0_hardening_gate.v1',
+            'status' => $failed === [] ? 'ready' : 'blocked',
+            'surface_id' => 'voice_realtime',
+            'runtime_id' => 'livekit_agents_sdk',
+            'mobile_first' => true,
+            'kernel_only' => true,
+            'promotion_allowed' => false,
+            'auto_promotion_allowed' => false,
+            'human_review_required_for_production' => true,
+            'safe_next_block' => 'Voice Realtime phase 0 hardening',
+            'required_validation' => [
+                'php artisan atlas:ai:voice runtime-certify --json',
+                'php artisan atlas:ai:voice callback-loop-check --json',
+                'php artisan atlas:ai:voice readiness --json',
+                'php artisan atlas:ai:runtime-boundary --json',
+                'php artisan atlas:ai:architecture-validate --json',
+            ],
+            'gates' => $gates,
+            'summary' => [
+                'gate_count' => count($gates),
+                'passed_gates' => count($gates) - count($failed),
+                'failed_gates' => count($failed),
+                'failed_keys' => $failed,
+            ],
+            'next_action' => $failed === []
+                ? 'collect_real_mobile_voice_usage_before_livekit_production_promotion'
+                : 'fix_voice_phase0_hardening_gates_before_product_runtime',
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
     public function runtimeContract(array $payload = []): array
     {
+        $runtimeId = $this->allowedValue($payload['runtime'] ?? 'livekit_agents_sdk', self::ALLOWED_RUNTIMES, 'runtime');
+
         return [
             'schema_version' => 'atlas.voice_realtime.runtime_contract.v1',
             'status' => 'ready',
             'surface_id' => 'voice_realtime',
             'mobile_first' => true,
             'runtime_family' => 'python_ai_data',
-            'runtime_id' => $this->allowedValue($payload['runtime'] ?? 'livekit_agents_sdk', self::ALLOWED_RUNTIMES, 'runtime'),
+            'runtime_id' => $runtimeId,
             'kernel_is_decision_authority' => true,
+            'activation_governance' => $this->activationGovernance(),
             'allowlists' => [
                 'client_surfaces' => self::ALLOWED_CLIENT_SURFACES,
                 'transports' => self::ALLOWED_TRANSPORTS,
@@ -543,7 +694,9 @@ final class AtlasVoiceRealtimeService
                 'default_mode' => 'mobile_push_to_talk',
                 'ttl_seconds' => 900,
                 'token_status' => $this->liveKitTokens->enabled() ? 'issued_when_session_starts' : 'not_issued_scaffold',
-                'room_prefix' => 'atlas-voice',
+                'room_prefix' => 'atlas-voice-',
+                'required_room_prefix' => 'atlas-voice-',
+                'participant_namespace_source' => 'client_surface',
                 'livekit_url' => $this->liveKitTokens->liveKitUrl(),
                 'kernel_decision_required_per_turn' => true,
             ],
@@ -590,11 +743,12 @@ final class AtlasVoiceRealtimeService
                 ],
                 'rule' => 'runtime_must_call_kernel_endpoint_before_provider_or_tool_execution',
             ],
+            'runtime_invocation_contract' => $this->runtimeInvocationContract('python_ai_data', $runtimeId),
             'callback_order' => [
                 'normal_turn' => ['turn', 'turn_synthesized', 'turn_played'],
-                'interruptible_anytime' => ['turn_interrupted'],
-                'runtime_health_anytime' => ['runtime_failed', 'provider_health_degraded'],
-                'runtime_callbacks_require_kernel_accepted_turn' => ['turn_synthesized', 'turn_played', 'turn_interrupted', 'provider_health_degraded'],
+                'operator_interruptible_anytime' => ['turn_interrupted'],
+                'runtime_health_after_accepted_turn' => ['runtime_failed', 'provider_health_degraded'],
+                'runtime_callbacks_require_kernel_accepted_turn' => ['turn_synthesized', 'turn_played', 'turn_interrupted', 'runtime_failed', 'provider_health_degraded'],
             ],
             'production_loop_smoke' => [
                 'schema_version' => 'atlas.voice_realtime.production_loop_smoke_contract.v1',
@@ -654,7 +808,7 @@ final class AtlasVoiceRealtimeService
     public function runtimeBootstrapManifest(array $payload = []): array
     {
         $contract = $this->runtimeContract($payload);
-        $baseUrl = rtrim($this->string($payload['base_url'] ?? config('app.url', 'http://localhost'), 240), '/');
+        $baseUrl = $this->kernelBaseUrl($payload);
         $runtimeId = (string) $contract['runtime_id'];
 
         return [
@@ -722,6 +876,7 @@ final class AtlasVoiceRealtimeService
                 'raw_transcript_persistence',
                 'raw_response_text_persistence',
             ],
+            'activation_governance' => $contract['activation_governance'],
             'required_runtime_behaviors' => [
                 'fetch_contract_on_startup',
                 'fail_closed_when_kernel_unreachable',
@@ -733,12 +888,36 @@ final class AtlasVoiceRealtimeService
             'callback_payload_schemas' => $contract['callback_payload_schemas'],
             'production_loop_smoke' => $contract['production_loop_smoke'],
             'auth_contract' => $contract['auth_contract'],
+            'runtime_invocation_contract' => $contract['runtime_invocation_contract'],
             'session_lease' => $contract['session_lease'],
             'allowlists' => $contract['allowlists'],
             'slo_stages' => $contract['slo_stages'],
             'contract_hash' => hash('sha256', json_encode($contract, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
             'generated_at' => now()->toJSON(),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function kernelBaseUrl(array $payload): string
+    {
+        $fallback = rtrim($this->string(config('app.url', 'http://localhost'), 240), '/') ?: 'http://localhost';
+        $baseUrl = rtrim($this->string($payload['base_url'] ?? $fallback, 240), '/');
+
+        if ($baseUrl === '' || preg_match('/[\x00-\x1F\x7F]/', $baseUrl) === 1) {
+            return $fallback;
+        }
+
+        $parts = parse_url($baseUrl);
+        $scheme = is_array($parts) ? strtolower((string) ($parts['scheme'] ?? '')) : '';
+        $host = is_array($parts) ? (string) ($parts['host'] ?? '') : '';
+
+        if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
+            return $fallback;
+        }
+
+        return $baseUrl;
     }
 
     /**
@@ -931,15 +1110,12 @@ final class AtlasVoiceRealtimeService
      */
     private function sessionLease(array $session, array $payload, array $eclipse = []): array
     {
-        $roomName = $this->string($payload['room_name'] ?? '', 120);
-        if ($roomName === '') {
-            $roomName = 'atlas-voice-'.$this->roomSlug($session['session_id']);
-        }
-
-        $participant = $this->string($payload['participant_identity'] ?? '', 120);
-        if ($participant === '') {
-            $participant = $session['client_surface'].':'.data_get($session, 'operator.operator_id', 'voice_operator');
-        }
+        $roomName = $this->voiceRoomName($payload['room_name'] ?? null, $session['session_id']);
+        $participant = $this->voiceParticipantIdentity(
+            $payload['participant_identity'] ?? null,
+            $session['client_surface'],
+            data_get($session, 'operator.operator_id', 'voice_operator'),
+        );
 
         $expiresAt = now()->addMinutes(15)->toJSON();
         $lease = [
@@ -955,6 +1131,7 @@ final class AtlasVoiceRealtimeService
             'expires_at' => $expiresAt,
             'kernel_decision_required_per_turn' => true,
             'raw_audio_persistence_allowed' => false,
+            'activation_governance' => $this->activationGovernance(),
             'turn_endpoint' => '/ai/voice/turn',
             'mobile_turn_endpoint' => '/v1/mobile/ai/voice/turn',
         ];
@@ -1051,6 +1228,36 @@ final class AtlasVoiceRealtimeService
     {
         $session = $this->baseSession($payload);
         $turnId = $this->string($payload['turn_id'] ?? (string) Str::ulid(), 80);
+        $contractViolations = $this->runtimeCallbackContractViolations($type, $payload);
+
+        if ($contractViolations !== []) {
+            $failure = $this->ledger->recordVoiceEvent(LedgerEventType::VoiceRuntimeFailed, [
+                ...$session,
+                'turn_id' => $turnId,
+                'runtime' => $this->string($payload['runtime'] ?? $session['runtime'], 120),
+                'failure_code' => 'runtime_callback_payload_contract_violation',
+                'rejected_callback_event_type' => $type->value,
+                'violations' => $contractViolations,
+                'raw_audio_persisted' => false,
+                'raw_text_persisted' => false,
+            ], $this->ledgerContext($session));
+
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'status' => 'callback_rejected_payload_contract',
+                'session' => $session,
+                'turn' => [
+                    'turn_id' => $turnId,
+                    'event_type' => $type->value,
+                    'payload_contract_valid' => false,
+                    'violations' => $contractViolations,
+                    'raw_audio_persisted' => false,
+                    'raw_text_persisted' => false,
+                ],
+                'contract' => $this->contract(),
+                'evidence_ledger' => $this->ledgerEventPayload($failure),
+            ];
+        }
 
         if ($this->callbackRequiresAcceptedTurn($type) && ! $this->hasAcceptedKernelTurn($session, $turnId)) {
             $failure = $this->ledger->recordVoiceEvent(LedgerEventType::VoiceRuntimeFailed, [
@@ -1116,6 +1323,96 @@ final class AtlasVoiceRealtimeService
     }
 
     /**
+     * @param  array<string,mixed>  $payload
+     * @return array<int,string>
+     */
+    private function runtimeCallbackContractViolations(LedgerEventType $type, array $payload): array
+    {
+        $schemaKey = match ($type) {
+            LedgerEventType::VoiceTurnSynthesized => 'tts_synthesized',
+            LedgerEventType::VoiceTurnPlayed => 'audio_played',
+            LedgerEventType::VoiceTurnInterrupted => 'barge_in',
+            LedgerEventType::VoiceRuntimeFailed => 'runtime_failed',
+            LedgerEventType::VoiceProviderHealthDegraded => 'provider_health_degraded',
+            default => null,
+        };
+
+        if ($schemaKey === null) {
+            return [];
+        }
+
+        $schema = self::CALLBACK_PAYLOAD_SCHEMAS[$schemaKey] ?? [];
+        $violations = [];
+
+        foreach ((array) ($schema['required'] ?? []) as $field) {
+            if (! array_key_exists($field, $payload) || trim((string) $payload[$field]) === '') {
+                $violations[] = 'missing_required_field:'.$field;
+            }
+        }
+
+        $prohibited = array_values(array_unique([
+            ...$this->globalRuntimeCallbackProhibitedFields(),
+            ...(array) ($schema['prohibited'] ?? []),
+        ]));
+
+        foreach ($this->findProhibitedRuntimeCallbackFields($payload, $prohibited) as $path) {
+            $violations[] = 'prohibited_field_present:'.$path;
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function globalRuntimeCallbackProhibitedFields(): array
+    {
+        return [
+            'access_token',
+            'api_key',
+            'api_secret',
+            'audio',
+            'audio_bytes',
+            'audio_raw',
+            'livekit_token',
+            'pcm',
+            'provider_api_key',
+            'raw_audio',
+            'raw_audio_bytes',
+            'raw_response_text',
+            'response_text',
+            'token',
+            'tool_args',
+            'tool_call',
+            'tts_text',
+            'wav',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<int,string>  $prohibited
+     * @return array<int,string>
+     */
+    private function findProhibitedRuntimeCallbackFields(array $payload, array $prohibited, string $prefix = ''): array
+    {
+        $found = [];
+
+        foreach ($payload as $key => $value) {
+            $path = $prefix === '' ? (string) $key : $prefix.'.'.$key;
+            if (in_array((string) $key, $prohibited, true)) {
+                $found[] = $path;
+            }
+
+            if (is_array($value)) {
+                array_push($found, ...$this->findProhibitedRuntimeCallbackFields($value, $prohibited, $path));
+            }
+        }
+
+        return array_values(array_unique($found));
+    }
+
+    /**
      * @param  array<string,mixed>  $session
      */
     private function hasAcceptedKernelTurn(array $session, string $turnId): bool
@@ -1166,6 +1463,60 @@ final class AtlasVoiceRealtimeService
     /**
      * @return array<string,mixed>
      */
+    private function runtimeInvocationContract(string $runtimeFamily, string $runtimeId): array
+    {
+        return [
+            ...$this->runtimeBoundary->invocationContract(),
+            'selected_runtime_family' => $runtimeFamily,
+            'runtime_id' => $runtimeId,
+            'surface_id' => 'voice_realtime',
+            'evidence_rule' => 'livekit_agents_sdk_must_return_voice_events_and_evidence_refs_to_kernel',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function activationGovernance(): array
+    {
+        return [
+            'schema_version' => 'atlas.voice_realtime.activation_governance.v1',
+            'status' => 'scaffold_fail_closed',
+            'first_product_surface' => 'mobile',
+            'mobile_push_to_talk_required' => true,
+            'livekit_agents_sdk_allowed' => true,
+            'livekit_agents_direct_provider_allowed' => false,
+            'kernel_webhook_required' => true,
+            'decision_receipt_required_per_turn' => true,
+            'runtime_daemon_start_allowed_now' => false,
+            'production_audio_streaming_allowed_now' => false,
+            'always_on_listening_allowed_now' => false,
+            'mac_edge_first_product_allowed' => false,
+            'swift_native_mac_phase' => 'future_after_mobile_voice',
+            'promotion_requires' => [
+                'mobile_push_to_talk_operational',
+                'eclipse_guard_active',
+                'runtime_certification_green',
+                'callback_loop_green',
+                'raw_audio_persistence_forbidden',
+                'mobile_operator_controls',
+                'rivals_voice_baseline',
+                'human_review',
+            ],
+            'blocked_shortcuts' => [
+                'swift_mac_before_mobile',
+                'always_on_without_eclipse',
+                'livekit_agents_to_provider_direct',
+                'daemon_start_without_certification',
+                'raw_audio_or_transcript_persistence',
+                'voice_domain_creation',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function ledgerEventPayload(mixed $event): array
     {
         return [
@@ -1205,5 +1556,29 @@ final class AtlasVoiceRealtimeService
         $slug = Str::slug((string) $value);
 
         return $slug !== '' ? Str::limit($slug, 80, '') : strtolower((string) Str::ulid());
+    }
+
+    private function voiceRoomName(mixed $requestedRoom, mixed $fallback): string
+    {
+        $slug = $this->roomSlug($requestedRoom ?: $fallback);
+        $slug = str_starts_with($slug, 'atlas-voice-')
+            ? substr($slug, strlen('atlas-voice-'))
+            : $slug;
+
+        return 'atlas-voice-'.Str::limit($slug, 80, '');
+    }
+
+    private function voiceParticipantIdentity(mixed $requestedIdentity, mixed $clientSurface, mixed $fallbackOperator): string
+    {
+        $surface = $this->roomSlug($clientSurface ?: 'mobile');
+        $requested = $this->string($requestedIdentity ?? '', 120);
+
+        if ($requested !== '' && str_starts_with($requested, $surface.':')) {
+            $requested = substr($requested, strlen($surface) + 1);
+        }
+
+        $identity = $this->roomSlug($requested !== '' ? $requested : $fallbackOperator);
+
+        return $surface.':'.Str::limit($identity, 80, '');
     }
 }

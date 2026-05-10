@@ -8,9 +8,21 @@ reutilizando AP-164 como engine de consumo. Implementado: migration,
 source providers para Programming PR / Strategic Decision / Feynman, quality
 gate, privacy redaction/gate, serializer, persistence em
 `worked_examples.source=personal_ledger`, eventos Ledger, SLOs e testes
-focados. Pendente para `implemented-operational-read-model`: scheduler
-semanal default, review UI/surface, source providers mais ricos e policy
-compiler binding formal.
+focados. Scheduler semanal esta registrado no `bootstrap/app.php` via
+`atlas:worked-example extract scheduled --json`; ele e fail-closed, so roda
+quando `extract schedule --status=on` habilita o job e permanece review-only,
+sem auto-aplicar. Pendente para `implemented-operational-read-model`: review
+UI/surface, source providers mais ricos e policy compiler binding formal.
+
+Hardening note (2026-05-09): reprocessar fonte ja extraida preserva o
+registro existente em modo read-only; eventos Ledger de extracted/discarded
+usam candidate summary sanitizado (`raw_content_in_ledger=false`) sem
+`problem_context`, `steps`, email, secret, token ou `source_ref` cru.
+
+Hardening note (2026-05-10): redaction agora tambem percorre
+`source_metadata` e `quality_signals` antes de persistir em
+`worked_example_extractions`; texto cru de commit/Feynman/decisao nao pode
+ficar no Ledger nem no read model de extracao.
 
 ## Objetivo
 
@@ -34,6 +46,7 @@ Nao implementar:
 - Auto-promover worked example pessoal a canonical_library (sempre fica como `source=personal_ledger`)
 - Extrair material privado sem redaction (`provider_safety` e hard gate)
 - Substituir AP-167 SRL (overlay metacognitivo) ou AP-168 Productive Failure (flow integrado)
+- Sobrescrever extracao existente como duplicata ou gravar candidato bruto no Ledger
 
 ## Authority
 
@@ -54,7 +67,7 @@ review surface e policy binding. Enquanto isso, usar `implemented_partial`.
 ## Fluxo
 
 ```
-Manual extract via `atlas:worked-example extract` (scheduler futuro)
+Manual extract via `atlas:worked-example extract` ou scheduler semanal habilitado
   -> PersonalWorkedExampleExtractor varre fontes:
        * Programming domain: PRs com explicacao no commit + tests passando
        * Strategic Decision domain: decisoes com outcome conhecido
@@ -114,7 +127,7 @@ Schema::create('personal_extraction_jobs', function (Blueprint $t) {
 | `PersonalWorkedExampleQualityFilter` | aplica criterios duros (PR sem regression, decisao com outcome conhecido, etc.) | `app/Services/Ai/Cognitive/PersonalWorkedExample/` |
 | `PersonalWorkedExamplePrivacyRedactor` | remove PII, secrets, nomes de cliente, redaction de privacy class >= 3 | `app/Services/Ai/Cognitive/PersonalWorkedExample/` |
 | `WorkedExampleSerializer` | converte source em `solution_full` + `fading_levels` (5 niveis) | `app/Services/Ai/Cognitive/PersonalWorkedExample/` |
-| `PersonalExtractionScheduler` | scheduler que dispara extracao periodica | futuro; nao registrado ainda |
+| `PersonalExtractionScheduler` | scheduler que dispara extracao periodica | registrado semanalmente; fail-closed e review-only |
 | `PersonalWorkedExampleQualityGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
 | `PersonalWorkedExamplePrivacySafeGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
 | `AtlasWorkedExampleCommand` | CLI manual sem comando paralelo (`extract`/`personal`) | `app/Console/Commands/` |
@@ -170,7 +183,8 @@ final class PersonalWorkedExamplePrivacySafeGate {
 |---|---|
 | `php artisan atlas:worked-example extract --extract-source=programming_pr [--domain=...]` | varre + extrai sob demanda |
 | `php artisan atlas:worked-example extract status --status=...` | lista historico de extracao |
-| `php artisan atlas:worked-example extract schedule on/off` | future CLI; toggle scheduler |
+| `php artisan atlas:worked-example extract schedule --status=on/off` | controla job semanal em modo review-only |
+| `php artisan atlas:worked-example extract scheduled --json` | entrypoint do scheduler; roda somente quando job esta habilitado e vencido |
 | `php artisan atlas:worked-example personal --node=<knowledge_node_id>` | lista exemplos pessoais para nó |
 | `php artisan atlas:worked-example extract review --status=discarded_privacy` | future CLI; inspeciona descartados |
 
@@ -245,8 +259,8 @@ php artisan atlas:ai:architecture-validate --json
 2. [x] Todos os 3 source providers (Programming PR, Strategic Decision, Feynman) implementados
 3. [x] Quality Filter + Privacy Redactor + Serializer implementados e testados
 4. [x] Ambos os gates executaveis implementados; policy compiler binding ainda futuro
-5. [ ] Scheduler semanal default registrado no `bootstrap/app.php`
-6. [~] CLI `php artisan atlas:worked-example extract` e `personal` operacional; schedule/review UI futuros
+5. [x] Scheduler semanal default registrado no `bootstrap/app.php` com fail-closed e review-only
+6. [~] CLI `extract`, `personal` e `extract schedule` operacional; review UI futura
 7. [x] Integracao com AP-164 funciona via `source=personal_ledger`
 8. [~] Privacy tests cobrem PII/secrets no fluxo e2e; architecture test dedicado ainda futuro
 9. [x] Ledger emite todos os 6 events em fluxo end-to-end

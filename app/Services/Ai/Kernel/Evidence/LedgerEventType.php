@@ -91,6 +91,13 @@ enum LedgerEventType: string
     case ProductiveFailureArticulationRecorded = 'PRODUCTIVE_FAILURE_ARTICULATION_RECORDED';
     case ProductiveFailureCompleted = 'PRODUCTIVE_FAILURE_COMPLETED';
     case ProductiveFailureAbandoned = 'PRODUCTIVE_FAILURE_ABANDONED';
+    case PredictiveFailureInserted = 'PREDICTIVE_FAILURE_INSERTED';
+    case PredictiveFailureInsertionSkipped = 'PREDICTIVE_FAILURE_INSERTION_SKIPPED';
+    case PredictiveFailureOutcomeSuccess = 'PREDICTIVE_FAILURE_OUTCOME_SUCCESS';
+    case PredictiveFailureOutcomeFailure = 'PREDICTIVE_FAILURE_OUTCOME_FAILURE';
+    case PredictiveFailureOutcomeAbandoned = 'PREDICTIVE_FAILURE_OUTCOME_ABANDONED';
+    case PredictiveFailureCalibrationComputed = 'PREDICTIVE_FAILURE_CALIBRATION_COMPUTED';
+    case PredictiveFailurePriorUpdated = 'PREDICTIVE_FAILURE_PRIOR_UPDATED';
     case PersonalWorkedExampleExtractionStarted = 'PERSONAL_WORKED_EXAMPLE_EXTRACTION_STARTED';
     case PersonalWorkedExampleExtracted = 'PERSONAL_WORKED_EXAMPLE_EXTRACTED';
     case PersonalWorkedExampleDiscardedQuality = 'PERSONAL_WORKED_EXAMPLE_DISCARDED_QUALITY';

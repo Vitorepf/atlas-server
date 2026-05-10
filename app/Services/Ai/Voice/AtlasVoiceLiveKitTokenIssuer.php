@@ -33,11 +33,39 @@ final class AtlasVoiceLiveKitTokenIssuer
             ];
         }
 
+        if ($this->liveKitUrl() === null) {
+            return [
+                'issued' => false,
+                'status' => 'not_issued_missing_config',
+                'issuer' => 'atlas_voice_livekit_token_issuer',
+                'reason' => 'livekit_url_missing',
+            ];
+        }
+
         $now = now();
         $ttl = max(60, min(3600, (int) config('atlas.voice.livekit.token_ttl_seconds', 900)));
         $expiresAt = $now->copy()->addSeconds($ttl);
         $roomName = (string) ($lease['room_name'] ?? 'atlas-voice');
         $participant = (string) ($lease['participant_identity'] ?? data_get($session, 'operator.operator_id', 'voice_operator'));
+        $clientSurface = (string) ($session['client_surface'] ?? 'mobile');
+
+        if (! str_starts_with($roomName, 'atlas-voice-')) {
+            return [
+                'issued' => false,
+                'status' => 'not_issued_invalid_lease',
+                'issuer' => 'atlas_voice_livekit_token_issuer',
+                'reason' => 'livekit_room_outside_atlas_voice_namespace',
+            ];
+        }
+
+        if (! str_starts_with($participant, $clientSurface.':')) {
+            return [
+                'issued' => false,
+                'status' => 'not_issued_invalid_lease',
+                'issuer' => 'atlas_voice_livekit_token_issuer',
+                'reason' => 'livekit_participant_outside_client_surface_namespace',
+            ];
+        }
 
         $claims = [
             'iss' => $apiKey,
@@ -87,6 +115,29 @@ final class AtlasVoiceLiveKitTokenIssuer
         $url = rtrim(trim((string) config('atlas.voice.livekit.url', '')), '/');
 
         return $url !== '' ? $url : null;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function readiness(): array
+    {
+        $enabled = $this->enabled();
+        $urlConfigured = $this->liveKitUrl() !== null;
+        $apiKeyConfigured = $this->apiKey() !== '';
+        $apiSecretConfigured = $this->apiSecret() !== '';
+        $ready = $enabled && $urlConfigured && $apiKeyConfigured && $apiSecretConfigured;
+
+        return [
+            'schema_version' => 'atlas.voice_realtime.livekit_token_issuer_readiness.v1',
+            'status' => $ready ? 'ready' : 'blocked',
+            'enabled' => $enabled,
+            'livekit_url_configured' => $urlConfigured,
+            'api_key_configured' => $apiKeyConfigured,
+            'api_secret_configured' => $apiSecretConfigured,
+            'secrets_exposed' => false,
+            'next_action' => $ready ? 'run_voice_runtime_certification_with_require_sdk' : 'configure_livekit_token_issuer',
+        ];
     }
 
     private function apiKey(): string

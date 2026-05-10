@@ -108,6 +108,24 @@ CLI e nos services de attachment.
 normalizado. Assim, uma evolucao multimodal nao pode ficar presa so em `ask` ou
 so em `dev` sem quebrar a validacao arquitetural.
 
+## Input Boundary Contract
+
+`architecture-validate` publica
+`atlas.input.surface_capability_boundary.v1` dentro de AP-33 e do bloco
+`capabilities.surface_adapter_parity`. Esse contrato e a regra executavel para
+qualquer IA futura:
+
+- texto, imagem, arquivo e voz pertencem ao `Atlas Input`;
+- surface adapter apenas coleta/expoe input, nao cria capability propria;
+- capability multimodal presa em uma unica surface e violacao arquitetural;
+- provider nunca recebe anexo direto fora do pipeline normalizado;
+- domain nao possui parser de attachment; domain so consome contexto ja
+  normalizado.
+
+Padroes proibidos pelo contrato: `surface_only_image_paste`,
+`ask_only_attachment_flow`, `provider_direct_attachment_bypass` e
+`domain_owned_attachment_parser`.
+
 ## Source Material
 
 - `docs/paste-image-setup.md`

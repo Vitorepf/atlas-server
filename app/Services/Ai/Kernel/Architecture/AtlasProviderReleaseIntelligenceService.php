@@ -106,6 +106,7 @@ final class AtlasProviderReleaseIntelligenceService
                 'atlas_positioning' => 'provider_capability_becomes_signal_adapter_skill_pack_or_benchmark_never_direct_channel',
                 'wrapper_market_impact' => $this->wrapperMarketImpact($releaseType),
             ],
+            'anti_wrapper_contract' => $this->antiWrapperContract($provider, $releaseType, $domains, $rivalsRequired),
             'recommended_action' => $recommendedAction,
             'secondary_actions' => $secondaryActions,
             'owner_docs' => $ownerDocs,
@@ -115,7 +116,10 @@ final class AtlasProviderReleaseIntelligenceService
             'decide_signal' => [
                 'schema_version' => 'atlas.decide.provider_release_signal.v1',
                 'signal_only' => true,
+                'promotion_allowed' => false,
                 'changes_routing' => false,
+                'default_model_change_allowed' => false,
+                'manual_override_only_until_promoted' => true,
                 'source_trust_allows_signal' => (bool) data_get($sourceCandidate, 'source_trust.decide_signal_allowed', $sourceCandidate === null),
                 'manual_override_required_for_critical_use' => true,
                 'promotion_requires' => ['AP-99 evidence', 'Rivals benchmark', 'owner doc update', 'human review'],
@@ -219,6 +223,13 @@ final class AtlasProviderReleaseIntelligenceService
                 'stage_count' => count((array) ($absorptionPlan['stages'] ?? [])),
                 'next_stage' => (string) data_get($absorptionPlan, 'stages.0.id', 'none'),
             ],
+            'promotion_review_ref' => [
+                'schema_version' => (string) data_get($absorptionPlan, 'promotion_gate.review_packet.schema_version', 'atlas.provider_release.promotion_review_packet.v1'),
+                'status' => (string) data_get($absorptionPlan, 'promotion_gate.review_packet.status', 'unknown'),
+                'required_human_decision' => (string) data_get($absorptionPlan, 'promotion_gate.review_packet.required_human_decision', 'approve_or_reject_provider_release_absorption'),
+                'required_decision_receipt' => (bool) data_get($absorptionPlan, 'promotion_gate.review_packet.required_decision_receipt', true),
+                'rollback_plan_required' => (bool) data_get($absorptionPlan, 'promotion_gate.review_packet.rollback_plan_required', true),
+            ],
             'forbidden_actions' => [
                 'auto_change_atlas_decide_routing',
                 'auto_store_provider_credentials',
@@ -257,8 +268,37 @@ final class AtlasProviderReleaseIntelligenceService
                 'may_create_ap' => ! $blocked,
                 'may_create_skill_pack' => ! $blocked && in_array($recommendedAction, ['benchmark', 'absorb', 'exploit_gap'], true),
                 'may_emit_decide_signal' => ! $blocked,
+                'promotion_allowed' => false,
                 'may_change_routing_policy' => false,
+                'may_change_default_model' => false,
+                'may_change_domain_maturity' => false,
+                'may_store_provider_credentials' => false,
+                'may_call_provider_vertical_directly' => false,
                 'routing_policy_requires' => ['human_review', 'AP-99 evidence', 'Rivals benchmark when required', 'Decision Receipt'],
+            ],
+            'promotion_gate' => [
+                'schema_version' => 'atlas.provider_release.promotion_gate.v1',
+                'promotion_allowed' => false,
+                'routing_promotion_allowed_now' => false,
+                'domain_maturity_promotion_allowed_now' => false,
+                'credential_activation_allowed_now' => false,
+                'provider_direct_channel_allowed_now' => false,
+                'requires' => [
+                    'primary_source_verified',
+                    'owner_doc_updated',
+                    'Rivals benchmark when rivals_required=true',
+                    'AP-99 outcome evidence for affected domain/flow/task_type',
+                    'human review approval',
+                    'new Decision Receipt after approval',
+                ],
+                'blocked_shortcuts' => [
+                    'press_release_to_default_model',
+                    'provider_vertical_agent_to_domain_ready',
+                    'provider_connector_to_stored_credentials',
+                    'provider_app_to_direct_user_channel',
+                    'secondary_source_to_decide_policy',
+                ],
+                'review_packet' => $this->promotionReviewPacket($releaseType, $primaryDomain, $rivalsRequired, $blocked),
             ],
             'ledger_events_expected' => [
                 'PROVIDER_RELEASE_REVIEWED',
@@ -266,6 +306,85 @@ final class AtlasProviderReleaseIntelligenceService
                 'PROVIDER_DECIDE_SIGNAL_PROPOSED',
                 'PROVIDER_CAPABILITY_ABSORPTION_REVIEWED',
             ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function promotionReviewPacket(string $releaseType, string $primaryDomain, bool $rivalsRequired, bool $blocked): array
+    {
+        return [
+            'schema_version' => 'atlas.provider_release.promotion_review_packet.v1',
+            'status' => $blocked ? 'blocked_until_primary_source_and_review' : 'blocked_until_human_review_and_benchmarks',
+            'scope' => [
+                'release_type' => $releaseType,
+                'primary_domain' => $primaryDomain,
+                'rivals_required' => $rivalsRequired,
+            ],
+            'required_human_decision' => 'approve_or_reject_provider_release_absorption',
+            'required_decision_receipt' => true,
+            'rollback_plan_required' => true,
+            'policy_patch_review_required' => true,
+            'evidence_required' => [
+                'primary_source_verified',
+                'owner_doc_diff',
+                'AP-99 provider performance evidence',
+                'Rivals benchmark when rivals_required=true',
+                'human review decision',
+                'new Decision Receipt after approval',
+                'rollback plan for affected routing/domain/runtime policy',
+            ],
+            'rollback_required' => [
+                'remove_decide_signal_candidate',
+                'revert_routing_policy_patch',
+                'disable_connector_or_runtime_adapter',
+                'restore_previous_domain_maturity',
+                'archive_skill_pack_candidate',
+            ],
+            'forbidden_until_review' => [
+                'change_default_model',
+                'change_atlas_decide_routing_policy',
+                'promote_domain_maturity',
+                'store_provider_credentials',
+                'call_provider_vertical_directly_outside_atlas',
+                'mark_skill_pack_implemented',
+                'write_provider_release_to_memory_core_as_truth',
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $domains
+     * @return array<string,mixed>
+     */
+    private function antiWrapperContract(string $provider, string $releaseType, array $domains, bool $rivalsRequired): array
+    {
+        return [
+            'schema_version' => 'atlas.provider_release.anti_wrapper_contract.v1',
+            'status' => 'active',
+            'posture' => 'atlas_substitutes_direct_provider_channels_by_orchestrating_them',
+            'provider' => $provider,
+            'release_type' => $releaseType,
+            'affected_domains' => $domains,
+            'rivals_required' => $rivalsRequired,
+            'provider_release_effect' => 'external_provider_improvement_must_make_atlas_stronger_or_be_archived',
+            'allowed_absorption_paths' => [
+                'benchmark_against_direct_provider_baseline',
+                'extract_domain_skill_pack',
+                'create_connector_or_runtime_adapter',
+                'emit_decide_signal_candidate',
+                'open_curator_proposal',
+                'archive_with_reason',
+            ],
+            'forbidden_paths' => [
+                'direct_provider_channel_as_primary_product',
+                'hardcode_provider_as_default_from_release',
+                'mark_domain_ready_from_provider_marketing',
+                'copy_provider_vertical_agent_without_atlas_policy_gates',
+                'bypass_evidence_ledger_or_decision_receipt',
+            ],
+            'success_condition' => 'Atlas+provider must beat direct provider use by Rivals/AP-99 or remain proposal-only.',
         ];
     }
 
@@ -355,6 +474,8 @@ final class AtlasProviderReleaseIntelligenceService
                 array_slice($summary['sources'], 0, 12),
             )),
             'guardrails' => $summary['guardrails'],
+            'continuous_ingestion_contract' => $summary['continuous_ingestion_contract'],
+            'future_activation_review_contract' => $summary['future_activation_review_contract'],
         ];
     }
 

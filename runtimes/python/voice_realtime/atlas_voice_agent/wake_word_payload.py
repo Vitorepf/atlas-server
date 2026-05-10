@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from .payload_safety import reject_forbidden_keys_recursive
 from .turn_payload import UnsafeVoicePayload
 
 
@@ -82,9 +83,7 @@ class AtlasVoiceWakeWordPayload:
 
     @classmethod
     def assert_no_forbidden_keys(cls, payload: Mapping[str, Any]) -> None:
-        present = sorted(cls.FORBIDDEN_KEYS.intersection(payload.keys()))
-        if present:
-            raise UnsafeVoicePayload(f"forbidden wake word payload keys: {present}")
+        reject_forbidden_keys_recursive(payload, cls.FORBIDDEN_KEYS, label="wake word payload")
 
     @staticmethod
     def _required_string(payload: Mapping[str, Any], key: str) -> str:

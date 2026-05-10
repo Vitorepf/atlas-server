@@ -14,6 +14,7 @@ class AtlasFeaturePlacementService
     public function __construct(
         private readonly EngineeringKnowledgeBaseService $knowledge,
         private readonly AtlasArchitectureOperationsCatalog $operations,
+        private readonly AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary,
     ) {}
 
     /**
@@ -54,6 +55,7 @@ class AtlasFeaturePlacementService
                 'git diff --check',
                 'atlas engineering knowledge docs-health',
                 'php artisan atlas:ai:architecture-validate --json',
+                'php artisan atlas:ai:runtime-boundary --json',
                 'atlas engineering knowledge sync --prune',
                 'atlas engineering knowledge index-code --prune',
             ],
@@ -80,6 +82,7 @@ class AtlasFeaturePlacementService
             'session_bootstrap',
             'documentation_split_plan',
             'architecture_validate',
+            'runtime_language_boundary',
             'documentation_health',
             'knowledge_sync',
             'code_intelligence_index',
@@ -98,6 +101,9 @@ class AtlasFeaturePlacementService
             ))),
             'command_count' => count($commands),
             'commands' => $commands,
+            'owner_layer_operations' => [
+                'runtime' => $this->operations->summary(['owner_layer' => 'runtime']),
+            ],
         ];
     }
 
@@ -110,12 +116,13 @@ class AtlasFeaturePlacementService
         $surface = $this->surface($text);
         $runtime = $this->runtime($text);
         $businessContext = $this->businessContext($text);
+        $requiresAp = $this->requiresAp($text, $runtime);
         $layer = $surface !== null ? 'surface' : ($runtime !== null ? 'runtime' : ($domain !== 'general' ? 'domain' : 'core_or_general'));
 
         if (Str::contains($text, ['evidence', 'ledger', 'audit', 'telemetry', 'slo', 'metric'])) {
             $layer = 'evidence';
         }
-        if (Str::contains($text, ['doc', 'documenta', 'knowledge', 'kb', 'obsidian', 'agents', 'claude.md'])) {
+        if (Str::contains($text, ['doc', 'documenta', 'knowledge', 'kb', 'obsidian', 'agents.md', 'claude.md'])) {
             $layer = 'documentation_governance';
         }
         if ($this->isProviderEvolution($text)) {
@@ -130,9 +137,36 @@ class AtlasFeaturePlacementService
             'surface' => $surface,
             'runtime' => $runtime,
             'flow' => $this->flow($domain, $text),
-            'requires_ap' => Str::contains($text, ['novo', 'future', 'futuro', 'autonom', 'self improve', 'auto melhorar', 'experimental']),
+            'requires_ap' => $requiresAp,
             'status_hint' => Str::contains($text, ['scaffold', 'futuro', 'future']) ? 'scaffold_or_future' : 'implementation_candidate',
         ];
+    }
+
+    private function requiresAp(string $text, ?string $runtime): bool
+    {
+        if (Str::contains($text, ['novo', 'future', 'futuro', 'autonom', 'self improve', 'auto melhorar', 'experimental'])) {
+            return true;
+        }
+
+        if ($runtime === 'python_ai_data' && Str::contains($text, [
+            'graph rag',
+            'local rag',
+            'rag',
+            'embedding',
+            'embeddings',
+            'rerank',
+            'reranker',
+            'faiss',
+            'chroma',
+            'vector',
+            'graph',
+            'ml',
+            'machine learning',
+        ])) {
+            return true;
+        }
+
+        return false;
     }
 
     private function domain(string $text): string
@@ -165,17 +199,26 @@ class AtlasFeaturePlacementService
             Str::contains($text, ['mobile', 'app mobile', 'iphone']) => 'atlas_app_mobile',
             Str::contains($text, ['cli', 'terminal', 'atlas dev', 'atlas forge']) => 'atlas_cli',
             Str::contains($text, ['obsidian', 'vault']) => 'atlas_vault',
-            Str::contains($text, ['api', 'endpoint']) => 'atlas_api',
+            $this->isAtlasApiSurface($text) => 'atlas_api',
             default => null,
         };
+    }
+
+    private function isAtlasApiSurface(string $text): bool
+    {
+        return Str::contains($text, ['endpoint', 'webhook endpoint', 'http endpoint', 'rest endpoint'])
+            || preg_match('/\b(atlas\s+api|api\s+route|api\s+endpoint|rest\s+api|http\s+api)\b/i', $text) === 1;
     }
 
     private function runtime(string $text): ?string
     {
         return match (true) {
-            Str::contains($text, ['python', 'rag', 'embedding', 'ml', 'pandas', 'graph']) => 'python_ai_data',
-            Str::contains($text, ['golang', ' go ', 'webhook', 'postback', 'streaming', 'concorr']) => 'go_edge_concurrency',
-            Str::contains($text, ['swift', 'macos', 'keychain', 'touch id', 'screencapture', 'fsevents']) => 'swift_native_mac',
+            Str::contains($text, ['livekit agents', 'livekit agent', 'stt', 'tts', 'turn detection']) => 'python_ai_data',
+            Str::contains($text, ['livekit server', 'webrtc', 'sfu', 'go edge']) => 'go_edge_concurrency',
+            Str::contains($text, ['livekit swift', 'mobile native edge']) => 'swift_native_mac',
+            Str::contains($text, ['python', 'rag', 'embedding', 'embeddings', 'rerank', 'reranker', 'ml', 'machine learning', 'pandas', 'faiss', 'chroma', 'vector', 'graph rag', 'graph']) => 'python_ai_data',
+            Str::contains($text, ['golang', ' go ', 'webhook', 'postback', 'streaming', 'concorr', 'concurrency', 'ingestion', 'ingestor', 'sse', 'event stream']) => 'go_edge_concurrency',
+            Str::contains($text, ['swift', 'macos', 'keychain', 'touch id', 'screencapture', 'screen capture', 'fsevents', 'accessibility api', 'core ml', 'secure enclave']) => 'swift_native_mac',
             Str::contains($text, ['laravel', 'kernel', 'maestro']) => 'laravel_kernel',
             default => null,
         };
@@ -185,6 +228,9 @@ class AtlasFeaturePlacementService
     {
         if ($this->isProviderEvolution($text)) {
             return 'provider_evolution.review';
+        }
+        if (Str::contains($text, ['voice', 'voz', 'livekit'])) {
+            return 'voice_realtime.session';
         }
 
         return match ($domain) {
@@ -240,6 +286,9 @@ class AtlasFeaturePlacementService
             $paths[] = 'docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md';
             $paths[] = 'docs/engineering-knowledge-base/atlas-ai-governed-backlog.md';
         }
+        foreach ($this->runtimeOwnerDocs($placement, $text) as $path) {
+            $paths[] = $path;
+        }
 
         return collect($paths)
             ->unique()
@@ -249,6 +298,34 @@ class AtlasFeaturePlacementService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $placement
+     * @return array<int,string>
+     */
+    private function runtimeOwnerDocs(array $placement, string $text): array
+    {
+        $runtime = (string) ($placement['runtime'] ?? '');
+        $paths = [];
+
+        if ($runtime !== '') {
+            $paths[] = 'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md';
+        }
+        if ($runtime === 'python_ai_data') {
+            $paths[] = 'docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md';
+        }
+        if ($runtime === 'go_edge_concurrency') {
+            $paths[] = 'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md';
+        }
+        if ($runtime === 'swift_native_mac') {
+            $paths[] = 'docs/engineering-knowledge-base/atlas-native-mac-agent.md';
+        }
+        if (Str::contains($text, ['voice', 'voz', 'livekit', 'stt', 'tts', 'webrtc', 'sfu', 'turn detection'])) {
+            $paths[] = 'docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md';
+        }
+
+        return array_values(array_unique($paths));
     }
 
     /**
@@ -398,6 +475,17 @@ class AtlasFeaturePlacementService
         if (($placement['business_context'] ?? null) !== null) {
             $risks[] = 'business_context_must_not_be_promoted_to_atlas_ai_domain_without_dedicated_runtime_gates_memory_and_evidence';
         }
+        $runtime = (string) ($placement['runtime'] ?? '');
+        if ($runtime === 'python_ai_data') {
+            $risks[] = 'python_ai_data_must_stay_behind_kernel_decision_receipt_and_not_inside_laravel_app';
+            $risks[] = 'rag_ml_graph_or_embedding_work_must_not_create_parallel_memory_or_context_store';
+        }
+        if ($runtime === 'go_edge_concurrency') {
+            $risks[] = 'go_edge_must_only_ingest_or_stream_events_and_must_not_decide_policy_provider_or_domain';
+        }
+        if ($runtime === 'swift_native_mac') {
+            $risks[] = 'swift_native_mac_requires_explicit_privacy_consent_eclipse_rules_and_kernel_receipt';
+        }
 
         return $risks;
     }
@@ -418,12 +506,44 @@ class AtlasFeaturePlacementService
             'owner_layer' => $layer,
             'owner_domain' => $domain,
             'business_context' => $placement['business_context'] ?? null,
+            'runtime_family' => $runtime,
+            'runtime_invocation_contract' => $this->runtimeInvocationContract($runtime),
+            'runtime_boundary_rule' => $runtime === null
+                ? 'no_specialized_runtime_detected'
+                : 'specialized_runtime_must_be_invoked_by_kernel_decision_receipt_and_report_evidence',
             'allowed_write_scopes' => $this->allowedWriteScopes($layer, $domain, $surface, $runtime),
             'forbidden_write_scopes' => $this->forbiddenWriteScopes($layer, $surface, $runtime),
             'documentation_rule' => 'update_owner_doc_before_or_with_code_never_after',
             'test_rule' => 'add_or_update_focused_tests_for_the_owner_layer_and_run_architecture_validate',
             'evidence_rule' => 'important_runtime_or_policy_changes_must_emit_or_preserve_evidence_ledger_contracts',
         ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function runtimeInvocationContract(mixed $runtime): ?array
+    {
+        if ($runtime === null) {
+            return null;
+        }
+
+        $contract = $this->runtimeBoundary->invocationContract();
+
+        return [
+            ...$contract,
+            'selected_runtime_family' => $this->canonicalRuntimeFamily($runtime),
+            'placement_runtime_alias' => $runtime,
+            'evidence_rule' => 'runtime_must_return_evidence_refs_or_output_artifacts_to_kernel',
+        ];
+    }
+
+    private function canonicalRuntimeFamily(mixed $runtime): string
+    {
+        return match ($runtime) {
+            'go_edge_concurrency' => 'go_edge',
+            default => (string) $runtime,
+        };
     }
 
     /**
@@ -485,6 +605,16 @@ class AtlasFeaturePlacementService
         }
         if ($runtime !== null) {
             $forbidden[] = 'runtime_must_not_execute_without_decision_receipt';
+            $forbidden[] = 'do_not_create_parallel_brain_context_store_or_policy_engine_inside_runtime';
+        }
+        if ($runtime === 'python_ai_data') {
+            $forbidden[] = 'do_not_implement_heavy_rag_embeddings_rerank_graph_or_ml_inside_laravel_app';
+        }
+        if ($runtime === 'go_edge_concurrency') {
+            $forbidden[] = 'do_not_put_provider_policy_memory_or_domain_decision_inside_go_edge_runtime';
+        }
+        if ($runtime === 'swift_native_mac') {
+            $forbidden[] = 'do_not_capture_mic_screen_keychain_touchid_or_accessibility_without_kernel_policy_and_user_consent';
         }
         if ($layer === 'provider_evolution') {
             $forbidden[] = 'provider_release_must_not_change_routing_defaults_without_review_signal_or_human_approval';
@@ -512,6 +642,11 @@ class AtlasFeaturePlacementService
         }
         if (($placement['requires_ap'] ?? false) === true) {
             $items[] = 'create_or_update_ap_contract_before_runtime_code';
+        }
+        if (($placement['runtime'] ?? null) !== null) {
+            $items[] = 'run_runtime_language_boundary_before_and_after_changes';
+            $items[] = 'declare_kernel_decision_receipt_contract_for_runtime_invocation';
+            $items[] = 'prove_runtime_outputs_return_to_evidence_ledger_or_output_renderer';
         }
 
         return $items;

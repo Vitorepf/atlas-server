@@ -17,10 +17,24 @@ class MockKernelTransportTest(unittest.TestCase):
 
         self.assertEqual("session_started_scaffold", response["status"])
         self.assertEqual("atlas.voice.session_lease.v1", response["session_lease"]["schema_version"])
+        self.assertEqual("atlas-voice-room", response["session_lease"]["room_name"])
+        self.assertEqual("mobile:vitor", response["session_lease"]["participant_identity"])
         self.assertEqual("not_issued_scaffold", response["session_lease"]["token_status"])
         self.assertTrue(response["session_lease"]["kernel_decision_required_per_turn"])
         self.assertFalse(response["session_lease"]["raw_audio_persistence_allowed"])
         self.assertNotIn("access_token", response["session_lease"])
+
+    def test_mock_kernel_normalizes_unsafe_session_lease_namespaces(self) -> None:
+        transport = MockKernelTransport()
+
+        response = transport.post_json("http://atlas.test/ai/voice/session/start", {
+            "session_id": "voice_session",
+            "room_name": "prod-room",
+            "participant_identity": "adminroot",
+        })
+
+        self.assertEqual("atlas-voice-prod-room", response["session_lease"]["room_name"])
+        self.assertEqual("mobile:adminroot", response["session_lease"]["participant_identity"])
 
     def test_mock_kernel_turn_returns_dry_run_decision_receipt(self) -> None:
         transport = MockKernelTransport()

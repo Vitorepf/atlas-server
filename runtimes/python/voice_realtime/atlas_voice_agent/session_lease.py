@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Mapping
+from urllib.parse import urlparse
 
 
 class UnsafeSessionLease(RuntimeError):
@@ -29,6 +30,7 @@ class AtlasVoiceSessionLease:
         "not_issued_missing_config",
         "issued",
     }
+    ALLOWED_PARTICIPANT_NAMESPACES = {"mobile", "mac_edge"}
 
     @classmethod
     def from_kernel_response(cls, response: Mapping[str, Any]) -> "AtlasVoiceSessionLease":
@@ -55,17 +57,23 @@ class AtlasVoiceSessionLease:
         if lease.get("raw_audio_persistence_allowed") is not False:
             raise UnsafeSessionLease("raw_audio_persistence_allowed must be false")
 
+        room_name = cls._required(lease, "room_name")
+        cls._atlas_voice_room(room_name)
+        participant_identity = cls._required(lease, "participant_identity")
+        cls._participant_identity(participant_identity)
+        livekit_url = cls._optional_url(lease.get("livekit_url"))
+
         return cls(
             schema_version=schema_version,
             mode=cls._required(lease, "mode"),
-            room_name=cls._required(lease, "room_name"),
-            participant_identity=cls._required(lease, "participant_identity"),
+            room_name=room_name,
+            participant_identity=participant_identity,
             runtime_id=cls._required(lease, "runtime_id"),
             transport=cls._required(lease, "transport"),
             token_status=token_status,
             token_issuer=cls._required(lease, "token_issuer"),
             expires_at=cls._required(lease, "expires_at"),
-            livekit_url=cls._optional(lease.get("livekit_url")),
+            livekit_url=livekit_url,
             access_token=access_token,
             kernel_decision_required_per_turn=True,
             raw_audio_persistence_allowed=False,
@@ -104,3 +112,30 @@ class AtlasVoiceSessionLease:
         parsed = str(value).strip()
 
         return parsed or None
+
+    @staticmethod
+    def _atlas_voice_room(value: str) -> None:
+        if any(ord(char) < 32 or ord(char) == 127 for char in value) or not value.startswith("atlas-voice-"):
+            raise UnsafeSessionLease("room_name must stay inside the atlas-voice- namespace")
+
+    @classmethod
+    def _participant_identity(cls, value: str) -> None:
+        if any(ord(char) < 32 or ord(char) == 127 for char in value):
+            raise UnsafeSessionLease("participant_identity must not contain control characters")
+        namespace, separator, subject = value.partition(":")
+        if separator != ":" or namespace not in cls.ALLOWED_PARTICIPANT_NAMESPACES or subject == "":
+            raise UnsafeSessionLease("participant_identity must be namespaced by an allowed client surface")
+
+    @staticmethod
+    def _optional_url(value: Any) -> str | None:
+        parsed = AtlasVoiceSessionLease._optional(value)
+        if parsed is None:
+            return None
+        if any(ord(char) < 32 or ord(char) == 127 for char in parsed):
+            raise UnsafeSessionLease("livekit_url must not contain control characters")
+
+        url = urlparse(parsed)
+        if url.scheme not in {"http", "https"} or not url.netloc:
+            raise UnsafeSessionLease("livekit_url must be absolute http(s) URL")
+
+        return parsed

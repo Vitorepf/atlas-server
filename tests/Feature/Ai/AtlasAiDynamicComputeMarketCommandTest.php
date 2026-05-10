@@ -68,6 +68,15 @@ class AtlasAiDynamicComputeMarketCommandTest extends TestCase
         $this->assertTrue(data_get($payload, 'dynamic_compute_market.proposal_gate.proposal_evidence_contract.replay_required'));
         $this->assertTrue(data_get($payload, 'dynamic_compute_market.proposal_gate.proposal_evidence_contract.benchmark_required_before_policy_patch'));
         $this->assertContains('controlled_provider_benchmark', data_get($payload, 'dynamic_compute_market.proposal_gate.proposal_evidence_contract.required_artifacts'));
+        $this->assertSame('atlas.dynamic_compute_market.proposal_review_packet.v1', data_get($payload, 'dynamic_compute_market.proposal_gate.review_packet.schema_version'));
+        $this->assertSame('blocked_until_benchmark_human_review_and_new_receipt', data_get($payload, 'dynamic_compute_market.proposal_gate.review_packet.status'));
+        $this->assertSame('approve_or_reject_dynamic_compute_market_policy_change', data_get($payload, 'dynamic_compute_market.proposal_gate.review_packet.required_human_decision'));
+        $this->assertTrue(data_get($payload, 'dynamic_compute_market.proposal_gate.review_packet.required_decision_receipt'));
+        $this->assertTrue(data_get($payload, 'dynamic_compute_market.proposal_gate.review_packet.rollback_plan_required'));
+        $this->assertTrue(data_get($payload, 'dynamic_compute_market.proposal_gate.review_packet.policy_patch_review_required'));
+        $this->assertContains('controlled_provider_benchmark', data_get($payload, 'dynamic_compute_market.proposal_gate.review_packet.evidence_required'));
+        $this->assertContains('revert_provider_routing_policy_patch', data_get($payload, 'dynamic_compute_market.proposal_gate.review_packet.rollback_required'));
+        $this->assertContains('bypass_atlas_decide_authority', data_get($payload, 'dynamic_compute_market.proposal_gate.review_packet.forbidden_until_review'));
         $this->assertContains('provider_routing_change', data_get($payload, 'dynamic_compute_market.proposal_gate.prohibited_actions'));
         $this->assertSame('claude_cli', data_get($payload, 'dynamic_compute_market.benchmark_candidate.provider'));
         $this->assertSame('sufficient', data_get($payload, 'dynamic_compute_market.benchmark_candidate.sample_status'));
@@ -106,6 +115,8 @@ class AtlasAiDynamicComputeMarketCommandTest extends TestCase
         $this->assertFalse((bool) data_get($payload, 'dynamic_compute_market.proposal_gate.can_open_proposal'));
         $this->assertSame(['continue_monitoring'], data_get($payload, 'dynamic_compute_market.proposal_gate.allowed_actions'));
         $this->assertSame('draft_only_until_benchmark_and_review', data_get($payload, 'dynamic_compute_market.proposal_gate.proposal_evidence_contract.policy_patch_status'));
+        $this->assertSame('monitor_only_no_policy_change', data_get($payload, 'dynamic_compute_market.proposal_gate.review_packet.status'));
+        $this->assertSame(['continue AP-99 monitoring'], data_get($payload, 'dynamic_compute_market.proposal_gate.review_packet.evidence_required'));
     }
 
     private function recordProviderReturned(string $provider, float $latency, int $costMicrousd): void

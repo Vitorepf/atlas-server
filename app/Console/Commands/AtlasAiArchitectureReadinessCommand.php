@@ -29,11 +29,21 @@ class AtlasAiArchitectureReadinessCommand extends Command
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas AI Architecture Readiness</>', (string) $payload['status']);
         $this->components->twoColumnDetail('Workspace', (string) $payload['workspace']);
+        $this->components->twoColumnDetail('Ready for implementation', data_get($payload, 'summary.ready_for_implementation') ? 'yes' : 'no');
         $this->components->twoColumnDetail('Architecture', (string) data_get($payload, 'checks.architecture_validate.status', 'unknown'));
         $this->components->twoColumnDetail('Documentation', (string) data_get($payload, 'checks.documentation_health.status', 'unknown'));
         $this->components->twoColumnDetail('Provider projection', (string) data_get($payload, 'checks.provider_projection.status', 'unknown'));
         $this->components->twoColumnDetail('Split required', (string) data_get($payload, 'checks.documentation_health.total_split_required_count', 0));
         $this->components->twoColumnDetail('Recommended action', (string) data_get($payload, 'review_signal.recommended_action', 'unknown'));
+
+        $safeNextBlocks = (array) data_get($payload, 'safe_next_blocks', []);
+        if ($safeNextBlocks !== []) {
+            $this->newLine();
+            $this->line('Safe next blocks:');
+            foreach (array_slice($safeNextBlocks, 0, 5) as $block) {
+                $this->line('  - '.data_get($block, 'order').'. '.data_get($block, 'block'));
+            }
+        }
 
         $commands = (array) data_get($payload, 'review_signal.required_next_commands', []);
         if ($commands !== []) {

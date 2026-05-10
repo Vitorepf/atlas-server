@@ -18,7 +18,7 @@ class PersonalWorkedExamplePrivacySafeGate
             return $this->result('blocked', 'privacy_pii_detected_redaction_required');
         }
 
-        if (preg_match('/\b(?:(?:api[_-]?key|token|secret)\s*=\s*[a-z0-9._-]{12,}|(?:sk|pk|api|secret|token)[-_]?[a-z0-9]{12,})\b/i', $haystack)) {
+        if (preg_match('/\b(?:(?:api[_-]?key|token|secret)\s*=\s*[a-z0-9._-]{12,}|(?:sk|pk|api|secret|token)[-_]?[a-z0-9._-]{12,})\b/i', $haystack)) {
             return $this->result('blocked', 'privacy_secrets_detected');
         }
 

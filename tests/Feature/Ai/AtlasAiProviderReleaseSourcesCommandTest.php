@@ -30,7 +30,21 @@ class AtlasAiProviderReleaseSourcesCommandTest extends TestCase
         $this->assertSame('planned_fail_closed', data_get($payload, 'continuous_ingestion_contract.status'));
         $this->assertFalse(data_get($payload, 'continuous_ingestion_contract.network_fetching_enabled'));
         $this->assertFalse(data_get($payload, 'continuous_ingestion_contract.changes_decide_policy'));
+        $this->assertFalse(data_get($payload, 'continuous_ingestion_contract.writes_decide_signal'));
+        $this->assertFalse(data_get($payload, 'continuous_ingestion_contract.auto_promotion_allowed'));
+        $this->assertFalse(data_get($payload, 'continuous_ingestion_contract.promotion_allowed'));
+        $this->assertSame('create_dedicated_provider_release_fetch_runtime_ap_before_network_ingestion', data_get($payload, 'continuous_ingestion_contract.next_action'));
         $this->assertContains('background_web_crawler_without_AP', data_get($payload, 'continuous_ingestion_contract.forbidden_shortcuts'));
+        $this->assertContains('source_detection_to_default_model_change', data_get($payload, 'continuous_ingestion_contract.forbidden_shortcuts'));
+        $this->assertSame('atlas.provider_release.future_activation_review.v1', data_get($payload, 'future_activation_review_contract.schema_version'));
+        $this->assertSame('blocked_until_dedicated_AP', data_get($payload, 'future_activation_review_contract.status'));
+        $this->assertFalse(data_get($payload, 'future_activation_review_contract.network_fetching_enabled'));
+        $this->assertFalse(data_get($payload, 'future_activation_review_contract.auto_envelope_write_allowed'));
+        $this->assertFalse(data_get($payload, 'future_activation_review_contract.auto_decide_signal_allowed'));
+        $this->assertFalse(data_get($payload, 'future_activation_review_contract.promotion_allowed'));
+        $this->assertSame('create_dedicated_provider_release_fetch_runtime_ap_before_any_activation', data_get($payload, 'future_activation_review_contract.next_action'));
+        $this->assertContains('AP-99 provider performance calibration', data_get($payload, 'future_activation_review_contract.requires'));
+        $this->assertContains('routing_policy_patch', data_get($payload, 'future_activation_review_contract.blocked_targets'));
 
         $ids = array_column($payload['sources'], 'id');
 
@@ -61,6 +75,8 @@ class AtlasAiProviderReleaseSourcesCommandTest extends TestCase
         $this->assertSame('run_provider_release_review', data_get($payload, 'candidate.recommended_triage_action'));
         $this->assertContains('No Atlas Decide routing changes from source detection.', data_get($payload, 'candidate.non_goals'));
         $this->assertSame('proposal_only_no_network_no_writes', data_get($payload, 'continuous_ingestion_contract.mode'));
+        $this->assertSame('blocked_until_dedicated_AP', data_get($payload, 'future_activation_review_contract.status'));
+        $this->assertContains('direct_decide_signal', data_get($payload, 'future_activation_review_contract.blocked_targets'));
     }
 
     public function test_provider_release_sources_human_output_is_read_only(): void

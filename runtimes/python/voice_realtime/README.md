@@ -42,6 +42,9 @@ python3 -m atlas_voice_agent.main --bootstrap runtimes/python/voice_realtime/boo
 python3 -m atlas_voice_agent.main --bootstrap runtimes/python/voice_realtime/bootstrap.local.json --worker-plan
 python3 -m atlas_voice_agent.main --bootstrap runtimes/python/voice_realtime/bootstrap.local.json --callback-loop-check
 python3 -m atlas_voice_agent.main --bootstrap runtimes/python/voice_realtime/bootstrap.local.json --production-loop-plan
+python3 -m atlas_voice_agent.main --bootstrap runtimes/python/voice_realtime/bootstrap.local.json --callback-loop-check --production-sdk-loop-wired
+python3 -m atlas_voice_agent.main --bootstrap runtimes/python/voice_realtime/bootstrap.local.json --production-loop-plan --production-sdk-loop-wired
+python3 -m atlas_voice_agent.main --env-file runtimes/python/voice_realtime/.env.local --product-loop-check
 python3 -m atlas_voice_agent.main --bootstrap runtimes/python/voice_realtime/bootstrap.local.json --mock-kernel --sdk-events runtimes/python/voice_realtime/sdk-events.example.json
 python3 -m atlas_voice_agent.main --bootstrap runtimes/python/voice_realtime/bootstrap.local.json --start-worker
 ATLAS_BASE_URL=http://localhost ATLAS_TOKEN=token LIVEKIT_URL=http://localhost:7880 \
@@ -61,10 +64,28 @@ php artisan atlas:ai:voice sdk-check --json
 php artisan atlas:ai:voice worker-plan --json
 php artisan atlas:ai:voice callback-loop-check --json
 php artisan atlas:ai:voice production-loop-plan --json
+php artisan atlas:ai:voice callback-loop-check --production-sdk-loop-wired --json
+php artisan atlas:ai:voice production-loop-plan --production-sdk-loop-wired --json
+php artisan atlas:ai:voice product-loop-check --json
 php artisan atlas:ai:voice production-loop-smoke --json
 php artisan atlas:ai:voice worker-start-check --json
+php artisan atlas:ai:voice worker-start-check --callback-loop-wired --production-sdk-loop-wired --json
 php artisan atlas:ai:voice runtime-certify --json
 curl -H "X-Atlas-Token: $ATLAS_TOKEN" "http://localhost/ai/voice/runtime/certification?runtime=livekit_agents_sdk"
 ```
 
 LiveKit Agents SDK should be added here only after this scaffold remains green.
+`sdk-check` is a probe, not an import. It reports `package_checks`,
+`missing_imports`, installed version metadata when available and
+`sdk_imported=false`; no scaffold check may import LiveKit SDK modules just to
+decide readiness.
+
+`--callback-loop-wired` and `--production-sdk-loop-wired` are product-loop
+wiring flags for guarded checks only. They make `worker-plan`,
+`production-loop-plan`, `activation-contract` and `worker-start-check` show the
+next gate state, but they do not start a daemon, promote production, persist
+audio or authorize direct provider/tool calls.
+
+`product-loop-check` is the aggregate readiness artifact for the next block. It
+combines callback-loop, production-loop-plan and worker-start with product wiring
+enabled, but preserves `daemon_started=false` and `auto_promotion_allowed=false`.

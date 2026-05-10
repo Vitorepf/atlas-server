@@ -37,6 +37,7 @@ final class AtlasVoiceRivalsRunner
                 'window' => ['since' => $since->toJSON(), 'until' => $until->toJSON()],
                 'readiness' => $readiness,
                 'runtime_certification' => $certification,
+                'production_promotion_gate' => $certification['production_promotion_gate'] ?? [],
                 'review_signal' => [
                     'status' => 'blocked',
                     'severity' => 'high',
@@ -59,7 +60,12 @@ final class AtlasVoiceRivalsRunner
         $baselineArm = $this->armReport($events, $sloEvents, 'direct_provider_baseline');
         $comparable = min((int) $atlasArm['completed_turn_count'], (int) $baselineArm['completed_turn_count']);
         $runtimeCertified = ($certification['status'] ?? null) === 'certified_scaffold';
-        $ready = ($readiness['status'] ?? null) === 'ready' && $runtimeCertified && $comparable >= 3;
+        $productionPromotionGate = (array) ($certification['production_promotion_gate'] ?? []);
+        $productionPromotionReviewReady = ($productionPromotionGate['status'] ?? null) === 'review_required';
+        $ready = ($readiness['status'] ?? null) === 'ready'
+            && $runtimeCertified
+            && $productionPromotionReviewReady
+            && $comparable >= 3;
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -73,6 +79,7 @@ final class AtlasVoiceRivalsRunner
                 'missing_events' => $readiness['missing_events'] ?? [],
             ],
             'runtime_certification' => $certification,
+            'production_promotion_gate' => $productionPromotionGate,
             'arms' => [
                 'atlas_voice' => $atlasArm,
                 'direct_provider_baseline' => $baselineArm,
@@ -117,6 +124,28 @@ final class AtlasVoiceRivalsRunner
                 'passed' => false,
                 'forbidden_key_count' => 1,
                 'forbidden_keys' => ['runtime_certification_unavailable'],
+            ],
+            'production_promotion_gate' => $certification['production_promotion_gate'] ?? [
+                'schema_version' => 'atlas.voice_realtime.production_promotion_gate.v1',
+                'status' => 'blocked',
+                'human_review_required' => true,
+                'promotion_allowed' => false,
+                'auto_promotion_allowed' => false,
+                'decision_receipt_required' => true,
+                'rollback_plan_required' => true,
+                'review_packet' => [
+                    'schema_version' => 'atlas.voice_realtime.production_promotion_review_packet.v1',
+                    'status' => 'blocked_until_machine_gates_pass',
+                    'required_human_decision' => 'approve_or_reject_voice_production_promotion',
+                    'required_decision_receipt' => true,
+                    'required_rollback_plan' => ['disable_livekit_token_issuer'],
+                    'required_evidence' => ['runtime_certification'],
+                    'forbidden_actions' => ['auto_promote_voice_runtime'],
+                ],
+                'summary' => [
+                    'failed_keys' => ['runtime_certification_unavailable'],
+                ],
+                'next_action' => 'fix_failed_runtime_certification_gates',
             ],
             'next_action' => $certification['next_action'] ?? 'fix_failed_runtime_certification_gates',
         ];
@@ -221,6 +250,22 @@ final class AtlasVoiceRivalsRunner
             ];
         }
 
+        $productionPromotionGate = (array) ($certification['production_promotion_gate'] ?? []);
+        $promotionGateStatus = (string) ($productionPromotionGate['status'] ?? 'blocked');
+        if ($promotionGateStatus === 'blocked') {
+            return [
+                'status' => 'blocked',
+                'severity' => 'high',
+                'recommended_action' => (string) ($productionPromotionGate['next_action'] ?? 'fix_voice_production_promotion_gate'),
+                'reasons' => ['voice_production_promotion_gate_blocked'],
+                'failed_production_promotion_gates' => data_get($productionPromotionGate, 'summary.failed_keys', []),
+                'human_review_required' => (bool) ($productionPromotionGate['human_review_required'] ?? true),
+                'promotion_allowed' => (bool) ($productionPromotionGate['promotion_allowed'] ?? false),
+                'auto_promotion_allowed' => (bool) ($productionPromotionGate['auto_promotion_allowed'] ?? false),
+                'review_packet' => $productionPromotionGate['review_packet'] ?? null,
+            ];
+        }
+
         if ((int) $baseline['completed_turn_count'] === 0) {
             return [
                 'status' => 'warning',
@@ -240,11 +285,19 @@ final class AtlasVoiceRivalsRunner
         }
 
         return [
-            'status' => 'ok',
-            'severity' => 'none',
-            'recommended_action' => 'use_rivals_voice_signal_for_voice_surface_maturity',
-            'reasons' => ['rivals_voice_comparable'],
+            'status' => $promotionGateStatus === 'review_required' ? 'review_required' : 'ok',
+            'severity' => $promotionGateStatus === 'review_required' ? 'high' : 'none',
+            'recommended_action' => $promotionGateStatus === 'review_required'
+                ? 'submit_voice_production_promotion_for_human_review'
+                : 'use_rivals_voice_signal_for_voice_surface_maturity',
+            'reasons' => $promotionGateStatus === 'review_required'
+                ? ['voice_production_promotion_requires_human_review']
+                : ['rivals_voice_comparable'],
             'atlas_completed_turns' => $atlas['completed_turn_count'],
+            'human_review_required' => (bool) ($productionPromotionGate['human_review_required'] ?? false),
+            'promotion_allowed' => (bool) ($productionPromotionGate['promotion_allowed'] ?? false),
+            'auto_promotion_allowed' => (bool) ($productionPromotionGate['auto_promotion_allowed'] ?? false),
+            'review_packet' => $productionPromotionGate['review_packet'] ?? null,
         ];
     }
 }

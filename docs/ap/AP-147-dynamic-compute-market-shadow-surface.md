@@ -39,12 +39,17 @@ Toda resposta deve declarar:
 - `proposal_gate.proposal_evidence_contract.schema_version=atlas.dynamic_compute_market.proposal_evidence.v1`;
 - `proposal_gate.proposal_evidence_contract.replay_required=true`;
 - `proposal_gate.proposal_evidence_contract.policy_patch_status=draft_only_until_benchmark_and_review`.
+- `proposal_gate.review_packet.schema_version=atlas.dynamic_compute_market.proposal_review_packet.v1`;
+- `proposal_gate.review_packet.required_decision_receipt=true`;
+- `proposal_gate.review_packet.rollback_plan_required=true`.
 
 O `proposal_gate` e o contrato que impede confusao entre conselho de mercado e
 roteamento. Ele pode abrir proposta, benchmark controlado ou rascunho de policy
 para review humano, mas nunca altera provider, policy ou receipt.
 Qualquer policy patch futuro precisa carregar replay AP-99, benchmark controlado,
 review humano e um novo Decision Receipt para rota futura.
+O `proposal_review_packet` torna isso machine-readable e bloqueia provider,
+modelo, policy, receipt mutation e bypass de Atlas Decide ate a revisao.
 
 ## Surfaces
 

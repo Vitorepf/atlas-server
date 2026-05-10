@@ -31,6 +31,7 @@ use App\Http\Controllers\AtlasAiQualitativeLevelsController;
 use App\Http\Controllers\AtlasAiRepairController;
 use App\Http\Controllers\AtlasAiRepairReportController;
 use App\Http\Controllers\AtlasAiRivalsStrategyController;
+use App\Http\Controllers\AtlasAiRuntimeBoundaryController;
 use App\Http\Controllers\AtlasAiSelfImprovementScheduleController;
 use App\Http\Controllers\AtlasAiSelfImprovementScheduleHealthController;
 use App\Http\Controllers\AtlasAiSelfImprovementScheduleReportController;
@@ -351,6 +352,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/architecture/validate', AtlasAiArchitectureValidateController::class);
     Route::get('/ai/architecture/operations', AtlasAiArchitectureOperationsController::class);
     Route::get('/ai/architecture/readiness', [AtlasAiGovernanceController::class, 'architectureReadiness']);
+    Route::get('/ai/runtime-boundary', AtlasAiRuntimeBoundaryController::class);
     Route::get('/ai/session-bootstrap', [AtlasAiGovernanceController::class, 'sessionBootstrap']);
     Route::get('/ai/feature-placement', [AtlasAiGovernanceController::class, 'placeFeature']);
     Route::get('/ai/docs-split-plan', [AtlasAiGovernanceController::class, 'docsSplitPlan']);

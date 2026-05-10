@@ -43,6 +43,18 @@ class AtlasVoiceWakeWordPayloadTest(unittest.TestCase):
                         key: value,
                     })
 
+    def test_rejects_nested_wake_word_payload_audio_or_secret(self) -> None:
+        for payload in [
+            {"metadata": {"capture": {"raw_audio": b"nope"}}},
+            {"metadata": {"sdk": {"livekit_token": "nested-token"}}},
+        ]:
+            with self.subTest(payload=payload):
+                with self.assertRaises(UnsafeVoicePayload):
+                    AtlasVoiceWakeWordPayload.from_runtime_event({
+                        "session_id": "voice_session",
+                        **payload,
+                    })
+
     def test_rejects_invalid_confidence_and_latency(self) -> None:
         with self.assertRaises(UnsafeVoicePayload):
             AtlasVoiceWakeWordPayload.from_runtime_event({

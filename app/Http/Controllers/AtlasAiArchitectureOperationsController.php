@@ -13,6 +13,9 @@ class AtlasAiArchitectureOperationsController extends Controller
         $data = $request->validate([
             'id' => ['nullable', 'string', 'max:120'],
             'kind' => ['nullable', 'string', 'max:120'],
+            'section' => ['nullable', 'string', 'max:120'],
+            'surface' => ['nullable', 'string', 'max:120'],
+            'owner_layer' => ['nullable', 'string', 'max:120'],
         ]);
 
         return response()->json([

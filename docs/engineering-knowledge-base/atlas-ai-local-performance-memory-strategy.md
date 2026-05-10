@@ -208,9 +208,15 @@ Quando o corpus passa, estes pre-requisitos ficam satisfeitos:
 `privacy_redaction_verification`. O contrato de Evidence Ledger usa a familia
 `LOCAL_RAG_*` (`PLAN_CREATED`, `QUALITY_CORPUS_EVALUATED`,
 `GRAPH_PROMOTION_BLOCKED`) via `AtlasEvidenceLedger::recordLocalRagEvent` e
-nunca persiste query/contexto/documentos brutos. A promocao de Graph RAG/Python
-continua bloqueada ate existir `human_review_or_curator_proposal`; o flow
-`self_improvement.docs_drift_review` pode abrir essa proposta em modo
+nunca persiste query/contexto/documentos brutos. O comando tambem publica
+`evidence_ledger.status=persisted|unavailable`; se a tabela do Ledger nao
+gravar os 3 eventos esperados, `promotion_evidence_satisfied=false` e a
+execucao nao pode ser usada como evidencia de promocao. O benchmark tambem emite
+`review_packet` com decisao humana requerida, evidencias minimas, rollback e
+proibicoes ate review (`enable_python_graph_rag_runtime`,
+`auto_apply_policy_patch`, `surface_direct_graph_rag_call`). A promocao de Graph
+RAG/Python continua bloqueada ate existir `human_review_or_curator_proposal`; o
+flow `self_improvement.docs_drift_review` pode abrir essa proposta em modo
 `proposal_only`, mas nunca autoaplica policy patch. AP-683 e o review gate
 canonico para decidir se Graph RAG/Python merece AP futuro.
 

@@ -114,9 +114,11 @@ Superficies read-only disponiveis:
 
 Essas superficies apenas listam watchlist ou candidate preview. Elas nao fazem
 crawler, nao escrevem envelope, nao alteram policy e nao mudam Atlas Decide.
-O output inclui `continuous_ingestion_contract` fail-closed: crawler futuro
+O output inclui `continuous_ingestion_contract` fail-closed com `promotion_allowed=false`: crawler futuro
 precisa de AP dedicado, rate limits, canonical URL/hash, source gate, Ledger,
 Rivals/AP-99 e review humano antes de qualquer rede, write ou signal.
+O `future_activation_review_contract` tambem carrega `promotion_allowed=false` e bloqueia background crawler, Decide
+signal, policy patch, default model, domain maturity e credenciais sem AP dedicado, rate limit, source gate, Ledger, AP-99/Rivals e review humano.
 
 ## Cinco Acoes Possiveis
 
@@ -205,11 +207,18 @@ Isso evita que rumor ou noticia secundaria vire implementacao.
 
 O output tambem inclui:
 
+- `anti_wrapper_contract`: contrato que fixa Atlas como camada acima dos
+  providers. Release externo deve virar benchmark, skill pack, adapter,
+  signal, proposal ou archive; nunca canal direto, default de modelo ou
+  maturidade de domain por marketing;
 - `review_signal`: status, severidade, evidence required e stop-the-line para
   impedir rota de Decide antes de fonte primaria/Rivals/AP-99/human review;
-- `absorption_plan`: plano proposal-only com stages de envelope, Rivals,
-  skill pack/adapter, signal de Decide e review humano. Ele nunca altera
-  routing, policy, credenciais ou maturidade de domain diretamente;
+- `absorption_plan`: plano proposal-only com stages de envelope, Rivals, skill
+  pack/adapter, Decide signal e review humano. Nunca altera routing, default
+  model, policy, credenciais ou maturidade; `promotion_gate` exige source, owner
+  doc, Rivals/AP-99, review humano e novo Decision Receipt. O
+  `promotion_gate` exige source, owner doc, Rivals/AP-99, review humano e novo
+  `promotion_review_packet` fixa decisao humana, rollback, evidence e proibicoes;
 - `curator_proposal`: proposta revisavel para
   `self_improvement.provider_release_review`, sempre `auto_apply=false`.
 

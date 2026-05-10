@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from .payload_safety import reject_forbidden_keys_recursive
 from .turn_payload import UnsafeVoicePayload
 
 
@@ -63,9 +64,7 @@ class AtlasVoiceCallbackBase:
 
     @classmethod
     def assert_no_forbidden_keys(cls, payload: Mapping[str, Any]) -> None:
-        present = sorted(cls.FORBIDDEN_KEYS.intersection(payload.keys()))
-        if present:
-            raise UnsafeVoicePayload(f"forbidden voice callback keys: {present}")
+        reject_forbidden_keys_recursive(payload, cls.FORBIDDEN_KEYS, label="voice callback")
 
     @staticmethod
     def require_string(payload: Mapping[str, Any], key: str) -> str:

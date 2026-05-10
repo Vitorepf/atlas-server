@@ -95,17 +95,17 @@ class AtlasVoiceAgentRuntime:
         return self.client.report_played(payload)
 
     def report_interrupted(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
-        self._assert_known_turn(payload)
+        self._assert_turn_can_emit_runtime_callback(payload)
 
         return self.client.report_interrupted(payload)
 
     def report_failed(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
-        self._assert_known_turn(payload)
+        self._assert_turn_can_emit_runtime_callback(payload)
 
         return self.client.report_failed(payload)
 
     def report_provider_health_degraded(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
-        self._assert_known_turn(payload)
+        self._assert_turn_can_emit_runtime_callback(payload)
 
         return self.client.report_provider_health_degraded(payload)
 

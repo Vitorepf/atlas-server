@@ -43,6 +43,11 @@ class AtlasAiProviderReleaseReviewApiTest extends TestCase
             ->assertJsonPath('review_signal.stop_the_line_for_routing', true)
             ->assertJsonPath('curator_proposal.status', 'proposal_ready')
             ->assertJsonPath('curator_proposal.auto_apply', false)
+            ->assertJsonPath('absorption_plan.promotion_gate.review_packet.schema_version', 'atlas.provider_release.promotion_review_packet.v1')
+            ->assertJsonPath('absorption_plan.promotion_gate.review_packet.required_human_decision', 'approve_or_reject_provider_release_absorption')
+            ->assertJsonPath('absorption_plan.promotion_gate.review_packet.required_decision_receipt', true)
+            ->assertJsonPath('absorption_plan.promotion_gate.review_packet.rollback_plan_required', true)
+            ->assertJsonPath('curator_proposal.promotion_review_ref.required_decision_receipt', true)
             ->assertJsonPath('curator_proposal.target_flow', 'self_improvement.provider_release_review');
     }
 

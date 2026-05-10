@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from .payload_safety import reject_forbidden_keys_recursive
+
 
 class UnsafeVoicePayload(RuntimeError):
     """Raised when the runtime tries to send unsafe data to the Kernel."""
@@ -132,9 +134,7 @@ class AtlasVoiceTurnPayload:
 
     @classmethod
     def assert_no_forbidden_keys(cls, payload: Mapping[str, Any]) -> None:
-        present = sorted(cls.FORBIDDEN_KEYS.intersection(payload.keys()))
-        if present:
-            raise UnsafeVoicePayload(f"forbidden voice payload keys: {present}")
+        reject_forbidden_keys_recursive(payload, cls.FORBIDDEN_KEYS, label="voice payload")
 
     @staticmethod
     def _required_string(payload: Mapping[str, Any], key: str) -> str:

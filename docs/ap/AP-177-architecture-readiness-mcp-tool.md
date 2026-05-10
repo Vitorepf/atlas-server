@@ -47,6 +47,8 @@ Output:
 - `ok`: true only when readiness status is `ready`;
 - `tool`: `atlas_architecture_readiness`;
 - `architecture_readiness`: payload `atlas.architecture_readiness.v1`;
+- `architecture_readiness.architecture_operations.owner_layer_operations.runtime`:
+  direct path to the runtime boundary gate;
 - `writes`: false.
 
 ## Authority

@@ -6,16 +6,21 @@ use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeCertificationService;
 use Illuminate\Console\Command;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 class AtlasAiVoiceRealtimeCommand extends Command
 {
+    private const PYTHON_COMMAND_TIMEOUT_SECONDS = 30;
+
     protected $signature = 'atlas:ai:voice
-        {action=contract : Action to inspect: contract, bootstrap, dependencies, preflight, activation-contract, scripted-example, scripted-smoke, callback-smoke, callback-sequence-smoke, callback-loop-check, sdk-check, worker-plan, production-loop-plan, production-loop-smoke, worker-start-check, runtime-certify, health, readiness or rivals}
+        {action=contract : Action to inspect: contract, bootstrap, dependencies, preflight, activation-contract, scripted-example, scripted-smoke, callback-smoke, callback-sequence-smoke, callback-loop-check, sdk-check, worker-plan, production-loop-plan, product-loop-check, production-loop-smoke, worker-start-check, runtime-certify, health, readiness or rivals}
         {--runtime=livekit_agents_sdk : Runtime id for contract inspection}
         {--base-url= : Kernel base URL for bootstrap manifests}
         {--hours=24 : Readiness/evidence window in hours}
         {--require-sdk : Make preflight fail when LiveKit Agents SDK is not installed}
+        {--callback-loop-wired : Declare the governed callback router is wired for fail-closed activation checks}
+        {--production-sdk-loop-wired : Declare the real LiveKit SDK loop is wired for fail-closed production checks}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Inspect the Atlas AI Voice Realtime surface contract.';
@@ -65,6 +70,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             'sdk-check' => $this->runSdkCheck($voice),
             'worker-plan' => $this->runWorkerPlan($voice),
             'production-loop-plan' => $this->runProductionLoopPlan($voice),
+            'product-loop-check' => $this->runProductLoopCheck($voice),
             'production-loop-smoke' => $this->runProductionLoopSmoke($voice),
             'worker-start-check' => $this->runWorkerStartCheck($voice),
             'runtime-certify' => $certification->certify([
@@ -203,6 +209,9 @@ class AtlasAiVoiceRealtimeCommand extends Command
             $this->components->twoColumnDetail('Passed gates', (string) data_get($payload, 'summary.passed_gates', '0'));
             $this->components->twoColumnDetail('Failed gates', (string) data_get($payload, 'summary.failed_gates', '0'));
             $this->components->twoColumnDetail('Daemon start blocked safely', data_get($payload, 'gates.worker_start_blocked_safely.passed', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Production promotion', (string) data_get($payload, 'production_promotion_gate.status', 'unknown'));
+            $this->components->twoColumnDetail('Human review required', data_get($payload, 'production_promotion_gate.human_review_required', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Review packet', (string) data_get($payload, 'production_promotion_gate.review_packet.status', 'unknown'));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
 
@@ -263,6 +272,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
         ], base_path(), [
             'PYTHONPATH' => base_path('runtimes/python/voice_realtime'),
         ]);
+        $process->setTimeout(self::PYTHON_COMMAND_TIMEOUT_SECONDS);
 
         try {
             $process->run();
@@ -295,6 +305,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             'runtime' => (string) $this->option('runtime'),
             'base_url' => $baseUrl,
         ]);
+        $baseUrl = (string) data_get($bootstrap, 'kernel.base_url', 'http://atlas.test');
         $bootstrapPath = tempnam(sys_get_temp_dir(), 'atlas-voice-bootstrap-');
         $envPath = tempnam(sys_get_temp_dir(), 'atlas-voice-env-');
         if ($bootstrapPath === false || $envPath === false) {
@@ -332,6 +343,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
         ], base_path(), [
             'PYTHONPATH' => base_path('runtimes/python/voice_realtime'),
         ]);
+        $process->setTimeout(self::PYTHON_COMMAND_TIMEOUT_SECONDS);
 
         try {
             $process->run();
@@ -359,6 +371,13 @@ class AtlasAiVoiceRealtimeCommand extends Command
      */
     private function runActivationContract(AtlasVoiceRealtimeService $voice): array
     {
+        $extraArgs = [
+            '--activation-contract',
+        ];
+        if ((bool) $this->option('callback-loop-wired')) {
+            $extraArgs[] = '--callback-loop-wired';
+        }
+
         $baseUrl = (string) ($this->option('base-url') ?: 'http://atlas.test');
         $bootstrap = $voice->runtimeBootstrapManifest([
             'runtime' => (string) $this->option('runtime'),
@@ -394,7 +413,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             'atlas_voice_agent.main',
             '--env-file',
             $envPath,
-            '--activation-contract',
+            ...$extraArgs,
         ], base_path(), [
             'PYTHONPATH' => base_path('runtimes/python/voice_realtime'),
         ]);
@@ -409,7 +428,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
                 'surface_id' => 'voice_realtime',
                 'runtime_id' => (string) $this->option('runtime'),
                 'exit_code' => $process->getExitCode(),
-                'command' => 'PYTHONPATH=runtimes/python/voice_realtime python3 -m atlas_voice_agent.main --env-file <generated> --activation-contract',
+                'command' => 'PYTHONPATH=runtimes/python/voice_realtime python3 -m atlas_voice_agent.main --env-file <generated> '.implode(' ', $extraArgs),
                 'activation' => $this->sanitizeSmokePayload(is_array($decoded) ? $decoded : null),
                 'stderr_hash' => $process->getErrorOutput() !== '' ? hash('sha256', $process->getErrorOutput()) : null,
             ];
@@ -482,9 +501,14 @@ class AtlasAiVoiceRealtimeCommand extends Command
      */
     private function runCallbackLoopCheck(AtlasVoiceRealtimeService $voice): array
     {
-        return $this->runPythonBootstrapCommand($voice, [
+        $extraArgs = [
             '--callback-loop-check',
-        ], 'atlas.voice_realtime.callback_loop_contract.v1');
+        ];
+        if ((bool) $this->option('production-sdk-loop-wired')) {
+            $extraArgs[] = '--production-sdk-loop-wired';
+        }
+
+        return $this->runPythonBootstrapCommand($voice, $extraArgs, 'atlas.voice_realtime.callback_loop_contract.v1');
     }
 
     /**
@@ -492,9 +516,14 @@ class AtlasAiVoiceRealtimeCommand extends Command
      */
     private function runWorkerPlan(AtlasVoiceRealtimeService $voice): array
     {
-        return $this->runPythonBootstrapCommand($voice, [
+        $extraArgs = [
             '--worker-plan',
-        ], 'atlas.voice_realtime.worker_plan.v1');
+        ];
+        if ((bool) $this->option('callback-loop-wired')) {
+            $extraArgs[] = '--callback-loop-wired';
+        }
+
+        return $this->runPythonBootstrapCommand($voice, $extraArgs, 'atlas.voice_realtime.worker_plan.v1');
     }
 
     /**
@@ -502,9 +531,24 @@ class AtlasAiVoiceRealtimeCommand extends Command
      */
     private function runProductionLoopPlan(AtlasVoiceRealtimeService $voice): array
     {
-        return $this->runPythonBootstrapCommand($voice, [
+        $extraArgs = [
             '--production-loop-plan',
-        ], 'atlas.voice_realtime.production_loop_plan.v1');
+        ];
+        if ((bool) $this->option('production-sdk-loop-wired')) {
+            $extraArgs[] = '--production-sdk-loop-wired';
+        }
+
+        return $this->runPythonBootstrapCommand($voice, $extraArgs, 'atlas.voice_realtime.production_loop_plan.v1');
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runProductLoopCheck(AtlasVoiceRealtimeService $voice): array
+    {
+        return $this->runPythonEnvCommand($voice, [
+            '--product-loop-check',
+        ], 'atlas.voice_realtime.product_loop_check.v1', 'product-loop-token', 'product-loop-key', 'product-loop-secret');
     }
 
     /**
@@ -526,6 +570,38 @@ class AtlasAiVoiceRealtimeCommand extends Command
      */
     private function runWorkerStartCheck(AtlasVoiceRealtimeService $voice): array
     {
+        $extraArgs = [
+            '--start-worker',
+        ];
+        if ((bool) $this->option('callback-loop-wired')) {
+            $extraArgs[] = '--callback-loop-wired';
+        }
+        if ((bool) $this->option('production-sdk-loop-wired')) {
+            $extraArgs[] = '--production-sdk-loop-wired';
+        }
+
+        return $this->runPythonEnvCommand(
+            $voice,
+            $extraArgs,
+            'atlas.voice_realtime.worker_start.v1',
+            'worker-start-token',
+            'worker-start-key',
+            'worker-start-secret',
+        );
+    }
+
+    /**
+     * @param  array<int,string>  $extraArgs
+     * @return array<string,mixed>
+     */
+    private function runPythonEnvCommand(
+        AtlasVoiceRealtimeService $voice,
+        array $extraArgs,
+        string $schemaVersion,
+        string $token,
+        string $livekitKey,
+        string $livekitSecret,
+    ): array {
         $baseUrl = (string) ($this->option('base-url') ?: 'http://atlas.test');
         $bootstrap = $voice->runtimeBootstrapManifest([
             'runtime' => (string) $this->option('runtime'),
@@ -535,22 +611,22 @@ class AtlasAiVoiceRealtimeCommand extends Command
         $envPath = tempnam(sys_get_temp_dir(), 'atlas-voice-env-');
         if ($bootstrapPath === false || $envPath === false) {
             return [
-                'schema_version' => 'atlas.voice_realtime.worker_start.v1',
+                'schema_version' => $schemaVersion,
                 'status' => 'failed',
                 'surface_id' => 'voice_realtime',
                 'runtime_id' => (string) $this->option('runtime'),
-                'failure' => 'could_not_create_temp_worker_start_files',
+                'failure' => 'could_not_create_temp_runtime_files',
             ];
         }
 
         file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         file_put_contents($envPath, implode("\n", [
             'ATLAS_BASE_URL='.$baseUrl,
-            'ATLAS_TOKEN=worker-start-token',
+            'ATLAS_TOKEN='.$token,
             'ATLAS_VOICE_BOOTSTRAP='.$bootstrapPath,
             'LIVEKIT_URL=http://livekit.test',
-            'LIVEKIT_API_KEY=worker-start-key',
-            'LIVEKIT_API_SECRET=worker-start-secret',
+            'LIVEKIT_API_KEY='.$livekitKey,
+            'LIVEKIT_API_SECRET='.$livekitSecret,
             'ATLAS_VOICE_STT_PROVIDER=configurable',
             'ATLAS_VOICE_TTS_PROVIDER=configurable',
         ]));
@@ -561,7 +637,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             'atlas_voice_agent.main',
             '--env-file',
             $envPath,
-            '--start-worker',
+            ...$extraArgs,
         ], base_path(), [
             'PYTHONPATH' => base_path('runtimes/python/voice_realtime'),
         ]);
@@ -571,21 +647,35 @@ class AtlasAiVoiceRealtimeCommand extends Command
             $decoded = json_decode($process->getOutput(), true);
             if (! is_array($decoded)) {
                 return [
-                    'schema_version' => 'atlas.voice_realtime.worker_start.v1',
+                    'schema_version' => $schemaVersion,
                     'status' => 'failed',
                     'surface_id' => 'voice_realtime',
                     'runtime_id' => (string) $this->option('runtime'),
+                    'failure' => 'voice_runtime_command_invalid_json',
+                    'timeout_seconds' => self::PYTHON_COMMAND_TIMEOUT_SECONDS,
                     'exit_code' => $process->getExitCode(),
                     'stderr_hash' => $process->getErrorOutput() !== '' ? hash('sha256', $process->getErrorOutput()) : null,
                 ];
             }
 
             $payload = $this->sanitizeSmokePayload($decoded);
-            $payload['command'] = 'PYTHONPATH=runtimes/python/voice_realtime python3 -m atlas_voice_agent.main --env-file <generated> --start-worker';
+            $payload['command'] = 'PYTHONPATH=runtimes/python/voice_realtime python3 -m atlas_voice_agent.main --env-file <generated> '.implode(' ', $extraArgs);
+            $payload['timeout_seconds'] = self::PYTHON_COMMAND_TIMEOUT_SECONDS;
             $payload['exit_code'] = $process->getExitCode();
             $payload['stderr_hash'] = $process->getErrorOutput() !== '' ? hash('sha256', $process->getErrorOutput()) : null;
 
             return $payload;
+        } catch (ProcessTimedOutException) {
+            return [
+                'schema_version' => $schemaVersion,
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'runtime_id' => (string) $this->option('runtime'),
+                'failure' => 'voice_runtime_command_timeout',
+                'timeout_seconds' => self::PYTHON_COMMAND_TIMEOUT_SECONDS,
+                'exit_code' => null,
+                'stderr_hash' => null,
+            ];
         } finally {
             @unlink($bootstrapPath);
             @unlink($envPath);
@@ -625,6 +715,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
         ], base_path(), [
             'PYTHONPATH' => base_path('runtimes/python/voice_realtime'),
         ]);
+        $process->setTimeout(self::PYTHON_COMMAND_TIMEOUT_SECONDS);
 
         try {
             $process->run();
@@ -635,12 +726,28 @@ class AtlasAiVoiceRealtimeCommand extends Command
                     'status' => 'failed',
                     'surface_id' => 'voice_realtime',
                     'runtime_id' => (string) $this->option('runtime'),
+                    'failure' => 'voice_runtime_command_invalid_json',
+                    'timeout_seconds' => self::PYTHON_COMMAND_TIMEOUT_SECONDS,
                     'exit_code' => $process->getExitCode(),
                     'stderr_hash' => $process->getErrorOutput() !== '' ? hash('sha256', $process->getErrorOutput()) : null,
                 ];
             }
 
-            return $this->sanitizeSmokePayload($decoded);
+            $payload = $this->sanitizeSmokePayload($decoded);
+            $payload['timeout_seconds'] = self::PYTHON_COMMAND_TIMEOUT_SECONDS;
+
+            return $payload;
+        } catch (ProcessTimedOutException) {
+            return [
+                'schema_version' => $schemaVersion,
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'runtime_id' => (string) $this->option('runtime'),
+                'failure' => 'voice_runtime_command_timeout',
+                'timeout_seconds' => self::PYTHON_COMMAND_TIMEOUT_SECONDS,
+                'exit_code' => null,
+                'stderr_hash' => null,
+            ];
         } finally {
             @unlink($bootstrapPath);
         }
@@ -669,6 +776,6 @@ class AtlasAiVoiceRealtimeCommand extends Command
      */
     private function allowedActions(): array
     {
-        return ['contract', 'bootstrap', 'dependencies', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'worker-plan', 'production-loop-plan', 'production-loop-smoke', 'worker-start-check', 'runtime-certify', 'health', 'readiness', 'rivals'];
+        return ['contract', 'bootstrap', 'dependencies', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'worker-plan', 'production-loop-plan', 'product-loop-check', 'production-loop-smoke', 'worker-start-check', 'runtime-certify', 'health', 'readiness', 'rivals'];
     }
 }

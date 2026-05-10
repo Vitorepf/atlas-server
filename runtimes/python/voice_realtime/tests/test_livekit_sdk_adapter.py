@@ -209,6 +209,14 @@ class LiveKitSdkAdapterTest(unittest.TestCase):
                 "tool_call": {"name": "shell"},
             })
 
+        with self.assertRaises(UnsafeVoicePayload):
+            subject.on_participant_joined({
+                "session_id": "voice_session_2",
+                "participant_identity": "mobile:vitor",
+                "room_name": "atlas-voice-adapter",
+                "metadata": {"livekit_token": "nested-token"},
+            })
+
 
 if __name__ == "__main__":
     unittest.main()

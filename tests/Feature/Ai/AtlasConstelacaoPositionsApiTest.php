@@ -83,6 +83,40 @@ final class AtlasConstelacaoPositionsApiTest extends TestCase
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('surface_id', 'constelacao')
             ->assertJsonPath('lens', 'bilderatlas')
+            ->assertJsonPath('lens_maturity_gate.schema_version', 'atlas.constelacao.lens_maturity_gate.v1')
+            ->assertJsonPath('lens_maturity_gate.current_lens', 'bilderatlas')
+            ->assertJsonPath('lens_maturity_gate.promotion_allowed', false)
+            ->assertJsonPath('lens_maturity_gate.lens2_promotion_allowed', false)
+            ->assertJsonPath('lens_maturity_gate.command_sky_allowed', false)
+            ->assertJsonPath('lens_maturity_gate.graph_rag_positioning_allowed', false)
+            ->assertJsonPath('lens_maturity_gate.observation_window_days_required', 30)
+            ->assertJsonPath('lens_maturity_gate.minimum_review_event_families.0', 'constelacao_opened')
+            ->assertJsonPath('lens_maturity_gate.requires_human_review', true)
+            ->assertJsonPath('lens_maturity_gate.requires_decision_receipt', true)
+            ->assertJsonPath('lens_maturity_gate.next_action', 'collect_constelacao_lens1_usage_telemetry_for_30_days_before_review')
+            ->assertJsonPath('lens1_usage_review_contract.schema_version', 'atlas.constelacao.lens1_usage_review.v1')
+            ->assertJsonPath('lens1_usage_review_contract.status', 'observation_required')
+            ->assertJsonPath('lens1_usage_review_contract.promotion_allowed', false)
+            ->assertJsonPath('lens1_usage_review_contract.human_review_required', true)
+            ->assertJsonPath('lens1_usage_review_contract.curator_review_required', true)
+            ->assertJsonPath('lens1_usage_review_contract.decision_receipt_required', true)
+            ->assertJsonPath('lens1_usage_review_contract.required_human_decision', 'approve_or_reject_constelacao_lens1_promotion_after_usage_review')
+            ->assertJsonPath('lens1_usage_review_contract.rollback_plan_required', true)
+            ->assertJsonPath('lens1_usage_review_contract.policy_patch_review_required', true)
+            ->assertJsonPath('lens1_usage_review_contract.auto_promotion_allowed', false)
+            ->assertJsonPath('lens1_usage_review_contract.rollback_required.0', 'keep_lens_bilderatlas_only')
+            ->assertJsonPath('lens1_usage_review_contract.forbidden_until_review.1', 'enable_command_sky')
+            ->assertJsonPath('lens1_usage_review_contract.forbidden_until_review.3', 'enable_graph_rag_positioning')
+            ->assertJsonPath('lens1_usage_review_contract.blocked_targets.0', 'lens2')
+            ->assertJsonPath('lens1_usage_review_contract.blocked_targets.1', 'command_sky')
+            ->assertJsonPath('lens1_usage_review_contract.blocked_targets.3', 'graph_rag_positioning')
+            ->assertJsonPath('lens1_usage_review_contract.future_runtime_invocation_contract.schema_version', 'atlas.runtime_invocation_contract.v1')
+            ->assertJsonPath('lens1_usage_review_contract.future_runtime_invocation_contract.selected_runtime_family', 'python_ai_data')
+            ->assertJsonPath('lens1_usage_review_contract.future_runtime_invocation_contract.runtime_id', 'constelacao_lens_future_candidate')
+            ->assertJsonPath('lens1_usage_review_contract.future_runtime_invocation_contract.promotion_allowed_now', false)
+            ->assertJsonPath('lens1_usage_review_contract.future_runtime_invocation_contract.auto_enable_allowed_now', false)
+            ->assertJsonPath('lens1_usage_review_contract.required_telemetry.0', 'constelacao_opened')
+            ->assertJsonPath('lens1_usage_review_contract.next_action', 'collect_constelacao_lens1_usage_telemetry_for_30_days_before_review')
             ->assertJsonPath('ui_contract.schema_version', 'atlas.constelacao.ui_contract.v1')
             ->assertJsonPath('ui_contract.lens_role', 'contemplative_serendipity')
             ->assertJsonPath('ui_contract.operational_chrome_allowed', false)
@@ -110,6 +144,9 @@ final class AtlasConstelacaoPositionsApiTest extends TestCase
             ->assertJsonPath('position_engine.semantic_positioning_readiness.promotion_gate.python_runtime_allowed', false)
             ->assertJsonPath('position_engine.semantic_positioning_readiness.promotion_gate.requires_human_review', true)
             ->assertJsonPath('position_engine.semantic_positioning_readiness.promotion_gate.requires_decision_receipt', true)
+            ->assertJsonPath('position_engine.semantic_positioning_readiness.promotion_gate.future_runtime_invocation_contract.schema_version', 'atlas.runtime_invocation_contract.v1')
+            ->assertJsonPath('position_engine.semantic_positioning_readiness.promotion_gate.future_runtime_invocation_contract.selected_runtime_family', 'python_ai_data')
+            ->assertJsonPath('position_engine.semantic_positioning_readiness.promotion_gate.future_runtime_invocation_contract.runtime_id', 'constelacao_semantic_positioning_candidate')
             ->assertJsonPath('privacy.raw_content_exposed', false)
             ->assertJsonPath('privacy.body_excerpt_exposed', false)
             ->assertJsonPath('evidence_ledger.recorded', true)
@@ -146,8 +183,20 @@ final class AtlasConstelacaoPositionsApiTest extends TestCase
         $this->assertFalse((bool) data_get($event->payload, 'parallel_memory_allowed'));
         $this->assertSame('unknown', data_get($event->payload, 'client_surface'));
         $this->assertFalse((bool) data_get($event->payload, 'promotion_gate.graph_rag_promotion_allowed'));
+        $this->assertFalse((bool) data_get($event->payload, 'promotion_gate.promotion_allowed'));
         $this->assertTrue((bool) data_get($event->payload, 'promotion_gate.requires_human_review'));
         $this->assertTrue((bool) data_get($event->payload, 'promotion_gate.requires_decision_receipt'));
+        $this->assertSame('collect_constelacao_lens1_usage_telemetry_for_30_days_before_review', data_get($event->payload, 'promotion_gate.next_action'));
+        $this->assertSame('atlas.constelacao.lens1_usage_review.v1', data_get($event->payload, 'lens1_usage_review_contract.schema_version'));
+        $this->assertFalse((bool) data_get($event->payload, 'lens1_usage_review_contract.promotion_allowed'));
+        $this->assertFalse((bool) data_get($event->payload, 'lens1_usage_review_contract.auto_promotion_allowed'));
+        $this->assertSame('approve_or_reject_constelacao_lens1_promotion_after_usage_review', data_get($event->payload, 'lens1_usage_review_contract.required_human_decision'));
+        $this->assertTrue((bool) data_get($event->payload, 'lens1_usage_review_contract.rollback_plan_required'));
+        $this->assertContains('keep_graph_rag_positioning_disabled', data_get($event->payload, 'lens1_usage_review_contract.rollback_required'));
+        $this->assertContains('enable_command_sky', data_get($event->payload, 'lens1_usage_review_contract.forbidden_until_review'));
+        $this->assertSame('atlas.runtime_invocation_contract.v1', data_get($event->payload, 'lens1_usage_review_contract.future_runtime_invocation_contract.schema_version'));
+        $this->assertSame('python_ai_data', data_get($event->payload, 'lens1_usage_review_contract.future_runtime_invocation_contract.selected_runtime_family'));
+        $this->assertContains('command_sky', data_get($event->payload, 'lens1_usage_review_contract.blocked_targets'));
         $this->assertSame(2, data_get($event->payload, 'item_count'));
         $this->assertStringNotContainsString('conteudo sensivel', json_encode($event->payload, JSON_THROW_ON_ERROR));
         $this->assertStringNotContainsString('texto bruto', json_encode($event->payload, JSON_THROW_ON_ERROR));
@@ -203,6 +252,100 @@ final class AtlasConstelacaoPositionsApiTest extends TestCase
             ->firstOrFail();
 
         $this->assertSame('atlas_app_mobile', data_get($event->payload, 'client_surface'));
+    }
+
+    public function test_command_sky_lens_request_is_blocked_until_formal_promotion(): void
+    {
+        SemanticNote::query()->create([
+            'note_key' => 'lens-gate-note',
+            'path' => '02-modelos/lens-gate-note.md',
+            'title' => 'Lens Gate Note',
+            'type' => 'mental_model',
+            'status' => 'active',
+            'confidence' => 'medium',
+            'maturity' => 'draft',
+            'domains' => ['programming'],
+            'content_hash' => hash('sha256', 'lens-gate-note'),
+            'metadata' => [],
+            'indexed_at' => now(),
+        ]);
+
+        $this->getJson('/atlas/celestial/positions?lens=command_sky&limit=5', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('lens', 'bilderatlas')
+            ->assertJsonPath('requested_lens', 'command_sky')
+            ->assertJsonPath('lens_gate.schema_version', 'atlas.constelacao.lens_gate.v1')
+            ->assertJsonPath('lens_gate.active_lens', 'bilderatlas')
+            ->assertJsonPath('lens_gate.requested_lens', 'command_sky')
+            ->assertJsonPath('lens_gate.blocked', true)
+            ->assertJsonPath('lens_gate.reason', 'command_sky_requires_future_ap_human_review_and_decision_receipt')
+            ->assertJsonPath('ui_contract.lens', 'bilderatlas')
+            ->assertJsonPath('ui_contract.requested_lens', 'command_sky')
+            ->assertJsonPath('ui_contract.operational_chrome_allowed', false);
+
+        $event = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::ConstelacaoPositionsServed->value)
+            ->get()
+            ->first(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'lens_gate.requested_lens') === 'command_sky');
+
+        $this->assertNotNull($event);
+
+        $this->assertSame('bilderatlas', data_get($event->payload, 'lens_gate.active_lens'));
+        $this->assertSame('command_sky', data_get($event->payload, 'lens_gate.requested_lens'));
+        $this->assertTrue((bool) data_get($event->payload, 'lens_gate.blocked'));
+        $this->assertFalse((bool) data_get($event->payload, 'lens_maturity_gate.command_sky_allowed'));
+        $this->assertFalse((bool) data_get($event->payload, 'lens_maturity_gate.lens2_promotion_allowed'));
+        $this->assertSame(30, data_get($event->payload, 'lens_maturity_gate.observation_window_days_required'));
+        $this->assertSame('atlas.constelacao.lens1_usage_review.v1', data_get($event->payload, 'lens1_usage_review_contract.schema_version'));
+        $this->assertFalse((bool) data_get($event->payload, 'lens1_usage_review_contract.auto_promotion_allowed'));
+        $this->assertContains('graph_rag_positioning', data_get($event->payload, 'lens1_usage_review_contract.blocked_targets'));
+    }
+
+    public function test_unknown_lens_request_is_sanitized_preserved_and_blocked(): void
+    {
+        SemanticNote::query()->create([
+            'note_key' => 'unknown-lens-note',
+            'path' => '02-modelos/unknown-lens-note.md',
+            'title' => 'Unknown Lens Note',
+            'type' => 'mental_model',
+            'status' => 'active',
+            'confidence' => 'medium',
+            'maturity' => 'draft',
+            'domains' => ['programming'],
+            'content_hash' => hash('sha256', 'unknown-lens-note'),
+            'metadata' => [],
+            'indexed_at' => now(),
+        ]);
+
+        $this->getJson('/atlas/celestial/positions?lens=../../Command Sky!!!&limit=5', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('lens', 'bilderatlas')
+            ->assertJsonPath('requested_lens', 'command_sky')
+            ->assertJsonPath('lens_gate.blocked', true)
+            ->assertJsonPath('lens_gate.reason', 'command_sky_requires_future_ap_human_review_and_decision_receipt')
+            ->assertJsonPath('ui_contract.operational_chrome_allowed', false);
+
+        $this->getJson('/atlas/celestial/positions?lens=graph-rag-admin&limit=5', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('lens', 'bilderatlas')
+            ->assertJsonPath('requested_lens', 'graph-rag-admin')
+            ->assertJsonPath('lens_gate.blocked', true)
+            ->assertJsonPath('lens_gate.reason', 'unsupported_lens_requires_future_ap_human_review_and_decision_receipt')
+            ->assertJsonPath('lens_maturity_gate.graph_rag_positioning_allowed', false);
+
+        $event = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::ConstelacaoPositionsServed->value)
+            ->get()
+            ->first(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'lens_gate.requested_lens') === 'graph-rag-admin');
+
+        $this->assertNotNull($event);
+
+        $this->assertSame('bilderatlas', data_get($event->payload, 'lens_gate.active_lens'));
+        $this->assertSame('graph-rag-admin', data_get($event->payload, 'lens_gate.requested_lens'));
+        $this->assertTrue((bool) data_get($event->payload, 'lens_gate.blocked'));
+        $this->assertSame('unsupported_lens_requires_future_ap_human_review_and_decision_receipt', data_get($event->payload, 'lens_gate.reason'));
+        $this->assertFalse((bool) data_get($event->payload, 'promotion_gate.graph_rag_promotion_allowed'));
+        $this->assertFalse((bool) data_get($event->payload, 'promotion_gate.python_runtime_allowed'));
     }
 
     public function test_positions_endpoint_falls_back_to_empty_sky_when_sources_are_missing(): void

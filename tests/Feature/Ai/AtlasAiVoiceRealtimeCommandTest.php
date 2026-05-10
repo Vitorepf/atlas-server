@@ -30,6 +30,8 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertSame('atlas.voice.session_lease.v1', data_get($payload, 'session_lease.schema_version'));
         $this->assertSame('mobile_push_to_talk', data_get($payload, 'session_lease.default_mode'));
         $this->assertSame('not_issued_scaffold', data_get($payload, 'session_lease.token_status'));
+        $this->assertSame('atlas-voice-', data_get($payload, 'session_lease.required_room_prefix'));
+        $this->assertSame('client_surface', data_get($payload, 'session_lease.participant_namespace_source'));
         $this->assertSame('/ai/voice/session/start', $payload['session_start_endpoint']);
         $this->assertSame('/ai/voice/session/end', $payload['session_end_endpoint']);
         $this->assertSame('/ai/voice/readiness', $payload['readiness_endpoint']);
@@ -46,6 +48,13 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertSame('/v1/mobile/ai/voice/provider/health-degraded', data_get($payload, 'mobile_required_callbacks.provider_health_degraded'));
         $this->assertSame('atlas.token', data_get($payload, 'auth_contract.internal_api.middleware'));
         $this->assertSame('atlas.mobile.bearer', data_get($payload, 'auth_contract.mobile_api.middleware'));
+        $this->assertSame('atlas.runtime_invocation_contract.v1', data_get($payload, 'runtime_invocation_contract.schema_version'));
+        $this->assertTrue(data_get($payload, 'runtime_invocation_contract.kernel_first'));
+        $this->assertSame('python_ai_data', data_get($payload, 'runtime_invocation_contract.selected_runtime_family'));
+        $this->assertSame('livekit_agents_sdk', data_get($payload, 'runtime_invocation_contract.runtime_id'));
+        $this->assertContains('decision_receipt_hash', data_get($payload, 'runtime_invocation_contract.required_fields'));
+        $this->assertContains('evidence_sink', data_get($payload, 'runtime_invocation_contract.required_fields'));
+        $this->assertContains('choose_provider_or_model', data_get($payload, 'runtime_invocation_contract.forbidden_runtime_authority'));
         $this->assertFalse(data_get($payload, 'persistence_contract.raw_audio'));
         $this->assertFalse(data_get($payload, 'persistence_contract.raw_transcript'));
         $this->assertFalse(data_get($payload, 'persistence_contract.raw_response_text'));
@@ -120,10 +129,33 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertContains('direct_tool_execution', $payload['forbidden_capabilities']);
         $this->assertSame('atlas_kernel_only', data_get($payload, 'default_providers.llm'));
         $this->assertSame('atlas.voice.session_lease.v1', data_get($payload, 'session_lease.schema_version'));
-        $this->assertSame('atlas-voice', data_get($payload, 'session_lease.room_prefix'));
+        $this->assertSame('atlas-voice-', data_get($payload, 'session_lease.room_prefix'));
+        $this->assertSame('atlas-voice-', data_get($payload, 'session_lease.required_room_prefix'));
+        $this->assertSame('client_surface', data_get($payload, 'session_lease.participant_namespace_source'));
         $this->assertSame(['livekit_agents_sdk'], data_get($payload, 'allowlists.runtimes'));
         $this->assertSame(['mobile', 'mac_edge'], data_get($payload, 'allowlists.client_surfaces'));
+        $this->assertSame('atlas.runtime_invocation_contract.v1', data_get($payload, 'runtime_invocation_contract.schema_version'));
+        $this->assertSame('python_ai_data', data_get($payload, 'runtime_invocation_contract.selected_runtime_family'));
+        $this->assertSame('livekit_agents_sdk', data_get($payload, 'runtime_invocation_contract.runtime_id'));
         $this->assertIsString($payload['contract_hash']);
+    }
+
+    public function test_command_sanitizes_bootstrap_base_url_before_runtime_env_use(): void
+    {
+        config()->set('app.url', 'http://atlas.test');
+
+        $exit = Artisan::call('atlas:ai:voice', [
+            'action' => 'bootstrap',
+            '--runtime' => 'livekit_agents_sdk',
+            '--base-url' => "http://atlas.test\nLIVEKIT_API_SECRET=injected",
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('http://atlas.test', data_get($payload, 'kernel.base_url'));
+        $this->assertSame('http://atlas.test/ai/voice/session/start', data_get($payload, 'kernel.session_start_url'));
+        $this->assertStringNotContainsString('LIVEKIT_API_SECRET=injected', Artisan::output());
     }
 
     public function test_generated_bootstrap_manifest_is_accepted_by_python_runtime_entrypoint(): void
@@ -162,7 +194,7 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
             $this->assertSame('http://atlas.test/ai/voice/rivals', $payload['rivals_url']);
             $this->assertSame('http://atlas.test/ai/voice/wake-word', $payload['wake_word_url']);
             $this->assertSame('http://atlas.test/ai/voice/turn', $payload['turn_url']);
-            $this->assertSame('atlas-voice', $payload['room_prefix']);
+            $this->assertSame('atlas-voice-', $payload['room_prefix']);
             $this->assertNull($payload['livekit_url']);
             $this->assertTrue($payload['kernel_only']);
             $this->assertFalse($payload['settings_loaded']);
@@ -496,6 +528,22 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'guardrails.direct_provider_call_allowed'));
     }
 
+    public function test_command_exposes_callback_loop_wired_check_without_starting_daemon(): void
+    {
+        $exit = Artisan::call('atlas:ai:voice', [
+            'action' => 'callback-loop-check',
+            '--production-sdk-loop-wired' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.voice_realtime.callback_loop_contract.v1', $payload['schema_version']);
+        $this->assertTrue($payload['production_sdk_loop_wired']);
+        $this->assertTrue($payload['worker_start_callback_loop_wired']);
+        $this->assertSame('run_worker_start_check', $payload['next_action']);
+    }
+
     public function test_command_human_output_lists_callback_loop_check(): void
     {
         $exit = Artisan::call('atlas:ai:voice', [
@@ -523,7 +571,14 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertSame('voice_realtime', $payload['surface_id']);
         $this->assertSame('livekit_agents_sdk', $payload['runtime_id']);
         $this->assertTrue($payload['kernel_only']);
+        $this->assertFalse($payload['sdk_imported']);
+        $this->assertTrue($payload['import_probe_only']);
         $this->assertArrayHasKey('livekit', $payload['packages']);
+        $this->assertSame('livekit-agents', data_get($payload, 'package_checks.0.pip'));
+        $this->assertSame('livekit.agents', data_get($payload, 'package_checks.0.import'));
+        $this->assertSame('product_loop_daemon', data_get($payload, 'package_checks.0.required_for'));
+        $this->assertSame('not_pinned_yet', data_get($payload, 'package_checks.0.version_policy'));
+        $this->assertStringContainsString('importlib metadata/spec only', data_get($payload, 'dependency_manifest.probe_policy'));
         $this->assertFalse(data_get($payload, 'contract.raw_audio_persistence_allowed'));
     }
 
@@ -565,6 +620,22 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertArrayHasKey('sdk_status', $payload);
     }
 
+    public function test_command_exposes_worker_plan_with_callback_loop_wired_flag(): void
+    {
+        $exit = Artisan::call('atlas:ai:voice', [
+            'action' => 'worker-plan',
+            '--callback-loop-wired' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.voice_realtime.worker_plan.v1', $payload['schema_version']);
+        $this->assertTrue($payload['callback_loop_wired']);
+        $this->assertFalse(data_get($payload, 'guardrails.direct_provider_call_allowed'));
+        $this->assertFalse(data_get($payload, 'guardrails.raw_audio_persistence_allowed'));
+    }
+
     public function test_command_human_output_lists_livekit_worker_plan(): void
     {
         $exit = Artisan::call('atlas:ai:voice', [
@@ -604,6 +675,50 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertContains('transcript_final', $payload['required_loop_hooks']);
     }
 
+    public function test_command_exposes_production_loop_plan_with_sdk_loop_wired_flag(): void
+    {
+        $exit = Artisan::call('atlas:ai:voice', [
+            'action' => 'production-loop-plan',
+            '--production-sdk-loop-wired' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.voice_realtime.production_loop_plan.v1', $payload['schema_version']);
+        $this->assertTrue($payload['production_sdk_loop_wired']);
+        $this->assertTrue($payload['worker_start_callback_loop_wired']);
+        $this->assertSame('wired', data_get($payload, 'sdk_wiring_contract.status'));
+        $this->assertFalse(data_get($payload, 'guardrails.worker_start_allowed_by_this_plan'));
+    }
+
+    public function test_command_exposes_product_loop_check_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:voice', [
+            'action' => 'product-loop-check',
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+        $payload = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.voice_realtime.product_loop_check.v1', $payload['schema_version']);
+        $this->assertSame('voice_realtime', $payload['surface_id']);
+        $this->assertTrue($payload['kernel_only']);
+        $this->assertTrue($payload['mobile_first']);
+        $this->assertFalse($payload['daemon_started']);
+        $this->assertTrue(data_get($payload, 'gates.callback_loop_wired'));
+        $this->assertTrue(data_get($payload, 'gates.production_sdk_loop_wired'));
+        $this->assertTrue(data_get($payload, 'gates.worker_start_still_blocked'));
+        $this->assertTrue(data_get($payload, 'gates.production_promotion_blocked'));
+        $this->assertFalse(data_get($payload, 'guardrails.direct_provider_call_allowed'));
+        $this->assertFalse(data_get($payload, 'guardrails.auto_promotion_allowed'));
+        $this->assertSame('atlas.voice_realtime.worker_start.v1', data_get($payload, 'worker_start.schema_version'));
+        $this->assertStringContainsString('--product-loop-check', $payload['command']);
+        $this->assertStringNotContainsString('product-loop-secret', $output);
+        $this->assertStringNotContainsString('product-loop-token', $output);
+    }
+
     public function test_command_human_output_lists_production_loop_plan(): void
     {
         $exit = Artisan::call('atlas:ai:voice', [
@@ -634,6 +749,7 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertTrue($payload['mock_kernel']);
         $this->assertFalse($payload['daemon_started']);
         $this->assertFalse($payload['sdk_imported']);
+        $this->assertSame(30, $payload['timeout_seconds']);
         $this->assertSame(5, $payload['event_count']);
         $this->assertSame(5, $payload['result_count']);
         $this->assertSame(0, $payload['active_session_count']);
@@ -687,10 +803,35 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertSame('atlas.voice_realtime.production_loop_plan.v1', data_get($payload, 'production_loop_plan.schema_version'));
         $this->assertSame('atlas.voice_realtime.sdk_wiring_contract.v1', data_get($payload, 'sdk_wiring_contract.schema_version'));
         $this->assertSame(data_get($payload, 'activation_contract.next_action'), data_get($payload, 'activation_next_action'));
+        $this->assertSame(30, $payload['timeout_seconds']);
         $this->assertTrue(data_get($payload, 'activation_contract.gates.settings_loaded'));
         $this->assertTrue(data_get($payload, 'activation_contract.gates.boundary_created'));
         $this->assertFalse(data_get($payload, 'activation_contract.gates.callback_loop_wired'));
         $this->assertStringContainsString('--env-file <generated> --start-worker', $payload['command']);
+        $this->assertStringNotContainsString('worker-start-secret', Artisan::output());
+        $this->assertStringNotContainsString('worker-start-token', Artisan::output());
+    }
+
+    public function test_command_exposes_worker_start_check_with_product_loop_wired_but_still_blocked(): void
+    {
+        $exit = Artisan::call('atlas:ai:voice', [
+            'action' => 'worker-start-check',
+            '--callback-loop-wired' => true,
+            '--production-sdk-loop-wired' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.voice_realtime.worker_start.v1', $payload['schema_version']);
+        $this->assertTrue($payload['callback_loop_wired']);
+        $this->assertTrue($payload['production_sdk_loop_wired']);
+        $this->assertFalse($payload['started']);
+        $this->assertTrue(data_get($payload, 'activation_contract.gates.callback_loop_wired'));
+        $this->assertTrue(data_get($payload, 'production_loop_plan.production_sdk_loop_wired'));
+        $this->assertSame('wired', data_get($payload, 'sdk_wiring_contract.status'));
+        $this->assertFalse(data_get($payload, 'production_promotion.auto_promotion_allowed'));
+        $this->assertStringContainsString('--callback-loop-wired --production-sdk-loop-wired', $payload['command']);
         $this->assertStringNotContainsString('worker-start-secret', Artisan::output());
         $this->assertStringNotContainsString('worker-start-token', Artisan::output());
     }
@@ -739,10 +880,25 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertTrue(data_get($payload, 'gates.certification_artifacts_sanitized.passed'));
         $this->assertSame(0, data_get($payload, 'gates.certification_artifacts_sanitized.forbidden_key_count'));
         $this->assertSame([], data_get($payload, 'gates.certification_artifacts_sanitized.forbidden_keys'));
+        $this->assertSame('atlas.voice_realtime.production_promotion_gate.v1', data_get($payload, 'production_promotion_gate.schema_version'));
+        $this->assertSame('blocked', data_get($payload, 'production_promotion_gate.status'));
+        $this->assertTrue(data_get($payload, 'production_promotion_gate.human_review_required'));
+        $this->assertFalse(data_get($payload, 'production_promotion_gate.promotion_allowed'));
+        $this->assertFalse(data_get($payload, 'production_promotion_gate.auto_promotion_allowed'));
+        $this->assertTrue(data_get($payload, 'production_promotion_gate.decision_receipt_required'));
+        $this->assertTrue(data_get($payload, 'production_promotion_gate.rollback_plan_required'));
+        $this->assertSame('atlas.voice_realtime.production_promotion_review_packet.v1', data_get($payload, 'production_promotion_gate.review_packet.schema_version'));
+        $this->assertSame('blocked_until_machine_gates_pass', data_get($payload, 'production_promotion_gate.review_packet.status'));
+        $this->assertContains('disable_livekit_token_issuer', data_get($payload, 'production_promotion_gate.review_packet.required_rollback_plan'));
+        $this->assertContains('rivals_voice_comparison', data_get($payload, 'production_promotion_gate.review_packet.required_evidence'));
+        $this->assertContains('auto_promote_voice_runtime', data_get($payload, 'production_promotion_gate.review_packet.forbidden_actions'));
+        $this->assertContains('sdk_certification_required', data_get($payload, 'production_promotion_gate.summary.failed_keys'));
         $this->assertSame(0, data_get($payload, 'gates.production_loop_smoke_passed.active_session_count'));
         $this->assertFalse(data_get($payload, 'gates.production_loop_smoke_passed.daemon_started'));
-        $this->assertSame('wire_real_livekit_agents_sdk_loop_when_optional_dependency_is_ready', $payload['next_action']);
+        $this->assertSame('rerun_runtime_certification_with_require_sdk', data_get($payload, 'production_promotion_gate.next_action'));
+        $this->assertSame('rerun_runtime_certification_with_require_sdk', $payload['next_action']);
         $this->assertArrayNotHasKey('results', data_get($payload, 'artifacts.production_loop_smoke'));
+        $this->assertFalse(data_get($payload, 'artifacts.production_loop_smoke.results', false));
         $this->assertArrayNotHasKey('worker_plan', data_get($payload, 'artifacts.worker_start_check'));
         $this->assertArrayHasKey('foundation_registry', $payload['artifacts']);
         $this->assertArrayNotHasKey('summary', data_get($payload, 'artifacts.foundation_registry'));
@@ -764,6 +920,9 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertStringContainsString('Certification', $output);
         $this->assertStringContainsString('Passed gates', $output);
         $this->assertStringContainsString('Daemon start blocked safely', $output);
+        $this->assertStringContainsString('Production promotion', $output);
+        $this->assertStringContainsString('Human review required', $output);
+        $this->assertStringContainsString('Review packet', $output);
         $this->assertStringContainsString('Next action', $output);
     }
 
@@ -779,6 +938,20 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertSame('atlas.voice.readiness.v1', $payload['schema_version']);
         $this->assertSame(48, $payload['hours']);
+        $this->assertSame('atlas.voice_realtime.phase0_hardening_gate.v1', data_get($payload, 'phase0_hardening.schema_version'));
+        $this->assertSame('Voice Realtime phase 0 hardening', data_get($payload, 'phase0_hardening.safe_next_block'));
+        $this->assertFalse(data_get($payload, 'phase0_hardening.promotion_allowed'));
+        $this->assertFalse(data_get($payload, 'phase0_hardening.auto_promotion_allowed'));
+        $this->assertTrue(data_get($payload, 'phase0_hardening.human_review_required_for_production'));
+        $this->assertTrue(data_get($payload, 'phase0_hardening.gates.mobile_first_surface_contract.passed'));
+        $this->assertTrue(data_get($payload, 'phase0_hardening.gates.kernel_decision_receipt_required.passed'));
+        $this->assertTrue(data_get($payload, 'phase0_hardening.gates.callback_loop_fail_closed.passed'));
+        $this->assertTrue(data_get($payload, 'phase0_hardening.gates.privacy_audio_not_persisted.passed'));
+        $this->assertTrue(data_get($payload, 'phase0_hardening.gates.production_promotion_review_locked.passed'));
+        $this->assertContains(
+            'php artisan atlas:ai:voice runtime-certify --json',
+            data_get($payload, 'phase0_hardening.required_validation'),
+        );
         $this->assertContains($payload['status'], ['ledger_unavailable', 'attention', 'ready']);
     }
 
@@ -798,6 +971,11 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertSame(0, data_get($payload, 'runtime_certification.summary.failed_gates'));
         $this->assertTrue(data_get($payload, 'runtime_certification.artifact_sanitization.passed'));
         $this->assertSame(0, data_get($payload, 'runtime_certification.artifact_sanitization.forbidden_key_count'));
+        $this->assertSame('blocked', data_get($payload, 'production_promotion_gate.status'));
+        $this->assertTrue(data_get($payload, 'production_promotion_gate.human_review_required'));
+        $this->assertFalse(data_get($payload, 'production_promotion_gate.promotion_allowed'));
+        $this->assertFalse(data_get($payload, 'production_promotion_gate.auto_promotion_allowed'));
+        $this->assertSame('atlas.voice_realtime.production_promotion_review_packet.v1', data_get($payload, 'production_promotion_gate.review_packet.schema_version'));
         $this->assertContains($payload['status'], ['ledger_unavailable', 'not_ready', 'ready']);
     }
 
@@ -811,6 +989,6 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
 
         $this->assertSame(1, $exit);
         $this->assertSame('invalid_action', $payload['status']);
-        $this->assertSame(['contract', 'bootstrap', 'dependencies', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'worker-plan', 'production-loop-plan', 'production-loop-smoke', 'worker-start-check', 'runtime-certify', 'health', 'readiness', 'rivals'], $payload['allowed_actions']);
+        $this->assertSame(['contract', 'bootstrap', 'dependencies', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'worker-plan', 'production-loop-plan', 'product-loop-check', 'production-loop-smoke', 'worker-start-check', 'runtime-certify', 'health', 'readiness', 'rivals'], $payload['allowed_actions']);
     }
 }

@@ -6,6 +6,7 @@ use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMobileDevice;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Mobile\MobilePairingService;
+use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -44,6 +45,15 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('mobile_first', true)
             ->assertJsonPath('livekit_agents_sdk', 'planned')
             ->assertJsonPath('swift_native_mac', 'future_edge')
+            ->assertJsonPath('activation_governance.schema_version', 'atlas.voice_realtime.activation_governance.v1')
+            ->assertJsonPath('activation_governance.first_product_surface', 'mobile')
+            ->assertJsonPath('activation_governance.livekit_agents_direct_provider_allowed', false)
+            ->assertJsonPath('activation_governance.always_on_listening_allowed_now', false)
+            ->assertJsonPath('activation_governance.mac_edge_first_product_allowed', false)
+            ->assertJsonPath('runtime_invocation_contract.schema_version', 'atlas.runtime_invocation_contract.v1')
+            ->assertJsonPath('runtime_invocation_contract.kernel_first', true)
+            ->assertJsonPath('runtime_invocation_contract.selected_runtime_family', 'python_ai_data')
+            ->assertJsonPath('runtime_invocation_contract.runtime_id', 'livekit_agents_sdk')
             ->assertJsonPath('contract.runtime_requires_decision_receipt', true)
             ->assertJsonPath('contract.raw_audio_persistence_allowed', false);
     }
@@ -71,6 +81,8 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('session_lease.token_status', 'not_issued_scaffold')
             ->assertJsonPath('session_lease.kernel_decision_required_per_turn', true)
             ->assertJsonPath('session_lease.raw_audio_persistence_allowed', false)
+            ->assertJsonPath('session_lease.activation_governance.first_product_surface', 'mobile')
+            ->assertJsonPath('session_lease.activation_governance.runtime_daemon_start_allowed_now', false)
             ->assertJsonPath('eclipse.active', false)
             ->assertJsonPath('evidence_ledger.recorded', true)
             ->assertJsonPath('evidence_ledger.event_type', LedgerEventType::VoiceSessionStarted->value);
@@ -140,6 +152,98 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
         $this->assertArrayNotHasKey('access_token', $lease);
         $this->assertArrayNotHasKey('token', $lease);
         $this->assertArrayNotHasKey('livekit_token', $lease);
+    }
+
+    public function test_voice_session_start_does_not_issue_livekit_token_without_livekit_url(): void
+    {
+        config()->set('atlas.voice.livekit.token_issuer_enabled', true);
+        config()->set('atlas.voice.livekit.url', '');
+        config()->set('atlas.voice.livekit.api_key', 'livekit-test-key');
+        config()->set('atlas.voice.livekit.api_secret', 'livekit-test-secret');
+
+        $this->postJson('/ai/voice/session/start', [
+            'session_id' => 'voice_session_missing_livekit_url',
+            'envelope_id' => 'env_voice_missing_livekit_url',
+            'receipt_id' => 'receipt_voice_missing_livekit_url',
+            'client_surface' => 'mobile',
+            'participant_identity' => 'mobile:vitor',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('session_lease.livekit_url', null)
+            ->assertJsonPath('session_lease.token_status', 'not_issued_missing_config')
+            ->assertJsonPath('session_lease.token_reason', 'livekit_url_missing')
+            ->assertJsonPath('session_lease.grant.room_join', false)
+            ->assertJsonMissingPath('session_lease.access_token');
+
+        $event = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceSessionStarted->value)
+            ->where('envelope_id', 'env_voice_missing_livekit_url')
+            ->firstOrFail();
+
+        $lease = data_get($event->payload, 'voice.session_lease');
+        $this->assertSame('not_issued_missing_config', data_get($lease, 'token_status'));
+        $this->assertSame('livekit_url_missing', data_get($lease, 'token_reason'));
+        $this->assertArrayNotHasKey('access_token', $lease);
+    }
+
+    public function test_voice_session_start_scopes_requested_livekit_room_to_atlas_voice_prefix(): void
+    {
+        config()->set('atlas.voice.livekit.token_issuer_enabled', true);
+        config()->set('atlas.voice.livekit.url', 'http://livekit.test');
+        config()->set('atlas.voice.livekit.api_key', 'livekit-test-key');
+        config()->set('atlas.voice.livekit.api_secret', 'livekit-test-secret');
+
+        $response = $this->postJson('/ai/voice/session/start', [
+            'session_id' => 'voice_session_external_room',
+            'envelope_id' => 'env_voice_external_room',
+            'receipt_id' => 'receipt_voice_external_room',
+            'client_surface' => 'mobile',
+            'participant_identity' => 'mobile:vitor',
+            'room_name' => '../../prod-room',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('session_lease.room_name', 'atlas-voice-prod-room')
+            ->assertJsonPath('session_lease.grant.room', 'atlas-voice-prod-room');
+
+        $claims = $this->decodeJwtClaims((string) $response->json('session_lease.access_token'));
+        $this->assertSame('atlas-voice-prod-room', data_get($claims, 'video.room'));
+
+        $event = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceSessionStarted->value)
+            ->where('envelope_id', 'env_voice_external_room')
+            ->firstOrFail();
+
+        $this->assertSame('atlas-voice-prod-room', data_get($event->payload, 'voice.session_lease.room_name'));
+        $this->assertArrayNotHasKey('access_token', data_get($event->payload, 'voice.session_lease'));
+    }
+
+    public function test_voice_session_start_scopes_requested_livekit_participant_to_client_surface(): void
+    {
+        config()->set('atlas.voice.livekit.token_issuer_enabled', true);
+        config()->set('atlas.voice.livekit.url', 'http://livekit.test');
+        config()->set('atlas.voice.livekit.api_key', 'livekit-test-key');
+        config()->set('atlas.voice.livekit.api_secret', 'livekit-test-secret');
+
+        $response = $this->postJson('/ai/voice/session/start', [
+            'session_id' => 'voice_session_external_participant',
+            'envelope_id' => 'env_voice_external_participant',
+            'receipt_id' => 'receipt_voice_external_participant',
+            'client_surface' => 'mobile',
+            'participant_identity' => 'admin:../../root',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('session_lease.participant_identity', 'mobile:adminroot');
+
+        $claims = $this->decodeJwtClaims((string) $response->json('session_lease.access_token'));
+        $this->assertSame('mobile:adminroot', $claims['sub']);
+
+        $event = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceSessionStarted->value)
+            ->where('envelope_id', 'env_voice_external_participant')
+            ->firstOrFail();
+
+        $this->assertSame('mobile:adminroot', data_get($event->payload, 'voice.session_lease.participant_identity'));
+        $this->assertArrayNotHasKey('access_token', data_get($event->payload, 'voice.session_lease'));
     }
 
     public function test_voice_session_start_blocks_livekit_token_when_eclipse_is_active(): void
@@ -279,6 +383,19 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('allowlists.runtimes.0', 'livekit_agents_sdk')
             ->assertJsonPath('allowlists.privacy_classes.2', 'p3_audio')
             ->assertJsonPath('kernel_is_decision_authority', true)
+            ->assertJsonPath('activation_governance.schema_version', 'atlas.voice_realtime.activation_governance.v1')
+            ->assertJsonPath('activation_governance.status', 'scaffold_fail_closed')
+            ->assertJsonPath('activation_governance.first_product_surface', 'mobile')
+            ->assertJsonPath('activation_governance.mobile_push_to_talk_required', true)
+            ->assertJsonPath('activation_governance.livekit_agents_direct_provider_allowed', false)
+            ->assertJsonPath('activation_governance.kernel_webhook_required', true)
+            ->assertJsonPath('activation_governance.decision_receipt_required_per_turn', true)
+            ->assertJsonPath('activation_governance.runtime_daemon_start_allowed_now', false)
+            ->assertJsonPath('activation_governance.production_audio_streaming_allowed_now', false)
+            ->assertJsonPath('activation_governance.always_on_listening_allowed_now', false)
+            ->assertJsonPath('activation_governance.swift_native_mac_phase', 'future_after_mobile_voice')
+            ->assertJsonPath('activation_governance.promotion_requires.0', 'mobile_push_to_talk_operational')
+            ->assertJsonPath('activation_governance.blocked_shortcuts.0', 'swift_mac_before_mobile')
             ->assertJsonPath('session_lease.schema_version', 'atlas.voice.session_lease.v1')
             ->assertJsonPath('session_lease.default_mode', 'mobile_push_to_talk')
             ->assertJsonPath('session_lease.token_status', 'not_issued_scaffold')
@@ -308,7 +425,9 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('auth_contract.rule', 'runtime_must_call_kernel_endpoint_before_provider_or_tool_execution')
             ->assertJsonPath('callback_order.normal_turn.0', 'turn')
             ->assertJsonPath('callback_order.runtime_callbacks_require_kernel_accepted_turn.0', 'turn_synthesized')
-            ->assertJsonPath('callback_order.runtime_callbacks_require_kernel_accepted_turn.3', 'provider_health_degraded')
+            ->assertJsonPath('callback_order.runtime_callbacks_require_kernel_accepted_turn.3', 'runtime_failed')
+            ->assertJsonPath('callback_order.runtime_callbacks_require_kernel_accepted_turn.4', 'provider_health_degraded')
+            ->assertJsonPath('callback_order.runtime_health_after_accepted_turn.0', 'runtime_failed')
             ->assertJsonPath('persistence_contract.raw_audio', false)
             ->assertJsonPath('persistence_contract.raw_transcript', false)
             ->assertJsonPath('persistence_contract.raw_response_text', false)
@@ -423,7 +542,23 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('gates.worker_start_blocked_safely.passed', true)
             ->assertJsonPath('gates.certification_artifacts_sanitized.passed', true)
             ->assertJsonPath('gates.certification_artifacts_sanitized.forbidden_key_count', 0)
-            ->assertJsonPath('next_action', 'wire_real_livekit_agents_sdk_loop_when_optional_dependency_is_ready')
+            ->assertJsonPath('production_promotion_gate.schema_version', 'atlas.voice_realtime.production_promotion_gate.v1')
+            ->assertJsonPath('production_promotion_gate.status', 'blocked')
+            ->assertJsonPath('production_promotion_gate.human_review_required', true)
+            ->assertJsonPath('production_promotion_gate.promotion_allowed', false)
+            ->assertJsonPath('production_promotion_gate.auto_promotion_allowed', false)
+            ->assertJsonPath('production_promotion_gate.decision_receipt_required', true)
+            ->assertJsonPath('production_promotion_gate.rollback_plan_required', true)
+            ->assertJsonPath('production_promotion_gate.review_packet.schema_version', 'atlas.voice_realtime.production_promotion_review_packet.v1')
+            ->assertJsonPath('production_promotion_gate.review_packet.status', 'blocked_until_machine_gates_pass')
+            ->assertJsonPath('production_promotion_gate.review_packet.required_decision_receipt', true)
+            ->assertJsonPath('production_promotion_gate.review_packet.required_rollback_plan.0', 'disable_livekit_token_issuer')
+            ->assertJsonPath('production_promotion_gate.review_packet.required_evidence.4', 'rivals_voice_comparison')
+            ->assertJsonPath('production_promotion_gate.review_packet.forbidden_actions.4', 'bypass_kernel_decision_receipt')
+            ->assertJsonPath('production_promotion_gate.next_action', 'rerun_runtime_certification_with_require_sdk')
+            ->assertJsonPath('next_action', 'rerun_runtime_certification_with_require_sdk')
+            ->assertJsonPath('artifacts.livekit_token_issuer.schema_version', 'atlas.voice_realtime.livekit_token_issuer_readiness.v1')
+            ->assertJsonPath('artifacts.livekit_token_issuer.secrets_exposed', false)
             ->assertJsonMissingPath('artifacts.foundation_registry.summary')
             ->assertJsonMissingPath('artifacts.worker_start_check.worker_plan')
             ->assertJsonMissingPath('artifacts.production_loop_smoke.results');
@@ -440,6 +575,9 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('status', 'certified_scaffold')
             ->assertJsonPath('mobile_first', true)
             ->assertJsonPath('summary.failed_gates', 0)
+            ->assertJsonPath('production_promotion_gate.status', 'blocked')
+            ->assertJsonPath('production_promotion_gate.promotion_allowed', false)
+            ->assertJsonPath('production_promotion_gate.auto_promotion_allowed', false)
             ->assertJsonPath('gates.certification_artifacts_sanitized.passed', true);
     }
 
@@ -500,7 +638,12 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('default_providers.llm', 'atlas_kernel_only')
             ->assertJsonPath('session_lease.schema_version', 'atlas.voice.session_lease.v1')
             ->assertJsonPath('session_lease.token_status', 'not_issued_scaffold')
-            ->assertJsonPath('session_lease.room_prefix', 'atlas-voice')
+            ->assertJsonPath('session_lease.room_prefix', 'atlas-voice-')
+            ->assertJsonPath('session_lease.required_room_prefix', 'atlas-voice-')
+            ->assertJsonPath('session_lease.participant_namespace_source', 'client_surface')
+            ->assertJsonPath('activation_governance.first_product_surface', 'mobile')
+            ->assertJsonPath('activation_governance.livekit_agents_direct_provider_allowed', false)
+            ->assertJsonPath('activation_governance.always_on_listening_allowed_now', false)
             ->assertJsonPath('persistence_contract.raw_audio', false)
             ->assertJsonPath('production_loop_smoke.schema_version', 'atlas.voice_realtime.production_loop_smoke_contract.v1')
             ->assertJsonPath('production_loop_smoke.sdk_events_example_path', 'runtimes/python/voice_realtime/sdk-events.example.json')
@@ -508,6 +651,9 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('production_loop_smoke.daemon_started', false)
             ->assertJsonPath('production_loop_smoke.kernel_only', true)
             ->assertJsonPath('auth_contract.internal_api.middleware', 'atlas.token')
+            ->assertJsonPath('runtime_invocation_contract.schema_version', 'atlas.runtime_invocation_contract.v1')
+            ->assertJsonPath('runtime_invocation_contract.selected_runtime_family', 'python_ai_data')
+            ->assertJsonPath('runtime_invocation_contract.runtime_id', 'livekit_agents_sdk')
             ->assertJson(fn ($json) => $json
                 ->has('contract_hash')
                 ->where('required_env.0', 'ATLAS_BASE_URL')
@@ -516,6 +662,18 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
                 ->has('required_runtime_behaviors')
                 ->etc()
             );
+    }
+
+    public function test_voice_runtime_bootstrap_sanitizes_base_url_before_manifest_publication(): void
+    {
+        config()->set('app.url', 'http://atlas.test');
+
+        $this->getJson('/ai/voice/runtime/bootstrap?runtime=livekit_agents_sdk&base_url='.urlencode("http://atlas.test\nLIVEKIT_API_SECRET=injected"), $this->headers)
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.voice_realtime.runtime_bootstrap.v1')
+            ->assertJsonPath('kernel.base_url', 'http://atlas.test')
+            ->assertJsonPath('kernel.session_start_url', 'http://atlas.test/ai/voice/session/start')
+            ->assertJsonMissingPath('kernel.LIVEKIT_API_SECRET');
     }
 
     public function test_voice_turn_records_audio_transcript_decision_and_slo_without_raw_audio(): void
@@ -573,6 +731,8 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
 
         $this->assertArrayNotHasKey('transcript', data_get($transcribed->payload, 'voice'));
         $this->assertSame(hash('sha256', 'corrija o teste quebrado'), data_get($transcribed->payload, 'voice.transcript_hash'));
+        $this->assertSame(24, data_get($transcribed->payload, 'voice.transcript_length'));
+        $this->assertStringNotContainsString('corrija o teste quebrado', json_encode($transcribed->payload, JSON_THROW_ON_ERROR));
     }
 
     public function test_voice_turn_is_blocked_by_eclipse_policy(): void
@@ -615,6 +775,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('status', 'turn_interrupted_recorded')
             ->assertJsonPath('turn.turn_id', 'voice_turn_interrupt')
             ->assertJsonPath('turn.interruption_recorded', true)
+            ->assertJsonPath('turn.interruption_source', 'operator')
             ->assertJsonPath('turn.raw_audio_persisted', false)
             ->assertJsonPath('evidence_ledger.interrupted.event_type', LedgerEventType::VoiceTurnInterrupted->value)
             ->assertJsonPath('evidence_ledger.slo.event_type', LedgerEventType::SloObserved->value);
@@ -628,6 +789,38 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             'event_type' => LedgerEventType::SloObserved->value,
             'envelope_id' => 'env_voice_interrupt',
             'receipt_id' => 'receipt_voice_interrupt',
+        ]);
+    }
+
+    public function test_voice_runtime_interruption_callback_requires_accepted_kernel_turn(): void
+    {
+        $this->postJson('/ai/voice/turn/interrupted', [
+            'session_id' => 'voice_session_runtime_interrupt',
+            'envelope_id' => 'env_voice_runtime_interrupt',
+            'receipt_id' => 'receipt_voice_runtime_interrupt',
+            'turn_id' => 'voice_turn_runtime_interrupt',
+            'runtime' => 'livekit_agents_sdk',
+            'interruption_source' => 'runtime_callback',
+            'reason' => 'barge_in',
+            'interrupted_stage' => 'tts_streaming',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'callback_rejected_missing_kernel_turn')
+            ->assertJsonPath('turn.event_type', LedgerEventType::VoiceTurnInterrupted->value)
+            ->assertJsonPath('turn.interruption_source', 'runtime_callback')
+            ->assertJsonPath('turn.accepted_kernel_turn_required', true)
+            ->assertJsonPath('turn.raw_audio_persisted', false)
+            ->assertJsonPath('turn.raw_text_persisted', false)
+            ->assertJsonPath('evidence_ledger.event_type', LedgerEventType::VoiceRuntimeFailed->value);
+
+        $this->assertDatabaseHas('atlas_ledger_events', [
+            'event_type' => LedgerEventType::VoiceRuntimeFailed->value,
+            'envelope_id' => 'env_voice_runtime_interrupt',
+            'receipt_id' => 'receipt_voice_runtime_interrupt',
+        ]);
+        $this->assertDatabaseMissing('atlas_ledger_events', [
+            'event_type' => LedgerEventType::VoiceTurnInterrupted->value,
+            'envelope_id' => 'env_voice_runtime_interrupt',
         ]);
     }
 
@@ -668,6 +861,17 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('status', 'turn_playback_recorded')
             ->assertJsonPath('evidence_ledger.event_type', LedgerEventType::VoiceTurnPlayed->value);
 
+        $this->postJson('/ai/voice/turn/interrupted', $base + [
+            'interruption_source' => 'runtime_callback',
+            'reason' => 'barge_in',
+            'interrupted_stage' => 'tts_streaming',
+            'latency_ms' => 65,
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'turn_interrupted_recorded')
+            ->assertJsonPath('turn.interruption_source', 'runtime_callback')
+            ->assertJsonPath('evidence_ledger.interrupted.event_type', LedgerEventType::VoiceTurnInterrupted->value);
+
         $this->postJson('/ai/voice/runtime/failed', $base + [
             'failure_code' => 'tts_timeout',
             'latency_ms' => 2400,
@@ -687,6 +891,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
         foreach ([
             LedgerEventType::VoiceTurnSynthesized,
             LedgerEventType::VoiceTurnPlayed,
+            LedgerEventType::VoiceTurnInterrupted,
             LedgerEventType::VoiceRuntimeFailed,
             LedgerEventType::VoiceProviderHealthDegraded,
         ] as $type) {
@@ -742,6 +947,129 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
         $this->assertSame('kernel_turn_not_accepted', data_get($failure->payload, 'voice.failure_code'));
         $this->assertSame(LedgerEventType::VoiceTurnSynthesized->value, data_get($failure->payload, 'voice.rejected_callback_event_type'));
         $this->assertTrue(data_get($failure->payload, 'voice.requires_voice_turn_decided'));
+
+        $this->postJson('/ai/voice/runtime/failed', [
+            'session_id' => 'voice_session_orphan_runtime_failed',
+            'envelope_id' => 'env_voice_orphan_runtime_failed',
+            'receipt_id' => 'receipt_voice_orphan_runtime_failed',
+            'turn_id' => 'voice_turn_orphan_runtime_failed',
+            'runtime' => 'livekit_agents_sdk',
+            'failure_code' => 'sdk_reported_without_kernel_turn',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'callback_rejected_missing_kernel_turn')
+            ->assertJsonPath('turn.accepted_kernel_turn_required', true)
+            ->assertJsonPath('turn.raw_audio_persisted', false)
+            ->assertJsonPath('turn.raw_text_persisted', false)
+            ->assertJsonPath('evidence_ledger.event_type', LedgerEventType::VoiceRuntimeFailed->value);
+
+        $this->assertDatabaseMissing('atlas_ledger_events', [
+            'event_type' => LedgerEventType::VoiceRuntimeFailed->value,
+            'envelope_id' => 'env_voice_orphan_runtime_failed',
+            'receipt_id' => 'receipt_voice_orphan_runtime_failed',
+            'payload->voice->failure_code' => 'sdk_reported_without_kernel_turn',
+        ]);
+
+        $orphanRuntimeFailure = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceRuntimeFailed->value)
+            ->where('envelope_id', 'env_voice_orphan_runtime_failed')
+            ->firstOrFail();
+
+        $this->assertSame('kernel_turn_not_accepted', data_get($orphanRuntimeFailure->payload, 'voice.failure_code'));
+        $this->assertSame(LedgerEventType::VoiceRuntimeFailed->value, data_get($orphanRuntimeFailure->payload, 'voice.rejected_callback_event_type'));
+    }
+
+    public function test_voice_runtime_callbacks_fail_closed_when_payload_contract_is_invalid(): void
+    {
+        $base = [
+            'session_id' => 'voice_session_invalid_callback',
+            'envelope_id' => 'env_voice_invalid_callback',
+            'receipt_id' => 'receipt_voice_invalid_callback',
+            'turn_id' => 'voice_turn_invalid_callback',
+            'runtime' => 'livekit_agents_sdk',
+        ];
+
+        $turn = $this->postJson('/ai/voice/turn', $base + [
+            'audio_hash' => hash('sha256', 'invalid-callback-audio'),
+            'transcript' => 'prepare a callback',
+        ], $this->headers)->assertOk();
+        $base['envelope_id'] = (string) $turn->json('turn.operation_envelope.envelope_id');
+        $base['receipt_id'] = (string) $turn->json('turn.decision_receipt.receipt_id');
+
+        $this->postJson('/ai/voice/provider/health-degraded', $base + [
+            'reason' => 'latency_p95_breach',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'callback_rejected_payload_contract')
+            ->assertJsonPath('turn.payload_contract_valid', false)
+            ->assertJsonPath('turn.violations.0', 'missing_required_field:provider')
+            ->assertJsonPath('turn.raw_audio_persisted', false)
+            ->assertJsonPath('turn.raw_text_persisted', false)
+            ->assertJsonPath('evidence_ledger.event_type', LedgerEventType::VoiceRuntimeFailed->value);
+
+        $this->assertDatabaseMissing('atlas_ledger_events', [
+            'event_type' => LedgerEventType::VoiceProviderHealthDegraded->value,
+            'envelope_id' => $base['envelope_id'],
+        ]);
+
+        $failure = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceRuntimeFailed->value)
+            ->where('envelope_id', $base['envelope_id'])
+            ->where('receipt_id', $base['receipt_id'])
+            ->firstOrFail();
+
+        $this->assertSame('runtime_callback_payload_contract_violation', data_get($failure->payload, 'voice.failure_code'));
+        $this->assertSame(LedgerEventType::VoiceProviderHealthDegraded->value, data_get($failure->payload, 'voice.rejected_callback_event_type'));
+        $this->assertContains('missing_required_field:provider', data_get($failure->payload, 'voice.violations'));
+        $this->assertArrayNotHasKey('reason', data_get($failure->payload, 'voice'));
+        $this->assertArrayNotHasKey('provider_api_key', data_get($failure->payload, 'voice'));
+    }
+
+    public function test_voice_runtime_service_rejects_nested_sensitive_callback_fields(): void
+    {
+        /** @var AtlasVoiceRealtimeService $voice */
+        $voice = app(AtlasVoiceRealtimeService::class);
+        $base = [
+            'session_id' => 'voice_session_nested_secret',
+            'envelope_id' => 'env_voice_nested_secret',
+            'receipt_id' => 'receipt_voice_nested_secret',
+            'turn_id' => 'voice_turn_nested_secret',
+            'runtime' => 'livekit_agents_sdk',
+        ];
+
+        $turn = $voice->handleTurn($base + [
+            'audio_hash' => hash('sha256', 'nested-secret-audio'),
+            'transcript' => 'prepare nested callback',
+        ]);
+
+        $base['envelope_id'] = (string) data_get($turn, 'turn.operation_envelope.envelope_id');
+        $base['receipt_id'] = (string) data_get($turn, 'turn.decision_receipt.receipt_id');
+
+        $result = $voice->recordProviderHealth($base + [
+            'provider' => 'deepgram',
+            'reason' => 'latency_p95_breach',
+            'metadata' => [
+                'provider_api_key' => 'sk-redacted',
+            ],
+        ]);
+
+        $this->assertSame('callback_rejected_payload_contract', $result['status']);
+        $this->assertContains('prohibited_field_present:metadata.provider_api_key', data_get($result, 'turn.violations'));
+        $this->assertSame(LedgerEventType::VoiceRuntimeFailed->value, data_get($result, 'evidence_ledger.event_type'));
+
+        $this->assertDatabaseMissing('atlas_ledger_events', [
+            'event_type' => LedgerEventType::VoiceProviderHealthDegraded->value,
+            'envelope_id' => $base['envelope_id'],
+        ]);
+
+        $failure = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceRuntimeFailed->value)
+            ->where('envelope_id', $base['envelope_id'])
+            ->firstOrFail();
+
+        $this->assertSame('runtime_callback_payload_contract_violation', data_get($failure->payload, 'voice.failure_code'));
+        $this->assertContains('prohibited_field_present:metadata.provider_api_key', data_get($failure->payload, 'voice.violations'));
+        $this->assertNull(data_get($failure->payload, 'voice.metadata.provider_api_key'));
     }
 
     public function test_voice_readiness_reports_scorecard_from_ledger_events(): void
@@ -813,10 +1141,18 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('runtime_certification.status', 'certified_scaffold')
             ->assertJsonPath('runtime_certification.summary.failed_gates', 0)
             ->assertJsonPath('runtime_certification.artifact_sanitization.passed', true)
+            ->assertJsonPath('production_promotion_gate.status', 'blocked')
+            ->assertJsonPath('production_promotion_gate.human_review_required', true)
+            ->assertJsonPath('production_promotion_gate.promotion_allowed', false)
+            ->assertJsonPath('production_promotion_gate.auto_promotion_allowed', false)
             ->assertJsonPath('arms.atlas_voice.completed_turn_count', 1)
             ->assertJsonPath('arms.direct_provider_baseline.completed_turn_count', 0)
             ->assertJsonPath('comparison.comparable_turn_count', 0)
-            ->assertJsonPath('review_signal.recommended_action', 'collect_direct_provider_baseline_turns');
+            ->assertJsonPath('review_signal.recommended_action', 'rerun_runtime_certification_with_require_sdk')
+            ->assertJsonPath('review_signal.promotion_allowed', false)
+            ->assertJsonPath('review_signal.review_packet.schema_version', 'atlas.voice_realtime.production_promotion_review_packet.v1')
+            ->assertJsonPath('review_signal.review_packet.required_rollback_plan.0', 'disable_livekit_token_issuer')
+            ->assertJsonPath('review_signal.reasons.0', 'voice_production_promotion_gate_blocked');
     }
 
     public function test_voice_rivals_report_accepts_direct_provider_baseline_arm(): void
@@ -858,10 +1194,15 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('schema_version', 'atlas.voice.rivals.v1')
             ->assertJsonPath('status', 'not_ready')
             ->assertJsonPath('runtime_certification.status', 'certified_scaffold')
+            ->assertJsonPath('production_promotion_gate.status', 'blocked')
+            ->assertJsonPath('production_promotion_gate.promotion_allowed', false)
+            ->assertJsonPath('production_promotion_gate.review_packet.schema_version', 'atlas.voice_realtime.production_promotion_review_packet.v1')
             ->assertJsonPath('arms.atlas_voice.completed_turn_count', 1)
             ->assertJsonPath('arms.direct_provider_baseline.completed_turn_count', 1)
             ->assertJsonPath('comparison.comparable_turn_count', 1)
-            ->assertJsonPath('review_signal.recommended_action', 'collect_more_comparable_voice_turns');
+            ->assertJsonPath('review_signal.recommended_action', 'rerun_runtime_certification_with_require_sdk')
+            ->assertJsonPath('review_signal.promotion_allowed', false)
+            ->assertJsonPath('review_signal.review_packet.forbidden_actions.0', 'auto_promote_voice_runtime');
 
         $baselineEvent = AtlasLedgerEvent::query()
             ->where('event_type', LedgerEventType::VoiceTurnPlayed->value)

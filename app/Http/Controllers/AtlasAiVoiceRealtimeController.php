@@ -128,6 +128,7 @@ final class AtlasAiVoiceRealtimeController extends Controller
             'turn_id' => ['nullable', 'string', 'max:120'],
             'reason' => ['nullable', 'string', 'max:120'],
             'interrupted_stage' => ['nullable', 'string', 'max:120'],
+            'interruption_source' => ['nullable', 'in:operator,mobile,runtime_callback'],
             'latency_ms' => ['nullable', 'integer', 'min:0'],
             'audio_bytes' => ['prohibited'],
             'raw_audio' => ['prohibited'],

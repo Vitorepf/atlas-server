@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
+from urllib.parse import urlparse
 
 from .contract import AtlasVoiceRuntimeContract
 from .kernel_client import AtlasKernelClient, PostJson
@@ -25,7 +26,7 @@ class AtlasVoiceRuntimeSettings:
     stt_provider: str = "configurable"
     tts_provider: str = "configurable"
     local_fallback: str = "disabled"
-    room_prefix: str = "atlas-voice"
+    room_prefix: str = "atlas-voice-"
 
     REQUIRED_ENV = {
         "ATLAS_BASE_URL",
@@ -53,7 +54,7 @@ class AtlasVoiceRuntimeSettings:
             stt_provider=str(env.get("ATLAS_VOICE_STT_PROVIDER") or "configurable"),
             tts_provider=str(env.get("ATLAS_VOICE_TTS_PROVIDER") or "configurable"),
             local_fallback=str(env.get("ATLAS_VOICE_LOCAL_FALLBACK") or "disabled"),
-            room_prefix=str(env.get("ATLAS_VOICE_ROOM_PREFIX") or "atlas-voice"),
+            room_prefix=cls._room_prefix(str(env.get("ATLAS_VOICE_ROOM_PREFIX") or "atlas-voice-")),
         )
 
     @classmethod
@@ -90,8 +91,22 @@ class AtlasVoiceRuntimeSettings:
     @staticmethod
     def _url(value: str, key: str) -> str:
         value = value.strip().rstrip("/")
-        if not value.startswith(("http://", "https://")):
+        if any(ord(char) < 32 or ord(char) == 127 for char in value):
+            raise SettingsError(f"{key} cannot contain control characters")
+
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise SettingsError(f"{key} must be an absolute http(s) URL")
+
+        return value
+
+    @staticmethod
+    def _room_prefix(value: str) -> str:
+        value = value.strip()
+        if value == "" or any(ord(char) < 32 or ord(char) == 127 for char in value):
+            raise SettingsError("ATLAS_VOICE_ROOM_PREFIX cannot be empty or contain control characters")
+        if not value.startswith("atlas-voice-"):
+            raise SettingsError("ATLAS_VOICE_ROOM_PREFIX must start with atlas-voice-")
 
         return value
 

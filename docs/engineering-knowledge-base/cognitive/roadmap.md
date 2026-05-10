@@ -90,7 +90,7 @@ Cada fase: codigo + teste + doc + Evidence + architecture-validate. Capabilities
 | 6 | Temporal Compression Validation | depende de Rivals-Learning maduro | C10 | AP-COG-EDGE-07 |
 | 2-bis | **Personal Worked Examples Generator** (eixo Tim Cook / alta performance operacional) | depende de Worked Example Engine + Evidence Ledger ~30-60d | C13 + ledger | AP-169 |
 | 3-bis | **Process Pattern Personal Detector** | depende de Evidence Ledger maduro + Process Pattern Catalog | C13 + ledger maduro | AP-COG-EDGE-10 |
-| 4-bis | **Predictive Failure Insertion** | depende de Knowledge Graph + Failure Tracker maduros | C2 + C13 maduro | AP-170 |
+| 4-bis | **Predictive Failure Insertion** | runtime minimo ativo; KG/daily-plan/UX ainda futuros | C2 + C13 maduro | AP-170 |
 
 ## Caminho minimo viavel ate primeira sessao funcional
 
@@ -144,7 +144,7 @@ APs cognitivos com status canonico:
 | AP-167 | Self-Regulated Learning Orchestrator | `implemented-operational-read-model` | C13 Core; hooks de UI/surface sao consumers futuros |
 | AP-168 | Productive Failure Flow | `implemented_partial` | C13/C14 bridge; runtime minimo + CLI + ledger; transfer proposal-only |
 | AP-169 | Personal Worked Examples Generator | `implemented_partial` | Multiplier Edge 2-bis; extract/personal CLI + ledger; scheduler/review UI futuros |
-| AP-170 | Predictive Failure Insertion | `scaffold` | Multiplier Edge 4-bis |
+| AP-170 | Predictive Failure Insertion | `implemented_partial` | Multiplier Edge 4-bis; CLI/gates/metrics ativos |
 
 APs futuros que dependem dos acima:
 

@@ -38,6 +38,8 @@ class AtlasSessionBootstrapService
             'workspace' => $options['workspace'] ?? base_path(),
             'owner' => $splitOwner,
         ]);
+        $coverageBoundary = $readiness['coverage_boundary'] ?? [];
+        $safeNextBlocks = $readiness['safe_next_blocks'] ?? [];
         $risks = array_values(array_unique(array_merge(
             (array) $placement['risks'],
             $this->readinessRisks($readiness),
@@ -69,8 +71,12 @@ class AtlasSessionBootstrapService
                 'owner' => $readiness['owner'] ?? $splitOwner,
                 'checks' => $readiness['checks'] ?? [],
                 'review_signal' => $readiness['review_signal'] ?? [],
+                'coverage_boundary' => $coverageBoundary,
+                'safe_next_blocks' => $safeNextBlocks,
                 'command' => 'php artisan atlas:ai:architecture-readiness --owner='.$splitOwner.' --json',
             ],
+            'coverage_boundary' => $coverageBoundary,
+            'safe_next_blocks' => $safeNextBlocks,
             'implementation_contract' => $placement['implementation_contract'] ?? [],
             'pre_implementation_checklist' => $placement['pre_implementation_checklist'] ?? [],
             'blocked_when' => $placement['blocked_when'] ?? [],
@@ -99,6 +105,7 @@ class AtlasSessionBootstrapService
                 'git diff --check',
                 'atlas engineering knowledge docs-health',
                 'php artisan atlas:ai:architecture-validate --json',
+                'php artisan atlas:ai:runtime-boundary --json',
                 'atlas memory projection status --target=all',
                 'atlas engineering knowledge sync --prune',
                 'atlas engineering knowledge index-code --prune',
@@ -116,6 +123,7 @@ class AtlasSessionBootstrapService
                     'review_owner_docs',
                     'confirm_placement_and_business_context',
                     'review_duplicate_candidates',
+                    'run_runtime_language_boundary_when_touching_python_go_swift_or_rag_ml',
                     'run_required_validation_after_changes',
                 ],
             ],
@@ -135,6 +143,7 @@ class AtlasSessionBootstrapService
             'documentation_split_plan',
             'architecture_operations',
             'architecture_validate',
+            'runtime_language_boundary',
             'documentation_health',
             'provider_projection_status',
             'knowledge_sync',
@@ -155,6 +164,9 @@ class AtlasSessionBootstrapService
             ))),
             'command_count' => count($commands),
             'commands' => $commands,
+            'owner_layer_operations' => [
+                'runtime' => $this->operations->summary(['owner_layer' => 'runtime']),
+            ],
         ];
     }
 
@@ -175,8 +187,57 @@ class AtlasSessionBootstrapService
         if (str_contains($text, 'ap') || str_contains($text, 'architecture') || str_contains($text, 'arquitetura') || str_contains($text, 'governanca') || str_contains($text, 'governança')) {
             $docs[] = 'docs/ap/AP-204-ap-agent-workflow-registry.md';
         }
+        if ($this->mentionsRuntimeBoundary($text)) {
+            $docs[] = 'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md';
+        }
+        if ($this->mentionsPythonAiDataRuntime($text)) {
+            $docs[] = 'docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md';
+        }
+        if ($this->mentionsSwiftNativeRuntime($text)) {
+            $docs[] = 'docs/engineering-knowledge-base/atlas-native-mac-agent.md';
+        }
+        if (str_contains($text, 'voice') || str_contains($text, 'voz') || str_contains($text, 'livekit')) {
+            $docs[] = 'docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md';
+        }
 
         return array_values(array_unique($docs));
+    }
+
+    private function mentionsRuntimeBoundary(string $text): bool
+    {
+        return $this->mentionsPythonAiDataRuntime($text)
+            || $this->mentionsSwiftNativeRuntime($text)
+            || str_contains($text, ' go ')
+            || str_contains($text, 'golang')
+            || str_contains($text, 'go edge')
+            || str_contains($text, 'webhook')
+            || str_contains($text, 'postback')
+            || str_contains($text, 'streaming')
+            || str_contains($text, 'livekit');
+    }
+
+    private function mentionsPythonAiDataRuntime(string $text): bool
+    {
+        return str_contains($text, 'python')
+            || str_contains($text, 'rag')
+            || str_contains($text, 'embedding')
+            || str_contains($text, 'rerank')
+            || str_contains($text, 'faiss')
+            || str_contains($text, 'graph')
+            || str_contains($text, 'machine learning')
+            || str_contains($text, 'pandas');
+    }
+
+    private function mentionsSwiftNativeRuntime(string $text): bool
+    {
+        return str_contains($text, 'swift')
+            || str_contains($text, 'macos')
+            || str_contains($text, 'keychain')
+            || str_contains($text, 'touch id')
+            || str_contains($text, 'screencapture')
+            || str_contains($text, 'fsevents')
+            || str_contains($text, 'accessibility api')
+            || str_contains($text, 'core ml');
     }
 
     /**

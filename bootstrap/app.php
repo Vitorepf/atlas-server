@@ -27,6 +27,7 @@ use App\Console\Commands\AtlasAiProviderPerformanceCommand;
 use App\Console\Commands\AtlasAiProviderReleaseSourcesCommand;
 use App\Console\Commands\AtlasAiQualitativeLevelsCommand;
 use App\Console\Commands\AtlasAiRivalsStrategyCommand;
+use App\Console\Commands\AtlasAiRuntimeBoundaryCommand;
 use App\Console\Commands\AtlasAiSelfImproveCommand;
 use App\Console\Commands\AtlasAiStrategicDecisionCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
@@ -84,9 +85,9 @@ use App\Console\Commands\AtlasMemoryReviewQueueCommand;
 use App\Console\Commands\AtlasMemorySeedCoreCommand;
 use App\Console\Commands\AtlasOpenBrainContextCommand;
 use App\Console\Commands\AtlasOpenBrainMcpCommand;
+use App\Console\Commands\AtlasProductiveFailureCommand;
 use App\Console\Commands\AtlasProposalCommand;
 use App\Console\Commands\AtlasProposalScanCommand;
-use App\Console\Commands\AtlasProductiveFailureCommand;
 use App\Console\Commands\AtlasRivalsCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
 use App\Console\Commands\AtlasSchedulerTickCommand;
@@ -144,6 +145,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiProviderReleaseSourcesCommand::class,
         AtlasAiQualitativeLevelsCommand::class,
         AtlasAiRivalsStrategyCommand::class,
+        AtlasAiRuntimeBoundaryCommand::class,
         AtlasAiSelfImproveCommand::class,
         AtlasAiStrategicDecisionCommand::class,
         AtlasCliBootstrapCommand::class,
@@ -309,6 +311,11 @@ return Application::configure(basePath: dirname(__DIR__))
                     ->withoutOverlapping();
             }
         }
+
+        $schedule->command('atlas:worked-example extract scheduled --json')
+            ->weeklyOn(1, '04:10')
+            ->timezone((string) config('app.timezone', 'UTC'))
+            ->withoutOverlapping();
 
         $schedule->command('atlas:scheduler:tick')
             ->everyMinute()

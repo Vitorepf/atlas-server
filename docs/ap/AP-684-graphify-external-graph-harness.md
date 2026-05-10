@@ -23,7 +23,13 @@ contexto, runtime ou decisao.
 
 Documentacao: pronta para orientar implementacao.  
 Codigo Atlas: P0/P2 implementado como contrato read-only, validator e report
-Architecture Operations.  
+Architecture Operations. Candidato aceito agora emite `review_packet`
+machine-readable (`atlas.external_graph_review_packet.v1`) com
+decisao humana requerida, rollback, `policy_patch_review_required=true`,
+`forbidden_until_review` e `auto_promotion_allowed=false`; o report tambem publica
+`promotion_allowed=false` e `next_action` explicito mesmo quando nao ha
+candidato. O `review_packet` tambem carrega `future_runtime_invocation_contract`
+do AP-201 para qualquer runtime Python futuro.
 Graphify upstream: preservado como source material, nao dependencia aprovada.
 Disseccao enterprise: pronta em source material detalhado, incluindo pipeline,
 modulos, schema, comandos, Claude/Atlas, benchmark, colheita, riscos e DoD.
@@ -39,6 +45,7 @@ modulos, schema, comandos, Claude/Atlas, benchmark, colheita, riscos e DoD.
 - preservar confidence labels e source refs;
 - comparar Graphify com Code Intelligence nativo;
 - emitir relatorio/proposal revisavel.
+- emitir `review_packet` proposal-only para comparacao humana/Curator.
 
 ## 4. Nao Escopo
 
@@ -80,18 +87,46 @@ Qualquer path fora disso exige nova revisao.
 - allowlist vence discovery automatico;
 - denylist vence allowlist quando houver segredo ou memoria privada;
 - path normalizado nao pode escapar do repo;
+- qualquer segmento `..` em `scan_root` ou `source_refs.path` e rejeitado mesmo
+  quando o texto comeca por uma allowlist;
 - outputs ficam fora do runtime ate import revisado;
 - confidence ausente vira `AMBIGUOUS`;
 - `INFERRED` nunca e tratado como fato;
 - `EXTRACTED` ainda exige source ref e privacy gate;
 - provider call exige AP/policy posterior.
+- import aceito exige `source_tool=graphify`, hash SHA-256, timestamp parseavel,
+  `privacy_class=engineering_internal`, `review_state=candidate` e sem
+  `promotion_target`.
+- candidato rejeita campos aninhados de autoridade como `provider_prompt`,
+  `memory_write`, `context_builder_payload`, `policy_patch`, `tool_call` ou
+  secrets, mesmo dentro de `metadata`;
+- node ids duplicados sao rejeitados para impedir grafo ambíguo;
+- candidato valido ainda carrega `promotion_allowed=false`;
+- candidato valido carrega `review_packet.status=ready_for_human_review`;
+- `review_packet.required_human_decision` deve ser
+  `approve_or_reject_external_graph_candidate_for_native_extractor_improvement`;
+- `review_packet.rollback_plan_required=true`,
+  `policy_patch_review_required=true` e `forbidden_until_review` deve bloquear
+  runtime Python, Memory, Context, Constelacao, provider prompt, policy patch e
+  chamadas diretas por surface;
+- `review_packet.future_runtime_invocation_contract` exige Kernel first,
+  `DecisionReceipt`, `evidence_sink` e `python_ai_data` antes de qualquer runtime futuro;
+- report sem candidato carrega `promotion_allowed=false` e pede candidato para
+  validacao read-only, nunca promocao;
+- `review_packet.auto_promotion_allowed=false` e bloqueia Memory, Context,
+  Constelacao, Decide, provider prompt e Python Graph RAG runtime;
+- runtime, memoria, contexto, Constelacao, Decide, provider prompt e policy
+  patch permanecem bloqueados ate proposta Curator + review humano;
+- qualquer promocao para Graph RAG exige AP-683 ou sucessor explicito.
 
 ## 8. Definition Of Done
 
 - service publica contrato fail-closed;
 - comando/API validam candidato em modo read-only;
-- schema rejeita JSON malformado, oversize e node/edge sem source ref;
+- schema rejeita JSON malformado, oversize, origem invalida, promocao precoce
+  node/edge sem source ref, traversal de path, node duplicado e metadata com autoridade proibida;
 - testes provam zero writes em Memory, Context Builder e Constelacao;
+- testes provam `review_packet`, `promotion_allowed=false` e auto-promocao bloqueada;
 - relatorio compara lacunas Atlas vs Graphify;
 - Curator recomenda review, nao aplica patch;
 - docs linkam AP-684 no Code Intelligence e nos indices;
@@ -106,8 +141,14 @@ Qualquer path fora disso exige nova revisao.
 | P2 | report Architecture Operations comparando Atlas vs candidato | promover para memoria/contexto |
 | P3 | Curator finding revisavel com source refs e confidence | aplicar patch automatico |
 
-Status atual: P0 e P2 read-only estao implementados. P1 real de extracao
-sandboxada e P3 Curator proposal continuam pendentes.
+Status atual: P0 e P2 read-only estao implementados. O contrato agora publica
+`review_only_constraints` no contract, na validation e no report, e publica
+`review_packet` por candidato validado. P1 real de extracao sandboxada e P3
+Curator proposal continuam pendentes.
+
+API hardening: `POST /ai/external-graph-harness` falha fechado com
+`candidate_must_be_json_object` e HTTP 422 quando `candidate` existe mas nao e
+objeto JSON. Payload malformado nunca cai no relatorio `ok` de "sem candidato".
 
 ## 10. Beneficio Esperado
 

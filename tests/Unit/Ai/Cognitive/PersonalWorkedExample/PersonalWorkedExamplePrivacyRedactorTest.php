@@ -17,12 +17,21 @@ class PersonalWorkedExamplePrivacyRedactorTest extends TestCase
             'raw_steps' => [
                 ['action' => 'Remove token=abcd1234567890 from config.'],
             ],
+            'source_metadata' => [
+                'commit_explanation' => 'Explained by vitorepf@example.com with token=metadatasecret123.',
+            ],
+            'quality_signals' => [
+                'commit_explanation' => 'Validated using secret-quality-token123.',
+            ],
         ]);
 
         $this->assertStringContainsString('[redacted_email]', $result['candidate']['title']);
         $this->assertStringContainsString('[redacted_secret]', $result['candidate']['problem_context']);
         $this->assertStringContainsString('[redacted_secret]', $result['candidate']['raw_steps'][0]['action']);
+        $this->assertStringContainsString('[redacted_email]', $result['candidate']['source_metadata']['commit_explanation']);
+        $this->assertStringContainsString('[redacted_secret]', $result['candidate']['source_metadata']['commit_explanation']);
+        $this->assertStringContainsString('[redacted_secret]', $result['candidate']['quality_signals']['commit_explanation']);
         $this->assertGreaterThanOrEqual(1, $result['redaction']['pii_removed']);
-        $this->assertGreaterThanOrEqual(2, $result['redaction']['secrets_removed']);
+        $this->assertGreaterThanOrEqual(4, $result['redaction']['secrets_removed']);
     }
 }

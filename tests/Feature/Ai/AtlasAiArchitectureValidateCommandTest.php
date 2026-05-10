@@ -194,6 +194,16 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertContains('ap174_session_bootstrap_architecture_operations_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap175_feature_placement_architecture_operations_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap176_architecture_readiness_snapshot', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap178_provider_release_anti_wrapper_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap179_voice_realtime_activation_governance', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap686_voice_realtime_python_runtime_boundary_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap687_voice_realtime_production_promotion_gate', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap683_local_rag_graph_promotion_review', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap684_external_graph_harness_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap685_constelacao_lens1_usage_review_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap168_productive_failure_governance_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap169_personal_worked_example_privacy_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap170_predictive_failure_governance_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap134_decision_receipt_hash_runtime_guard', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap135_decision_receipt_determinism_test', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap136_decision_receipt_chain_replay', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
@@ -220,6 +230,7 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertContains('ap160_agent_behavior_curator_filter_surface', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap161_agent_behavior_recurring_schedule', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap162_agent_behavior_proposal_governance', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap201_runtime_language_boundary_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap1_surface_provider_bypass.violations'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap2_surface_context_bypass.violations'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap6_decision_receipt_propagation.violations'));
@@ -403,10 +414,39 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap104_retrieval_review_signal_next_action_contract.violations'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap176_architecture_readiness_snapshot.valid'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap176_architecture_readiness_snapshot.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap178_provider_release_anti_wrapper_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap178_provider_release_anti_wrapper_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap179_voice_realtime_activation_governance.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap179_voice_realtime_activation_governance.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap185_voice_realtime_runtime_certification_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap185_voice_realtime_runtime_certification_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap686_voice_realtime_python_runtime_boundary_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap686_voice_realtime_python_runtime_boundary_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap687_voice_realtime_production_promotion_gate.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap687_voice_realtime_production_promotion_gate.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap683_local_rag_graph_promotion_review.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap683_local_rag_graph_promotion_review.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap684_external_graph_harness_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap684_external_graph_harness_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap685_constelacao_lens1_usage_review_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap685_constelacao_lens1_usage_review_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap168_productive_failure_governance_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap168_productive_failure_governance_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap169_personal_worked_example_privacy_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap169_personal_worked_example_privacy_contract.violations'));
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap170_predictive_failure_governance_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap170_predictive_failure_governance_contract.violations'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap200_ap_agent_workflow_contracts.valid'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap200_ap_agent_workflow_contracts.violations'));
+        // AP-201: runtime language boundary.
+        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap201_runtime_language_boundary_contract.valid'));
+        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap201_runtime_language_boundary_contract.violations'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.valid'));
         $this->assertGreaterThanOrEqual(39, data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.checked'));
+        $this->assertSame(
+            'atlas.input.surface_capability_boundary.v1',
+            data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.input_boundary_contract.schema_version'),
+        );
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.violations'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap34_capability_surface_coverage.valid'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap34_capability_surface_coverage.violations'));
@@ -421,6 +461,10 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(1, data_get($payload, 'capabilities.count'));
         $this->assertTrue(data_get($payload, 'capabilities.surface_adapter_parity.valid'));
         $this->assertGreaterThanOrEqual(39, data_get($payload, 'capabilities.surface_adapter_parity.checked'));
+        $this->assertSame(
+            'surface_adapters_expose_kernel_input_capabilities_only',
+            data_get($payload, 'capabilities.surface_adapter_parity.input_boundary_contract.boundary'),
+        );
         $this->assertSame([], data_get($payload, 'capabilities.surface_adapter_parity.errors'));
         $this->assertSame([], data_get($payload, 'capabilities.surface_adapter_parity.skipped'));
         $this->assertSame([], data_get($payload, 'capabilities.surface_adapter_parity.unmapped_adapters'));

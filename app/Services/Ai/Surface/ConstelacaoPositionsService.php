@@ -6,6 +6,7 @@ use App\Models\AtlasLedgerEvent;
 use App\Models\Capture;
 use App\Models\SemanticNote;
 use App\Services\Ai\Context\LocalRagReadinessService;
+use App\Services\Ai\Kernel\Architecture\AtlasRuntimeLanguageBoundaryReportService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -19,6 +20,7 @@ class ConstelacaoPositionsService
     public function __construct(
         private readonly AtlasEvidenceLedger $ledger,
         private readonly LocalRagReadinessService $localRagReadiness,
+        private readonly AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary,
     ) {}
 
     /**
@@ -29,7 +31,9 @@ class ConstelacaoPositionsService
     {
         $limit = $this->limit($filters['limit'] ?? null);
         $domain = $this->nullableString($filters['domain'] ?? null);
-        $lens = $this->lens($filters['lens'] ?? null);
+        $requestedLens = $this->requestedLens($filters['lens'] ?? null);
+        $lens = $this->activeLens($requestedLens);
+        $lensBlocked = $requestedLens !== $lens;
         $tenantId = $this->nullableString($filters['tenant_id'] ?? null) ?: 'default';
         $operatorId = $this->nullableString($filters['operator_id'] ?? null) ?: 'vitor';
 
@@ -46,6 +50,7 @@ class ConstelacaoPositionsService
 
         $payloadHash = hash('sha256', json_encode([
             'lens' => $lens,
+            'requested_lens' => $requestedLens,
             'domain' => $domain,
             'limit' => $limit,
             'semantic_readiness_status' => $semanticReadiness['status'],
@@ -61,6 +66,8 @@ class ConstelacaoPositionsService
             'operator_id' => $operatorId,
             'domain' => $domain,
             'lens' => $lens,
+            'requested_lens' => $requestedLens,
+            'lens_blocked' => $lensBlocked,
             'limit' => $limit,
             'client_surface' => $this->nullableString($filters['client_surface'] ?? null),
             'semantic_readiness' => $semanticReadiness,
@@ -72,11 +79,23 @@ class ConstelacaoPositionsService
             'status' => 'ok',
             'surface_id' => 'constelacao',
             'lens' => $lens,
+            'requested_lens' => $requestedLens,
+            'lens_gate' => [
+                'schema_version' => 'atlas.constelacao.lens_gate.v1',
+                'active_lens' => $lens,
+                'requested_lens' => $requestedLens,
+                'allowed_lenses' => ['bilderatlas'],
+                'blocked' => $lensBlocked,
+                'reason' => $this->lensGateReason($requestedLens, $lensBlocked),
+            ],
+            'lens_maturity_gate' => $this->lensMaturityGate(),
+            'lens1_usage_review_contract' => $this->lens1UsageReviewContract(),
             'ui_contract' => [
                 'schema_version' => 'atlas.constelacao.ui_contract.v1',
                 'lens' => $lens,
-                'lens_role' => $lens === 'bilderatlas' ? 'contemplative_serendipity' : 'explicit_operational_overlay',
-                'operational_chrome_allowed' => $lens !== 'bilderatlas',
+                'requested_lens' => $requestedLens,
+                'lens_role' => 'contemplative_serendipity',
+                'operational_chrome_allowed' => false,
                 'default_interaction' => 'tap_star_opens_existing_detail_sheet',
                 'raw_reading_allowed' => false,
                 'telemetry' => [
@@ -285,11 +304,32 @@ class ConstelacaoPositionsService
         return max(1, min(100, (int) $value));
     }
 
-    private function lens(mixed $value): string
+    private function requestedLens(mixed $value): string
     {
         $lens = is_scalar($value) ? strtolower(trim((string) $value)) : '';
+        $lens = (string) preg_replace('/[^a-z0-9_-]+/', '_', $lens);
+        $lens = trim($lens, '_-');
 
-        return in_array($lens, ['bilderatlas', 'command_sky'], true) ? $lens : 'bilderatlas';
+        return $lens !== '' ? Str::limit($lens, 48, '') : 'bilderatlas';
+    }
+
+    private function activeLens(string $requestedLens): string
+    {
+        return $requestedLens === 'bilderatlas' ? 'bilderatlas' : 'bilderatlas';
+    }
+
+    private function lensGateReason(string $requestedLens, bool $lensBlocked): ?string
+    {
+        if (! $lensBlocked) {
+            return null;
+        }
+
+        return match ($requestedLens) {
+            'command_sky' => 'command_sky_requires_future_ap_human_review_and_decision_receipt',
+            'lineage' => 'lineage_requires_future_ap_human_review_and_decision_receipt',
+            'lens2' => 'lens2_requires_future_ap_human_review_and_decision_receipt',
+            default => 'unsupported_lens_requires_future_ap_human_review_and_decision_receipt',
+        };
     }
 
     private function nullableString(mixed $value): ?string
@@ -330,6 +370,7 @@ class ConstelacaoPositionsService
                 'requires_human_review' => true,
                 'requires_decision_receipt' => true,
                 'requires_local_rag_benchmark' => true,
+                'future_runtime_invocation_contract' => $this->futureGraphRuntimeInvocationContract('constelacao_semantic_positioning_candidate'),
                 'required_evidence' => [
                     LedgerEventType::LocalRagPlanCreated->value,
                     LedgerEventType::LocalRagQualityCorpusEvaluated->value,
@@ -361,14 +402,25 @@ class ConstelacaoPositionsService
             'graph_rag_status' => 'future_governed',
             'semantic_readiness_status' => data_get($context, 'semantic_readiness.status'),
             'client_surface' => $context['client_surface'] ?? 'unknown',
+            'lens_gate' => [
+                'active_lens' => $context['lens'],
+                'requested_lens' => $context['requested_lens'],
+                'allowed_lenses' => ['bilderatlas'],
+                'blocked' => (bool) $context['lens_blocked'],
+                'reason' => $this->lensGateReason((string) $context['requested_lens'], (bool) $context['lens_blocked']),
+            ],
+            'lens_maturity_gate' => $this->lensMaturityGate(),
+            'lens1_usage_review_contract' => $this->lens1UsageReviewContract(),
             'provider_bypass_allowed' => false,
             'parallel_memory_allowed' => false,
             'promotion_gate' => [
+                'promotion_allowed' => false,
                 'vector_positioning_allowed' => (bool) data_get($context, 'semantic_readiness.promotion_gate.vector_positioning_allowed', false),
                 'graph_rag_promotion_allowed' => false,
                 'python_runtime_allowed' => false,
                 'requires_human_review' => true,
                 'requires_decision_receipt' => true,
+                'next_action' => 'collect_constelacao_lens1_usage_telemetry_for_30_days_before_review',
             ],
             'lens' => $context['lens'],
             'domain' => $context['domain'],
@@ -388,5 +440,133 @@ class ConstelacaoPositionsService
             'emitter_stage' => 'atlas.constelacao_surface',
             'emitter_version' => self::SCHEMA_VERSION,
         ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function lensMaturityGate(): array
+    {
+        return [
+            'schema_version' => 'atlas.constelacao.lens_maturity_gate.v1',
+            'current_lens' => 'bilderatlas',
+            'promotion_allowed' => false,
+            'lens2_promotion_allowed' => false,
+            'command_sky_allowed' => false,
+            'lineage_allowed' => false,
+            'graph_rag_positioning_allowed' => false,
+            'observation_window_days_required' => 30,
+            'minimum_review_event_families' => [
+                'constelacao_opened',
+                'constelacao_backend_loaded',
+                'constelacao_backend_failed',
+                'constelacao_star_tapped',
+            ],
+            'requires_human_review' => true,
+            'requires_curator_usage_review' => true,
+            'requires_decision_receipt' => true,
+            'required_telemetry' => [
+                'constelacao_opened',
+                'constelacao_backend_loaded',
+                'constelacao_star_tapped',
+            ],
+            'blocking_reason' => 'lens1_must_prove_contemplative_value_before_operational_or_graph_promotion',
+            'next_action' => 'collect_constelacao_lens1_usage_telemetry_for_30_days_before_review',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function lens1UsageReviewContract(): array
+    {
+        return [
+            'schema_version' => 'atlas.constelacao.lens1_usage_review.v1',
+            'status' => 'observation_required',
+            'current_lens' => 'bilderatlas',
+            'promotion_allowed' => false,
+            'observation_window_days_required' => 30,
+            'human_review_required' => true,
+            'curator_review_required' => true,
+            'decision_receipt_required' => true,
+            'required_human_decision' => 'approve_or_reject_constelacao_lens1_promotion_after_usage_review',
+            'rollback_plan_required' => true,
+            'policy_patch_review_required' => true,
+            'auto_promotion_allowed' => false,
+            'evidence_required' => [
+                'CONSTELACAO_POSITIONS_SERVED',
+                'constelacao_opened',
+                'constelacao_backend_loaded',
+                'constelacao_star_tapped',
+                '30_day_observation_window',
+                'curator_usage_review',
+                'human_review',
+                'decision_receipt_for_future_ap',
+            ],
+            'rollback_required' => [
+                'keep_lens_bilderatlas_only',
+                'disable_command_sky_entrypoint',
+                'disable_lineage_ui',
+                'keep_graph_rag_positioning_disabled',
+                'keep_python_graph_runtime_disabled',
+                'preserve_constelacao_as_contemplative_surface',
+            ],
+            'forbidden_until_review' => [
+                'enable_lens2',
+                'enable_command_sky',
+                'enable_lineage',
+                'enable_graph_rag_positioning',
+                'enable_operational_dashboard',
+                'inject_constelacao_into_provider_prompt',
+                'patch_decide_policy',
+                'auto_apply_policy_patch',
+                'surface_direct_graph_rag_call',
+            ],
+            'allowed_outputs' => [
+                'keep_bilderatlas_only',
+                'request_more_observation',
+                'draft_lens2_ap',
+                'draft_command_sky_ap',
+                'draft_graph_rag_positioning_ap',
+            ],
+            'blocked_targets' => [
+                'lens2',
+                'command_sky',
+                'lineage',
+                'graph_rag_positioning',
+                'operational_dashboard',
+                'decision_surface',
+                'provider_prompt',
+                'policy_patch',
+                'python_graph_rag_runtime',
+            ],
+            'required_telemetry' => [
+                'constelacao_opened',
+                'constelacao_backend_loaded',
+                'constelacao_backend_failed',
+                'constelacao_star_tapped',
+            ],
+            'review_question' => 'lente_1_gerou_serendipidade_util_sem_ansiedade_operacional',
+            'promotion_rule' => 'only_future_ap_with_human_review_curator_proposal_decision_receipt_and_rollback_plan',
+            'future_runtime_invocation_contract' => $this->futureGraphRuntimeInvocationContract('constelacao_lens_future_candidate'),
+            'next_action' => 'collect_constelacao_lens1_usage_telemetry_for_30_days_before_review',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function futureGraphRuntimeInvocationContract(string $runtimeId): array
+    {
+        return [
+            ...$this->runtimeBoundary->invocationContract(),
+            'selected_runtime_family' => 'python_ai_data',
+            'runtime_id' => $runtimeId,
+            'surface_id' => 'constelacao',
+            'capability_id' => 'constelacao.future_graph_positioning_candidate',
+            'evidence_rule' => 'constelacao_future_graph_runtime_must_remain_review_only_until_lens1_usage_window_curator_proposal_human_review_and_future_ap',
+            'promotion_allowed_now' => false,
+            'auto_enable_allowed_now' => false,
+        ];
     }
 }

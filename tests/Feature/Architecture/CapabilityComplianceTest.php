@@ -39,6 +39,21 @@ class CapabilityComplianceTest extends TestCase
         $this->assertSame([], $report['unmapped_adapters']);
     }
 
+    public function test_input_boundary_contract_makes_multimodal_surface_ownership_explicit(): void
+    {
+        $report = app(SurfaceCapabilityParityService::class)->complianceReport();
+        $contract = $report['input_boundary_contract'];
+
+        $this->assertSame('atlas.input.surface_capability_boundary.v1', $contract['schema_version']);
+        $this->assertSame('atlas_input', $contract['owner']);
+        $this->assertFalse($contract['surface_specific_input_capabilities_allowed']);
+        $this->assertTrue($contract['adapter_parity_required']);
+        $this->assertContains('atlas.input.image_paste', $contract['required_kernel_capabilities']);
+        $this->assertContains('atlas.input.file_attachment', $contract['required_kernel_capabilities']);
+        $this->assertContains('surface_only_image_paste', $contract['forbidden_patterns']);
+        $this->assertContains('provider_direct_attachment_bypass', $contract['forbidden_patterns']);
+    }
+
     public function test_architecture_validate_exposes_surface_capability_parity_as_ap33(): void
     {
         $exit = Artisan::call('atlas:ai:architecture-validate', ['--json' => true]);
@@ -48,6 +63,10 @@ class CapabilityComplianceTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.valid'));
         $this->assertGreaterThanOrEqual(39, data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.checked'));
+        $this->assertSame(
+            'atlas.input.surface_capability_boundary.v1',
+            data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.input_boundary_contract.schema_version'),
+        );
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap33_surface_capability_parity.violations'));
     }
 

@@ -6,6 +6,7 @@ from typing import Any, Mapping
 from .agent_runtime import AtlasVoiceTurnResult
 from .livekit_boundary import LiveKitAgentBoundary
 from .livekit_session import LiveKitVoiceSession
+from .payload_safety import reject_forbidden_keys_recursive
 from .turn_payload import UnsafeVoicePayload
 
 
@@ -93,6 +94,7 @@ class AtlasLiveKitWorker:
             self._require_accepted_turn(session_id, event)
             return self._callback_result(event_kind, session, session.report_interrupted(event))
         if event_kind == "failed":
+            self._require_accepted_turn(session_id, event)
             return self._callback_result(event_kind, session, session.report_failed(event))
         if event_kind == "provider_health_degraded":
             self._require_accepted_turn(session_id, event)
@@ -208,6 +210,4 @@ def _reject_forbidden_worker_fields(event: Mapping[str, Any]) -> None:
         "direct_tool_execution",
         "tool_call",
     }
-    present = sorted(forbidden.intersection(event.keys()))
-    if present:
-        raise UnsafeVoicePayload(f"forbidden LiveKit worker event keys: {present}")
+    reject_forbidden_keys_recursive(event, forbidden, label="LiveKit worker event")

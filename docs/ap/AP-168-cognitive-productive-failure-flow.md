@@ -2,7 +2,11 @@
 
 Status: implemented_partial
 
-Implementation note (2026-05-09): runtime minimo interno implementado com `ProductiveFailureProblemSelector`, `ProductiveFailureAttemptCapture`, `ProductiveFailureComparisonEngine`, `PredictiveErrorDeltaExtractor`, `ProductiveFailureArticulationCapture`, `ProductiveFailureTransferTestScheduler`, `ProductiveFailureFlow`, gates executaveis, migration, CLI `php artisan atlas:productive-failure` e eventos `PRODUCTIVE_FAILURE_*`. Continua `implemented_partial` porque `transfer_test` e proposal-only/read-model e ainda nao existe UX App/Mobile/Voice de uso diario nem Self-Improvement proposal emission dedicada.
+Implementation note (2026-05-09): runtime minimo interno implementado com `ProductiveFailureProblemSelector`, capture/comparison/articulation, `ProductiveFailureTransferTestScheduler`, gates, migration, CLI `php artisan atlas:productive-failure`, read-model `transfer-tests`, Self-Improvement review proposal e eventos `PRODUCTIVE_FAILURE_*`. Continua `implemented_partial` porque ainda nao existe UX App/Mobile/Voice de uso diario.
+
+Hardening note (2026-05-09): runtime agora exige topico explicito; `php artisan atlas:productive-failure --json` nao cria sessao `unknown`. Productive Failure e erro preditivo deliberado, nao frustracao aleatoria.
+
+Hardening note (2026-05-10): service-level guard tambem bloqueia `productive_failure_storage_unavailable` quando `productive_failure_sessions` nao existe; o fluxo retorna `run_migrations_before_productive_failure` e nao emite evento de sessao iniciada. Isso impede que uma IA trate AP-168 como sessao valida sem read model operacional.
 
 ## Objetivo
 
@@ -39,6 +43,7 @@ Nao implementar:
 - Substituir `learning.deep_work` (PF e flow especifico, deep_work e generico)
 - Predictive Failure Insertion (AP-170; PF usa problema canonical_library, nao predicao personal)
 - Auto-promover articulacao do operador a memoria sem review
+- Criar sessao sem topico explicito ou por automacao passiva
 
 ## Authority
 
@@ -108,7 +113,7 @@ Schema::create('productive_failure_sessions', function (Blueprint $t) {
 | `PredictiveErrorDeltaExtractor` | calcula divergencia entre `operator_prediction` e `validated_reality`; bloqueia comparacao vazia | `app/Services/Ai/Cognitive/ProductiveFailure/` |
 | `ProductiveFailureArticulationCapture` | captura insight + principio extraido | `app/Services/Ai/Cognitive/ProductiveFailure/` |
 | `ProductiveFailureTransferTestScheduler` | cria proposta `transfer_test` para 7-14 dias futuros, sem auto-aplicar | `app/Services/Ai/Cognitive/ProductiveFailure/` |
-| `ProductiveFailureSessionRepository` | CRUD + queries | `app/Services/Ai/Cognitive/ProductiveFailure/` |
+| `ProductiveFailureSessionRepository` | CRUD + history + transfer_test review read-model | `app/Services/Ai/Cognitive/ProductiveFailure/` |
 | `ProductiveFailurePhaseCompleteGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
 | `ProductiveFailureProblemCalibratedGate` | gate executavel | `app/Services/Ai/Kernel/Gates/` |
 | `AtlasProductiveFailureCommand` | CLI base | `app/Console/Commands/` |
@@ -224,6 +229,23 @@ Namespace `cognitive.productive_failure.*`.
 
 `PRODUCTIVE_FAILURE_PHASE_1_STARTED`, `PRODUCTIVE_FAILURE_PHASE_1_ATTEMPT_RECORDED`, `PRODUCTIVE_FAILURE_PHASE_2_STARTED`, `PRODUCTIVE_FAILURE_PHASE_2_COMPARISON_RECORDED`, `PRODUCTIVE_FAILURE_PHASE_3_STARTED`, `PRODUCTIVE_FAILURE_ARTICULATION_RECORDED`, `PRODUCTIVE_FAILURE_COMPLETED`, `PRODUCTIVE_FAILURE_ABANDONED`. Taxonomia fechada.
 
+## Governance Contract
+
+Todo payload do runtime atual inclui `atlas.cognitive.productive_failure.governance.v1`:
+
+- `operator_opt_in_required=true`;
+- `specific_topic_required=true`;
+- `empty_topic_allowed=false`;
+- `auto_schedule_allowed=false`;
+- `passive_session_allowed=false`;
+- `random_frustration_allowed=false`;
+- `productive_failure_storage_unavailable` bloqueia inicio quando a tabela `productive_failure_sessions` nao existe;
+- `run_migrations_before_productive_failure` e a unica acao sugerida nesse estado;
+- `requires_prediction_error_delta=true`;
+- `transfer_test_review_required=true`;
+- `allowed_surfaces_now=["cli_explicit"]`;
+- App, Mobile, Voice e Daily Plan exigem AP/review futuro antes de virar default.
+
 ## Tests
 
 | Test | Local |
@@ -252,7 +274,7 @@ php artisan atlas:ai:architecture-validate --json
 4. Flow `learning.productive_failure` integrado ao Domain Profile Registry
 5. CLI `php artisan atlas:productive-failure` (start/status/history/resume) operacional
 6. Integracao com AP-164 (Worked Example Engine) funciona end-to-end
-7. Phase 3 Transfer Test e emitido como proposta review-only para 7-14d futuros
+7. Phase 3 Transfer Test e emitido como proposta review-only + Self-Improvement review quando vence
 8. Ledger emite todos os 8 events declarados em fluxo end-to-end completo
 9. SLOs `cognitive.productive_failure.problem_selection`, `phase_gate` e `calibration_gate` registrados em `KernelSloTargets`
 10. `atlas:ai:architecture-validate --json` continua verde

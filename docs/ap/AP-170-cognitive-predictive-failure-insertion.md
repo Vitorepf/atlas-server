@@ -1,6 +1,12 @@
 # AP-170 — Cognitive Predictive Failure Insertion
 
-Status: scaffold
+Status: implemented_partial
+
+Implementation note (2026-05-09): runtime minimo implementado com migration, `PredictiveFailureFlow`, selector, estimator, problem generator, gates, CLI `php artisan atlas:predict`, outcome, Brier/calibration metrics, SLOs, eventos `PREDICTIVE_FAILURE_*` e governance contract opt-in. Continua parcial porque daily-plan/on-off/UX App-Mobile-Voice e Knowledge Graph maduro ainda sao futuros.
+
+Hardening note (2026-05-10): CLI explicito e `PredictiveFailureFlow` agora exigem target concreto; `resolve` exige insertion id valido; storage ausente bloqueia com `predictive_failure_storage_unavailable` e registra apenas `PREDICTIVE_FAILURE_INSERTION_SKIPPED`; safety gate bloqueia privacy class sensivel em formato `p3/p4`, `class_3/class_4` ou numerico `3/4`. `atlas:predict --json` nao cria mais problema em `unknown`, evitando frustracao aleatoria e reforcando C14 como erro preditivo calibrado.
+
+Governance boundary: alvo explicito obrigatorio; `atlas:predict failure` nao roda sem target concreto, opt-in do operador, calibration/safety gates e outcome tracking.
 
 ## Objetivo
 
@@ -12,8 +18,7 @@ E **Capability 9** do Multiplier Edge (`cognitive/multiplier-edge.md`). Implemen
 
 - AP-166 (Failure Signature Classifier + Bayesian Tracker) implementado — fonte de `failure_signature` historico
 - AP-163 (Dreyfus Dynamic Pedagogy) implementado — fonte de `dreyfus_overlay`
-- Knowledge Graph maduro com decay overlay funcional
-- Evidence Ledger maduro (~30-60 dias)
+- Knowledge Graph/decay overlay maduro (runtime atual usa fallback Dreyfus + failure history)
 
 ## Nao Objetivo
 
@@ -23,6 +28,8 @@ Nao implementar:
 - Inserir falha em flow continuo / passivo (apenas em flows opt-in: `learning.daily_plan`, `learning.deep_work` quando configurado)
 - Garantir que operador vai falhar em probabilidade exata (sistema bayesiano e probabilistico, nao deterministico)
 - Substituir AP-168 Productive Failure Flow (PF usa problema canonical_library; PFI usa problema personal_predicted)
+- Auto-agendar falha preditiva, inserir desafio passivo, ou criar frustracao
+  aleatoria sem opt-in explicito, safety gate e outcome tracking
 
 ## Authority
 
@@ -53,7 +60,7 @@ Trigger (atlas daily-plan | atlas deep-work com PFI on)
 
 ## Schema
 
-### Migration `2026_05_07_200000_create_predictive_failure_insertions.php`
+### Migration `2026_05_09_170000_create_predictive_failure_insertions_table.php`
 
 ```php
 Schema::create('predictive_failure_insertions', function (Blueprint $t) {
@@ -152,16 +159,15 @@ final class PredictiveFailureSafetyGate {
 
 | Comando | Output |
 |---|---|
-| `atlas daily-plan` (auto) | inclui "1 problema do dia que voce provavelmente vai errar" quando PFI on |
-| `atlas predict failure <node>` | inspeciona predicao + probability + sinais |
-| `atlas predict failure history --window=30d` | tabela: insertion_id, node, predicted_prob, outcome, calibration_error |
-| `atlas predict failure metrics [--domain=...]` | Brier score + avg calibration error |
-| `atlas predict failure on/off [--domain=...]` | toggle |
+| `php artisan atlas:predict failure <node> --json` | insere problema calibrado + probability + sinais |
+| `php artisan atlas:predict history --window=30 --json` | tabela: insertion_id, node, predicted_prob, outcome, calibration_error |
+| `php artisan atlas:predict metrics --domain=programming --json` | Brier score + avg calibration error |
+| Futuro `atlas daily-plan` | inclui "1 problema do dia que voce provavelmente vai errar" quando PFI on |
 
 ### Tela / Interacao tipica
 
 ```
-$ atlas daily-plan
+$ php artisan atlas:predict failure queue-batching-deadlock --domain=programming
 
 Daily Plan, 2026-05-08:
 
@@ -184,13 +190,13 @@ Problema do dia (gerar erro antes de aprender):
 Tente resolver antes de consultar nada.
 
 [outcome registrado depois via:]
-  atlas predict failure resolve <id> --outcome=failure --signature="optimistic-locking-not-used"
+  php artisan atlas:predict resolve <id> --outcome=failure --signature="optimistic-locking-not-used"
 
 PREDICTIVE_FAILURE_INSERTED. Insertion #14.
 ```
 
 ```
-$ atlas predict failure metrics --domain=programming --window=60d
+$ php artisan atlas:predict metrics --domain=programming --window=60
 
 Calibration Report (programming, 60d):
   total_insertions:        18
@@ -224,20 +230,37 @@ Namespace `cognitive.predictive_failure.*`.
 
 `PREDICTIVE_FAILURE_INSERTED`, `PREDICTIVE_FAILURE_INSERTION_SKIPPED`, `PREDICTIVE_FAILURE_OUTCOME_SUCCESS`, `PREDICTIVE_FAILURE_OUTCOME_FAILURE`, `PREDICTIVE_FAILURE_OUTCOME_ABANDONED`, `PREDICTIVE_FAILURE_CALIBRATION_COMPUTED`, `PREDICTIVE_FAILURE_PRIOR_UPDATED`. Taxonomia fechada.
 
+## Governance Contract
+
+Todo payload e evento Ledger do runtime atual inclui
+`atlas.cognitive.predictive_failure.governance.v1`:
+
+- `operator_opt_in_required=true`;
+- `specific_target_required=true`;
+- `empty_subject_allowed=false`;
+- `auto_schedule_allowed=false`;
+- `passive_insertion_allowed=false`;
+- `random_frustration_allowed=false`;
+- `daily_plan_auto_insert_allowed=false`;
+- `requires_calibration_band_gate=true`;
+- `requires_safety_gate=true`;
+- `requires_outcome_tracking=true`;
+- `requires_rivals_learning_validation_before_default=true`;
+- `allowed_surfaces_now=["cli_explicit"]`;
+- App, Mobile, Voice e Daily Plan exigem AP/review futuro antes de virar default.
+- Service-level guard tambem exige alvo explicito; nenhum caller pode depender apenas
+  da protecao do CLI.
+- Storage indisponivel nunca emite `PREDICTIVE_FAILURE_INSERTED`; emite apenas
+  `PREDICTIVE_FAILURE_INSERTION_SKIPPED` com `predictive_failure_storage_unavailable`.
+- Privacy class sensivel (`p3/p4`, `class_3/class_4`, `3/4`) bloqueia no safety gate.
+
 ## Tests
 
 | Test | Local |
 |---|---|
-| `PredictiveFailureSelectorTest` (4 sinais combinados) | `tests/Unit/Ai/Cognitive/PredictiveFailure/` |
-| `FailureProbabilityEstimatorTest` (bayesian update) | `tests/Unit/Ai/Cognitive/PredictiveFailure/` |
 | `CalibrationBandClassifierTest` | `tests/Unit/Ai/Cognitive/PredictiveFailure/` |
-| `PredictiveFailureProblemGeneratorTest` (canonical + personal_derived) | `tests/Unit/Ai/Cognitive/PredictiveFailure/` |
-| `PredictiveFailureOutcomeTrackerTest` (calibration_error correto) | `tests/Unit/Ai/Cognitive/PredictiveFailure/` |
-| `CalibrationBandGateTest` (3 cenarios block + 1 pass) | `tests/Unit/Ai/Kernel/Gates/` |
-| `PredictiveFailureSafetyGateTest` (load alto, privacy, stress) | `tests/Unit/Ai/Kernel/Gates/` |
-| `PredictiveFailureIntegrationTest` (end-to-end com AP-166 mock) | `tests/Feature/Ai/Cognitive/` |
-| `AtlasPredictCommandTest` | `tests/Feature/Console/` |
-| `CognitiveDomainComplianceTest::test_pfi_never_runs_under_high_cognitive_load` | `tests/Feature/Architecture/` |
+| `PredictiveFailureGateTest` | `tests/Unit/Ai/Kernel/Gates/` |
+| `AtlasPredictCommandTest` (insert, resolve, metrics, high-load block) | `tests/Feature/Ai/Cognitive/` |
 
 ## Validation Commands
 
@@ -245,7 +268,7 @@ Namespace `cognitive.predictive_failure.*`.
 php artisan migrate
 php artisan test tests/Unit/Ai/Cognitive/PredictiveFailure tests/Feature/Ai/Cognitive
 php artisan atlas:predict failure <node-id> --json
-php artisan atlas:predict failure metrics --domain=programming --window=60d --json
+php artisan atlas:predict metrics --domain=programming --window=60 --json
 php artisan atlas:ai:architecture-validate --json
 ```
 
@@ -256,9 +279,9 @@ php artisan atlas:ai:architecture-validate --json
 3. Ambos os gates executaveis e ligados ao policy compiler
 4. Integracao com AP-166 funciona (consome failure_signature historico)
 5. Integracao com AP-163 funciona (consome dreyfus_overlay)
-6. Integracao com Knowledge Graph + decay overlay funciona
-7. CLI `atlas predict failure` (history/metrics/on/off/resolve) operacional
-8. `atlas daily-plan` inclui 1 PFI por dia quando PFI on para o dominio
+6. Integracao com Knowledge Graph + decay overlay usa fallback governado ate maturidade real
+7. CLI `php artisan atlas:predict` (failure/history/metrics/resolve) operacional
+8. `atlas daily-plan`/on-off/UX App-Mobile-Voice continuam futuros
 9. Brier score + calibration_error sao computados em janela rolling 60d
 10. Architecture test garante que PFI nao roda sob load alto (`test_pfi_never_runs_under_high_cognitive_load`)
 11. Ledger emite todos os 7 events em fluxo end-to-end

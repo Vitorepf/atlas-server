@@ -10,6 +10,9 @@ class AtlasAiArchitectureOperationsCommand extends Command
     protected $signature = 'atlas:ai:architecture-operations
         {--id= : Filter by stable operation id}
         {--kind= : Filter by operation kind}
+        {--section= : Filter by canonical operation section}
+        {--surface= : Filter by operation surface}
+        {--owner-layer= : Filter by governing owner layer}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'List canonical Atlas AI mother-architecture operations.';
@@ -47,13 +50,16 @@ class AtlasAiArchitectureOperationsCommand extends Command
     }
 
     /**
-     * @return array{id?:string,kind?:string}
+     * @return array{id?:string,kind?:string,section?:string,surface?:string,owner_layer?:string}
      */
     private function filters(): array
     {
         return array_filter([
             'id' => is_string($this->option('id')) && $this->option('id') !== '' ? $this->option('id') : null,
             'kind' => is_string($this->option('kind')) && $this->option('kind') !== '' ? $this->option('kind') : null,
+            'section' => is_string($this->option('section')) && $this->option('section') !== '' ? $this->option('section') : null,
+            'surface' => is_string($this->option('surface')) && $this->option('surface') !== '' ? $this->option('surface') : null,
+            'owner_layer' => is_string($this->option('owner-layer')) && $this->option('owner-layer') !== '' ? $this->option('owner-layer') : null,
         ], fn (?string $value): bool => $value !== null);
     }
 }

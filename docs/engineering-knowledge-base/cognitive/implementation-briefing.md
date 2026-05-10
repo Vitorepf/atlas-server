@@ -100,9 +100,9 @@ nao substitui AP, schema, service, gate, teste ou DoD.
 | AP-165 | Process Pattern Catalog | `implemented-operational-read-model` | catalogo e matcher; personal detector fica para AP futuro |
 | AP-166 | Failure Signature Tracker | `implemented-operational-read-model` | classifica falha, alerta repeticao, registra `learning.failure_review`; proposal emission futura |
 | AP-167 | SRL Orchestrator | `implemented-operational-read-model` | opt-in forethought/performance/reflection; hooks de surface ficam para consumers |
-| AP-168 | Productive Failure Flow | `implemented_partial` | runtime minimo, CLI, migration, gates e `PRODUCTIVE_FAILURE_*` ativos; `transfer_test` ainda proposal-only e UX App/Mobile/Voice futura |
-| AP-169 | Personal Worked Examples Generator | `implemented_partial` | integrado ao AP-164 via `atlas:worked-example extract/personal`; scheduler/review UI e source maturity futuros |
-| AP-170 | Predictive Failure Insertion | `scaffold` | depende de AP-166 + Knowledge Graph maduro |
+| AP-168 | Productive Failure Flow | `implemented_partial` | runtime minimo, CLI, migration, gates, `transfer-tests` read-model, Self-Improvement review proposal, `PRODUCTIVE_FAILURE_*` ativos e topico explicito obrigatorio; UX App/Mobile/Voice futura |
+| AP-169 | Personal Worked Examples Generator | `implemented_partial` | integrado ao AP-164 via `atlas:worked-example extract/personal`; schedule control surface review-only existe; bootstrap scheduler/review UI e source maturity futuros |
+| AP-170 | Predictive Failure Insertion | `implemented_partial` | migration, CLI `atlas:predict`, gates, outcome, Brier/calibration metrics, eventos ativos e alvo explicito obrigatorio; daily-plan/UX/KG maduro futuros |
 
 ## Politica de comandos
 

@@ -14,6 +14,8 @@ governanca e validacao da propria sessao.
 - O payload deve conter `architecture_operations` com schema
   `atlas.architecture_operations.v1`, `operation_ids`, `command_count` e
   `commands`.
+- O payload deve conter `architecture_operations.owner_layer_operations.runtime`
+  para descobrir `runtime_language_boundary` antes de qualquer Python/Go/Swift/RAG/ML.
 - O bloco deve incluir pelo menos `architecture_readiness`,
   `session_bootstrap`, `feature_placement`, `documentation_split_plan`, `architecture_operations`,
   `architecture_validate`, `documentation_health`, `provider_projection_status`,
@@ -25,8 +27,12 @@ governanca e validacao da propria sessao.
   mesmo bloco.
 - O payload deve conter tambem `architecture_readiness` resumido, derivado de
   `AtlasArchitectureReadinessService::snapshot()`, com `status`, `ready`,
-  `checks`, `review_signal` e comando focado por owner. O snapshot completo
-  continua pertencendo a AP-176/AP-177; bootstrap apenas carrega o sinal leve.
+  `checks`, `review_signal`, `coverage_boundary`, `safe_next_blocks` e comando
+  focado por owner. O snapshot completo continua pertencendo a AP-176/AP-177;
+  bootstrap carrega o sinal operacional necessario para a sessao.
+- O payload deve expor `coverage_boundary` e `safe_next_blocks` tambem no nivel
+  raiz. Esses campos sao read-model diagnostico da matriz
+  `implemented-vs-scaffold`; nao viram backlog paralelo nem autorizam pular AP.
 - O scanner deve publicar
   `ap174_session_bootstrap_architecture_operations_contract`.
 
@@ -41,6 +47,7 @@ governanca e validacao da propria sessao.
 ## Resultado
 
 Toda sessao nasce com os comandos essenciais de bootstrap, placement, split
-plan, projection, workflow AP, validacao e um sinal direto de readiness. Isso
-reduz consultas secundarias, evita comandos antigos em prompts externos e torna
-o bootstrap uma unidade operacional completa.
+plan, projection, workflow AP, validacao, limite de cobertura e os blocos
+seguros para continuar. Isso reduz consultas secundarias, evita comandos
+antigos em prompts externos e torna o bootstrap uma unidade operacional
+completa.

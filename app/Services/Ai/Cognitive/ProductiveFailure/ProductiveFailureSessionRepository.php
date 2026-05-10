@@ -138,6 +138,49 @@ class ProductiveFailureSessionRepository
             ->all();
     }
 
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function transferTestProposals(?string $domain = null, int $days = 60, bool $dueOnly = false): array
+    {
+        if (! $this->tableReady()) {
+            return [];
+        }
+
+        $today = now()->toDateString();
+
+        return DB::table('productive_failure_sessions')
+            ->when($domain, fn ($query) => $query->where('domain', $domain))
+            ->whereNotNull('phase_3_transfer_test_id')
+            ->where('created_at', '>=', now()->subDays(max(1, $days)))
+            ->orderBy('phase_3_started_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (object $row): array => $this->normalize((array) $row))
+            ->filter(function (array $session) use ($dueOnly, $today): bool {
+                $transferTest = (array) ($session['phase_3_transfer_test'] ?? []);
+
+                if (($transferTest['status'] ?? null) !== 'proposal_only') {
+                    return false;
+                }
+
+                if ((bool) ($transferTest['auto_apply_to_curriculum'] ?? true) !== false) {
+                    return false;
+                }
+
+                if (! $dueOnly) {
+                    return true;
+                }
+
+                $scheduledFor = (string) ($transferTest['scheduled_for'] ?? '');
+
+                return $scheduledFor !== '' && $scheduledFor <= $today;
+            })
+            ->map(fn (array $session): array => $this->transferTestProjection($session))
+            ->values()
+            ->all();
+    }
+
     public function tableReady(): bool
     {
         return Schema::hasTable('productive_failure_sessions');
@@ -189,6 +232,38 @@ class ProductiveFailureSessionRepository
             'phase_3_started_at' => $row['phase_3_started_at'] ?? null,
             'completed_at' => $row['completed_at'] ?? null,
             'updated_at' => $row['updated_at'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $session
+     * @return array<string,mixed>
+     */
+    private function transferTestProjection(array $session): array
+    {
+        $transferTest = (array) ($session['phase_3_transfer_test'] ?? []);
+        $scheduledFor = (string) ($transferTest['scheduled_for'] ?? '');
+
+        return [
+            'schema_version' => 'atlas.cognitive.productive_failure.transfer_test_review.v1',
+            'session_id' => (int) ($session['id'] ?? 0),
+            'envelope_id' => (string) ($session['envelope_id'] ?? ''),
+            'knowledge_node_id' => (string) ($session['knowledge_node_id'] ?? ''),
+            'domain' => (string) ($session['domain'] ?? ''),
+            'topic' => (string) ($transferTest['topic'] ?? data_get($session, 'phase_1_problem.topic', 'unknown')),
+            'transfer_test_id' => (string) ($transferTest['id'] ?? ''),
+            'scheduled_for' => $scheduledFor,
+            'due' => $scheduledFor !== '' && $scheduledFor <= now()->toDateString(),
+            'status' => (string) ($transferTest['status'] ?? 'unknown'),
+            'review_required' => (bool) ($transferTest['review_required'] ?? true),
+            'auto_apply_to_curriculum' => (bool) ($transferTest['auto_apply_to_curriculum'] ?? true),
+            'prompt' => (string) ($transferTest['prompt'] ?? ''),
+            'completion_status' => (string) ($session['completion_status'] ?? ''),
+            'source_session' => [
+                'phase_2_delta' => data_get($session, 'phase_2_comparison.prediction_error_delta'),
+                'principle_extracted' => data_get($session, 'phase_3_articulation.principle_extracted'),
+                'completed_at' => $session['completed_at'] ?? null,
+            ],
         ];
     }
 

@@ -79,12 +79,90 @@ class AtlasWorkedExampleCommand extends Command
             ));
         }
 
+        if ($subject === 'schedule') {
+            return $this->extractSchedule();
+        }
+
+        if ($subject === 'scheduled') {
+            return $this->runScheduledExtraction($extractor);
+        }
+
         return $this->render($extractor->run(
             source: trim((string) $this->option('extract-source')) ?: 'all',
             domain: $domain === 'learning' ? 'any' : $domain,
             days: $this->positiveIntOption('window', 90),
             limit: $this->positiveIntOption('limit', 50),
         ));
+    }
+
+    private function extractSchedule(): int
+    {
+        $operation = strtolower(trim((string) $this->option('status')) ?: 'status');
+        $repository = app(PersonalWorkedExampleExtractionRepository::class);
+
+        $payload = match ($operation) {
+            'on', 'enable', 'enabled' => $repository->setScheduleEnabled(true),
+            'off', 'disable', 'disabled' => $repository->setScheduleEnabled(false),
+            default => $repository->scheduleStatus(),
+        };
+
+        return $this->render(array_merge($payload, [
+            'mode' => 'extract_schedule',
+            'operation' => $operation,
+            'autonomy' => [
+                'auto_extract_enabled' => (bool) data_get($payload, 'job.enabled', false),
+                'auto_apply' => false,
+                'review_required' => true,
+                'scheduler_registered' => (bool) data_get($payload, 'scheduler_registered', false),
+            ],
+        ]));
+    }
+
+    private function runScheduledExtraction(PersonalWorkedExampleExtractor $extractor): int
+    {
+        $repository = app(PersonalWorkedExampleExtractionRepository::class);
+        $readiness = $repository->scheduledRunReadiness();
+
+        if (! (bool) ($readiness['ready_to_run'] ?? false)) {
+            return $this->render([
+                'schema_version' => 'atlas.cognitive.personal_extraction_schedule_run.v1',
+                'status' => 'skipped',
+                'mode' => 'extract_scheduled',
+                'reason' => $readiness['skip_reason'] ?? 'not_ready',
+                'schedule' => $readiness,
+                'autonomy' => [
+                    'auto_apply' => false,
+                    'review_required' => true,
+                    'scheduler_registered' => (bool) data_get($readiness, 'scheduler_registered', false),
+                ],
+            ]);
+        }
+
+        $filters = (array) data_get($readiness, 'job.source_filters', []);
+        $sources = (array) ($filters['sources'] ?? []);
+        $domains = (array) ($filters['domains'] ?? []);
+        $source = count($sources) === 1 ? (string) $sources[0] : 'all';
+        $domain = count($domains) === 1 ? (string) $domains[0] : 'any';
+        $result = $extractor->run(
+            source: $source,
+            domain: $domain,
+            days: $this->boundedInt((int) ($filters['window_days'] ?? 90), 1, 365),
+            limit: $this->boundedInt((int) ($filters['max_candidates'] ?? 50), 1, 200),
+        );
+        $updatedSchedule = $repository->markScheduledRunCompleted((array) ($result['summary'] ?? []));
+
+        return $this->render([
+            'schema_version' => 'atlas.cognitive.personal_extraction_schedule_run.v1',
+            'status' => 'ok',
+            'mode' => 'extract_scheduled',
+            'result' => $result,
+            'schedule' => $updatedSchedule,
+            'autonomy' => [
+                'auto_apply' => false,
+                'review_required' => true,
+                'scheduler_registered' => true,
+            ],
+        ]);
     }
 
     private function personal(WorkedExampleRepository $examples, PersonalWorkedExampleExtractionRepository $extractions, string $domain): int
@@ -256,6 +334,11 @@ class AtlasWorkedExampleCommand extends Command
         $value = filter_var($this->option($name), FILTER_VALIDATE_INT);
 
         return is_int($value) && $value > 0 ? $value : $default;
+    }
+
+    private function boundedInt(int $value, int $min, int $max): int
+    {
+        return max($min, min($max, $value));
     }
 
     /**

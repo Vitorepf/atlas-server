@@ -251,6 +251,10 @@ finding proposal-only quando AP-99 aponta candidato melhor. O payload
 exibem report read-only e Curator transforma oportunidade recorrente em
 trabalho revisavel sem criar roteador paralelo.
 
+O `proposal_review_packet` bloqueia promocao ate benchmark, review humano,
+novo receipt e rollback; ele tambem proibe mudar provider/modelo, hardcodar
+preferencia ou bypassar Atlas Decide antes da revisao.
+
 AP-99 agora carrega tokens e custo por chamada quando houver rate configurado:
 `total_tokens`, `average_total_tokens`, `total_cost_microusd`,
 `average_cost_microusd`, `cost_confidence_counts` e `cost_mode_counts`. Quando

@@ -53,7 +53,12 @@ The payload schema is `atlas.architecture_readiness.v1` and includes:
 - `checks.provider_projection`;
 - `checks.architecture_operations`;
 - focused `docs_split_plan`;
+- `coverage_boundary` from the implemented-vs-scaffold matrix as diagnostic
+  read model, never backlog authority;
+- `safe_next_blocks` parsed from the matrix for handoff guidance;
 - focused `architecture_operations`;
+- `architecture_operations.owner_layer_operations.runtime`, exposing
+  `runtime_language_boundary` as pre-implementation gate;
 - `review_signal.required_next_commands`.
 
 ## Non-Goals

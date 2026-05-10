@@ -49,6 +49,8 @@ class AtlasAiExternalGraphHarnessCommand extends Command
             $this->components->twoColumnDetail('Edges', (string) $validation['edge_count']);
             $this->components->twoColumnDetail('Errors', (string) $validation['error_count']);
             $this->components->twoColumnDetail('Warnings', (string) $validation['warning_count']);
+            $this->components->twoColumnDetail('Review packet', (string) data_get($validation, 'review_packet.status'));
+            $this->components->twoColumnDetail('Auto promotion', data_get($validation, 'review_packet.auto_promotion_allowed') ? 'allowed' : 'blocked');
         }
 
         return self::SUCCESS;

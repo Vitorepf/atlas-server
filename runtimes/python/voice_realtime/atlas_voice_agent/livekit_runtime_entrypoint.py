@@ -93,10 +93,20 @@ def start_livekit_agents_worker(
         "production_loop_plan": production_loop_plan,
         "sdk_wiring_contract": production_loop_plan.get("sdk_wiring_contract"),
         "activation_next_action": activation_contract.get("next_action"),
+        "production_promotion": {
+            "required": True,
+            "gate_schema_version": "atlas.voice_realtime.production_promotion_gate.v1",
+            "human_review_required": True,
+            "decision_receipt_required": True,
+            "rollback_plan_required": True,
+            "auto_promotion_allowed": False,
+            "next_action": "run_runtime_certify_with_require_sdk_then_submit_human_review",
+        },
         "guardrails": {
             "direct_provider_call_allowed": False,
             "direct_tool_execution_allowed": False,
             "raw_audio_persistence_allowed": False,
             "access_token_log_allowed": False,
+            "worker_start_without_production_promotion_allowed": False,
         },
     }

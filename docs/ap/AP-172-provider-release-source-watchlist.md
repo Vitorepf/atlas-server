@@ -161,7 +161,7 @@ Inbox automatico, Evidence Ledger ou Atlas Decide:
   contagens, guardrails e candidate a partir de URL/titulo;
 - `continuous_ingestion_contract`: contrato fail-closed para crawler futuro,
   exigindo AP, rate limits, canonical URL/hash, source gate, Ledger,
-  Rivals/AP-99 e review humano antes de qualquer rede, write ou signal;
+  Rivals/AP-99, `promotion_allowed=false` e review humano antes de qualquer rede, write ou signal;
 - `ProviderReleaseCandidateFingerprint`: canonical URL, content hash e dedupe
   key deterministico para o crawler futuro;
 - `ProviderReleaseSourceTrustPolicy`: policy Tier 1/2/3, outputs permitidos e

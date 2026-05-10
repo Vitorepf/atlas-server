@@ -73,7 +73,7 @@ Resumo executivo. Detalhe operacional (schema, migration, services, gates, telas
 | 6 | **Cross-Domain Evidence Routing** | Programming/Finance detectam uso real -> Curator ajusta currículo | Evidence Ledger + Curator | emerging | 2 | AP-COG-EDGE-06 |
 | 7 | **Temporal Compression Validation** | Rivals-Learning real - tempo ate `transfer_proof` Atlas vs uso direto | Rivals-Learning maduro | emerging | 6 | AP-COG-EDGE-07 |
 | 8 | **Personal Worked Examples Generator** | usa SEU codigo (commits, PRs), SUAS decisoes (Strategic Decision domain), SEUS Feynman antigos como worked examples com fading. Worked examples + fading com material proprio que nenhum tutor tem | Evidence Ledger ~30-60d + Worked Example Engine | implemented_partial | 2 | AP-169 |
-| 9 | **Predictive Failure Insertion** | Atlas conhece exatamente onde voce vai falhar (gaps no grafo + decay overlay + dreyfus_stage + failure_signature historico). **Insere problema calibrado** que ativa Generation Effect personalizado | Knowledge Graph + Failure Tracker maduro | scaffold | 4 | AP-170 |
+| 9 | **Predictive Failure Insertion** | Atlas conhece onde voce provavelmente vai falhar (Dreyfus + failure_signature + fallback de gap/decay). **Insere problema calibrado** que ativa Generation Effect personalizado; alvo explicito obrigatorio, nunca `unknown` | Failure Tracker + Dreyfus; KG maduro futuro | implemented_partial | 4 | AP-170 |
 | 10 | **Process Pattern Personal Detector** | varre o ledger pessoal e destila padroes humanos emergentes ("voce aplicou abordagem X em 3 contextos diferentes em 90d - isso e um pattern; quer nomear?"). Process Pattern Catalog populado automaticamente com sua propria experiencia | Evidence Ledger maduro + Process Pattern Catalog | emerging | 3 | AP-COG-EDGE-10 |
 
 ## Capability 1 — Dreyfus Dynamic Pedagogy (Fase 1, AP-163)
@@ -158,7 +158,7 @@ Atlas conhece **exatamente onde voce vai falhar**: gaps no Knowledge Graph + dec
 
 Implementa C14 como erro preditivo calibrado: insere problema que o operador provavelmente erra de forma util, registra divergencia e exige comparacao + transferencia. Nao e "hard mode" permanente.
 
-**Comando:** transparente — aparece em `learning.daily_plan` como "1 problema do dia que voce provavelmente vai errar" (calibrado em zona 80/20).
+**Comando atual:** `php artisan atlas:predict failure <node> --json`. Futuro: aparece em `learning.daily_plan` como "1 problema do dia que voce provavelmente vai errar".
 
 **Por que so o Atlas faz**: precisa do historico de falhas + grafo + dreyfus simultaneos.
 

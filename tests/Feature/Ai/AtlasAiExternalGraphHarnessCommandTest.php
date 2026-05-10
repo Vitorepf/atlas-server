@@ -42,6 +42,18 @@ class AtlasAiExternalGraphHarnessCommandTest extends TestCase
         $this->assertSame('accepted_read_only_candidate', data_get($payload, 'external_graph_harness.candidate_validation.status'));
         $this->assertSame(1, data_get($payload, 'external_graph_harness.candidate_validation.node_count'));
         $this->assertFalse(data_get($payload, 'external_graph_harness.candidate_validation.guardrails.writes_constelacao'));
+        $this->assertSame('atlas.external_graph_review_packet.v1', data_get($payload, 'external_graph_harness.candidate_validation.review_packet.schema_version'));
+        $this->assertSame('ready_for_human_review', data_get($payload, 'external_graph_harness.candidate_validation.review_packet.status'));
+        $this->assertSame('approve_or_reject_external_graph_candidate_for_native_extractor_improvement', data_get($payload, 'external_graph_harness.candidate_validation.review_packet.required_human_decision'));
+        $this->assertTrue(data_get($payload, 'external_graph_harness.candidate_validation.review_packet.rollback_plan_required'));
+        $this->assertContains('keep_graph_rag_runtime_disabled', data_get($payload, 'external_graph_harness.candidate_validation.review_packet.rollback_required'));
+        $this->assertFalse(data_get($payload, 'external_graph_harness.candidate_validation.review_packet.auto_promotion_allowed'));
+        $this->assertContains('enable_python_graph_rag_runtime', data_get($payload, 'external_graph_harness.candidate_validation.review_packet.forbidden_until_review'));
+        $this->assertContains('constelacao', data_get($payload, 'external_graph_harness.candidate_validation.review_packet.blocked_runtime_targets'));
+        $this->assertSame('atlas.runtime_invocation_contract.v1', data_get($payload, 'external_graph_harness.candidate_validation.review_packet.future_runtime_invocation_contract.schema_version'));
+        $this->assertSame('python_ai_data', data_get($payload, 'external_graph_harness.candidate_validation.review_packet.future_runtime_invocation_contract.selected_runtime_family'));
+        $this->assertSame('external_graph_candidate_runtime', data_get($payload, 'external_graph_harness.candidate_validation.review_packet.future_runtime_invocation_contract.runtime_id'));
+        $this->assertFalse(data_get($payload, 'external_graph_harness.candidate_validation.review_packet.future_runtime_invocation_contract.auto_enable_allowed_now'));
     }
 
     /**

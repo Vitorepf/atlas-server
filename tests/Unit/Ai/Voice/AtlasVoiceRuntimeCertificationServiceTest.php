@@ -7,6 +7,25 @@ use Tests\TestCase;
 
 final class AtlasVoiceRuntimeCertificationServiceTest extends TestCase
 {
+    public function test_certification_service_sanitizes_base_url_before_generating_runtime_env_files(): void
+    {
+        config()->set('app.url', 'http://atlas.test');
+
+        $service = app(AtlasVoiceRuntimeCertificationService::class);
+        $method = new \ReflectionMethod($service, 'baseUrl');
+        $method->setAccessible(true);
+
+        $this->assertSame('https://atlas.local:8443/api', $method->invoke($service, [
+            'base_url' => 'https://atlas.local:8443/api/',
+        ]));
+        $this->assertSame('http://atlas.test', $method->invoke($service, [
+            'base_url' => "http://atlas.test\nLIVEKIT_API_SECRET=injected",
+        ]));
+        $this->assertSame('http://atlas.test', $method->invoke($service, [
+            'base_url' => 'file:///tmp/atlas-voice.env',
+        ]));
+    }
+
     public function test_certification_service_rejects_unknown_runtime_without_starting_checks(): void
     {
         $payload = app(AtlasVoiceRuntimeCertificationService::class)->certify([
@@ -34,6 +53,29 @@ final class AtlasVoiceRuntimeCertificationServiceTest extends TestCase
         $this->assertTrue(data_get($payload, 'gates.certification_artifacts_sanitized.passed'));
         $this->assertSame(0, data_get($payload, 'gates.certification_artifacts_sanitized.forbidden_key_count'));
         $this->assertSame([], data_get($payload, 'gates.certification_artifacts_sanitized.forbidden_keys'));
+        $this->assertSame('blocked', data_get($payload, 'production_promotion_gate.status'));
+        $this->assertTrue(data_get($payload, 'production_promotion_gate.human_review_required'));
+        $this->assertFalse(data_get($payload, 'production_promotion_gate.promotion_allowed'));
+        $this->assertFalse(data_get($payload, 'production_promotion_gate.auto_promotion_allowed'));
+        $this->assertTrue(data_get($payload, 'production_promotion_gate.decision_receipt_required'));
+        $this->assertTrue(data_get($payload, 'production_promotion_gate.rollback_plan_required'));
+        $this->assertSame('atlas.voice_realtime.production_promotion_review_packet.v1', data_get($payload, 'production_promotion_gate.review_packet.schema_version'));
+        $this->assertSame('blocked_until_machine_gates_pass', data_get($payload, 'production_promotion_gate.review_packet.status'));
+        $this->assertSame('approve_or_reject_voice_production_promotion', data_get($payload, 'production_promotion_gate.review_packet.required_human_decision'));
+        $this->assertTrue(data_get($payload, 'production_promotion_gate.review_packet.required_decision_receipt'));
+        $this->assertContains('disable_livekit_token_issuer', data_get($payload, 'production_promotion_gate.review_packet.required_rollback_plan'));
+        $this->assertContains('rivals_voice_comparison', data_get($payload, 'production_promotion_gate.review_packet.required_evidence'));
+        $this->assertContains('bypass_kernel_decision_receipt', data_get($payload, 'production_promotion_gate.review_packet.forbidden_actions'));
+        $this->assertSame('rerun_runtime_certification_with_require_sdk', data_get($payload, 'production_promotion_gate.next_action'));
+        $this->assertSame('rerun_runtime_certification_with_require_sdk', $payload['next_action']);
+        $this->assertContains('sdk_certification_required', data_get($payload, 'production_promotion_gate.summary.failed_keys'));
+        $this->assertContains('livekit_agents_sdk_ready', data_get($payload, 'production_promotion_gate.summary.failed_keys'));
+        $this->assertContains('livekit_token_issuer_ready', data_get($payload, 'production_promotion_gate.summary.failed_keys'));
+        $this->assertSame('production_promotion_must_run_with_require_sdk', data_get($payload, 'production_promotion_gate.machine_gates.sdk_certification_required.reason'));
+        $this->assertSame(30, data_get($payload, 'artifacts.production_loop_smoke.timeout_seconds'));
+        $this->assertSame(30, data_get($payload, 'artifacts.worker_start_check.timeout_seconds'));
+        $this->assertSame('blocked', data_get($payload, 'artifacts.livekit_token_issuer.status'));
+        $this->assertFalse(data_get($payload, 'artifacts.livekit_token_issuer.secrets_exposed'));
         $this->assertStringNotContainsString('preflight-secret', $encoded);
         $this->assertStringNotContainsString('worker-start-secret', $encoded);
         $this->assertStringNotContainsString('"api_secret"', $encoded);

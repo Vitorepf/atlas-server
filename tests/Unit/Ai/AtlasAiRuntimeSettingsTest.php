@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Ai;
 
+use App\Services\Ai\AiRuntimeBudgetService;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -94,5 +95,14 @@ class AtlasAiRuntimeSettingsTest extends TestCase
             AtlasAiRuntimeSettings::DEFAULT_BUDGET_WINDOW_HOURS,
             $settings->normalizeBudgetWindowHours('bad'),
         );
+
+        $budget = app(AiRuntimeBudgetService::class)->payload();
+
+        $this->assertSame('atlas.runtime_budget.governance_contract.v1', data_get($budget, 'governance_contract.schema_version'));
+        $this->assertFalse(data_get($budget, 'governance_contract.autonomy_escalation_allowed'));
+        $this->assertFalse(data_get($budget, 'governance_contract.budget_limit_auto_raise_allowed'));
+        $this->assertTrue(data_get($budget, 'governance_contract.requires_human_review_for_limit_change'));
+        $this->assertTrue(data_get($budget, 'governance_contract.requires_decision_receipt_for_limit_change'));
+        $this->assertContains('bypass_budget_block', data_get($budget, 'governance_contract.forbidden_actions'));
     }
 }

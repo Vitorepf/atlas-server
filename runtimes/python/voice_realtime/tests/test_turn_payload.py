@@ -59,6 +59,20 @@ class AtlasVoiceTurnPayloadTest(unittest.TestCase):
                         key: "do-not-pass-through",
                     })
 
+    def test_rejects_nested_turn_payload_audio_or_secret(self) -> None:
+        for payload in [
+            {"metadata": {"audio": {"raw_audio_bytes": b"nope"}}},
+            {"sdk_metadata": [{"api_key": "nested-key"}]},
+        ]:
+            with self.subTest(payload=payload):
+                with self.assertRaises(UnsafeVoicePayload):
+                    AtlasVoiceTurnPayload.from_runtime_input({
+                        "session_id": "voice_session",
+                        "turn_id": "voice_turn",
+                        "transcript": "hello",
+                        **payload,
+                    })
+
     def test_rejects_turn_without_transcript_or_audio_hash(self) -> None:
         with self.assertRaises(UnsafeVoicePayload):
             AtlasVoiceTurnPayload.from_runtime_input({

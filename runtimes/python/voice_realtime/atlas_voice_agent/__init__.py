@@ -29,6 +29,7 @@ from .livekit_session import LiveKitVoiceSession
 from .livekit_worker import AtlasLiveKitWorker, LiveKitWorkerError, LiveKitWorkerResult
 from .mock_kernel import MockKernelTransport
 from .preflight import run_runtime_preflight
+from .product_loop_check import build_product_loop_check
 from .sdk_status import inspect_livekit_sdk
 from .session_lease import AtlasVoiceSessionLease, UnsafeSessionLease
 from .session_payload import AtlasVoiceSessionPayload
@@ -72,6 +73,7 @@ __all__ = [
     "build_livekit_worker_plan",
     "build_activation_contract",
     "build_livekit_sdk_wiring_contract",
+    "build_product_loop_check",
     "build_production_loop_plan",
     "inspect_callback_loop_contract",
     "inspect_livekit_sdk",

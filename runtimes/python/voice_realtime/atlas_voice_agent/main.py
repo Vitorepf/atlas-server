@@ -21,6 +21,7 @@ from .livekit_worker import AtlasLiveKitWorker
 from .livekit_runtime_entrypoint import start_livekit_agents_worker
 from .mock_kernel import MockKernelTransport
 from .preflight import run_runtime_preflight
+from .product_loop_check import build_product_loop_check
 from .sdk_status import inspect_livekit_sdk
 from .settings import AtlasVoiceRuntimeSettings
 from .worker_plan import build_livekit_worker_plan
@@ -139,8 +140,11 @@ def main() -> int:
     parser.add_argument("--require-sdk", action="store_true", help="Make --preflight fail if LiveKit Agents SDK is missing")
     parser.add_argument("--worker-plan", action="store_true", help="Describe fail-closed LiveKit worker activation plan and exit")
     parser.add_argument("--production-loop-plan", action="store_true", help="Describe real LiveKit SDK loop wiring plan without starting a worker")
+    parser.add_argument("--product-loop-check", action="store_true", help="Aggregate callback, SDK loop and worker-start gates without starting a daemon")
     parser.add_argument("--activation-contract", action="store_true", help="Publish full preflight + worker-plan activation contract and exit")
     parser.add_argument("--start-worker", action="store_true", help="Attempt governed LiveKit worker startup; returns blocked JSON until all gates pass")
+    parser.add_argument("--callback-loop-wired", action="store_true", help="Declare the governed callback router is wired for fail-closed activation checks")
+    parser.add_argument("--production-sdk-loop-wired", action="store_true", help="Declare the real LiveKit SDK loop is wired for fail-closed production checks")
     parser.add_argument("--scripted-events", help="Run a token-safe scripted worker event JSON file and exit")
     parser.add_argument("--callback-event", help="Route one normalized LiveKit SDK callback JSON file and exit")
     parser.add_argument("--callback-events", help="Route a normalized LiveKit SDK callback sequence JSON file and exit")
@@ -208,7 +212,7 @@ def main() -> int:
             settings_loaded=settings is not None,
             boundary_created=boundary_created,
             mock_kernel=args.mock_kernel,
-            callback_loop_wired=False,
+            callback_loop_wired=args.callback_loop_wired,
         ), indent=2))
 
     if args.production_loop_plan:
@@ -216,7 +220,17 @@ def main() -> int:
             contract,
             settings_loaded=settings is not None,
             boundary_created=boundary_created,
-            production_sdk_loop_wired=False,
+            production_sdk_loop_wired=args.production_sdk_loop_wired,
+        ), indent=2))
+
+    if args.product_loop_check:
+        print(json.dumps(build_product_loop_check(
+            contract,
+            env_file=Path(args.env_file) if args.env_file else None,
+            env=None if args.env else {},
+            settings_loaded=settings is not None,
+            boundary_created=boundary_created,
+            mock_kernel=args.mock_kernel,
         ), indent=2))
 
     if args.activation_contract:
@@ -227,7 +241,7 @@ def main() -> int:
             settings_loaded=settings is not None,
             boundary_created=boundary_created,
             mock_kernel=args.mock_kernel,
-            callback_loop_wired=False,
+            callback_loop_wired=args.callback_loop_wired,
         ), indent=2))
 
     if args.start_worker:
@@ -238,12 +252,14 @@ def main() -> int:
             settings_loaded=settings is not None,
             boundary_created=boundary_created,
             mock_kernel=args.mock_kernel,
-            callback_loop_wired=False,
-            production_sdk_loop_wired=False,
+            callback_loop_wired=args.callback_loop_wired,
+            production_sdk_loop_wired=args.production_sdk_loop_wired,
         ), indent=2))
 
     if args.callback_loop_check:
-        print(json.dumps(inspect_callback_loop_contract(), indent=2))
+        print(json.dumps(inspect_callback_loop_contract(
+            production_sdk_loop_wired=args.production_sdk_loop_wired,
+        ), indent=2))
 
     if args.scripted_events:
         if settings is None and mock_transport is None:

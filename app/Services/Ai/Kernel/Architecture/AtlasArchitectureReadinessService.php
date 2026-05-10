@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Kernel\Architecture;
 
 use App\Services\Ai\AtlasProviderProjectionService;
+use Illuminate\Support\Facades\File;
 
 final class AtlasArchitectureReadinessService
 {
@@ -57,6 +58,16 @@ final class AtlasArchitectureReadinessService
             'schema_version' => 'atlas.architecture_readiness.v1',
             'status' => $ready ? 'ready' : 'attention',
             'ready' => $ready,
+            'summary' => [
+                'ready_for_implementation' => $ready,
+                'failed_static_scan_count' => (int) data_get($checks, 'architecture_validate.failed_static_scan_count', 0),
+                'split_required_count' => (int) data_get($checks, 'documentation_health.split_required_count', 0),
+                'total_split_required_count' => (int) data_get($checks, 'documentation_health.total_split_required_count', 0),
+                'provider_projection_status' => (string) data_get($checks, 'provider_projection.status', 'unknown'),
+                'message' => $ready
+                    ? 'Architecture gates are green; continue through session-bootstrap, feature-placement and focused validation.'
+                    : 'Fix failed readiness checks before expanding the mother architecture.',
+            ],
             'workspace' => $workspace,
             'owner' => $owner,
             'checks' => $checks,
@@ -76,6 +87,8 @@ final class AtlasArchitectureReadinessService
                 'targets' => $projection['targets'] ?? [],
                 'recommended_command' => 'php artisan atlas:memory:projection status --target=all --workspace='.$workspace.' --json',
             ],
+            'coverage_boundary' => $this->implementedVsScaffoldCoverageBoundary(),
+            'safe_next_blocks' => $this->implementedVsScaffoldSafeNextBlocks(),
             'architecture_operations' => $this->readinessOperations(),
             'review_signal' => [
                 'status' => $ready ? 'ready' : 'attention',
@@ -91,6 +104,83 @@ final class AtlasArchitectureReadinessService
     /**
      * @return array<string,mixed>
      */
+    private function implementedVsScaffoldCoverageBoundary(): array
+    {
+        return [
+            'schema_version' => 'atlas.implemented_vs_scaffold.coverage_boundary.v1',
+            'source_doc' => 'docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md',
+            'status' => File::exists($this->implementedVsScaffoldMatrixPath()) ? 'available' : 'missing_source_doc',
+            'authority' => 'diagnostic_read_model_only',
+            'rule' => 'do_not_treat_matrix_as_backlog_parallel',
+            'covered_areas' => [
+                'kernel',
+                'domains',
+                'memory',
+                'evidence',
+                'curator',
+                'providers',
+                'surfaces',
+                'mcp',
+                'mobile',
+                'engineering',
+                'tools',
+                'semantic_layer',
+                'product_substrate',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<int,array{order:int,block:string,why_safe:string,dod_minimum:string}>
+     */
+    private function implementedVsScaffoldSafeNextBlocks(): array
+    {
+        $path = $this->implementedVsScaffoldMatrixPath();
+        if (! File::exists($path)) {
+            return [];
+        }
+
+        $body = File::get($path);
+        $start = strpos($body, '## Safe Next Blocks');
+        if ($start === false) {
+            return [];
+        }
+
+        $section = substr($body, $start);
+        $next = strpos($section, "\n## ", 1);
+        if ($next !== false) {
+            $section = substr($section, 0, $next);
+        }
+
+        return collect(preg_split('/\R/', $section) ?: [])
+            ->map(fn (string $line): string => trim($line))
+            ->filter(fn (string $line): bool => preg_match('/^\|\s*\d+\s*\|/', $line) === 1)
+            ->map(function (string $line): ?array {
+                $columns = array_map('trim', explode('|', trim($line, '|')));
+                if (count($columns) < 4) {
+                    return null;
+                }
+
+                return [
+                    'order' => (int) $columns[0],
+                    'block' => $columns[1],
+                    'why_safe' => $columns[2],
+                    'dod_minimum' => $columns[3],
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function implementedVsScaffoldMatrixPath(): string
+    {
+        return base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function readinessOperations(): array
     {
         $ids = [
@@ -99,6 +189,7 @@ final class AtlasArchitectureReadinessService
             'feature_placement',
             'documentation_split_plan',
             'architecture_validate',
+            'runtime_language_boundary',
             'documentation_health',
             'provider_projection_status',
             'knowledge_sync',
@@ -111,6 +202,9 @@ final class AtlasArchitectureReadinessService
                 ->filter(fn (array $command): bool => in_array((string) ($command['id'] ?? ''), $ids, true))
                 ->values()
                 ->all(),
+            'owner_layer_operations' => [
+                'runtime' => $this->operations->summary(['owner_layer' => 'runtime']),
+            ],
         ];
     }
 

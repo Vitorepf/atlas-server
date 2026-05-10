@@ -50,8 +50,8 @@ class MockKernelTransport:
 
     def _session_started(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
         session_id = str(payload.get("session_id") or "voice_session_mock")
-        room_name = str(payload.get("room_name") or f"atlas-voice-{session_id}")
-        participant_identity = str(payload.get("participant_identity") or "mobile:vitor")
+        room_name = self._atlas_voice_room(str(payload.get("room_name") or session_id))
+        participant_identity = self._participant_identity(str(payload.get("participant_identity") or "vitor"))
 
         return {
             "schema_version": "atlas.voice_realtime.scaffold.v1",
@@ -131,3 +131,16 @@ class MockKernelTransport:
         return hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
         ).hexdigest()
+
+    @staticmethod
+    def _atlas_voice_room(value: str) -> str:
+        clean = "".join(char for char in value.strip() if ord(char) >= 32 and ord(char) != 127) or "voice_session_mock"
+        return clean if clean.startswith("atlas-voice-") else f"atlas-voice-{clean}"
+
+    @staticmethod
+    def _participant_identity(value: str) -> str:
+        clean = "".join(char for char in value.strip() if ord(char) >= 32 and ord(char) != 127) or "vitor"
+        if clean.startswith(("mobile:", "mac_edge:")) and clean.split(":", 1)[1] != "":
+            return clean
+
+        return f"mobile:{clean.split(':', 1)[-1] or 'vitor'}"

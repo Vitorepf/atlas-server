@@ -57,7 +57,27 @@ class AtlasAiExternalGraphHarnessApiTest extends TestCase
             ->assertJsonPath('candidate_validation.status', 'accepted_read_only_candidate')
             ->assertJsonPath('candidate_validation.mode', 'validation_only_no_writes')
             ->assertJsonPath('candidate_validation.node_count', 1)
-            ->assertJsonPath('candidate_validation.guardrails.changes_decide_routing', false);
+            ->assertJsonPath('candidate_validation.guardrails.changes_decide_routing', false)
+            ->assertJsonPath('candidate_validation.review_packet.schema_version', 'atlas.external_graph_review_packet.v1')
+            ->assertJsonPath('candidate_validation.review_packet.status', 'ready_for_human_review')
+            ->assertJsonPath('candidate_validation.review_packet.required_human_decision', 'approve_or_reject_external_graph_candidate_for_native_extractor_improvement')
+            ->assertJsonPath('candidate_validation.review_packet.rollback_plan_required', true)
+            ->assertJsonPath('candidate_validation.review_packet.policy_patch_review_required', true)
+            ->assertJsonPath('candidate_validation.review_packet.auto_promotion_allowed', false);
+    }
+
+    public function test_api_rejects_malformed_candidate_payload_fail_closed(): void
+    {
+        $this->postJson('/ai/external-graph-harness', ['candidate' => ['not', 'an', 'object']], $this->headers)
+            ->assertUnprocessable()
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('next_action', 'submit_external_graph_candidate_as_json_object')
+            ->assertJsonPath('candidate_validation.schema_version', 'atlas.external_graph_candidate.validation.v1')
+            ->assertJsonPath('candidate_validation.status', 'rejected')
+            ->assertJsonPath('candidate_validation.mode', 'validation_only_no_writes')
+            ->assertJsonPath('candidate_validation.errors.0', 'candidate_must_be_json_object')
+            ->assertJsonPath('candidate_validation.promotion_allowed', false)
+            ->assertJsonPath('candidate_validation.promotion_state', 'blocked_until_candidate_fixed');
     }
 
     public function test_api_requires_atlas_token(): void

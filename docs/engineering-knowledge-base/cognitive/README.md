@@ -90,10 +90,10 @@ o contrato executavel continua nos docs desta pasta e nos APs.
 |---|---|
 | Design conceitual | active; sub-arquitetura canonica |
 | APs operacionais | AP-163, AP-164, AP-165, AP-166, AP-167 em `implemented-operational-read-model`; AP-168/AP-169 em runtime minimo parcial |
-| APs scaffold | AP-170 |
+| APs scaffold | futuros AP-COG-EDGE |
 | Schemas/migrations | Dreyfus, Worked Examples, Process Patterns, Failure Signatures, SRL, Productive Failure e Personal Worked Example extraction implementados |
 | Services Laravel | Read models + gates + CLI das ondas AP-163..169 implementados |
-| Gaps conhecidos | AP-166 proposal emission, AP-167 hooks de surface, AP-168 UX/transfer consumer, AP-169 scheduler/review UI/source maturity, AP-170 depende de ledger/grafo maduro |
+| Gaps conhecidos | AP-166 proposal emission, AP-167 hooks de surface, AP-168 UX/transfer consumer, AP-169 scheduler/review UI/source maturity, AP-170 daily-plan/UX/KG maduro |
 
 ## Pre-requisitos de leitura
 

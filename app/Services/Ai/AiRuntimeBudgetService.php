@@ -41,6 +41,7 @@ class AiRuntimeBudgetService
                 'status' => $this->statusFor($totalUsage['visible_tokens'], $max, $warn),
             ],
             'providers' => $providers,
+            'governance_contract' => $this->governanceContract($budget, $windowHours),
         ];
     }
 
@@ -162,6 +163,29 @@ class AiRuntimeBudgetService
         }
 
         return 'ok';
+    }
+
+    /**
+     * @param  array<string,mixed>  $budget
+     * @return array<string,mixed>
+     */
+    private function governanceContract(array $budget, int $windowHours): array
+    {
+        return [
+            'schema_version' => 'atlas.runtime_budget.governance_contract.v1',
+            'mode' => (string) ($budget['mode'] ?? 'block'),
+            'window_hours' => $windowHours,
+            'autonomy_escalation_allowed' => false,
+            'budget_limit_auto_raise_allowed' => false,
+            'requires_human_review_for_limit_change' => true,
+            'requires_decision_receipt_for_limit_change' => true,
+            'forbidden_actions' => [
+                'auto_raise_budget_limit',
+                'bypass_budget_block',
+                'increase_autonomy_from_budget_signal',
+                'change_provider_policy_from_budget_signal',
+            ],
+        ];
     }
 
     private function positiveInt(mixed $value): ?int

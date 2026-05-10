@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 class AtlasProductiveFailureCommand extends Command
 {
     protected $signature = 'atlas:productive-failure
-        {actionOrTopic? : Topic, or action: status|history|resume|attempt|compare|articulate|complete}
+        {actionOrTopic? : Topic, or action: status|history|transfer-tests|resume|attempt|compare|articulate|complete}
         {subject? : Session id for phase actions}
         {--domain=learning : Domain for the productive failure session}
         {--dreyfus-stage=2 : Dreyfus stage target 1..5}
@@ -22,6 +22,7 @@ class AtlasProductiveFailureCommand extends Command
         {--why-failed= : Why the initial attempt failed}
         {--principle= : Transferable principle extracted in phase 3}
         {--window=30 : History window in days}
+        {--due-only : For transfer-tests, return only proposals scheduled up to today}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Run governed Cognitive Productive Failure sessions for calibrated prediction-error learning.';
@@ -35,6 +36,7 @@ class AtlasProductiveFailureCommand extends Command
         $payload = match ($actionOrTopic) {
             'status', 'resume' => $flow->status($this->sessionId($subject)),
             'history' => $flow->history($domain, (int) $this->option('window')),
+            'transfer-tests' => $flow->transferTests($domain, (int) $this->option('window'), (bool) $this->option('due-only')),
             'attempt' => $flow->recordAttempt($this->sessionId($subject), [
                 'operator_prediction' => $this->option('prediction'),
                 'solution_attempt' => $this->option('attempt'),

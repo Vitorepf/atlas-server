@@ -16,6 +16,7 @@ use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
 use App\Services\Ai\Kernel\Architecture\AtlasGovernanceGateService;
 use App\Services\Ai\Kernel\Architecture\AtlasProviderReleaseIntelligenceService;
 use App\Services\Ai\Kernel\Architecture\AtlasProviderReleaseSourceRegistry;
+use App\Services\Ai\Kernel\Architecture\AtlasRuntimeLanguageBoundaryReportService;
 use App\Services\Ai\Kernel\Architecture\AtlasSessionBootstrapService;
 use App\Services\Ai\Kernel\Decision\DynamicComputeMarketReportService;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
@@ -49,6 +50,7 @@ class AtlasOpenBrainMcpService
         private readonly AtlasAiArchitectureValidationService $architectureValidation,
         private readonly AtlasArchitectureReadinessService $architectureReadiness,
         private readonly AtlasArchitectureOperationsCatalog $architectureOperations,
+        private readonly AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary,
         private readonly AtlasSessionBootstrapService $sessionBootstrap,
         private readonly AtlasFeaturePlacementService $featurePlacement,
         private readonly AtlasGovernanceGateService $governanceGate,
@@ -261,6 +263,9 @@ class AtlasOpenBrainMcpService
                     'properties' => [
                         'id' => ['type' => 'string', 'description' => 'Filtra por stable operation id, por exemplo provider_performance_report.'],
                         'kind' => ['type' => 'string', 'description' => 'Filtra por kind: catalog, validation ou evidence_report.'],
+                        'section' => ['type' => 'string', 'description' => 'Filtra pela secao canonica, por exemplo arquitetura_mae.'],
+                        'surface' => ['type' => 'string', 'description' => 'Filtra por surface operacional: cli, runtime, api, mobile ou mcp.'],
+                        'owner_layer' => ['type' => 'string', 'description' => 'Filtra pela camada dona da responsabilidade arquitetural, por exemplo runtime.'],
                     ],
                     'required' => [],
                 ],
@@ -278,6 +283,13 @@ class AtlasOpenBrainMcpService
                     ],
                     'required' => [],
                 ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_runtime_boundary',
+                'title' => 'Atlas Runtime Boundary',
+                'description' => 'Audita a fronteira Laravel/Python/Go/Swift antes de trabalho com RAG, ML, voz, runtime nativo ou microservicos. Read-only e provider-safe.',
+                'inputSchema' => ['type' => 'object', 'properties' => [], 'required' => []],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
             [
@@ -810,6 +822,7 @@ class AtlasOpenBrainMcpService
                 'atlas_architecture_validate' => $this->toolResponse($id, $this->architectureValidate($arguments)),
                 'atlas_architecture_operations' => $this->toolResponse($id, $this->architectureOperations($arguments)),
                 'atlas_architecture_readiness' => $this->toolResponse($id, $this->architectureReadiness($arguments)),
+                'atlas_runtime_boundary' => $this->toolResponse($id, $this->runtimeBoundary()),
                 'atlas_session_bootstrap' => $this->toolResponse($id, $this->sessionBootstrap($arguments)),
                 'atlas_feature_placement' => $this->toolResponse($id, $this->featurePlacement($arguments)),
                 'atlas_docs_split_plan' => $this->toolResponse($id, $this->docsSplitPlan($arguments)),
@@ -1190,7 +1203,7 @@ class AtlasOpenBrainMcpService
         return [
             'ok' => true,
             'tool' => 'atlas_architecture_operations',
-            'architecture_operations' => $this->architectureOperations->summary($this->onlyScalarFilters($arguments, ['id', 'kind'])),
+            'architecture_operations' => $this->architectureOperations->summary($this->onlyScalarFilters($arguments, ['id', 'kind', 'section', 'surface', 'owner_layer'])),
             'writes' => false,
         ];
     }
@@ -1207,6 +1220,21 @@ class AtlasOpenBrainMcpService
             'ok' => ($payload['status'] ?? null) === 'ready',
             'tool' => 'atlas_architecture_readiness',
             'architecture_readiness' => $payload,
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runtimeBoundary(): array
+    {
+        $payload = $this->runtimeBoundary->report();
+
+        return [
+            'ok' => ($payload['status'] ?? null) === 'ok',
+            'tool' => 'atlas_runtime_boundary',
+            'runtime_boundary' => $payload,
             'writes' => false,
         ];
     }

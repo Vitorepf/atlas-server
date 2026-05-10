@@ -48,6 +48,17 @@ class AtlasVoiceSessionPayloadTest(unittest.TestCase):
                         key: "do-not-pass-through",
                     })
 
+    def test_rejects_nested_session_payload_secrets(self) -> None:
+        with self.assertRaises(UnsafeVoicePayload):
+            AtlasVoiceSessionPayload.from_runtime_event({
+                "session_id": "voice_session",
+                "metadata": {
+                    "sdk": {
+                        "api_secret": "nested-secret",
+                    },
+                },
+            })
+
     def test_rejects_unknown_runtime_surface_transport_or_privacy_class(self) -> None:
         for key, value in {
             "runtime": "python_sidecar_direct",

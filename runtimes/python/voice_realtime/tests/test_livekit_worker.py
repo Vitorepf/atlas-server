@@ -227,6 +227,14 @@ class AtlasLiveKitWorkerTest(unittest.TestCase):
                 "response_text": "raw text must be hashed before worker",
             })
 
+        with self.assertRaises(UnsafeVoicePayload):
+            subject.handle_event({
+                "event_kind": "synthesized",
+                "session_id": "voice_session",
+                "turn_id": "voice_turn",
+                "metadata": {"api_secret": "nested-secret"},
+            })
+
         subject.handle_event({
             "event_kind": "transcribed_turn",
             "session_id": "voice_session",
@@ -250,7 +258,7 @@ class AtlasLiveKitWorkerTest(unittest.TestCase):
             "room_name": "atlas-voice-worker",
         })
 
-        for event_kind in ["synthesized", "played", "interrupted", "provider_health_degraded"]:
+        for event_kind in ["synthesized", "played", "interrupted", "failed", "provider_health_degraded"]:
             with self.subTest(event_kind=event_kind):
                 event: dict[str, Any] = {
                     "event_kind": event_kind,
@@ -261,6 +269,8 @@ class AtlasLiveKitWorkerTest(unittest.TestCase):
                     event["response_text_hash"] = "990cd70b1bfe9e7b30370699399e3d30281b9f3515533e4629ad2a182c7cdf0a"
                 if event_kind == "provider_health_degraded":
                     event["provider"] = "deepgram"
+                if event_kind == "failed":
+                    event["failure_code"] = "tts_timeout"
 
                 with self.assertRaises(LiveKitWorkerError):
                     subject.handle_event(event)

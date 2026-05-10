@@ -77,6 +77,9 @@ Agora existe:
 
 - contrato machine-readable `atlas.external_graph_harness.contract.v1`;
 - validator read-only de `atlas.external_graph_candidate.v1`;
+- `review_packet` `atlas.external_graph_review_packet.v1` para candidato aceito,
+  sempre com decisao humana, rollback, proibicoes ate review e
+  `auto_promotion_allowed=false`;
 - comando `php artisan atlas:ai:external-graph-harness --json`;
 - API `/ai/external-graph-harness`;
 - operação `external_graph_harness_report` no catálogo Architecture Operations.
@@ -123,15 +126,15 @@ Cada importacao deve guardar:
 |---|---|---|
 | `source_tool` | sim | `graphify` no AP-684 |
 | `source_tool_version` | sim | versao upstream fixa |
-| `source_archive_hash` | sim | hash do pacote ou commit auditado |
+| `source_archive_hash` | sim | SHA-256 do pacote ou commit auditado |
 | `scan_root` | sim | path permitido e normalizado |
-| `generated_at` | sim | timestamp local |
+| `generated_at` | sim | timestamp parseavel |
 | `nodes` | sim | id, label, kind, source refs |
 | `edges` | sim | source, target, relation, confidence |
 | `confidence` | sim | preserva `EXTRACTED`, `INFERRED`, `AMBIGUOUS` quando existir |
-| `privacy_class` | sim | default `engineering_internal` |
-| `review_state` | sim | `candidate`, `reviewed`, `rejected`, `promoted` |
-| `promotion_target` | nao | apenas apos review |
+| `privacy_class` | sim | somente `engineering_internal` no import |
+| `review_state` | sim | somente `candidate` no import |
+| `promotion_target` | nao | bloqueado antes de review humano |
 
 ## Mapeamento De Confianca
 
@@ -155,6 +158,21 @@ Cada importacao deve guardar:
 8. Sem policy patch, provider routing ou Decision Receipt gerado pelo grafo.
 9. Source refs obrigatorios para cada node/edge promovivel.
 10. Tudo que for importado fica read-only ate review.
+11. Tool, hash, timestamp, privacy class e review state sao validados fail-closed.
+12. Metadata aninhada nao pode carregar `provider_prompt`, `memory_write`,
+    `context_builder_payload`, `policy_patch`, `tool_call` ou secrets.
+13. Node ids duplicados sao rejeitados para impedir sobrescrita silenciosa.
+14. Todo candidato valido continua `promotion_allowed=false`.
+15. `review_only_constraints` bloqueia runtime, memoria, contexto, Constelacao,
+    Decide, provider prompt e policy patch.
+16. `review_packet` bloqueia Memory, Context Builder, Constelacao, Decide,
+    provider prompt e Python Graph RAG runtime ate novo AP.
+17. `review_packet.future_runtime_invocation_contract` aplica AP-201 a qualquer
+    runtime Python futuro: Kernel first, `DecisionReceipt` e `evidence_sink`.
+18. `review_packet.forbidden_until_review` bloqueia runtime Python, Memory,
+    Context, Constelacao, provider prompt, policy patch e surface direct call.
+19. Promocao para Graph RAG exige AP-683 ou sucessor explicito, com review
+    humano e rollback.
 
 ## Saidas Permitidas
 
@@ -164,6 +182,8 @@ Cada importacao deve guardar:
 - proposal do Curator para humano revisar;
 - sugestoes de docs faltantes;
 - comparacao Atlas Code Intelligence vs grafo externo.
+- constraints machine-readable para impedir promocao silenciosa.
+- review packet para comparar candidato contra Code Intelligence nativo.
 
 ## Saidas Proibidas
 
@@ -184,8 +204,9 @@ O harness so deixa `implemented_partial` quando:
 3. privacy/tombstone filters bloquearem paths sensiveis;
 4. testes provarem ausencia de writes em Memory/Context/Constelacao;
 5. Architecture Operations consumir o candidato como read-only;
-6. Curator emitir proposta revisavel, nunca patch automatico;
-7. docs-health, architecture-validate e index-code estiverem verdes.
+6. validation publicar `review_packet` sem auto-promocao;
+7. Curator emitir proposta revisavel, nunca patch automatico;
+8. docs-health, architecture-validate e index-code estiverem verdes.
 
 P0/P2 ja cumprem contrato, validacao, CLI/API/report e testes focados. P1/P3
 permanecem bloqueados ate existir decisao especifica para extrair grafo real e

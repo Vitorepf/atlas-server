@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from .livekit_worker import AtlasLiveKitWorker, LiveKitWorkerResult
+from .payload_safety import reject_forbidden_keys_recursive
 from .turn_payload import UnsafeVoicePayload
 
 
@@ -160,9 +161,7 @@ def _reject_forbidden_sdk_fields(event: Mapping[str, Any]) -> None:
         "api_key",
         "api_secret",
     }
-    present = sorted(forbidden.intersection(event.keys()))
-    if present:
-        raise UnsafeVoicePayload(f"forbidden LiveKit SDK callback keys: {present}")
+    reject_forbidden_keys_recursive(event, forbidden, label="LiveKit SDK callback")
 
 
 def _drop_none(payload: Mapping[str, Any]) -> dict[str, Any]:

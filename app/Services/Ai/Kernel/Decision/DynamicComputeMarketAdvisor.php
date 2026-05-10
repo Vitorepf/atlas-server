@@ -211,6 +211,7 @@ class DynamicComputeMarketAdvisor
             'risk' => $risk,
             'candidate_provider' => $candidate['provider'] ?? null,
             'candidate_sample_status' => $candidate['sample_status'] ?? null,
+            'review_packet' => $this->proposalReviewPacket($opensProposal, $recommendation),
             'allowed_actions' => $opensProposal
                 ? ['open_inbox_proposal', 'run_controlled_benchmark', 'draft_policy_patch_for_review', 'discard_with_reason']
                 : ['continue_monitoring'],
@@ -219,6 +220,49 @@ class DynamicComputeMarketAdvisor
                 'silent_policy_patch',
                 'decision_receipt_mutation',
                 'provider_preference_hardcode',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function proposalReviewPacket(bool $opensProposal, string $recommendation): array
+    {
+        return [
+            'schema_version' => 'atlas.dynamic_compute_market.proposal_review_packet.v1',
+            'status' => $opensProposal ? 'blocked_until_benchmark_human_review_and_new_receipt' : 'monitor_only_no_policy_change',
+            'recommendation' => $recommendation,
+            'required_human_decision' => 'approve_or_reject_dynamic_compute_market_policy_change',
+            'required_decision_receipt' => true,
+            'rollback_plan_required' => $opensProposal,
+            'policy_patch_review_required' => $opensProposal,
+            'evidence_required' => $opensProposal
+                ? [
+                    'AP-99 replay for selected provider',
+                    'AP-99 replay for candidate provider',
+                    'controlled_provider_benchmark',
+                    'cost_rate_review_when_cost_drives_recommendation',
+                    'human review decision',
+                    'new Decision Receipt after approval',
+                    'rollback plan for provider/model routing policy',
+                ]
+                : ['continue AP-99 monitoring'],
+            'rollback_required' => $opensProposal
+                ? [
+                    'revert_provider_routing_policy_patch',
+                    'restore_previous_provider_model_selection',
+                    'archive_dynamic_compute_market_proposal',
+                    'record_rejected_or_reverted_review_decision',
+                ]
+                : [],
+            'forbidden_until_review' => [
+                'change_provider',
+                'change_model',
+                'change_routing_policy',
+                'mutate_existing_decision_receipt',
+                'hardcode_provider_preference',
+                'bypass_atlas_decide_authority',
             ],
         ];
     }

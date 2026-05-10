@@ -61,7 +61,7 @@ def manifest() -> dict:
             "default_mode": "mobile_push_to_talk",
             "ttl_seconds": 900,
             "token_status": "not_issued_scaffold",
-            "room_prefix": "atlas-voice",
+            "room_prefix": "atlas-voice-",
             "livekit_url": "http://livekit.test",
             "kernel_decision_required_per_turn": True,
         },
@@ -75,6 +75,30 @@ def manifest() -> dict:
             "internal_api": {
                 "middleware": "atlas.token",
             },
+        },
+        "runtime_invocation_contract": {
+            "schema_version": "atlas.runtime_invocation_contract.v1",
+            "kernel_first": True,
+            "selected_runtime_family": "python_ai_data",
+            "runtime_id": "livekit_agents_sdk",
+            "required_fields": [
+                "envelope_id",
+                "decision_receipt_hash",
+                "runtime_family",
+                "capability",
+                "mode",
+                "limits",
+                "privacy_class",
+                "evidence_sink",
+            ],
+            "forbidden_runtime_authority": [
+                "choose_provider_or_model",
+                "choose_domain_or_flow",
+                "mutate_policy",
+                "write_memory_directly",
+                "bypass_evidence_ledger",
+                "create_parallel_context_store",
+            ],
         },
         "allowlists": {
             "client_surfaces": ["mobile", "mac_edge"],
@@ -95,7 +119,7 @@ class AtlasVoiceRuntimeContractTest(unittest.TestCase):
         self.assertEqual("http://atlas.test/ai/voice/readiness", contract.readiness_url)
         self.assertEqual("http://atlas.test/ai/voice/rivals", contract.rivals_url)
         self.assertEqual("http://atlas.test/ai/voice/turn", contract.turn_url)
-        self.assertEqual("atlas-voice", contract.room_prefix)
+        self.assertEqual("atlas-voice-", contract.room_prefix)
         self.assertEqual("http://livekit.test", contract.livekit_url)
         self.assertEqual("http://atlas.test/ai/voice/turn/synthesized", contract.synthesized_url)
         self.assertEqual("http://atlas.test/ai/voice/turn/interrupted", contract.interrupted_url)
@@ -107,7 +131,7 @@ class AtlasVoiceRuntimeContractTest(unittest.TestCase):
 
         contract = AtlasVoiceRuntimeContract.from_manifest(payload)
 
-        self.assertEqual("atlas-voice", contract.room_prefix)
+        self.assertEqual("atlas-voice-", contract.room_prefix)
 
     def test_rejects_direct_provider_authority(self) -> None:
         payload = copy.deepcopy(manifest())
@@ -130,6 +154,13 @@ class AtlasVoiceRuntimeContractTest(unittest.TestCase):
         with self.assertRaises(ContractViolation):
             AtlasVoiceRuntimeContract.from_manifest(payload)
 
+    def test_rejects_room_prefix_outside_atlas_voice_namespace(self) -> None:
+        payload = copy.deepcopy(manifest())
+        payload["session_lease"]["room_prefix"] = "rogue-voice-"
+
+        with self.assertRaises(ContractViolation):
+            AtlasVoiceRuntimeContract.from_manifest(payload)
+
     def test_rejects_raw_audio_persistence(self) -> None:
         payload = copy.deepcopy(manifest())
         payload["persistence_contract"]["raw_audio"] = True
@@ -147,6 +178,41 @@ class AtlasVoiceRuntimeContractTest(unittest.TestCase):
     def test_rejects_manifest_without_kernel_allowlists(self) -> None:
         payload = copy.deepcopy(manifest())
         payload["allowlists"]["runtimes"] = ["livekit_agents_sdk", "rogue_runtime"]
+
+        with self.assertRaises(ContractViolation):
+            AtlasVoiceRuntimeContract.from_manifest(payload)
+
+    def test_rejects_kernel_url_with_control_characters(self) -> None:
+        payload = copy.deepcopy(manifest())
+        payload["kernel"]["turn_url"] = "http://atlas.test/ai/voice/turn\nLIVEKIT_API_SECRET=injected"
+
+        with self.assertRaises(ContractViolation):
+            AtlasVoiceRuntimeContract.from_manifest(payload)
+
+    def test_rejects_kernel_url_without_host(self) -> None:
+        payload = copy.deepcopy(manifest())
+        payload["kernel"]["readiness_url"] = "https:///ai/voice/readiness"
+
+        with self.assertRaises(ContractViolation):
+            AtlasVoiceRuntimeContract.from_manifest(payload)
+
+    def test_rejects_manifest_without_runtime_invocation_contract(self) -> None:
+        payload = copy.deepcopy(manifest())
+        del payload["runtime_invocation_contract"]
+
+        with self.assertRaises(ContractViolation):
+            AtlasVoiceRuntimeContract.from_manifest(payload)
+
+    def test_rejects_runtime_invocation_contract_without_decision_receipt_hash(self) -> None:
+        payload = copy.deepcopy(manifest())
+        payload["runtime_invocation_contract"]["required_fields"].remove("decision_receipt_hash")
+
+        with self.assertRaises(ContractViolation):
+            AtlasVoiceRuntimeContract.from_manifest(payload)
+
+    def test_rejects_runtime_invocation_contract_that_can_choose_provider(self) -> None:
+        payload = copy.deepcopy(manifest())
+        payload["runtime_invocation_contract"]["forbidden_runtime_authority"].remove("choose_provider_or_model")
 
         with self.assertRaises(ContractViolation):
             AtlasVoiceRuntimeContract.from_manifest(payload)

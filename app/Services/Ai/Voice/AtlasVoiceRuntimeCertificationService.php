@@ -2,13 +2,17 @@
 
 namespace App\Services\Ai\Voice;
 
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 final class AtlasVoiceRuntimeCertificationService
 {
+    private const PYTHON_COMMAND_TIMEOUT_SECONDS = 30;
+
     public function __construct(
         private readonly AtlasVoiceRealtimeService $voice,
         private readonly AtlasVoiceRealtimeFoundationRegistry $foundation,
+        private readonly AtlasVoiceLiveKitTokenIssuer $tokens,
     ) {}
 
     /**
@@ -46,6 +50,7 @@ final class AtlasVoiceRuntimeCertificationService
         $productionLoop = $this->runProductionLoopSmoke($runtime, $baseUrl);
         $workerStart = $this->runWorkerStartCheck($runtime, $baseUrl);
         $foundation = $this->foundation->readiness();
+        $tokenIssuer = $this->tokens->readiness();
 
         $artifacts = [
             'foundation_registry' => $this->certificationArtifact($foundation, ['summary', 'gates']),
@@ -53,6 +58,7 @@ final class AtlasVoiceRuntimeCertificationService
             'callback_sequence' => $this->certificationArtifact($callbackSequence, ['callback_sequence']),
             'production_loop_smoke' => $this->certificationArtifact($productionLoop, ['bridge_contract', 'results']),
             'worker_start_check' => $this->certificationArtifact($workerStart, ['worker_plan', 'activation_contract', 'production_loop_plan', 'sdk_wiring_contract']),
+            'livekit_token_issuer' => $this->certificationArtifact($tokenIssuer, []),
         ];
         $forbiddenArtifactKeys = $this->forbiddenArtifactKeys($artifacts);
         $workerStatus = (string) ($workerStart['status'] ?? 'unknown');
@@ -102,10 +108,24 @@ final class AtlasVoiceRuntimeCertificationService
             ->keys()
             ->values()
             ->all();
+        $certified = $failed === [];
+        $productionPromotionGate = $this->productionPromotionGate(
+            certified: $certified,
+            requireSdk: $requireSdk,
+            preflight: $preflight,
+            callbackSequence: $callbackSequence,
+            productionLoop: $productionLoop,
+            workerStart: $workerStart,
+            tokenIssuer: $tokenIssuer,
+        );
+
+        $nextAction = $certified
+            ? (string) ($productionPromotionGate['next_action'] ?? 'submit_voice_production_promotion_for_human_review')
+            : 'fix_failed_runtime_certification_gates';
 
         return [
             'schema_version' => 'atlas.voice_realtime.runtime_certification.v1',
-            'status' => $failed === [] ? 'certified_scaffold' : 'failed',
+            'status' => $certified ? 'certified_scaffold' : 'failed',
             'surface_id' => 'voice_realtime',
             'runtime_id' => $runtime,
             'kernel_only' => true,
@@ -113,6 +133,7 @@ final class AtlasVoiceRuntimeCertificationService
             'daemon_started' => false,
             'sdk_required_for_certification' => $requireSdk,
             'gates' => $gates,
+            'production_promotion_gate' => $productionPromotionGate,
             'summary' => [
                 'gate_count' => count($gates),
                 'passed_gates' => count($gates) - count($failed),
@@ -120,10 +141,146 @@ final class AtlasVoiceRuntimeCertificationService
                 'failed_keys' => $failed,
             ],
             'artifacts' => $artifacts,
-            'next_action' => $failed === []
-                ? 'wire_real_livekit_agents_sdk_loop_when_optional_dependency_is_ready'
-                : 'fix_failed_runtime_certification_gates',
+            'next_action' => $nextAction,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $preflight
+     * @param  array<string,mixed>  $callbackSequence
+     * @param  array<string,mixed>  $productionLoop
+     * @param  array<string,mixed>  $workerStart
+     * @param  array<string,mixed>  $tokenIssuer
+     * @return array<string,mixed>
+     */
+    private function productionPromotionGate(
+        bool $certified,
+        bool $requireSdk,
+        array $preflight,
+        array $callbackSequence,
+        array $productionLoop,
+        array $workerStart,
+        array $tokenIssuer,
+    ): array {
+        $machineGates = [
+            'scaffold_certified' => [
+                'passed' => $certified,
+                'reason' => $certified ? null : 'runtime_certification_failed',
+            ],
+            'sdk_certification_required' => [
+                'passed' => $requireSdk,
+                'reason' => $requireSdk ? null : 'production_promotion_must_run_with_require_sdk',
+            ],
+            'livekit_agents_sdk_ready' => [
+                'passed' => data_get($preflight, 'preflight.sdk_status.status') === 'ready',
+                'status' => data_get($preflight, 'preflight.sdk_status.status', 'unknown'),
+                'reason' => data_get($preflight, 'preflight.sdk_status.status') === 'ready' ? null : 'install_livekit_agents_sdk',
+            ],
+            'livekit_token_issuer_ready' => [
+                'passed' => ($tokenIssuer['status'] ?? null) === 'ready',
+                'status' => $tokenIssuer['status'] ?? 'unknown',
+                'reason' => ($tokenIssuer['status'] ?? null) === 'ready' ? null : 'configure_livekit_token_issuer',
+            ],
+            'callback_sequence_passed' => [
+                'passed' => ($callbackSequence['status'] ?? null) === 'passed'
+                    && (int) data_get($callbackSequence, 'callback_sequence.active_session_count', 1) === 0,
+                'status' => $callbackSequence['status'] ?? 'unknown',
+            ],
+            'production_loop_smoke_passed' => [
+                'passed' => ($productionLoop['status'] ?? null) === 'production_loop_smoke_completed'
+                    && ($productionLoop['daemon_started'] ?? true) === false
+                    && ($productionLoop['sdk_imported'] ?? true) === false,
+                'status' => $productionLoop['status'] ?? 'unknown',
+            ],
+            'worker_start_still_blocked_until_real_loop' => [
+                'passed' => str_starts_with((string) ($workerStart['status'] ?? ''), 'blocked_')
+                    && ($workerStart['started'] ?? true) === false,
+                'status' => $workerStart['status'] ?? 'unknown',
+            ],
+        ];
+
+        $failed = collect($machineGates)
+            ->filter(fn (array $gate): bool => ! (bool) ($gate['passed'] ?? false))
+            ->keys()
+            ->values()
+            ->all();
+
+        return [
+            'schema_version' => 'atlas.voice_realtime.production_promotion_gate.v1',
+            'status' => $failed === [] ? 'review_required' : 'blocked',
+            'surface_id' => 'voice_realtime',
+            'runtime_id' => 'livekit_agents_sdk',
+            'mobile_first' => true,
+            'kernel_only' => true,
+            'human_review_required' => true,
+            'promotion_allowed' => false,
+            'auto_promotion_allowed' => false,
+            'decision_receipt_required' => true,
+            'rollback_plan_required' => true,
+            'review_packet' => $this->productionPromotionReviewPacket($failed),
+            'machine_gates' => $machineGates,
+            'summary' => [
+                'gate_count' => count($machineGates),
+                'passed_gates' => count($machineGates) - count($failed),
+                'failed_gates' => count($failed),
+                'failed_keys' => $failed,
+            ],
+            'next_action' => $failed === [] ? 'submit_voice_production_promotion_for_human_review' : $this->productionPromotionNextAction($failed),
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $failedMachineGates
+     * @return array<string,mixed>
+     */
+    private function productionPromotionReviewPacket(array $failedMachineGates): array
+    {
+        return [
+            'schema_version' => 'atlas.voice_realtime.production_promotion_review_packet.v1',
+            'status' => $failedMachineGates === [] ? 'ready_for_human_review' : 'blocked_until_machine_gates_pass',
+            'required_human_decision' => 'approve_or_reject_voice_production_promotion',
+            'required_decision_receipt' => true,
+            'required_rollback_plan' => [
+                'disable_livekit_token_issuer',
+                'stop_livekit_worker',
+                'return_voice_runtime_to_scaffold_mode',
+                'revoke_or_expire_livekit_room_tokens',
+                'preserve_evidence_ledger_replay_window',
+            ],
+            'required_evidence' => [
+                'runtime_certification',
+                'livekit_agents_sdk_preflight',
+                'livekit_token_issuer_readiness',
+                'production_loop_smoke',
+                'rivals_voice_comparison',
+                'privacy_eclipse_review',
+            ],
+            'forbidden_actions' => [
+                'auto_promote_voice_runtime',
+                'start_daemon_without_review',
+                'persist_raw_audio',
+                'allow_direct_provider_calls',
+                'bypass_kernel_decision_receipt',
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $failed
+     */
+    private function productionPromotionNextAction(array $failed): string
+    {
+        if (in_array('sdk_certification_required', $failed, true)) {
+            return 'rerun_runtime_certification_with_require_sdk';
+        }
+        if (in_array('livekit_agents_sdk_ready', $failed, true)) {
+            return 'install_livekit_agents_sdk';
+        }
+        if (in_array('livekit_token_issuer_ready', $failed, true)) {
+            return 'configure_livekit_token_issuer';
+        }
+
+        return 'fix_voice_production_promotion_gates';
     }
 
     /**
@@ -293,10 +450,26 @@ final class AtlasVoiceRuntimeCertificationService
         ], base_path(), [
             'PYTHONPATH' => base_path('runtimes/python/voice_realtime'),
         ]);
-        $process->run();
+        $process->setTimeout(self::PYTHON_COMMAND_TIMEOUT_SECONDS);
+
+        try {
+            $process->run();
+        } catch (ProcessTimedOutException) {
+            return [
+                'schema_version' => 'atlas.voice_realtime.python_command.v1',
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'failure' => 'voice_runtime_command_timeout',
+                'timeout_seconds' => self::PYTHON_COMMAND_TIMEOUT_SECONDS,
+                'exit_code' => null,
+                'stderr_hash' => null,
+            ];
+        }
+
         $decoded = json_decode($process->getOutput(), true);
         if (is_array($decoded)) {
             $payload = $this->sanitize($decoded);
+            $payload['timeout_seconds'] = self::PYTHON_COMMAND_TIMEOUT_SECONDS;
             $payload['exit_code'] = $process->getExitCode();
             $payload['stderr_hash'] = $process->getErrorOutput() !== '' ? hash('sha256', $process->getErrorOutput()) : null;
 
@@ -307,6 +480,8 @@ final class AtlasVoiceRuntimeCertificationService
             'schema_version' => 'atlas.voice_realtime.python_command.v1',
             'status' => 'failed',
             'surface_id' => 'voice_realtime',
+            'failure' => 'voice_runtime_command_invalid_json',
+            'timeout_seconds' => self::PYTHON_COMMAND_TIMEOUT_SECONDS,
             'exit_code' => $process->getExitCode(),
             'stderr_hash' => $process->getErrorOutput() !== '' ? hash('sha256', $process->getErrorOutput()) : null,
         ];
@@ -413,6 +588,21 @@ final class AtlasVoiceRuntimeCertificationService
      */
     private function baseUrl(array $payload): string
     {
-        return rtrim((string) ($payload['base_url'] ?? config('app.url', 'http://atlas.test')), '/') ?: 'http://atlas.test';
+        $fallback = rtrim((string) config('app.url', 'http://atlas.test'), '/') ?: 'http://atlas.test';
+        $baseUrl = rtrim((string) ($payload['base_url'] ?? $fallback), '/');
+
+        if ($baseUrl === '' || preg_match('/[\x00-\x1F\x7F]/', $baseUrl) === 1) {
+            return $fallback;
+        }
+
+        $parts = parse_url($baseUrl);
+        $scheme = is_array($parts) ? strtolower((string) ($parts['scheme'] ?? '')) : '';
+        $host = is_array($parts) ? (string) ($parts['host'] ?? '') : '';
+
+        if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
+            return $fallback;
+        }
+
+        return $baseUrl;
     }
 }

@@ -18,7 +18,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($payload, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($payload, 'architecture_operations.section'));
-        $this->assertSame(58, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(60, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $commands = array_column(data_get($payload, 'architecture_operations.commands'), 'command');
@@ -69,6 +69,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertContains('php artisan atlas:ai:decision-receipt-report --envelope=<id> --json', $commands);
         $this->assertContains('php artisan atlas:ai:ledger <id> --json', $commands);
         $this->assertContains('php artisan atlas:ai:ledger-project --limit=500 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:runtime-boundary --json', $commands);
         $this->assertSame('architecture_operations', data_get($payload, 'architecture_operations.commands.0.id'));
         $this->assertSame('catalog', data_get($payload, 'architecture_operations.commands.0.kind'));
         $this->assertSame('cli', data_get($payload, 'architecture_operations.commands.0.surface'));
@@ -143,6 +144,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertStringContainsString('php artisan atlas:ai:decision-receipt-report --envelope=<id> --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:ledger <id> --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:ledger-project --limit=500 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:runtime-boundary --json', $output);
     }
 
     public function test_command_filters_architecture_operations_by_id_and_kind(): void
@@ -166,6 +168,32 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertNotContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $exit = Artisan::call('atlas:ai:architecture-operations', [
+            '--section' => 'arquitetura_mae',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(['section' => 'arquitetura_mae'], data_get($payload, 'architecture_operations.filters'));
+        $this->assertSame(60, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
+
+        $exit = Artisan::call('atlas:ai:architecture-operations', [
+            '--surface' => 'runtime',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(['surface' => 'runtime'], data_get($payload, 'architecture_operations.filters'));
+        $this->assertSame(1, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(['voice_python_runtime_contract_test'], data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertSame(
+            'PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests',
+            data_get($payload, 'architecture_operations.commands.0.command'),
+        );
+
+        $exit = Artisan::call('atlas:ai:architecture-operations', [
             '--id' => 'inbox_action_report',
             '--json' => true,
         ]);
@@ -175,6 +203,37 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame(['id' => 'inbox_action_report'], data_get($payload, 'architecture_operations.filters'));
         $this->assertSame(1, data_get($payload, 'architecture_operations.command_count'));
         $this->assertSame('php artisan atlas:ai:inbox-action-report --hours=24 --json', data_get($payload, 'architecture_operations.commands.0.command'));
+
+        $exit = Artisan::call('atlas:ai:architecture-operations', [
+            '--id' => 'runtime_language_boundary',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(['id' => 'runtime_language_boundary'], data_get($payload, 'architecture_operations.filters'));
+        $this->assertSame(1, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame('php artisan atlas:ai:runtime-boundary --json', data_get($payload, 'architecture_operations.commands.0.command'));
+        $this->assertSame('validation', data_get($payload, 'architecture_operations.commands.0.kind'));
+        $this->assertSame('runtime', data_get($payload, 'architecture_operations.commands.0.owner_layer'));
+        $this->assertTrue(data_get($payload, 'architecture_operations.commands.0.pre_implementation_gate'));
+        $this->assertSame(['python_ai_data', 'go_edge', 'swift_native_mac'], data_get($payload, 'architecture_operations.commands.0.governed_runtimes'));
+        $this->assertContains('python', data_get($payload, 'architecture_operations.commands.0.required_for_terms'));
+        $this->assertSame('/ai/runtime-boundary', data_get($payload, 'architecture_operations.commands.0.api_endpoint'));
+        $this->assertSame('atlas_runtime_boundary', data_get($payload, 'architecture_operations.commands.0.mcp_tool'));
+        $this->assertSame('ap201_runtime_language_boundary_contract', data_get($payload, 'architecture_operations.commands.0.scan_id'));
+
+        $exit = Artisan::call('atlas:ai:architecture-operations', [
+            '--owner-layer' => 'runtime',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(['owner_layer' => 'runtime'], data_get($payload, 'architecture_operations.filters'));
+        $this->assertSame(1, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(['runtime_language_boundary'], data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertSame('php artisan atlas:ai:runtime-boundary --json', data_get($payload, 'architecture_operations.commands.0.command'));
 
         $exit = Artisan::call('atlas:ai:architecture-operations', [
             '--id' => 'provider_cost_rates_upsert',

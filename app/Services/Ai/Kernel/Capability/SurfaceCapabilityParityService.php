@@ -20,7 +20,7 @@ class SurfaceCapabilityParityService
     ) {}
 
     /**
-     * @return array{ok:bool,checked:int,errors:array<int,string>,skipped:array<int,string>,mapped_adapters:array<int,string>,unmapped_adapters:array<int,string>}
+     * @return array{ok:bool,checked:int,errors:array<int,string>,skipped:array<int,string>,mapped_adapters:array<int,string>,unmapped_adapters:array<int,string>,input_boundary_contract:array<string,mixed>}
      */
     public function complianceReport(): array
     {
@@ -79,6 +79,33 @@ class SurfaceCapabilityParityService
             'skipped' => array_values(array_unique($skipped)),
             'mapped_adapters' => $mappedAdapters,
             'unmapped_adapters' => $unmappedAdapters,
+            'input_boundary_contract' => $this->inputBoundaryContract(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function inputBoundaryContract(): array
+    {
+        return [
+            'schema_version' => 'atlas.input.surface_capability_boundary.v1',
+            'owner' => 'atlas_input',
+            'boundary' => 'surface_adapters_expose_kernel_input_capabilities_only',
+            'surface_specific_input_capabilities_allowed' => false,
+            'adapter_parity_required' => true,
+            'required_kernel_capabilities' => [
+                'atlas.input.text',
+                'atlas.input.image_paste',
+                'atlas.input.file_attachment',
+                'atlas.input.voice_audio',
+            ],
+            'forbidden_patterns' => [
+                'surface_only_image_paste',
+                'ask_only_attachment_flow',
+                'provider_direct_attachment_bypass',
+                'domain_owned_attachment_parser',
+            ],
         ];
     }
 

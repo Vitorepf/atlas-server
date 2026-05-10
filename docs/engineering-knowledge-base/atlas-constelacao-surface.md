@@ -25,6 +25,7 @@ decisions:
   - Lente 1 Bilderatlas e sempre o estado default; Command Sky/linhagem so entra por gesto explicito em fase posterior.
   - Endpoint backend v1 de posicoes existe com fallback deterministico governado e readiness semantico derivado de `atlas:ai:local-rag-readiness`.
   - Semantic positioning tem promotion gate: vector read-model pode ficar ready, mas Graph RAG/Python permanece bloqueado ate proposta revisada com Decision Receipt.
+  - `atlas.constelacao.lens1_usage_review.v1` e o contrato canonico que torna auto-promotion proibida: Lente 2, Command Sky, lineage, Graph RAG, dashboard operacional, provider prompt, policy patch e Python Graph RAG runtime ficam bloqueados ate uso real, Curator proposal, review humano, AP futuro, Decision Receipt e rollback plan.
   - Python AI/Data Runtime pode calcular embeddings/reducao 2D, mas Laravel Kernel governa policy, receipt, evidence e API.
 maintenance:
   - Atualizar antes de mexer na rota mobile, endpoint de posicoes, embeddings, Graph RAG, lineage ou visual language da Constelacao.
@@ -37,6 +38,7 @@ related_paths:
   - docs/engineering-knowledge-base/obsidian-atlas-vault.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
+  - docs/ap/AP-685-constelacao-lens1-usage-review.md
   - ../../atlas-vault-backup/00-constituicao/constelacao-spec.md
   - ../../atlas-vault-backup/00-constituicao/constelacao-codice-vivo.md
   - app/Http/Controllers/AtlasConstelacaoController.php
@@ -97,6 +99,8 @@ Health, Finance e Personal Development usando memoria/contexto do Core.
 | Cliente mobile | Implementado v1 parcial | `atlas-app/app/celestial.tsx` consome o endpoint governado e preserva fallback local domain+jitter. |
 | Endpoint de posicoes | Implementado v1 | `GET /atlas/celestial/positions` e `/v1/mobile/atlas/celestial/positions` retornam posicoes governadas. |
 | UX/telemetria Lente 1 | Implementado v1 | Payload declara `ui_contract`; mobile registra open/load/fail/tap sem conteudo bruto. |
+| Lens gate | Implementado v1 | Pedido `command_sky` fica auditado como `requested_lens`, mas backend serve `bilderatlas` e bloqueia chrome operacional ate AP/review. |
+| Lens 1 usage review contract | Implementado v1 | `lens1_usage_review_contract` publica schema `atlas.constelacao.lens1_usage_review.v1`, auto-promotion proibida, 30 dias de observacao e alvos bloqueados antes de qualquer Lente 2/Command Sky/Graph RAG. |
 | Semantic readiness | Implementado v1 | Payload inclui `semantic_positioning_readiness`, promotion gate, status, gates, `provider_bypass_allowed=false` e proxima acao. |
 | Curator usage review | Implementado v1 | `self_improvement.docs_drift_review` observa `CONSTELACAO_POSITIONS_SERVED`, abre finding de revisao da Lente 1 e mantem Graph RAG/Python bloqueado. |
 | Embeddings/Graph RAG | Futuro/parcial | Local performance doc marca Graph RAG/embeddings como roadmap governado; Graph RAG nao promove sem benchmark. |
@@ -115,6 +119,7 @@ Health, Finance e Personal Development usando memoria/contexto do Core.
 - Nao mostrar tarefas, streaks, percentuais, contadores ou due dates.
 - Nao substituir Inbox, Memory Review, Projects, Engineering ou Observability.
 - Nao desenhar graph view com edges permanentes.
+- Nao ativar Command Sky, lineage ou chrome operacional por query param.
 - Nao enviar push de insight; descoberta e pull, nao interrupcao.
 - Nao expor dados crus do Vault ou capturas privadas a embeddings externos sem policy.
 
@@ -155,11 +160,33 @@ Health, Finance e Personal Development usando memoria/contexto do Core.
 | Itens | `source_type`, `source_id`, `title`, `domains`, `x`, `y`, `intensity`, `cluster_key`, `position_hash` |
 | Privacidade | Nao retorna `content_text`, `body_excerpt`, conteudo bruto do Vault, secrets ou prompt. |
 | Evidence | Registra `CONSTELACAO_POSITIONS_SERVED` com contagem, refs e hashes. |
+| Lens gate | `lens_gate` permite somente `bilderatlas`; `command_sky` retorna como bloqueado ate AP futuro, review humano e Decision Receipt. |
+| Unsupported lens | Qualquer `lens` desconhecida e sanitizada, preservada em `requested_lens`, servida como `bilderatlas` e gravada como `lens_gate.blocked=true`; fallback silencioso e proibido. |
+| Lens maturity gate | `lens_maturity_gate` publica que Lente 2, Command Sky, lineage e Graph RAG seguem bloqueados ate 30 dias de uso real, Curator usage review, review humano e Decision Receipt. |
+| Usage review contract | `lens1_usage_review_contract` usa `atlas.constelacao.lens1_usage_review.v1`, publica `promotion_allowed=false`, `auto_promotion_allowed=false`, decisao humana, rollback, `policy_patch_review_required`, `forbidden_until_review` e `next_action=collect_constelacao_lens1_usage_telemetry_for_30_days_before_review`; permite apenas manter Bilderatlas, pedir mais observacao ou rascunhar AP futuro. |
 | UI Contract | `ui_contract` declara Lente 1 contemplativa, bloqueia chrome operacional e exige telemetria `constelacao_opened`, `constelacao_backend_loaded`, `constelacao_backend_failed`, `constelacao_star_tapped`. |
 | Semantic readiness | `position_engine.semantic_positioning_readiness` deriva de `atlas.local_rag_readiness`, nunca permite provider bypass ou memoria paralela. |
 | Promotion gate | `vector_positioning_allowed` so quando Local RAG esta `ready`; `graph_rag_promotion_allowed=false` e `python_runtime_allowed=false` ate review humano, benchmark, Curator proposal e Decision Receipt. |
 | Curator review | `self_improvement.docs_drift_review` gera `atlas.self_improvement.constelacao_usage_review.v1` quando ha uso real no Ledger, sem promover Graph RAG. |
 | Estado | `implemented_partial`: backend v1, consumo mobile e readiness semantico prontos; embeddings, Graph RAG e UX mobile final ainda pendentes. |
+
+## Contrato De Revisao Da Lente 1
+
+`atlas.constelacao.lens1_usage_review.v1` existe para impedir que uma IA transforme
+uso inicial em permissao de produto. A Lente 1 precisa provar serenidade,
+serendipidade e utilidade contemplativa antes de qualquer promocao.
+
+| Campo | Regra |
+|---|---|
+| Status | `observation_required` no runtime; `proposal_only` no Curator. |
+| Janela | 30 dias de uso real com `constelacao_opened`, `constelacao_backend_loaded`, `constelacao_backend_failed` e `constelacao_star_tapped`. |
+| Auto-promotion | Sempre proibida; `promotion_allowed=false` e `next_action=collect_constelacao_lens1_usage_telemetry_for_30_days_before_review`. Nenhuma alteracao critica pode sair desse contrato direto para policy/codigo/runtime. |
+| Saidas permitidas | Manter Bilderatlas, pedir mais observacao, rascunhar AP Lente 2, AP Command Sky ou AP Graph RAG positioning. |
+| Alvos bloqueados | Lente 2, Command Sky, lineage, Graph RAG positioning, dashboard operacional, decision surface, provider prompt, policy patch e Python Graph RAG runtime. |
+| Rollback | Preservar Bilderatlas, desligar Command Sky/lineage e manter Graph RAG/Python desativados. |
+| Proibido ate review | `enable_lens2`, `enable_command_sky`, `enable_lineage`, `enable_graph_rag_positioning`, provider prompt, policy patch e chamada direta de Graph RAG por surface. |
+| Runtime futuro | `future_runtime_invocation_contract` aplica AP-201 a Graph RAG/Python: Kernel first, `DecisionReceipt`, `evidence_sink` e promocao proibida agora. |
+| Promocao | So AP futuro com Curator proposal, review humano, Decision Receipt e rollback plan. |
 
 ## Fases Futuras
 

@@ -24,6 +24,20 @@ class AtlasProviderReleaseSourceRegistryTest extends TestCase
         $this->assertFalse(data_get($summary, 'guardrails.writes_release_envelope'));
         $this->assertFalse(data_get($summary, 'guardrails.writes_policy'));
         $this->assertFalse(data_get($summary, 'guardrails.changes_routing'));
+        $this->assertFalse(data_get($summary, 'guardrails.writes_decide_signal'));
+        $this->assertFalse(data_get($summary, 'guardrails.auto_ingestion_allowed'));
+        $this->assertSame('atlas.provider_release.future_activation_review.v1', data_get($summary, 'future_activation_review_contract.schema_version'));
+        $this->assertSame('blocked_until_dedicated_AP', data_get($summary, 'future_activation_review_contract.status'));
+        $this->assertFalse(data_get($summary, 'future_activation_review_contract.network_fetching_enabled'));
+        $this->assertFalse(data_get($summary, 'future_activation_review_contract.auto_decide_signal_allowed'));
+        $this->assertContains('dedicated_AP_for_fetch_runtime', data_get($summary, 'future_activation_review_contract.requires'));
+        $this->assertContains('human_review_before_any_decide_or_policy_signal', data_get($summary, 'future_activation_review_contract.requires'));
+        $this->assertContains('background_web_crawler', data_get($summary, 'future_activation_review_contract.blocked_targets'));
+        $this->assertContains('direct_decide_signal', data_get($summary, 'future_activation_review_contract.blocked_targets'));
+        $this->assertSame(
+            data_get($summary, 'future_activation_review_contract'),
+            data_get($summary, 'continuous_ingestion_contract.future_activation_review_contract'),
+        );
 
         $ids = array_column($summary['sources'], 'id');
 

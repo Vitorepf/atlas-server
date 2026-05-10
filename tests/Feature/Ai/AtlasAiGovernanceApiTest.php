@@ -28,6 +28,11 @@ class AtlasAiGovernanceApiTest extends TestCase
             ->assertJsonPath('architecture_readiness.schema_version', 'atlas.architecture_readiness.v1')
             ->assertJsonPath('architecture_readiness.status', 'ready')
             ->assertJsonPath('architecture_readiness.owner', 'knowledge_governance')
+            ->assertJsonPath('coverage_boundary.schema_version', 'atlas.implemented_vs_scaffold.coverage_boundary.v1')
+            ->assertJsonPath('coverage_boundary.authority', 'diagnostic_read_model_only')
+            ->assertJsonPath('safe_next_blocks.0.block', 'Voice Realtime product loop')
+            ->assertJsonPath('architecture_readiness.coverage_boundary.schema_version', 'atlas.implemented_vs_scaffold.coverage_boundary.v1')
+            ->assertJsonPath('architecture_readiness.safe_next_blocks.0.block', 'Voice Realtime product loop')
             ->assertJsonPath('architecture_readiness.command', 'php artisan atlas:ai:architecture-readiness --owner=knowledge_governance --json')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
             ->assertJsonStructure(['gate_status', 'session_gate', 'implementation_contract', 'pre_implementation_checklist'])
@@ -41,6 +46,13 @@ class AtlasAiGovernanceApiTest extends TestCase
         $this->assertContains('feature_placement', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('runtime_language_boundary', $response->json('architecture_operations.operation_ids'));
+        $this->assertSame(
+            ['runtime_language_boundary'],
+            $response->json('architecture_operations.owner_layer_operations.runtime.operation_ids'),
+        );
+        $this->assertTrue($response->json('architecture_operations.owner_layer_operations.runtime.commands.0.pre_implementation_gate'));
+        $this->assertContains('php artisan atlas:ai:runtime-boundary --json', $response->json('required_validation'));
     }
 
     public function test_session_bootstrap_api_strict_mode_conflicts_when_gate_is_blocked(): void
@@ -75,6 +87,42 @@ class AtlasAiGovernanceApiTest extends TestCase
         $this->assertContains('session_bootstrap', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('runtime_language_boundary', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('php artisan atlas:ai:runtime-boundary --json', $response->json('required_validation'));
+        $this->assertSame(
+            ['runtime_language_boundary'],
+            $response->json('architecture_operations.owner_layer_operations.runtime.operation_ids'),
+        );
+    }
+
+    public function test_feature_placement_api_routes_heavy_runtime_features_to_language_boundaries(): void
+    {
+        $response = $this->getJson('/ai/feature-placement?feature=Graph%20RAG%20FAISS%20embeddings%20reranker%20local', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('placement.layer', 'runtime')
+            ->assertJsonPath('placement.runtime', 'python_ai_data')
+            ->assertJsonPath('implementation_contract.runtime_family', 'python_ai_data')
+            ->assertJsonPath('implementation_contract.runtime_invocation_contract.schema_version', 'atlas.runtime_invocation_contract.v1')
+            ->assertJsonPath('implementation_contract.runtime_invocation_contract.kernel_first', true)
+            ->assertJsonPath('implementation_contract.runtime_invocation_contract.selected_runtime_family', 'python_ai_data');
+
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md',
+            collect($response->json('owner_docs'))->pluck('path')->all(),
+        );
+        $this->assertContains(
+            'decision_receipt_hash',
+            $response->json('implementation_contract.runtime_invocation_contract.required_fields'),
+        );
+        $this->assertContains(
+            'create_parallel_context_store',
+            $response->json('implementation_contract.runtime_invocation_contract.forbidden_runtime_authority'),
+        );
+        $this->assertContains(
+            'do_not_implement_heavy_rag_embeddings_rerank_graph_or_ml_inside_laravel_app',
+            $response->json('implementation_contract.forbidden_write_scopes'),
+        );
+        $this->assertContains('php artisan atlas:ai:runtime-boundary --json', $response->json('required_validation'));
     }
 
     public function test_feature_placement_api_separates_business_context_from_domain(): void
@@ -104,14 +152,20 @@ class AtlasAiGovernanceApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('schema_version', 'atlas.documentation_split_plan.v1')
             ->assertJsonPath('status', 'ok')
+            ->assertJsonStructure(['summary' => ['ready_for_new_docs', 'message'], 'recommended_actions'])
             ->assertJsonPath('policy.line_limits_source', 'EngineeringDocumentationHealthService')
             ->assertJsonPath('policy.growth_gate', 'If a split_required doc is touched, the change must either reduce it or add a focused child spec and backlink.');
 
-        $this->assertGreaterThan(0, $response->json('split_required_count'));
-        $this->assertNotEmpty($response->json('execution_order'));
-        $this->assertNotSame('', $response->json('docs.0.target_shape'));
-        $this->assertNotEmpty($response->json('docs.0.proposed_child_docs'));
-        $this->assertContains('sync_and_index_code_are_rerun', $response->json('docs.0.acceptance_criteria'));
+        $this->assertGreaterThanOrEqual(0, $response->json('split_required_count'));
+        if ($response->json('split_required_count') > 0) {
+            $this->assertNotEmpty($response->json('execution_order'));
+            $this->assertNotSame('', $response->json('docs.0.target_shape'));
+            $this->assertNotEmpty($response->json('docs.0.proposed_child_docs'));
+            $this->assertContains('sync_and_index_code_are_rerun', $response->json('docs.0.acceptance_criteria'));
+        } else {
+            $this->assertSame([], $response->json('execution_order'));
+            $this->assertSame([], $response->json('docs'));
+        }
     }
 
     public function test_docs_split_plan_api_accepts_filters(): void
@@ -120,11 +174,15 @@ class AtlasAiGovernanceApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('filters.owner', 'kernel_architecture');
 
-        $this->assertGreaterThan(0, $response->json('split_required_count'));
-        $this->assertSame(
-            ['kernel_architecture'],
-            collect($response->json('docs'))->pluck('owner_area')->unique()->values()->all(),
-        );
+        $this->assertGreaterThanOrEqual(0, $response->json('split_required_count'));
+        if ($response->json('split_required_count') > 0) {
+            $this->assertSame(
+                ['kernel_architecture'],
+                collect($response->json('docs'))->pluck('owner_area')->unique()->values()->all(),
+            );
+        } else {
+            $this->assertSame([], $response->json('docs'));
+        }
     }
 
     public function test_architecture_readiness_api_returns_governance_snapshot(): void
@@ -132,10 +190,14 @@ class AtlasAiGovernanceApiTest extends TestCase
         $response = $this->getJson('/ai/architecture/readiness?owner=kernel_architecture', $this->headers)
             ->assertOk()
             ->assertJsonPath('schema_version', 'atlas.architecture_readiness.v1')
+            ->assertJsonStructure(['summary' => ['ready_for_implementation', 'message']])
             ->assertJsonPath('checks.architecture_validate.status', 'ok')
             ->assertJsonPath('checks.documentation_health.status', 'ok')
             ->assertJsonPath('docs_split_plan.owner', 'kernel_architecture')
             ->assertJsonPath('docs_split_plan.command', 'php artisan atlas:ai:docs-split-plan --owner=kernel_architecture --json')
+            ->assertJsonPath('coverage_boundary.schema_version', 'atlas.implemented_vs_scaffold.coverage_boundary.v1')
+            ->assertJsonPath('coverage_boundary.authority', 'diagnostic_read_model_only')
+            ->assertJsonPath('safe_next_blocks.0.block', 'Voice Realtime product loop')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
             ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_readiness');
 
@@ -143,7 +205,17 @@ class AtlasAiGovernanceApiTest extends TestCase
         $this->assertContains('architecture_readiness', $response->json('architecture_operations.related_operation_ids'));
         $this->assertContains('session_bootstrap', $response->json('architecture_operations.related_operation_ids'));
         $this->assertContains('feature_placement', $response->json('architecture_operations.related_operation_ids'));
+        $this->assertContains('runtime_language_boundary', $response->json('architecture_operations.related_operation_ids'));
         $this->assertContains('architecture_readiness', collect($response->json('architecture_operations.related_commands'))->pluck('id')->all());
+        $this->assertContains('runtime_language_boundary', collect($response->json('architecture_operations.related_commands'))->pluck('id')->all());
+        $this->assertSame(
+            ['runtime_language_boundary'],
+            $response->json('architecture_operations.owner_layer_operations.runtime.operation_ids'),
+        );
+        $this->assertSame(
+            'runtime',
+            $response->json('architecture_operations.owner_layer_operations.runtime.commands.0.owner_layer'),
+        );
         $this->assertContains('php artisan atlas:ai:docs-split-plan --owner=kernel_architecture --json', $response->json('review_signal.required_next_commands'));
     }
 

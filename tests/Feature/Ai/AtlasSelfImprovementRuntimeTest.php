@@ -18,7 +18,9 @@ use App\Services\Ai\SelfImprovement\AtlasSelfImprovementInput;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementRuntime;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AtlasSelfImprovementRuntimeTest extends TestCase
@@ -42,6 +44,8 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         Schema::dropIfExists('atlas_strategy_rivals_cases');
         Schema::dropIfExists('ai_attachment_index_entries');
         Schema::dropIfExists('semantic_notes');
+        Schema::dropIfExists('productive_failure_sessions');
+        Schema::dropIfExists('worked_examples');
 
         parent::tearDown();
     }
@@ -231,14 +235,61 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('open_reviewable_graph_rag_promotion_proposal', data_get($finding, 'metadata.review_signal.recommended_action'));
         $this->assertSame('proposal_only', data_get($finding, 'metadata.policy_patch_candidate.status'));
         $this->assertFalse(data_get($finding, 'metadata.policy_patch_candidate.auto_apply'));
+        $this->assertTrue(data_get($finding, 'metadata.policy_patch_candidate.requires_future_ap'));
+        $this->assertTrue(data_get($finding, 'metadata.policy_patch_candidate.requires_decision_receipt'));
+        $this->assertTrue(data_get($finding, 'metadata.policy_patch_candidate.requires_rollback_plan'));
         $this->assertSame('passed', data_get($finding, 'metadata.benchmark.status'));
         $this->assertSame('passed', data_get($finding, 'metadata.benchmark.quality_corpus_status'));
+        $this->assertSame('persisted', data_get($finding, 'metadata.benchmark.evidence_ledger.status'));
+        $this->assertTrue(data_get($finding, 'metadata.benchmark.evidence_ledger.promotion_evidence_satisfied'));
+        $this->assertSame(3, data_get($finding, 'metadata.benchmark.evidence_ledger.recorded_event_count'));
         $this->assertContains('evidence_ledger_contract', data_get($finding, 'metadata.benchmark.completed_prerequisites'));
         $this->assertContains('human_review_or_curator_proposal', data_get($finding, 'metadata.benchmark.remaining_prerequisites'));
+        $this->assertContains('future_graph_rag_python_ap', data_get($finding, 'metadata.benchmark.remaining_prerequisites'));
+        $this->assertContains('decision_receipt_for_runtime_promotion', data_get($finding, 'metadata.benchmark.remaining_prerequisites'));
+        $this->assertContains('reviewable_policy_patch_with_rollback', data_get($finding, 'metadata.benchmark.remaining_prerequisites'));
+        $this->assertSame('LOCAL_RAG_GRAPH_PROMOTION_BLOCKED', data_get($finding, 'metadata.review_signal.supersedes_event_required'));
+        $this->assertSame('human_reviewed_curator_proposal_and_future_ap', data_get($finding, 'metadata.review_signal.supersede_authority'));
+        $this->assertSame('atlas.local_rag_graph_promotion_review_packet.v1', data_get($finding, 'metadata.review_signal.review_packet.schema_version'));
+        $this->assertSame('approve_or_reject_graph_rag_python_future_ap_scope', data_get($finding, 'metadata.review_signal.review_packet.required_human_decision'));
+        $this->assertContains('LOCAL_RAG_GRAPH_PROMOTION_BLOCKED', data_get($finding, 'metadata.review_signal.review_packet.evidence_required'));
+        $this->assertContains('disable_python_graph_rag_runtime_policy', data_get($finding, 'metadata.review_signal.review_packet.rollback_required'));
+        $this->assertContains('enable_python_graph_rag_runtime', data_get($finding, 'metadata.review_signal.review_packet.forbidden_until_review'));
         $this->assertSame('review_graph_rag_promotion', data_get($finding, 'available_actions.0.id'));
         $this->assertSame('docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md', data_get($finding, 'source_refs.1.id'));
         $this->assertSame('docs/ap/AP-683-local-rag-graph-promotion-review.md', data_get($finding, 'metadata.review_signal.review_ap'));
         $this->assertContains('docs/ap/AP-683-local-rag-graph-promotion-review.md', collect(data_get($finding, 'source_refs', []))->pluck('id')->all());
+    }
+
+    public function test_docs_drift_review_blocks_local_rag_graph_promotion_when_evidence_ledger_is_unavailable(): void
+    {
+        $this->createLocalRagTables();
+        Schema::dropIfExists('atlas_ledger_events');
+        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'docs_drift_review',
+            emit: false,
+            hours: 24,
+            limit: 20,
+        );
+
+        $proposal = collect($result['findings'])->firstWhere('title', 'Revisar promocao de Graph RAG/Python');
+        $blocked = collect($result['findings'])->firstWhere('title', 'Corrigir evidencia operacional Local RAG antes de Graph RAG');
+
+        $this->assertNull($proposal);
+        $this->assertIsArray($blocked);
+        $this->assertSame('atlas.self_improvement.local_rag_graph_promotion_evidence_block.v1', data_get($blocked, 'metadata.schema_version'));
+        $this->assertSame('blocking', data_get($blocked, 'metadata.review_signal.status'));
+        $this->assertFalse(data_get($blocked, 'metadata.review_signal.proposal_allowed'));
+        $this->assertSame('restore_local_rag_evidence_ledger_before_graph_rag_review', data_get($blocked, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('blocked_until_evidence_persisted', data_get($blocked, 'metadata.policy_patch_candidate.status'));
+        $this->assertFalse(data_get($blocked, 'metadata.policy_patch_candidate.auto_apply'));
+        $this->assertSame('unavailable', data_get($blocked, 'metadata.benchmark.evidence_ledger.status'));
+        $this->assertFalse(data_get($blocked, 'metadata.benchmark.evidence_ledger.promotion_evidence_satisfied'));
+        $this->assertSame(0, data_get($blocked, 'metadata.benchmark.evidence_ledger.recorded_event_count'));
+        $this->assertSame('atlas_ledger_events_table_unavailable_or_write_failed', data_get($blocked, 'metadata.benchmark.evidence_ledger.missing_reason'));
+        $this->assertContains('local_rag_promotion_requires_persisted_evidence_ledger', data_get($blocked, 'metadata.review_signal.reasons'));
     }
 
     public function test_docs_drift_review_emits_constelacao_lens_usage_review_without_graph_promotion(): void
@@ -287,13 +338,83 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertIsArray($finding);
         $this->assertSame('atlas.self_improvement.constelacao_usage_review.v1', data_get($finding, 'metadata.schema_version'));
         $this->assertSame('watch', data_get($finding, 'metadata.review_signal.status'));
+        $this->assertFalse(data_get($finding, 'metadata.review_signal.promotion_allowed'));
         $this->assertSame('review_constelacao_lens1_usage_after_observation_window', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('collect_constelacao_lens1_usage_telemetry_for_30_days_before_review', data_get($finding, 'metadata.review_signal.next_action'));
         $this->assertSame(1, data_get($finding, 'metadata.hours_window_contains_event_count'));
         $this->assertSame(1, data_get($finding, 'metadata.lens_counts.bilderatlas'));
         $this->assertSame(1, data_get($finding, 'metadata.source_counts.semantic_note'));
+        $this->assertSame('atlas.constelacao.lens1_usage_review.v1', data_get($finding, 'metadata.usage_review_contract.schema_version'));
+        $this->assertFalse(data_get($finding, 'metadata.usage_review_contract.promotion_allowed'));
+        $this->assertFalse(data_get($finding, 'metadata.usage_review_contract.auto_promotion_allowed'));
+        $this->assertSame('approve_or_reject_constelacao_lens1_promotion_after_usage_review', data_get($finding, 'metadata.usage_review_contract.required_human_decision'));
+        $this->assertTrue(data_get($finding, 'metadata.usage_review_contract.rollback_plan_required'));
+        $this->assertContains('keep_graph_rag_positioning_disabled', data_get($finding, 'metadata.usage_review_contract.rollback_required'));
+        $this->assertContains('enable_command_sky', data_get($finding, 'metadata.usage_review_contract.forbidden_until_review'));
+        $this->assertSame('collect_constelacao_lens1_usage_telemetry_for_30_days_before_review', data_get($finding, 'metadata.usage_review_contract.next_action'));
+        $this->assertContains('command_sky', data_get($finding, 'metadata.usage_review_contract.blocked_targets'));
+        $this->assertContains('graph_rag_positioning', data_get($finding, 'metadata.usage_review_contract.blocked_targets'));
+        $this->assertFalse(data_get($finding, 'metadata.promotion_gate.promotion_allowed'));
         $this->assertFalse(data_get($finding, 'metadata.promotion_gate.graph_rag_promotion_allowed'));
         $this->assertFalse(data_get($finding, 'metadata.promotion_gate.python_runtime_allowed'));
+        $this->assertSame('collect_constelacao_lens1_usage_telemetry_for_30_days_before_review', data_get($finding, 'metadata.promotion_gate.next_action'));
         $this->assertContains('docs/engineering-knowledge-base/atlas-constelacao-surface.md', collect(data_get($finding, 'source_refs', []))->pluck('id')->all());
+    }
+
+    public function test_domain_learning_review_emits_productive_failure_transfer_test_review(): void
+    {
+        (require database_path('migrations/2026_05_07_140000_create_worked_examples_table.php'))->up();
+        (require database_path('migrations/2026_05_07_180000_create_productive_failure_sessions_table.php'))->up();
+
+        $transferTestId = 'pf-transfer-'.Str::ulid();
+        DB::table('productive_failure_sessions')->insert([
+            'envelope_id' => (string) Str::uuid(),
+            'knowledge_node_id' => (string) Str::uuid(),
+            'domain' => 'programming',
+            'dreyfus_stage_target' => 3,
+            'phase_1_problem' => json_encode(['topic' => 'queue-batching'], JSON_THROW_ON_ERROR),
+            'phase_1_attempt' => json_encode(['operator_prediction' => 'memory pressure'], JSON_THROW_ON_ERROR),
+            'phase_2_comparison' => json_encode(['prediction_error_delta' => 'missed lock contention'], JSON_THROW_ON_ERROR),
+            'phase_3_articulation' => json_encode(['principle_extracted' => 'inspect contention before capacity'], JSON_THROW_ON_ERROR),
+            'phase_3_transfer_test_id' => $transferTestId,
+            'phase_3_transfer_test' => json_encode([
+                'schema_version' => 'atlas.cognitive.productive_failure.transfer_test_proposal.v1',
+                'id' => $transferTestId,
+                'status' => 'proposal_only',
+                'scheduled_for' => now()->subDay()->toDateString(),
+                'topic' => 'queue-batching',
+                'domain' => 'programming',
+                'prompt' => 'Aplique o principio em outro sistema.',
+                'review_required' => true,
+                'auto_apply_to_curriculum' => false,
+            ], JSON_THROW_ON_ERROR),
+            'completion_status' => 'complete',
+            'phase_1_started_at' => now()->subDays(8),
+            'phase_2_started_at' => now()->subDays(8),
+            'phase_3_started_at' => now()->subDays(8),
+            'completed_at' => now()->subDays(8),
+            'created_at' => now()->subDays(8),
+            'updated_at' => now()->subDays(8),
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'domain_learning_review',
+            emit: false,
+            hours: 24,
+            limit: 20,
+            filters: ['domain' => 'programming'],
+        );
+
+        $finding = collect($result['findings'])->firstWhere('title', 'Revisar transfer_tests vencidos de Productive Failure');
+
+        $this->assertIsArray($finding);
+        $this->assertSame('atlas.self_improvement.productive_failure_transfer_review.v1', data_get($finding, 'metadata.schema_version'));
+        $this->assertSame('review_due_productive_failure_transfer_tests', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('proposal_only', data_get($finding, 'metadata.policy_contract.status'));
+        $this->assertFalse(data_get($finding, 'metadata.policy_contract.auto_apply'));
+        $this->assertSame($transferTestId, data_get($finding, 'metadata.proposal_ids.0'));
+        $this->assertSame('php artisan atlas:productive-failure transfer-tests --due-only --json', data_get($finding, 'source_refs.1.id'));
+        $this->assertContains('schedule_auto_write', data_get($finding, 'metadata.policy_contract.forbidden_mutations'));
     }
 
     public function test_provider_performance_review_emits_reviewable_policy_patch_candidate(): void
@@ -1672,6 +1793,11 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('not_ready', data_get($finding, 'metadata.report_status'));
         $this->assertSame('attention', data_get($finding, 'metadata.readiness.status'));
         $this->assertSame('certified_scaffold', data_get($finding, 'metadata.runtime_certification.status'));
+        $this->assertSame('blocked', data_get($finding, 'metadata.production_promotion_gate.status'));
+        $this->assertSame('atlas.voice_realtime.production_promotion_review_packet.v1', data_get($finding, 'metadata.review_packet.schema_version'));
+        $this->assertSame('approve_or_reject_voice_production_promotion', data_get($finding, 'metadata.review_packet.required_human_decision'));
+        $this->assertContains('return_voice_runtime_to_scaffold_mode', data_get($finding, 'metadata.review_packet.required_rollback_plan'));
+        $this->assertSame('atlas.voice_realtime.production_promotion_review_packet.v1', data_get($finding, 'source_refs.0.review_packet_schema_version'));
         $this->assertContains(LedgerEventType::VoiceTurnDecided->value, data_get($finding, 'metadata.missing_events'));
         $this->assertSame('complete_voice_readiness_before_rivals_voice', data_get($finding, 'metadata.review_signal.recommended_action'));
         $this->assertSame('voice_rivals_report', data_get($finding, 'source_refs.0.type'));
@@ -1709,6 +1835,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertIsArray($finding);
         $this->assertSame('atlas.self_improvement.voice_realtime.v1', data_get($finding, 'metadata.schema_version'));
         $this->assertSame('not_ready', data_get($finding, 'metadata.report_status'));
+        $this->assertSame('atlas.voice_realtime.production_promotion_review_packet.v1', data_get($finding, 'metadata.review_packet.schema_version'));
         $this->assertSame('complete_voice_readiness_before_rivals_voice', data_get($finding, 'metadata.review_signal.recommended_action'));
     }
 

@@ -33,6 +33,8 @@ maintenance:
   - Atualizar quando mobile voice, LiveKit Agents SDK, STT/TTS providers, eclipse rules, latency SLO ou eventos VOICE_* mudarem.
   - Se passar do limite, mover detalhes para AP specs ou runbooks por fase.
 related_paths:
+  - docs/ap/AP-686-voice-realtime-python-runtime-boundary.md
+  - docs/ap/AP-687-voice-realtime-production-promotion-gate.md
   - docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
@@ -46,9 +48,8 @@ related_paths:
 
 Este documento define a forma final enterprise do Voice Realtime Surface.
 
-O objetivo nao e "ter voz". O objetivo e fazer o Atlas virar uma interface
-conversacional natural, multi-provider, auditavel, governada e superior ao uso
-direto de ChatGPT Voice, Claude voice ou qualquer provider isolado.
+O objetivo nao e "ter voz"; e fazer o Atlas virar uma interface conversacional
+natural, multi-provider, auditavel, governada e superior ao uso direto de voice modes isolados.
 
 ## Autoridade
 
@@ -128,9 +129,8 @@ mic/AirPods e contexto opt-in ao mesmo fluxo mobile-first.
 
 O primeiro local natural do Atlas Voice e o app mobile porque:
 
-ele e a surface mais proxima do usuario, ja tem mic/speaker/push/permissao/auth
-e UI de conversa, reduz risco de always-on invasivo no Mac, prova valor antes
-de daemon ambiental e acelera Rivals-Voice.
+ele e a surface mais proxima do usuario, ja tem mic/speaker/push/permissao/auth e UI de conversa,
+reduz risco de always-on invasivo no Mac, prova valor antes de daemon ambiental e acelera Rivals-Voice.
 
 Fase inicial deve ser push-to-talk. Always-on e wake word entram apenas depois
 de privacy, eclipse, indicador visual e forgetting protocol estarem prontos.
@@ -149,9 +149,10 @@ Ele nao deve apontar para OpenAI/Claude/Gemini direto.
 
 Implementado agora: adapter `voice_realtime`, capability `atlas.input.voice_audio`,
 endpoints Fase 0, session lease com token LiveKit opt-in, eclipse, Envelope/Receipt,
-preflight/activation contract, callback router/sequence smoke, maquina de estado por turno aceito,
-gate fail-closed para callback sem `VOICE_TURN_DECIDED`, gate de callback loop,
-contrato/bootstrap/start-check, Rivals-Voice, runtime Python e SLOs.
+preflight/activation governance (mobile-first, no direct-provider, no daemon/always-on), callback router/sequence smoke, maquina de estado por turno aceito,
+gate fail-closed para callback sem `VOICE_TURN_DECIDED`, inclusive `runtime_failed`,
+validacao service-side recursiva dos schemas de callback runtime, contrato/bootstrap/start-check,
+Rivals-Voice, runtime Python e SLOs.
 O app mobile tambem possui contrato cliente para iniciar/encerrar sessao
 `/v1/mobile/ai/voice/session/*` e abrir o Voice Mode com fallback local quando
 o server ainda nao estiver acessivel. Isso nao significa audio realtime pronto:
@@ -160,36 +161,24 @@ LiveKit media streaming, STT/TTS e UX final continuam pendentes.
 | Classe | Responsabilidade |
 |---|---|
 | `AtlasVoiceRealtimeSurfaceAdapter` | registra `voice_realtime` como surface |
-| `AtlasVoiceRealtimeService` | scaffold Fase 0: sessao, turno, envelope, receipt, callbacks fail-closed, ledger, SLO |
+| `AtlasVoiceRealtimeService` | scaffold Fase 0: sessao, turno, envelope, receipt, callbacks fail-closed, payload contract, ledger, SLO |
 | `AtlasVoiceEclipseGuard` | bloqueia captura/resposta quando necessario |
 | `AtlasVoiceLiveKitTokenIssuer` | emite JWT LiveKit opt-in; token nunca entra no Ledger |
 | `AtlasVoiceRuntimeCertificationService` | certifica preflight, callback sequence, production-loop smoke e start bloqueado; usado por CLI, API e mobile |
 | `KernelSloTargets` | declara `voice.wake_word_detect` e `voice.turn_to_first_audio` |
 | `AtlasVoiceRivalsRunner` | relatorio read-only Atlas Voice vs baseline direto; bloqueia maturidade se runtime certification falhar |
-| `atlas-app/lib/api/client.ts` | cliente mobile para `start/end/readiness` de voice session |
-| `atlas-app/components/sheets/AtlasAiSheet.tsx` | abre Voice Mode mobile-first e tenta registrar sessao no Kernel com fallback local |
 
 Endpoints:
 
-| Metodo | Path | Uso |
-|---|---|---|
-| POST | `/ai/voice/session/start` | cria sessao, room lease e evento |
-| POST | `/ai/voice/session/end` | encerra sessao |
-| POST | `/ai/voice/wake-word` | registra wake word local e SLO |
-| POST | `/ai/voice/turn` | recebe transcript/turno do Agents SDK |
-| POST | `/ai/voice/turn/interrupted` | registra interrupcao |
-| POST | `/ai/voice/turn/synthesized` | registra TTS via hashes SHA-256; texto/audio raw proibidos |
-| POST | `/ai/voice/turn/played` | registra playback |
-| POST | `/ai/voice/runtime/failed` | registra falha runtime |
-| POST | `/ai/voice/provider/health-degraded` | registra degradacao STT/TTS |
-| GET | `/ai/voice/runtime/contract`, `/bootstrap`, `/dependencies`, `/certification` | contrato, manifesto, dependencias e certificacao scaffold do runtime |
-| GET | `/ai/voice/health`, `/readiness`, `/rivals` | health, scorecard e Rivals-Voice; `/rivals` inclui resumo sanitizado da certificacao |
-| GET | `/ai/voice/eclipse/active` | eclipse ativo |
+`/ai/voice/session/*`, `/wake-word`, `/turn`, `/turn/interrupted`,
+`/turn/synthesized`, `/turn/played`, `/runtime/failed`,
+`/provider/health-degraded`, `/runtime/{contract,bootstrap,dependencies,certification}`,
+`/health`, `/readiness`, `/rivals`, `/eclipse/active`.
 
 Os mesmos paths existem em `/v1/mobile/ai/voice/*`; mobile e a primeira surface real.
 
 Eventos minimos: session start/end, wake word, audio, transcript, decided,
-synthesized, played, interrupted, runtime failed, provider degraded, eclipse.
+synthesized, played, interrupted (runtime exige turno aceito), failed, degraded, eclipse.
 
 ## Policy E Privacy
 
@@ -224,16 +213,50 @@ Fase 0 sai antes de always-on; Fase 1 permite comparar contra voice modes.
 
 ## Runtime Certification Gate
 
-`/ai/voice/runtime/certification` e `php artisan atlas:ai:voice runtime-certify --json`
-agregam foundation registry AP-185, preflight, callback sequence,
-production-loop smoke e worker-start blocked check. O certificado e sanitizado:
-nao expõe token, API key, secret, audio raw, transcript cru ou payload de
-provider.
+`/ai/voice/runtime/certification` e `php artisan atlas:ai:voice runtime-certify --json` agregam
+foundation registry AP-185, preflight, callback sequence, production-loop smoke e worker-start blocked check.
+O certificado e sanitizado: nao expõe token, API key, secret, audio raw, transcript cru ou payload de provider.
 
 O gate `certification_artifacts_sanitized` e obrigatorio. Ele deve aparecer
 verde em CLI, API interna, mobile gateway e Rivals-Voice summary antes de
-qualquer maturidade acima de scaffold. Se `forbidden_key_count>0`, Voice fica
-bloqueado mesmo que os demais smokes passem.
+qualquer maturidade acima de scaffold. AP-687 adiciona
+`production_promotion_gate`: scaffold certificado ainda fica bloqueado para
+produto real ate `--require-sdk`, LiveKit Agents SDK, token issuer, smokes,
+Rivals baseline, bootstrap namespace-safe, `promotion_allowed=false`,
+auto-promotion proibida, receipt, rollback plan e review humano passarem.
+
+`phase0_hardening`: readiness estrutural em `atlas:ai:voice readiness --json`
+com schema `atlas.voice_realtime.phase0_hardening_gate.v1`. Ele torna explicito
+que a fase 0 exige mobile-first, Kernel Decision Receipt por turno, callback loop
+fail-closed, audio cru nao persistido, AP-201 runtime boundary verde e promocao
+de producao travada por review humano.
+
+`product_loop_wiring_flags`: `--callback-loop-wired` e
+`--production-sdk-loop-wired` existem para checks governados de produto. Eles
+podem ser usados em `callback-loop-check`, `worker-plan`, `production-loop-plan`,
+`activation-contract` e `worker-start-check` para provar que o caminho LiveKit
+Agents esta conectado ao router e ao SDK loop. Mesmo com as flags, `started`
+continua `false`, auto-promotion continua proibida e provider/tool direto segue
+impossivel.
+
+`product-loop-check`: artefato agregado com schema
+`atlas.voice_realtime.product_loop_check.v1`. Ele combina callback loop,
+production-loop-plan e worker-start com wiring de produto habilitado. E a
+consulta canonica para uma IA saber o proximo passo do bloco Voice Realtime:
+instalar SDK, carregar runtime settings, corrigir gate ou submeter review de
+implementacao do daemon. Ele nunca inicia daemon e nunca substitui
+`production_promotion_gate`.
+
+`sdk-check`: probe de compatibilidade, nao import de runtime. Ele deve retornar
+`sdk_imported=false`, `import_probe_only=true`, `package_checks`,
+`missing_imports`, versao instalada quando existir e policy do
+`runtime-dependencies.json`. Uma IA nao deve importar LiveKit SDK so para
+decidir readiness; import real pertence ao daemon futuro atras de review.
+
+Callbacks runtime sao validados dentro de `AtlasVoiceRealtimeService`, nao so
+no controller HTTP. Campo obrigatorio ausente ou campo proibido gera
+`callback_rejected_payload_contract`, bloqueia o evento solicitado e grava
+`VOICE_RUNTIME_FAILED` com `runtime_callback_payload_contract_violation`.
 
 Rivals-Voice deve consumir apenas o resumo do certificado. Se o runtime nao
 estiver `certified_scaffold`, o report fica `not_ready` e recomenda corrigir
@@ -245,17 +268,12 @@ quando houver atividade VOICE_* sem readiness/certification/baseline fechados.
 
 Voice v1 esta pronto quando:
 
-1. app mobile inicia sessao push-to-talk; parcialmente pronto via session start/end + fallback local;
-2. LiveKit Agents SDK roda com plugin STT/TTS configuravel;
-3. cada turno cria Operation Envelope e Decision Receipt;
-4. provider/modelo e escolhido por Atlas Decide, salvo override manual auditado;
-5. VOICE_* events aparecem no Evidence Ledger;
-6. audio raw nao persiste;
-7. eclipse manual bloqueia captura/resposta;
-8. latency SLO e registrado;
-9. runtime certification passa antes de Rivals-Voice;
-10. Rivals-Voice gera scorecard com baseline comparavel;
-11. docs, KB sync, code index e architecture validate passam.
+1. mobile push-to-talk inicia sessao; LiveKit Agents roda STT/TTS configuravel;
+2. cada turno tem Envelope, Decision Receipt, VOICE_* Ledger e SLO;
+3. Atlas Decide escolhe provider/modelo, salvo override manual auditado;
+4. audio raw nao persiste; eclipse bloqueia captura/resposta;
+5. runtime certification passa antes de Rivals-Voice;
+6. Rivals-Voice compara baseline; docs, KB, code index e architecture validate passam.
 
 ## Anti-Patterns
 

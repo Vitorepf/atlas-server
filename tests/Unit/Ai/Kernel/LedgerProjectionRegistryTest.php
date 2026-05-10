@@ -77,6 +77,29 @@ class LedgerProjectionRegistryTest extends TestCase
         $this->assertSame([], data_get($report, 'projections.2.missing_columns'));
     }
 
+    public function test_registry_reports_missing_columns_when_projection_table_is_partial(): void
+    {
+        Schema::create('ai_traces', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('trace_key');
+            $table->timestamps();
+        });
+
+        $report = app(LedgerProjectionRegistry::class)->complianceReport();
+
+        $this->assertTrue($report['ok']);
+        $this->assertFalse($report['ready']);
+        $this->assertSame(0, $report['ready_count']);
+        $this->assertTrue((bool) data_get($report, 'projections.0.table_exists'));
+        $this->assertFalse((bool) data_get($report, 'projections.0.ready'));
+        $this->assertContains('status', data_get($report, 'projections.0.missing_columns'));
+        $this->assertContains('agent_slug', data_get($report, 'projections.0.missing_columns'));
+        $this->assertContains('metadata', data_get($report, 'projections.0.missing_columns'));
+        $this->assertContains('ai_traces:column_missing:status', $report['warnings']);
+        $this->assertContains('ai_traces:column_missing:metadata', $report['warnings']);
+        $this->assertNotContains('ai_traces:table_missing', $report['warnings']);
+    }
+
     public function test_drift_report_is_unavailable_without_ledger_table(): void
     {
         $report = app(LedgerProjectionRegistry::class)->driftReport();
@@ -85,6 +108,31 @@ class LedgerProjectionRegistryTest extends TestCase
         $this->assertFalse($report['available']);
         $this->assertSame('ledger_missing', $report['status']);
         $this->assertSame(0, $report['attention_count']);
+    }
+
+    public function test_health_report_is_reviewable_when_ledger_is_unavailable(): void
+    {
+        $report = app(LedgerProjectionRegistry::class)->healthReport();
+
+        $this->assertSame('atlas.ledger_projection_health.v1', $report['schema_version']);
+        $this->assertFalse((bool) $report['available']);
+        $this->assertSame('unavailable', $report['status']);
+        $this->assertSame('unknown', $report['severity']);
+        $this->assertSame('ledger_missing', $report['reason']);
+        $this->assertSame('unknown', data_get($report, 'review_signal.status'));
+        $this->assertSame('ledger_projection_unavailable', data_get($report, 'review_signal.reason'));
+        $this->assertSame('wait_for_ledger_initialization', data_get($report, 'review_signal.recommended_action'));
+        $this->assertSame('every_ten_minutes', data_get($report, 'scheduler.cadence'));
+        $this->assertStringContainsString('atlas:ai:ledger-project', data_get($report, 'scheduler.command'));
+    }
+
+    public function test_health_report_clamps_lag_window_to_safe_bounds(): void
+    {
+        $low = app(LedgerProjectionRegistry::class)->healthReport(maxLagSeconds: 1);
+        $high = app(LedgerProjectionRegistry::class)->healthReport(maxLagSeconds: 999999);
+
+        $this->assertSame(60, $low['max_lag_seconds']);
+        $this->assertSame(86400, $high['max_lag_seconds']);
     }
 
     public function test_drift_report_marks_projection_current_when_projection_is_newer_than_source_events(): void
@@ -157,6 +205,191 @@ class LedgerProjectionRegistryTest extends TestCase
         $this->assertSame('warning', data_get($report, 'projections.0.severity'));
         $this->assertSame(1800, data_get($report, 'projections.0.lag_seconds'));
         $this->assertSame('every_ten_minutes', data_get($report, 'scheduler.cadence'));
+    }
+
+    public function test_health_report_marks_small_projection_drift_as_pending_not_warning(): void
+    {
+        $this->createLedgerTable();
+        $this->createProjectionTables();
+        $this->recordLedgerEvent(LedgerEventType::ProviderReturned->value, '2026-05-06 03:00:00');
+        $this->insertAiTrace('2026-05-06 02:58:00');
+        $this->insertEngineeringRun('2026-05-06 03:05:00');
+
+        $report = app(LedgerProjectionRegistry::class)->healthReport(maxLagSeconds: 900);
+
+        $this->assertSame('pending', $report['status']);
+        $this->assertSame('pending', $report['severity']);
+        $this->assertSame(0, $report['critical_count']);
+        $this->assertSame(0, $report['warning_count']);
+        $this->assertSame(1, $report['pending_count']);
+        $this->assertSame('warning', data_get($report, 'review_signal.status'));
+        $this->assertSame('medium', data_get($report, 'review_signal.severity'));
+        $this->assertSame('drift_detected', data_get($report, 'projections.0.status'));
+        $this->assertSame('info', data_get($report, 'projections.0.severity'));
+        $this->assertSame(120, data_get($report, 'projections.0.lag_seconds'));
+    }
+
+    public function test_health_report_marks_missing_projection_with_source_events_as_critical(): void
+    {
+        $this->createLedgerTable();
+        $this->recordLedgerEvent(LedgerEventType::ToolInvoked->value, '2026-05-06 04:00:00');
+
+        $report = app(LedgerProjectionRegistry::class)->healthReport(maxLagSeconds: 900);
+
+        $this->assertSame('critical', $report['status']);
+        $this->assertSame('critical', $report['severity']);
+        $this->assertSame(1, $report['critical_count']);
+        $this->assertSame('warning', data_get($report, 'review_signal.status'));
+        $this->assertSame('high', data_get($report, 'review_signal.severity'));
+        $this->assertSame('run_atlas_ai_ledger_project_or_review_projection_tables', data_get($report, 'review_signal.recommended_action'));
+        $this->assertSame('atlas_tool_runs', data_get($report, 'projections.2.id'));
+        $this->assertSame('projection_unavailable', data_get($report, 'projections.2.status'));
+        $this->assertSame('critical', data_get($report, 'projections.2.severity'));
+        $this->assertSame('run_atlas_ai_ledger_project', data_get($report, 'projections.2.recommended_action'));
+    }
+
+    public function test_health_report_keeps_missing_projection_without_source_events_non_actionable(): void
+    {
+        $this->createLedgerTable();
+
+        $report = app(LedgerProjectionRegistry::class)->healthReport(maxLagSeconds: 900);
+
+        $this->assertSame('healthy', $report['status']);
+        $this->assertSame('none', $report['severity']);
+        $this->assertSame(0, $report['critical_count']);
+        $this->assertSame(0, $report['warning_count']);
+        $this->assertSame(0, $report['pending_count']);
+        $this->assertSame('ok', data_get($report, 'review_signal.status'));
+        $this->assertSame('ai_traces', data_get($report, 'projections.0.id'));
+        $this->assertSame('projection_table_missing', data_get($report, 'projections.0.status'));
+        $this->assertSame('none', data_get($report, 'projections.0.severity'));
+        $this->assertFalse((bool) data_get($report, 'projections.0.needs_attention'));
+        $this->assertSame(0, data_get($report, 'projections.0.source_event_count'));
+        $this->assertSame('none', data_get($report, 'projections.0.recommended_action'));
+    }
+
+    public function test_health_report_marks_empty_projection_with_source_events_as_critical(): void
+    {
+        $this->createLedgerTable();
+        $this->createProjectionTables();
+        $this->recordLedgerEvent(LedgerEventType::ToolReturned->value, '2026-05-06 04:00:00');
+
+        $report = app(LedgerProjectionRegistry::class)->healthReport(maxLagSeconds: 900);
+
+        $this->assertSame('critical', $report['status']);
+        $this->assertSame('critical', $report['severity']);
+        $this->assertSame(1, $report['critical_count']);
+        $this->assertSame('warning', data_get($report, 'review_signal.status'));
+        $this->assertSame('high', data_get($report, 'review_signal.severity'));
+        $this->assertSame('atlas_tool_runs', data_get($report, 'projections.2.id'));
+        $this->assertSame('drift_detected', data_get($report, 'projections.2.status'));
+        $this->assertSame(0, data_get($report, 'projections.2.projection_row_count'));
+        $this->assertNull(data_get($report, 'projections.2.latest_projection_updated_at'));
+        $this->assertNull(data_get($report, 'projections.2.lag_seconds'));
+        $this->assertSame('critical', data_get($report, 'projections.2.severity'));
+        $this->assertSame('run_atlas_ai_ledger_project', data_get($report, 'projections.2.recommended_action'));
+    }
+
+    public function test_health_report_marks_timestampless_projection_with_source_events_as_critical(): void
+    {
+        $this->createLedgerTable();
+        Schema::create('ai_traces', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('trace_key');
+            $table->string('status');
+            $table->string('agent_slug');
+            $table->json('metadata');
+        });
+        DB::table('ai_traces')->insert([
+            'id' => '11111111-1111-4111-8111-111111111111',
+            'trace_key' => 'trace-test',
+            'status' => 'completed',
+            'agent_slug' => 'atlas',
+            'metadata' => json_encode([], JSON_THROW_ON_ERROR),
+        ]);
+        $this->recordLedgerEvent(LedgerEventType::ProviderFallback->value, '2026-05-06 03:00:00');
+
+        $report = app(LedgerProjectionRegistry::class)->healthReport(maxLagSeconds: 900);
+
+        $this->assertSame('critical', $report['status']);
+        $this->assertSame('critical', $report['severity']);
+        $this->assertSame(1, $report['critical_count']);
+        $this->assertSame('high', data_get($report, 'review_signal.severity'));
+        $this->assertSame('drift_detected', data_get($report, 'projections.0.status'));
+        $this->assertSame('critical', data_get($report, 'projections.0.severity'));
+        $this->assertNull(data_get($report, 'projections.0.lag_seconds'));
+        $this->assertSame('run_atlas_ai_ledger_project', data_get($report, 'projections.0.recommended_action'));
+    }
+
+    public function test_health_report_marks_current_projection_set_as_healthy(): void
+    {
+        $this->createLedgerTable();
+        $this->createProjectionTables();
+        $this->recordLedgerEvent(LedgerEventType::ProviderCalled->value, '2026-05-06 03:00:00');
+        $this->insertAiTrace('2026-05-06 03:05:00');
+        $this->insertEngineeringRun('2026-05-06 03:05:00');
+
+        $report = app(LedgerProjectionRegistry::class)->healthReport(maxLagSeconds: 900);
+
+        $this->assertTrue((bool) $report['available']);
+        $this->assertSame('healthy', $report['status']);
+        $this->assertSame('none', $report['severity']);
+        $this->assertSame(0, $report['critical_count']);
+        $this->assertSame(0, $report['warning_count']);
+        $this->assertSame(0, $report['pending_count']);
+        $this->assertSame('ok', data_get($report, 'review_signal.status'));
+        $this->assertSame('ledger_projection_current', data_get($report, 'review_signal.reason'));
+        $this->assertSame('none', data_get($report, 'review_signal.recommended_action'));
+        $this->assertSame('current', data_get($report, 'projections.0.status'));
+        $this->assertSame('current', data_get($report, 'projections.1.status'));
+    }
+
+    public function test_health_report_keeps_projection_without_source_events_healthy(): void
+    {
+        $this->createLedgerTable();
+        $this->createProjectionTables();
+        $this->recordLedgerEvent(LedgerEventType::RepairCompleted->value, '2026-05-06 03:00:00');
+        $this->insertEngineeringRun('2026-05-06 03:05:00');
+
+        $report = app(LedgerProjectionRegistry::class)->healthReport(maxLagSeconds: 900);
+
+        $this->assertSame('healthy', $report['status']);
+        $this->assertSame('none', $report['severity']);
+        $this->assertSame(0, $report['critical_count']);
+        $this->assertSame(0, $report['warning_count']);
+        $this->assertSame(0, $report['pending_count']);
+        $this->assertSame('ok', data_get($report, 'review_signal.status'));
+        $this->assertSame('ai_traces', data_get($report, 'projections.0.id'));
+        $this->assertSame('no_source_events', data_get($report, 'projections.0.status'));
+        $this->assertSame('none', data_get($report, 'projections.0.severity'));
+        $this->assertFalse((bool) data_get($report, 'projections.0.needs_attention'));
+        $this->assertSame(0, data_get($report, 'projections.0.source_event_count'));
+        $this->assertSame('none', data_get($report, 'projections.0.recommended_action'));
+    }
+
+    public function test_health_report_ignores_stale_projection_rows_without_matching_source_events(): void
+    {
+        $this->createLedgerTable();
+        $this->createProjectionTables();
+        $this->recordLedgerEvent(LedgerEventType::RepairCompleted->value, '2026-05-06 03:00:00');
+        $this->insertAiTrace('2026-05-01 00:00:00');
+        $this->insertEngineeringRun('2026-05-06 03:05:00');
+
+        $report = app(LedgerProjectionRegistry::class)->healthReport(maxLagSeconds: 900);
+
+        $this->assertSame('healthy', $report['status']);
+        $this->assertSame('none', $report['severity']);
+        $this->assertSame(0, $report['warning_count']);
+        $this->assertSame(0, $report['pending_count']);
+        $this->assertSame('ok', data_get($report, 'review_signal.status'));
+        $this->assertSame('ai_traces', data_get($report, 'projections.0.id'));
+        $this->assertSame('no_source_events', data_get($report, 'projections.0.status'));
+        $this->assertSame('none', data_get($report, 'projections.0.severity'));
+        $this->assertFalse((bool) data_get($report, 'projections.0.needs_attention'));
+        $this->assertSame(1, data_get($report, 'projections.0.projection_row_count'));
+        $this->assertSame(0, data_get($report, 'projections.0.source_event_count'));
+        $this->assertNull(data_get($report, 'projections.0.lag_seconds'));
+        $this->assertSame('none', data_get($report, 'projections.0.recommended_action'));
     }
 
     private function createLedgerTable(): void

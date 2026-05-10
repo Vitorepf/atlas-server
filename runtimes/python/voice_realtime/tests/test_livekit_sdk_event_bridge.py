@@ -146,6 +146,15 @@ class LiveKitSdkEventBridgeTest(unittest.TestCase):
                 "session_id": "voice_session",
             })
 
+        with self.assertRaises(UnsafeVoicePayload):
+            LiveKitSdkEventBridge.to_callback_event({
+                "event_kind": "room_connected",
+                "session_id": "voice_session",
+                "participant_identity": "mobile:vitor",
+                "room_name": "atlas-voice-bridge",
+                "metadata": {"raw_audio": "nested-audio"},
+            })
+
 
 if __name__ == "__main__":
     unittest.main()

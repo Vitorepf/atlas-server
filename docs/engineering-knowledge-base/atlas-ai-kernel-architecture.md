@@ -97,6 +97,16 @@ skip this chain for production behavior.
 | Failure Domain | closed taxonomy with handlers |
 | SLO Targets | latency, quality, cost and reliability contract |
 
+AP-73 runtime budget window contract centralizes budget windows in settings and
+adds `atlas.runtime_budget.governance_contract.v1`: `autonomy_escalation_allowed=false`,
+no auto budget raise, human review + Decision Receipt for limit changes, and
+forbidden actions for bypassing budget blocks or changing provider policy from
+budget signals.
+
+AP-133 Architecture Operations Filter Contract uses canonical `id/kind/section/surface`
+filters so CLI, API and MCP can query the same operations catalog without local
+aliases or client-side string parsing.
+
 ## Validation
 
 ```bash

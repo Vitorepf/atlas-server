@@ -31,15 +31,28 @@ final class AtlasDocumentationSplitPlanService
             ->values()
             ->all();
 
+        $splitRequiredCount = count($docs);
+        $blockingCount = collect($docs)->where('blocking', true)->count();
+        $grandfatheredCount = collect($docs)->where('status', 'split_required_grandfathered')->count();
+
         return [
             'schema_version' => 'atlas.documentation_split_plan.v1',
             'status' => 'ok',
             'filters' => $filters,
             'total_split_required_count' => $allDocs->count(),
-            'split_required_count' => count($docs),
-            'blocking_count' => collect($docs)->where('blocking', true)->count(),
-            'grandfathered_count' => collect($docs)->where('status', 'split_required_grandfathered')->count(),
+            'split_required_count' => $splitRequiredCount,
+            'blocking_count' => $blockingCount,
+            'grandfathered_count' => $grandfatheredCount,
             'execution_order' => collect($docs)->pluck('path')->take(10)->values()->all(),
+            'summary' => [
+                'ready_for_new_docs' => $splitRequiredCount === 0,
+                'active_blockers' => $blockingCount,
+                'filtered_debt_count' => $splitRequiredCount,
+                'total_debt_count' => $allDocs->count(),
+                'message' => $splitRequiredCount === 0
+                    ? 'No split_required docs match the current filters; new AI sessions may proceed while preserving Documentation OS rules.'
+                    : 'Split or compress the listed docs before adding new responsibilities to those owner areas.',
+            ],
             'policy' => [
                 'authoring_truth' => 'docs/engineering-knowledge-base',
                 'line_limits_source' => 'EngineeringDocumentationHealthService',
@@ -48,6 +61,7 @@ final class AtlasDocumentationSplitPlanService
                 'ai_authoring_rule' => 'A new AI session must use this plan before expanding canonical architecture docs.',
                 'docs_health_command' => 'atlas engineering knowledge docs-health --json',
             ],
+            'recommended_actions' => $this->recommendedActions($splitRequiredCount),
             'docs' => $docs,
             'required_validation' => [
                 'atlas engineering knowledge docs-health',
@@ -56,6 +70,27 @@ final class AtlasDocumentationSplitPlanService
                 'atlas engineering knowledge index-code --prune',
             ],
             'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function recommendedActions(int $splitRequiredCount): array
+    {
+        if ($splitRequiredCount === 0) {
+            return [
+                'continue_with_session_bootstrap_and_feature_placement',
+                'do_not_expand_redirect_or_index_docs_with_long_content',
+                'rerun_docs_health_after_any_documentation_change',
+            ];
+        }
+
+        return [
+            'split_highest_priority_doc_first',
+            'move_current_contract_to_focused_child_docs',
+            'replace_large_sections_with_summary_and_backlinks',
+            'rerun_docs_health_sync_index_and_architecture_validate',
         ];
     }
 

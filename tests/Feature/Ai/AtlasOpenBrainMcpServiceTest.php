@@ -208,14 +208,15 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After Governance MCP: 16 + 5 new tools + domain/architecture/governance/schedule/kernel/provider/market/release/source/inbox/agent/receipt/projection/readiness reports = 41.
-        $this->assertCount(41, $structured['tools']);
+        // After Governance MCP: 16 + 5 new tools + domain/architecture/governance/schedule/kernel/provider/market/release/source/inbox/agent/receipt/projection/readiness/runtime reports = 42.
+        $this->assertCount(42, $structured['tools']);
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_domain_catalog', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_architecture_validate', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_architecture_operations', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_architecture_readiness', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_runtime_boundary', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_session_bootstrap', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_feature_placement', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_docs_split_plan', array_column($structured['tools'], 'name'));
@@ -400,7 +401,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertFalse($structured['writes']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($structured, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($structured, 'architecture_operations.section'));
-        $this->assertSame(58, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame(60, data_get($structured, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_readiness', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('session_bootstrap', data_get($structured, 'architecture_operations.operation_ids'));
@@ -417,6 +418,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('voice_realtime_curator_review', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_production_loop_smoke', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_runtime_certification', data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertContains('runtime_language_boundary', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertSame('architecture_operations', data_get($structured, 'architecture_operations.commands.0.id'));
         $this->assertSame('catalog', data_get($structured, 'architecture_operations.commands.0.kind'));
         $this->assertSame('cli', data_get($structured, 'architecture_operations.commands.0.surface'));
@@ -453,6 +455,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('php artisan atlas:ai:ledger <id> --json', array_column($commands, 'command'));
         $this->assertContains('php artisan atlas:ai:inbox-action-report --hours=24 --json', array_column($commands, 'command'));
         $this->assertContains('php artisan atlas:ai:agent-behavior-report --hours=24 --json', array_column($commands, 'command'));
+        $this->assertContains('php artisan atlas:ai:runtime-boundary --json', array_column($commands, 'command'));
     }
 
     public function test_architecture_readiness_tool_exposes_preimplementation_snapshot(): void
@@ -486,10 +489,54 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
             'feature_placement',
             data_get($structured, 'architecture_readiness.architecture_operations.related_operation_ids')
         );
+        $this->assertContains(
+            'runtime_language_boundary',
+            data_get($structured, 'architecture_readiness.architecture_operations.related_operation_ids')
+        );
+        $this->assertSame(
+            ['runtime_language_boundary'],
+            data_get($structured, 'architecture_readiness.architecture_operations.owner_layer_operations.runtime.operation_ids')
+        );
+        $this->assertTrue(
+            data_get($structured, 'architecture_readiness.architecture_operations.owner_layer_operations.runtime.commands.0.pre_implementation_gate')
+        );
         $this->assertSame(
             'continue_implementation_with_session_bootstrap_and_feature_placement',
             data_get($structured, 'architecture_readiness.review_signal.recommended_action')
         );
+    }
+
+    public function test_runtime_boundary_tool_exposes_ap201_report(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 773,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_runtime_boundary',
+                'arguments' => [],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_runtime_boundary', $structured['tool']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame('atlas.runtime_language_boundary_report.v1', data_get($structured, 'runtime_boundary.schema_version'));
+        $this->assertSame('ok', data_get($structured, 'runtime_boundary.status'));
+        $this->assertTrue(data_get($structured, 'runtime_boundary.boundary.valid'));
+        $this->assertSame(0, data_get($structured, 'runtime_boundary.boundary.violation_count'));
+        $this->assertSame('/ai/runtime-boundary', data_get($structured, 'runtime_boundary.surfaces.api'));
+        $this->assertSame('atlas_runtime_boundary', data_get($structured, 'runtime_boundary.surfaces.mcp'));
+        $this->assertSame('atlas.runtime_boundary_preflight_gate.v1', data_get($structured, 'runtime_boundary.preflight_gate.schema_version'));
+        $this->assertContains('skip_decision_receipt_for_runtime', data_get($structured, 'runtime_boundary.preflight_gate.forbidden_preflight_shortcuts'));
+        $this->assertSame('atlas.runtime_promotion_policy.v1', data_get($structured, 'runtime_boundary.runtime_promotion_policy.schema_version'));
+        $this->assertFalse(data_get($structured, 'runtime_boundary.runtime_promotion_policy.auto_promotion_allowed'));
+        $this->assertSame('atlas.runtime_invocation_contract.v1', data_get($structured, 'runtime_boundary.runtime_invocation_contract.schema_version'));
+        $this->assertContains('decision_receipt_hash', data_get($structured, 'runtime_boundary.runtime_invocation_contract.required_fields'));
+        $this->assertSame('runtimes/python', data_get($structured, 'runtime_boundary.runtime_owner_map.python_ai_data.allowed_write_scope'));
     }
 
     public function test_architecture_operations_tool_filters_shared_operations_catalog(): void
@@ -522,6 +569,60 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
             count(data_get($structured, 'architecture_operations.commands')),
             data_get($structured, 'architecture_operations.command_count'),
         );
+
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 768,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_architecture_operations',
+                'arguments' => ['section' => 'arquitetura_mae'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame(['section' => 'arquitetura_mae'], data_get($structured, 'architecture_operations.filters'));
+        $this->assertSame(60, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
+
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 770,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_architecture_operations',
+                'arguments' => ['surface' => 'runtime'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame(['surface' => 'runtime'], data_get($structured, 'architecture_operations.filters'));
+        $this->assertSame(1, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame(['voice_python_runtime_contract_test'], data_get($structured, 'architecture_operations.operation_ids'));
+
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 771,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_architecture_operations',
+                'arguments' => ['owner_layer' => 'runtime'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame(['owner_layer' => 'runtime'], data_get($structured, 'architecture_operations.filters'));
+        $this->assertSame(1, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame(['runtime_language_boundary'], data_get($structured, 'architecture_operations.operation_ids'));
+        $this->assertSame('php artisan atlas:ai:runtime-boundary --json', data_get($structured, 'architecture_operations.commands.0.command'));
+        $this->assertSame('runtime', data_get($structured, 'architecture_operations.commands.0.owner_layer'));
+        $this->assertTrue(data_get($structured, 'architecture_operations.commands.0.pre_implementation_gate'));
 
         $response = $service->handleJsonRpc([
             'jsonrpc' => '2.0',
@@ -623,6 +724,16 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('atlas.architecture_readiness.v1', data_get($bootstrap, 'architecture_readiness.schema_version'));
         $this->assertSame('ready', data_get($bootstrap, 'architecture_readiness.status'));
         $this->assertSame('knowledge_governance', data_get($bootstrap, 'architecture_readiness.owner'));
+        $this->assertSame('atlas.implemented_vs_scaffold.coverage_boundary.v1', data_get($bootstrap, 'coverage_boundary.schema_version'));
+        $this->assertSame('Voice Realtime product loop', data_get($bootstrap, 'safe_next_blocks.0.block'));
+        $this->assertSame(
+            'atlas.implemented_vs_scaffold.coverage_boundary.v1',
+            data_get($bootstrap, 'architecture_readiness.coverage_boundary.schema_version'),
+        );
+        $this->assertSame(
+            'Voice Realtime product loop',
+            data_get($bootstrap, 'architecture_readiness.safe_next_blocks.0.block'),
+        );
         $this->assertSame(
             'php artisan atlas:ai:architecture-readiness --owner=knowledge_governance --json',
             data_get($bootstrap, 'architecture_readiness.command'),
@@ -634,7 +745,9 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('feature_placement', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', data_get($bootstrap, 'architecture_operations.operation_ids'));
+        $this->assertContains('runtime_language_boundary', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertContains('ap_agent_workflow_registry', data_get($bootstrap, 'architecture_operations.operation_ids'));
+        $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($bootstrap, 'required_validation'));
         $this->assertContains('docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md', $bootstrap['read_first']);
         $this->assertFalse($bootstrap['writes']);
 
@@ -657,7 +770,46 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('session_bootstrap', data_get($placement, 'architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', data_get($placement, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', data_get($placement, 'architecture_operations.operation_ids'));
+        $this->assertContains('runtime_language_boundary', data_get($placement, 'architecture_operations.operation_ids'));
+        $this->assertSame(
+            ['runtime_language_boundary'],
+            data_get($placement, 'architecture_operations.owner_layer_operations.runtime.operation_ids'),
+        );
+        $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($placement, 'required_validation'));
         $this->assertFalse($placement['writes']);
+
+        $runtimePlacement = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 7691,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_feature_placement',
+                'arguments' => ['feature' => 'Graph RAG FAISS embeddings reranker local'],
+            ],
+        ])['result']['structuredContent'];
+
+        $this->assertTrue($runtimePlacement['ok']);
+        $this->assertSame('runtime', data_get($runtimePlacement, 'placement.layer'));
+        $this->assertSame('python_ai_data', data_get($runtimePlacement, 'placement.runtime'));
+        $this->assertSame('python_ai_data', data_get($runtimePlacement, 'implementation_contract.runtime_family'));
+        $this->assertSame(
+            'atlas.runtime_invocation_contract.v1',
+            data_get($runtimePlacement, 'implementation_contract.runtime_invocation_contract.schema_version'),
+        );
+        $this->assertSame(
+            'python_ai_data',
+            data_get($runtimePlacement, 'implementation_contract.runtime_invocation_contract.selected_runtime_family'),
+        );
+        $this->assertContains(
+            'evidence_sink',
+            data_get($runtimePlacement, 'implementation_contract.runtime_invocation_contract.required_fields'),
+        );
+        $this->assertContains(
+            'do_not_implement_heavy_rag_embeddings_rerank_graph_or_ml_inside_laravel_app',
+            data_get($runtimePlacement, 'implementation_contract.forbidden_write_scopes'),
+        );
+        $this->assertTrue(data_get($runtimePlacement, 'architecture_operations.owner_layer_operations.runtime.commands.0.pre_implementation_gate'));
+        $this->assertFalse($runtimePlacement['writes']);
 
         $splitPlan = $service->handleJsonRpc([
             'jsonrpc' => '2.0',

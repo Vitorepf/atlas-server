@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Mapping
+from urllib.parse import urlparse
 
 from .callback_contract import REQUIRED_CALLBACK_PAYLOAD_SCHEMAS
 
@@ -42,6 +43,24 @@ class AtlasVoiceRuntimeContract:
         "allowlists.runtimes": {"livekit_agents_sdk"},
         "allowlists.privacy_classes": {"p1_public", "p2_internal", "p3_audio", "p4_secret"},
     }
+    REQUIRED_RUNTIME_INVOCATION_FIELDS = {
+        "envelope_id",
+        "decision_receipt_hash",
+        "runtime_family",
+        "capability",
+        "mode",
+        "limits",
+        "privacy_class",
+        "evidence_sink",
+    }
+    REQUIRED_FORBIDDEN_RUNTIME_AUTHORITY = {
+        "choose_provider_or_model",
+        "choose_domain_or_flow",
+        "mutate_policy",
+        "write_memory_directly",
+        "bypass_evidence_ledger",
+        "create_parallel_context_store",
+    }
 
     @classmethod
     def from_manifest(cls, manifest: Mapping[str, Any]) -> "AtlasVoiceRuntimeContract":
@@ -60,17 +79,36 @@ class AtlasVoiceRuntimeContract:
         token_status = self._get("session_lease.token_status")
         if token_status not in self.ALLOWED_BOOTSTRAP_TOKEN_STATUS:
             raise ContractViolation(f"session_lease.token_status is not allowed in bootstrap: {token_status!r}")
+        room_prefix = self._get("session_lease.room_prefix")
+        if not isinstance(room_prefix, str) or not room_prefix.startswith("atlas-voice-"):
+            raise ContractViolation("session_lease.room_prefix must stay inside the atlas-voice- namespace")
         self._expect("session_lease.kernel_decision_required_per_turn", True)
         self._expect("persistence_contract.raw_audio", False)
         self._expect("persistence_contract.raw_transcript", False)
         self._expect("persistence_contract.raw_response_text", False)
         self._expect("callback_payload_schemas", REQUIRED_CALLBACK_PAYLOAD_SCHEMAS)
         self._expect("auth_contract.internal_api.middleware", "atlas.token")
+        self._expect("runtime_invocation_contract.schema_version", "atlas.runtime_invocation_contract.v1")
+        self._expect("runtime_invocation_contract.kernel_first", True)
+        self._expect("runtime_invocation_contract.selected_runtime_family", "python_ai_data")
+        self._expect("runtime_invocation_contract.runtime_id", "livekit_agents_sdk")
 
         for path, expected in self.REQUIRED_ALLOWLISTS.items():
             actual = set(self._get(path) or [])
             if actual != expected:
                 raise ContractViolation(f"{path} expected {sorted(expected)!r}, got {sorted(actual)!r}")
+
+        required_runtime_fields = set(self._get("runtime_invocation_contract.required_fields") or [])
+        missing_runtime_fields = self.REQUIRED_RUNTIME_INVOCATION_FIELDS - required_runtime_fields
+        if missing_runtime_fields:
+            raise ContractViolation(f"missing runtime_invocation_contract.required_fields: {sorted(missing_runtime_fields)}")
+
+        forbidden_runtime_authority = set(self._get("runtime_invocation_contract.forbidden_runtime_authority") or [])
+        missing_forbidden_authority = self.REQUIRED_FORBIDDEN_RUNTIME_AUTHORITY - forbidden_runtime_authority
+        if missing_forbidden_authority:
+            raise ContractViolation(
+                f"missing runtime_invocation_contract.forbidden_runtime_authority: {sorted(missing_forbidden_authority)}"
+            )
 
         required_env = set(self._get("required_env") or [])
         missing_env = self.REQUIRED_ENV - required_env
@@ -96,9 +134,7 @@ class AtlasVoiceRuntimeContract:
             "kernel.callbacks.runtime_failed",
             "kernel.callbacks.provider_health_degraded",
         ]:
-            value = self._get(path)
-            if not isinstance(value, str) or not value.startswith(("http://", "https://")):
-                raise ContractViolation(f"{path} must be absolute http(s) URL")
+            self._absolute_http_url(path)
 
         if not isinstance(self._get("contract_hash"), str) or self._get("contract_hash") == "":
             raise ContractViolation("contract_hash is required")
@@ -109,7 +145,7 @@ class AtlasVoiceRuntimeContract:
 
     @property
     def room_prefix(self) -> str:
-        return str(self._get("session_lease.room_prefix") or "atlas-voice")
+        return str(self._get("session_lease.room_prefix") or "atlas-voice-")
 
     @property
     def livekit_url(self) -> str | None:
@@ -161,6 +197,17 @@ class AtlasVoiceRuntimeContract:
         actual = self._get(path)
         if actual != expected:
             raise ContractViolation(f"{path} expected {expected!r}, got {actual!r}")
+
+    def _absolute_http_url(self, path: str) -> str:
+        value = self._get(path)
+        if not isinstance(value, str) or value == "" or any(ord(char) < 32 or ord(char) == 127 for char in value):
+            raise ContractViolation(f"{path} must be absolute http(s) URL without control characters")
+
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ContractViolation(f"{path} must be absolute http(s) URL")
+
+        return value
 
     def _get(self, path: str) -> Any:
         value: Any = self.manifest

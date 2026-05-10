@@ -30,6 +30,17 @@ class ProductiveFailureFlow
      */
     public function start(string $topic, string $domain = 'learning', int $dreyfusStage = 2): array
     {
+        if (trim($topic) === '') {
+            return $this->payload('invalid_input', ['reason' => 'productive_failure_topic_required']);
+        }
+
+        if (! $this->sessions->tableReady()) {
+            return $this->payload('blocked', [
+                'reason' => 'productive_failure_storage_unavailable',
+                'next_action' => 'run_migrations_before_productive_failure',
+            ]);
+        }
+
         $problem = $this->problems->select($topic, $domain, $dreyfusStage);
         $gate = $this->calibrationGate->evaluate($problem, $dreyfusStage);
 
@@ -44,6 +55,13 @@ class ProductiveFailureFlow
             'dreyfus_stage_target' => max(1, min(5, $dreyfusStage)),
             'phase_1_problem' => $problem,
         ]);
+
+        if (($session['status'] ?? null) === 'table_missing') {
+            return $this->payload('blocked', [
+                'reason' => 'productive_failure_storage_unavailable',
+                'next_action' => 'run_migrations_before_productive_failure',
+            ]);
+        }
 
         $this->record(LedgerEventType::ProductiveFailurePhase1Started, $session, [
             'dreyfus_stage_target' => $dreyfusStage,
@@ -202,6 +220,23 @@ class ProductiveFailureFlow
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    public function transferTests(?string $domain = null, int $days = 60, bool $dueOnly = false): array
+    {
+        return $this->payload('ok', [
+            'transfer_tests' => $this->sessions->transferTestProposals($domain, $days, $dueOnly),
+            'window_days' => max(1, $days),
+            'due_only' => $dueOnly,
+            'review_contract' => [
+                'status' => 'proposal_only',
+                'review_required' => true,
+                'auto_apply_to_curriculum' => false,
+            ],
+        ]);
+    }
+
+    /**
      * @param  array<string,mixed>  $session
      * @param  array<string,mixed>  $extra
      */
@@ -233,6 +268,27 @@ class ProductiveFailureFlow
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $status,
             'flow' => 'learning.productive_failure',
+            'governance' => self::governanceContract(),
         ], $extra);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function governanceContract(): array
+    {
+        return [
+            'schema_version' => 'atlas.cognitive.productive_failure.governance.v1',
+            'operator_opt_in_required' => true,
+            'specific_topic_required' => true,
+            'empty_topic_allowed' => false,
+            'auto_schedule_allowed' => false,
+            'passive_session_allowed' => false,
+            'random_frustration_allowed' => false,
+            'requires_prediction_error_delta' => true,
+            'transfer_test_review_required' => true,
+            'allowed_surfaces_now' => ['cli_explicit'],
+            'future_surfaces_require_ap_review' => ['app', 'mobile', 'voice', 'daily_plan'],
+        ];
     }
 }

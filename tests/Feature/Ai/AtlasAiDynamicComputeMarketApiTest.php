@@ -56,6 +56,10 @@ class AtlasAiDynamicComputeMarketApiTest extends TestCase
             ->assertJsonPath('dynamic_compute_market.proposal_gate.proposal_evidence_contract.source', 'ap99_provider_usage_projection')
             ->assertJsonPath('dynamic_compute_market.proposal_gate.proposal_evidence_contract.replay_required', true)
             ->assertJsonPath('dynamic_compute_market.proposal_gate.proposal_evidence_contract.policy_patch_status', 'draft_only_until_benchmark_and_review')
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.review_packet.schema_version', 'atlas.dynamic_compute_market.proposal_review_packet.v1')
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.review_packet.required_human_decision', 'approve_or_reject_dynamic_compute_market_policy_change')
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.review_packet.required_decision_receipt', true)
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.review_packet.rollback_plan_required', true)
             ->assertJsonPath('dynamic_compute_market.benchmark_candidate.provider', 'gemini_cli')
             ->assertJsonPath('dynamic_compute_market.benchmark_candidate.sample_status', 'sufficient');
     }
@@ -86,6 +90,7 @@ class AtlasAiDynamicComputeMarketApiTest extends TestCase
             ->assertJsonPath('dynamic_compute_market.recommendation', 'collect_ap99_evidence')
             ->assertJsonPath('dynamic_compute_market.routing_control.changes_provider', false)
             ->assertJsonPath('dynamic_compute_market.proposal_gate.can_open_proposal', false)
+            ->assertJsonPath('dynamic_compute_market.proposal_gate.review_packet.status', 'monitor_only_no_policy_change')
             ->assertJsonPath('dynamic_compute_market.ap99.available', false);
     }
 

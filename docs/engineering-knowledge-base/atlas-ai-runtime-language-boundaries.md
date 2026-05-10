@@ -45,11 +45,6 @@ related_paths:
 
 # Atlas AI Runtime Language Boundaries
 
-Este documento define o papel de Laravel, Python, Go e Swift no Atlas AI.
-
-Ele existe para impedir que uma IA crie microservico paralelo, replique decisao
-do Kernel ou transforme linguagem em novo cerebro.
-
 ## Regra Mae
 
 Laravel decide e governa. Python, Go e Swift executam capacidades especializadas.
@@ -108,8 +103,9 @@ Nao use Python para:
 5. executar acao destrutiva sem receipt e approval;
 6. virar source of truth de Evidence.
 
-Uso de 48GB RAM, RAG local, rerank, cache, modelos locais e precomputacao vive
-em `atlas-ai-local-performance-memory-strategy.md`.
+Adapters Laravel podem manter fallback leve, hash local ou chamada governada de
+embedding enquanto o runtime Python nao existe. Eles nao podem virar Vector RAG,
+Graph RAG, reranker, clustering, analytics pesada ou source of truth.
 
 ## Papel Do Go
 
@@ -131,7 +127,7 @@ Nao use Go para:
 2. decidir domain, flow, provider, policy ou repair;
 3. duplicar Super Tool Runtime;
 4. gravar dados finais sem passar por event contract;
-5. manter banco paralelo de estado canonico.
+5. manter banco paralelo de estado canonico ou ser invocado por atalho `go run` dentro do Laravel.
 
 ## Papel Do Swift
 
@@ -150,12 +146,11 @@ Swift e o Native Mac Runtime. Use para:
 Identidade canonica do runtime: `swift_native_mac`.
 
 Nao use Swift para Kernel, API, provider routing, Graph RAG, analytics pesado,
-decisao de dominio/modelo, automacao destrutiva sem approval ou streaming de
+decisao de dominio/modelo, atalho `swift run` dentro do Laravel, automacao destrutiva sem approval ou streaming de
 audio/video ambiente sem wake word/eclipse/policy do Kernel.
 
-Contratos detalhados:
-- `atlas-native-mac-agent.md` — contrato base de capabilities Apple.
-- `atlas-ai-voice-realtime-surface.md` — voice mobile-first + Swift edge futuro.
+Contratos detalhados: `atlas-native-mac-agent.md` e
+`atlas-ai-voice-realtime-surface.md`.
 
 ## Matriz De Decisao
 
@@ -210,17 +205,28 @@ E deve responder:
 
 Laravel valida a resposta, grava evidence, roda gates e decide proximo passo.
 
+## Preflight Gate
+
+`atlas.runtime_boundary_preflight_gate.v1` exige antes de qualquer Python, Go ou
+Swift: `place-feature --strict`, `runtime-boundary --json`, doc dono atualizado,
+`runtime_invocation_contract`, evidence contract, rollback plan, testes focados
+e `architecture-validate`. Proibido: runtime sem doc dono, chamada direta da
+surface, pular Decision Receipt, escrever Memory/Context/Policy pelo runtime ou
+deixar runtime escolher provider, modelo, dominio ou flow.
+
+## Runtime Promotion Policy
+
+`atlas.runtime_promotion_policy.v1` proibe auto-promocao. Promover runtime exige
+review humano, Decision Receipt, rollback, Evidence Ledger, policy patch
+revisavel, testes focados, docs-health e architecture-validate verdes.
+
 ## Modos De Implantacao
 
-| Modo | Quando usar | Status |
-|---|---|---|
-| CLI JSON local | primeiro prototipo seguro | recomendado para inicio |
-| FastAPI local | serviço persistente de RAG/ML | quando houver hot path real |
-| Go daemon | ingestao/edge sempre ligado | quando houver volume real |
-| Swift app/helper | APIs Apple, approvals e contexto local | com AP e opt-in |
+Modos permitidos: CLI JSON local para prototipo, FastAPI local para hot path
+RAG/ML, Go daemon para ingestao/edge e Swift app/helper para APIs Apple. Todos
+exigem AP, opt-in quando houver sensor, receipt e evidence.
 
 ## Evidence Obrigatoria
-
 Todo runtime Python, Go ou Swift deve registrar:
 
 1. `RUNTIME_INVOKED`;
@@ -242,18 +248,12 @@ chamar o Kernel ou receber capability token. Nao copiar:
 5. domain registry;
 6. evidence schema;
 7. approval flow;
-8. scheduler canonico.
+8. scheduler canonico;
+9. `EmbeddingService` alem de fallback/hash/adapter antes de AP `python_ai_data`.
 
 ## Definition Of Done
 
-Antes de implementar runtime Python, Go ou Swift:
-
-1. criar ou atualizar spec curta;
-2. definir runtime owner e status;
-3. declarar payload/result schema;
-4. passar por DecisionReceipt;
-5. gravar Evidence Ledger;
-6. ter health check;
-7. ter teste de contrato;
-8. atualizar docs e Code Intelligence;
-9. rodar `docs-health` e `architecture-validate`.
+Antes de implementar runtime Python, Go ou Swift: spec curta, runtime owner,
+payload/result schema, DecisionReceipt, Evidence Ledger, health check, teste de
+contrato, docs/Code Intelligence atualizados, `docs-health` e
+`architecture-validate` verdes.

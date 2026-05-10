@@ -73,6 +73,34 @@ class AtlasVoiceSessionLeaseTest(unittest.TestCase):
             with self.assertRaises(UnsafeSessionLease):
                 AtlasVoiceSessionLease.from_kernel_response(payload)
 
+    def test_rejects_room_name_outside_atlas_voice_namespace(self) -> None:
+        payload = response()
+        payload["session_lease"]["room_name"] = "prod-room"
+
+        with self.assertRaises(UnsafeSessionLease):
+            AtlasVoiceSessionLease.from_kernel_response(payload)
+
+    def test_rejects_participant_identity_outside_client_surface_namespace(self) -> None:
+        payload = response()
+        payload["session_lease"]["participant_identity"] = "adminroot"
+
+        with self.assertRaises(UnsafeSessionLease):
+            AtlasVoiceSessionLease.from_kernel_response(payload)
+
+    def test_rejects_livekit_url_with_control_characters(self) -> None:
+        payload = response()
+        payload["session_lease"]["livekit_url"] = "http://livekit.test\nLIVEKIT_API_SECRET=injected"
+
+        with self.assertRaises(UnsafeSessionLease):
+            AtlasVoiceSessionLease.from_kernel_response(payload)
+
+    def test_rejects_livekit_url_without_host(self) -> None:
+        payload = response()
+        payload["session_lease"]["livekit_url"] = "https:///livekit"
+
+        with self.assertRaises(UnsafeSessionLease):
+            AtlasVoiceSessionLease.from_kernel_response(payload)
+
 
 if __name__ == "__main__":
     unittest.main()

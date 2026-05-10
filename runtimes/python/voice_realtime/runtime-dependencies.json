@@ -35,11 +35,14 @@
       {
         "pip": "livekit-agents",
         "import": "livekit.agents",
+        "required_for": "product_loop_daemon",
+        "minimum_version": null,
         "purpose": "Real LiveKit Agents SDK worker loop, room callbacks, turn detection and plugin orchestration."
       }
     ],
     "install_command": "python3 -m pip install livekit-agents",
     "activation_gate": "atlas ai voice sdk-check --json must report status=ready before wiring real SDK callbacks.",
+    "probe_policy": "Availability checks use importlib metadata/spec only. Scaffold code must not import LiveKit SDK modules while checking readiness.",
     "forbidden": [
       "direct_llm_provider_call",
       "direct_tool_execution",

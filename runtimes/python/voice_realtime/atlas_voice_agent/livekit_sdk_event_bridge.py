@@ -4,6 +4,7 @@ from typing import Any, Mapping
 
 from .livekit_callback_router import LiveKitCallbackRouter
 from .livekit_worker import LiveKitWorkerResult
+from .payload_safety import reject_forbidden_keys_recursive
 from .turn_payload import UnsafeVoicePayload
 
 
@@ -118,9 +119,7 @@ class LiveKitSdkEventBridge:
         if callback_kind is None:
             raise UnsafeVoicePayload(f"unsupported LiveKit SDK event_kind: {event_kind}")
 
-        forbidden = sorted(cls.FORBIDDEN_KEYS.intersection(event.keys()))
-        if forbidden:
-            raise UnsafeVoicePayload(f"forbidden LiveKit SDK event keys: {forbidden}")
+        reject_forbidden_keys_recursive(event, cls.FORBIDDEN_KEYS, label="LiveKit SDK event")
 
         payload = {
             key: event[key]

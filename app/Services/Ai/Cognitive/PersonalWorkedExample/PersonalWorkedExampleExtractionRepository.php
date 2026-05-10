@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Cognitive\PersonalWorkedExample;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -16,6 +17,23 @@ class PersonalWorkedExampleExtractionRepository
                 ->where('source_type', $sourceType)
                 ->where('source_ref', $sourceRef)
                 ->exists();
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    public function find(string $sourceType, string $sourceRef): ?array
+    {
+        if (! $this->tableReady()) {
+            return null;
+        }
+
+        $row = DB::table('worked_example_extractions')
+            ->where('source_type', $sourceType)
+            ->where('source_ref', $sourceRef)
+            ->first();
+
+        return $row ? $this->normalize((array) $row) : null;
     }
 
     /**
@@ -86,6 +104,147 @@ class PersonalWorkedExampleExtractionRepository
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    public function scheduleStatus(): array
+    {
+        if (! Schema::hasTable('personal_extraction_jobs')) {
+            return [
+                'schema_version' => 'atlas.cognitive.personal_extraction_schedule.v1',
+                'status' => 'table_missing',
+                'scheduler_registered' => true,
+                'registration_status' => 'registered_fail_closed_table_missing',
+                'job' => null,
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.cognitive.personal_extraction_schedule.v1',
+            'status' => 'ok',
+            'scheduler_registered' => true,
+            'registration_status' => 'registered_review_only',
+            'job' => $this->defaultScheduleJob(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function setScheduleEnabled(bool $enabled): array
+    {
+        if (! Schema::hasTable('personal_extraction_jobs')) {
+            return [
+                'schema_version' => 'atlas.cognitive.personal_extraction_schedule.v1',
+                'status' => 'table_missing',
+                'scheduler_registered' => true,
+                'registration_status' => 'registered_fail_closed_table_missing',
+                'job' => null,
+            ];
+        }
+
+        $now = now();
+        $exists = DB::table('personal_extraction_jobs')
+            ->where('cadence', 'weekly')
+            ->exists();
+
+        DB::table('personal_extraction_jobs')->updateOrInsert(
+            ['cadence' => 'weekly'],
+            [
+                'source_filters' => json_encode([
+                    'domains' => ['programming', 'strategic_decision', 'learning'],
+                    'sources' => ['programming_pr', 'strategic_decision', 'feynman_session'],
+                    'window_days' => 90,
+                    'min_quality_score' => 7,
+                    'max_candidates' => 50,
+                    'auto_apply' => false,
+                    'review_required' => true,
+                ], JSON_THROW_ON_ERROR),
+                'enabled' => $enabled,
+                'next_run_at' => $enabled ? $now->copy()->addWeek() : null,
+                'last_run_summary' => json_encode([
+                    'status' => 'not_run_by_scheduler',
+                    'reason' => 'registered_review_only_waiting_for_due_time',
+                ], JSON_THROW_ON_ERROR),
+                'updated_at' => $now,
+                'created_at' => $exists ? DB::raw('created_at') : $now,
+            ]
+        );
+
+        return $this->scheduleStatus();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function scheduledRunReadiness(): array
+    {
+        $status = $this->scheduleStatus();
+        $job = (array) ($status['job'] ?? []);
+
+        if (($status['status'] ?? null) !== 'ok') {
+            return array_merge($status, [
+                'ready_to_run' => false,
+                'skip_reason' => $status['status'] ?? 'schedule_unavailable',
+            ]);
+        }
+
+        if ($job === []) {
+            return array_merge($status, [
+                'ready_to_run' => false,
+                'skip_reason' => 'schedule_job_not_configured',
+            ]);
+        }
+
+        if (! (bool) ($job['enabled'] ?? false)) {
+            return array_merge($status, [
+                'ready_to_run' => false,
+                'skip_reason' => 'schedule_disabled',
+            ]);
+        }
+
+        $nextRunAt = $job['next_run_at'] ?? null;
+        if (is_string($nextRunAt) && trim($nextRunAt) !== '' && now()->lt(Carbon::parse($nextRunAt))) {
+            return array_merge($status, [
+                'ready_to_run' => false,
+                'skip_reason' => 'not_due',
+            ]);
+        }
+
+        return array_merge($status, [
+            'ready_to_run' => true,
+            'skip_reason' => null,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $summary
+     * @return array<string,mixed>
+     */
+    public function markScheduledRunCompleted(array $summary): array
+    {
+        if (! Schema::hasTable('personal_extraction_jobs')) {
+            return $this->scheduleStatus();
+        }
+
+        $now = now();
+        DB::table('personal_extraction_jobs')
+            ->where('cadence', 'weekly')
+            ->update([
+                'last_run_at' => $now,
+                'next_run_at' => $now->copy()->addWeek(),
+                'last_run_summary' => json_encode([
+                    'status' => 'completed',
+                    'review_required' => true,
+                    'auto_apply' => false,
+                    'summary' => $summary,
+                ], JSON_THROW_ON_ERROR),
+                'updated_at' => $now,
+            ]);
+
+        return $this->scheduleStatus();
+    }
+
+    /**
      * @param  array<string,mixed>  $row
      * @return array<string,mixed>
      */
@@ -103,6 +262,29 @@ class PersonalWorkedExampleExtractionRepository
             'quality_signals' => $this->jsonArray($row['quality_signals'] ?? []),
             'redaction_applied' => $this->jsonArray($row['redaction_applied'] ?? []),
             'processed_at' => $row['processed_at'] ?? null,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function defaultScheduleJob(): ?array
+    {
+        $row = DB::table('personal_extraction_jobs')
+            ->where('cadence', 'weekly')
+            ->first();
+
+        if (! $row) {
+            return null;
+        }
+
+        return [
+            'cadence' => (string) $row->cadence,
+            'enabled' => (bool) $row->enabled,
+            'source_filters' => $this->jsonArray($row->source_filters ?? []),
+            'last_run_at' => $row->last_run_at,
+            'next_run_at' => $row->next_run_at,
+            'last_run_summary' => $this->jsonArray($row->last_run_summary ?? []),
         ];
     }
 

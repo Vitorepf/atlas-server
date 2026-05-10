@@ -120,8 +120,16 @@ class PersonalWorkedExampleExtractor
 
         if ($this->extractions->alreadyProcessed($sourceType, $sourceRef)) {
             $summary['discarded_duplicate']++;
-            $record = $this->extractions->record($candidate, 'discarded_dup', null, 'duplicate_source_ref');
-            $this->record(LedgerEventType::PersonalWorkedExampleDiscardedDuplicate, ['candidate' => $candidate]);
+            $record = $this->extractions->find($sourceType, $sourceRef) ?? [
+                'schema_version' => PersonalWorkedExampleExtractionRepository::SCHEMA_VERSION,
+                'source_type' => $sourceType,
+                'source_ref' => $sourceRef,
+                'extraction_status' => 'already_processed',
+            ];
+            $this->record(LedgerEventType::PersonalWorkedExampleDiscardedDuplicate, [
+                'candidate' => $this->ledgerCandidateSummary($candidate),
+                'duplicate_policy' => 'read_only_existing_record_preserved',
+            ]);
 
             return $record;
         }
@@ -130,7 +138,10 @@ class PersonalWorkedExampleExtractor
         if (($quality['status'] ?? null) !== 'passed') {
             $summary['discarded_quality']++;
             $record = $this->extractions->record($candidate, 'discarded_quality', null, (string) ($quality['reason'] ?? 'quality_gate_blocked'), (array) ($candidate['quality_signals'] ?? []));
-            $this->record(LedgerEventType::PersonalWorkedExampleDiscardedQuality, ['candidate' => $candidate, 'gate' => $quality]);
+            $this->record(LedgerEventType::PersonalWorkedExampleDiscardedQuality, [
+                'candidate' => $this->ledgerCandidateSummary($candidate),
+                'gate' => $quality,
+            ]);
 
             return $record;
         }
@@ -145,7 +156,10 @@ class PersonalWorkedExampleExtractor
         if (($privacy['status'] ?? null) !== 'passed') {
             $summary['discarded_privacy']++;
             $record = $this->extractions->record($candidate, 'discarded_privacy', null, (string) ($privacy['reason'] ?? 'privacy_gate_blocked'), (array) ($candidate['quality_signals'] ?? []), $redacted['redaction']);
-            $this->record(LedgerEventType::PersonalWorkedExampleDiscardedPrivacy, ['candidate' => $candidate, 'gate' => $privacy]);
+            $this->record(LedgerEventType::PersonalWorkedExampleDiscardedPrivacy, [
+                'candidate' => $this->ledgerCandidateSummary($candidate),
+                'gate' => $privacy,
+            ]);
 
             return $record;
         }
@@ -166,10 +180,28 @@ class PersonalWorkedExampleExtractor
         $this->record(LedgerEventType::PersonalWorkedExampleExtracted, [
             'worked_example_id' => $example['id'] ?? null,
             'knowledge_node_id' => $example['knowledge_node_id'] ?? null,
-            'candidate' => $candidate,
+            'candidate' => $this->ledgerCandidateSummary($candidate),
         ]);
 
         return $record;
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @return array<string,mixed>
+     */
+    private function ledgerCandidateSummary(array $candidate): array
+    {
+        return [
+            'source_type' => (string) ($candidate['source_type'] ?? 'unknown'),
+            'source_ref_hash' => sha1((string) ($candidate['source_ref'] ?? 'unknown')),
+            'domain' => (string) ($candidate['domain'] ?? 'learning'),
+            'topic' => (string) ($candidate['topic'] ?? 'unknown'),
+            'privacy_class' => (int) ($candidate['privacy_class'] ?? 1),
+            'quality_signal_keys' => array_values(array_keys((array) ($candidate['quality_signals'] ?? []))),
+            'redaction_applied' => (array) ($candidate['redaction_applied'] ?? []),
+            'raw_content_in_ledger' => false,
+        ];
     }
 
     /**

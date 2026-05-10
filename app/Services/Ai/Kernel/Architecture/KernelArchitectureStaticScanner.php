@@ -166,7 +166,19 @@ class KernelArchitectureStaticScanner
      *   ap175_feature_placement_architecture_operations_contract:array{valid:bool,violations:array<int,string>},
      *   ap176_architecture_readiness_snapshot:array{valid:bool,violations:array<int,string>},
      *   ap177_architecture_readiness_mcp_tool:array{valid:bool,violations:array<int,string>},
-     *   ap200_ap_agent_workflow_contracts:array{valid:bool,violations:array<int,string>}
+     *   ap178_provider_release_anti_wrapper_contract:array{valid:bool,violations:array<int,string>},
+     *   ap179_voice_realtime_activation_governance:array{valid:bool,violations:array<int,string>},
+     *   ap185_voice_realtime_runtime_certification_contract:array{valid:bool,violations:array<int,string>},
+     *   ap686_voice_realtime_python_runtime_boundary_contract:array{valid:bool,violations:array<int,string>},
+     *   ap687_voice_realtime_production_promotion_gate:array{valid:bool,violations:array<int,string>},
+     *   ap683_local_rag_graph_promotion_review:array{valid:bool,violations:array<int,string>},
+     *   ap684_external_graph_harness_contract:array{valid:bool,violations:array<int,string>},
+     *   ap685_constelacao_lens1_usage_review_contract:array{valid:bool,violations:array<int,string>},
+     *   ap168_productive_failure_governance_contract:array{valid:bool,violations:array<int,string>},
+     *   ap169_personal_worked_example_privacy_contract:array{valid:bool,violations:array<int,string>},
+     *   ap170_predictive_failure_governance_contract:array{valid:bool,violations:array<int,string>},
+     *   ap200_ap_agent_workflow_contracts:array{valid:bool,violations:array<int,string>},
+     *   ap201_runtime_language_boundary_contract:array{valid:bool,violations:array<int,string>}
      * }
      */
     public function complianceReport(): array
@@ -374,7 +386,19 @@ class KernelArchitectureStaticScanner
         $featurePlacementArchitectureOperationsContract = $this->scanFeaturePlacementArchitectureOperationsContract();
         $architectureReadinessSnapshot = $this->scanArchitectureReadinessSnapshot();
         $architectureReadinessMcpTool = $this->scanArchitectureReadinessMcpTool();
+        $providerReleaseAntiWrapperContract = $this->scanProviderReleaseAntiWrapperContract();
+        $voiceRealtimeActivationGovernance = $this->scanVoiceRealtimeActivationGovernance();
+        $voiceRealtimeRuntimeCertificationContract = $this->scanVoiceRealtimeRuntimeCertificationContract();
+        $voiceRealtimePythonRuntimeBoundaryContract = $this->scanVoiceRealtimePythonRuntimeBoundaryContract();
+        $voiceRealtimeProductionPromotionGate = $this->scanVoiceRealtimeProductionPromotionGate();
+        $localRagGraphPromotionReview = $this->scanLocalRagGraphPromotionReview();
+        $externalGraphHarnessContract = $this->scanExternalGraphHarnessContract();
+        $constelacaoLens1UsageReviewContract = $this->scanConstelacaoLens1UsageReviewContract();
+        $productiveFailureGovernanceContract = $this->scanProductiveFailureGovernanceContract();
+        $personalWorkedExamplePrivacyContract = $this->scanPersonalWorkedExamplePrivacyContract();
+        $predictiveFailureGovernanceContract = $this->scanPredictiveFailureGovernanceContract();
         $apAgentWorkflowContracts = $this->scanApAgentWorkflowContracts();
+        $runtimeLanguageBoundaryContract = $this->scanRuntimeLanguageBoundaryContract();
 
         return [
             'ok' => $surfaceProviderBypass === []
@@ -532,7 +556,19 @@ class KernelArchitectureStaticScanner
                 && $featurePlacementArchitectureOperationsContract === []
                 && $architectureReadinessSnapshot === []
                 && $architectureReadinessMcpTool === []
-                && $apAgentWorkflowContracts === [],
+                && $providerReleaseAntiWrapperContract === []
+                && $voiceRealtimeActivationGovernance === []
+                && $voiceRealtimeRuntimeCertificationContract === []
+                && $voiceRealtimePythonRuntimeBoundaryContract === []
+                && $voiceRealtimeProductionPromotionGate === []
+                && $localRagGraphPromotionReview === []
+                && $externalGraphHarnessContract === []
+                && $constelacaoLens1UsageReviewContract === []
+                && $productiveFailureGovernanceContract === []
+                && $personalWorkedExamplePrivacyContract === []
+                && $predictiveFailureGovernanceContract === []
+                && $apAgentWorkflowContracts === []
+                && $runtimeLanguageBoundaryContract === [],
             'ap1_surface_provider_bypass' => [
                 'valid' => $surfaceProviderBypass === [],
                 'violations' => $surfaceProviderBypass,
@@ -1153,9 +1189,57 @@ class KernelArchitectureStaticScanner
                 'valid' => $architectureReadinessMcpTool === [],
                 'violations' => $architectureReadinessMcpTool,
             ],
+            'ap178_provider_release_anti_wrapper_contract' => [
+                'valid' => $providerReleaseAntiWrapperContract === [],
+                'violations' => $providerReleaseAntiWrapperContract,
+            ],
+            'ap179_voice_realtime_activation_governance' => [
+                'valid' => $voiceRealtimeActivationGovernance === [],
+                'violations' => $voiceRealtimeActivationGovernance,
+            ],
+            'ap185_voice_realtime_runtime_certification_contract' => [
+                'valid' => $voiceRealtimeRuntimeCertificationContract === [],
+                'violations' => $voiceRealtimeRuntimeCertificationContract,
+            ],
+            'ap686_voice_realtime_python_runtime_boundary_contract' => [
+                'valid' => $voiceRealtimePythonRuntimeBoundaryContract === [],
+                'violations' => $voiceRealtimePythonRuntimeBoundaryContract,
+            ],
+            'ap687_voice_realtime_production_promotion_gate' => [
+                'valid' => $voiceRealtimeProductionPromotionGate === [],
+                'violations' => $voiceRealtimeProductionPromotionGate,
+            ],
+            'ap683_local_rag_graph_promotion_review' => [
+                'valid' => $localRagGraphPromotionReview === [],
+                'violations' => $localRagGraphPromotionReview,
+            ],
+            'ap684_external_graph_harness_contract' => [
+                'valid' => $externalGraphHarnessContract === [],
+                'violations' => $externalGraphHarnessContract,
+            ],
+            'ap685_constelacao_lens1_usage_review_contract' => [
+                'valid' => $constelacaoLens1UsageReviewContract === [],
+                'violations' => $constelacaoLens1UsageReviewContract,
+            ],
+            'ap168_productive_failure_governance_contract' => [
+                'valid' => $productiveFailureGovernanceContract === [],
+                'violations' => $productiveFailureGovernanceContract,
+            ],
+            'ap169_personal_worked_example_privacy_contract' => [
+                'valid' => $personalWorkedExamplePrivacyContract === [],
+                'violations' => $personalWorkedExamplePrivacyContract,
+            ],
+            'ap170_predictive_failure_governance_contract' => [
+                'valid' => $predictiveFailureGovernanceContract === [],
+                'violations' => $predictiveFailureGovernanceContract,
+            ],
             'ap200_ap_agent_workflow_contracts' => [
                 'valid' => $apAgentWorkflowContracts === [],
                 'violations' => $apAgentWorkflowContracts,
+            ],
+            'ap201_runtime_language_boundary_contract' => [
+                'valid' => $runtimeLanguageBoundaryContract === [],
+                'violations' => $runtimeLanguageBoundaryContract,
             ],
         ];
     }
@@ -1195,41 +1279,54 @@ class KernelArchitectureStaticScanner
             "'filters' => \$filters",
             "'id'",
             "'kind'",
+            "'section'",
+            "'surface'",
+            "'owner_layer'",
+            '$value !== $this->sectionKey()',
         ] as $token) {
             if (! str_contains($catalog, $token)) {
-                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-133 catalog must support canonical id/kind filters [{$token}]";
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-133 catalog must support canonical id/kind/section/surface filters [{$token}]";
             }
         }
 
         foreach ([
             '{--id= : Filter by stable operation id}',
             '{--kind= : Filter by operation kind}',
+            '{--section= : Filter by canonical operation section}',
+            '{--surface= : Filter by operation surface}',
+            '{--owner-layer= : Filter by governing owner layer}',
             '$catalog->summary($this->filters())',
             'private function filters(): array',
         ] as $token) {
             if (! str_contains($command, $token)) {
-                $violations[] = "app/Console/Commands/AtlasAiArchitectureOperationsCommand.php: AP-133 CLI must expose id/kind filters [{$token}]";
+                $violations[] = "app/Console/Commands/AtlasAiArchitectureOperationsCommand.php: AP-133 CLI must expose id/kind/section/surface filters [{$token}]";
             }
         }
 
         foreach ([
             "'id' => ['nullable', 'string', 'max:120']",
             "'kind' => ['nullable', 'string', 'max:120']",
+            "'section' => ['nullable', 'string', 'max:120']",
+            "'surface' => ['nullable', 'string', 'max:120']",
+            "'owner_layer' => ['nullable', 'string', 'max:120']",
             '$catalog->summary($data)',
         ] as $token) {
             if (! str_contains($controller, $token)) {
-                $violations[] = "app/Http/Controllers/AtlasAiArchitectureOperationsController.php: AP-133 API must expose id/kind filters [{$token}]";
+                $violations[] = "app/Http/Controllers/AtlasAiArchitectureOperationsController.php: AP-133 API must expose id/kind/section/surface filters [{$token}]";
             }
         }
 
         foreach ([
             "'id' => ['type' => 'string'",
             "'kind' => ['type' => 'string'",
+            "'section' => ['type' => 'string'",
+            "'surface' => ['type' => 'string'",
+            "'owner_layer' => ['type' => 'string'",
             "'atlas_architecture_operations' => \$this->toolResponse(\$id, \$this->architectureOperations(\$arguments))",
-            "\$this->architectureOperations->summary(\$this->onlyScalarFilters(\$arguments, ['id', 'kind']))",
+            "\$this->architectureOperations->summary(\$this->onlyScalarFilters(\$arguments, ['id', 'kind', 'section', 'surface', 'owner_layer']))",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-133 MCP must expose id/kind filters [{$token}]";
+                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-133 MCP must expose id/kind/section/surface filters [{$token}]";
             }
         }
 
@@ -1237,6 +1334,8 @@ class KernelArchitectureStaticScanner
             'test_catalog_filters_architecture_operations_by_id_and_kind',
             "summary(['id' => 'provider_performance_report'])",
             "summary(['kind' => 'evidence_report'])",
+            "summary(['section' => 'arquitetura_mae'])",
+            "summary(['surface' => 'runtime'])",
             "'filters'",
         ] as $token) {
             if (! str_contains($unitTest, $token)) {
@@ -1247,6 +1346,8 @@ class KernelArchitectureStaticScanner
         foreach ([
             'test_command_filters_architecture_operations_by_id_and_kind',
             "'--kind' => 'evidence_report'",
+            "'--section' => 'arquitetura_mae'",
+            "'--surface' => 'runtime'",
             "'--id' => 'inbox_action_report'",
             'architecture_operations.filters',
         ] as $token) {
@@ -1258,6 +1359,8 @@ class KernelArchitectureStaticScanner
         foreach ([
             'test_api_filters_architecture_operations_catalog',
             '/ai/architecture/operations?kind=evidence_report',
+            '/ai/architecture/operations?section=arquitetura_mae',
+            '/ai/architecture/operations?surface=runtime',
             '/ai/architecture/operations?id=provider_performance_report',
             'architecture_operations.filters',
         ] as $token) {
@@ -1269,6 +1372,8 @@ class KernelArchitectureStaticScanner
         foreach ([
             'test_architecture_operations_tool_filters_shared_operations_catalog',
             "'arguments' => ['kind' => 'evidence_report']",
+            "'arguments' => ['section' => 'arquitetura_mae']",
+            "'arguments' => ['surface' => 'runtime']",
             'architecture_operations.filters',
         ] as $token) {
             if (! str_contains($mcpTest, $token)) {
@@ -1279,7 +1384,7 @@ class KernelArchitectureStaticScanner
         foreach ([
             'AP-133',
             'Architecture Operations Filter Contract',
-            'id/kind',
+            'id/kind/section/surface',
             'ap133_architecture_operations_filter_contract',
         ] as $token) {
             if (! str_contains($docs, $token)) {
@@ -1438,6 +1543,8 @@ class KernelArchitectureStaticScanner
             "'architecture_operations' => \$this->sessionOperations()",
             'private function sessionOperations(): array',
             "'architecture_readiness'",
+            "'coverage_boundary' => \$coverageBoundary",
+            "'safe_next_blocks' => \$safeNextBlocks",
             "'session_bootstrap'",
             "'feature_placement'",
             "'documentation_split_plan'",
@@ -1454,6 +1561,8 @@ class KernelArchitectureStaticScanner
             "assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')",
             'architecture_operations.operation_ids',
             "'architecture_readiness'",
+            "assertJsonPath('coverage_boundary.schema_version', 'atlas.implemented_vs_scaffold.coverage_boundary.v1')",
+            "assertJsonPath('safe_next_blocks.0.block', 'Voice Realtime product loop')",
             "'architecture_validate'",
         ] as $token) {
             if (! str_contains($apiTest, $token)) {
@@ -1465,6 +1574,8 @@ class KernelArchitectureStaticScanner
             "data_get(\$payload, 'architecture_operations.schema_version')",
             "data_get(\$payload, 'architecture_operations.operation_ids')",
             "'architecture_readiness'",
+            "data_get(\$payload, 'coverage_boundary.schema_version')",
+            "data_get(\$payload, 'safe_next_blocks.0.block')",
             "'provider_projection_status'",
         ] as $token) {
             if (! str_contains($commandTest, $token)) {
@@ -1475,6 +1586,8 @@ class KernelArchitectureStaticScanner
         foreach ([
             "data_get(\$bootstrap, 'architecture_operations.operation_ids')",
             "'architecture_readiness'",
+            "data_get(\$bootstrap, 'coverage_boundary.schema_version')",
+            "data_get(\$bootstrap, 'safe_next_blocks.0.block')",
             "'documentation_split_plan'",
             "'architecture_validate'",
         ] as $token) {
@@ -1533,6 +1646,8 @@ class KernelArchitectureStaticScanner
             "'documentation_split_plan'",
             "'architecture_validate'",
             "'code_intelligence_index'",
+            "'owner_layer_operations' => [",
+            "'runtime' => \$this->operations->summary(['owner_layer' => 'runtime'])",
         ] as $token) {
             if (! str_contains($service, $token)) {
                 $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasFeaturePlacementService.php: AP-175 feature placement must include focused architecture_operations [{$token}]";
@@ -1542,6 +1657,7 @@ class KernelArchitectureStaticScanner
         foreach ([
             "assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')",
             'architecture_operations.operation_ids',
+            'architecture_operations.owner_layer_operations.runtime.operation_ids',
             "'architecture_readiness'",
             "'feature_placement'",
         ] as $token) {
@@ -1553,6 +1669,7 @@ class KernelArchitectureStaticScanner
         foreach ([
             "data_get(\$payload, 'architecture_operations.schema_version')",
             "data_get(\$payload, 'architecture_operations.operation_ids')",
+            "data_get(\$payload, 'architecture_operations.owner_layer_operations.runtime.operation_ids')",
             "'architecture_readiness'",
             "'feature_placement'",
         ] as $token) {
@@ -1563,6 +1680,7 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             "data_get(\$placement, 'architecture_operations.operation_ids')",
+            "data_get(\$placement, 'architecture_operations.owner_layer_operations.runtime.operation_ids')",
             "'architecture_readiness'",
             "'feature_placement'",
             "'architecture_validate'",
@@ -1626,9 +1744,15 @@ class KernelArchitectureStaticScanner
             "'checks' => \$checks",
             "'docs_split_plan' => [",
             "'provider_projection' => [",
+            "'coverage_boundary' => \$this->implementedVsScaffoldCoverageBoundary()",
+            "'safe_next_blocks' => \$this->implementedVsScaffoldSafeNextBlocks()",
             "'architecture_operations' => \$this->readinessOperations()",
             "'review_signal' => [",
+            'private function implementedVsScaffoldCoverageBoundary(): array',
+            'private function implementedVsScaffoldSafeNextBlocks(): array',
             'private function readinessOperations(): array',
+            "'owner_layer_operations' => [",
+            "'runtime' => \$this->operations->summary(['owner_layer' => 'runtime'])",
         ] as $token) {
             if (! str_contains($service, $token)) {
                 $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureReadinessService.php: AP-176 readiness snapshot must aggregate existing governance authorities [{$token}]";
@@ -1676,6 +1800,9 @@ class KernelArchitectureStaticScanner
             'test_command_returns_architecture_readiness_snapshot_as_json',
             "data_get(\$payload, 'schema_version')",
             'architecture_readiness',
+            'safe_next_blocks.0.block',
+            'coverage_boundary.schema_version',
+            'architecture_operations.owner_layer_operations.runtime.operation_ids',
             'review_signal.required_next_commands',
         ] as $token) {
             if (! str_contains($commandTest, $token)) {
@@ -1687,7 +1814,10 @@ class KernelArchitectureStaticScanner
             'test_architecture_readiness_api_returns_governance_snapshot',
             '/ai/architecture/readiness?owner=kernel_architecture',
             "assertJsonPath('schema_version', 'atlas.architecture_readiness.v1')",
+            "assertJsonPath('coverage_boundary.schema_version', 'atlas.implemented_vs_scaffold.coverage_boundary.v1')",
+            "assertJsonPath('safe_next_blocks.0.block', 'Voice Realtime product loop')",
             "assertJsonPath('architecture_operations.commands.0.id', 'architecture_readiness')",
+            'architecture_operations.owner_layer_operations.runtime.operation_ids',
         ] as $token) {
             if (! str_contains($apiTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasAiGovernanceApiTest.php: AP-176 API tests must cover readiness output [{$token}]";
@@ -1766,6 +1896,7 @@ class KernelArchitectureStaticScanner
             'test_architecture_readiness_tool_exposes_preimplementation_snapshot',
             "'atlas_architecture_readiness'",
             "'atlas.architecture_readiness.v1'",
+            'architecture_readiness.architecture_operations.owner_layer_operations.runtime.operation_ids',
             "'continue_implementation_with_session_bootstrap_and_feature_placement'",
         ] as $token) {
             if (! str_contains($mcpTest, $token)) {
@@ -2105,7 +2236,7 @@ class KernelArchitectureStaticScanner
             'private function sessionBootstrap(array $arguments): array',
             'private function featurePlacement(array $arguments): array',
             'private function docsSplitPlan(array $arguments): array',
-            "\$this->architectureOperations->summary(\$this->onlyScalarFilters(\$arguments, ['id', 'kind']))",
+            "\$this->architectureOperations->summary(\$this->onlyScalarFilters(\$arguments, ['id', 'kind', 'section', 'surface', 'owner_layer']))",
             "\$this->documentationSplitPlan->plan(\$this->onlyScalarFilters(\$arguments, ['owner', 'severity', 'status']))",
             "'owner' => ['type' => 'string'",
             "'severity' => ['type' => 'string'",
@@ -2178,6 +2309,1507 @@ class KernelArchitectureStaticScanner
         }
 
         return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanProviderReleaseAntiWrapperContract(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/Kernel/Architecture/AtlasProviderReleaseIntelligenceService.php');
+        $sourceRegistryPath = app_path('Services/Ai/Kernel/Architecture/AtlasProviderReleaseSourceRegistry.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiProviderReleaseReviewCommandTest.php');
+        $docPath = base_path('docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md');
+        $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $sourceRegistry = File::exists($sourceRegistryPath) ? File::get($sourceRegistryPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $doc = File::exists($docPath) ? File::get($docPath) : '';
+        $matrix = File::exists($matrixPath) ? File::get($matrixPath) : '';
+
+        foreach ([
+            "'anti_wrapper_contract' => \$this->antiWrapperContract",
+            'atlas.provider_release.anti_wrapper_contract.v1',
+            'atlas_substitutes_direct_provider_channels_by_orchestrating_them',
+            'external_provider_improvement_must_make_atlas_stronger_or_be_archived',
+            'benchmark_against_direct_provider_baseline',
+            'direct_provider_channel_as_primary_product',
+            "'default_model_change_allowed' => false",
+            "'manual_override_only_until_promoted' => true",
+            "'may_change_default_model' => false",
+            "'may_change_domain_maturity' => false",
+            "'may_store_provider_credentials' => false",
+            "'may_call_provider_vertical_directly' => false",
+            "'promotion_gate' => [",
+            'atlas.provider_release.promotion_gate.v1',
+            "'promotion_allowed' => false",
+            "'routing_promotion_allowed_now' => false",
+            "'domain_maturity_promotion_allowed_now' => false",
+            "'credential_activation_allowed_now' => false",
+            "'provider_direct_channel_allowed_now' => false",
+            'atlas.provider_release.promotion_review_packet.v1',
+            "'required_human_decision' => 'approve_or_reject_provider_release_absorption'",
+            "'required_decision_receipt' => true",
+            "'rollback_plan_required' => true",
+            "'policy_patch_review_required' => true",
+            'change_atlas_decide_routing_policy',
+            'press_release_to_default_model',
+            'provider_vertical_agent_to_domain_ready',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasProviderReleaseIntelligenceService.php: AP-178 provider release anti-wrapper contract must stay fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.provider_release.future_activation_review.v1',
+            "'network_fetching_enabled' => false",
+            "'auto_envelope_write_allowed' => false",
+            "'auto_decide_signal_allowed' => false",
+            "'auto_policy_patch_allowed' => false",
+            "'promotion_allowed' => false",
+            'create_dedicated_provider_release_fetch_runtime_ap_before_any_activation',
+            'human_review_before_any_decide_or_policy_signal',
+            'background_web_crawler',
+            'direct_decide_signal',
+            'default_model_change',
+            'provider_watchlist_to_background_fetcher',
+            'source_detection_to_default_model_change',
+        ] as $token) {
+            if (! str_contains($sourceRegistry, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasProviderReleaseSourceRegistry.php: AP-178 provider release source registry must keep future ingestion fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'anti_wrapper_contract.schema_version',
+            'atlas.provider_release.anti_wrapper_contract.v1',
+            'atlas_substitutes_direct_provider_channels_by_orchestrating_them',
+            'direct_provider_channel_as_primary_product',
+            'absorption_plan.promotion_gate.schema_version',
+            'absorption_plan.promotion_gate.promotion_allowed',
+            'absorption_plan.promotion_gate.routing_promotion_allowed_now',
+            'absorption_plan.promotion_gate.review_packet.schema_version',
+            'absorption_plan.promotion_gate.review_packet.required_human_decision',
+            'absorption_plan.promotion_gate.review_packet.required_decision_receipt',
+            'curator_proposal.promotion_review_ref.schema_version',
+            'provider_vertical_agent_to_domain_ready',
+            'decide_signal.default_model_change_allowed',
+            'decide_signal.promotion_allowed',
+            'decide_signal.manual_override_only_until_promoted',
+            'source_registry_context.future_activation_review_contract.schema_version',
+            'source_registry_context.future_activation_review_contract.status',
+            'human_review_before_any_decide_or_policy_signal',
+            'default_model_change',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiProviderReleaseReviewCommandTest.php: AP-178 provider release anti-wrapper output must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'anti_wrapper_contract',
+            'Atlas como camada acima dos',
+            'nunca canal direto, default de modelo',
+            '`promotion_gate` exige source, owner doc, Rivals/AP-99, review humano e novo',
+            '`promotion_review_packet` fixa decisao humana, rollback, evidence e proibicoes',
+            '`future_activation_review_contract`',
+            'sem AP dedicado, rate limit, source gate, Ledger, AP-99/Rivals e review humano',
+        ] as $token) {
+            if (! str_contains($doc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md: AP-178 provider release anti-wrapper contract must be documented [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Provider Release Intelligence',
+            '`anti_wrapper_contract`',
+            '`promotion_gate`',
+            '`promotion_review_packet`',
+            'novo receipt e review humano',
+        ] as $token) {
+            if (! str_contains($matrix, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md: AP-178 provider release matrix row must expose anti-wrapper status [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanVoiceRealtimeActivationGovernance(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/Voice/AtlasVoiceRealtimeService.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php');
+        $docPath = base_path('docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md');
+        $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $doc = File::exists($docPath) ? File::get($docPath) : '';
+        $matrix = File::exists($matrixPath) ? File::get($matrixPath) : '';
+
+        foreach ([
+            "'activation_governance' => \$this->activationGovernance",
+            'atlas.voice_realtime.activation_governance.v1',
+            "'first_product_surface' => 'mobile'",
+            "'livekit_agents_direct_provider_allowed' => false",
+            "'kernel_webhook_required' => true",
+            "'decision_receipt_required_per_turn' => true",
+            "'runtime_daemon_start_allowed_now' => false",
+            "'production_audio_streaming_allowed_now' => false",
+            "'always_on_listening_allowed_now' => false",
+            "'mac_edge_first_product_allowed' => false",
+            "'swift_native_mac_phase' => 'future_after_mobile_voice'",
+            'swift_mac_before_mobile',
+            'livekit_agents_to_provider_direct',
+            'voice_domain_creation',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRealtimeService.php: AP-179 voice activation governance must stay mobile-first and fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'activation_governance.schema_version',
+            'atlas.voice_realtime.activation_governance.v1',
+            'activation_governance.first_product_surface',
+            'activation_governance.livekit_agents_direct_provider_allowed',
+            'activation_governance.always_on_listening_allowed_now',
+            'activation_governance.mac_edge_first_product_allowed',
+            'session_lease.activation_governance.runtime_daemon_start_allowed_now',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php: AP-179 voice activation governance output must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'activation governance',
+            'mobile-first',
+            'no direct-provider',
+            'no daemon/always-on',
+            'Implementar Mac Swift antes do mobile voice',
+        ] as $token) {
+            if (! str_contains($doc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md: AP-179 voice activation governance must be documented [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Voice Realtime',
+            '`activation_governance`',
+            'mobile-first',
+            'direct-provider',
+            'always-on',
+        ] as $token) {
+            if (! str_contains($matrix, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md: AP-179 voice matrix row must expose activation governance [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanVoiceRealtimeRuntimeCertificationContract(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/Voice/AtlasVoiceRealtimeService.php');
+        $certificationPath = app_path('Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php');
+        $rivalsPath = app_path('Services/Ai/Voice/AtlasVoiceRivalsRunner.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiVoiceRealtimeCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php');
+        $unitTestPath = base_path('tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php');
+        $apPath = base_path('docs/ap/AP-185-voice-realtime-foundation-registry.md');
+        $docPath = base_path('docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md');
+        $staticScanDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $certification = File::exists($certificationPath) ? File::get($certificationPath) : '';
+        $rivals = File::exists($rivalsPath) ? File::get($rivalsPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
+        $apDoc = File::exists($apPath) ? File::get($apPath) : '';
+        $doc = File::exists($docPath) ? File::get($docPath) : '';
+        $staticScanDoc = File::exists($staticScanDocPath) ? File::get($staticScanDocPath) : '';
+
+        foreach ([
+            'atlas.voice_realtime.runtime_contract.v1',
+            'runtime_certification_endpoint',
+            'mobile_runtime_certification_endpoint',
+            'runtime_must_call_kernel_endpoint_before_provider_or_tool_execution',
+            'runtime_callbacks_require_kernel_accepted_turn',
+            'production_loop_smoke',
+            'VOICE_TURN_DECIDED',
+            "'raw_audio' => false",
+            "'raw_response_text' => false",
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRealtimeService.php: AP-185 runtime certification contract must remain fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.voice_realtime.runtime_certification.v1',
+            'foundation_registry_ready',
+            'callback_sequence_passed',
+            'production_loop_smoke_passed',
+            'worker_start_blocked_safely',
+            'certification_artifacts_sanitized',
+            'forbidden_key_count',
+            'forbidden_keys',
+            'rerun_runtime_certification_with_require_sdk',
+            'fix_failed_runtime_certification_gates',
+            'access_token',
+            'provider_api_key',
+            'tool_call',
+            'response_text',
+            'raw_audio',
+            'audio_bytes',
+            'runPreflight',
+            'runCallbackSequenceSmoke',
+            'runProductionLoopSmoke',
+            'runWorkerStartCheck',
+        ] as $token) {
+            if (! str_contains($certification, $token)) {
+                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php: AP-185 certification gate must keep foundation, callback, production loop, worker-start and sanitization checks [{$token}]";
+            }
+        }
+
+        foreach ([
+            'artifact_sanitization',
+            'forbidden_key_count',
+            'fix_voice_runtime_certification_before_rivals_voice',
+        ] as $token) {
+            if (! str_contains($rivals, $token)) {
+                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRivalsRunner.php: AP-185 Rivals-Voice must consume sanitized runtime certification summary [{$token}]";
+            }
+        }
+
+        foreach ([
+            'runtime-certify',
+            'gates.callback_sequence_passed.passed',
+            'gates.production_loop_smoke_passed.passed',
+            'gates.worker_start_blocked_safely.passed',
+            'gates.certification_artifacts_sanitized.passed',
+            'gates.certification_artifacts_sanitized.forbidden_key_count',
+            "assertArrayNotHasKey('results', data_get(\$payload, 'artifacts.production_loop_smoke'))",
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiVoiceRealtimeCommandTest.php: AP-185 CLI certification contract must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            '/ai/voice/runtime/certification',
+            '/v1/mobile/ai/voice/runtime/certification',
+            'gates.worker_start_blocked_safely.passed',
+            'gates.certification_artifacts_sanitized.passed',
+            'gates.certification_artifacts_sanitized.forbidden_key_count',
+            'artifacts.production_loop_smoke.results',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php: AP-185 API/mobile certification contract must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasVoiceRuntimeCertificationServiceTest',
+            'certification_artifacts_sanitized',
+            'forbidden_key_count',
+        ] as $token) {
+            if (! str_contains($unitTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php: AP-185 sanitization unit coverage must exist [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Certificacao Runtime',
+            'certification_artifacts_sanitized',
+            'forbidden_key_count=0',
+            'runtime certification prova artifact sanitization',
+        ] as $token) {
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-185-voice-realtime-foundation-registry.md: AP-185 runtime certification must be documented [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Runtime Certification Gate',
+            'certification_artifacts_sanitized',
+            'callback_rejected_payload_contract',
+            'Rivals-Voice deve consumir apenas o resumo do certificado',
+        ] as $token) {
+            if (! str_contains($doc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md: AP-185 certification gate must be preserved in owner doc [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Voice runtime certification (AP-185)',
+            'certification artifacts leaking tokens, raw audio, raw text, tool calls or provider secrets',
+        ] as $token) {
+            if (! str_contains($staticScanDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/kernel/static-scans.md: AP-185 static scan behavior must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanVoiceRealtimePythonRuntimeBoundaryContract(): array
+    {
+        $violations = [];
+        $runtimeRoot = base_path('runtimes/python/voice_realtime/atlas_voice_agent');
+        $dependenciesPath = base_path('runtimes/python/voice_realtime/runtime-dependencies.json');
+        $agentRuntimePath = "{$runtimeRoot}/agent_runtime.py";
+        $workerPath = "{$runtimeRoot}/livekit_worker.py";
+        $payloadSafetyPath = "{$runtimeRoot}/payload_safety.py";
+        $kernelClientPath = "{$runtimeRoot}/kernel_client.py";
+        $boundaryTestPath = base_path('runtimes/python/voice_realtime/tests/test_livekit_boundary.py');
+        $workerTestPath = base_path('runtimes/python/voice_realtime/tests/test_livekit_worker.py');
+        $contractTestPath = base_path('runtimes/python/voice_realtime/tests/test_contract.py');
+        $mainTestPath = base_path('runtimes/python/voice_realtime/tests/test_main.py');
+        $staticScanDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
+
+        $agentRuntime = File::exists($agentRuntimePath) ? File::get($agentRuntimePath) : '';
+        $worker = File::exists($workerPath) ? File::get($workerPath) : '';
+        $payloadSafety = File::exists($payloadSafetyPath) ? File::get($payloadSafetyPath) : '';
+        $kernelClient = File::exists($kernelClientPath) ? File::get($kernelClientPath) : '';
+        $dependencies = File::exists($dependenciesPath) ? File::get($dependenciesPath) : '';
+        $boundaryTest = File::exists($boundaryTestPath) ? File::get($boundaryTestPath) : '';
+        $workerTest = File::exists($workerTestPath) ? File::get($workerTestPath) : '';
+        $contractTest = File::exists($contractTestPath) ? File::get($contractTestPath) : '';
+        $mainTest = File::exists($mainTestPath) ? File::get($mainTestPath) : '';
+        $staticScanDoc = File::exists($staticScanDocPath) ? File::get($staticScanDocPath) : '';
+
+        foreach ([
+            'AtlasKernelClient',
+            'Kernel decision receipt is required before runtime callback',
+            'turn must be submitted to Kernel before callback',
+        ] as $token) {
+            if (! str_contains($agentRuntime, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/agent_runtime.py: AP-686 runtime facade must remain Kernel-only and receipt-gated [{$token}]";
+            }
+        }
+
+        foreach ([
+            '_reject_forbidden_worker_fields',
+            'reject_forbidden_keys_recursive',
+            '_sanitize_for_log',
+            'turn must be accepted by Kernel Decision Receipt before runtime callback',
+            'direct_llm_provider_call',
+            'direct_tool_execution',
+            'tool_call',
+            'raw_audio',
+            'audio_bytes',
+            'api_secret',
+        ] as $token) {
+            if (! str_contains($worker, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/livekit_worker.py: AP-686 LiveKit worker must reject authority/raw/secret fields and emit sanitized logs [{$token}]";
+            }
+        }
+
+        if (! preg_match('/if event_kind == "failed":\s+self\._require_accepted_turn\(\s*session_id,\s*event\s*\)/', $worker)) {
+            $violations[] = 'runtimes/python/voice_realtime/atlas_voice_agent/livekit_worker.py: AP-686 runtime_failed callback must require an accepted Kernel turn before reporting failure.';
+        }
+
+        foreach ([
+            'reject_forbidden_keys_recursive',
+            '_forbidden_paths',
+            'Mapping',
+            'Sequence',
+            'forbidden {label} keys',
+        ] as $token) {
+            if (! str_contains($payloadSafety, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/payload_safety.py: AP-686 must reject forbidden LiveKit fields recursively, including nested metadata [{$token}]";
+            }
+        }
+
+        foreach ([
+            'self.contract.session_start_url',
+            'self.contract.turn_url',
+            'self.contract.synthesized_url',
+            'self.contract.provider_health_degraded_url',
+            '"X-Atlas-Token"',
+        ] as $token) {
+            if (! str_contains($kernelClient, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/kernel_client.py: AP-686 Kernel client must call only Kernel contract endpoints with Atlas auth [{$token}]";
+            }
+        }
+
+        foreach ([
+            '"third_party_dependencies": []',
+            '"pip": "livekit-agents"',
+            '"import": "livekit.agents"',
+            'atlas ai voice sdk-check --json must report status=ready before wiring real SDK callbacks.',
+            'direct_llm_provider_call',
+            'direct_tool_execution',
+            'raw_audio_persistence',
+            'memory_write',
+            'policy_override',
+        ] as $token) {
+            if (! str_contains($dependencies, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/runtime-dependencies.json: AP-686 runtime dependency manifest must keep standard-library core plus optional LiveKit only [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_rejects_raw_audio_and_direct_provider_authority_from_livekit_event',
+            'llm_provider',
+            'tool_call',
+            'raw_audio',
+            'test_rejects_tokens_and_api_secrets_from_livekit_event',
+            'api_secret',
+        ] as $token) {
+            if (! str_contains($boundaryTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_boundary.py: AP-686 boundary tests must prove runtime cannot inject provider/tool/raw/secret authority [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_worker_rejects_raw_response_text_from_livekit_event',
+            '"metadata"',
+            '"api_secret"',
+            'test_worker_rejects_runtime_callbacks_before_kernel_accepts_turn',
+            'assertNotIn("header.payload.signature"',
+            'assertNotIn("access_token"',
+        ] as $token) {
+            if (! str_contains($workerTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_worker.py: AP-686 worker tests must prove token-free logs and receipt-gated callbacks [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_rejects_direct_provider_authority',
+            'openai_direct',
+            'test_rejects_raw_audio_persistence',
+            'raw_audio',
+        ] as $token) {
+            if (! str_contains($contractTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_contract.py: AP-686 contract tests must reject direct provider authority and raw persistence [{$token}]";
+            }
+        }
+
+        foreach ([
+            'self.assertNotIn(\'"raw_audio":\', completed.stdout)',
+            'self.assertNotIn(\'"api_secret"\', completed.stdout)',
+        ] as $token) {
+            if (! str_contains($mainTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_main.py: AP-686 CLI smoke tests must keep runtime output sanitized [{$token}]";
+            }
+        }
+
+        foreach ($this->scanVoiceRealtimePythonRuntimeForbiddenPatterns($runtimeRoot) as $violation) {
+            $violations[] = $violation;
+        }
+
+        foreach ([
+            'Voice Python runtime boundary (AP-686)',
+            'Voice Python runtime importing provider SDKs, shelling out, logging raw audio/tokens, accepting nested SDK secret metadata or reporting `runtime_failed` before a Kernel-accepted turn must fail AP-686.',
+        ] as $token) {
+            if (! str_contains($staticScanDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/kernel/static-scans.md: AP-686 static scan behavior must be documented [{$token}]";
+            }
+        }
+
+        sort($violations);
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanVoiceRealtimeProductionPromotionGate(): array
+    {
+        $violations = [];
+        $certificationPath = app_path('Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php');
+        $voiceServicePath = app_path('Services/Ai/Voice/AtlasVoiceRealtimeService.php');
+        $tokenIssuerPath = app_path('Services/Ai/Voice/AtlasVoiceLiveKitTokenIssuer.php');
+        $rivalsPath = app_path('Services/Ai/Voice/AtlasVoiceRivalsRunner.php');
+        $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $commandPath = app_path('Console/Commands/AtlasAiVoiceRealtimeCommand.php');
+        $unitTestPath = base_path('tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php');
+        $tokenIssuerTestPath = base_path('tests/Unit/Ai/Voice/AtlasVoiceLiveKitTokenIssuerTest.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiVoiceRealtimeCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php');
+        $pythonContractPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/contract.py');
+        $pythonContractTestPath = base_path('runtimes/python/voice_realtime/tests/test_contract.py');
+        $pythonSessionLeasePath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/session_lease.py');
+        $pythonSessionLeaseTestPath = base_path('runtimes/python/voice_realtime/tests/test_session_lease.py');
+        $pythonMockKernelPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/mock_kernel.py');
+        $pythonMockKernelTestPath = base_path('runtimes/python/voice_realtime/tests/test_mock_kernel.py');
+        $pythonRuntimeEntrypointPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/livekit_runtime_entrypoint.py');
+        $pythonRuntimeEntrypointTestPath = base_path('runtimes/python/voice_realtime/tests/test_livekit_runtime_entrypoint.py');
+        $pythonProductLoopCheckPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/product_loop_check.py');
+        $pythonProductLoopCheckTestPath = base_path('runtimes/python/voice_realtime/tests/test_product_loop_check.py');
+        $pythonSdkStatusPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/sdk_status.py');
+        $pythonSdkStatusTestPath = base_path('runtimes/python/voice_realtime/tests/test_sdk_status.py');
+        $pythonSettingsPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/settings.py');
+        $pythonSettingsTestPath = base_path('runtimes/python/voice_realtime/tests/test_settings.py');
+        $apPath = base_path('docs/ap/AP-687-voice-realtime-production-promotion-gate.md');
+        $docPath = base_path('docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md');
+        $staticScanDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
+
+        $certification = File::exists($certificationPath) ? File::get($certificationPath) : '';
+        $voiceService = File::exists($voiceServicePath) ? File::get($voiceServicePath) : '';
+        $tokenIssuer = File::exists($tokenIssuerPath) ? File::get($tokenIssuerPath) : '';
+        $rivals = File::exists($rivalsPath) ? File::get($rivalsPath) : '';
+        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
+        $tokenIssuerTest = File::exists($tokenIssuerTestPath) ? File::get($tokenIssuerTestPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $pythonContract = File::exists($pythonContractPath) ? File::get($pythonContractPath) : '';
+        $pythonContractTest = File::exists($pythonContractTestPath) ? File::get($pythonContractTestPath) : '';
+        $pythonSessionLease = File::exists($pythonSessionLeasePath) ? File::get($pythonSessionLeasePath) : '';
+        $pythonSessionLeaseTest = File::exists($pythonSessionLeaseTestPath) ? File::get($pythonSessionLeaseTestPath) : '';
+        $pythonMockKernel = File::exists($pythonMockKernelPath) ? File::get($pythonMockKernelPath) : '';
+        $pythonMockKernelTest = File::exists($pythonMockKernelTestPath) ? File::get($pythonMockKernelTestPath) : '';
+        $pythonRuntimeEntrypoint = File::exists($pythonRuntimeEntrypointPath) ? File::get($pythonRuntimeEntrypointPath) : '';
+        $pythonRuntimeEntrypointTest = File::exists($pythonRuntimeEntrypointTestPath) ? File::get($pythonRuntimeEntrypointTestPath) : '';
+        $pythonProductLoopCheck = File::exists($pythonProductLoopCheckPath) ? File::get($pythonProductLoopCheckPath) : '';
+        $pythonProductLoopCheckTest = File::exists($pythonProductLoopCheckTestPath) ? File::get($pythonProductLoopCheckTestPath) : '';
+        $pythonSdkStatus = File::exists($pythonSdkStatusPath) ? File::get($pythonSdkStatusPath) : '';
+        $pythonSdkStatusTest = File::exists($pythonSdkStatusTestPath) ? File::get($pythonSdkStatusTestPath) : '';
+        $pythonSettings = File::exists($pythonSettingsPath) ? File::get($pythonSettingsPath) : '';
+        $pythonSettingsTest = File::exists($pythonSettingsTestPath) ? File::get($pythonSettingsTestPath) : '';
+        $apDoc = File::exists($apPath) ? File::get($apPath) : '';
+        $doc = File::exists($docPath) ? File::get($docPath) : '';
+        $staticScanDoc = File::exists($staticScanDocPath) ? File::get($staticScanDocPath) : '';
+
+        foreach ([
+            'production_promotion_gate',
+            'atlas.voice_realtime.production_promotion_gate.v1',
+            'human_review_required',
+            'promotion_allowed',
+            'auto_promotion_allowed',
+            'decision_receipt_required',
+            'rollback_plan_required',
+            'sdk_certification_required',
+            'livekit_agents_sdk_ready',
+            'livekit_token_issuer_ready',
+            'production_promotion_must_run_with_require_sdk',
+            'submit_voice_production_promotion_for_human_review',
+            "preg_match('/[\\x00-\\x1F\\x7F]/'",
+            'parse_url($baseUrl)',
+            'PYTHON_COMMAND_TIMEOUT_SECONDS',
+            'voice_runtime_command_timeout',
+        ] as $token) {
+            if (! str_contains($certification, $token)) {
+                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php: AP-687 production promotion gate must remain fail-closed and human-review governed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'voiceRoomName',
+            'voiceParticipantIdentity',
+            'phase0HardeningGate',
+            'atlas.voice_realtime.phase0_hardening_gate.v1',
+            "'safe_next_block' => 'Voice Realtime phase 0 hardening'",
+            'runtime_boundary_green',
+            "'atlas-voice-'",
+            'required_room_prefix',
+            'participant_namespace_source',
+            'session_lease',
+            'kernelBaseUrl',
+            'parse_url($baseUrl)',
+        ] as $token) {
+            if (! str_contains($voiceService, $token)) {
+                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRealtimeService.php: AP-687 session lease must scope LiveKit rooms to Atlas Voice namespace [{$token}]";
+            }
+        }
+
+        foreach ([
+            'readiness(): array',
+            'atlas.voice_realtime.livekit_token_issuer_readiness.v1',
+            "'secrets_exposed' => false",
+            'livekit_url_missing',
+            'livekit_room_outside_atlas_voice_namespace',
+            'livekit_participant_outside_client_surface_namespace',
+            'configure_livekit_token_issuer',
+        ] as $token) {
+            if (! str_contains($tokenIssuer, $token)) {
+                $violations[] = "app/Services/Ai/Voice/AtlasVoiceLiveKitTokenIssuer.php: AP-687 LiveKit token issuer readiness must be explicit and secret-safe [{$token}]";
+            }
+        }
+
+        foreach ([
+            'urlparse',
+            'session_lease.room_prefix',
+            'atlas-voice- namespace',
+            'not isinstance(room_prefix, str)',
+            '_absolute_http_url',
+            'control characters',
+        ] as $token) {
+            if (! str_contains($pythonContract, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/contract.py: AP-687 Python runtime contract must reject unsafe manifest URLs and room prefixes outside Atlas Voice namespace [{$token}]";
+            }
+        }
+
+        foreach ([
+            'rejects_room_prefix_outside_atlas_voice_namespace',
+            'rejects_kernel_url_with_control_characters',
+            'rejects_kernel_url_without_host',
+            'rogue-voice-',
+            'LIVEKIT_API_SECRET=injected',
+        ] as $token) {
+            if (! str_contains($pythonContractTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_contract.py: AP-687 Python runtime contract URL and room namespace safety must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'urlparse',
+            'control characters',
+            'atlas-voice-',
+            '_room_prefix',
+        ] as $token) {
+            if (! str_contains($pythonSettings, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/settings.py: AP-687 Python runtime settings must mirror Kernel URL and room namespace safety [{$token}]";
+            }
+        }
+
+        foreach ([
+            'urlparse',
+            'ALLOWED_PARTICIPANT_NAMESPACES',
+            '_atlas_voice_room',
+            '_participant_identity',
+            '_optional_url',
+            'atlas-voice- namespace',
+            'allowed client surface',
+        ] as $token) {
+            if (! str_contains($pythonSessionLease, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/session_lease.py: AP-687 Python runtime session leases must reject unsafe LiveKit URL, room and participant namespaces [{$token}]";
+            }
+        }
+
+        foreach ([
+            'rejects_room_name_outside_atlas_voice_namespace',
+            'rejects_participant_identity_outside_client_surface_namespace',
+            'rejects_livekit_url_with_control_characters',
+            'rejects_livekit_url_without_host',
+            'LIVEKIT_API_SECRET=injected',
+        ] as $token) {
+            if (! str_contains($pythonSessionLeaseTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_session_lease.py: AP-687 Python runtime session lease namespace safety must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            '_atlas_voice_room',
+            '_participant_identity',
+            'atlas-voice-',
+            'mobile:',
+            'mac_edge:',
+        ] as $token) {
+            if (! str_contains($pythonMockKernel, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/mock_kernel.py: AP-687 mock Kernel must normalize session leases like the real Kernel [{$token}]";
+            }
+        }
+
+        foreach ([
+            'normalizes_unsafe_session_lease_namespaces',
+            'atlas-voice-prod-room',
+            'mobile:adminroot',
+        ] as $token) {
+            if (! str_contains($pythonMockKernelTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_mock_kernel.py: AP-687 mock Kernel namespace normalization must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'production_promotion',
+            'human_review_required',
+            'decision_receipt_required',
+            'rollback_plan_required',
+            'auto_promotion_allowed',
+            'worker_start_without_production_promotion_allowed',
+            'callback_loop_wired',
+            'production_sdk_loop_wired',
+        ] as $token) {
+            if (! str_contains($pythonRuntimeEntrypoint, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/livekit_runtime_entrypoint.py: AP-687 worker start must expose production promotion and human review guardrails [{$token}]";
+            }
+        }
+
+        foreach ([
+            'worker_start_without_production_promotion_allowed',
+            'production_promotion',
+            'human_review_required',
+            'rollback_plan_required',
+            'auto_promotion_allowed',
+            'test_start_worker_exposes_fully_wired_product_loop_without_starting_daemon',
+            'production_sdk_loop_wired',
+        ] as $token) {
+            if (! str_contains($pythonRuntimeEntrypointTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_runtime_entrypoint.py: AP-687 worker start production promotion guardrails must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'rejects_urls_with_control_characters',
+            'rejects_room_prefix_outside_atlas_voice_namespace',
+            'LIVEKIT_API_SECRET=injected',
+            'atlas-voice-from-file-',
+        ] as $token) {
+            if (! str_contains($pythonSettingsTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_settings.py: AP-687 Python runtime settings safety must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Production promotion',
+            'Human review required',
+            'PYTHON_COMMAND_TIMEOUT_SECONDS',
+            'voice_runtime_command_timeout',
+            'callback-loop-wired',
+            'production-sdk-loop-wired',
+            'product-loop-check',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiVoiceRealtimeCommand.php: AP-687 CLI must surface production promotion status and human review requirement [{$token}]";
+            }
+        }
+
+        foreach ([
+            'rejects_rooms_outside_atlas_voice_namespace',
+            'rejects_participants_outside_client_surface_namespace',
+            'not_issued_invalid_lease',
+        ] as $token) {
+            if (! str_contains($tokenIssuerTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Voice/AtlasVoiceLiveKitTokenIssuerTest.php: AP-687 token issuer must reject arbitrary room and participant leases [{$token}]";
+            }
+        }
+
+        foreach ([
+            'production_promotion_gate',
+            'review_packet',
+            'voice_production_promotion_gate_blocked',
+            'submit_voice_production_promotion_for_human_review',
+            'promotion_allowed',
+            'auto_promotion_allowed',
+        ] as $token) {
+            if (! str_contains($rivals, $token)) {
+                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRivalsRunner.php: AP-687 Rivals-Voice must consume production promotion gate before maturity signals [{$token}]";
+            }
+        }
+
+        foreach ([
+            'production_promotion_gate',
+            'review_packet',
+            'failed_production_promotion_gates',
+        ] as $token) {
+            if (! str_contains($selfImprovement, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-687 Curator voice review must project production promotion gate into proposal metadata [{$token}]";
+            }
+        }
+
+        foreach ([
+            'production_promotion_gate.status',
+            'production_promotion_gate.promotion_allowed',
+            'auto_promotion_allowed',
+            'decision_receipt_required',
+            'rollback_plan_required',
+            'sdk_certification_required',
+            'livekit_token_issuer_ready',
+            'production_promotion_must_run_with_require_sdk',
+            'sanitizes_base_url_before_generating_runtime_env_files',
+            'LIVEKIT_API_SECRET=injected',
+            'timeout_seconds',
+        ] as $token) {
+            if (! str_contains($unitTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php: AP-687 production promotion gate must be covered by unit tests [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Production promotion',
+            'Human review required',
+            'production_promotion_gate.status',
+            'production_promotion_gate.promotion_allowed',
+            'phase0_hardening.schema_version',
+            'phase0_hardening.safe_next_block',
+            'sanitizes_bootstrap_base_url_before_runtime_env_use',
+            'test_command_exposes_worker_start_check_with_product_loop_wired_but_still_blocked',
+            'test_command_exposes_product_loop_check_as_json',
+            'atlas.voice_realtime.product_loop_check.v1',
+            '--product-loop-check',
+            '--callback-loop-wired',
+            '--production-sdk-loop-wired',
+            'timeout_seconds',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiVoiceRealtimeCommandTest.php: AP-687 CLI promotion gate output must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'production_promotion_gate.schema_version',
+            'production_promotion_gate.promotion_allowed',
+            'livekit_token_issuer.schema_version',
+            'does_not_issue_livekit_token_without_livekit_url',
+            'scopes_requested_livekit_room_to_atlas_voice_prefix',
+            'scopes_requested_livekit_participant_to_client_surface',
+            'sanitizes_base_url_before_manifest_publication',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php: AP-687 API/mobile promotion gate and token issuer artifacts must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'status: implemented_ready',
+            'production_promotion_gate.status=blocked',
+            'promotion_allowed=false',
+            'auto_promotion_allowed=false',
+            'human_review_required=true',
+            'review_packet',
+            'atlas-voice-',
+            'base_url',
+            'caracteres de controle',
+            'voice_runtime_command_timeout',
+            'Rivals-Voice e Curator consomem o gate antes de maturidade',
+            'product_loop_wiring_flags_visible',
+            'product_loop_check_available',
+            'atlas.voice_realtime.product_loop_check.v1',
+            '--callback-loop-wired',
+            '--production-sdk-loop-wired',
+        ] as $token) {
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-687-voice-realtime-production-promotion-gate.md: AP-687 implementation contract must remain documented [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-687',
+            'production_promotion_gate',
+            'phase0_hardening',
+            'product_loop_wiring_flags',
+            'product-loop-check',
+            'atlas.voice_realtime.product_loop_check.v1',
+            'auto-promotion',
+        ] as $token) {
+            if (! str_contains($doc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md: AP-687 owner doc must keep production promotion governance [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.voice_realtime.product_loop_check.v1',
+            'build_product_loop_check',
+            'daemon_started',
+            'production_promotion_blocked',
+            'auto_promotion_allowed',
+            'submit_daemon_implementation_review',
+        ] as $token) {
+            if (! str_contains($pythonProductLoopCheck, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/product_loop_check.py: AP-687 product loop check must aggregate readiness without starting daemon [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_product_loop_check_aggregates_wired_gates_without_starting_daemon',
+            'test_product_loop_check_never_treats_mock_kernel_as_product_ready',
+            'daemon_started',
+            'production_promotion_blocked',
+        ] as $token) {
+            if (! str_contains($pythonProductLoopCheckTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_product_loop_check.py: AP-687 product loop check must be tested fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Voice production promotion (AP-687)',
+            'voice runtime being promoted to production',
+        ] as $token) {
+            if (! str_contains($staticScanDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/kernel/static-scans.md: AP-687 static scan behavior must be documented [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanVoiceRealtimePythonRuntimeForbiddenPatterns(string $runtimeRoot): array
+    {
+        if (! File::isDirectory($runtimeRoot)) {
+            return ["missing directory [{$runtimeRoot}]"];
+        }
+
+        $patterns = [
+            'direct_provider_sdk_import' => '/^\s*(?:import|from)\s+(?:openai|anthropic|google\.generativeai|google_genai|cohere|mistralai|ollama|langchain|llama_index|crewai|autogen)\b/m',
+            'direct_provider_endpoint' => '/(?:api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|api\.mistral\.ai)/i',
+            'non_kernel_http_client' => '/\b(?:requests\.|httpx\.|aiohttp\.ClientSession)\b/',
+            'shell_escape' => '/\b(?:subprocess\.|os\.system|eval\s*\(|exec\s*\()\b/',
+            'raw_audio_file_write' => '/\bopen\s*\([^)]*(?:raw_audio|audio_bytes|pcm|wav)[^)]*,\s*[\'"]w/',
+        ];
+
+        $violations = [];
+        foreach (File::allFiles($runtimeRoot) as $file) {
+            if ($file->getExtension() !== 'py') {
+                continue;
+            }
+
+            $path = $file->getRealPath() ?: $file->getPathname();
+            $relativePath = str_replace(base_path().DIRECTORY_SEPARATOR, '', $path);
+            $contents = File::get($path);
+
+            foreach ($patterns as $patternId => $pattern) {
+                if (preg_match($pattern, $contents) === 1) {
+                    $violations[] = "{$relativePath}: forbidden AP-686 voice runtime boundary violation [{$patternId}]. LiveKit/Python runtime may call only Atlas Kernel contract endpoints and cannot call providers/tools/shell or persist raw audio.";
+                }
+            }
+        }
+
+        sort($violations);
+
+        return array_values(array_unique($violations));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanLocalRagGraphPromotionReview(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/Context/LocalRagBenchmarkService.php');
+        $commandPath = app_path('Console/Commands/AtlasAiLocalRagBenchmarkCommand.php');
+        $benchmarkTestPath = base_path('tests/Feature/Ai/AtlasAiLocalRagBenchmarkCommandTest.php');
+        $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $selfImprovementTestPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $apDocPath = base_path('docs/ap/AP-683-local-rag-graph-promotion-review.md');
+        $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $benchmarkTest = File::exists($benchmarkTestPath) ? File::get($benchmarkTestPath) : '';
+        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
+        $selfImprovementTest = File::exists($selfImprovementTestPath) ? File::get($selfImprovementTestPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+        $matrix = File::exists($matrixPath) ? File::get($matrixPath) : '';
+
+        foreach ([
+            "'promotion_allowed' => false",
+            "'graph_rag_promotion_allowed' => false",
+            "'python_runtime_promotion_allowed' => false",
+            "'supersedes_event_required' => 'LOCAL_RAG_GRAPH_PROMOTION_BLOCKED'",
+            "'supersede_authority' => 'human_reviewed_curator_proposal_and_future_ap'",
+            'future_graph_rag_python_ap',
+            'decision_receipt_for_runtime_promotion',
+            'reviewable_policy_patch_with_rollback',
+            'rollback_plan_required',
+            'policy_patch_review_required',
+            'promotionReviewPacket',
+            'atlas.local_rag_graph_promotion_review_packet.v1',
+            'blocked_until_human_review_and_future_ap',
+            'enable_python_graph_rag_runtime',
+            "'provider_bypass_allowed' => false",
+            "'parallel_memory_allowed' => false",
+            "'python_graph_rag_is_candidate_runtime_only' => true",
+            'recordLocalRagEvent',
+            'raw_context_persisted',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/Context/LocalRagBenchmarkService.php: AP-683 Local RAG promotion gate must remain proposal-only and fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Run a controlled Local RAG router benchmark before Graph RAG/Python runtime promotion.',
+            'evidenceLedgerReport',
+            'Ledger evidence',
+            'Graph RAG promotion',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiLocalRagBenchmarkCommand.php: AP-683 command must keep benchmark evidence explicit [{$token}]";
+            }
+        }
+
+        foreach ([
+            'promotion_gate.promotion_allowed',
+            'promotion_gate.graph_rag_promotion_allowed',
+            'promotion_gate.python_runtime_promotion_allowed',
+            'promotion_gate.supersedes_event_required',
+            'LOCAL_RAG_GRAPH_PROMOTION_BLOCKED',
+            'assertStringNotContainsString',
+            'raw_context_persistence_allowed',
+            'evidence_ledger.status',
+            'promotion_evidence_satisfied',
+            'promotion_review_contract.review_packet.schema_version',
+            'rollback_plan_required',
+            'policy_patch_review_required',
+            'disable_python_graph_rag_runtime_policy',
+            'atlas_ledger_events_table_unavailable_or_write_failed',
+        ] as $token) {
+            if (! str_contains($benchmarkTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiLocalRagBenchmarkCommandTest.php: AP-683 benchmark contract must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.self_improvement.local_rag_graph_promotion.v1',
+            'atlas.self_improvement.local_rag_graph_promotion_evidence_block.v1',
+            'proposal_only',
+            'blocked_until_evidence_persisted',
+            'open_reviewable_graph_rag_promotion_proposal',
+            'restore_local_rag_evidence_ledger_before_graph_rag_review',
+            'local_rag_promotion_requires_persisted_evidence_ledger',
+            'promotion_evidence_satisfied',
+            'requires_future_ap',
+            'requires_decision_receipt',
+            'requires_rollback_plan',
+            "'review_packet' => data_get(\$report, 'promotion_review_contract.review_packet')",
+            "'auto_apply' => false",
+        ] as $token) {
+            if (! str_contains($selfImprovement, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-683 Self-Improvement finding must stay proposal-only [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.self_improvement.local_rag_graph_promotion.v1',
+            'atlas.self_improvement.local_rag_graph_promotion_evidence_block.v1',
+            'open_reviewable_graph_rag_promotion_proposal',
+            'restore_local_rag_evidence_ledger_before_graph_rag_review',
+            'metadata.policy_patch_candidate.status',
+            'metadata.policy_patch_candidate.auto_apply',
+            'metadata.policy_patch_candidate.requires_future_ap',
+            'metadata.policy_patch_candidate.requires_decision_receipt',
+            'metadata.policy_patch_candidate.requires_rollback_plan',
+            'metadata.review_signal.review_packet.schema_version',
+            'metadata.review_signal.review_packet.required_human_decision',
+            'metadata.review_signal.review_packet.forbidden_until_review',
+            'metadata.benchmark.evidence_ledger.promotion_evidence_satisfied',
+        ] as $token) {
+            if (! str_contains($selfImprovementTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-683 Self-Improvement finding must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.local_rag_graph_promotion_review.v1',
+            'proposal_gate_scaffold',
+            'benchmark verde nao autoriza Graph RAG',
+            '`promotion_gate.promotion_allowed` deve ser sempre `false`',
+            '`evidence_ledger.promotion_evidence_satisfied=true`',
+            'Graph RAG nao pode criar Memory Core, Ledger ou Context Builder paralelo',
+            '`LOCAL_RAG_GRAPH_PROMOTION_BLOCKED` so pode ser superseded',
+            'restore_local_rag_evidence_ledger_before_graph_rag_review',
+            'human_reviewed_curator_proposal_and_future_ap',
+        ] as $token) {
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-683-local-rag-graph-promotion-review.md: AP-683 authority doc must preserve promotion review doctrine [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-683 Local RAG promotion review',
+            '`LOCAL_RAG_GRAPH_PROMOTION_BLOCKED`',
+            'proposal_only',
+            'cerebro Python paralelo',
+        ] as $token) {
+            if (! str_contains($matrix, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md: AP-683 matrix row/conflict must expose fail-closed status [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanExternalGraphHarnessContract(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/Kernel/Architecture/AtlasExternalGraphHarnessService.php');
+        $commandPath = app_path('Console/Commands/AtlasAiExternalGraphHarnessCommand.php');
+        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiExternalGraphHarnessCommandTest.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiExternalGraphHarnessApiTest.php');
+        $serviceTestPath = base_path('tests/Unit/Ai/Kernel/Architecture/AtlasExternalGraphHarnessServiceTest.php');
+        $operationsTestPath = base_path('tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php');
+        $apDocPath = base_path('docs/ap/AP-684-graphify-external-graph-harness.md');
+        $ownerDocPath = base_path('docs/engineering-knowledge-base/code-intelligence/external-graph-harness.md');
+        $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $serviceTest = File::exists($serviceTestPath) ? File::get($serviceTestPath) : '';
+        $operationsTest = File::exists($operationsTestPath) ? File::get($operationsTestPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+        $ownerDoc = File::exists($ownerDocPath) ? File::get($ownerDocPath) : '';
+        $matrix = File::exists($matrixPath) ? File::get($matrixPath) : '';
+
+        foreach ([
+            'atlas.external_graph_harness.contract.v1',
+            'implemented_read_only_contract',
+            'candidate_validation_no_runtime_no_writes',
+            'atlas.external_graph_candidate.v1',
+            'provider_calls_enabled',
+            'writes_memory_registry',
+            'writes_context_builder',
+            'writes_constelacao',
+            'changes_decide_routing',
+            'installs_graphify_hooks',
+            'review_only_constraints',
+            'atlas.external_graph_review_packet.v1',
+            'required_human_decision',
+            'rollback_plan_required',
+            'policy_patch_review_required',
+            'forbidden_until_review',
+            'surface_direct_external_graph_call',
+            'auto_promotion_allowed',
+            'blocked_runtime_targets',
+            'requires_ap_683_or_successor_for_graph_rag_promotion',
+            'promotion_allowed',
+            'validateForbiddenCandidateKeys',
+            'forbiddenCandidateKeys',
+            'memory_write',
+            'context_builder_payload',
+            'provider_prompt',
+            'node_{$index}_duplicate_id',
+            'graph_json_to_memory',
+            'graph_json_to_context_builder',
+            'graph_json_to_constelacao',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasExternalGraphHarnessService.php: AP-684 external graph harness must stay read-only/fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas:ai:external-graph-harness',
+            '--candidate-file',
+            'validate graph candidates without writes',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasAiExternalGraphHarnessCommand.php: AP-684 command contract must expose read-only candidate validation [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_command_outputs_read_only_contract',
+            'test_command_validates_candidate_file_without_writes',
+            'accepted_read_only_candidate',
+            'writes_constelacao',
+            'review_packet',
+            'required_human_decision',
+            'rollback_plan_required',
+            'forbidden_until_review',
+            'auto_promotion_allowed',
+        ] as $token) {
+            if (! str_contains($commandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiExternalGraphHarnessCommandTest.php: AP-684 command behavior must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_api_exposes_read_only_external_graph_contract',
+            'test_api_validates_candidate_preview_without_operational_writes',
+            'writes_memory_registry',
+            'writes_context_builder',
+            'writes_constelacao',
+            'changes_decide_routing',
+            'atlas.external_graph_review_packet.v1',
+            'required_human_decision',
+            'rollback_plan_required',
+            'policy_patch_review_required',
+            'auto_promotion_allowed',
+            'test_api_rejects_malformed_candidate_payload_fail_closed',
+            'candidate_must_be_json_object',
+            'submit_external_graph_candidate_as_json_object',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiExternalGraphHarnessApiTest.php: AP-684 API behavior must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_contract_is_fail_closed_and_read_only',
+            'test_accepts_valid_candidate_as_read_only',
+            'test_rejects_private_or_unreferenced_candidate',
+            'test_rejects_non_graphify_or_pre_promoted_candidates',
+            'test_rejects_nested_authority_fields_and_duplicate_nodes',
+            'promotion_target_not_allowed_before_review',
+            'forbidden_candidate_key:nodes.2.metadata.provider_prompt',
+            'forbidden_candidate_key:edges.0.metadata.context_builder_payload',
+            'node_2_duplicate_id',
+            'provider_prompt_injection',
+            'atlas.external_graph_review_packet.v1',
+            'required_human_decision',
+            'rollback_plan_required',
+            'policy_patch_review_required',
+            'surface_direct_external_graph_call',
+            'python_graph_rag_runtime',
+        ] as $token) {
+            if (! str_contains($serviceTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/Architecture/AtlasExternalGraphHarnessServiceTest.php: AP-684 service gates must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'external_graph_harness_report',
+            'code_intelligence_report',
+            '/ai/external-graph-harness',
+        ] as $token) {
+            if (! str_contains($operationsTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php: AP-684 Architecture Operations discovery must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'status: implemented_partial',
+            'P0 e P2 read-only estao implementados',
+            'nao escrever Memory Registry',
+            'nao injetar Context Builder',
+            'nao criar estrelas de Constelacao',
+            'promotion_allowed=false',
+            'review_packet',
+            'auto_promotion_allowed',
+            'qualquer promocao para Graph RAG exige AP-683',
+        ] as $token) {
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-684-graphify-external-graph-harness.md: AP-684 doc must preserve implemented_partial/read-only authority [{$token}]";
+            }
+        }
+
+        foreach ([
+            'external_graph_candidate.v1',
+            'Architecture Operations review',
+            'O grafo externo nunca pula para Memory, Context Builder, Constelacao ou Decide.',
+            'promotion_target',
+            'atlas.external_graph_review_packet.v1',
+        ] as $token) {
+            if (! str_contains($ownerDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/code-intelligence/external-graph-harness.md: AP-684 owner doc must preserve pipeline and promotion boundaries [{$token}]";
+            }
+        }
+
+        foreach ([
+            'External Graph Harness / Graphify AP-684',
+            'implemented_partial',
+            'review_only_constraints',
+            'nao rodar Graphify direto em memoria/docs privados',
+            'nao promover Graphify para memoria/contexto/runtime sem AP futuro',
+        ] as $token) {
+            if (! str_contains($matrix, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md: AP-684 matrix row must preserve partial/read-only status [{$token}]";
+            }
+        }
+
+        sort($violations);
+
+        return array_values(array_unique($violations));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanConstelacaoLens1UsageReviewContract(): array
+    {
+        $violations = [];
+        $servicePath = app_path('Services/Ai/Surface/ConstelacaoPositionsService.php');
+        $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        $apiTestPath = base_path('tests/Feature/Ai/AtlasConstelacaoPositionsApiTest.php');
+        $selfImprovementTestPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
+        $docPath = base_path('docs/engineering-knowledge-base/atlas-constelacao-surface.md');
+        $apDocPath = base_path('docs/ap/AP-685-constelacao-lens1-usage-review.md');
+        $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
+
+        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
+        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
+        $selfImprovementTest = File::exists($selfImprovementTestPath) ? File::get($selfImprovementTestPath) : '';
+        $doc = File::exists($docPath) ? File::get($docPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+        $matrix = File::exists($matrixPath) ? File::get($matrixPath) : '';
+
+        foreach ([
+            "'allowed_lenses' => ['bilderatlas']",
+            'command_sky_requires_future_ap_human_review_and_decision_receipt',
+            'unsupported_lens_requires_future_ap_human_review_and_decision_receipt',
+            'lensGateReason',
+            "'lens_role' => 'contemplative_serendipity'",
+            "'operational_chrome_allowed' => false",
+            "'raw_reading_allowed' => false",
+            "'raw_content_allowed' => false",
+            "'graph_rag_status' => 'future_governed'",
+            "'provider_bypass_allowed' => false",
+            "'parallel_memory_allowed' => false",
+            "'graph_rag_promotion_allowed' => false",
+            "'python_runtime_allowed' => false",
+            "'lens2_promotion_allowed' => false",
+            "'command_sky_allowed' => false",
+            "'lineage_allowed' => false",
+            "'graph_rag_positioning_allowed' => false",
+            "'observation_window_days_required' => 30",
+            "'promotion_allowed' => false",
+            'collect_constelacao_lens1_usage_telemetry_for_30_days_before_review',
+            "'requires_curator_usage_review' => true",
+            'atlas.constelacao.lens1_usage_review.v1',
+            'approve_or_reject_constelacao_lens1_promotion_after_usage_review',
+            "'rollback_plan_required' => true",
+            "'policy_patch_review_required' => true",
+            "'forbidden_until_review' => [",
+            "'enable_command_sky'",
+            "'keep_graph_rag_positioning_disabled'",
+            "'auto_promotion_allowed' => false",
+            "'blocked_targets' => [",
+            "'graph_rag_positioning'",
+            "'python_graph_rag_runtime'",
+            'only_future_ap_with_human_review_curator_proposal_decision_receipt_and_rollback_plan',
+            'lens1_must_prove_contemplative_value_before_operational_or_graph_promotion',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/Surface/ConstelacaoPositionsService.php: AP-685 Constelacao Lente 1 must remain contemplative/fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.self_improvement.constelacao_usage_review.v1',
+            'Revisar uso real da Constelacao Lente 1',
+            'review_constelacao_lens1_usage_after_observation_window',
+            'collect_constelacao_lens1_usage_telemetry_for_30_days_before_review',
+            'Graph RAG/Python segue bloqueado',
+            'CONSTELACAO_POSITIONS_SERVED',
+            'constelacao_lens1_usage_requires_human_review_before_lens2',
+            'atlas.constelacao.lens1_usage_review.v1',
+            'approve_or_reject_constelacao_lens1_promotion_after_usage_review',
+            "'rollback_plan_required' => true",
+            "'policy_patch_review_required' => true",
+            "'forbidden_until_review' => [",
+            "'enable_command_sky'",
+            "'keep_graph_rag_positioning_disabled'",
+            "'promotion_allowed' => false",
+            "'auto_promotion_allowed' => false",
+            "'python_graph_rag_runtime'",
+            'only_future_ap_with_human_review_curator_proposal_decision_receipt_and_rollback_plan',
+            "'graph_rag_promotion_allowed' => false",
+            "'python_runtime_allowed' => false",
+        ] as $token) {
+            if (! str_contains($selfImprovement, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-685 Curator finding must review usage without promoting runtime [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_positions_endpoint_returns_governed_constelacao_payload_without_raw_content',
+            "assertJsonPath('lens_maturity_gate.lens2_promotion_allowed', false)",
+            "assertJsonPath('lens_maturity_gate.command_sky_allowed', false)",
+            "assertJsonPath('lens_maturity_gate.graph_rag_positioning_allowed', false)",
+            "assertJsonPath('lens_maturity_gate.promotion_allowed', false)",
+            "assertJsonPath('lens1_usage_review_contract.schema_version', 'atlas.constelacao.lens1_usage_review.v1')",
+            "assertJsonPath('lens1_usage_review_contract.required_human_decision', 'approve_or_reject_constelacao_lens1_promotion_after_usage_review')",
+            "assertJsonPath('lens1_usage_review_contract.rollback_plan_required', true)",
+            "assertJsonPath('lens1_usage_review_contract.policy_patch_review_required', true)",
+            "assertJsonPath('lens1_usage_review_contract.promotion_allowed', false)",
+            "assertJsonPath('lens1_usage_review_contract.auto_promotion_allowed', false)",
+            "assertJsonPath('ui_contract.lens_role', 'contemplative_serendipity')",
+            "assertJsonPath('ui_contract.operational_chrome_allowed', false)",
+            "assertJsonPath('position_engine.graph_rag_status', 'future_governed')",
+            "assertJsonPath('position_engine.semantic_positioning_readiness.promotion_gate.graph_rag_promotion_allowed', false)",
+            "assertJsonPath('position_engine.semantic_positioning_readiness.promotion_gate.python_runtime_allowed', false)",
+            'test_unknown_lens_request_is_sanitized_preserved_and_blocked',
+            "assertJsonPath('requested_lens', 'graph-rag-admin')",
+            "assertJsonPath('lens_gate.reason', 'unsupported_lens_requires_future_ap_human_review_and_decision_receipt')",
+            'assertStringNotContainsString',
+        ] as $token) {
+            if (! str_contains($apiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasConstelacaoPositionsApiTest.php: AP-685 API must prove Lente 1 privacy and promotion gates [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_docs_drift_review_emits_constelacao_lens_usage_review_without_graph_promotion',
+            'atlas.self_improvement.constelacao_usage_review.v1',
+            'metadata.usage_review_contract.schema_version',
+            'metadata.usage_review_contract.required_human_decision',
+            'metadata.usage_review_contract.rollback_plan_required',
+            'metadata.usage_review_contract.forbidden_until_review',
+            'review_constelacao_lens1_usage_after_observation_window',
+            'collect_constelacao_lens1_usage_telemetry_for_30_days_before_review',
+            'metadata.promotion_gate.promotion_allowed',
+            'metadata.promotion_gate.graph_rag_promotion_allowed',
+            'metadata.promotion_gate.python_runtime_allowed',
+        ] as $token) {
+            if (! str_contains($selfImprovementTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-685 Curator usage review must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Constelacao e uma surface contemplativa do Atlas',
+            'Lente 1 Bilderatlas e sempre o estado default',
+            'Command Sky/linhagem so entra por gesto explicito em fase posterior',
+            'Graph RAG/Python permanece bloqueado',
+            'fallback silencioso e proibido',
+            'Curator usage review',
+            '30 dias de uso real',
+            'atlas.constelacao.lens1_usage_review.v1',
+            'promotion_allowed=false',
+            'auto-promotion proibida',
+            'review humano e Decision Receipt',
+            'implemented_partial',
+        ] as $token) {
+            if (! str_contains($doc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-constelacao-surface.md: AP-685 doc must preserve Lente 1 usage review doctrine [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-685 - Constelacao Lens 1 Usage Review',
+            'status: implemented_partial',
+            'atlas.constelacao.lens1_usage_review.v1',
+            'Lens 1 is always `bilderatlas`',
+            '`promotion_allowed=false`',
+            '`auto_promotion_allowed=false`',
+            '`command_sky_allowed=false`',
+            '`graph_rag_positioning_allowed=false`',
+            'Silent fallback is not',
+            'Any Graph RAG promotion must pass AP-683',
+            'CONSTELACAO_POSITIONS_SERVED',
+            '30-day observation window',
+            'Do not build Command Sky here',
+        ] as $token) {
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-685-constelacao-lens1-usage-review.md: AP-685 canonical AP doc must exist and preserve Lente 1 usage review contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Constelacao Lente 1 usage review',
+            'zero elementos operacionais na Lente 1',
+            'Coletar uso real por 30 dias',
+            'manter Graph RAG/Command Sky bloqueados ate AP/review',
+        ] as $token) {
+            if (! str_contains($matrix, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md: AP-685 matrix safe-next row must preserve Lente 1 gate [{$token}]";
+            }
+        }
+
+        sort($violations);
+
+        return array_values(array_unique($violations));
     }
 
     /**
@@ -4210,6 +5842,12 @@ class KernelArchitectureStaticScanner
             "'changes_provider' => false",
             "'proposal_evidence_contract'",
             'atlas.dynamic_compute_market.proposal_evidence.v1',
+            'atlas.dynamic_compute_market.proposal_review_packet.v1',
+            "'required_human_decision' => 'approve_or_reject_dynamic_compute_market_policy_change'",
+            "'required_decision_receipt' => true",
+            "'rollback_plan_required' => \$opensProposal",
+            "'policy_patch_review_required' => \$opensProposal",
+            'bypass_atlas_decide_authority',
             'draft_only_until_benchmark_and_review',
             "'quality_basis'",
             "'latency_basis'",
@@ -4476,6 +6114,7 @@ class KernelArchitectureStaticScanner
             'atlas.dynamic_compute_market_report.v1',
             'read_only_no_routing_change',
             'dynamic_compute_market.routing_control.changes_provider',
+            'dynamic_compute_market.proposal_gate.review_packet.schema_version',
             'provider is required.',
             'test_command_reports_unavailable_without_ap99_ledger_projection',
             'ledger_unavailable',
@@ -4491,6 +6130,7 @@ class KernelArchitectureStaticScanner
             'atlas.dynamic_compute_market_report.v1',
             'read_only_no_routing_change',
             'dynamic_compute_market.routing_control.changes_provider',
+            'dynamic_compute_market.proposal_gate.review_packet.schema_version',
             'test_api_requires_atlas_token',
             'test_api_reports_unavailable_without_ap99_ledger_projection',
             'ledger_unavailable',
@@ -4586,6 +6226,7 @@ class KernelArchitectureStaticScanner
             'recommended_next_action',
             'recommendation_reason',
             'benchmark controlado',
+            'proposal_review_packet',
         ] as $token) {
             if (! str_contains($modelSelectionDoc, $token)) {
                 $violations[] = "docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md: Dynamic Compute Market explainability must be documented [{$token}]";
@@ -4598,6 +6239,7 @@ class KernelArchitectureStaticScanner
             'atlas.dynamic_compute_market_report.v1',
             'read_only_no_routing_change',
             'routing_control.changes_provider=false',
+            'proposal_review_packet',
             'atlas_dynamic_compute_market_report',
             'AtlasAiDynamicComputeMarketCommandTest',
             'AtlasAiDynamicComputeMarketApiTest',
@@ -4612,6 +6254,699 @@ class KernelArchitectureStaticScanner
         }
 
         return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanRuntimeLanguageBoundaryContract(): array
+    {
+        $violations = [];
+        $runtimeDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md');
+        $staticScansDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
+        $architectureTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureValidateCommandTest.php');
+        $runtimeReportPath = app_path('Services/Ai/Kernel/Architecture/AtlasRuntimeLanguageBoundaryReportService.php');
+        $runtimeCommandTestPath = base_path('tests/Feature/Ai/AtlasAiRuntimeBoundaryCommandTest.php');
+        $runtimeApiTestPath = base_path('tests/Feature/Ai/AtlasAiRuntimeBoundaryApiTest.php');
+        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
+        $architectureOperationsCatalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
+        $architectureOperationsCommandTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsCommandTest.php');
+        $architectureOperationsApiTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsApiTest.php');
+        $architectureOperationsCatalogTestPath = base_path('tests/Unit/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalogTest.php');
+        $featurePlacementPath = app_path('Services/Ai/Kernel/Architecture/AtlasFeaturePlacementService.php');
+        $featurePlacementTestPath = base_path('tests/Feature/Ai/AtlasAiSessionBootstrapCommandTest.php');
+
+        $runtimeDoc = File::exists($runtimeDocPath) ? File::get($runtimeDocPath) : '';
+        $staticScansDoc = File::exists($staticScansDocPath) ? File::get($staticScansDocPath) : '';
+        $architectureTest = File::exists($architectureTestPath) ? File::get($architectureTestPath) : '';
+        $runtimeReport = File::exists($runtimeReportPath) ? File::get($runtimeReportPath) : '';
+        $runtimeCommandTest = File::exists($runtimeCommandTestPath) ? File::get($runtimeCommandTestPath) : '';
+        $runtimeApiTest = File::exists($runtimeApiTestPath) ? File::get($runtimeApiTestPath) : '';
+        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
+        $architectureOperationsCatalog = File::exists($architectureOperationsCatalogPath) ? File::get($architectureOperationsCatalogPath) : '';
+        $architectureOperationsCommandTest = File::exists($architectureOperationsCommandTestPath) ? File::get($architectureOperationsCommandTestPath) : '';
+        $architectureOperationsApiTest = File::exists($architectureOperationsApiTestPath) ? File::get($architectureOperationsApiTestPath) : '';
+        $architectureOperationsCatalogTest = File::exists($architectureOperationsCatalogTestPath) ? File::get($architectureOperationsCatalogTestPath) : '';
+        $featurePlacement = File::exists($featurePlacementPath) ? File::get($featurePlacementPath) : '';
+        $featurePlacementTest = File::exists($featurePlacementTestPath) ? File::get($featurePlacementTestPath) : '';
+
+        foreach ([
+            'Laravel decide e governa',
+            'python_ai_data',
+            'go_edge',
+            'swift_native_mac',
+            'DecisionReceipt',
+            'Adapters Laravel podem manter fallback leve, hash local ou chamada governada de',
+            'Eles nao podem virar Vector RAG',
+            'Graph RAG, reranker, clustering',
+        ] as $token) {
+            if (! str_contains($runtimeDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md: runtime language boundary doctrine must document [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Runtime language boundary',
+            'Heavy RAG/ML libraries or direct Go/Swift native runtime shortcuts in Laravel `app/`, including services, semantic adapters, controllers, jobs and commands, must fail runtime language boundary',
+            'EmbeddingService',
+        ] as $token) {
+            if (! str_contains($staticScansDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/kernel/static-scans.md: AP-201 runtime language boundary scan must be documented [{$token}]";
+            }
+        }
+
+        foreach ([
+            'ap201_runtime_language_boundary_contract',
+            'runtime language boundary',
+        ] as $token) {
+            if (! str_contains($architectureTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiArchitectureValidateCommandTest.php: AP-201 runtime language boundary scan must be asserted [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasRuntimeLanguageBoundaryReportService',
+            'atlas.runtime_boundary_preflight_gate.v1',
+            'runtime_promotion_policy',
+            'run_feature_placement_strict',
+            'skip_decision_receipt_for_runtime',
+            'atlas.runtime_promotion_policy.v1',
+            'runtime_invocation_contract',
+            'runtime_owner_map',
+            'decision_receipt_hash',
+            'evidence_sink',
+            'create_parallel_context_store',
+            'python_ai_data',
+            'go_edge',
+            'swift_native_mac',
+            'runtimes/python',
+            'runtimes/go',
+            'runtimes/swift',
+            'atlas_runtime_boundary',
+        ] as $token) {
+            if (! str_contains($runtimeReport, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasRuntimeLanguageBoundaryReportService.php: AP-201 runtime boundary report must expose executable invocation contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'preflight_gate.schema_version',
+            'runtime_promotion_policy.schema_version',
+            'skip_decision_receipt_for_runtime',
+            'runtime_invocation_contract.schema_version',
+            'runtime_owner_map.python_ai_data.allowed_write_scope',
+            'decision_receipt_hash',
+        ] as $token) {
+            if (! str_contains($runtimeCommandTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiRuntimeBoundaryCommandTest.php: AP-201 CLI runtime invocation contract must be asserted [{$token}]";
+            }
+            if (! str_contains($runtimeApiTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiRuntimeBoundaryApiTest.php: AP-201 API runtime invocation contract must be asserted [{$token}]";
+            }
+            if (! str_contains($mcpTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-201 MCP runtime invocation contract must be asserted [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'id' => 'runtime_language_boundary'",
+            "'owner_layer' => 'runtime'",
+            "'governed_runtimes' => ['python_ai_data', 'go_edge', 'swift_native_mac']",
+            "'pre_implementation_gate' => true",
+            "'required_for_terms' => ['python', 'rag', 'embedding', 'faiss', 'go', 'swift', 'livekit', 'ml']",
+        ] as $token) {
+            if (! str_contains($architectureOperationsCatalog, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php: AP-201 runtime boundary operation must be discoverable by runtime owner layer [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'--owner-layer' => 'runtime'",
+            "['runtime_language_boundary']",
+            'architecture_operations.commands.0.owner_layer',
+            'architecture_operations.commands.0.pre_implementation_gate',
+            'architecture_operations.commands.0.governed_runtimes',
+            "'owner_layer' => 'runtime'",
+        ] as $token) {
+            if (! str_contains($architectureOperationsCommandTest, $token)
+                && ! str_contains($architectureOperationsApiTest, $token)
+                && ! str_contains($architectureOperationsCatalogTest, $token)
+                && ! str_contains($mcpTest, $token)) {
+                $violations[] = "tests: AP-201 runtime boundary owner-layer discovery must be asserted across CLI/API/catalog/MCP [{$token}]";
+            }
+        }
+
+        foreach ([
+            'private function runtimeOwnerDocs',
+            'private function runtimeInvocationContract',
+            'AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary',
+            '$this->runtimeBoundary->invocationContract()',
+            'selected_runtime_family',
+            'placement_runtime_alias',
+            'do_not_implement_heavy_rag_embeddings_rerank_graph_or_ml_inside_laravel_app',
+            'do_not_put_provider_policy_memory_or_domain_decision_inside_go_edge_runtime',
+            'do_not_capture_mic_screen_keychain_touchid_or_accessibility_without_kernel_policy_and_user_consent',
+            'run_runtime_language_boundary_before_and_after_changes',
+            'declare_kernel_decision_receipt_contract_for_runtime_invocation',
+            'prove_runtime_outputs_return_to_evidence_ledger_or_output_renderer',
+            'faiss',
+            'reranker',
+            'go_edge_concurrency',
+            'swift_native_mac',
+        ] as $token) {
+            if (! str_contains($featurePlacement, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Architecture/AtlasFeaturePlacementService.php: AP-201 feature placement must route specialized runtimes with owner docs and forbidden scopes [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_place_feature_routes_graph_rag_to_python_runtime_boundary',
+            'test_place_feature_routes_go_edge_streaming_to_go_runtime_boundary',
+            'test_place_feature_routes_swift_native_mac_to_swift_runtime_boundary',
+            'implementation_contract.runtime_invocation_contract.schema_version',
+            'implementation_contract.runtime_invocation_contract.selected_runtime_family',
+            'docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md',
+            'do_not_implement_heavy_rag_embeddings_rerank_graph_or_ml_inside_laravel_app',
+            'do_not_put_provider_policy_memory_or_domain_decision_inside_go_edge_runtime',
+            'do_not_capture_mic_screen_keychain_touchid_or_accessibility_without_kernel_policy_and_user_consent',
+        ] as $token) {
+            if (! str_contains($featurePlacementTest, $token)) {
+                $violations[] = "tests/Feature/Ai/AtlasAiSessionBootstrapCommandTest.php: AP-201 feature placement runtime routing must be asserted [{$token}]";
+            }
+        }
+
+        foreach ($this->scanEmbeddingServiceRuntimeBoundary() as $violation) {
+            $violations[] = $violation;
+        }
+
+        foreach ($this->scanRuntimeBoundaryForbiddenLaravelImplementations() as $violation) {
+            $violations[] = $violation;
+        }
+
+        sort($violations);
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanProductiveFailureGovernanceContract(): array
+    {
+        $flowPath = app_path('Services/Ai/Cognitive/ProductiveFailure/ProductiveFailureFlow.php');
+        $commandPath = app_path('Console/Commands/AtlasProductiveFailureCommand.php');
+        $featureTestPath = base_path('tests/Feature/Ai/Cognitive/AtlasProductiveFailureCommandTest.php');
+        $apDocPath = base_path('docs/ap/AP-168-cognitive-productive-failure-flow.md');
+        $staticScansDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
+
+        $flow = File::exists($flowPath) ? File::get($flowPath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+        $staticScansDoc = File::exists($staticScansDocPath) ? File::get($staticScansDocPath) : '';
+        $violations = [];
+
+        foreach ([
+            'atlas.cognitive.productive_failure_flow.v1',
+            'productive_failure_topic_required',
+            'productive_failure_storage_unavailable',
+            'run_migrations_before_productive_failure',
+            'ProductiveFailurePhase1Started',
+            'ProductiveFailureCompleted',
+            "'operator_opt_in_required' => true",
+            "'specific_topic_required' => true",
+            "'empty_topic_allowed' => false",
+            "'auto_schedule_allowed' => false",
+            "'passive_session_allowed' => false",
+            "'random_frustration_allowed' => false",
+            "'requires_prediction_error_delta' => true",
+            "'transfer_test_review_required' => true",
+            "'allowed_surfaces_now' => ['cli_explicit']",
+        ] as $token) {
+            if (! str_contains($flow, $token)) {
+                $violations[] = "app/Services/Ai/Cognitive/ProductiveFailure/ProductiveFailureFlow.php: AP-168 governance/runtime contract must be preserved [{$token}]";
+            }
+        }
+
+        foreach ([
+            'productive_failure_topic_required',
+            'productive_failure_storage_unavailable',
+            'run_migrations_before_productive_failure',
+        ] as $token) {
+            if (! str_contains($command.$featureTest, $token)) {
+                $violations[] = "app/Console/Commands/AtlasProductiveFailureCommand.php + tests: AP-168 CLI must expose explicit topic and storage-unavailable governance [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_command_runs_full_productive_failure_session_with_ledger_events',
+            'test_completion_is_blocked_without_prediction_error_delta',
+            'test_transfer_tests_action_returns_review_only_due_proposals',
+            'test_productive_failure_requires_specific_topic_to_avoid_random_frustration',
+            'test_productive_failure_blocks_when_storage_is_unavailable',
+        ] as $token) {
+            if (! str_contains($featureTest, $token)) {
+                $violations[] = "tests/Feature/Ai/Cognitive/AtlasProductiveFailureCommandTest.php: AP-168 CLI/evidence/governance flow must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Hardening note (2026-05-10)',
+            'productive_failure_storage_unavailable',
+            'run_migrations_before_productive_failure',
+            'random_frustration_allowed=false',
+            'requires_prediction_error_delta=true',
+        ] as $token) {
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-168-cognitive-productive-failure-flow.md: AP-168 storage and prediction-error boundary must stay documented [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-168 Productive Failure governance',
+            'storage-backed',
+            'productive_failure_sessions',
+            'prediction-error delta',
+        ] as $token) {
+            if (! str_contains($staticScansDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/kernel/static-scans.md: AP-168 static scan must be documented [{$token}]";
+            }
+        }
+
+        sort($violations);
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanPersonalWorkedExamplePrivacyContract(): array
+    {
+        $redactorPath = app_path('Services/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactor.php');
+        $extractorPath = app_path('Services/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExampleExtractor.php');
+        $privacyGatePath = app_path('Services/Ai/Kernel/Gates/PersonalWorkedExamplePrivacySafeGate.php');
+        $featureTestPath = base_path('tests/Feature/Ai/Cognitive/AtlasWorkedExamplePersonalExtractionCommandTest.php');
+        $redactorTestPath = base_path('tests/Unit/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactorTest.php');
+        $apDocPath = base_path('docs/ap/AP-169-cognitive-personal-worked-examples-generator.md');
+        $staticScansDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
+
+        $redactor = File::exists($redactorPath) ? File::get($redactorPath) : '';
+        $extractor = File::exists($extractorPath) ? File::get($extractorPath) : '';
+        $privacyGate = File::exists($privacyGatePath) ? File::get($privacyGatePath) : '';
+        $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
+        $redactorTest = File::exists($redactorTestPath) ? File::get($redactorTestPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+        $staticScansDoc = File::exists($staticScansDocPath) ? File::get($staticScansDocPath) : '';
+        $violations = [];
+
+        foreach ([
+            'source_metadata',
+            'quality_signals',
+            'redactValue',
+            '[redacted_email]',
+            '[redacted_secret]',
+            'provider_safe',
+        ] as $token) {
+            if (! str_contains($redactor, $token)) {
+                $violations[] = "app/Services/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactor.php: AP-169 must redact metadata and quality signals before persistence [{$token}]";
+            }
+        }
+
+        foreach ([
+            'raw_content_in_ledger',
+            'source_ref_hash',
+            'PersonalWorkedExampleDiscardedDuplicate',
+            'read_only_existing_record_preserved',
+        ] as $token) {
+            if (! str_contains($extractor, $token)) {
+                $violations[] = "app/Services/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExampleExtractor.php: AP-169 Ledger summaries must stay sanitized and duplicate-safe [{$token}]";
+            }
+        }
+
+        foreach ([
+            'privacy_secrets_detected',
+            'privacy_class_3_requires_redaction',
+            'personal_worked_example_privacy_safe',
+            '[a-z0-9._-]{12,}',
+        ] as $token) {
+            if (! str_contains($privacyGate, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Gates/PersonalWorkedExamplePrivacySafeGate.php: AP-169 privacy gate must block unredacted secrets and sensitive privacy classes [{$token}]";
+            }
+        }
+
+        foreach ([
+            'storedMetadata',
+            'storedSignals',
+            'commitsecret123456',
+            'assertStringNotContainsString',
+        ] as $token) {
+            if (! str_contains($featureTest, $token)) {
+                $violations[] = "tests/Feature/Ai/Cognitive/AtlasWorkedExamplePersonalExtractionCommandTest.php: AP-169 e2e must prove extraction read model is sanitized [{$token}]";
+            }
+        }
+
+        foreach ([
+            'source_metadata',
+            'quality_signals',
+            'secret-quality-token123',
+            'assertStringContainsString',
+        ] as $token) {
+            if (! str_contains($redactorTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactorTest.php: AP-169 redactor unit test must cover metadata and quality signals [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Hardening note (2026-05-10)',
+            'source_metadata',
+            'quality_signals',
+            'texto cru de commit/Feynman/decisao nao pode',
+        ] as $token) {
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-169-cognitive-personal-worked-examples-generator.md: AP-169 privacy hardening boundary must stay documented [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-169 Personal Worked Examples privacy',
+            'read model de extracao',
+        ] as $token) {
+            if (! str_contains($staticScansDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/kernel/static-scans.md: AP-169 static scan must be documented [{$token}]";
+            }
+        }
+
+        sort($violations);
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanPredictiveFailureGovernanceContract(): array
+    {
+        $flowPath = app_path('Services/Ai/Cognitive/PredictiveFailure/PredictiveFailureFlow.php');
+        $commandPath = app_path('Console/Commands/AtlasPredictCommand.php');
+        $calibrationGatePath = app_path('Services/Ai/Kernel/Gates/PredictiveFailureCalibrationBandGate.php');
+        $safetyGatePath = app_path('Services/Ai/Kernel/Gates/PredictiveFailureSafetyGate.php');
+        $featureTestPath = base_path('tests/Feature/Ai/Cognitive/AtlasPredictCommandTest.php');
+        $gateTestPath = base_path('tests/Unit/Ai/Kernel/Gates/PredictiveFailureGateTest.php');
+        $apDocPath = base_path('docs/ap/AP-170-cognitive-predictive-failure-insertion.md');
+        $briefingPath = base_path('docs/engineering-knowledge-base/cognitive/implementation-briefing.md');
+        $staticScansDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
+
+        $flow = File::exists($flowPath) ? File::get($flowPath) : '';
+        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $calibrationGate = File::exists($calibrationGatePath) ? File::get($calibrationGatePath) : '';
+        $safetyGate = File::exists($safetyGatePath) ? File::get($safetyGatePath) : '';
+        $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
+        $gateTest = File::exists($gateTestPath) ? File::get($gateTestPath) : '';
+        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+        $briefing = File::exists($briefingPath) ? File::get($briefingPath) : '';
+        $staticScansDoc = File::exists($staticScansDocPath) ? File::get($staticScansDocPath) : '';
+        $violations = [];
+
+        foreach ([
+            'atlas.cognitive.predictive_failure.flow.v1',
+            'atlas.cognitive.predictive_failure.governance.v1',
+            "'operator_opt_in_required' => true",
+            "'specific_target_required' => true",
+            "'empty_subject_allowed' => false",
+            "'auto_schedule_allowed' => false",
+            "'passive_insertion_allowed' => false",
+            "'random_frustration_allowed' => false",
+            "'daily_plan_auto_insert_allowed' => false",
+            "'requires_calibration_band_gate' => true",
+            "'requires_safety_gate' => true",
+            "'requires_outcome_tracking' => true",
+            "'allowed_surfaces_now' => ['cli_explicit']",
+            'predictive_failure_subject_required',
+            'predictive_failure_storage_unavailable',
+            'run_migrations_before_predictive_failure',
+            'PredictiveFailureInserted',
+            'PredictiveFailureInsertionSkipped',
+            'PredictiveFailurePriorUpdated',
+        ] as $token) {
+            if (! str_contains($flow, $token)) {
+                $violations[] = "app/Services/Ai/Cognitive/PredictiveFailure/PredictiveFailureFlow.php: AP-170 governance/runtime contract must be preserved [{$token}]";
+            }
+        }
+
+        foreach ([
+            'predictive_failure_subject_required',
+            'predictive_failure_insertion_id_required',
+            'unknown_predict_action',
+            'PredictiveFailureFlow::governanceContract()',
+        ] as $token) {
+            if (! str_contains($command, $token)) {
+                $violations[] = "app/Console/Commands/AtlasPredictCommand.php: AP-170 CLI must require explicit target and expose governance on invalid input [{$token}]";
+            }
+        }
+
+        foreach ([
+            'predictive_failure_calibration_band',
+            'predictive_failure_too_easy_outside_zone',
+            'predictive_failure_too_hard_outside_zone',
+            'predictive_failure_calibration_band_sweet',
+        ] as $token) {
+            if (! str_contains($calibrationGate, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Gates/PredictiveFailureCalibrationBandGate.php: AP-170 calibration band gate must remain executable [{$token}]";
+            }
+        }
+
+        foreach ([
+            'predictive_failure_safety',
+            'predictive_failure_blocked_high_cognitive_load',
+            'predictive_failure_privacy_class_too_high',
+            'predictive_failure_blocked_stress_state',
+            'isSensitivePrivacyClass',
+        ] as $token) {
+            if (! str_contains($safetyGate, $token)) {
+                $violations[] = "app/Services/Ai/Kernel/Gates/PredictiveFailureSafetyGate.php: AP-170 safety gate must remain executable [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_predict_failure_insert_resolve_and_metrics_flow',
+            'test_predict_failure_is_blocked_under_high_cognitive_load',
+            'test_predict_failure_requires_specific_target_to_avoid_random_frustration',
+            'test_predict_resolve_requires_valid_insertion_id',
+            'test_predictive_failure_flow_rejects_empty_target_even_outside_cli',
+            'test_predictive_failure_flow_blocks_when_storage_is_unavailable',
+            'PredictiveFailureInserted',
+            'PredictiveFailureOutcomeFailure',
+            'PredictiveFailureCalibrationComputed',
+            'operator_opt_in_required',
+            'daily_plan_auto_insert_allowed',
+        ] as $token) {
+            if (! str_contains($featureTest, $token)) {
+                $violations[] = "tests/Feature/Ai/Cognitive/AtlasPredictCommandTest.php: AP-170 CLI/evidence/governance flow must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_calibration_gate_blocks_outside_sweet_band_and_passes_sweet_band',
+            'test_safety_gate_blocks_high_load_and_sensitive_privacy',
+        ] as $token) {
+            if (! str_contains($gateTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/Gates/PredictiveFailureGateTest.php: AP-170 gates must be covered [{$token}]";
+            }
+        }
+
+        foreach ([
+            'Status: implemented_partial',
+            'alvo explicito obrigatorio',
+            'Service-level guard tambem exige alvo explicito',
+            'predictive_failure_storage_unavailable',
+            'random_frustration_allowed=false',
+            'daily-plan/on-off/UX App-Mobile-Voice',
+            'requires_rivals_learning_validation_before_default=true',
+        ] as $token) {
+            if (! str_contains($apDoc, $token)) {
+                $violations[] = "docs/ap/AP-170-cognitive-predictive-failure-insertion.md: AP-170 must document current partial boundary [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-170',
+            'implemented_partial',
+            'daily-plan/UX/KG maduro futuros',
+        ] as $token) {
+            if (! str_contains($briefing, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/cognitive/implementation-briefing.md: AP-170 status must stay visible to AI implementers [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AP-170 Predictive Failure governance',
+            'alvo explicito',
+            'random frustration',
+            'daily-plan/UX/KG maduro',
+        ] as $token) {
+            if (! str_contains($staticScansDoc, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/kernel/static-scans.md: AP-170 static scan must be documented [{$token}]";
+            }
+        }
+
+        sort($violations);
+
+        return $violations;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanEmbeddingServiceRuntimeBoundary(): array
+    {
+        $violations = [];
+        $embeddingServicePath = app_path('Services/Semantic/EmbeddingService.php');
+        $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
+        $runtimeBoundaryTestPath = base_path('tests/Unit/Ai/Kernel/Architecture/KernelArchitectureStaticScannerRuntimeLanguageBoundaryTest.php');
+
+        $embeddingService = File::exists($embeddingServicePath) ? File::get($embeddingServicePath) : '';
+        $matrix = File::exists($matrixPath) ? File::get($matrixPath) : '';
+        $runtimeBoundaryTest = File::exists($runtimeBoundaryTestPath) ? File::get($runtimeBoundaryTestPath) : '';
+
+        foreach ([
+            'local_hash',
+            'embedWithLocalHash',
+            'embedWithOpenAi',
+            'fallback',
+        ] as $token) {
+            if (! str_contains($embeddingService, $token)) {
+                $violations[] = "app/Services/Semantic/EmbeddingService.php: AP-201 requires EmbeddingService to remain a lightweight fallback/hash/provider adapter [{$token}]";
+            }
+        }
+
+        foreach ([
+            'EmbeddingService` fallback/hash local',
+            'nao promover para Vector RAG, Graph RAG, reranker ou clustering',
+            'FAISS/Chroma/LangGraph/NetworkX/Pandas/Polars/scikit/reranker/clustering',
+        ] as $token) {
+            if (! str_contains($matrix, $token)) {
+                $violations[] = "docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md: AP-201 must preserve EmbeddingService boundary in the scaffold matrix [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_runtime_language_boundary_scan_flags_heavy_ai_runtime_inside_laravel_app',
+            'test_runtime_language_boundary_scan_flags_heavy_ai_runtime_inside_semantic_adapter',
+            'test_runtime_language_boundary_scan_flags_heavy_ai_runtime_inside_controller',
+            'test_runtime_language_boundary_scan_flags_heavy_ai_runtime_inside_job',
+            'test_runtime_language_boundary_scan_flags_heavy_ai_runtime_inside_command',
+            'test_runtime_language_boundary_scan_flags_direct_go_runtime_inside_controller',
+            'test_runtime_language_boundary_scan_flags_direct_swift_native_runtime_inside_command',
+            'test_runtime_language_boundary_scan_flags_laravel_process_facade_runtime_escape',
+            'test_runtime_language_boundary_scan_flags_symfony_process_runtime_escapes',
+            'ForbiddenChromaRegression.php',
+            'ForbiddenLangGraphController.php',
+            'ForbiddenPandasJob.php',
+            'ForbiddenNumpyCommand.php',
+            'ForbiddenGoEdgeController.php',
+            'ForbiddenSwiftNativeCommand.php',
+            'ForbiddenLaravelProcessRuntimeController.php',
+            'ForbiddenSymfonyProcessGoController.php',
+            'ForbiddenSymfonyProcessSwiftCommand.php',
+        ] as $token) {
+            if (! str_contains($runtimeBoundaryTest, $token)) {
+                $violations[] = "tests/Unit/Ai/Kernel/Architecture/KernelArchitectureStaticScannerRuntimeLanguageBoundaryTest.php: AP-201 must cover semantic adapter regressions [{$token}]";
+            }
+        }
+
+        foreach ([
+            'faiss',
+            'chromadb',
+            'llama_index',
+            'langgraph',
+            'networkx',
+            'pandas',
+            'polars',
+            'sklearn',
+            'torch',
+            'tensorflow',
+            'transformers',
+            'similaritySearch',
+            'nearestNeighbors',
+            'GraphRag',
+            'VectorRag',
+            'Reranker',
+            'Clusterer',
+        ] as $token) {
+            if (str_contains($embeddingService, $token)) {
+                $violations[] = "app/Services/Semantic/EmbeddingService.php: forbidden AP-201 token [{$token}]. Heavy RAG/ML belongs in python_ai_data behind DecisionReceipt.";
+            }
+        }
+
+        sort($violations);
+
+        return array_values(array_unique($violations));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scanRuntimeBoundaryForbiddenLaravelImplementations(): array
+    {
+        $roots = [
+            app_path('Services/Ai/Context'),
+            app_path('Services/Ai/Cognitive'),
+            app_path('Services/Ai/Domain'),
+            app_path('Services/Ai/Memory'),
+            app_path('Services/Ai/Provider'),
+            app_path('Services/Ai/Surface'),
+            app_path('Services/Semantic'),
+            app_path('Http/Controllers'),
+            app_path('Jobs'),
+            app_path('Console/Commands'),
+        ];
+
+        $patterns = [
+            'python_import_faiss' => '/\b(import|from)\s+(faiss|chromadb|llama_index|langgraph|networkx|pandas|polars|numpy|sklearn|torch|tensorflow|transformers)\b/i',
+            'process_exec_heavy_ai_runtime' => '/\b(shell_exec|exec|passthru|proc_open)\s*\([^;]*(faiss|chromadb|llama_index|langgraph|networkx|pandas|polars|numpy|sklearn|torch|tensorflow|transformers)/is',
+            'laravel_process_heavy_ai_runtime' => '/\bProcess::(?:run|start|forever|pipe)\s*\([^;]*(faiss|chromadb|llama_index|langgraph|networkx|pandas|polars|numpy|sklearn|torch|tensorflow|transformers)/is',
+            'symfony_process_shell_heavy_ai_runtime' => '/\bProcess::fromShellCommandline\s*\([^;]*(faiss|chromadb|llama_index|langgraph|networkx|pandas|polars|numpy|sklearn|torch|tensorflow|transformers)/is',
+            'symfony_process_array_heavy_ai_runtime' => '/\bnew\s+Process\s*\(\s*\[[^\]]*(python|python3)[^\]]*(faiss|chromadb|llama_index|langgraph|networkx|pandas|polars|numpy|sklearn|torch|tensorflow|transformers)[^\]]*\]/is',
+            'laravel_heavy_rag_class' => '/\bnew\s+(FaissIndex|ChromaCollection|LlamaIndex|LangGraph|NetworkX|PandasDataFrame|PolarsDataFrame|TorchModel|TensorFlowModel|TransformersPipeline)\b/i',
+            'direct_heavy_rag_symbol' => '/\b(FaissIndex|ChromaCollection|LlamaIndexRunner|LangGraphRunner|NetworkXGraph|PandasDataFrame|PolarsDataFrame|TorchTensor|TensorFlowModel|TransformersPipeline)\b/',
+            'laravel_heavy_rag_engine' => '/\b(class|function)\s+\w*(GraphRag|VectorRag|Rerank|Faiss|Chroma|LangGraph|LlamaIndex)\w*\b/i',
+            'process_exec_go_edge_runtime' => '/\b(shell_exec|exec|passthru|proc_open)\s*\([^;]*(go\s+(run|build|test)|nats|kafka|webhook-ingestor|postback-ingestor)/is',
+            'laravel_process_go_edge_runtime' => '/\bProcess::(?:run|start|forever|pipe|fromShellCommandline)\s*\([^;]*(go\s+(run|build|test)|nats|kafka|webhook-ingestor|postback-ingestor)/is',
+            'symfony_process_array_go_edge_runtime' => '/\bnew\s+Process\s*\(\s*\[[^\]]*go[^\]]*(run|build|test|nats|kafka|webhook-ingestor|postback-ingestor)[^\]]*\]/is',
+            'process_exec_swift_native_runtime' => '/\b(shell_exec|exec|passthru|proc_open)\s*\([^;]*(swift\s+(run|build|test)|swiftc|ScreenCaptureKit|FSEvents|AVAudioEngine|CoreML|NSWorkspace)/is',
+            'laravel_process_swift_native_runtime' => '/\bProcess::(?:run|start|forever|pipe|fromShellCommandline)\s*\([^;]*(swift\s+(run|build|test)|swiftc|ScreenCaptureKit|FSEvents|AVAudioEngine|CoreML|NSWorkspace)/is',
+            'symfony_process_array_swift_native_runtime' => '/\bnew\s+Process\s*\(\s*\[[^\]]*(swift|swiftc|ScreenCaptureKit|FSEvents|AVAudioEngine|CoreML|NSWorkspace)[^\]]*\]/is',
+            'direct_swift_native_symbol' => '/\b(ScreenCaptureKit|FSEvents|AVAudioEngine|CoreML|NSWorkspace|SFSpeechRecognizer|LAContext|SecKeychain)\b/',
+        ];
+
+        $violations = [];
+
+        foreach ($roots as $root) {
+            if (! File::isDirectory($root)) {
+                continue;
+            }
+
+            foreach (File::allFiles($root) as $file) {
+                if ($file->getExtension() !== 'php') {
+                    continue;
+                }
+
+                $path = $file->getRealPath() ?: $file->getPathname();
+                $relativePath = str_replace(base_path().DIRECTORY_SEPARATOR, '', $path);
+                $contents = File::get($path);
+
+                foreach ($patterns as $patternId => $pattern) {
+                    if (preg_match($pattern, $contents) === 1) {
+                        $violations[] = "{$relativePath}: forbidden runtime language boundary violation [{$patternId}]. Heavy AI/Data runtime belongs in python_ai_data, go_edge, or swift_native_mac behind Kernel DecisionReceipt.";
+                    }
+                }
+            }
+        }
+
+        sort($violations);
+
+        return array_values(array_unique($violations));
     }
 
     /**
@@ -6998,6 +9333,12 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             'AtlasAiRuntimeSettings::DEFAULT_BUDGET_WINDOW_HOURS',
+            'atlas.runtime_budget.governance_contract.v1',
+            "'autonomy_escalation_allowed' => false",
+            "'budget_limit_auto_raise_allowed' => false",
+            "'requires_human_review_for_limit_change' => true",
+            "'requires_decision_receipt_for_limit_change' => true",
+            'bypass_budget_block',
         ] as $token) {
             if (! str_contains($budgetService, $token)) {
                 $violations[] = "app/Services/Ai/AiRuntimeBudgetService.php: runtime budget payload must use shared budget window default [{$token}]";
@@ -7012,6 +9353,8 @@ class KernelArchitectureStaticScanner
             'test_budget_window_hours_uses_explicit_policy_contract',
             'AtlasAiRuntimeSettings::MAX_BUDGET_WINDOW_HOURS',
             'AtlasAiRuntimeSettings::DEFAULT_BUDGET_WINDOW_HOURS',
+            'atlas.runtime_budget.governance_contract.v1',
+            'governance_contract.requires_decision_receipt_for_limit_change',
         ] as $token) {
             if (! str_contains($test, $token)) {
                 $violations[] = "tests/Unit/Ai/AtlasAiRuntimeSettingsTest.php: runtime budget window contract must be covered [{$token}]";
@@ -7021,6 +9364,8 @@ class KernelArchitectureStaticScanner
         foreach ([
             'runtime budget window contract',
             'AP-73',
+            'atlas.runtime_budget.governance_contract.v1',
+            'autonomy_escalation_allowed=false',
         ] as $token) {
             if (! str_contains($docs, $token)) {
                 $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: docs must describe runtime budget window contract [{$token}]";

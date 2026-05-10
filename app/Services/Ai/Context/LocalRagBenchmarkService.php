@@ -2,6 +2,10 @@
 
 namespace App\Services\Ai\Context;
 
+use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\Kernel\Architecture\AtlasRuntimeLanguageBoundaryReportService;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 
 final class LocalRagBenchmarkService
@@ -11,6 +15,8 @@ final class LocalRagBenchmarkService
     public function __construct(
         private readonly ContextRetrievalRouter $router,
         private readonly LocalRagReadinessService $readiness,
+        private readonly AtlasEvidenceLedger $ledger,
+        private readonly AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary,
     ) {}
 
     /**
@@ -38,6 +44,10 @@ final class LocalRagBenchmarkService
             'privacy_redaction_verification',
             'evidence_ledger_contract',
             'human_review_or_curator_proposal',
+            'future_graph_rag_python_ap',
+            'decision_receipt_for_runtime_promotion',
+            'reviewable_policy_patch_with_rollback',
+            'real_corpus_retrieval_answer_quality',
         ], $completedPrerequisites));
 
         return [
@@ -52,9 +62,44 @@ final class LocalRagBenchmarkService
             'quality_corpus' => $qualityCorpus,
             'ledger_contract' => $ledgerContract,
             'cases' => $cases,
+            'promotion_review_contract' => [
+                'schema_version' => 'atlas.local_rag_graph_promotion_review.v1',
+                'status' => 'human_review_required',
+                'review_ap' => 'docs/ap/AP-683-local-rag-graph-promotion-review.md',
+                'owner_doc' => 'docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md',
+                'architecture_operation_id' => 'local_rag_graph_promotion_review',
+                'human_review_required' => true,
+                'curator_proposal_required' => true,
+                'future_ap_required' => true,
+                'decision_receipt_required' => true,
+                'rollback_plan_required' => true,
+                'policy_patch_review_required' => true,
+                'promotion_allowed' => false,
+                'auto_promotion_allowed' => false,
+                'future_runtime_invocation_contract' => $this->futureGraphRuntimeInvocationContract(),
+                'review_packet' => $this->promotionReviewPacket($qualityCorpus),
+                'allowed_outputs' => [
+                    'proposal_only',
+                    'review_packet',
+                    'future_ap_scope',
+                    'rollback_plan',
+                ],
+                'forbidden_outputs' => [
+                    'policy_patch_auto_apply',
+                    'python_runtime_auto_enable',
+                    'graph_rag_auto_enable',
+                    'parallel_memory_creation',
+                    'provider_bypass',
+                ],
+                'next_action' => 'submit_local_rag_graph_promotion_for_human_review',
+            ],
             'promotion_gate' => [
+                'promotion_allowed' => false,
                 'graph_rag_promotion_allowed' => false,
+                'python_runtime_promotion_allowed' => false,
                 'policy_patch_status' => 'draft_only_until_quality_latency_privacy_benchmark',
+                'supersedes_event_required' => 'LOCAL_RAG_GRAPH_PROMOTION_BLOCKED',
+                'supersede_authority' => 'human_reviewed_curator_proposal_and_future_ap',
                 'reason' => 'Este benchmark prova corpus controlado, governanca do router, privacy boundary sintetico e contrato LOCAL_RAG_* do Evidence Ledger; Graph RAG/Python ainda exige review humano/Curator antes de mudar policy.',
                 'completed_prerequisites' => $completedPrerequisites,
                 'remaining_prerequisites' => $remainingPrerequisites,
@@ -73,6 +118,116 @@ final class LocalRagBenchmarkService
                         : 'fix_quality_corpus_before_graph_rag_runtime_promotion')
                     : 'fix_router_or_readiness_gates_before_graph_rag_work')
                 : 'fix_router_or_readiness_gates_before_graph_rag_work',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $qualityCorpus
+     * @return array<string,mixed>
+     */
+    private function promotionReviewPacket(array $qualityCorpus): array
+    {
+        return [
+            'schema_version' => 'atlas.local_rag_graph_promotion_review_packet.v1',
+            'status' => 'blocked_until_human_review_and_future_ap',
+            'required_human_decision' => 'approve_or_reject_graph_rag_python_future_ap_scope',
+            'evidence_required' => [
+                'LOCAL_RAG_PLAN_CREATED',
+                'LOCAL_RAG_QUALITY_CORPUS_EVALUATED',
+                'LOCAL_RAG_GRAPH_PROMOTION_BLOCKED',
+                'quality_corpus.status=passed',
+                'real_corpus_retrieval_answer_quality',
+                'rivals_or_benchmark_delta',
+            ],
+            'rollback_required' => [
+                'keep_context_retrieval_router_graph_available_false',
+                'disable_python_graph_rag_runtime_policy',
+                'return_to_local_hash_or_existing_retrieval_plan',
+                'preserve_ledger_replay_of_promotion_attempt',
+            ],
+            'forbidden_until_review' => [
+                'set_graph_retrieval_available_true',
+                'enable_python_graph_rag_runtime',
+                'auto_apply_policy_patch',
+                'create_parallel_memory_or_context_store',
+                'surface_direct_graph_rag_call',
+            ],
+            'quality_corpus_status' => $qualityCorpus['status'] ?? 'unknown',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     * @return array<int,array<string,mixed>>
+     */
+    public function recordEvidence(array $report): array
+    {
+        $benchmarkId = 'local_rag_benchmark:'.hash('sha256', (string) data_get($report, 'quality_corpus.corpus_id', 'unknown'));
+        $context = [
+            'envelope_id' => $benchmarkId,
+            'correlation_id' => $benchmarkId,
+            'emitter_stage' => 'atlas.context_retrieval.local_rag_benchmark',
+            'emitter_version' => self::SCHEMA_VERSION,
+        ];
+
+        $events = [
+            $this->ledger->recordLocalRagEvent(LedgerEventType::LocalRagPlanCreated, [
+                'benchmark_id' => $benchmarkId,
+                'status' => $report['status'] ?? null,
+                'readiness_status' => $report['readiness_status'] ?? null,
+                'case_count' => $report['case_count'] ?? null,
+                'passed_case_count' => $report['passed_case_count'] ?? null,
+                'average_score' => $report['average_score'] ?? null,
+                'raw_query_persisted' => false,
+                'raw_context_persisted' => false,
+            ], $context),
+            $this->ledger->recordLocalRagEvent(LedgerEventType::LocalRagQualityCorpusEvaluated, [
+                'benchmark_id' => $benchmarkId,
+                'quality_corpus' => $report['quality_corpus'] ?? [],
+                'case_ids' => collect($report['cases'] ?? [])->pluck('id')->values()->all(),
+                'raw_query_persisted' => false,
+                'raw_context_persisted' => false,
+            ], $context),
+            $this->ledger->recordLocalRagEvent(LedgerEventType::LocalRagGraphPromotionBlocked, [
+                'benchmark_id' => $benchmarkId,
+                'promotion_gate' => $report['promotion_gate'] ?? [],
+                'promotion_review_contract' => $report['promotion_review_contract'] ?? [],
+                'guardrails' => $report['guardrails'] ?? [],
+                'next_action' => $report['next_action'] ?? null,
+                'raw_query_persisted' => false,
+                'raw_context_persisted' => false,
+            ], $context),
+        ];
+
+        return collect($events)
+            ->map(fn (?AtlasLedgerEvent $event): array => $this->ledgerEventPayload($event))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     * @return array<string,mixed>
+     */
+    public function evidenceLedgerReport(array $report): array
+    {
+        $events = $this->recordEvidence($report);
+        $expectedEventCount = 3;
+        $recordedCount = collect($events)
+            ->filter(fn (array $event): bool => (bool) ($event['recorded'] ?? false))
+            ->count();
+        $persisted = $recordedCount === $expectedEventCount;
+
+        return [
+            'schema_version' => 'atlas.local_rag.evidence_ledger_report.v1',
+            'status' => $persisted ? 'persisted' : 'unavailable',
+            'event_family' => 'LOCAL_RAG_*',
+            'expected_event_count' => $expectedEventCount,
+            'recorded_event_count' => $recordedCount,
+            'persistence_required_for_promotion' => true,
+            'promotion_evidence_satisfied' => $persisted,
+            'missing_reason' => $persisted ? null : 'atlas_ledger_events_table_unavailable_or_write_failed',
+            'events' => $events,
         ];
     }
 
@@ -259,6 +414,35 @@ final class LocalRagBenchmarkService
                 'graph_promotion_must_emit_block_or_review_event' => true,
             ],
             'promotion_rule' => 'Graph RAG/Python policy patch remains blocked until LOCAL_RAG_GRAPH_PROMOTION_BLOCKED is superseded by human-reviewed Curator proposal.',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function futureGraphRuntimeInvocationContract(): array
+    {
+        return [
+            ...$this->runtimeBoundary->invocationContract(),
+            'selected_runtime_family' => 'python_ai_data',
+            'runtime_id' => 'graph_rag_candidate',
+            'capability_id' => 'local_rag.graph_promotion_candidate',
+            'evidence_rule' => 'future_graph_rag_runtime_must_return_evidence_refs_only_and_wait_for_human_reviewed_curator_ap',
+            'promotion_allowed_now' => false,
+            'auto_enable_allowed_now' => false,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function ledgerEventPayload(?AtlasLedgerEvent $event): array
+    {
+        return [
+            'recorded' => $event !== null,
+            'event_id' => $event?->event_id,
+            'event_type' => $event?->event_type,
+            'payload_hash' => $event?->payload_hash,
         ];
     }
 

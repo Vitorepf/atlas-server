@@ -37,6 +37,15 @@ class AtlasAiSessionBootstrapCommand extends Command
         $this->components->twoColumnDetail('KB', data_get($payload, 'kb_status.status').' / '.data_get($payload, 'kb_status.active').' active');
         $this->components->twoColumnDetail('Provider projection', data_get($payload, 'provider_projection.status'));
 
+        $safeNextBlocks = array_slice((array) ($payload['safe_next_blocks'] ?? []), 0, 5);
+        if ($safeNextBlocks !== []) {
+            $this->newLine();
+            $this->line('Blocos seguros:');
+            foreach ($safeNextBlocks as $block) {
+                $this->line('  - '.data_get($block, 'order').'. '.data_get($block, 'block').' — '.data_get($block, 'dod_minimum'));
+            }
+        }
+
         $this->newLine();
         $this->line('Leia primeiro:');
         foreach ($payload['read_first'] as $doc) {

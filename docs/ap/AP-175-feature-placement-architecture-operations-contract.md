@@ -14,6 +14,15 @@ para descobrir comandos canonicos.
 - O payload deve conter `architecture_operations` com schema
   `atlas.architecture_operations.v1`, `operation_ids`, `command_count` e
   `commands`.
+- O payload deve conter `architecture_operations.owner_layer_operations.runtime`
+  para expor `runtime_language_boundary` quando a IA entrar direto pelo gate.
+- Quando `placement.runtime` existir, `implementation_contract` deve carregar
+  `runtime_invocation_contract` com schema
+  `atlas.runtime_invocation_contract.v1`, `kernel_first=true`,
+  `selected_runtime_family`, `decision_receipt_hash`, `evidence_sink`,
+  `forbidden_runtime_authority` e `return_contract`.
+- Aliases de placement podem existir para UX, como `go_edge_concurrency`, mas o
+  contrato de invocacao deve normalizar a familia canonica, como `go_edge`.
 - O bloco deve incluir pelo menos `architecture_readiness`,
   `feature_placement`, `session_bootstrap`, `documentation_split_plan`,
   `architecture_validate`, `documentation_health`, `knowledge_sync` e

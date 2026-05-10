@@ -9,15 +9,17 @@ surfaces.
 
 ## Contrato
 
-- `AtlasArchitectureOperationsCatalog::summary()` deve aceitar filtros `id` e
-  `kind`.
-- `id/kind` e o par canônico de filtros para catalogo operacional; qualquer
+- `AtlasArchitectureOperationsCatalog::summary()` deve aceitar filtros `id`,
+  `kind`, `section`, `surface` e `owner_layer`.
+- `id/kind/section/surface/owner_layer` e o conjunto canonico de filtros para catalogo operacional; qualquer
   surface nova deve reutilizar estes nomes sem criar aliases locais.
+- `surface` diz por onde a operacao roda; `owner_layer` diz qual camada ela governa
+  (`runtime`, por exemplo), sem misturar transporte com responsabilidade.
 - O summary deve preservar `filters`, `operation_ids`, `command_count` e
   `commands` filtrados.
-- CLI deve expor `--id` e `--kind`.
-- API deve aceitar query params `id` e `kind`.
-- MCP `atlas_architecture_operations` deve aceitar argumentos `id` e `kind`.
+- CLI deve expor `--id`, `--kind`, `--section`, `--surface` e `--owner-layer`.
+- API deve aceitar query params `id`, `kind`, `section`, `surface` e `owner_layer`.
+- MCP `atlas_architecture_operations` deve aceitar argumentos `id`, `kind`, `section`, `surface` e `owner_layer`.
 - O scanner deve publicar `ap133_architecture_operations_filter_contract`.
 
 ## Evidencia

@@ -22,7 +22,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
             ->assertJsonPath('architecture_operations.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 58)
+            ->assertJsonPath('architecture_operations.command_count', 60)
             ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_operations')
             ->assertJsonPath('architecture_operations.commands.0.kind', 'catalog')
             ->assertJsonPath('architecture_operations.commands.0.surface', 'cli');
@@ -41,6 +41,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('php artisan atlas:memory:projection write --target=all --workspace=<workspace> --force --json', $commands);
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $commands);
         $this->assertContains('php artisan atlas:ai:provider-release-sources --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --json', $commands);
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
         $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
         $this->assertContains('php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $commands);
@@ -72,7 +73,9 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('php artisan atlas:ai:inbox-action-report --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:decision-receipt-report --envelope=<id> --json', $commands);
         $this->assertContains('php artisan atlas:ai:ledger <id> --json', $commands);
+        $this->assertContains('php artisan atlas:ai:runtime-boundary --json', $commands);
         $this->assertContains('architecture_operations', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('local_rag_graph_promotion_review', $response->json('architecture_operations.operation_ids'));
     }
 
     public function test_api_requires_atlas_token(): void
@@ -96,6 +99,31 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('decision_receipt_report', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('ledger_replay', $response->json('architecture_operations.operation_ids'));
         $this->assertNotContains('architecture_operations', $response->json('architecture_operations.operation_ids'));
+
+        $this->getJson('/ai/architecture/operations?section=arquitetura_mae', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.section', 'arquitetura_mae')
+            ->assertJsonPath('architecture_operations.command_count', 60)
+            ->assertJsonPath('architecture_operations.operation_ids.0', 'architecture_operations');
+
+        $this->getJson('/ai/architecture/operations?surface=runtime', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.surface', 'runtime')
+            ->assertJsonPath('architecture_operations.command_count', 1)
+            ->assertJsonPath('architecture_operations.operation_ids.0', 'voice_python_runtime_contract_test')
+            ->assertJsonPath('architecture_operations.commands.0.command', 'PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests');
+
+        $this->getJson('/ai/architecture/operations?owner_layer=runtime', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.owner_layer', 'runtime')
+            ->assertJsonPath('architecture_operations.command_count', 1)
+            ->assertJsonPath('architecture_operations.operation_ids.0', 'runtime_language_boundary')
+            ->assertJsonPath('architecture_operations.commands.0.command', 'php artisan atlas:ai:runtime-boundary --json')
+            ->assertJsonPath('architecture_operations.commands.0.owner_layer', 'runtime')
+            ->assertJsonPath('architecture_operations.commands.0.pre_implementation_gate', true)
+            ->assertJsonPath('architecture_operations.commands.0.governed_runtimes.0', 'python_ai_data')
+            ->assertJsonPath('architecture_operations.commands.0.governed_runtimes.1', 'go_edge')
+            ->assertJsonPath('architecture_operations.commands.0.governed_runtimes.2', 'swift_native_mac');
 
         $this->getJson('/ai/architecture/operations?id=provider_performance_report', $this->headers)
             ->assertOk()
@@ -153,13 +181,15 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->getJson('/ai/architecture/operations?kind=governance_gate', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.kind', 'governance_gate')
-            ->assertJsonPath('architecture_operations.command_count', 3)
+            ->assertJsonPath('architecture_operations.command_count', 4)
             ->assertJsonPath('architecture_operations.operation_ids.0', 'feature_placement')
             ->assertJsonPath('architecture_operations.operation_ids.1', 'documentation_split_plan')
             ->assertJsonPath('architecture_operations.operation_ids.2', 'ap_agent_workflow_registry')
+            ->assertJsonPath('architecture_operations.operation_ids.3', 'local_rag_graph_promotion_review')
             ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/feature-placement')
             ->assertJsonPath('architecture_operations.commands.1.api_endpoint', '/ai/docs-split-plan')
-            ->assertJsonPath('architecture_operations.commands.2.command', 'php artisan atlas:ai:ap-agent-workflow --json');
+            ->assertJsonPath('architecture_operations.commands.2.command', 'php artisan atlas:ai:ap-agent-workflow --json')
+            ->assertJsonPath('architecture_operations.commands.3.review_contract', 'atlas.local_rag_graph_promotion_review.v1');
 
         $this->getJson('/ai/architecture/operations?id=provider_performance_curator_review', $this->headers)
             ->assertOk()
@@ -297,5 +327,15 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('architecture_operations.commands.0.kind', 'runtime_contract')
             ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/voice/runtime/dependencies')
             ->assertJsonPath('architecture_operations.commands.0.mobile_endpoint', '/v1/mobile/ai/voice/runtime/dependencies');
+
+        $this->getJson('/ai/architecture/operations?id=runtime_language_boundary', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.id', 'runtime_language_boundary')
+            ->assertJsonPath('architecture_operations.command_count', 1)
+            ->assertJsonPath('architecture_operations.commands.0.command', 'php artisan atlas:ai:runtime-boundary --json')
+            ->assertJsonPath('architecture_operations.commands.0.kind', 'validation')
+            ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/runtime-boundary')
+            ->assertJsonPath('architecture_operations.commands.0.mcp_tool', 'atlas_runtime_boundary')
+            ->assertJsonPath('architecture_operations.commands.0.scan_id', 'ap201_runtime_language_boundary_contract');
     }
 }

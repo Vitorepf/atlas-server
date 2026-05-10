@@ -180,6 +180,16 @@ final class AtlasArchitectureOperationsCatalog
                 'doc' => 'docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md',
             ],
             [
+                'id' => 'local_rag_graph_promotion_review',
+                'command' => 'php artisan atlas:ai:local-rag-benchmark --json',
+                'description' => 'Gera review packet proposal-only para decidir promocao Local RAG -> Graph RAG/Python sem auto-aplicar policy, runtime ou memoria paralela.',
+                'surface' => 'cli',
+                'kind' => 'governance_gate',
+                'output' => 'json',
+                'doc' => 'docs/ap/AP-683-local-rag-graph-promotion-review.md',
+                'review_contract' => 'atlas.local_rag_graph_promotion_review.v1',
+            ],
+            [
                 'id' => 'external_graph_harness_report',
                 'command' => 'php artisan atlas:ai:external-graph-harness --json',
                 'description' => 'Publica contrato AP-684 e valida candidatos external_graph_candidate.v1 sem executar Graphify, provider, Memory, Context Builder ou Constelacao.',
@@ -545,11 +555,27 @@ final class AtlasArchitectureOperationsCatalog
                 'kind' => 'evidence_report',
                 'output' => 'json',
             ],
+            [
+                'id' => 'runtime_language_boundary',
+                'command' => 'php artisan atlas:ai:runtime-boundary --json',
+                'description' => 'Audita AP-201 de forma focada para garantir que Laravel, Python, Go e Swift fiquem nos seus papeis sem RAG/ML/runtime nativo vazando para app/.',
+                'surface' => 'cli',
+                'kind' => 'validation',
+                'output' => 'json',
+                'owner_layer' => 'runtime',
+                'governed_runtimes' => ['python_ai_data', 'go_edge', 'swift_native_mac'],
+                'pre_implementation_gate' => true,
+                'required_for_terms' => ['python', 'rag', 'embedding', 'faiss', 'go', 'swift', 'livekit', 'ml'],
+                'api_endpoint' => '/ai/runtime-boundary',
+                'mcp_tool' => 'atlas_runtime_boundary',
+                'doc' => 'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md',
+                'scan_id' => 'ap201_runtime_language_boundary_contract',
+            ],
         ];
     }
 
     /**
-     * @param  array{id?:string|null,kind?:string|null}  $filters
+     * @param  array{id?:string|null,kind?:string|null,section?:string|null,surface?:string|null,owner_layer?:string|null}  $filters
      * @return array{schema_version:string,section:string,command_count:int,operation_ids:array<int,string>,filters:array<string,string>,commands:array<int,array<string,mixed>>}
      */
     public function summary(array $filters = []): array
@@ -582,6 +608,9 @@ final class AtlasArchitectureOperationsCatalog
         return array_filter([
             'id' => is_string($filters['id'] ?? null) && $filters['id'] !== '' ? $filters['id'] : null,
             'kind' => is_string($filters['kind'] ?? null) && $filters['kind'] !== '' ? $filters['kind'] : null,
+            'section' => is_string($filters['section'] ?? null) && $filters['section'] !== '' ? $filters['section'] : null,
+            'surface' => is_string($filters['surface'] ?? null) && $filters['surface'] !== '' ? $filters['surface'] : null,
+            'owner_layer' => is_string($filters['owner_layer'] ?? null) && $filters['owner_layer'] !== '' ? $filters['owner_layer'] : null,
         ], fn (?string $value): bool => $value !== null);
     }
 
@@ -592,6 +621,14 @@ final class AtlasArchitectureOperationsCatalog
     private function matchesFilters(array $command, array $filters): bool
     {
         foreach ($filters as $key => $value) {
+            if ($key === 'section') {
+                if ($value !== $this->sectionKey()) {
+                    return false;
+                }
+
+                continue;
+            }
+
             if (($command[$key] ?? null) !== $value) {
                 return false;
             }

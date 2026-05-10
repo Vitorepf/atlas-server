@@ -51,6 +51,20 @@ class AtlasVoiceCallbackPayloadTest(unittest.TestCase):
                         key: "do-not-pass-through",
                     })
 
+    def test_callbacks_reject_nested_audio_or_secret_payloads(self) -> None:
+        for payload in [
+            {"metadata": {"capture": {"audio_bytes": b"nope"}}},
+            {"metadata": {"provider": {"api_secret": "nested-secret"}}},
+        ]:
+            with self.subTest(payload=payload):
+                with self.assertRaises(UnsafeVoicePayload):
+                    AtlasVoiceSynthesizedPayload.from_runtime_output({
+                        "session_id": "voice_session",
+                        "turn_id": "voice_turn",
+                        "response_text_hash": "990cd70b1bfe9e7b30370699399e3d30281b9f3515533e4629ad2a182c7cdf0a",
+                        **payload,
+                    })
+
     def test_synthesized_requires_text_hash_or_audio_hash(self) -> None:
         with self.assertRaises(UnsafeVoicePayload):
             AtlasVoiceSynthesizedPayload.from_runtime_output({

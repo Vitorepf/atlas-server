@@ -5,6 +5,7 @@ namespace App\Services\Ai\SelfImprovement;
 use App\Models\AtlasInitiativeRun;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasOpenBrainAccessLog;
+use App\Services\Ai\Cognitive\ProductiveFailure\ProductiveFailureSessionRepository;
 use App\Services\Ai\Context\LocalRagBenchmarkService;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
@@ -48,6 +49,7 @@ class AtlasSelfImprovementRuntime
         private readonly AtlasRivalsStrategyReadModel $rivalsStrategy,
         private readonly AtlasVoiceRivalsRunner $voiceRivals,
         private readonly LocalRagBenchmarkService $localRagBenchmark,
+        private readonly ProductiveFailureSessionRepository $productiveFailureSessions,
     ) {}
 
     /**
@@ -196,6 +198,7 @@ class AtlasSelfImprovementRuntime
                 ...$this->openBrainRetrievalFindings($hours, $filters),
                 ...$this->localRagPromotionFindings($filters),
                 ...$this->constelacaoUsageReviewFindings($events, $filters),
+                ...$this->productiveFailureTransferTestFindings($filters),
                 ...$this->domainOnboardingFindings($filters),
                 ...$this->sloDriftFindings($events, $filters),
                 ...$this->repairLoopFindings($events, $filters),
@@ -229,6 +232,7 @@ class AtlasSelfImprovementRuntime
                 ...$this->openBrainRetrievalFindings($hours, $filters),
                 ...$this->localRagPromotionFindings($filters),
                 ...$this->constelacaoUsageReviewFindings($events, $filters),
+                ...$this->productiveFailureTransferTestFindings($filters),
                 ...$this->domainOnboardingFindings($filters),
                 ...$this->sloDriftFindings($events, $filters),
                 ...$this->repairLoopFindings($events, $filters),
@@ -371,6 +375,71 @@ class AtlasSelfImprovementRuntime
             return [];
         }
 
+        $evidenceLedger = $this->localRagBenchmark->evidenceLedgerReport($report);
+
+        if (data_get($evidenceLedger, 'promotion_evidence_satisfied') !== true) {
+            return [[
+                'title' => 'Corrigir evidencia operacional Local RAG antes de Graph RAG',
+                'category' => 'self_improvement',
+                'finding' => 'Local RAG passou no corpus controlado, mas a evidencia LOCAL_RAG_* nao foi persistida; a revisao de Graph RAG/Python deve permanecer bloqueada.',
+                'problem' => 'Sem evento LOCAL_RAG_GRAPH_PROMOTION_BLOCKED persistido, uma proposta de promocao nao tem replay/auditoria suficiente e pode virar decisao fora do Evidence Ledger.',
+                'solution' => 'Restaurar a persistencia de atlas_ledger_events, rerodar atlas:ai:local-rag-benchmark --json e so entao permitir proposta proposal-only para review humano/Curator.',
+                'worth_it' => 'Vale porque garante que benchmark verde nunca substitui evidencia operacional persistida.',
+                'best_solution_rationale' => 'AP-683 exige evidence_ledger.promotion_evidence_satisfied=true antes de qualquer review de promocao; falhar fechado preserva Kernel, replay e governanca.',
+                'alternatives' => ['Manter Graph RAG como future_governed.', 'Rerodar somente readiness sem abrir proposta.', 'Investigar indisponibilidade do Evidence Ledger antes de qualquer AP futuro.'],
+                'available_actions' => [
+                    ['id' => 'restore_local_rag_evidence', 'label' => 'Restaurar evidencia', 'style' => 'primary'],
+                    ['id' => 'keep_future_governed', 'label' => 'Manter bloqueado', 'style' => 'secondary'],
+                ],
+                'source_refs' => [
+                    ['type' => 'command', 'id' => 'php artisan atlas:ai:local-rag-benchmark --json'],
+                    ['type' => 'ap', 'id' => 'docs/ap/AP-683-local-rag-graph-promotion-review.md'],
+                    ['type' => 'ledger_contract', 'id' => data_get($report, 'ledger_contract.schema_version')],
+                ],
+                'confidence' => 0.92,
+                'dedupe_key' => 'self-improvement:local-rag-evidence-blocked:'.sha1((string) data_get($report, 'quality_corpus.corpus_id')),
+                'metadata' => [
+                    'schema_version' => 'atlas.self_improvement.local_rag_graph_promotion_evidence_block.v1',
+                    'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
+                    'benchmark' => [
+                        'status' => $report['status'] ?? null,
+                        'readiness_status' => $report['readiness_status'] ?? null,
+                        'quality_corpus_status' => data_get($report, 'quality_corpus.status'),
+                        'completed_prerequisites' => data_get($report, 'promotion_gate.completed_prerequisites', []),
+                        'remaining_prerequisites' => data_get($report, 'promotion_gate.remaining_prerequisites', []),
+                        'evidence_ledger' => [
+                            'status' => data_get($evidenceLedger, 'status'),
+                            'promotion_evidence_satisfied' => data_get($evidenceLedger, 'promotion_evidence_satisfied'),
+                            'missing_reason' => data_get($evidenceLedger, 'missing_reason'),
+                            'expected_event_count' => data_get($evidenceLedger, 'expected_event_count'),
+                            'recorded_event_count' => data_get($evidenceLedger, 'recorded_event_count'),
+                        ],
+                    ],
+                    'review_signal' => [
+                        'status' => 'blocking',
+                        'severity' => 'high',
+                        'review_required' => false,
+                        'proposal_allowed' => false,
+                        'reasons' => ['local_rag_promotion_requires_persisted_evidence_ledger'],
+                        'recommended_action' => 'restore_local_rag_evidence_ledger_before_graph_rag_review',
+                        'review_ap' => 'docs/ap/AP-683-local-rag-graph-promotion-review.md',
+                        'supersedes_event_required' => data_get($report, 'promotion_gate.supersedes_event_required'),
+                        'supersede_authority' => data_get($report, 'promotion_gate.supersede_authority'),
+                    ],
+                    'policy_patch_candidate' => [
+                        'status' => 'blocked_until_evidence_persisted',
+                        'target' => 'context_retrieval_router_graph_rag_runtime',
+                        'operation' => 'none',
+                        'requires_human_review' => true,
+                        'requires_future_ap' => true,
+                        'requires_decision_receipt' => true,
+                        'requires_rollback_plan' => true,
+                        'auto_apply' => false,
+                    ],
+                ],
+            ]];
+        }
+
         $remaining = (array) data_get($report, 'promotion_gate.remaining_prerequisites', []);
         if (! in_array('human_review_or_curator_proposal', $remaining, true)) {
             return [];
@@ -408,6 +477,13 @@ class AtlasSelfImprovementRuntime
                     'latency_p95_ms' => data_get($report, 'quality_corpus.metrics.latency_p95_ms'),
                     'completed_prerequisites' => data_get($report, 'promotion_gate.completed_prerequisites', []),
                     'remaining_prerequisites' => $remaining,
+                    'evidence_ledger' => [
+                        'status' => data_get($evidenceLedger, 'status'),
+                        'promotion_evidence_satisfied' => data_get($evidenceLedger, 'promotion_evidence_satisfied'),
+                        'missing_reason' => data_get($evidenceLedger, 'missing_reason'),
+                        'expected_event_count' => data_get($evidenceLedger, 'expected_event_count'),
+                        'recorded_event_count' => data_get($evidenceLedger, 'recorded_event_count'),
+                    ],
                 ],
                 'review_signal' => [
                     'status' => 'warning',
@@ -417,12 +493,18 @@ class AtlasSelfImprovementRuntime
                     'reasons' => ['graph_rag_promotion_requires_human_or_curator_review'],
                     'recommended_action' => 'open_reviewable_graph_rag_promotion_proposal',
                     'review_ap' => 'docs/ap/AP-683-local-rag-graph-promotion-review.md',
+                    'supersedes_event_required' => data_get($report, 'promotion_gate.supersedes_event_required'),
+                    'supersede_authority' => data_get($report, 'promotion_gate.supersede_authority'),
+                    'review_packet' => data_get($report, 'promotion_review_contract.review_packet'),
                 ],
                 'policy_patch_candidate' => [
                     'status' => 'proposal_only',
                     'target' => 'context_retrieval_router_graph_rag_runtime',
                     'operation' => 'promote_python_graph_rag_from_future_governed_to_reviewed_runtime_candidate',
                     'requires_human_review' => true,
+                    'requires_future_ap' => in_array('future_graph_rag_python_ap', $remaining, true),
+                    'requires_decision_receipt' => in_array('decision_receipt_for_runtime_promotion', $remaining, true),
+                    'requires_rollback_plan' => in_array('reviewable_policy_patch_with_rollback', $remaining, true),
                     'auto_apply' => false,
                 ],
             ],
@@ -451,6 +533,7 @@ class AtlasSelfImprovementRuntime
         $sourceCounts = [];
         $lensCounts = [];
         $readinessCounts = [];
+        $blockedLensRequests = [];
         $graphPromotionAllowed = false;
         $pythonRuntimeAllowed = false;
 
@@ -464,6 +547,11 @@ class AtlasSelfImprovementRuntime
 
             $readiness = (string) data_get($event->payload, 'semantic_readiness_status', 'unknown');
             $readinessCounts[$readiness] = ($readinessCounts[$readiness] ?? 0) + 1;
+
+            if ((bool) data_get($event->payload, 'lens_gate.blocked', false)) {
+                $requestedLens = (string) data_get($event->payload, 'lens_gate.requested_lens', 'unknown');
+                $blockedLensRequests[$requestedLens] = ($blockedLensRequests[$requestedLens] ?? 0) + 1;
+            }
 
             $graphPromotionAllowed = $graphPromotionAllowed
                 || (bool) data_get($event->payload, 'promotion_gate.graph_rag_promotion_allowed', false);
@@ -502,25 +590,153 @@ class AtlasSelfImprovementRuntime
                 'hours_window_contains_event_count' => $served->count(),
                 'latest_event_id' => $latest?->event_id,
                 'lens_counts' => $lensCounts,
+                'blocked_lens_requests' => $blockedLensRequests,
                 'source_counts' => $sourceCounts,
                 'semantic_readiness_counts' => $readinessCounts,
                 'review_signal' => [
                     'status' => $reviewStatus,
                     'severity' => $reviewStatus === 'blocked' ? 'high' : 'low',
                     'review_required' => true,
+                    'promotion_allowed' => false,
                     'reasons' => $reviewStatus === 'blocked'
                         ? ['constelacao_runtime_promotion_gate_was_not_blocked']
                         : ['constelacao_lens1_usage_requires_human_review_before_lens2'],
                     'recommended_action' => $reviewStatus === 'blocked'
                         ? 'block_constelacao_runtime_promotion_and_review_kernel_contract'
                         : 'review_constelacao_lens1_usage_after_observation_window',
+                    'next_action' => $reviewStatus === 'blocked'
+                        ? 'block_constelacao_runtime_promotion_and_review_kernel_contract'
+                        : 'collect_constelacao_lens1_usage_telemetry_for_30_days_before_review',
+                ],
+                'usage_review_contract' => [
+                    'schema_version' => 'atlas.constelacao.lens1_usage_review.v1',
+                    'status' => 'proposal_only',
+                    'promotion_allowed' => false,
+                    'observation_window_days_required' => 30,
+                    'human_review_required' => true,
+                    'curator_review_required' => true,
+                    'decision_receipt_required' => true,
+                    'required_human_decision' => 'approve_or_reject_constelacao_lens1_promotion_after_usage_review',
+                    'rollback_plan_required' => true,
+                    'policy_patch_review_required' => true,
+                    'auto_promotion_allowed' => false,
+                    'evidence_required' => [
+                        'CONSTELACAO_POSITIONS_SERVED',
+                        'constelacao_opened',
+                        'constelacao_backend_loaded',
+                        'constelacao_star_tapped',
+                        '30_day_observation_window',
+                        'curator_usage_review',
+                        'human_review',
+                        'decision_receipt_for_future_ap',
+                    ],
+                    'rollback_required' => [
+                        'keep_lens_bilderatlas_only',
+                        'disable_command_sky_entrypoint',
+                        'disable_lineage_ui',
+                        'keep_graph_rag_positioning_disabled',
+                        'keep_python_graph_runtime_disabled',
+                        'preserve_constelacao_as_contemplative_surface',
+                    ],
+                    'forbidden_until_review' => [
+                        'enable_lens2',
+                        'enable_command_sky',
+                        'enable_lineage',
+                        'enable_graph_rag_positioning',
+                        'enable_operational_dashboard',
+                        'inject_constelacao_into_provider_prompt',
+                        'patch_decide_policy',
+                        'auto_apply_policy_patch',
+                        'surface_direct_graph_rag_call',
+                    ],
+                    'allowed_outputs' => [
+                        'keep_bilderatlas_only',
+                        'request_more_observation',
+                        'draft_lens2_ap',
+                        'draft_command_sky_ap',
+                        'draft_graph_rag_positioning_ap',
+                    ],
+                    'blocked_targets' => [
+                        'lens2',
+                        'command_sky',
+                        'lineage',
+                        'graph_rag_positioning',
+                        'operational_dashboard',
+                        'decision_surface',
+                        'provider_prompt',
+                        'policy_patch',
+                        'python_graph_rag_runtime',
+                    ],
+                    'promotion_rule' => 'only_future_ap_with_human_review_curator_proposal_decision_receipt_and_rollback_plan',
+                    'next_action' => 'collect_constelacao_lens1_usage_telemetry_for_30_days_before_review',
                 ],
                 'promotion_gate' => [
+                    'promotion_allowed' => false,
                     'graph_rag_promotion_allowed' => false,
                     'python_runtime_allowed' => false,
                     'requires_human_review' => true,
                     'requires_decision_receipt' => true,
+                    'next_action' => 'collect_constelacao_lens1_usage_telemetry_for_30_days_before_review',
                 ],
+                'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
+            ],
+        ]];
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function productiveFailureTransferTestFindings(array $filters = []): array
+    {
+        $domain = $filters['domain'] ?? null;
+        $proposals = $this->productiveFailureSessions->transferTestProposals($domain, 90, dueOnly: true);
+
+        if ($proposals === []) {
+            return [];
+        }
+
+        $proposalIds = collect($proposals)->pluck('transfer_test_id')->filter()->values()->all();
+
+        return [[
+            'title' => 'Revisar transfer_tests vencidos de Productive Failure',
+            'category' => 'self_improvement',
+            'finding' => 'Existem testes de transferencia do AP-168 ja vencidos; eles precisam de review humano para provar se o erro preditivo virou transferencia real.',
+            'problem' => 'Sem uma proposta dedicada, o Atlas pode gerar erro produtivo, mas esquecer a prova futura que transforma insight em maestria transferivel.',
+            'solution' => 'Abrir revisao proposal-only dos transfer_tests vencidos, mantendo auto_apply=false e exigindo aceite humano antes de qualquer mudanca de curriculo, mastery ou schedule.',
+            'worth_it' => 'Vale porque fecha o ciclo C14/C16/C20: gerar erro, extrair principio e provar transferencia em outro caso sem criar estudo automatico.',
+            'best_solution_rationale' => 'O Curator le o read-model do proprio AP-168 e emite uma proposta revisavel; Learning continua dono do flow e Self-Improvement nao auto-matricula nada.',
+            'alternatives' => ['Revisar manualmente via CLI.', 'Aguardar mais dados antes de promover UX App/Mobile.', 'Arquivar propostas antigas caso o contexto tenha expirado.'],
+            'available_actions' => [
+                ['id' => 'review_due_productive_failure_transfer_tests', 'label' => 'Revisar transfer_tests', 'style' => 'primary'],
+                ['id' => 'reschedule_transfer_tests', 'label' => 'Reagendar com review', 'style' => 'secondary'],
+                ['id' => 'archive_stale_transfer_tests', 'label' => 'Arquivar obsoletos', 'style' => 'secondary'],
+            ],
+            'source_refs' => [
+                ['type' => 'ap', 'id' => 'docs/ap/AP-168-cognitive-productive-failure-flow.md'],
+                ['type' => 'command', 'id' => 'php artisan atlas:productive-failure transfer-tests --due-only --json'],
+                ['type' => 'domain_flow', 'id' => 'learning.productive_failure'],
+            ],
+            'confidence' => min(0.96, 0.78 + (count($proposals) * 0.03)),
+            'dedupe_key' => 'self-improvement:productive-failure-transfer-tests:'.sha1(implode('|', $proposalIds)),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.productive_failure_transfer_review.v1',
+                'proposal_count' => count($proposals),
+                'proposal_ids' => $proposalIds,
+                'review_signal' => [
+                    'status' => 'warning',
+                    'severity' => count($proposals) >= 3 ? 'medium' : 'low',
+                    'review_required' => true,
+                    'reasons' => ['productive_failure_transfer_tests_due_for_human_review'],
+                    'recommended_action' => 'review_due_productive_failure_transfer_tests',
+                ],
+                'policy_contract' => [
+                    'status' => 'proposal_only',
+                    'auto_apply' => false,
+                    'human_review_required' => true,
+                    'forbidden_mutations' => ['curriculum_auto_enroll', 'mastery_auto_promote', 'schedule_auto_write'],
+                ],
+                'proposals' => array_slice($proposals, 0, 10),
                 'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
             ],
         ]];
@@ -2030,6 +2246,8 @@ class AtlasSelfImprovementRuntime
         $recommendedAction = (string) ($reviewSignal['recommended_action'] ?? 'review_voice_realtime_maturity_gates');
         $missingEvents = array_values((array) data_get($report, 'readiness.missing_events', []));
         $failedCertificationGates = array_values((array) data_get($report, 'runtime_certification.summary.failed_keys', []));
+        $failedProductionPromotionGates = array_values((array) data_get($report, 'production_promotion_gate.summary.failed_keys', []));
+        $reviewPacket = (array) data_get($report, 'production_promotion_gate.review_packet', data_get($reviewSignal, 'review_packet', []));
         $reasons = array_values((array) ($reviewSignal['reasons'] ?? []));
 
         return [[
@@ -2056,10 +2274,12 @@ class AtlasSelfImprovementRuntime
                     'recommended_action' => $recommendedAction,
                     'readiness_status' => data_get($report, 'readiness.status'),
                     'runtime_certification_status' => data_get($report, 'runtime_certification.status'),
+                    'production_promotion_status' => data_get($report, 'production_promotion_gate.status'),
+                    'review_packet_schema_version' => $reviewPacket['schema_version'] ?? null,
                 ],
             ],
             'confidence' => $reviewStatus === 'blocked' ? 0.9 : 0.82,
-            'dedupe_key' => 'self-improvement:voice-realtime:'.sha1($recommendedAction.':'.implode(',', $missingEvents).':'.implode(',', $failedCertificationGates)),
+            'dedupe_key' => 'self-improvement:voice-realtime:'.sha1($recommendedAction.':'.implode(',', $missingEvents).':'.implode(',', $failedCertificationGates).':'.implode(',', $failedProductionPromotionGates)),
             'metadata' => [
                 'schema_version' => 'atlas.self_improvement.voice_realtime.v1',
                 'hours' => $hours,
@@ -2067,10 +2287,13 @@ class AtlasSelfImprovementRuntime
                 'observed_voice_activity' => $observedVoiceActivity,
                 'readiness' => $report['readiness'] ?? [],
                 'runtime_certification' => $report['runtime_certification'] ?? [],
+                'production_promotion_gate' => $report['production_promotion_gate'] ?? [],
+                'review_packet' => $reviewPacket,
                 'comparison' => $report['comparison'] ?? [],
                 'arms' => $report['arms'] ?? [],
                 'missing_events' => $missingEvents,
                 'failed_certification_gates' => $failedCertificationGates,
+                'failed_production_promotion_gates' => $failedProductionPromotionGates,
                 'review_signal' => [
                     'status' => $reviewStatus,
                     'severity' => $reviewSignal['severity'] ?? 'medium',

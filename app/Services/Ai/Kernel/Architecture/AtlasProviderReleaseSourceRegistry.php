@@ -40,6 +40,7 @@ final class AtlasProviderReleaseSourceRegistry
             'sources' => $sources->map(fn (ProviderReleaseSource $source): array => $this->sourcePayload($source))->all(),
             'guardrails' => $this->guardrails(),
             'continuous_ingestion_contract' => $this->continuousIngestionContract(),
+            'future_activation_review_contract' => $this->futureActivationReviewContract(),
         ];
     }
 
@@ -139,6 +140,8 @@ final class AtlasProviderReleaseSourceRegistry
             'writes_release_envelope' => false,
             'writes_policy' => false,
             'changes_routing' => false,
+            'writes_decide_signal' => false,
+            'auto_ingestion_allowed' => false,
             'requires_primary_source_for_tier_2_or_3' => true,
             'crawler_contract_doc' => 'docs/ap/AP-172-provider-release-source-watchlist.md',
         ];
@@ -156,6 +159,10 @@ final class AtlasProviderReleaseSourceRegistry
             'network_fetching_enabled' => false,
             'writes_release_envelope' => false,
             'changes_decide_policy' => false,
+            'writes_decide_signal' => false,
+            'auto_promotion_allowed' => false,
+            'promotion_allowed' => false,
+            'next_action' => 'create_dedicated_provider_release_fetch_runtime_ap_before_network_ingestion',
             'allowed_until_activation' => [
                 'list_watchlist_sources',
                 'preview_manual_candidate_from_url',
@@ -173,11 +180,58 @@ final class AtlasProviderReleaseSourceRegistry
             ],
             'forbidden_shortcuts' => [
                 'background_web_crawler_without_AP',
+                'provider_watchlist_to_background_fetcher',
                 'secondary_news_to_decide_signal',
                 'provider_release_to_routing_policy_patch',
                 'memory_promotion_without_curator_review',
+                'source_detection_to_default_model_change',
             ],
             'review_flow' => 'self_improvement.provider_release_review',
+            'future_activation_review_contract' => $this->futureActivationReviewContract(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function futureActivationReviewContract(): array
+    {
+        return [
+            'schema_version' => 'atlas.provider_release.future_activation_review.v1',
+            'status' => 'blocked_until_dedicated_AP',
+            'network_fetching_enabled' => false,
+            'auto_envelope_write_allowed' => false,
+            'auto_decide_signal_allowed' => false,
+            'auto_policy_patch_allowed' => false,
+            'promotion_allowed' => false,
+            'next_action' => 'create_dedicated_provider_release_fetch_runtime_ap_before_any_activation',
+            'requires' => [
+                'dedicated_AP_for_fetch_runtime',
+                'operator_approved_source_scope',
+                'source_rate_limits_and_robot_policy_review',
+                'canonical_url_and_content_hash',
+                'primary_source_gate',
+                'Evidence Ledger candidate event',
+                'AP-99 provider performance calibration',
+                'Rivals benchmark when quality may change',
+                'human_review_before_any_decide_or_policy_signal',
+            ],
+            'allowed_outputs_before_activation' => [
+                'source_watchlist',
+                'manual_candidate_preview',
+                'provider_release_review',
+                'curator_proposal',
+                'governed_backlog_or_AP_draft',
+            ],
+            'blocked_targets' => [
+                'background_web_crawler',
+                'direct_decide_signal',
+                'routing_policy_patch',
+                'default_model_change',
+                'domain_maturity_patch',
+                'provider_credentials_mutation',
+                'provider_prompt_patch',
+            ],
         ];
     }
 

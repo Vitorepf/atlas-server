@@ -47,7 +47,7 @@ class AtlasWorkedExamplePersonalExtractionCommandTest extends TestCase
                 ['action' => 'Measure lock contention.', 'reasoning' => 'CPU stayed low while latency rose.', 'why_works' => 'Finds concurrency bottleneck.'],
                 ['action' => 'Batch writes outside the lock.', 'reasoning' => 'Reduce critical section.', 'why_works' => 'Keeps throughput stable.'],
             ],
-            'commit_explanation' => 'Explained the lock contention, evidence, rollback path, and transfer rule.',
+            'commit_explanation' => 'Explained the lock contention to vitorepf@example.com with token=commitsecret123456, evidence, rollback path, and transfer rule.',
             'tests_passed' => true,
             'no_regression_30d' => true,
             'privacy_class' => 3,
@@ -90,6 +90,26 @@ class AtlasWorkedExamplePersonalExtractionCommandTest extends TestCase
         $this->assertStringNotContainsString('sk_testsecret123456', $serialized);
         $this->assertStringContainsString('[redacted_email]', $serialized);
         $this->assertStringContainsString('[redacted_secret]', $serialized);
+
+        $ledgerPayload = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::PersonalWorkedExampleExtracted->value)
+            ->firstOrFail()
+            ->payload;
+
+        $this->assertFalse(data_get($ledgerPayload, 'candidate.raw_content_in_ledger'));
+        $this->assertSame(sha1('pr-42'), data_get($ledgerPayload, 'candidate.source_ref_hash'));
+        $this->assertArrayNotHasKey('problem_context', data_get($ledgerPayload, 'candidate', []));
+
+        $extraction = DB::table('worked_example_extractions')
+            ->where('source_ref', 'pr-42')
+            ->first();
+        $storedMetadata = json_encode(json_decode((string) $extraction->source_metadata, true), JSON_THROW_ON_ERROR);
+        $storedSignals = json_encode(json_decode((string) $extraction->quality_signals, true), JSON_THROW_ON_ERROR);
+
+        $this->assertStringNotContainsString('vitorepf@example.com', $storedMetadata);
+        $this->assertStringNotContainsString('commitsecret123456', $storedMetadata);
+        $this->assertStringNotContainsString('vitorepf@example.com', $storedSignals);
+        $this->assertStringNotContainsString('commitsecret123456', $storedSignals);
     }
 
     public function test_rejects_low_quality_source_and_reports_extraction_status(): void
@@ -128,5 +148,163 @@ class AtlasWorkedExamplePersonalExtractionCommandTest extends TestCase
 
         $this->assertSame('status', $status['mode']);
         $this->assertSame('quality_feynman_below_threshold', $status['extractions'][0]['discard_reason']);
+
+        $ledgerPayload = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::PersonalWorkedExampleDiscardedQuality->value)
+            ->firstOrFail()
+            ->payload;
+
+        $this->assertFalse(data_get($ledgerPayload, 'candidate.raw_content_in_ledger'));
+        $this->assertArrayNotHasKey('problem_context', data_get($ledgerPayload, 'candidate', []));
+    }
+
+    public function test_duplicate_extraction_preserves_existing_record_and_logs_only_safe_summary(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::OperationCompleted, [
+            'schema_version' => 'atlas.test.personal_worked_example_source.v1',
+            'source_type' => 'programming_pr',
+            'source_ref' => 'pr-duplicate',
+            'domain' => 'programming',
+            'topic' => 'queue-batching',
+            'title' => 'Queue batching duplicate source',
+            'problem_context' => 'Sensitive context token=secretduplicatetoken123.',
+            'steps' => [
+                ['action' => 'Measure contention.', 'reasoning' => 'Latency rose.', 'why_works' => 'Finds bottleneck.'],
+            ],
+            'commit_explanation' => 'Explained evidence and transfer rule.',
+            'tests_passed' => true,
+            'no_regression_30d' => true,
+            'privacy_class' => 1,
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'test',
+            'envelope_id' => 'test:personal_worked_example:pr-duplicate',
+            'correlation_id' => 'test:personal_worked_example_duplicate',
+            'emitter_stage' => 'test',
+        ]);
+
+        Artisan::call('atlas:worked-example', [
+            'actionOrTopic' => 'extract',
+            '--extract-source' => 'programming_pr',
+            '--domain' => 'programming',
+            '--json' => true,
+        ]);
+        $first = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(1, $first['summary']['extracted']);
+
+        Artisan::call('atlas:worked-example', [
+            'actionOrTopic' => 'extract',
+            '--extract-source' => 'programming_pr',
+            '--domain' => 'programming',
+            '--json' => true,
+        ]);
+        $second = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $second['summary']['extracted']);
+        $this->assertSame(1, $second['summary']['discarded_duplicate']);
+        $this->assertSame('extracted', DB::table('worked_example_extractions')->where('source_ref', 'pr-duplicate')->value('extraction_status'));
+
+        $duplicatePayload = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::PersonalWorkedExampleDiscardedDuplicate->value)
+            ->firstOrFail()
+            ->payload;
+
+        $this->assertSame('read_only_existing_record_preserved', $duplicatePayload['duplicate_policy']);
+        $this->assertFalse(data_get($duplicatePayload, 'candidate.raw_content_in_ledger'));
+        $this->assertStringNotContainsString('secretduplicatetoken123', json_encode($duplicatePayload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_personal_extraction_schedule_control_surface_is_review_only(): void
+    {
+        Artisan::call('atlas:worked-example', [
+            'actionOrTopic' => 'extract',
+            'subject' => 'schedule',
+            '--status' => 'on',
+            '--json' => true,
+        ]);
+        $enabled = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('ok', $enabled['status']);
+        $this->assertSame('extract_schedule', $enabled['mode']);
+        $this->assertSame('on', $enabled['operation']);
+        $this->assertTrue(data_get($enabled, 'job.enabled'));
+        $this->assertFalse(data_get($enabled, 'autonomy.auto_apply'));
+        $this->assertTrue(data_get($enabled, 'autonomy.review_required'));
+        $this->assertTrue(data_get($enabled, 'autonomy.scheduler_registered'));
+        $this->assertSame('registered_review_only', $enabled['registration_status']);
+
+        Artisan::call('atlas:worked-example', [
+            'actionOrTopic' => 'extract',
+            'subject' => 'schedule',
+            '--status' => 'off',
+            '--json' => true,
+        ]);
+        $disabled = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertFalse(data_get($disabled, 'job.enabled'));
+        $this->assertFalse(data_get($disabled, 'autonomy.auto_apply'));
+        $this->assertNull(data_get($disabled, 'job.next_run_at'));
+    }
+
+    public function test_scheduled_personal_extraction_runs_only_when_enabled_and_due(): void
+    {
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::OperationCompleted, [
+            'schema_version' => 'atlas.test.personal_worked_example_source.v1',
+            'source_type' => 'programming_pr',
+            'source_ref' => 'pr-scheduled',
+            'domain' => 'programming',
+            'topic' => 'scheduled-learning',
+            'title' => 'Scheduled extraction source',
+            'problem_context' => 'Safe scheduled source.',
+            'steps' => [
+                ['action' => 'Find the reusable pattern.', 'reasoning' => 'Pattern was repeated.', 'why_works' => 'Improves transfer.'],
+            ],
+            'commit_explanation' => 'Explained evidence and transfer rule.',
+            'tests_passed' => true,
+            'no_regression_30d' => true,
+            'privacy_class' => 1,
+        ], [
+            'tenant_id' => 'default',
+            'operator_id' => 'test',
+            'envelope_id' => 'test:personal_worked_example:pr-scheduled',
+            'correlation_id' => 'test:personal_worked_example_scheduled',
+            'emitter_stage' => 'test',
+        ]);
+
+        Artisan::call('atlas:worked-example', [
+            'actionOrTopic' => 'extract',
+            'subject' => 'scheduled',
+            '--json' => true,
+        ]);
+        $missingJob = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('skipped', $missingJob['status']);
+        $this->assertSame('schedule_job_not_configured', $missingJob['reason']);
+
+        Artisan::call('atlas:worked-example', [
+            'actionOrTopic' => 'extract',
+            'subject' => 'schedule',
+            '--status' => 'on',
+            '--json' => true,
+        ]);
+
+        DB::table('personal_extraction_jobs')
+            ->where('cadence', 'weekly')
+            ->update(['next_run_at' => now()->subMinute()]);
+
+        Artisan::call('atlas:worked-example', [
+            'actionOrTopic' => 'extract',
+            'subject' => 'scheduled',
+            '--json' => true,
+        ]);
+        $run = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('ok', $run['status']);
+        $this->assertSame('extract_scheduled', $run['mode']);
+        $this->assertFalse(data_get($run, 'autonomy.auto_apply'));
+        $this->assertTrue(data_get($run, 'autonomy.review_required'));
+        $this->assertSame(1, data_get($run, 'result.summary.extracted'));
+        $this->assertNotNull(data_get($run, 'schedule.job.last_run_at'));
+        $this->assertNotNull(data_get($run, 'schedule.job.next_run_at'));
+        $this->assertSame('completed', data_get($run, 'schedule.job.last_run_summary.status'));
     }
 }

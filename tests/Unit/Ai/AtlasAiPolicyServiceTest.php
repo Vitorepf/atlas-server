@@ -43,6 +43,12 @@ class AtlasAiPolicyServiceTest extends TestCase
         $this->assertContains('quality_scan', data_get($profile, 'effective_policy.operational_contracts.gates.required_gates'));
         $this->assertSame('high', $profile['autonomy_level']);
         $this->assertSame('best_quality', $profile['default_model_policy']);
+        $this->assertSame('atlas.runtime_budget.governance_contract.v1', data_get($profile, 'budget_policy.governance_contract.schema_version'));
+        $this->assertFalse(data_get($profile, 'budget_policy.governance_contract.autonomy_escalation_allowed'));
+        $this->assertFalse(data_get($profile, 'budget_policy.governance_contract.budget_limit_auto_raise_allowed'));
+        $this->assertTrue(data_get($profile, 'budget_policy.governance_contract.requires_human_review_for_limit_change'));
+        $this->assertTrue(data_get($profile, 'budget_policy.governance_contract.requires_decision_receipt_for_limit_change'));
+        $this->assertContains('change_provider_policy_from_budget_signal', data_get($profile, 'budget_policy.governance_contract.forbidden_actions'));
         $this->assertContains('open_brain_required', $profile['required_gates']);
         $this->assertContains('tool_runtime_gate', $profile['required_gates']);
         $this->assertContains('codex_cli', $profile['fallback_order']);

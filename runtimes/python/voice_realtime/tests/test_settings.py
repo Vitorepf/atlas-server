@@ -52,6 +52,20 @@ class AtlasVoiceRuntimeSettingsTest(unittest.TestCase):
         with self.assertRaises(SettingsError):
             AtlasVoiceRuntimeSettings.from_env(payload)
 
+    def test_rejects_urls_with_control_characters(self) -> None:
+        payload = env(self.write_manifest())
+        payload["ATLAS_BASE_URL"] = "http://atlas.test\nLIVEKIT_API_SECRET=injected"
+
+        with self.assertRaises(SettingsError):
+            AtlasVoiceRuntimeSettings.from_env(payload)
+
+    def test_rejects_room_prefix_outside_atlas_voice_namespace(self) -> None:
+        payload = env(self.write_manifest())
+        payload["ATLAS_VOICE_ROOM_PREFIX"] = "random-room-"
+
+        with self.assertRaises(SettingsError):
+            AtlasVoiceRuntimeSettings.from_env(payload)
+
     def test_rejects_base_url_mismatch_with_manifest(self) -> None:
         path = self.write_manifest()
         payload = env(path)
@@ -71,7 +85,7 @@ class AtlasVoiceRuntimeSettingsTest(unittest.TestCase):
             "LIVEKIT_API_KEY=livekit-key",
             "LIVEKIT_API_SECRET=livekit-secret",
             f"ATLAS_VOICE_BOOTSTRAP={bootstrap}",
-            "ATLAS_VOICE_ROOM_PREFIX=from-file",
+            "ATLAS_VOICE_ROOM_PREFIX=atlas-voice-from-file-",
         ]))
         handle.close()
 
@@ -81,7 +95,7 @@ class AtlasVoiceRuntimeSettingsTest(unittest.TestCase):
         )
 
         self.assertEqual("http://atlas.test", settings.atlas_base_url)
-        self.assertEqual("from-file", settings.room_prefix)
+        self.assertEqual("atlas-voice-from-file-", settings.room_prefix)
         self.assertEqual("http://atlas.test/ai/voice/turn", settings.load_contract().turn_url)
 
     def test_rejects_invalid_dotenv_file_line(self) -> None:
