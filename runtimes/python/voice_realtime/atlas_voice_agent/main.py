@@ -129,6 +129,16 @@ def load_sdk_events(path: Path) -> list[Mapping[str, Any]]:
     return events
 
 
+def load_production_promotion_review(path: Path) -> Mapping[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    if not isinstance(payload, Mapping):
+        raise ValueError("production promotion review must be a JSON object")
+
+    return payload
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Atlas Voice Realtime runtime scaffold")
     parser.add_argument("--bootstrap", help="Path to Kernel bootstrap manifest JSON")
@@ -145,6 +155,8 @@ def main() -> int:
     parser.add_argument("--start-worker", action="store_true", help="Attempt governed LiveKit worker startup; returns blocked JSON until all gates pass")
     parser.add_argument("--callback-loop-wired", action="store_true", help="Declare the governed callback router is wired for fail-closed activation checks")
     parser.add_argument("--production-sdk-loop-wired", action="store_true", help="Declare the real LiveKit SDK loop is wired for fail-closed production checks")
+    parser.add_argument("--production-promotion-approved", action="store_true", help="Legacy declaration only; a review file is required for actual promotion approval")
+    parser.add_argument("--production-promotion-review-file", help="Path to human production-promotion review receipt JSON")
     parser.add_argument("--scripted-events", help="Run a token-safe scripted worker event JSON file and exit")
     parser.add_argument("--callback-event", help="Route one normalized LiveKit SDK callback JSON file and exit")
     parser.add_argument("--callback-events", help="Route a normalized LiveKit SDK callback sequence JSON file and exit")
@@ -224,6 +236,10 @@ def main() -> int:
         ), indent=2))
 
     if args.product_loop_check:
+        production_promotion_review = (
+            load_production_promotion_review(Path(args.production_promotion_review_file))
+            if args.production_promotion_review_file else None
+        )
         print(json.dumps(build_product_loop_check(
             contract,
             env_file=Path(args.env_file) if args.env_file else None,
@@ -231,6 +247,7 @@ def main() -> int:
             settings_loaded=settings is not None,
             boundary_created=boundary_created,
             mock_kernel=args.mock_kernel,
+            production_promotion_review=production_promotion_review,
         ), indent=2))
 
     if args.activation_contract:
@@ -245,6 +262,10 @@ def main() -> int:
         ), indent=2))
 
     if args.start_worker:
+        production_promotion_review = (
+            load_production_promotion_review(Path(args.production_promotion_review_file))
+            if args.production_promotion_review_file else None
+        )
         print(json.dumps(start_livekit_agents_worker(
             contract,
             env_file=Path(args.env_file) if args.env_file else None,
@@ -254,6 +275,8 @@ def main() -> int:
             mock_kernel=args.mock_kernel,
             callback_loop_wired=args.callback_loop_wired,
             production_sdk_loop_wired=args.production_sdk_loop_wired,
+            production_promotion_approved=args.production_promotion_approved,
+            production_promotion_review=production_promotion_review,
         ), indent=2))
 
     if args.callback_loop_check:

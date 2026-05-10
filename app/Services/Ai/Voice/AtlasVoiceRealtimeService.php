@@ -688,6 +688,7 @@ final class AtlasVoiceRealtimeService
                 'worker_start_still_blocked',
                 'production_promotion_blocked',
                 'sdk_probe_import_safe',
+                'sdk_kernel_normalizer_required',
                 'direct_provider_forbidden',
                 'raw_audio_forbidden',
             ],

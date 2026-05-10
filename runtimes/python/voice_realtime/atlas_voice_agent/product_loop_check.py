@@ -17,6 +17,7 @@ def build_product_loop_check(
     settings_loaded: bool = False,
     boundary_created: bool = False,
     mock_kernel: bool = False,
+    production_promotion_review: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any]:
     """Aggregate the governed product-loop readiness without starting a daemon."""
 
@@ -36,6 +37,7 @@ def build_product_loop_check(
         mock_kernel=mock_kernel,
         callback_loop_wired=True,
         production_sdk_loop_wired=True,
+        production_promotion_review=production_promotion_review,
     )
 
     sdk_status = worker_start.get("worker_plan", {}).get("sdk_status", {})
@@ -53,15 +55,29 @@ def build_product_loop_check(
             for handler in production_loop.get("sdk_wiring_contract", {}).get("required_handlers", [])
         )
     )
+    sdk_kernel_normalizer_required = (
+        production_loop.get("sdk_wiring_contract", {}).get("guardrails", {}).get("kernel_event_normalizer_required_for_real_loop") is True
+        and production_loop.get("sdk_wiring_contract", {}).get("required_components", {}).get("kernel_event_normalizer") == "KernelRuntimeEventNormalizerGuard"
+        and "validate_every_sdk_event_through_kernel_normalizer" in (production_loop.get("sdk_wiring_contract", {}).get("wiring_invariants") or [])
+        and all(
+            isinstance(handler, Mapping)
+            and "KernelRuntimeEventNormalizerGuard.assert_event_valid" in (
+                handler.get("handler_blueprint", {}).get("required_path") or []
+            )
+            for handler in production_loop.get("sdk_wiring_contract", {}).get("required_handlers", [])
+        )
+    )
     machine_ready = (
-        worker_start.get("status") == "blocked_unimplemented_start"
+        worker_start.get("status") in ["blocked_pending_human_review", "blocked_unimplemented_start"]
         and sdk_probe_import_safe
         and sdk_handler_blueprint_available
+        and sdk_kernel_normalizer_required
     )
+    review_receipt_valid = worker_start.get("production_promotion", {}).get("review_receipt_valid") is True
 
     return {
         "schema_version": "atlas.voice_realtime.product_loop_check.v1",
-        "status": "ready_for_daemon_implementation_review" if machine_ready else "blocked",
+        "status": _status(machine_ready, review_receipt_valid),
         "surface_id": "voice_realtime",
         "runtime_id": "livekit_agents_sdk",
         "kernel_only": True,
@@ -77,10 +93,18 @@ def build_product_loop_check(
             "production_promotion_blocked": worker_start.get("production_promotion", {}).get("auto_promotion_allowed") is False,
             "sdk_probe_import_safe": sdk_probe_import_safe,
             "sdk_handler_blueprint_available": sdk_handler_blueprint_available,
+            "sdk_kernel_normalizer_required": sdk_kernel_normalizer_required,
+            "production_review_receipt_valid": review_receipt_valid,
+            "boolean_approval_is_sufficient": worker_start.get("production_promotion", {}).get("boolean_approval_is_sufficient") is True,
             "direct_provider_forbidden": worker_start.get("guardrails", {}).get("direct_provider_call_allowed") is False,
             "raw_audio_forbidden": worker_start.get("guardrails", {}).get("raw_audio_persistence_allowed") is False,
         },
-        "next_action": _next_action(worker_start, sdk_probe_import_safe, sdk_handler_blueprint_available),
+        "next_action": _next_action(
+            worker_start,
+            sdk_probe_import_safe,
+            sdk_handler_blueprint_available,
+            sdk_kernel_normalizer_required,
+        ),
         "guardrails": {
             "direct_provider_call_allowed": False,
             "direct_tool_execution_allowed": False,
@@ -88,18 +112,30 @@ def build_product_loop_check(
             "access_token_log_allowed": False,
             "auto_promotion_allowed": False,
         },
-    }
+}
+
+
+def _status(machine_ready: bool, review_receipt_valid: bool) -> str:
+    if not machine_ready:
+        return "blocked"
+    if not review_receipt_valid:
+        return "ready_for_human_review"
+
+    return "ready_for_daemon_implementation_review"
 
 
 def _next_action(
     worker_start: Mapping[str, Any],
     sdk_probe_import_safe: bool,
     sdk_handler_blueprint_available: bool,
+    sdk_kernel_normalizer_required: bool,
 ) -> str:
     if not sdk_probe_import_safe:
         return "fix_sdk_probe_contract"
     if not sdk_handler_blueprint_available:
         return "fix_sdk_handler_blueprint_contract"
+    if not sdk_kernel_normalizer_required:
+        return "fix_sdk_kernel_normalizer_contract"
 
     status = str(worker_start.get("status") or "")
     if status == "blocked_missing_sdk":
@@ -112,6 +148,8 @@ def _next_action(
         return str(worker_start.get("activation_next_action") or "fix_activation_gate")
     if status == "blocked_by_activation_contract":
         return str(worker_start.get("activation_next_action") or "fix_activation_contract")
+    if status == "blocked_pending_human_review":
+        return "submit_voice_production_promotion_for_human_review"
     if status == "blocked_unimplemented_start":
         return "submit_daemon_implementation_review"
 

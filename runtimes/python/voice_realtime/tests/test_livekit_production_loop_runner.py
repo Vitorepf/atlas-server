@@ -44,6 +44,22 @@ class ProductionLoopTransport:
                     },
                 },
             }
+        if url.endswith("/runtime/events/normalize"):
+            return {
+                "schema_version": "atlas.voice_realtime.runtime_event_normalizer.v1",
+                "status": "normalized",
+                "valid": True,
+                "event_count": 1,
+                "errors": [],
+                "contract": {
+                    "guardrails": {
+                        "runtime_execution_enabled": False,
+                        "provider_execution_enabled": False,
+                        "raw_audio_persistence_allowed": False,
+                        "secret_persistence_allowed": False,
+                    },
+                },
+            }
         if url.endswith("/session/start"):
             return {
                 "status": "session_started_scaffold",
@@ -167,11 +183,13 @@ class LiveKitProductionLoopRunnerTest(unittest.TestCase):
         self.assertIn("evidence_refs", payload["worker_return_contract"]["required_keys"])
         self.assertFalse(payload["guardrails"]["direct_provider_call_allowed"])
         self.assertFalse(payload["guardrails"]["raw_audio_persistence_allowed"])
-        self.assertEqual("http://atlas.test/ai/voice/runtime/events/normalize-sequence", transport.calls[0][0])
-        self.assertEqual("http://atlas.test/ai/voice/session/start", transport.calls[1][0])
-        self.assertEqual("http://atlas.test/ai/voice/turn", transport.calls[2][0])
-        self.assertEqual("http://atlas.test/ai/voice/turn/played", transport.calls[3][0])
-        self.assertEqual("http://atlas.test/ai/voice/session/end", transport.calls[4][0])
+        called_urls = [call[0] for call in transport.calls]
+        self.assertEqual("http://atlas.test/ai/voice/runtime/events/normalize-sequence", called_urls[0])
+        self.assertEqual(4, called_urls.count("http://atlas.test/ai/voice/runtime/events/normalize"))
+        self.assertIn("http://atlas.test/ai/voice/session/start", called_urls)
+        self.assertIn("http://atlas.test/ai/voice/turn", called_urls)
+        self.assertIn("http://atlas.test/ai/voice/turn/played", called_urls)
+        self.assertIn("http://atlas.test/ai/voice/session/end", called_urls)
 
     def test_runner_rejects_empty_or_unsafe_sdk_event_sequence(self) -> None:
         subject = runner(ProductionLoopTransport())
@@ -245,7 +263,10 @@ class LiveKitProductionLoopRunnerTest(unittest.TestCase):
         self.assertEqual("atlas.voice_realtime.handler_registry_contract_report.v1", payload["schema_version"])
         self.assertEqual("invalid", payload["status"])
         self.assertIn("transcript_final", payload["missing_handlers"])
-        self.assertEqual(["memory_write_allowed"], payload["invalid_guardrails"])
+        self.assertEqual(
+            ["kernel_event_normalizer_required_for_real_loop", "memory_write_allowed"],
+            payload["invalid_guardrails"],
+        )
 
     def test_normalizer_contract_report_fails_closed_for_invalid_kernel_result(self) -> None:
         payload = _normalizer_contract_report({

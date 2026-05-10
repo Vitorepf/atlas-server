@@ -23,6 +23,8 @@ class AtlasAiVoiceRealtimeCommand extends Command
         {--require-sdk : Make preflight fail when LiveKit Agents SDK is not installed}
         {--callback-loop-wired : Declare the governed callback router is wired for fail-closed activation checks}
         {--production-sdk-loop-wired : Declare the real LiveKit SDK loop is wired for fail-closed production checks}
+        {--production-promotion-approved : Legacy declaration only; a review file is required for actual promotion approval}
+        {--production-promotion-review-file= : JSON review receipt file for the production promotion gate}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Inspect the Atlas AI Voice Realtime surface contract.';
@@ -199,6 +201,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             $this->components->twoColumnDetail('Product loop check', (string) data_get($payload, 'status'));
             $this->components->twoColumnDetail('Daemon started', data_get($payload, 'daemon_started', false) ? 'yes' : 'no');
             $this->components->twoColumnDetail('SDK probe safe', data_get($payload, 'gates.sdk_probe_import_safe', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Kernel normalizer required', data_get($payload, 'gates.sdk_kernel_normalizer_required', false) ? 'yes' : 'no');
             $this->components->twoColumnDetail('Promotion blocked', data_get($payload, 'gates.production_promotion_blocked', false) ? 'yes' : 'no');
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
@@ -213,6 +216,8 @@ class AtlasAiVoiceRealtimeCommand extends Command
             $this->components->twoColumnDetail('Reason', (string) data_get($payload, 'reason'));
             $this->components->twoColumnDetail('Plan status', (string) data_get($payload, 'worker_plan.status'));
             $this->components->twoColumnDetail('Production loop status', (string) data_get($payload, 'production_loop_plan.status'));
+            $this->components->twoColumnDetail('Human review approved', data_get($payload, 'production_promotion.human_review_approved', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Review receipt valid', data_get($payload, 'production_promotion.review_receipt_valid', false) ? 'yes' : 'no');
             $this->components->twoColumnDetail('Activation status', (string) data_get($payload, 'activation_contract.status'));
             $this->components->twoColumnDetail('Activation next action', (string) data_get($payload, 'activation_next_action'));
         }
@@ -574,9 +579,18 @@ class AtlasAiVoiceRealtimeCommand extends Command
      */
     private function runProductLoopCheck(AtlasVoiceRealtimeService $voice): array
     {
-        return $this->runPythonEnvCommand($voice, [
+        $extraArgs = [
             '--product-loop-check',
-        ], 'atlas.voice_realtime.product_loop_check.v1', 'product-loop-token', 'product-loop-key', 'product-loop-secret');
+        ];
+        $reviewFile = trim((string) ($this->option('production-promotion-review-file') ?? ''));
+        if ($reviewFile !== '') {
+            $extraArgs[] = '--production-promotion-review-file';
+            $extraArgs[] = str_starts_with($reviewFile, DIRECTORY_SEPARATOR)
+                ? $reviewFile
+                : base_path($reviewFile);
+        }
+
+        return $this->runPythonEnvCommand($voice, $extraArgs, 'atlas.voice_realtime.product_loop_check.v1', 'product-loop-token', 'product-loop-key', 'product-loop-secret');
     }
 
     /**
@@ -606,6 +620,16 @@ class AtlasAiVoiceRealtimeCommand extends Command
         }
         if ((bool) $this->option('production-sdk-loop-wired')) {
             $extraArgs[] = '--production-sdk-loop-wired';
+        }
+        if ((bool) $this->option('production-promotion-approved')) {
+            $extraArgs[] = '--production-promotion-approved';
+        }
+        $reviewFile = trim((string) ($this->option('production-promotion-review-file') ?? ''));
+        if ($reviewFile !== '') {
+            $extraArgs[] = '--production-promotion-review-file';
+            $extraArgs[] = str_starts_with($reviewFile, DIRECTORY_SEPARATOR)
+                ? $reviewFile
+                : base_path($reviewFile);
         }
 
         return $this->runPythonEnvCommand(

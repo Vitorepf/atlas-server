@@ -115,13 +115,17 @@ final class AtlasVoiceRuntimeCertificationService
                     && ($productLoopCheck['daemon_started'] ?? true) === false
                     && data_get($productLoopCheck, 'gates.sdk_probe_import_safe') === true
                     && data_get($productLoopCheck, 'gates.sdk_handler_blueprint_available') === true
+                    && data_get($productLoopCheck, 'gates.sdk_kernel_normalizer_required') === true
                     && data_get($productLoopCheck, 'gates.production_promotion_blocked') === true,
                 'schema_version' => $productLoopCheck['schema_version'] ?? null,
                 'status' => $productLoopCheck['status'] ?? 'unknown',
                 'daemon_started' => $productLoopCheck['daemon_started'] ?? null,
                 'sdk_probe_import_safe' => data_get($productLoopCheck, 'gates.sdk_probe_import_safe'),
                 'sdk_handler_blueprint_available' => data_get($productLoopCheck, 'gates.sdk_handler_blueprint_available'),
+                'sdk_kernel_normalizer_required' => data_get($productLoopCheck, 'gates.sdk_kernel_normalizer_required'),
                 'production_promotion_blocked' => data_get($productLoopCheck, 'gates.production_promotion_blocked'),
+                'production_review_receipt_valid' => data_get($productLoopCheck, 'gates.production_review_receipt_valid'),
+                'boolean_approval_is_sufficient' => data_get($productLoopCheck, 'gates.boolean_approval_is_sufficient'),
             ],
             'certification_artifacts_sanitized' => [
                 'passed' => $forbiddenArtifactKeys === [],
@@ -242,13 +246,17 @@ final class AtlasVoiceRuntimeCertificationService
                     && ($productLoopCheck['daemon_started'] ?? true) === false
                     && data_get($productLoopCheck, 'gates.sdk_probe_import_safe') === true
                     && data_get($productLoopCheck, 'gates.sdk_handler_blueprint_available') === true
+                    && data_get($productLoopCheck, 'gates.sdk_kernel_normalizer_required') === true
                     && data_get($productLoopCheck, 'gates.production_promotion_blocked') === true,
                 'schema_version' => $productLoopCheck['schema_version'] ?? null,
                 'status' => $productLoopCheck['status'] ?? 'unknown',
                 'daemon_started' => $productLoopCheck['daemon_started'] ?? null,
                 'sdk_probe_import_safe' => data_get($productLoopCheck, 'gates.sdk_probe_import_safe'),
                 'sdk_handler_blueprint_available' => data_get($productLoopCheck, 'gates.sdk_handler_blueprint_available'),
+                'sdk_kernel_normalizer_required' => data_get($productLoopCheck, 'gates.sdk_kernel_normalizer_required'),
                 'production_promotion_blocked' => data_get($productLoopCheck, 'gates.production_promotion_blocked'),
+                'production_review_receipt_valid' => data_get($productLoopCheck, 'gates.production_review_receipt_valid'),
+                'boolean_approval_is_sufficient' => data_get($productLoopCheck, 'gates.boolean_approval_is_sufficient'),
             ],
             'worker_start_still_blocked_until_real_loop' => [
                 'passed' => str_starts_with((string) ($workerStart['status'] ?? ''), 'blocked_')
@@ -301,6 +309,7 @@ final class AtlasVoiceRuntimeCertificationService
             'required_rollback_plan' => [
                 'disable_livekit_token_issuer',
                 'stop_livekit_worker',
+                'revert_runtime_policy',
                 'return_voice_runtime_to_scaffold_mode',
                 'revoke_or_expire_livekit_room_tokens',
                 'preserve_evidence_ledger_replay_window',

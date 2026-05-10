@@ -24,6 +24,7 @@ class LiveKitSdkWiringContractTest(unittest.TestCase):
         self.assertFalse(payload["guardrails"]["direct_provider_call_allowed"])
         self.assertFalse(payload["guardrails"]["raw_audio_persistence_allowed"])
         self.assertFalse(payload["guardrails"]["sdk_import_required_for_contract"])
+        self.assertTrue(payload["guardrails"]["kernel_event_normalizer_required_for_real_loop"])
 
     def test_wiring_contract_becomes_wired_only_when_loop_flag_is_true(self) -> None:
         payload = build_livekit_sdk_wiring_contract(production_sdk_loop_wired=True)
@@ -42,8 +43,10 @@ class LiveKitSdkWiringContractTest(unittest.TestCase):
         )
         self.assertEqual(event_bridge["forbidden_keys"], payload["forbidden_keys"])
         self.assertIn("LiveKitSdkEventBridge", payload["required_components"]["sdk_event_bridge"])
+        self.assertIn("KernelRuntimeEventNormalizerGuard", payload["required_components"]["kernel_event_normalizer"])
         self.assertIn("LiveKitSdkHandlerRegistry", payload["required_components"]["sdk_handler_registry"])
         self.assertIn("access_token", payload["forbidden_keys"])
+        self.assertIn("validate_every_sdk_event_through_kernel_normalizer", payload["wiring_invariants"])
         self.assertIn("call_LiveKitSdkEventBridge_to_callback_event", payload["wiring_invariants"])
         self.assertIn("route_all_livekit_sdk_handlers_through_registry", payload["wiring_invariants"])
         self.assertIn("never_call_provider_tool_memory_or_policy_from_sdk_handler", payload["wiring_invariants"])
@@ -55,6 +58,7 @@ class LiveKitSdkWiringContractTest(unittest.TestCase):
             if handler["sdk_event_kind"] == "room_connected"
         )
         self.assertEqual("handle_room_connected", room_connected["handler_blueprint"]["name"])
+        self.assertIn("KernelRuntimeEventNormalizerGuard.assert_event_valid", room_connected["handler_blueprint"]["required_path"])
         self.assertIn("LiveKitCallbackRouter.route", room_connected["handler_blueprint"]["required_path"])
         self.assertIn("provider SDK call", room_connected["handler_blueprint"]["forbidden_path"])
 

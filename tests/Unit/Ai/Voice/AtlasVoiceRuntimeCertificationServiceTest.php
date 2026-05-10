@@ -64,6 +64,7 @@ final class AtlasVoiceRuntimeCertificationServiceTest extends TestCase
         $this->assertSame('approve_or_reject_voice_production_promotion', data_get($payload, 'production_promotion_gate.review_packet.required_human_decision'));
         $this->assertTrue(data_get($payload, 'production_promotion_gate.review_packet.required_decision_receipt'));
         $this->assertContains('disable_livekit_token_issuer', data_get($payload, 'production_promotion_gate.review_packet.required_rollback_plan'));
+        $this->assertContains('revert_runtime_policy', data_get($payload, 'production_promotion_gate.review_packet.required_rollback_plan'));
         $this->assertContains('product_loop_check', data_get($payload, 'production_promotion_gate.review_packet.required_evidence'));
         $this->assertContains('rivals_voice_comparison', data_get($payload, 'production_promotion_gate.review_packet.required_evidence'));
         $this->assertContains('bypass_kernel_decision_receipt', data_get($payload, 'production_promotion_gate.review_packet.forbidden_actions'));
@@ -81,12 +82,18 @@ final class AtlasVoiceRuntimeCertificationServiceTest extends TestCase
         $this->assertFalse(data_get($payload, 'gates.product_loop_check_available.daemon_started'));
         $this->assertTrue(data_get($payload, 'gates.product_loop_check_available.sdk_probe_import_safe'));
         $this->assertTrue(data_get($payload, 'gates.product_loop_check_available.sdk_handler_blueprint_available'));
+        $this->assertTrue(data_get($payload, 'gates.product_loop_check_available.sdk_kernel_normalizer_required'));
         $this->assertTrue(data_get($payload, 'gates.product_loop_check_available.production_promotion_blocked'));
+        $this->assertFalse(data_get($payload, 'gates.product_loop_check_available.production_review_receipt_valid'));
+        $this->assertFalse(data_get($payload, 'gates.product_loop_check_available.boolean_approval_is_sufficient'));
         $this->assertTrue(data_get($payload, 'production_promotion_gate.machine_gates.product_loop_check_available.passed'));
         $this->assertSame('atlas.voice_realtime.product_loop_check.v1', data_get($payload, 'production_promotion_gate.machine_gates.product_loop_check_available.schema_version'));
         $this->assertTrue(data_get($payload, 'production_promotion_gate.machine_gates.product_loop_check_available.sdk_probe_import_safe'));
         $this->assertTrue(data_get($payload, 'production_promotion_gate.machine_gates.product_loop_check_available.sdk_handler_blueprint_available'));
+        $this->assertTrue(data_get($payload, 'production_promotion_gate.machine_gates.product_loop_check_available.sdk_kernel_normalizer_required'));
         $this->assertTrue(data_get($payload, 'production_promotion_gate.machine_gates.product_loop_check_available.production_promotion_blocked'));
+        $this->assertFalse(data_get($payload, 'production_promotion_gate.machine_gates.product_loop_check_available.production_review_receipt_valid'));
+        $this->assertFalse(data_get($payload, 'production_promotion_gate.machine_gates.product_loop_check_available.boolean_approval_is_sufficient'));
         $this->assertSame(30, data_get($payload, 'artifacts.production_loop_smoke.timeout_seconds'));
         $this->assertSame('valid', data_get($payload, 'gates.production_loop_smoke_passed.kernel_normalizer_contract_status'));
         $this->assertSame('valid', data_get($payload, 'production_promotion_gate.machine_gates.production_loop_smoke_passed.kernel_normalizer_contract_status'));

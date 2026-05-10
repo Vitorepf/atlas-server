@@ -15,9 +15,11 @@ from atlas_voice_agent.main import (
     create_livekit_worker,
     load_callback_event,
     load_callback_events,
+    load_production_promotion_review,
     load_sdk_events,
     load_scripted_events,
 )
+from atlas_voice_agent.production_promotion_review import SCHEMA_VERSION as REVIEW_SCHEMA_VERSION
 from atlas_voice_agent.settings import AtlasVoiceRuntimeSettings
 
 from test_contract import manifest
@@ -45,6 +47,33 @@ def env(path: Path) -> dict[str, str]:
 def write_env_file(bootstrap_path: Path) -> Path:
     handle = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
     handle.write("\n".join(f"{key}={value}" for key, value in env(bootstrap_path).items()))
+    handle.close()
+
+    return Path(handle.name)
+
+
+def write_review_file() -> Path:
+    handle = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
+    json.dump({
+        "schema_version": REVIEW_SCHEMA_VERSION,
+        "status": "approved",
+        "surface_id": "voice_realtime",
+        "runtime_id": "livekit_agents_sdk",
+        "decision_receipt_id": "decision_receipt_voice_1",
+        "approved_by": "vitor",
+        "approved_at": "2026-05-10T12:00:00Z",
+        "rollback_plan": [
+            "disable_livekit_token_issuer",
+            "stop_livekit_worker",
+            "revert_runtime_policy",
+        ],
+        "forbidden_actions_acknowledged": [
+            "bypass_kernel_decision_receipt",
+            "auto_promote_voice_runtime",
+            "persist_raw_audio",
+        ],
+        "auto_promotion_allowed": False,
+    }, handle)
     handle.close()
 
     return Path(handle.name)
@@ -148,6 +177,14 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
 
         self.assertEqual("room_connected", load_sdk_events(Path(array_file.name))[0]["event_kind"])
         self.assertEqual("room_disconnected", load_sdk_events(Path(object_file.name))[0]["event_kind"])
+
+    def test_loads_production_promotion_review_object(self) -> None:
+        review_path = write_review_file()
+
+        self.assertEqual(
+            "decision_receipt_voice_1",
+            load_production_promotion_review(review_path)["decision_receipt_id"],
+        )
 
     def test_rejects_invalid_scripted_worker_events_file(self) -> None:
         invalid_file = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
@@ -302,7 +339,7 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
         self.assertEqual("production_loop_smoke_completed", payload["status"])
         self.assertEqual("atlas.voice_realtime.production_loop_smoke.v1", payload["schema_version"])
         self.assertTrue(payload["mock_kernel"])
-        self.assertEqual(6, payload["mock_call_count"])
+        self.assertEqual(11, payload["mock_call_count"])
         self.assertEqual(5, payload["event_count"])
         self.assertEqual(5, payload["result_count"])
         self.assertEqual(0, payload["active_session_count"])
@@ -514,9 +551,42 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
         self.assertTrue(payload["gates"]["callback_loop_wired"])
         self.assertTrue(payload["gates"]["production_sdk_loop_wired"])
         self.assertTrue(payload["gates"]["worker_start_still_blocked"])
+        self.assertFalse(payload["gates"]["production_review_receipt_valid"])
+        self.assertFalse(payload["gates"]["boolean_approval_is_sufficient"])
         self.assertFalse(payload["daemon_started"])
         self.assertFalse(payload["guardrails"]["direct_provider_call_allowed"])
         self.assertFalse(payload["guardrails"]["auto_promotion_allowed"])
+
+    def test_product_loop_check_accepts_review_receipt_without_starting_daemon(self) -> None:
+        bootstrap_path = write_manifest()
+        env_path = write_env_file(bootstrap_path)
+        review_path = write_review_file()
+        runtime_root = Path(__file__).resolve().parents[1]
+        completed = subprocess.run(
+            [
+                "python3",
+                "-m",
+                "atlas_voice_agent.main",
+                "--env-file",
+                str(env_path),
+                "--product-loop-check",
+                "--production-promotion-review-file",
+                str(review_path),
+            ],
+            cwd=str(runtime_root),
+            env={**os.environ, "PYTHONPATH": str(runtime_root)},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(completed.stdout)
+
+        self.assertEqual("atlas.voice_realtime.product_loop_check.v1", payload["schema_version"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["guardrails"]["auto_promotion_allowed"])
+        self.assertTrue(payload["gates"]["production_review_receipt_valid"])
+        self.assertFalse(payload["gates"]["boolean_approval_is_sufficient"])
+        self.assertNotIn("LIVEKIT_API_SECRET", completed.stdout)
 
     def test_start_worker_returns_fail_closed_json_until_sdk_and_loop_are_ready(self) -> None:
         bootstrap_path = write_manifest()
@@ -546,6 +616,7 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
             "blocked_by_activation_contract",
             "blocked_unwired_sdk_callbacks",
             "blocked_unwired_production_loop",
+            "blocked_pending_human_review",
         ])
         self.assertFalse(payload["started"])
         self.assertTrue(payload["kernel_only"])
@@ -595,7 +666,76 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
         self.assertTrue(payload["activation_contract"]["gates"]["callback_loop_wired"])
         self.assertEqual("wired", payload["sdk_wiring_contract"]["status"])
         self.assertFalse(payload["started"])
+        self.assertFalse(payload["production_promotion"]["human_review_approved"])
         self.assertFalse(payload["production_promotion"]["auto_promotion_allowed"])
+
+    def test_start_worker_requires_review_receipt_not_boolean_flag(self) -> None:
+        bootstrap_path = write_manifest()
+        env_path = write_env_file(bootstrap_path)
+        runtime_root = Path(__file__).resolve().parents[1]
+        completed = subprocess.run(
+            [
+                "python3",
+                "-m",
+                "atlas_voice_agent.main",
+                "--env-file",
+                str(env_path),
+                "--start-worker",
+                "--callback-loop-wired",
+                "--production-sdk-loop-wired",
+                "--production-promotion-approved",
+            ],
+            cwd=str(runtime_root),
+            env={**os.environ, "PYTHONPATH": str(runtime_root)},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(completed.stdout)
+
+        self.assertEqual("atlas.voice_realtime.worker_start.v1", payload["schema_version"])
+        self.assertTrue(payload["production_promotion_approved"])
+        self.assertFalse(payload["production_promotion_review_valid"])
+        self.assertFalse(payload["production_promotion"]["human_review_approved"])
+        self.assertFalse(payload["production_promotion"]["review_receipt_valid"])
+        self.assertTrue(payload["production_promotion"]["declared_approved_without_receipt"])
+        self.assertFalse(payload["production_promotion"]["boolean_approval_is_sufficient"])
+        self.assertFalse(payload["started"])
+        self.assertFalse(payload["production_promotion"]["auto_promotion_allowed"])
+
+    def test_start_worker_accepts_valid_review_receipt_but_still_does_not_start_daemon(self) -> None:
+        bootstrap_path = write_manifest()
+        env_path = write_env_file(bootstrap_path)
+        review_path = write_review_file()
+        runtime_root = Path(__file__).resolve().parents[1]
+        completed = subprocess.run(
+            [
+                "python3",
+                "-m",
+                "atlas_voice_agent.main",
+                "--env-file",
+                str(env_path),
+                "--start-worker",
+                "--callback-loop-wired",
+                "--production-sdk-loop-wired",
+                "--production-promotion-review-file",
+                str(review_path),
+            ],
+            cwd=str(runtime_root),
+            env={**os.environ, "PYTHONPATH": str(runtime_root)},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(completed.stdout)
+
+        self.assertEqual("atlas.voice_realtime.worker_start.v1", payload["schema_version"])
+        self.assertTrue(payload["production_promotion_review_valid"])
+        self.assertTrue(payload["production_promotion"]["human_review_approved"])
+        self.assertTrue(payload["production_promotion"]["review_receipt_valid"])
+        self.assertFalse(payload["started"])
+        self.assertFalse(payload["production_promotion"]["auto_promotion_allowed"])
+        self.assertNotIn("LIVEKIT_API_SECRET", completed.stdout)
 
 
 if __name__ == "__main__":

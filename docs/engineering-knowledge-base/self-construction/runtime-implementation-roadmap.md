@@ -179,6 +179,36 @@ Deliver:
 - drift check;
 - no high-risk runtime mutation.
 
+Current read-only Phase 5 surfaces:
+
+| Command | Current implementation |
+|---|---|
+| `--execution-candidate --json` | Candidate hash, docs/test/report scope, forbidden hot files and evidence boundary. |
+| `--approval-packet --json` | Human review checklist, reviewer roles, invariants and decision fields. |
+| `--receipt-draft --json` | Unsigned Decision Receipt draft with receipt hash and preview signature. |
+| `--execution-preflight --json` | Expected blocked preflight while signature and execution flag are absent. |
+| `--signature-request --json` | Signable payload, request hash, signer roles and confirmations. |
+| `--execution-runbook --json` | Post-signature ordered steps, stop conditions, evidence, gates and rollback. |
+| `--evidence-packet --json` | Required proof template, claim checks and future-run failure policy. |
+| `--completion-readiness --json` | Blocks false completion until signed execution evidence exists. |
+| `--residual-risk --json` | Classifies remaining blockers before promotion or completion claims. |
+| `--handoff-packet --json` | Gives next operator hashes, blockers, commands and forbidden hot scope. |
+| `--next-action --json` | Selects the next safe action while execution remains blocked. |
+| `--surface-matrix --json` | Lists every command surface, schema and read-only invariant. |
+| `--external-blockers --json` | Reports hot-file blockers outside Self-Construction ownership. |
+| `--cold-lane-certification --json` | Certifies cold lane status with external blockers separated. |
+| `--operator-checklist --json` | Orders the next human/operator review steps without signing or execution. |
+| `--promotion-blockers --json` | Consolidates promotion and completion blockers without execution. |
+| `--readiness-digest --json` | Emits a compact hashable handoff digest for operators and other AIs. |
+| `--governance-scorecard --json` | Scores governed readiness while execution, promotion and completion stay blocked. |
+| `--integrity-manifest --json` | Bundles governed packet hashes for audit and handoff integrity checks. |
+| `--continuation-token --json` | Emits a compact audited resume token with must-run and must-not-touch constraints. |
+| `--ownership-boundary --json` | Declares cold allowed files, hot forbidden scopes and required operator behavior. |
+| `--phase-ledger --json` | Summarizes phase status, hard blocks and promotion boundaries. |
+
+Every surface above remains read-only: it does not execute, approve, sign,
+persist approval, mark completion or enable self-programming.
+
 Goal:
 
 ```text

@@ -194,53 +194,37 @@ validated gates, evidence, drift detection and proposal-first learning.
 
 ## Current Runtime Surface
 
-Read-only/advisory status is exposed by:
+All commands below are read-only and keep `execution_allowed=false`.
 
-```bash
-php artisan atlas:ai:self-construction --json
-```
+| Command | Purpose |
+|---|---|
+| `php artisan atlas:ai:self-construction --json` | Readiness, docs, maturity, build graph, priority bias and safety contract. |
+| `php artisan atlas:ai:self-construction --meta-sdd --json` | Candidate Meta-SDD packet with assumptions, priority, tasks and gates. |
+| `php artisan atlas:ai:self-construction --receipt-preview --json` | Preview receipt with allowed/forbidden scope, rollback and evidence. |
+| `php artisan atlas:ai:self-construction --traceability --json` | Required-doc reachability, tag and layer audit. |
+| `php artisan atlas:ai:self-construction --promotion-gate --json` | Consolidated promotion recommendation for human-reviewed planning. |
+| `php artisan atlas:ai:self-construction --execution-candidate --json` | Deterministic Phase 5 candidate for docs/tests/report scope only. |
+| `php artisan atlas:ai:self-construction --approval-packet --json` | Human review packet with checklist, reviewers and decision fields. |
+| `php artisan atlas:ai:self-construction --receipt-draft --json` | Unsigned receipt draft with hash and preview signature. |
+| `php artisan atlas:ai:self-construction --execution-preflight --json` | Expected blocked preflight while no valid human signature exists. |
+| `php artisan atlas:ai:self-construction --signature-request --json` | Signable payload, hashes, signer roles and confirmations. |
+| `php artisan atlas:ai:self-construction --execution-runbook --json` | Post-signature ordered steps, stop conditions, evidence, gates and rollback. |
+| `php artisan atlas:ai:self-construction --evidence-packet --json` | Required proof template, claim checks and failure policy for a future signed run. |
+| `php artisan atlas:ai:self-construction --completion-readiness --json` | Blocks false completion until signed execution evidence exists. |
+| `php artisan atlas:ai:self-construction --residual-risk --json` | Classifies residual blockers before promotion or completion claims. |
+| `php artisan atlas:ai:self-construction --handoff-packet --json` | Gives the next operator hashes, blockers, commands and forbidden hot scope. |
+| `php artisan atlas:ai:self-construction --next-action --json` | Selects the next safe action while execution remains blocked. |
+| `php artisan atlas:ai:self-construction --surface-matrix --json` | Lists every command surface, schema and read-only invariant. |
+| `php artisan atlas:ai:self-construction --external-blockers --json` | Reports hot-file blockers outside Self-Construction ownership. |
+| `php artisan atlas:ai:self-construction --cold-lane-certification --json` | Certifies the Self-Construction cold lane with external blockers separated. |
+| `php artisan atlas:ai:self-construction --operator-checklist --json` | Orders the next human/operator review steps without signing or execution. |
+| `php artisan atlas:ai:self-construction --promotion-blockers --json` | Consolidates promotion and completion blockers without execution. |
+| `php artisan atlas:ai:self-construction --readiness-digest --json` | Emits a compact hashable handoff digest for operators and other AIs. |
+| `php artisan atlas:ai:self-construction --governance-scorecard --json` | Scores governed readiness while execution, promotion and completion stay blocked. |
+| `php artisan atlas:ai:self-construction --integrity-manifest --json` | Bundles governed packet hashes for audit and handoff integrity checks. |
+| `php artisan atlas:ai:self-construction --continuation-token --json` | Emits a compact audited resume token with must-run and must-not-touch constraints. |
+| `php artisan atlas:ai:self-construction --ownership-boundary --json` | Declares cold allowed files, hot forbidden scopes and required operator behavior. |
+| `php artisan atlas:ai:self-construction --phase-ledger --json` | Summarizes phase status, hard blocks and promotion boundaries. |
 
-This command reports required docs, maturity, build graph, priority bias, safety
-contract and next safe blocks. It does not authorize self-programming writes.
-
-Meta-SDD candidate generation is exposed by:
-
-```bash
-php artisan atlas:ai:self-construction --meta-sdd --json
-```
-
-This generates a structured candidate packet with assumptions, priority, build
-graph, tasks, gates and safety fields. It is read-only and does not execute the
-candidate.
-
-Decision Receipt preview is exposed by:
-
-```bash
-php artisan atlas:ai:self-construction --receipt-preview --json
-```
-
-This prepares a reviewable receipt envelope with allowed/forbidden actions,
-files, commands, gates, rollback and evidence. It does not sign execution or
-enable self-programming writes.
-
-Self-Construction traceability audit is exposed by:
-
-```bash
-php artisan atlas:ai:self-construction --traceability --json
-```
-
-This verifies that required Self-Construction docs exist, declare the
-self-construction authority, declare the canonical layer where applicable and
-are reachable from this root document. It is read-only and does not promote
-runtime maturity by itself.
-
-Phase promotion gate is exposed by:
-
-```bash
-php artisan atlas:ai:self-construction --promotion-gate --json
-```
-
-This consolidates readiness, Meta-SDD, receipt preview and traceability into a
-single promotion recommendation. It may mark Phase 5 as a candidate only for
-human-reviewed planning. It does not sign execution, apply patches or allow
-self-programming.
+None of these surfaces signs, patches, approves, persists approval, mutates
+policy, touches hot runtime files or enables autonomous self-programming.

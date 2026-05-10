@@ -20,7 +20,10 @@ class LiveKitProductionLoopRunner:
 
     def __init__(self, bridge: LiveKitSdkEventBridge) -> None:
         self.bridge = bridge
-        self.handler_registry = LiveKitSdkHandlerRegistry(bridge.router)
+        self.handler_registry = LiveKitSdkHandlerRegistry(
+            bridge.router,
+            normalizer=KernelRuntimeEventNormalizerGuard(self._kernel_client()),
+        )
 
     def run_sdk_events(self, events: list[Mapping[str, Any]]) -> Mapping[str, Any]:
         if not events:
@@ -148,6 +151,10 @@ def _handler_registry_contract_report(
         ]
         if guardrails.get(key) is not False
     )
+    if guardrails.get("kernel_event_normalizer_required_for_real_loop") is not True:
+        invalid_guardrails.append("kernel_event_normalizer_required_for_real_loop")
+        invalid_guardrails.sort()
+
     schema_valid = contract.get("schema_version") == "atlas.voice_realtime.sdk_handler_registry.v1"
     sdk_import_safe = contract.get("sdk_import_required_for_contract") is False
 

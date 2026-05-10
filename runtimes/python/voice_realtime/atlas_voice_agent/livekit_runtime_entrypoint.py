@@ -6,6 +6,7 @@ from typing import Any, Mapping
 from .activation_contract import build_activation_contract
 from .contract import AtlasVoiceRuntimeContract
 from .livekit_production_loop import build_production_loop_plan
+from .production_promotion_review import validate_production_promotion_review
 from .worker_plan import build_livekit_worker_plan
 
 
@@ -19,6 +20,8 @@ def start_livekit_agents_worker(
     mock_kernel: bool = False,
     callback_loop_wired: bool = False,
     production_sdk_loop_wired: bool = False,
+    production_promotion_approved: bool = False,
+    production_promotion_review: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any]:
     """Fail-closed entrypoint for the future long-running LiveKit worker.
 
@@ -50,6 +53,8 @@ def start_livekit_agents_worker(
         boundary_created=boundary_created,
         production_sdk_loop_wired=production_sdk_loop_wired,
     )
+    review_check = validate_production_promotion_review(production_promotion_review)
+    review_approved = review_check.get("valid") is True
     sdk_status = str(plan.get("sdk_status", {}).get("status") or "unknown")
     can_start = bool(plan.get("activation", {}).get("can_start_long_running_worker"))
 
@@ -74,9 +79,12 @@ def start_livekit_agents_worker(
     elif activation_contract.get("status") != "ready_to_start_worker":
         status = "blocked_by_activation_contract"
         reason = "Activation contract did not allow long-running startup."
+    elif not review_approved:
+        status = "blocked_pending_human_review"
+        reason = "Machine gates passed, but production promotion still requires a valid human review receipt, Decision Receipt and rollback plan."
     else:
         status = "blocked_unimplemented_start"
-        reason = "All gates passed, but daemon startup remains disabled until production loop implementation is committed."
+        reason = "Human review receipt is valid, but daemon startup remains disabled until production loop implementation is committed."
 
     return {
         "schema_version": "atlas.voice_realtime.worker_start.v1",
@@ -87,6 +95,8 @@ def start_livekit_agents_worker(
         "mobile_first": True,
         "callback_loop_wired": callback_loop_wired,
         "production_sdk_loop_wired": production_sdk_loop_wired,
+        "production_promotion_approved": production_promotion_approved,
+        "production_promotion_review_valid": review_approved,
         "started": False,
         "reason": reason,
         "worker_plan": plan,
@@ -100,6 +110,11 @@ def start_livekit_agents_worker(
             "human_review_required": True,
             "decision_receipt_required": True,
             "rollback_plan_required": True,
+            "human_review_approved": review_approved,
+            "review_receipt_valid": review_approved,
+            "boolean_approval_is_sufficient": False,
+            "declared_approved_without_receipt": production_promotion_approved and not review_approved,
+            "review_check": review_check,
             "auto_promotion_allowed": False,
             "next_action": "run_runtime_certify_with_require_sdk_then_submit_human_review",
         },

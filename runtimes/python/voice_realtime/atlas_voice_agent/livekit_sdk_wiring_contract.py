@@ -43,6 +43,7 @@ def build_livekit_sdk_wiring_contract(*, production_sdk_loop_wired: bool = False
             "kernel_boundary": "LiveKitAgentBoundary",
             "worker": "AtlasLiveKitWorker",
             "sdk_adapter": "LiveKitSdkAdapter",
+            "kernel_event_normalizer": "KernelRuntimeEventNormalizerGuard",
             "sdk_event_bridge": "LiveKitSdkEventBridge",
             "sdk_handler_registry": "LiveKitSdkHandlerRegistry",
             "callback_router": "LiveKitCallbackRouter",
@@ -60,6 +61,7 @@ def build_livekit_sdk_wiring_contract(*, production_sdk_loop_wired: bool = False
         "wiring_invariants": [
             "extract_primitive_sdk_fields_only",
             "never_forward_sdk_objects_or_tokens",
+            "validate_every_sdk_event_through_kernel_normalizer",
             "call_LiveKitSdkEventBridge_to_callback_event",
             "route_through_LiveKitCallbackRouter",
             "route_all_livekit_sdk_handlers_through_registry",
@@ -75,6 +77,7 @@ def build_livekit_sdk_wiring_contract(*, production_sdk_loop_wired: bool = False
             "raw_transcript_persistence_allowed": False,
             "access_token_log_allowed": False,
             "sdk_import_required_for_contract": False,
+            "kernel_event_normalizer_required_for_real_loop": True,
         },
         "next_action": _next_action(
             production_sdk_loop_wired=production_sdk_loop_wired,
@@ -92,6 +95,7 @@ def _handler_blueprint(event_kind: str, callback_kind: str) -> Mapping[str, Any]
         "callback_kind": callback_kind,
         "required_path": [
             "extract primitive fields",
+            "KernelRuntimeEventNormalizerGuard.assert_event_valid",
             "LiveKitSdkEventBridge.to_callback_event",
             "LiveKitCallbackRouter.route",
             "AtlasLiveKitWorker.handle_event/start_session",

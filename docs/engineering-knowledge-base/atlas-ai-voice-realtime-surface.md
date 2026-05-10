@@ -147,17 +147,9 @@ Ele nao deve apontar para OpenAI/Claude/Gemini direto.
 
 ## Status E Contratos
 
-Implementado agora: adapter `voice_realtime`, capability `atlas.input.voice_audio`,
-endpoints Fase 0, session lease com token LiveKit opt-in, eclipse, Envelope/Receipt,
-preflight/activation governance (mobile-first, no direct-provider, no daemon/always-on), callback router/sequence smoke, maquina de estado por turno aceito,
-gate fail-closed para callback sem `VOICE_TURN_DECIDED`, inclusive `runtime_failed`,
-validacao service-side recursiva dos schemas de callback runtime, contrato/bootstrap/start-check,
-Rivals-Voice, runtime Python e SLOs.
-O runtime Python valida `runtime_invocation_contract.return_contract` e o worker retorna `decision_receipt_hash`, `evidence_refs` e `errors`.
-O app mobile tambem possui contrato cliente para iniciar/encerrar sessao
-`/v1/mobile/ai/voice/session/*` e abrir o Voice Mode com fallback local quando
-o server ainda nao estiver acessivel. Isso nao significa audio realtime pronto:
-LiveKit media streaming, STT/TTS e UX final continuam pendentes.
+Implementado agora: adapter `voice_realtime`, capability `atlas.input.voice_audio`, endpoints Fase 0, session lease com token LiveKit opt-in, eclipse, Envelope/Receipt, preflight/activation governance (mobile-first, no direct-provider, no daemon/always-on), callback router/sequence smoke, maquina de estado por turno aceito, validacao recursiva de callbacks, contrato/bootstrap/start-check, Rivals-Voice, runtime Python e SLOs. Callback sem `VOICE_TURN_DECIDED`, inclusive `runtime_failed`, falha fechado. O runtime Python valida `runtime_invocation_contract.return_contract` e o worker retorna `decision_receipt_hash`, `evidence_refs` e `errors`.
+
+O app mobile possui contrato cliente para `/v1/mobile/ai/voice/session/*` e Voice Mode com fallback local. Isso nao significa audio realtime pronto: LiveKit media streaming, STT/TTS e UX final continuam pendentes.
 
 | Classe | Responsabilidade |
 |---|---|
@@ -169,17 +161,9 @@ LiveKit media streaming, STT/TTS e UX final continuam pendentes.
 | `KernelSloTargets` | declara `voice.wake_word_detect` e `voice.turn_to_first_audio` |
 | `AtlasVoiceRivalsRunner` | relatorio read-only Atlas Voice vs baseline direto; bloqueia maturidade se runtime certification falhar |
 
-Endpoints:
+Endpoints: `/ai/voice/session/*`, `/wake-word`, `/turn`, `/turn/interrupted`, `/turn/synthesized`, `/turn/played`, `/runtime/failed`, `/provider/health-degraded`, `/runtime/{contract,bootstrap,dependencies,certification}`, `/health`, `/readiness`, `/rivals`, `/eclipse/active`. Os mesmos paths existem em `/v1/mobile/ai/voice/*`; mobile e a primeira surface real.
 
-`/ai/voice/session/*`, `/wake-word`, `/turn`, `/turn/interrupted`,
-`/turn/synthesized`, `/turn/played`, `/runtime/failed`,
-`/provider/health-degraded`, `/runtime/{contract,bootstrap,dependencies,certification}`,
-`/health`, `/readiness`, `/rivals`, `/eclipse/active`.
-
-Os mesmos paths existem em `/v1/mobile/ai/voice/*`; mobile e a primeira surface real.
-
-Eventos minimos: session start/end, wake word, audio, transcript, decided,
-synthesized, played, interrupted (runtime exige turno aceito), failed, degraded, eclipse.
+Eventos minimos: session start/end, wake word, audio, transcript, decided, synthesized, played, interrupted (runtime exige turno aceito), failed, degraded, eclipse.
 
 ## Policy E Privacy
 
@@ -214,72 +198,31 @@ Fase 0 sai antes de always-on; Fase 1 permite comparar contra voice modes.
 
 ## Runtime Certification Gate
 
-`/ai/voice/runtime/certification` e `php artisan atlas:ai:voice runtime-certify --json` agregam AP-185, preflight, callbacks, smoke com `bridge_contract_report` + `worker_return_contract`, worker-start e `product_loop_check`.
-O certificado e sanitizado: nao expõe token, API key, secret, audio raw, transcript cru ou payload de provider.
+`/ai/voice/runtime/certification` e `php artisan atlas:ai:voice runtime-certify --json` agregam AP-185, preflight, callbacks, smoke com `bridge_contract_report` + `worker_return_contract`, worker-start e `product_loop_check`. O certificado e sanitizado: nao expõe token, API key, secret, audio raw, transcript cru ou payload de provider.
 
-O gate `certification_artifacts_sanitized` e obrigatorio. Ele deve aparecer
-verde em CLI, API interna, mobile gateway e Rivals-Voice summary antes de
-qualquer maturidade acima de scaffold. AP-687 adiciona
-`production_promotion_gate`: scaffold certificado ainda fica bloqueado para
-produto real ate `--require-sdk`, LiveKit Agents SDK, token issuer, smokes,
-Rivals baseline, bootstrap namespace-safe, `promotion_allowed=false`,
-auto-promotion proibida, receipt, rollback plan e review humano passarem.
+O gate `certification_artifacts_sanitized` e obrigatorio em CLI, API interna, mobile gateway e Rivals-Voice summary antes de qualquer maturidade acima de scaffold. AP-687 adiciona `production_promotion_gate`: scaffold certificado segue bloqueado para produto real ate `--require-sdk`, LiveKit Agents SDK, token issuer, smokes, Rivals baseline, bootstrap namespace-safe, `promotion_allowed=false`, auto-promotion proibida, receipt, rollback plan e review humano passarem.
 
-`phase0_hardening`: readiness estrutural em `atlas:ai:voice readiness --json`
-com schema `atlas.voice_realtime.phase0_hardening_gate.v1`. Ele torna explicito
-que a fase 0 exige mobile-first, Kernel Decision Receipt por turno, callback loop
-fail-closed, audio cru nao persistido, AP-201 runtime boundary verde e promocao
-de producao travada por review humano.
-O readiness tambem publica `product_loop_check` como referencia machine-readable
-para `php artisan atlas:ai:voice product-loop-check --json`, com
-`promotion_allowed=false`, `auto_promotion_allowed=false`, `daemon_started=false`
-e gates esperados incluindo `sdk_probe_import_safe`.
+`phase0_hardening`: readiness estrutural em `atlas:ai:voice readiness --json` com schema `atlas.voice_realtime.phase0_hardening_gate.v1`. A fase 0 exige mobile-first, Kernel Decision Receipt por turno, callback loop fail-closed, audio cru nao persistido, AP-201 runtime boundary verde e promocao travada por review humano. O readiness publica `product_loop_check` como referencia machine-readable para `php artisan atlas:ai:voice product-loop-check --json`, com `promotion_allowed=false`, `auto_promotion_allowed=false`, `daemon_started=false` e gates esperados incluindo `sdk_probe_import_safe`.
 
-`product_loop_wiring_flags`: `--callback-loop-wired` e
-`--production-sdk-loop-wired` provam o caminho LiveKit Agents em
-`callback-loop-check`, `worker-plan`, `production-loop-plan`,
-`activation-contract` e `worker-start-check`, mas `started=false`,
-auto-promotion proibida e provider/tool direto seguem imutaveis.
-`activation-contract` tambem exige `production_sdk_loop_wired`; callback router
-sozinho nao autoriza worker. `LiveKitSdkHandlerRegistry` e
-`atlas.voice_realtime.sdk_handler_registry.v1` agora sao parte do loop real:
-callback SDK -> handler governado -> `LiveKitSdkEventBridge.to_callback_event`
--> `LiveKitCallbackRouter.route` -> `AtlasLiveKitWorker`, sem provider, tool,
-memory, policy, token ou audio cru dentro dos handlers.
+`product_loop_wiring_flags`: `--callback-loop-wired` e `--production-sdk-loop-wired` provam o caminho LiveKit Agents em `callback-loop-check`, `worker-plan`, `production-loop-plan`, `activation-contract` e `worker-start-check`, mas `started=false`, auto-promotion proibida e provider/tool direto seguem imutaveis. `activation-contract` exige `production_sdk_loop_wired`; callback router sozinho nao autoriza worker.
 
-`product-loop-check`: artefato agregado com schema
-`atlas.voice_realtime.product_loop_check.v1`. Ele combina callback loop,
-production-loop-plan e worker-start com wiring de produto habilitado. E a
-consulta canonica para uma IA saber o proximo passo do bloco Voice Realtime:
-instalar SDK, carregar runtime settings, corrigir gate ou submeter review de
-implementacao do daemon. Ele nunca inicia daemon e nunca substitui
-`production_promotion_gate`. O artefato tambem expoe `sdk_probe_import_safe`
-para provar que readiness consultou metadata/spec e nao carregou runtime SDK.
-Se `sdk_probe_import_safe` falhar, `next_action=fix_sdk_probe_contract`; se
-`sdk_handler_blueprint_available` falhar,
-`next_action=fix_sdk_handler_blueprint_contract`. Esse gate exige
-`handler_registry_contract`, `complete_handler_registry=true`, invariantes e
-blueprint por callback; blueprint sem registry real nao basta.
+`LiveKitSdkHandlerRegistry` e `atlas.voice_realtime.sdk_handler_registry.v1` sao parte do loop real: callback SDK -> handler governado -> `LiveKitSdkEventBridge.to_callback_event` -> `LiveKitCallbackRouter.route` -> `AtlasLiveKitWorker`, sem provider, tool, memory, policy, token ou audio cru dentro dos handlers.
 
-`runtime-certify` publica `artifacts.product_loop_check`, gate `product_loop_check_available`, resumo Rivals e review packet: passa quando conserva `daemon_started=false`, prova `sdk_probe_import_safe=true`, `sdk_handler_blueprint_available=true` e `production_promotion_blocked=true`.
-O artefato pode ter `status=blocked` quando SDK/token issuer faltam; isso e scaffold seguro, nao autorizacao para daemon.
+`product-loop-check`: artefato `atlas.voice_realtime.product_loop_check.v1` que combina callback loop, production-loop-plan e worker-start com wiring de produto habilitado. Ele nunca inicia daemon e nunca substitui `production_promotion_gate`. Se `sdk_probe_import_safe` falhar, `next_action=fix_sdk_probe_contract`; se `sdk_handler_blueprint_available` falhar, `next_action=fix_sdk_handler_blueprint_contract`.
 
-`sdk-check`: probe de compatibilidade, nao import de runtime. Ele deve retornar
-`sdk_imported=false`, `import_probe_only=true`, `package_checks`,
-`missing_imports`, versao instalada quando existir e policy do
-`runtime-dependencies.json`. Uma IA nao deve importar LiveKit SDK so para
-decidir readiness; import real pertence ao daemon futuro atras de review.
+O gate tambem exige `sdk_kernel_normalizer_required=true`: o `sdk_wiring_contract` declara `KernelRuntimeEventNormalizerGuard`, `validate_every_sdk_event_through_kernel_normalizer`, `kernel_event_normalizer_required_for_real_loop=true` e cada handler blueprint passa por `KernelRuntimeEventNormalizerGuard.assert_event_valid` antes do router/worker.
 
-Callbacks runtime sao validados dentro de `AtlasVoiceRealtimeService`, nao so
-no controller HTTP. Campo obrigatorio ausente ou campo proibido gera
-`callback_rejected_payload_contract`, bloqueia o evento solicitado e grava
-`VOICE_RUNTIME_FAILED` com `runtime_callback_payload_contract_violation`.
+`product-loop-check` publica `ready_for_human_review` quando machine gates passam sem receipt; so publica `ready_for_daemon_implementation_review` com `production_review_receipt_valid=true`, `boolean_approval_is_sufficient=false` e `daemon_started=false`.
 
-Rivals-Voice deve consumir apenas o resumo do certificado. Se o runtime nao
-estiver `certified_scaffold`, o report fica `not_ready` e recomenda corrigir
-`fix_voice_runtime_certification_before_rivals_voice`. O fluxo dedicado
-`self_improvement.voice_realtime_review` consome esse report e abre proposta
-quando houver atividade VOICE_* sem readiness/certification/baseline fechados.
+`runtime-certify` publica `artifacts.product_loop_check`, gate `product_loop_check_available`, resumo Rivals e review packet: passa quando conserva `daemon_started=false`, prova `sdk_probe_import_safe=true`, `sdk_handler_blueprint_available=true`, `sdk_kernel_normalizer_required=true` e `production_promotion_blocked=true`. `status=blocked` por falta de SDK/token issuer e scaffold seguro, nao autorizacao para daemon.
+
+`worker-start` separa `blocked_pending_human_review` de `blocked_unimplemented_start`: wiring completo sem review vira review humano obrigatorio; `--production-promotion-approved` e apenas declaracao legada e nao aprova nada sem `--production-promotion-review-file` valido. O receipt exige `decision_receipt_id`, rollback plan, forbidden-action ack, `review_receipt_valid=true`, `boolean_approval_is_sufficient=false` e ainda conserva `started=false` enquanto o loop LiveKit real nao estiver commitado.
+
+`sdk-check`: probe de compatibilidade, nao import de runtime. Retorna `sdk_imported=false`, `import_probe_only=true`, `package_checks`, `missing_imports`, versao instalada quando existir e policy do `runtime-dependencies.json`.
+
+Callbacks runtime sao validados dentro de `AtlasVoiceRealtimeService`, nao so no controller HTTP. Campo obrigatorio ausente/proibido gera `callback_rejected_payload_contract`, bloqueia o evento solicitado e grava `VOICE_RUNTIME_FAILED` com `runtime_callback_payload_contract_violation`.
+
+Rivals-Voice deve consumir apenas o resumo do certificado. Se o runtime nao estiver `certified_scaffold`, fica `not_ready` e recomenda `fix_voice_runtime_certification_before_rivals_voice`. `self_improvement.voice_realtime_review` abre proposta quando houver atividade VOICE_* sem readiness/certification/baseline fechados.
 
 ## Definition Of Done
 Voice v1 esta pronto quando mobile push-to-talk inicia sessao; LiveKit Agents

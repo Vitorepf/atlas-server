@@ -113,13 +113,21 @@ produto real. O runtime pode estar `certified_scaffold` e ainda assim ter
   preflight. O client ainda rejeita audio cru/segredos localmente antes de
   chamar o Kernel, preservando privacidade enquanto evita contrato paralelo.
 - `production-loop-smoke` chama o normalizador de sequencia do Kernel antes de
-  rotear handlers SDK. O smoke so avanca se
+  rotear handlers SDK e cada callback SDK passa novamente pelo normalizador de
+  evento no `LiveKitSdkHandlerRegistry` antes de chegar no callback router. O
+  smoke so avanca se
   `kernel_normalizer_contract_report.status=valid`, evitando que Python vire
   fonte independente de canonicalizacao.
 - `KernelRuntimeEventNormalizerGuard` e o componente reutilizavel do runtime
   Python para esse preflight. Ele chama `AtlasKernelClient.normalize_runtime_event*`,
   publica contrato `atlas.voice_realtime.kernel_normalizer_guard.v1` e falha
-  fechado antes de handler registry se o Kernel reportar schema/guardrail invalido.
+  fechado dentro do handler registry se o Kernel reportar schema/guardrail
+  invalido.
+- `sdk_wiring_contract` declara `KernelRuntimeEventNormalizerGuard` como
+  componente obrigatorio, exige o invariante
+  `validate_every_sdk_event_through_kernel_normalizer` e marca
+  `kernel_event_normalizer_required_for_real_loop=true`; remover esse gate
+  quebra o contrato antes de qualquer daemon.
 - `runtime-certify` e `production_promotion_gate` tratam
   `kernel_normalizer_contract_report.status=valid` como parte obrigatoria de
   `production_loop_smoke_passed`; bridge/handler/worker verdes sem normalizer
@@ -137,9 +145,13 @@ produto real. O runtime pode estar `certified_scaffold` e ainda assim ter
 | `production_loop_smoke_passed` | SDK-shaped smoke passa sem daemon/import SDK e com `kernel_normalizer_contract_report.status=valid`, `bridge_contract_report.status=valid`, `handler_registry_contract_report.status=valid` e `worker_return_contract.status=valid` |
 | `worker_start_still_blocked_until_real_loop` | worker nao inicia antes do loop real |
 | `product_loop_wiring_flags_visible` | CLI/Python aceitam flags de wiring, mas preservam `started=false` |
-| `product_loop_check_available` | artefato existe, preserva `daemon_started=false`, prova `sdk_probe_import_safe`, `sdk_handler_blueprint_available` e promocao bloqueada |
+| `product_loop_check_available` | artefato existe, preserva `daemon_started=false`, prova `sdk_probe_import_safe`, `sdk_handler_blueprint_available`, `sdk_kernel_normalizer_required` e promocao bloqueada |
 | `sdk_probe_import_safe` | SDK readiness usa probe/metadata e nao importa LiveKit runtime |
 | `sdk_handler_registry_complete` | todos os event kinds do SDK tem handler governado por `LiveKitSdkHandlerRegistry` |
+| `production_review_receipt_valid` | `--production-promotion-approved` nao basta; `--production-promotion-review-file` deve validar `decision_receipt_id`, rollback plan, forbidden-action ack, `review_receipt_valid=true` e `boolean_approval_is_sufficient=false` |
+
+`product-loop-check` separa `ready_for_human_review` de `ready_for_daemon_implementation_review`: machine gates prontos sem review receipt ainda pedem review humano; apenas receipt valido permite revisar implementacao de daemon, mantendo `daemon_started=false`.
+| `sdk_kernel_normalizer_required` | product loop/wiring exige `KernelRuntimeEventNormalizerGuard` em cada callback SDK antes de router/worker |
 | `runtime_event_normalizer_available` | API interna/mobile conseguem validar evento ou sequencia sem execucao |
 
 ## Status Semantics
@@ -147,6 +159,8 @@ produto real. O runtime pode estar `certified_scaffold` e ainda assim ter
 | Status | Significado |
 |---|---|
 | `blocked` | falta SDK, token issuer, require-sdk ou outro gate de maquina |
+| `blocked_pending_human_review` | worker/product loop passou gates de maquina, mas falta review humano, Decision Receipt e rollback plan |
+| `blocked_unimplemented_start` | review foi marcado como aprovado, mas daemon real ainda nao foi commitado |
 | `review_required` | todos gates de maquina passaram; humano ainda precisa aprovar |
 
 Promocao automatica continua proibida: `auto_promotion_allowed=false`.
@@ -210,6 +224,9 @@ php artisan atlas:ai:voice runtime-certify --json
   eventos SDK devem ter caminho canônico de normalizacao governado pelo Kernel;
 - worker start nao permite promocao implicita: o payload expõe
   `worker_start_without_production_promotion_allowed=false`;
+- worker start distingue `blocked_pending_human_review` de
+  `blocked_unimplemented_start`, para nao confundir maquina pronta com produto
+  aprovado;
 - CLI/API/mobile mostram o status;
 - `runtime-certify.next_action` espelha o promotion gate quando producao esta
   bloqueada;

@@ -45,7 +45,7 @@ related_paths:
 | Provider release anti-wrapper (AP-178) | provider launches changing defaults, domain maturity, credentials or direct channels without AP-99/Rivals/review |
 | Voice runtime certification (AP-185) | certification artifacts leaking tokens, raw audio, raw text, tool calls or provider secrets; Rivals-Voice running without sanitized certificate |
 | Voice Python runtime boundary (AP-686) | LiveKit/Python voice runtime importing provider SDKs, executing tools/shell, persisting raw audio, accepting nested secret metadata or bypassing Kernel-only callback contract |
-| Voice production promotion (AP-687) | voice runtime being promoted to production without real SDK certification, LiveKit token issuer readiness, namespace-safe bootstrap, smoke proof and human review |
+| Voice production promotion (AP-687) | voice runtime being promoted to production without real SDK certification, LiveKit token issuer readiness, namespace-safe bootstrap, SDK handler blueprint, Kernel event normalizer, smoke proof and human review |
 | Local RAG promotion review (AP-683) | Local RAG benchmark being treated as Graph RAG/Python promotion permission |
 | External Graph Harness (AP-684) | Graphify or external graph candidates jumping into Memory, Context, Constelacao, Decide or runtime |
 | Constelacao Lente 1 usage review (AP-685) | Lente 1 being promoted to Command Sky, Graph RAG, lineage or operational UI before usage review |
@@ -75,7 +75,7 @@ Each scan should return:
 - Provider vertical launch promoted to default model/domain-ready must fail AP-178.
 - Voice runtime certification exposing `access_token`, `raw_audio`, raw response text, tool calls or provider secrets must fail AP-185.
 - Voice Python runtime importing provider SDKs, shelling out, logging raw audio/tokens, accepting nested SDK secret/authority metadata, omitting runtime return `evidence_refs`, or reporting `runtime_failed` before a Kernel-accepted turn must fail AP-686.
-- Voice runtime production promotion without SDK-ready, token issuer-ready, namespace-safe bootstrap, product-loop check exposed to Rivals, production-loop smoke and human review must fail AP-687.
+- Voice runtime production promotion without SDK-ready, token issuer-ready, namespace-safe bootstrap, product-loop check exposed to Rivals, SDK handler blueprint, `sdk_kernel_normalizer_required`, production-loop smoke and human review must fail AP-687.
 - Local RAG benchmark promoted to Graph RAG/Python without `proposal_only`, review and future AP must fail AP-683.
 - External graph candidates promoted beyond read-only Architecture Operations review must fail AP-684.
 - Constelacao Lente 1 promoted to Command Sky, lineage, Graph RAG or operational chrome before 30-day usage review must fail AP-685.

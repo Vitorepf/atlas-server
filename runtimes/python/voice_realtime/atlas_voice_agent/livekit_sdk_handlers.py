@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Mapping
 
+from .kernel_event_normalizer import KernelRuntimeEventNormalizerGuard
 from .livekit_callback_router import LiveKitCallbackRouter
 from .livekit_sdk_event_bridge import LiveKitSdkEventBridge
 from .livekit_worker import LiveKitWorkerResult
@@ -18,8 +19,9 @@ class LiveKitSdkHandlerRegistry:
     route through `LiveKitSdkEventBridge` + `LiveKitCallbackRouter`.
     """
 
-    def __init__(self, router: LiveKitCallbackRouter) -> None:
+    def __init__(self, router: LiveKitCallbackRouter, normalizer: KernelRuntimeEventNormalizerGuard | None = None) -> None:
         self.router = router
+        self.normalizer = normalizer
 
     def handlers(self) -> dict[str, SdkHandler]:
         return {
@@ -30,6 +32,12 @@ class LiveKitSdkHandlerRegistry:
     def route(self, event_kind: str, event: Mapping[str, Any]) -> LiveKitWorkerResult:
         handler = self.handlers().get(event_kind)
         if handler is None:
+            if self.normalizer is not None:
+                self.normalizer.assert_event_valid({
+                    **dict(event),
+                    "event_kind": event_kind,
+                })
+
             return self.router.route(LiveKitSdkEventBridge.to_callback_event({
                 **dict(event),
                 "event_kind": event_kind,
@@ -41,6 +49,8 @@ class LiveKitSdkHandlerRegistry:
         def handler(event: Mapping[str, Any]) -> LiveKitWorkerResult:
             sdk_event = dict(event)
             sdk_event["event_kind"] = event_kind
+            if self.normalizer is not None:
+                self.normalizer.assert_event_valid(sdk_event)
 
             return self.router.route(LiveKitSdkEventBridge.to_callback_event(sdk_event))
 
@@ -65,6 +75,7 @@ class LiveKitSdkHandlerRegistry:
             "handler_names": [f"handle_{event_kind}" for event_kind in event_kinds],
             "required_path": [
                 "LiveKitSdkHandlerRegistry.handlers",
+                "KernelRuntimeEventNormalizerGuard.assert_event_valid",
                 "LiveKitSdkEventBridge.to_callback_event",
                 "LiveKitCallbackRouter.route",
                 "AtlasLiveKitWorker",
@@ -85,6 +96,7 @@ class LiveKitSdkHandlerRegistry:
                 "policy_mutation_allowed": False,
                 "raw_audio_persistence_allowed": False,
                 "access_token_log_allowed": False,
+                "kernel_event_normalizer_required_for_real_loop": True,
             },
         }
 
