@@ -153,6 +153,7 @@ preflight/activation governance (mobile-first, no direct-provider, no daemon/alw
 gate fail-closed para callback sem `VOICE_TURN_DECIDED`, inclusive `runtime_failed`,
 validacao service-side recursiva dos schemas de callback runtime, contrato/bootstrap/start-check,
 Rivals-Voice, runtime Python e SLOs.
+O runtime Python valida `runtime_invocation_contract.return_contract` e o worker retorna `decision_receipt_hash`, `evidence_refs` e `errors`.
 O app mobile tambem possui contrato cliente para iniciar/encerrar sessao
 `/v1/mobile/ai/voice/session/*` e abrir o Voice Mode com fallback local quando
 o server ainda nao estiver acessivel. Isso nao significa audio realtime pronto:
@@ -213,8 +214,7 @@ Fase 0 sai antes de always-on; Fase 1 permite comparar contra voice modes.
 
 ## Runtime Certification Gate
 
-`/ai/voice/runtime/certification` e `php artisan atlas:ai:voice runtime-certify --json` agregam
-foundation registry AP-185, preflight, callback sequence, production-loop smoke e worker-start blocked check.
+`/ai/voice/runtime/certification` e `php artisan atlas:ai:voice runtime-certify --json` agregam AP-185, preflight, callbacks, smoke com `bridge_contract_report` + `worker_return_contract`, worker-start e `product_loop_check`.
 O certificado e sanitizado: nao expõe token, API key, secret, audio raw, transcript cru ou payload de provider.
 
 O gate `certification_artifacts_sanitized` e obrigatorio. Ele deve aparecer
@@ -230,14 +230,22 @@ com schema `atlas.voice_realtime.phase0_hardening_gate.v1`. Ele torna explicito
 que a fase 0 exige mobile-first, Kernel Decision Receipt por turno, callback loop
 fail-closed, audio cru nao persistido, AP-201 runtime boundary verde e promocao
 de producao travada por review humano.
+O readiness tambem publica `product_loop_check` como referencia machine-readable
+para `php artisan atlas:ai:voice product-loop-check --json`, com
+`promotion_allowed=false`, `auto_promotion_allowed=false`, `daemon_started=false`
+e gates esperados incluindo `sdk_probe_import_safe`.
 
 `product_loop_wiring_flags`: `--callback-loop-wired` e
-`--production-sdk-loop-wired` existem para checks governados de produto. Eles
-podem ser usados em `callback-loop-check`, `worker-plan`, `production-loop-plan`,
-`activation-contract` e `worker-start-check` para provar que o caminho LiveKit
-Agents esta conectado ao router e ao SDK loop. Mesmo com as flags, `started`
-continua `false`, auto-promotion continua proibida e provider/tool direto segue
-impossivel.
+`--production-sdk-loop-wired` provam o caminho LiveKit Agents em
+`callback-loop-check`, `worker-plan`, `production-loop-plan`,
+`activation-contract` e `worker-start-check`, mas `started=false`,
+auto-promotion proibida e provider/tool direto seguem imutaveis.
+`activation-contract` tambem exige `production_sdk_loop_wired`; callback router
+sozinho nao autoriza worker. `LiveKitSdkHandlerRegistry` e
+`atlas.voice_realtime.sdk_handler_registry.v1` agora sao parte do loop real:
+callback SDK -> handler governado -> `LiveKitSdkEventBridge.to_callback_event`
+-> `LiveKitCallbackRouter.route` -> `AtlasLiveKitWorker`, sem provider, tool,
+memory, policy, token ou audio cru dentro dos handlers.
 
 `product-loop-check`: artefato agregado com schema
 `atlas.voice_realtime.product_loop_check.v1`. Ele combina callback loop,
@@ -245,7 +253,16 @@ production-loop-plan e worker-start com wiring de produto habilitado. E a
 consulta canonica para uma IA saber o proximo passo do bloco Voice Realtime:
 instalar SDK, carregar runtime settings, corrigir gate ou submeter review de
 implementacao do daemon. Ele nunca inicia daemon e nunca substitui
-`production_promotion_gate`.
+`production_promotion_gate`. O artefato tambem expoe `sdk_probe_import_safe`
+para provar que readiness consultou metadata/spec e nao carregou runtime SDK.
+Se `sdk_probe_import_safe` falhar, `next_action=fix_sdk_probe_contract`; se
+`sdk_handler_blueprint_available` falhar,
+`next_action=fix_sdk_handler_blueprint_contract`. Esse gate exige
+`handler_registry_contract`, `complete_handler_registry=true`, invariantes e
+blueprint por callback; blueprint sem registry real nao basta.
+
+`runtime-certify` publica `artifacts.product_loop_check`, gate `product_loop_check_available`, resumo Rivals e review packet: passa quando conserva `daemon_started=false`, prova `sdk_probe_import_safe=true`, `sdk_handler_blueprint_available=true` e `production_promotion_blocked=true`.
+O artefato pode ter `status=blocked` quando SDK/token issuer faltam; isso e scaffold seguro, nao autorizacao para daemon.
 
 `sdk-check`: probe de compatibilidade, nao import de runtime. Ele deve retornar
 `sdk_imported=false`, `import_probe_only=true`, `package_checks`,
@@ -265,18 +282,13 @@ estiver `certified_scaffold`, o report fica `not_ready` e recomenda corrigir
 quando houver atividade VOICE_* sem readiness/certification/baseline fechados.
 
 ## Definition Of Done
-
-Voice v1 esta pronto quando:
-
-1. mobile push-to-talk inicia sessao; LiveKit Agents roda STT/TTS configuravel;
-2. cada turno tem Envelope, Decision Receipt, VOICE_* Ledger e SLO;
-3. Atlas Decide escolhe provider/modelo, salvo override manual auditado;
-4. audio raw nao persiste; eclipse bloqueia captura/resposta;
-5. runtime certification passa antes de Rivals-Voice;
-6. Rivals-Voice compara baseline; docs, KB, code index e architecture validate passam.
+Voice v1 esta pronto quando mobile push-to-talk inicia sessao; LiveKit Agents
+roda STT/TTS configuravel; cada turno tem Envelope, Decision Receipt, VOICE_*
+Ledger e SLO; Atlas Decide escolhe provider/modelo salvo override auditado;
+audio raw nao persiste; eclipse bloqueia captura/resposta; runtime certification
+passa antes de Rivals-Voice; docs, KB, code index e architecture validate passam.
 
 ## Anti-Patterns
-
 1. Implementar Mac Swift antes do mobile voice.
 2. Deixar LiveKit Agents chamar provider direto.
 3. Persistir audio raw por comodidade.

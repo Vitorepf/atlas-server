@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeCertificationService;
+use App\Services\Ai\Voice\AtlasVoiceRuntimeEventNormalizer;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
@@ -14,10 +15,11 @@ class AtlasAiVoiceRealtimeCommand extends Command
     private const PYTHON_COMMAND_TIMEOUT_SECONDS = 30;
 
     protected $signature = 'atlas:ai:voice
-        {action=contract : Action to inspect: contract, bootstrap, dependencies, preflight, activation-contract, scripted-example, scripted-smoke, callback-smoke, callback-sequence-smoke, callback-loop-check, sdk-check, worker-plan, production-loop-plan, product-loop-check, production-loop-smoke, worker-start-check, runtime-certify, health, readiness or rivals}
+        {action=contract : Action to inspect: contract, bootstrap, dependencies, preflight, activation-contract, scripted-example, scripted-smoke, callback-smoke, callback-sequence-smoke, callback-loop-check, sdk-check, worker-plan, production-loop-plan, product-loop-check, production-loop-smoke, worker-start-check, normalize-event, normalize-sequence, runtime-certify, health, readiness or rivals}
         {--runtime=livekit_agents_sdk : Runtime id for contract inspection}
         {--base-url= : Kernel base URL for bootstrap manifests}
         {--hours=24 : Readiness/evidence window in hours}
+        {--event-file= : JSON file with one runtime event or an events[] sequence for normalization actions}
         {--require-sdk : Make preflight fail when LiveKit Agents SDK is not installed}
         {--callback-loop-wired : Declare the governed callback router is wired for fail-closed activation checks}
         {--production-sdk-loop-wired : Declare the real LiveKit SDK loop is wired for fail-closed production checks}
@@ -29,6 +31,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
         AtlasVoiceRealtimeService $voice,
         AtlasVoiceRivalsRunner $rivals,
         AtlasVoiceRuntimeCertificationService $certification,
+        AtlasVoiceRuntimeEventNormalizer $runtimeEvents,
     ): int {
         $action = (string) $this->argument('action');
         $runtime = (string) $this->option('runtime');
@@ -73,6 +76,8 @@ class AtlasAiVoiceRealtimeCommand extends Command
             'product-loop-check' => $this->runProductLoopCheck($voice),
             'production-loop-smoke' => $this->runProductionLoopSmoke($voice),
             'worker-start-check' => $this->runWorkerStartCheck($voice),
+            'normalize-event' => $this->runNormalizeEvent($runtimeEvents),
+            'normalize-sequence' => $this->runNormalizeSequence($runtimeEvents),
             'runtime-certify' => $certification->certify([
                 'runtime' => $runtime,
                 'base_url' => (string) ($this->option('base-url') ?: 'http://atlas.test'),
@@ -190,6 +195,13 @@ class AtlasAiVoiceRealtimeCommand extends Command
             $this->components->twoColumnDetail('SDK wiring', (string) data_get($payload, 'sdk_wiring_contract.status'));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
+        if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.product_loop_check.v1') {
+            $this->components->twoColumnDetail('Product loop check', (string) data_get($payload, 'status'));
+            $this->components->twoColumnDetail('Daemon started', data_get($payload, 'daemon_started', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('SDK probe safe', data_get($payload, 'gates.sdk_probe_import_safe', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Promotion blocked', data_get($payload, 'gates.production_promotion_blocked', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
+        }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.production_loop_smoke.v1') {
             $this->components->twoColumnDetail('Production loop smoke', (string) data_get($payload, 'status'));
             $this->components->twoColumnDetail('Daemon started', data_get($payload, 'daemon_started', false) ? 'yes' : 'no');
@@ -204,15 +216,30 @@ class AtlasAiVoiceRealtimeCommand extends Command
             $this->components->twoColumnDetail('Activation status', (string) data_get($payload, 'activation_contract.status'));
             $this->components->twoColumnDetail('Activation next action', (string) data_get($payload, 'activation_next_action'));
         }
+        if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.runtime_event_normalizer.v1') {
+            $this->components->twoColumnDetail('Normalizer', (string) data_get($payload, 'status'));
+            $this->components->twoColumnDetail('Valid', data_get($payload, 'valid', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Execution enabled', data_get($payload, 'contract.guardrails.runtime_execution_enabled', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Provider enabled', data_get($payload, 'contract.guardrails.provider_execution_enabled', false) ? 'yes' : 'no');
+        }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.runtime_certification.v1') {
             $this->components->twoColumnDetail('Certification', (string) data_get($payload, 'status'));
             $this->components->twoColumnDetail('Passed gates', (string) data_get($payload, 'summary.passed_gates', '0'));
             $this->components->twoColumnDetail('Failed gates', (string) data_get($payload, 'summary.failed_gates', '0'));
             $this->components->twoColumnDetail('Daemon start blocked safely', data_get($payload, 'gates.worker_start_blocked_safely.passed', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Product loop check', (string) data_get($payload, 'artifacts.product_loop_check.status', 'unknown'));
+            $this->components->twoColumnDetail('Product loop next action', (string) data_get($payload, 'artifacts.product_loop_check.next_action', 'unknown'));
             $this->components->twoColumnDetail('Production promotion', (string) data_get($payload, 'production_promotion_gate.status', 'unknown'));
             $this->components->twoColumnDetail('Human review required', data_get($payload, 'production_promotion_gate.human_review_required', false) ? 'yes' : 'no');
             $this->components->twoColumnDetail('Review packet', (string) data_get($payload, 'production_promotion_gate.review_packet.status', 'unknown'));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
+        }
+        if (($payload['schema_version'] ?? null) === 'atlas.voice.readiness.v1') {
+            $this->components->twoColumnDetail('Readiness', (string) data_get($payload, 'status'));
+            $this->components->twoColumnDetail('Phase 0', (string) data_get($payload, 'phase0_hardening.status', 'unknown'));
+            $this->components->twoColumnDetail('Product loop contract', (string) data_get($payload, 'product_loop_check.status', 'unknown'));
+            $this->components->twoColumnDetail('Product loop command', (string) data_get($payload, 'product_loop_check.command', ''));
+            $this->components->twoColumnDetail('Review action', (string) data_get($payload, 'review_signal.recommended_action', 'unknown'));
         }
 
         if (($payload['required_callbacks'] ?? []) !== []) {
@@ -417,6 +444,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
         ], base_path(), [
             'PYTHONPATH' => base_path('runtimes/python/voice_realtime'),
         ]);
+        $process->setTimeout(self::PYTHON_COMMAND_TIMEOUT_SECONDS);
 
         try {
             $process->run();
@@ -591,6 +619,106 @@ class AtlasAiVoiceRealtimeCommand extends Command
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    private function runNormalizeEvent(AtlasVoiceRuntimeEventNormalizer $runtimeEvents): array
+    {
+        $payload = $this->loadEventFilePayload('atlas.voice_realtime.runtime_event_normalizer.v1');
+        if (($payload['status'] ?? null) === 'failed') {
+            return $payload;
+        }
+
+        $event = isset($payload['event']) && is_array($payload['event'])
+            ? $payload['event']
+            : $payload;
+
+        return $runtimeEvents->normalize($event);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runNormalizeSequence(AtlasVoiceRuntimeEventNormalizer $runtimeEvents): array
+    {
+        $payload = $this->loadEventFilePayload('atlas.voice_realtime.runtime_event_normalizer.v1');
+        if (($payload['status'] ?? null) === 'failed') {
+            return $payload;
+        }
+
+        $events = $payload['events'] ?? $payload;
+        if (! is_array($events) || ! array_is_list($events)) {
+            return [
+                'schema_version' => 'atlas.voice_realtime.runtime_event_normalizer.v1',
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'runtime_id' => (string) $this->option('runtime'),
+                'failure' => 'event_file_must_contain_events_array_or_json_array',
+                'event_file' => (string) $this->option('event-file'),
+            ];
+        }
+
+        return $runtimeEvents->normalizeSequence($events);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function loadEventFilePayload(string $schemaVersion): array
+    {
+        $eventFile = trim((string) ($this->option('event-file') ?? ''));
+        if ($eventFile === '') {
+            return [
+                'schema_version' => $schemaVersion,
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'runtime_id' => (string) $this->option('runtime'),
+                'failure' => 'event_file_required',
+                'usage' => 'php artisan atlas:ai:voice normalize-event --event-file=<path> --json',
+            ];
+        }
+
+        $path = str_starts_with($eventFile, DIRECTORY_SEPARATOR)
+            ? $eventFile
+            : base_path($eventFile);
+        if (! is_file($path)) {
+            return [
+                'schema_version' => $schemaVersion,
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'runtime_id' => (string) $this->option('runtime'),
+                'failure' => 'event_file_not_found',
+                'event_file' => $eventFile,
+            ];
+        }
+
+        try {
+            $decoded = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return [
+                'schema_version' => $schemaVersion,
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'runtime_id' => (string) $this->option('runtime'),
+                'failure' => 'event_file_invalid_json',
+                'event_file' => $eventFile,
+            ];
+        }
+
+        if (! is_array($decoded)) {
+            return [
+                'schema_version' => $schemaVersion,
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'runtime_id' => (string) $this->option('runtime'),
+                'failure' => 'event_file_json_must_be_object_or_array',
+                'event_file' => $eventFile,
+            ];
+        }
+
+        return $decoded;
+    }
+
+    /**
      * @param  array<int,string>  $extraArgs
      * @return array<string,mixed>
      */
@@ -641,6 +769,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
         ], base_path(), [
             'PYTHONPATH' => base_path('runtimes/python/voice_realtime'),
         ]);
+        $process->setTimeout(self::PYTHON_COMMAND_TIMEOUT_SECONDS);
 
         try {
             $process->run();
@@ -763,7 +892,23 @@ class AtlasAiVoiceRealtimeCommand extends Command
             return null;
         }
 
-        $forbidden = ['access_token', 'token', 'livekit_token', 'api_key', 'api_secret'];
+        $forbidden = [
+            'access_token',
+            'token',
+            'livekit_token',
+            'api_key',
+            'api_secret',
+            'raw_audio',
+            'audio_bytes',
+            'pcm',
+            'wav',
+            'response_text',
+            'raw_response_text',
+            'tts_text',
+            'tool_call',
+            'tool_args',
+            'provider_api_key',
+        ];
 
         return collect($payload)
             ->reject(fn (mixed $_, string|int $key): bool => in_array((string) $key, $forbidden, true))
@@ -776,6 +921,6 @@ class AtlasAiVoiceRealtimeCommand extends Command
      */
     private function allowedActions(): array
     {
-        return ['contract', 'bootstrap', 'dependencies', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'worker-plan', 'production-loop-plan', 'product-loop-check', 'production-loop-smoke', 'worker-start-check', 'runtime-certify', 'health', 'readiness', 'rivals'];
+        return ['contract', 'bootstrap', 'dependencies', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'worker-plan', 'production-loop-plan', 'product-loop-check', 'production-loop-smoke', 'worker-start-check', 'normalize-event', 'normalize-sequence', 'runtime-certify', 'health', 'readiness', 'rivals'];
     }
 }

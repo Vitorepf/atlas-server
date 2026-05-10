@@ -1794,8 +1794,13 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame('attention', data_get($finding, 'metadata.readiness.status'));
         $this->assertSame('certified_scaffold', data_get($finding, 'metadata.runtime_certification.status'));
         $this->assertSame('blocked', data_get($finding, 'metadata.production_promotion_gate.status'));
+        $this->assertTrue(data_get($finding, 'metadata.production_promotion_gate.human_review_required'));
+        $this->assertFalse(data_get($finding, 'metadata.production_promotion_gate.promotion_allowed'));
+        $this->assertFalse(data_get($finding, 'metadata.production_promotion_gate.auto_promotion_allowed'));
+        $this->assertTrue(data_get($finding, 'metadata.production_promotion_gate.decision_receipt_required'));
         $this->assertSame('atlas.voice_realtime.production_promotion_review_packet.v1', data_get($finding, 'metadata.review_packet.schema_version'));
         $this->assertSame('approve_or_reject_voice_production_promotion', data_get($finding, 'metadata.review_packet.required_human_decision'));
+        $this->assertTrue(data_get($finding, 'metadata.review_packet.required_decision_receipt'));
         $this->assertContains('return_voice_runtime_to_scaffold_mode', data_get($finding, 'metadata.review_packet.required_rollback_plan'));
         $this->assertSame('atlas.voice_realtime.production_promotion_review_packet.v1', data_get($finding, 'source_refs.0.review_packet_schema_version'));
         $this->assertContains(LedgerEventType::VoiceTurnDecided->value, data_get($finding, 'metadata.missing_events'));

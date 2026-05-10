@@ -36,6 +36,7 @@ class CapabilityComplianceTest extends TestCase
         $this->assertSame([], $report['skipped']);
         $this->assertContains('atlas_cli_dev', $report['mapped_adapters']);
         $this->assertContains('atlas_vault', $report['mapped_adapters']);
+        $this->assertContains('voice_realtime', $report['mapped_adapters']);
         $this->assertSame([], $report['unmapped_adapters']);
     }
 

@@ -334,6 +334,14 @@ final class AtlasArchitectureOperationsCatalog
                 'output' => 'json',
             ],
             [
+                'id' => 'voice_realtime_product_loop_check',
+                'command' => 'php artisan atlas:ai:voice product-loop-check --json',
+                'description' => 'Verifica o product loop real do LiveKit em modo fail-closed, garantindo SDK probe seguro, promocao bloqueada e nenhum daemon iniciado.',
+                'surface' => 'cli',
+                'kind' => 'runtime_contract',
+                'output' => 'json',
+            ],
+            [
                 'id' => 'voice_realtime_production_loop_smoke',
                 'command' => 'php artisan atlas:ai:voice production-loop-smoke --json',
                 'description' => 'Executa eventos em formato LiveKit SDK pelo production-loop runner, bridge e Kernel mockado sem importar SDK, iniciar daemon ou persistir audio raw.',

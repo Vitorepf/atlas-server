@@ -24,6 +24,10 @@ class MockKernelTransport:
             "payload_hash": self._hash(payload),
         })
 
+        if url.endswith("/runtime/events/normalize-sequence"):
+            return self._normalized_sequence(payload)
+        if url.endswith("/runtime/events/normalize"):
+            return self._normalized_event(payload)
         if url.endswith("/session/start"):
             return self._session_started(payload)
         if url.endswith("/turn"):
@@ -114,6 +118,39 @@ class MockKernelTransport:
             "contract": {
                 "runtime_requires_decision_receipt": True,
                 "raw_audio_persistence_allowed": False,
+            },
+        }
+
+    def _normalized_sequence(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        events = payload.get("events")
+        count = len(events) if isinstance(events, list) else 0
+
+        return {
+            "schema_version": "atlas.voice_realtime.runtime_event_normalizer.v1",
+            "status": "normalized_sequence",
+            "valid": True,
+            "event_count": count,
+            "errors": [],
+            "contract": self._normalizer_contract(),
+        }
+
+    def _normalized_event(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        return {
+            "schema_version": "atlas.voice_realtime.runtime_event_normalizer.v1",
+            "status": "normalized",
+            "valid": True,
+            "event_count": 1,
+            "errors": [],
+            "contract": self._normalizer_contract(),
+        }
+
+    def _normalizer_contract(self) -> Mapping[str, Any]:
+        return {
+            "guardrails": {
+                "runtime_execution_enabled": False,
+                "provider_execution_enabled": False,
+                "raw_audio_persistence_allowed": False,
+                "secret_persistence_allowed": False,
             },
         }
 

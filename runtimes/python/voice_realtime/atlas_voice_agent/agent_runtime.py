@@ -95,7 +95,7 @@ class AtlasVoiceAgentRuntime:
         return self.client.report_played(payload)
 
     def report_interrupted(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
-        self._assert_turn_can_emit_runtime_callback(payload)
+        self._assert_known_turn(payload)
 
         return self.client.report_interrupted(payload)
 

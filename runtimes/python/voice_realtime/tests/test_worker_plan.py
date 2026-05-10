@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from atlas_voice_agent.contract import AtlasVoiceRuntimeContract
 from atlas_voice_agent.worker_plan import build_livekit_worker_plan
@@ -86,6 +87,43 @@ class LiveKitWorkerPlanTest(unittest.TestCase):
         )
 
         self.assertFalse(payload["activation"]["can_start_long_running_worker"])
+
+    def test_worker_plan_propagates_sdk_probe_missing_imports_without_daemon_start(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        sdk_status = {
+            "schema_version": "atlas.voice_realtime.sdk_check.v1",
+            "status": "missing_optional_dependency",
+            "sdk_imported": False,
+            "import_probe_only": True,
+            "package_checks": [{
+                "pip": "livekit-agents",
+                "import": "livekit.agents",
+                "installed": False,
+                "version": None,
+                "minimum_version": None,
+                "version_policy": "not_pinned_yet",
+                "required_for": "product_loop_daemon",
+            }],
+            "missing_imports": ["livekit.agents"],
+        }
+
+        with patch("atlas_voice_agent.worker_plan.inspect_livekit_sdk", return_value=sdk_status):
+            payload = build_livekit_worker_plan(
+                contract,
+                settings_loaded=True,
+                boundary_created=True,
+                callback_loop_wired=True,
+                mock_kernel=False,
+            )
+
+        self.assertEqual("blocked_missing_sdk", payload["status"])
+        self.assertEqual("install_livekit_agents_sdk", payload["next_action"])
+        self.assertFalse(payload["activation"]["can_start_long_running_worker"])
+        self.assertFalse(payload["sdk_status"]["sdk_imported"])
+        self.assertTrue(payload["sdk_status"]["import_probe_only"])
+        self.assertEqual(["livekit.agents"], payload["sdk_status"]["missing_imports"])
+        self.assertEqual("livekit-agents", payload["sdk_status"]["package_checks"][0]["pip"])
+        self.assertIsNone(payload["sdk_status"]["package_checks"][0]["version"])
 
 
 if __name__ == "__main__":

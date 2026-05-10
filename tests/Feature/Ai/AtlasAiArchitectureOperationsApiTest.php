@@ -22,7 +22,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
             ->assertJsonPath('architecture_operations.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 60)
+            ->assertJsonPath('architecture_operations.command_count', 61)
             ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_operations')
             ->assertJsonPath('architecture_operations.commands.0.kind', 'catalog')
             ->assertJsonPath('architecture_operations.commands.0.surface', 'cli');
@@ -58,6 +58,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('php artisan atlas:ai:voice sdk-check --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice worker-plan --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice production-loop-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:voice product-loop-check --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice production-loop-smoke --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice worker-start-check --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice runtime-certify --json', $commands);
@@ -103,7 +104,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->getJson('/ai/architecture/operations?section=arquitetura_mae', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 60)
+            ->assertJsonPath('architecture_operations.command_count', 61)
             ->assertJsonPath('architecture_operations.operation_ids.0', 'architecture_operations');
 
         $this->getJson('/ai/architecture/operations?surface=runtime', $this->headers)
@@ -294,6 +295,13 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('architecture_operations.filters.id', 'voice_realtime_production_loop_plan')
             ->assertJsonPath('architecture_operations.command_count', 1)
             ->assertJsonPath('architecture_operations.commands.0.command', 'php artisan atlas:ai:voice production-loop-plan --json')
+            ->assertJsonPath('architecture_operations.commands.0.kind', 'runtime_contract');
+
+        $this->getJson('/ai/architecture/operations?id=voice_realtime_product_loop_check', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.id', 'voice_realtime_product_loop_check')
+            ->assertJsonPath('architecture_operations.command_count', 1)
+            ->assertJsonPath('architecture_operations.commands.0.command', 'php artisan atlas:ai:voice product-loop-check --json')
             ->assertJsonPath('architecture_operations.commands.0.kind', 'runtime_contract');
 
         $this->getJson('/ai/architecture/operations?id=voice_realtime_production_loop_smoke', $this->headers)

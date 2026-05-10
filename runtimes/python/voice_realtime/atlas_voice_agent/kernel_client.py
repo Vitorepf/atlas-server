@@ -12,13 +12,37 @@ from .callback_payload import (
     AtlasVoiceSynthesizedPayload,
 )
 from .contract import AtlasVoiceRuntimeContract
+from .payload_safety import reject_forbidden_keys_recursive
 from .session_lease import AtlasVoiceSessionLease
 from .session_payload import AtlasVoiceSessionPayload
-from .turn_payload import AtlasVoiceTurnPayload
+from .turn_payload import AtlasVoiceTurnPayload, UnsafeVoicePayload
 from .wake_word_payload import AtlasVoiceWakeWordPayload
 
 PostJson = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 GetJson = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
+
+
+FORBIDDEN_RUNTIME_EVENT_KEYS = {
+    "access_token",
+    "api_key",
+    "api_secret",
+    "audio",
+    "audio_bytes",
+    "audio_raw",
+    "livekit_token",
+    "llm_provider",
+    "pcm",
+    "provider_api_key",
+    "raw_audio",
+    "raw_audio_bytes",
+    "raw_response_text",
+    "response_text",
+    "token",
+    "tool_args",
+    "tool_call",
+    "tts_text",
+    "wav",
+}
 
 
 class AtlasKernelClient:
@@ -49,6 +73,20 @@ class AtlasKernelClient:
         bounded_hours = max(1, min(8760, int(hours)))
 
         return self._get_transport(self.contract.rivals_url, {"hours": bounded_hours})
+
+    def normalize_runtime_event(self, event: Mapping[str, Any]) -> Mapping[str, Any]:
+        self._assert_safe_runtime_event(event, label="runtime event")
+
+        return self._transport(self.contract.runtime_event_normalizer_url, {"event": event})
+
+    def normalize_runtime_event_sequence(self, events: list[Mapping[str, Any]]) -> Mapping[str, Any]:
+        if not events:
+            raise UnsafeVoicePayload("runtime event sequence cannot be empty")
+
+        for event in events:
+            self._assert_safe_runtime_event(event, label="runtime event sequence")
+
+        return self._transport(self.contract.runtime_event_sequence_normalizer_url, {"events": events})
 
     def start_session(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
         safe_payload = AtlasVoiceSessionPayload.from_runtime_event(payload).to_kernel_payload()
@@ -118,6 +156,9 @@ class AtlasKernelClient:
             raise RuntimeError("Kernel returned non-object JSON")
 
         return decoded
+
+    def _assert_safe_runtime_event(self, event: Mapping[str, Any], *, label: str) -> None:
+        reject_forbidden_keys_recursive(event, FORBIDDEN_RUNTIME_EVENT_KEYS, label=label)
 
     def _http_get_json(self, url: str, query: Mapping[str, Any]) -> Mapping[str, Any]:
         encoded = parse.urlencode({key: value for key, value in query.items() if value is not None})

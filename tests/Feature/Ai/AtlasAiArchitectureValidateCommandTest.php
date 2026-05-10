@@ -453,6 +453,7 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap35_surface_adapter_parity_map_coverage.valid'));
         $this->assertContains('atlas_cli_dev', data_get($payload, 'kernel.static_scan.ap35_surface_adapter_parity_map_coverage.mapped_adapters'));
         $this->assertContains('atlas_vault', data_get($payload, 'kernel.static_scan.ap35_surface_adapter_parity_map_coverage.mapped_adapters'));
+        $this->assertContains('voice_realtime', data_get($payload, 'kernel.static_scan.ap35_surface_adapter_parity_map_coverage.mapped_adapters'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap35_surface_adapter_parity_map_coverage.unmapped_adapters'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap35_surface_adapter_parity_map_coverage.violations'));
         $this->assertTrue(data_get($payload, 'capabilities.valid'));

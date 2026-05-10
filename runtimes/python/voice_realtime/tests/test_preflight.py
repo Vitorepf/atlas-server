@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from atlas_voice_agent.preflight import run_runtime_preflight
 
@@ -66,6 +67,33 @@ class AtlasVoiceRuntimePreflightTest(unittest.TestCase):
         else:
             self.assertEqual("blocked", payload["status"])
             self.assertEqual("install_livekit_agents_sdk", payload["next_action"])
+
+    def test_preflight_requires_sdk_fails_closed_with_probe_only_missing_imports(self) -> None:
+        sdk_status = {
+            "schema_version": "atlas.voice_realtime.sdk_check.v1",
+            "status": "missing_optional_dependency",
+            "sdk_imported": False,
+            "import_probe_only": True,
+            "missing_imports": ["livekit.agents"],
+            "package_checks": [{
+                "pip": "livekit-agents",
+                "import": "livekit.agents",
+                "installed": False,
+                "version": None,
+            }],
+        }
+
+        with patch("atlas_voice_agent.preflight.inspect_livekit_sdk", return_value=sdk_status):
+            payload = run_runtime_preflight(env=env(write_manifest()), require_sdk=True)
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("install_livekit_agents_sdk", payload["next_action"])
+        self.assertTrue(payload["require_sdk"])
+        self.assertFalse(payload["sdk_status"]["sdk_imported"])
+        self.assertTrue(payload["sdk_status"]["import_probe_only"])
+        self.assertEqual(["livekit.agents"], payload["sdk_status"]["missing_imports"])
+        self.assertIsNone(payload["sdk_status"]["package_checks"][0]["version"])
+        self.assertIn("LiveKit Agents SDK is required", payload["errors"][0])
 
 
 if __name__ == "__main__":

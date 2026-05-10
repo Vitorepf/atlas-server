@@ -19,6 +19,9 @@ capabilities:
   - native_mac_agent
   - local_ai_performance_strategy
   - content_intelligence_curation
+  - research_intelligence_runtime
+  - spec_operating_system
+  - self_construction_os
   - qualitative_levels_roadmap
   - canonical_architecture_index
   - atlas_ai_master_architecture
@@ -68,6 +71,10 @@ decisions:
   - Atlas Native Mac Agent define Swift/macOS como camada nativa local para Keychain, Touch ID, notificacoes, FSEvents, Menu Bar e contexto opt-in, sem virar Kernel.
   - Atlas AI Local Performance Memory Strategy define como usar 48GB RAM para hot context, RAG local, rerank, cache, modelos locais e precompute sem criar cerebro paralelo.
   - Atlas AI Content Intelligence And Knowledge Curation define como capturar, filtrar, descartar, rotear e promover conteudo sem poluir memoria ou dominios.
+  - Atlas AI Research Intelligence And Self-Improvement Runtime define pesquisa de maximo nivel, source quality, promocao para docs, planejamento, implementacao validada e autoaprimoramento governado como frente P0 de evolucao do Atlas.
+  - Atlas AI Spec Operating System define SDD como capacidade interna: intencao simples vira spec operacional, plano, tasks, Decision Receipt, execucao governada, evidencia, drift detection, learning proposal, data model, agentes internos, MCP governado e context packages versionados.
+  - Atlas AI Self-Construction OS define como Atlas constroi Atlas: pesquisa, documentacao, Meta-SDD, prioridade, execucao governada, evidencia, drift, learning e maturidade sem criar arquitetura paralela.
+  - Atlas AI Cognitive Runtime define memoria, busca de contexto, sessoes longas de 72h, compactacao automatica e auditoria cognitiva como frente P0 do sistema nervoso central do Atlas.
   - Atlas AI Qualitative Levels Roadmap formaliza os patamares P1-P7 e a fila governada para co-estrategista, Rivals Strategy e Curator evolutivo.
   - Atlas AI Canonical Architecture Index define a hierarquia oficial entre Constitution, Kernel, Master Architecture, Topology e Domain Specs.
   - Atlas AI Flow Visual Map define a imagem/diagrama canonico do pipeline, separando Business Context, Domain, Profile, Runtime, Evidence, AtlasVault e Learning.
@@ -97,6 +104,10 @@ maintenance:
   - Rode `php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json` antes de expandir qualquer doc `split_required`; use `severity` e `status` para reduzir contexto quando a sessao tiver escopo estreito.
   - Leia atlas-ai-knowledge-governance-system.md antes de iniciar feature com owner incerto, alterar bootstrap, provider projection, KB sync, Obsidian/vault flow ou contexto para agentes.
   - Leia atlas-ai-runtime-language-boundaries.md, atlas-native-mac-agent.md, atlas-ai-local-performance-memory-strategy.md, atlas-ai-content-intelligence-curation.md e atlas-ai-scenario-simulation-harness.md antes de propor Python, Go, Swift, microservico, worker externo, daemon, RAG local, cache, modelos locais, uso dos 48GB RAM, YouTube ingestion, feeds, scraping, curadoria de fontes, swarm ou simulacao multiagente.
+  - Leia atlas-ai-research-self-improvement-runtime.md antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, autoaprimoramento ou qualquer tentativa de acelerar evolucao do Atlas por automacao.
+  - Leia atlas-ai-spec-operating-system.md antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts ou fluxo de one-shot implementation.
+  - Leia atlas-ai-self-construction-os.md antes de alterar self-programming, Meta-SDD, prioridade de construcao, maturity ladder, build graph, loop autonomo, safety contract ou qualquer tentativa do Atlas construir Atlas.
+  - Leia atlas-ai-cognitive-runtime.md antes de alterar memoria governada, busca de contexto, long sessions, compactacao automatica, handoff cognitivo, Open Brain quality metrics ou auditoria cognitiva.
   - Leia atlas-ai-business-contexts.md antes de tratar Blackink, empresas futuras, product domains, app mobile routing domain, captura empresarial ou privacidade de empresa em producao.
   - Leia atlas-ai-agent-behavior-contract.md antes de alterar prompts de agentes, provider identity fragments, Programming Domain, Review Mode, worker prompts ou gates contra overengineering/diff lateral.
   - Leia atlas-ai-model-selection-strategy.md antes de alterar Atlas Decide, selecao de provider/modelo, AP-99, Dynamic Compute Market ou especialistas de Programming que influenciam modelo.
@@ -116,6 +127,7 @@ maintenance:
   - Leia open-brain-context-injection.md antes de alterar atlas dev, atlas continue, atlas chat ou AtlasAiSheet.
   - Rode atlas engineering knowledge sync --prune depois de alterar estes docs.
   - Rode atlas engineering knowledge index-code --prune depois de alterar docs ou codigo core.
+  - Use `php artisan atlas:ai:self-construction --json` para consultar o estado read-only/advisory do Self-Construction OS antes de planejar autoimplementacao.
   - Consulte memory-core-runbook.md antes de executar operacoes destrutivas ou provider projection apply.
   - Consulte engineering-blueprint-runbook.md antes de alterar planejamento, task contracts, QA, review ou Postgres gate.
   - Consulte programming-power-tools-catalog.md antes de adicionar ferramenta, recipe, normalizer ou gate novo.
@@ -130,6 +142,59 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
   - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
+  - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-operating-system.md
+  - docs/engineering-knowledge-base/research-self-improvement/evidence-lake-and-citation-health.md
+  - docs/engineering-knowledge-base/research-self-improvement/source-connectors-and-capture.md
+  - docs/engineering-knowledge-base/research-self-improvement/multi-agent-research-roles.md
+  - docs/engineering-knowledge-base/research-self-improvement/scheduled-research-and-triggers.md
+  - docs/engineering-knowledge-base/research-self-improvement/reporting-and-publication-contract.md
+  - docs/engineering-knowledge-base/research-self-improvement/private-connectors-security-and-stack.md
+  - docs/engineering-knowledge-base/research-self-improvement/source-quality-and-trust-ladder.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-pipeline.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-to-docs-promotion.md
+  - docs/engineering-knowledge-base/research-self-improvement/implementation-planning-and-rollout.md
+  - docs/engineering-knowledge-base/research-self-improvement/continuous-self-improvement-loop.md
+  - docs/engineering-knowledge-base/research-self-improvement/schemas-and-packets.md
+  - docs/engineering-knowledge-base/research-self-improvement/metrics-and-evals.md
+  - docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md
+  - docs/engineering-knowledge-base/research-self-improvement/failure-modes.md
+  - docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+  - docs/ap/AP-689-research-self-improvement-runtime-contract.md
+  - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
+  - docs/engineering-knowledge-base/spec-operating-system/context-discovery-and-business-context.md
+  - docs/engineering-knowledge-base/spec-operating-system/spec-compiler-and-critic.md
+  - docs/engineering-knowledge-base/spec-operating-system/plan-task-and-receipt-contract.md
+  - docs/engineering-knowledge-base/spec-operating-system/spec-graph-and-traceability.md
+  - docs/engineering-knowledge-base/spec-operating-system/autonomy-and-clarification-policy.md
+  - docs/engineering-knowledge-base/spec-operating-system/drift-detector-and-learning.md
+  - docs/engineering-knowledge-base/spec-operating-system/templates-and-schemas.md
+  - docs/engineering-knowledge-base/spec-operating-system/data-model-and-services.md
+  - docs/engineering-knowledge-base/spec-operating-system/agents-and-mcp-contract.md
+  - docs/engineering-knowledge-base/spec-operating-system/context-packages-and-projections.md
+  - docs/engineering-knowledge-base/spec-operating-system/implementation-roadmap.md
+  - docs/ap/AP-690-atlas-spec-operating-system-contract.md
+  - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
+  - docs/engineering-knowledge-base/self-construction/constitution.md
+  - docs/engineering-knowledge-base/self-construction/meta-sdd-contract.md
+  - docs/engineering-knowledge-base/self-construction/capability-maturity-ladder.md
+  - docs/engineering-knowledge-base/self-construction/build-graph.md
+  - docs/engineering-knowledge-base/self-construction/implementation-priority-engine.md
+  - docs/engineering-knowledge-base/self-construction/autonomous-implementation-loop.md
+  - docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md
+  - docs/engineering-knowledge-base/self-construction/quality-bar-and-metrics.md
+  - docs/engineering-knowledge-base/self-construction/failure-modes.md
+  - docs/engineering-knowledge-base/self-construction/builder-persona-and-handoff.md
+  - docs/engineering-knowledge-base/self-construction/runtime-implementation-roadmap.md
+  - docs/ap/AP-691-atlas-self-construction-os-contract.md
+  - docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md
+  - docs/engineering-knowledge-base/cognitive-runtime/schemas-and-packets.md
+  - docs/engineering-knowledge-base/cognitive-runtime/enterprise-excellence-checklist.md
+  - docs/engineering-knowledge-base/cognitive-runtime/retrieval-benchmark.md
+  - docs/engineering-knowledge-base/cognitive-runtime/state-of-art-research-map.md
+  - docs/engineering-knowledge-base/cognitive-runtime/runbook.md
+  - docs/engineering-knowledge-base/cognitive-runtime/failure-modes.md
+  - docs/ap/AP-688-cognitive-runtime-72h-contract.md
   - docs/engineering-knowledge-base/atlas-ai-scenario-simulation-harness.md
   - docs/engineering-knowledge-base/atlas-constelacao-surface.md
   - docs/engineering-knowledge-base/atlas-ai-business-contexts.md

@@ -513,6 +513,7 @@ final class AtlasVoiceRealtimeService
         $since = now()->subHours($hours);
         $until = now();
         $phase0Hardening = $this->phase0HardeningGate();
+        $productLoopCheck = $this->productLoopCheckReference();
 
         if (! Schema::hasTable('atlas_ledger_events')) {
             return [
@@ -527,6 +528,7 @@ final class AtlasVoiceRealtimeService
                     'recommended_action' => 'run_ledger_migrations_before_voice_readiness',
                 ],
                 'phase0_hardening' => $phase0Hardening,
+                'product_loop_check' => $productLoopCheck,
             ];
         }
 
@@ -568,6 +570,7 @@ final class AtlasVoiceRealtimeService
             'window' => ['since' => $since->toJSON(), 'until' => $until->toJSON()],
             'mobile_first' => true,
             'phase0_hardening' => $phase0Hardening,
+            'product_loop_check' => $productLoopCheck,
             'score' => $score,
             'event_counts' => $eventCounts,
             'session_count' => $events->pluck('correlation_id')->filter()->unique()->count(),
@@ -649,6 +652,7 @@ final class AtlasVoiceRealtimeService
             'required_validation' => [
                 'php artisan atlas:ai:voice runtime-certify --json',
                 'php artisan atlas:ai:voice callback-loop-check --json',
+                'php artisan atlas:ai:voice product-loop-check --json',
                 'php artisan atlas:ai:voice readiness --json',
                 'php artisan atlas:ai:runtime-boundary --json',
                 'php artisan atlas:ai:architecture-validate --json',
@@ -663,6 +667,34 @@ final class AtlasVoiceRealtimeService
             'next_action' => $failed === []
                 ? 'collect_real_mobile_voice_usage_before_livekit_production_promotion'
                 : 'fix_voice_phase0_hardening_gates_before_product_runtime',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function productLoopCheckReference(): array
+    {
+        return [
+            'schema_version' => 'atlas.voice_realtime.product_loop_check_reference.v1',
+            'status' => 'available_as_runtime_contract',
+            'surface_id' => 'voice_realtime',
+            'runtime_id' => 'livekit_agents_sdk',
+            'command' => 'php artisan atlas:ai:voice product-loop-check --json',
+            'machine_contract' => 'atlas.voice_realtime.product_loop_check.v1',
+            'required_gates' => [
+                'callback_loop_wired',
+                'production_sdk_loop_wired',
+                'worker_start_still_blocked',
+                'production_promotion_blocked',
+                'sdk_probe_import_safe',
+                'direct_provider_forbidden',
+                'raw_audio_forbidden',
+            ],
+            'promotion_allowed' => false,
+            'auto_promotion_allowed' => false,
+            'daemon_started' => false,
+            'next_action' => 'run_product_loop_check_before_livekit_daemon_work',
         ];
     }
 
@@ -706,12 +738,16 @@ final class AtlasVoiceRealtimeService
             'rivals_endpoint' => '/ai/voice/rivals',
             'runtime_dependencies_endpoint' => '/ai/voice/runtime/dependencies',
             'runtime_certification_endpoint' => '/ai/voice/runtime/certification',
+            'runtime_event_normalizer_endpoint' => '/ai/voice/runtime/events/normalize',
+            'runtime_event_sequence_normalizer_endpoint' => '/ai/voice/runtime/events/normalize-sequence',
             'mobile_session_start_endpoint' => '/v1/mobile/ai/voice/session/start',
             'mobile_session_end_endpoint' => '/v1/mobile/ai/voice/session/end',
             'mobile_readiness_endpoint' => '/v1/mobile/ai/voice/readiness',
             'mobile_rivals_endpoint' => '/v1/mobile/ai/voice/rivals',
             'mobile_runtime_dependencies_endpoint' => '/v1/mobile/ai/voice/runtime/dependencies',
             'mobile_runtime_certification_endpoint' => '/v1/mobile/ai/voice/runtime/certification',
+            'mobile_runtime_event_normalizer_endpoint' => '/v1/mobile/ai/voice/runtime/events/normalize',
+            'mobile_runtime_event_sequence_normalizer_endpoint' => '/v1/mobile/ai/voice/runtime/events/normalize-sequence',
             'wake_word_endpoint' => '/ai/voice/wake-word',
             'mobile_wake_word_endpoint' => '/v1/mobile/ai/voice/wake-word',
             'turn_endpoint' => '/ai/voice/turn',
@@ -837,6 +873,10 @@ final class AtlasVoiceRealtimeService
                 'mobile_rivals_url' => $baseUrl.$contract['mobile_rivals_endpoint'],
                 'mobile_runtime_dependencies_url' => $baseUrl.$contract['mobile_runtime_dependencies_endpoint'],
                 'mobile_runtime_certification_url' => $baseUrl.$contract['mobile_runtime_certification_endpoint'],
+                'runtime_event_normalizer_url' => $baseUrl.$contract['runtime_event_normalizer_endpoint'],
+                'runtime_event_sequence_normalizer_url' => $baseUrl.$contract['runtime_event_sequence_normalizer_endpoint'],
+                'mobile_runtime_event_normalizer_url' => $baseUrl.$contract['mobile_runtime_event_normalizer_endpoint'],
+                'mobile_runtime_event_sequence_normalizer_url' => $baseUrl.$contract['mobile_runtime_event_sequence_normalizer_endpoint'],
                 'wake_word_url' => $baseUrl.$contract['wake_word_endpoint'],
                 'mobile_wake_word_url' => $baseUrl.$contract['mobile_wake_word_endpoint'],
                 'turn_url' => $baseUrl.$contract['turn_endpoint'],

@@ -201,6 +201,9 @@ class AtlasAiGovernanceApiTest extends TestCase
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
             ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_readiness');
 
+        $this->assertStringContainsString('sem provider direto', $response->json('safe_next_blocks.0.dod_minimum'));
+        $this->assertStringContainsString('VOICE_* real', $response->json('safe_next_blocks.0.dod_minimum'));
+        $this->assertStringContainsString('review humano', $response->json('safe_next_blocks.0.dod_minimum'));
         $this->assertContains($response->json('checks.provider_projection.status'), ['passed', 'needs_review']);
         $this->assertContains('architecture_readiness', $response->json('architecture_operations.related_operation_ids'));
         $this->assertContains('session_bootstrap', $response->json('architecture_operations.related_operation_ids'));

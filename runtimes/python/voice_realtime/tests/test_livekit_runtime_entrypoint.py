@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from atlas_voice_agent.contract import AtlasVoiceRuntimeContract
 from atlas_voice_agent.livekit_runtime_entrypoint import start_livekit_agents_worker
@@ -50,6 +51,50 @@ class LiveKitRuntimeEntrypointTest(unittest.TestCase):
         self.assertEqual("voice_realtime", payload["activation_contract"]["surface_id"])
         self.assertIn(payload["activation_contract"]["status"], ["blocked", "ready_to_start_worker"])
         self.assertEqual(payload["activation_contract"]["next_action"], payload["activation_next_action"])
+        self.assertFalse(payload["activation_contract"]["gates"]["production_sdk_loop_wired"])
+
+    def test_start_worker_propagates_missing_sdk_probe_without_starting_daemon(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        worker_plan = {
+            "schema_version": "atlas.voice_realtime.worker_plan.v1",
+            "status": "blocked_missing_sdk",
+            "sdk_status": {
+                "status": "missing_optional_dependency",
+                "sdk_imported": False,
+                "import_probe_only": True,
+                "missing_imports": ["livekit.agents"],
+                "package_checks": [{
+                    "pip": "livekit-agents",
+                    "import": "livekit.agents",
+                    "installed": False,
+                    "version": None,
+                }],
+            },
+            "activation": {"can_start_long_running_worker": False},
+        }
+
+        with patch("atlas_voice_agent.livekit_runtime_entrypoint.build_livekit_worker_plan", return_value=worker_plan):
+            payload = start_livekit_agents_worker(
+                contract,
+                env={},
+                settings_loaded=True,
+                boundary_created=True,
+                callback_loop_wired=True,
+                production_sdk_loop_wired=True,
+                mock_kernel=False,
+            )
+
+        sdk_status = payload["worker_plan"]["sdk_status"]
+
+        self.assertEqual("blocked_missing_sdk", payload["status"])
+        self.assertFalse(payload["started"])
+        self.assertTrue(payload["callback_loop_wired"])
+        self.assertTrue(payload["production_sdk_loop_wired"])
+        self.assertFalse(payload["guardrails"]["worker_start_without_production_promotion_allowed"])
+        self.assertFalse(sdk_status["sdk_imported"])
+        self.assertTrue(sdk_status["import_probe_only"])
+        self.assertEqual(["livekit.agents"], sdk_status["missing_imports"])
+        self.assertIsNone(sdk_status["package_checks"][0]["version"])
 
     def test_start_worker_never_starts_against_mock_kernel(self) -> None:
         contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
@@ -98,6 +143,7 @@ class LiveKitRuntimeEntrypointTest(unittest.TestCase):
         self.assertFalse(payload["started"])
         self.assertTrue(payload["callback_loop_wired"])
         self.assertFalse(payload["production_sdk_loop_wired"])
+        self.assertFalse(payload["activation_contract"]["gates"]["production_sdk_loop_wired"])
         self.assertFalse(payload["production_loop_plan"]["guardrails"]["worker_start_allowed_by_this_plan"])
         if payload["worker_plan"]["sdk_status"]["status"] == "ready":
             self.assertEqual("blocked_unwired_production_loop", payload["status"])
@@ -118,6 +164,7 @@ class LiveKitRuntimeEntrypointTest(unittest.TestCase):
         self.assertTrue(payload["callback_loop_wired"])
         self.assertTrue(payload["production_sdk_loop_wired"])
         self.assertTrue(payload["activation_contract"]["gates"]["callback_loop_wired"])
+        self.assertTrue(payload["activation_contract"]["gates"]["production_sdk_loop_wired"])
         self.assertTrue(payload["production_loop_plan"]["production_sdk_loop_wired"])
         self.assertTrue(payload["production_loop_plan"]["worker_start_callback_loop_wired"])
         self.assertEqual("wired", payload["sdk_wiring_contract"]["status"])

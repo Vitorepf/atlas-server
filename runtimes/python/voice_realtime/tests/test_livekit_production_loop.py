@@ -41,6 +41,8 @@ class LiveKitProductionLoopTest(unittest.TestCase):
             payload["sdk_wiring_contract"]["schema_version"],
         )
         self.assertTrue(payload["sdk_wiring_contract"]["complete_callback_coverage"])
+        self.assertIn("wiring_invariants", payload["sdk_wiring_contract"])
+        self.assertIn("handler_blueprint", payload["sdk_wiring_contract"]["required_handlers"][0])
         self.assertFalse(payload["guardrails"]["direct_provider_call_allowed"])
         self.assertFalse(payload["guardrails"]["direct_tool_execution_allowed"])
         self.assertFalse(payload["guardrails"]["raw_audio_persistence_allowed"])

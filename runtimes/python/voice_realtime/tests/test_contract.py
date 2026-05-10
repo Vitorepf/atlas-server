@@ -29,6 +29,8 @@ def manifest() -> dict:
             "wake_word_url": "http://atlas.test/ai/voice/wake-word",
             "mobile_wake_word_url": "http://atlas.test/v1/mobile/ai/voice/wake-word",
             "turn_url": "http://atlas.test/ai/voice/turn",
+            "runtime_event_normalizer_url": "http://atlas.test/ai/voice/runtime/events/normalize",
+            "runtime_event_sequence_normalizer_url": "http://atlas.test/ai/voice/runtime/events/normalize-sequence",
             "callbacks": {
                 "turn_synthesized": "http://atlas.test/ai/voice/turn/synthesized",
                 "turn_played": "http://atlas.test/ai/voice/turn/played",
@@ -99,6 +101,16 @@ def manifest() -> dict:
                 "bypass_evidence_ledger",
                 "create_parallel_context_store",
             ],
+            "return_contract": [
+                "schema_version",
+                "envelope_id",
+                "decision_receipt_hash",
+                "status",
+                "artifacts",
+                "metrics",
+                "evidence_refs",
+                "errors",
+            ],
         },
         "allowlists": {
             "client_surfaces": ["mobile", "mac_edge"],
@@ -119,6 +131,11 @@ class AtlasVoiceRuntimeContractTest(unittest.TestCase):
         self.assertEqual("http://atlas.test/ai/voice/readiness", contract.readiness_url)
         self.assertEqual("http://atlas.test/ai/voice/rivals", contract.rivals_url)
         self.assertEqual("http://atlas.test/ai/voice/turn", contract.turn_url)
+        self.assertEqual("http://atlas.test/ai/voice/runtime/events/normalize", contract.runtime_event_normalizer_url)
+        self.assertEqual(
+            "http://atlas.test/ai/voice/runtime/events/normalize-sequence",
+            contract.runtime_event_sequence_normalizer_url,
+        )
         self.assertEqual("atlas-voice-", contract.room_prefix)
         self.assertEqual("http://livekit.test", contract.livekit_url)
         self.assertEqual("http://atlas.test/ai/voice/turn/synthesized", contract.synthesized_url)
@@ -213,6 +230,13 @@ class AtlasVoiceRuntimeContractTest(unittest.TestCase):
     def test_rejects_runtime_invocation_contract_that_can_choose_provider(self) -> None:
         payload = copy.deepcopy(manifest())
         payload["runtime_invocation_contract"]["forbidden_runtime_authority"].remove("choose_provider_or_model")
+
+        with self.assertRaises(ContractViolation):
+            AtlasVoiceRuntimeContract.from_manifest(payload)
+
+    def test_rejects_runtime_invocation_contract_without_evidence_return_contract(self) -> None:
+        payload = copy.deepcopy(manifest())
+        payload["runtime_invocation_contract"]["return_contract"].remove("evidence_refs")
 
         with self.assertRaises(ContractViolation):
             AtlasVoiceRuntimeContract.from_manifest(payload)

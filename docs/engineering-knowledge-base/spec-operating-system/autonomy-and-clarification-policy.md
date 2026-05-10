@@ -1,0 +1,64 @@
+---
+id: atlas-ai-sdd-autonomy-clarification-policy
+type: engineering_knowledge
+title: Atlas SDD Autonomy And Clarification Policy
+status: active
+category: policy
+priority: 99
+summary: Autonomy levels and ask/act/block policy for Atlas Spec Operating System.
+tags:
+  - atlas-ai
+  - sdd
+  - autonomy
+  - clarification
+capabilities:
+  - sdd_autonomy_policy
+  - clarification_gate
+decisions:
+  - Atlas should avoid unnecessary questions when context is sufficient.
+  - Atlas must ask or block when ambiguity can cause wrong or unsafe implementation.
+maintenance:
+  - Update when autonomy policy or model routing changes.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
+  - docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md
+---
+
+# Atlas SDD Autonomy And Clarification Policy
+
+## Autonomy Levels
+
+| Level | Meaning | Use |
+|---|---|---|
+| L0 manual | Spec/plan only | critical systems, unclear risk |
+| L1 assisted | Human approves implementation | medium/high risk |
+| L2 auto_patch | Atlas creates scoped patch | low-risk localized change |
+| L3 auto_pr | Atlas opens PR with evidence | low/medium risk with gates |
+| L4 restricted merge | Future only, very low-risk | docs/copy/tests after metrics |
+| L5 proposal-only learning | Improve templates/policy by proposal | self-improvement |
+
+## Ask / Act / Block
+
+Act when:
+
+- target context is known;
+- business object is clear;
+- design/API rules are known;
+- risk is low/medium;
+- gates can run.
+
+Ask when:
+
+- target screen/file is unknown;
+- business object is ambiguous;
+- security/permission rule is unclear;
+- design system conflicts with user wording;
+- multiple valid interpretations exist.
+
+Block when:
+
+- request bypasses validation/security;
+- asks to modify critical policy/runtime without AP;
+- demands hardcoded behavior against architecture;
+- requires destructive action without explicit approval.
+

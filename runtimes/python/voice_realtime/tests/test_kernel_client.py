@@ -141,6 +141,73 @@ class AtlasKernelClientTest(unittest.TestCase):
         self.assertEqual(1, get_transport.calls[0][1]["hours"])
         self.assertEqual([], post_transport.calls)
 
+    def test_normalize_runtime_event_uses_kernel_normalizer_without_execution(self) -> None:
+        transport = RecordingTransport()
+        response = self.client(transport).normalize_runtime_event({
+            "event_kind": "transcribed_turn",
+            "session_id": "voice_session",
+            "turn_id": "voice_turn",
+            "transcript": "continue",
+            "ignored_sdk_object": {"safe": True},
+        })
+
+        self.assertEqual("ok", response["status"])
+        self.assertEqual("http://atlas.test/ai/voice/runtime/events/normalize", transport.calls[0][0])
+        self.assertEqual("transcribed_turn", transport.calls[0][1]["event"]["event_kind"])
+        self.assertIn("ignored_sdk_object", transport.calls[0][1]["event"])
+
+    def test_normalize_runtime_event_sequence_uses_kernel_sequence_normalizer(self) -> None:
+        transport = RecordingTransport()
+        response = self.client(transport).normalize_runtime_event_sequence([
+            {
+                "event_kind": "room_connected",
+                "session_id": "voice_session",
+                "participant_identity": "mobile:vitor",
+                "room_name": "atlas-voice-vitor",
+            },
+            {
+                "event_kind": "room_disconnected",
+                "session_id": "voice_session",
+            },
+        ])
+
+        self.assertEqual("ok", response["status"])
+        self.assertEqual("http://atlas.test/ai/voice/runtime/events/normalize-sequence", transport.calls[0][0])
+        self.assertEqual(2, len(transport.calls[0][1]["events"]))
+
+    def test_normalize_runtime_event_rejects_raw_audio_and_secrets_before_transport(self) -> None:
+        transport = RecordingTransport()
+        client = self.client(transport)
+
+        with self.assertRaises(UnsafeVoicePayload):
+            client.normalize_runtime_event({
+                "event_kind": "transcribed_turn",
+                "session_id": "voice_session",
+                "turn_id": "voice_turn",
+                "raw_audio": "blocked",
+            })
+
+        with self.assertRaises(UnsafeVoicePayload):
+            client.normalize_runtime_event_sequence([
+                {
+                    "event_kind": "room_connected",
+                    "session_id": "voice_session",
+                    "participant_identity": "mobile:vitor",
+                    "room_name": "atlas-voice-vitor",
+                    "metadata": {"provider_api_key": "blocked"},
+                },
+            ])
+
+        self.assertEqual([], transport.calls)
+
+    def test_normalize_runtime_event_sequence_rejects_empty_sequence(self) -> None:
+        transport = RecordingTransport()
+
+        with self.assertRaises(UnsafeVoicePayload):
+            self.client(transport).normalize_runtime_event_sequence([])
+
+        self.assertEqual([], transport.calls)
+
     def test_report_wake_word_sends_safe_payload_before_transport(self) -> None:
         transport = RecordingTransport()
         self.client(transport).report_wake_word({

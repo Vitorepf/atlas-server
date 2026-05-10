@@ -287,6 +287,15 @@ class SurfaceAdaptersTest extends TestCase
         $this->assertContains(SurfaceCapability::CONTEXT_COMPOSE, $voice->supportedCapabilities());
         $this->assertContains(SurfaceCapability::DOMAIN_FLOW_SELECTION, $voice->supportedCapabilities());
         $this->assertNotContains(SurfaceCapability::TOOLS_RUNTIME, $voice->supportedCapabilities());
+
+        $report = $voice->complianceReport();
+        $rendered = $voice->renderOutput(['status' => 'ok', 'text' => 'voice loop ready']);
+
+        $this->assertTrue($report['ok']);
+        $this->assertSame([], $report['errors']);
+        $this->assertSame('voice_realtime', $rendered['surface_id']);
+        $this->assertContains(SurfaceCapability::VOICE_AUDIO, data_get($rendered, 'metadata.surface_capabilities'));
+        $this->assertNotContains(SurfaceCapability::TOOLS_RUNTIME, data_get($rendered, 'metadata.surface_capabilities'));
     }
 
     public function test_unknown_surface_capability_fails_compliance(): void

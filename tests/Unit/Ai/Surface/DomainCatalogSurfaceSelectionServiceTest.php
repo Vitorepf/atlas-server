@@ -185,6 +185,25 @@ class DomainCatalogSurfaceSelectionServiceTest extends TestCase
         }
     }
 
+    public function test_voice_alias_accepts_explicit_domain_flow_selection_without_tool_runtime(): void
+    {
+        $selection = $this->service()->select([
+            'surface_id' => 'voice',
+            'domain_id' => 'programming',
+            'flow_id' => 'programming.review',
+            'task' => 'review',
+        ]);
+
+        $this->assertSame('ok', $selection['status']);
+        $this->assertSame('voice_realtime', $selection['surface_id']);
+        $this->assertSame('explicit_flow', $selection['selection_source']);
+        $this->assertSame('programming', data_get($selection, 'domain.id'));
+        $this->assertSame('programming.review', data_get($selection, 'flow.id'));
+        $this->assertTrue(data_get($selection, 'surface_hints.accepts_explicit_domain_flow_selection'));
+        $this->assertContains('programming.review', data_get($selection, 'surface_hints.supported_flow_ids'));
+        $this->assertSame('programming.review', data_get($selection, 'surface_hints.task_flow_map.review'));
+    }
+
     public function test_domain_catalog_selection_envelope_can_drive_selection_without_flat_fields(): void
     {
         $selection = $this->service()->select([

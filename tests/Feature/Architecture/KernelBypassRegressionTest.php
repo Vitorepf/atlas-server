@@ -167,12 +167,16 @@ PHP, function () use ($path): void {
     public function test_curator_voice_production_promotion_remains_human_review_only(): void
     {
         $runtime = file_get_contents(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
+        $scanner = file_get_contents(app_path('Services/Ai/Kernel/Architecture/KernelArchitectureStaticScanner.php'));
         $ap = file_get_contents(base_path('docs/ap/AP-687-voice-realtime-production-promotion-gate.md'));
 
         $this->assertSame([], $this->violationsFor('ap687_voice_realtime_production_promotion_gate'));
         $this->assertStringContainsString('auto_promotion_allowed', $runtime);
         $this->assertStringContainsString('auto_promotion_allowed=false', $ap);
         $this->assertStringContainsString('human_review_required=true', $ap);
+        $this->assertStringContainsString('sdk_probe_import_safe', $scanner);
+        $this->assertStringContainsString('sdk_imported=false', $ap);
+        $this->assertStringContainsString('import_probe_only=true', $ap);
     }
 
     public function test_predictive_failure_governance_requires_explicit_target_and_partial_boundary(): void

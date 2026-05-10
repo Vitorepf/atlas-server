@@ -42,6 +42,7 @@ def start_livekit_agents_worker(
         boundary_created=boundary_created,
         mock_kernel=mock_kernel,
         callback_loop_wired=callback_loop_wired,
+        production_sdk_loop_wired=production_sdk_loop_wired,
     )
     production_loop_plan = build_production_loop_plan(
         contract,

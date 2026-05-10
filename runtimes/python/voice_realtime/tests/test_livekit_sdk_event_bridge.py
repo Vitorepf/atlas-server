@@ -122,6 +122,9 @@ class LiveKitSdkEventBridgeTest(unittest.TestCase):
         self.assertFalse(payload["guardrails"]["direct_provider_call_allowed"])
         self.assertFalse(payload["guardrails"]["raw_audio_persistence_allowed"])
         self.assertIn("access_token", payload["forbidden_keys"])
+        self.assertIn("direct_provider_call", payload["forbidden_keys"])
+        self.assertIn("direct_tool_execution", payload["forbidden_keys"])
+        self.assertIn("memory_write", payload["forbidden_keys"])
 
     def test_rejects_forbidden_or_incomplete_sdk_events(self) -> None:
         with self.assertRaises(UnsafeVoicePayload):
@@ -153,6 +156,15 @@ class LiveKitSdkEventBridgeTest(unittest.TestCase):
                 "participant_identity": "mobile:vitor",
                 "room_name": "atlas-voice-bridge",
                 "metadata": {"raw_audio": "nested-audio"},
+            })
+
+        with self.assertRaises(UnsafeVoicePayload):
+            LiveKitSdkEventBridge.to_callback_event({
+                "event_kind": "transcript_final",
+                "session_id": "voice_session",
+                "turn_id": "voice_turn",
+                "transcript": "decide provider here",
+                "metadata": {"direct_provider_call": {"provider": "claude"}},
             })
 
 

@@ -18,7 +18,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($payload, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($payload, 'architecture_operations.section'));
-        $this->assertSame(60, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(61, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $commands = array_column(data_get($payload, 'architecture_operations.commands'), 'command');
@@ -52,6 +52,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertContains('php artisan atlas:ai:voice sdk-check --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice worker-plan --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice production-loop-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:voice product-loop-check --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice production-loop-smoke --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice worker-start-check --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice runtime-certify --json', $commands);
@@ -129,6 +130,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertStringContainsString('php artisan atlas:ai:voice sdk-check --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:voice worker-plan --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:voice production-loop-plan --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:voice product-loop-check --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:voice production-loop-smoke --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:voice worker-start-check --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:voice runtime-certify --json', $output);
@@ -175,7 +177,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
 
         $this->assertSame(0, $exit);
         $this->assertSame(['section' => 'arquitetura_mae'], data_get($payload, 'architecture_operations.filters'));
-        $this->assertSame(60, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(61, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $exit = Artisan::call('atlas:ai:architecture-operations', [
@@ -460,6 +462,18 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame(['id' => 'voice_realtime_production_loop_plan'], data_get($payload, 'architecture_operations.filters'));
         $this->assertSame(1, data_get($payload, 'architecture_operations.command_count'));
         $this->assertSame('php artisan atlas:ai:voice production-loop-plan --json', data_get($payload, 'architecture_operations.commands.0.command'));
+        $this->assertSame('runtime_contract', data_get($payload, 'architecture_operations.commands.0.kind'));
+
+        $exit = Artisan::call('atlas:ai:architecture-operations', [
+            '--id' => 'voice_realtime_product_loop_check',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(['id' => 'voice_realtime_product_loop_check'], data_get($payload, 'architecture_operations.filters'));
+        $this->assertSame(1, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame('php artisan atlas:ai:voice product-loop-check --json', data_get($payload, 'architecture_operations.commands.0.command'));
         $this->assertSame('runtime_contract', data_get($payload, 'architecture_operations.commands.0.kind'));
 
         $exit = Artisan::call('atlas:ai:architecture-operations', [

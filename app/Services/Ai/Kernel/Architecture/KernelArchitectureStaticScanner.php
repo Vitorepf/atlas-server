@@ -2579,6 +2579,9 @@ class KernelArchitectureStaticScanner
             'runCallbackSequenceSmoke',
             'runProductionLoopSmoke',
             'runWorkerStartCheck',
+            'bridge_contract_report.status',
+            'handler_registry_contract_report.status',
+            'worker_return_contract.status',
         ] as $token) {
             if (! str_contains($certification, $token)) {
                 $violations[] = "app/Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php: AP-185 certification gate must keep foundation, callback, production loop, worker-start and sanitization checks [{$token}]";
@@ -2599,6 +2602,9 @@ class KernelArchitectureStaticScanner
             'runtime-certify',
             'gates.callback_sequence_passed.passed',
             'gates.production_loop_smoke_passed.passed',
+            'gates.production_loop_smoke_passed.bridge_contract_status',
+            'gates.production_loop_smoke_passed.handler_registry_contract_status',
+            'gates.production_loop_smoke_passed.worker_return_contract_status',
             'gates.worker_start_blocked_safely.passed',
             'gates.certification_artifacts_sanitized.passed',
             'gates.certification_artifacts_sanitized.forbidden_key_count',
@@ -2613,6 +2619,9 @@ class KernelArchitectureStaticScanner
             '/ai/voice/runtime/certification',
             '/v1/mobile/ai/voice/runtime/certification',
             'gates.worker_start_blocked_safely.passed',
+            'gates.production_loop_smoke_passed.bridge_contract_status',
+            'gates.production_loop_smoke_passed.handler_registry_contract_status',
+            'gates.production_loop_smoke_passed.worker_return_contract_status',
             'gates.certification_artifacts_sanitized.passed',
             'gates.certification_artifacts_sanitized.forbidden_key_count',
             'artifacts.production_loop_smoke.results',
@@ -2626,6 +2635,12 @@ class KernelArchitectureStaticScanner
             'AtlasVoiceRuntimeCertificationServiceTest',
             'certification_artifacts_sanitized',
             'forbidden_key_count',
+            'bridge_contract_status',
+            'atlas.voice_realtime.bridge_contract_report.v1',
+            'handler_registry_contract_status',
+            'atlas.voice_realtime.handler_registry_contract_report.v1',
+            'worker_return_contract_status',
+            'atlas.voice_realtime.worker_return_contract_report.v1',
         ] as $token) {
             if (! str_contains($unitTest, $token)) {
                 $violations[] = "tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php: AP-185 sanitization unit coverage must exist [{$token}]";
@@ -2678,6 +2693,7 @@ class KernelArchitectureStaticScanner
         $workerPath = "{$runtimeRoot}/livekit_worker.py";
         $payloadSafetyPath = "{$runtimeRoot}/payload_safety.py";
         $kernelClientPath = "{$runtimeRoot}/kernel_client.py";
+        $contractPath = "{$runtimeRoot}/contract.py";
         $boundaryTestPath = base_path('runtimes/python/voice_realtime/tests/test_livekit_boundary.py');
         $workerTestPath = base_path('runtimes/python/voice_realtime/tests/test_livekit_worker.py');
         $contractTestPath = base_path('runtimes/python/voice_realtime/tests/test_contract.py');
@@ -2688,6 +2704,7 @@ class KernelArchitectureStaticScanner
         $worker = File::exists($workerPath) ? File::get($workerPath) : '';
         $payloadSafety = File::exists($payloadSafetyPath) ? File::get($payloadSafetyPath) : '';
         $kernelClient = File::exists($kernelClientPath) ? File::get($kernelClientPath) : '';
+        $contract = File::exists($contractPath) ? File::get($contractPath) : '';
         $dependencies = File::exists($dependenciesPath) ? File::get($dependenciesPath) : '';
         $boundaryTest = File::exists($boundaryTestPath) ? File::get($boundaryTestPath) : '';
         $workerTest = File::exists($workerTestPath) ? File::get($workerTestPath) : '';
@@ -2711,11 +2728,21 @@ class KernelArchitectureStaticScanner
             '_sanitize_for_log',
             'turn must be accepted by Kernel Decision Receipt before runtime callback',
             'direct_llm_provider_call',
+            'direct_provider_call',
             'direct_tool_execution',
+            'memory_write',
             'tool_call',
+            'tool_args',
+            'provider_api_key',
             'raw_audio',
             'audio_bytes',
             'api_secret',
+            'atlas.voice_realtime.worker_return.v1',
+            '_worker_return_payload',
+            '_reject_forbidden_worker_return_fields',
+            'decision_receipt_hash',
+            'evidence_refs',
+            'errors',
         ] as $token) {
             if (! str_contains($worker, $token)) {
                 $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/livekit_worker.py: AP-686 LiveKit worker must reject authority/raw/secret fields and emit sanitized logs [{$token}]";
@@ -2747,6 +2774,18 @@ class KernelArchitectureStaticScanner
         ] as $token) {
             if (! str_contains($kernelClient, $token)) {
                 $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/kernel_client.py: AP-686 Kernel client must call only Kernel contract endpoints with Atlas auth [{$token}]";
+            }
+        }
+
+        foreach ([
+            'REQUIRED_RUNTIME_RETURN_FIELDS',
+            'runtime_invocation_contract.return_contract',
+            'evidence_refs',
+            'errors',
+            'decision_receipt_hash',
+        ] as $token) {
+            if (! str_contains($contract, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/contract.py: AP-686 runtime contract must require evidence-return fields from specialized runtime [{$token}]";
             }
         }
 
@@ -2786,6 +2825,12 @@ class KernelArchitectureStaticScanner
             'test_worker_rejects_runtime_callbacks_before_kernel_accepts_turn',
             'assertNotIn("header.payload.signature"',
             'assertNotIn("access_token"',
+            'atlas.voice_realtime.worker_return.v1',
+            'test_worker_return_contract_fails_closed_for_missing_or_unsafe_fields',
+            '_worker_return_payload',
+            'decision_receipt_hash',
+            'evidence_refs',
+            'raw output must not cross worker boundary',
         ] as $token) {
             if (! str_contains($workerTest, $token)) {
                 $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_worker.py: AP-686 worker tests must prove token-free logs and receipt-gated callbacks [{$token}]";
@@ -2797,6 +2842,9 @@ class KernelArchitectureStaticScanner
             'openai_direct',
             'test_rejects_raw_audio_persistence',
             'raw_audio',
+            'test_rejects_runtime_invocation_contract_without_evidence_return_contract',
+            'return_contract',
+            'evidence_refs',
         ] as $token) {
             if (! str_contains($contractTest, $token)) {
                 $violations[] = "runtimes/python/voice_realtime/tests/test_contract.py: AP-686 contract tests must reject direct provider authority and raw persistence [{$token}]";
@@ -2818,7 +2866,7 @@ class KernelArchitectureStaticScanner
 
         foreach ([
             'Voice Python runtime boundary (AP-686)',
-            'Voice Python runtime importing provider SDKs, shelling out, logging raw audio/tokens, accepting nested SDK secret metadata or reporting `runtime_failed` before a Kernel-accepted turn must fail AP-686.',
+            'Voice Python runtime importing provider SDKs, shelling out, logging raw audio/tokens, accepting nested SDK secret/authority metadata, omitting runtime return `evidence_refs`, or reporting `runtime_failed` before a Kernel-accepted turn must fail AP-686.',
         ] as $token) {
             if (! str_contains($staticScanDoc, $token)) {
                 $violations[] = "docs/engineering-knowledge-base/kernel/static-scans.md: AP-686 static scan behavior must be documented [{$token}]";
@@ -2854,6 +2902,14 @@ class KernelArchitectureStaticScanner
         $pythonMockKernelTestPath = base_path('runtimes/python/voice_realtime/tests/test_mock_kernel.py');
         $pythonRuntimeEntrypointPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/livekit_runtime_entrypoint.py');
         $pythonRuntimeEntrypointTestPath = base_path('runtimes/python/voice_realtime/tests/test_livekit_runtime_entrypoint.py');
+        $pythonActivationContractPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/activation_contract.py');
+        $pythonActivationContractTestPath = base_path('runtimes/python/voice_realtime/tests/test_activation_contract.py');
+        $pythonSdkHandlersPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_handlers.py');
+        $pythonSdkHandlersTestPath = base_path('runtimes/python/voice_realtime/tests/test_livekit_sdk_handlers.py');
+        $pythonSdkWiringContractPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_wiring_contract.py');
+        $pythonSdkWiringContractTestPath = base_path('runtimes/python/voice_realtime/tests/test_livekit_sdk_wiring_contract.py');
+        $pythonProductionLoopRunnerPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/livekit_production_loop_runner.py');
+        $pythonProductionLoopRunnerTestPath = base_path('runtimes/python/voice_realtime/tests/test_livekit_production_loop_runner.py');
         $pythonProductLoopCheckPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/product_loop_check.py');
         $pythonProductLoopCheckTestPath = base_path('runtimes/python/voice_realtime/tests/test_product_loop_check.py');
         $pythonSdkStatusPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/sdk_status.py');
@@ -2882,6 +2938,14 @@ class KernelArchitectureStaticScanner
         $pythonMockKernelTest = File::exists($pythonMockKernelTestPath) ? File::get($pythonMockKernelTestPath) : '';
         $pythonRuntimeEntrypoint = File::exists($pythonRuntimeEntrypointPath) ? File::get($pythonRuntimeEntrypointPath) : '';
         $pythonRuntimeEntrypointTest = File::exists($pythonRuntimeEntrypointTestPath) ? File::get($pythonRuntimeEntrypointTestPath) : '';
+        $pythonActivationContract = File::exists($pythonActivationContractPath) ? File::get($pythonActivationContractPath) : '';
+        $pythonActivationContractTest = File::exists($pythonActivationContractTestPath) ? File::get($pythonActivationContractTestPath) : '';
+        $pythonSdkHandlers = File::exists($pythonSdkHandlersPath) ? File::get($pythonSdkHandlersPath) : '';
+        $pythonSdkHandlersTest = File::exists($pythonSdkHandlersTestPath) ? File::get($pythonSdkHandlersTestPath) : '';
+        $pythonSdkWiringContract = File::exists($pythonSdkWiringContractPath) ? File::get($pythonSdkWiringContractPath) : '';
+        $pythonSdkWiringContractTest = File::exists($pythonSdkWiringContractTestPath) ? File::get($pythonSdkWiringContractTestPath) : '';
+        $pythonProductionLoopRunner = File::exists($pythonProductionLoopRunnerPath) ? File::get($pythonProductionLoopRunnerPath) : '';
+        $pythonProductionLoopRunnerTest = File::exists($pythonProductionLoopRunnerTestPath) ? File::get($pythonProductionLoopRunnerTestPath) : '';
         $pythonProductLoopCheck = File::exists($pythonProductLoopCheckPath) ? File::get($pythonProductLoopCheckPath) : '';
         $pythonProductLoopCheckTest = File::exists($pythonProductLoopCheckTestPath) ? File::get($pythonProductLoopCheckTestPath) : '';
         $pythonSdkStatus = File::exists($pythonSdkStatusPath) ? File::get($pythonSdkStatusPath) : '';
@@ -2909,6 +2973,12 @@ class KernelArchitectureStaticScanner
             'parse_url($baseUrl)',
             'PYTHON_COMMAND_TIMEOUT_SECONDS',
             'voice_runtime_command_timeout',
+            'runProductLoopCheck',
+            'product_loop_check_available',
+            'sdk_handler_blueprint_available',
+            'artifacts',
+            'product_loop_check',
+            '--product-loop-check',
         ] as $token) {
             if (! str_contains($certification, $token)) {
                 $violations[] = "app/Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php: AP-687 production promotion gate must remain fail-closed and human-review governed [{$token}]";
@@ -2919,7 +2989,10 @@ class KernelArchitectureStaticScanner
             'voiceRoomName',
             'voiceParticipantIdentity',
             'phase0HardeningGate',
+            'productLoopCheckReference',
             'atlas.voice_realtime.phase0_hardening_gate.v1',
+            'atlas.voice_realtime.product_loop_check_reference.v1',
+            'php artisan atlas:ai:voice product-loop-check --json',
             "'safe_next_block' => 'Voice Realtime phase 0 hardening'",
             'runtime_boundary_green',
             "'atlas-voice-'",
@@ -3062,6 +3135,26 @@ class KernelArchitectureStaticScanner
         }
 
         foreach ([
+            'production_sdk_loop_wired',
+            'start_worker_before_production_sdk_loop_wired',
+            'wire_production_sdk_loop',
+        ] as $token) {
+            if (! str_contains($pythonActivationContract, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/activation_contract.py: AP-687 activation contract must require production SDK loop wiring before worker start [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_activation_contract_blocks_until_production_sdk_loop_is_wired',
+            'production_sdk_loop_wired',
+            'wire_production_sdk_loop',
+        ] as $token) {
+            if (! str_contains($pythonActivationContractTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_activation_contract.py: AP-687 activation contract production SDK loop gate must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
             'rejects_urls_with_control_characters',
             'rejects_room_prefix_outside_atlas_voice_namespace',
             'LIVEKIT_API_SECRET=injected',
@@ -3120,6 +3213,17 @@ class KernelArchitectureStaticScanner
         }
 
         foreach ([
+            'product_loop_check',
+            'product_loop_gate',
+            'atlas.voice_realtime.product_loop_check.v1',
+            'run_voice_product_loop_check',
+        ] as $token) {
+            if (! str_contains($rivals, $token)) {
+                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRivalsRunner.php: AP-687 Rivals-Voice must expose product loop check state before maturity review [{$token}]";
+            }
+        }
+
+        foreach ([
             'production_promotion_gate.status',
             'production_promotion_gate.promotion_allowed',
             'auto_promotion_allowed',
@@ -3131,6 +3235,10 @@ class KernelArchitectureStaticScanner
             'sanitizes_base_url_before_generating_runtime_env_files',
             'LIVEKIT_API_SECRET=injected',
             'timeout_seconds',
+            'product_loop_check_available',
+            'sdk_handler_blueprint_available',
+            'artifacts.product_loop_check',
+            'product-loop-secret',
         ] as $token) {
             if (! str_contains($unitTest, $token)) {
                 $violations[] = "tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php: AP-687 production promotion gate must be covered by unit tests [{$token}]";
@@ -3147,10 +3255,19 @@ class KernelArchitectureStaticScanner
             'sanitizes_bootstrap_base_url_before_runtime_env_use',
             'test_command_exposes_worker_start_check_with_product_loop_wired_but_still_blocked',
             'test_command_exposes_product_loop_check_as_json',
+            'test_command_human_output_lists_product_loop_check',
+            'test_command_human_output_lists_readiness_product_loop_reference',
             'atlas.voice_realtime.product_loop_check.v1',
+            'atlas.voice_realtime.product_loop_check_reference.v1',
             '--product-loop-check',
             '--callback-loop-wired',
             '--production-sdk-loop-wired',
+            'sdk_imported',
+            'import_probe_only',
+            'sdk_probe_import_safe',
+            'sdk_handler_blueprint_available',
+            'product_loop_check_available',
+            'artifacts.product_loop_check',
             'timeout_seconds',
         ] as $token) {
             if (! str_contains($commandTest, $token)) {
@@ -3166,6 +3283,9 @@ class KernelArchitectureStaticScanner
             'scopes_requested_livekit_room_to_atlas_voice_prefix',
             'scopes_requested_livekit_participant_to_client_surface',
             'sanitizes_base_url_before_manifest_publication',
+            'product_loop_check_available',
+            'sdk_handler_blueprint_available',
+            'artifacts.product_loop_check',
         ] as $token) {
             if (! str_contains($apiTest, $token)) {
                 $violations[] = "tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php: AP-687 API/mobile promotion gate and token issuer artifacts must be tested [{$token}]";
@@ -3186,9 +3306,18 @@ class KernelArchitectureStaticScanner
             'Rivals-Voice e Curator consomem o gate antes de maturidade',
             'product_loop_wiring_flags_visible',
             'product_loop_check_available',
+            'worker_return_contract.status=valid',
+            'bridge_contract_report.status=valid',
+            'sdk_probe_import_safe',
+            'sdk_handler_blueprint_available',
+            'production_sdk_loop_wired',
             'atlas.voice_realtime.product_loop_check.v1',
+            'sdk_imported=false',
+            'import_probe_only=true',
             '--callback-loop-wired',
             '--production-sdk-loop-wired',
+            'runtime-certify',
+            'status=blocked',
         ] as $token) {
             if (! str_contains($apDoc, $token)) {
                 $violations[] = "docs/ap/AP-687-voice-realtime-production-promotion-gate.md: AP-687 implementation contract must remain documented [{$token}]";
@@ -3202,10 +3331,109 @@ class KernelArchitectureStaticScanner
             'product_loop_wiring_flags',
             'product-loop-check',
             'atlas.voice_realtime.product_loop_check.v1',
+            'worker_return_contract',
+            'bridge_contract_report',
+            'sdk-check',
+            'sdk_imported=false',
+            'import_probe_only=true',
             'auto-promotion',
+            'artifacts.product_loop_check',
+            'product_loop_check_available',
+            'sdk_handler_blueprint_available',
+            'production_sdk_loop_wired',
         ] as $token) {
             if (! str_contains($doc, $token)) {
                 $violations[] = "docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md: AP-687 owner doc must keep production promotion governance [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_bridge_contract_report_fails_closed_for_missing_callback_or_guardrail',
+            'test_handler_registry_contract_report_fails_closed_for_missing_handler_or_guardrail',
+            'handler_registry_contract_report',
+            'atlas.voice_realtime.handler_registry_contract_report.v1',
+            'missing_handlers',
+            'direct_provider_call_allowed',
+            'missing_callbacks',
+            'invalid_guardrails',
+        ] as $token) {
+            if (! str_contains($pythonProductionLoopRunnerTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_production_loop_runner.py: AP-687 production loop smoke must fail closed when bridge callbacks or guardrails regress [{$token}]";
+            }
+        }
+
+        foreach ([
+            'LiveKitSdkHandlerRegistry',
+            'handler_registry_contract_report',
+            'atlas.voice_realtime.handler_registry_contract_report.v1',
+            '_handler_registry_contract_report',
+            'missing_handlers',
+            'sdk_import_safe',
+        ] as $token) {
+            if (! str_contains($pythonProductionLoopRunner, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/livekit_production_loop_runner.py: AP-687 production smoke must pass through SDK handler registry [{$token}]";
+            }
+        }
+
+        foreach ([
+            'handler_blueprint',
+            'handler_registry_contract',
+            'complete_handler_registry',
+            'LiveKitSdkHandlerRegistry',
+            'wiring_invariants',
+            'never_forward_sdk_objects_or_tokens',
+            'call_LiveKitSdkEventBridge_to_callback_event',
+            'route_through_LiveKitCallbackRouter',
+            'route_all_livekit_sdk_handlers_through_registry',
+            'return_LiveKitWorkerResult_log_payload_only',
+            'never_call_provider_tool_memory_or_policy_from_sdk_handler',
+        ] as $token) {
+            if (! str_contains($pythonSdkWiringContract, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_wiring_contract.py: AP-687 SDK wiring contract must document exact handler blueprint and Kernel-only invariants [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_wiring_contract_uses_bridge_and_router_as_sources_of_truth',
+            'handler_blueprint',
+            'handler_registry_contract',
+            'complete_handler_registry',
+            'LiveKitSdkHandlerRegistry',
+            'call_LiveKitSdkEventBridge_to_callback_event',
+            'route_all_livekit_sdk_handlers_through_registry',
+            'never_call_provider_tool_memory_or_policy_from_sdk_handler',
+            'provider SDK call',
+        ] as $token) {
+            if (! str_contains($pythonSdkWiringContractTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_sdk_wiring_contract.py: AP-687 SDK wiring blueprint must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.voice_realtime.sdk_handler_registry.v1',
+            'LiveKitSdkHandlerRegistry',
+            'LiveKitSdkEventBridge.to_callback_event',
+            'LiveKitCallbackRouter.route',
+            'direct_provider_call_allowed',
+            'direct_tool_execution_allowed',
+            'memory_write_allowed',
+            'policy_mutation_allowed',
+            'sdk_import_required_for_contract',
+        ] as $token) {
+            if (! str_contains($pythonSdkHandlers, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_handlers.py: AP-687 SDK handlers must route real SDK callbacks through Kernel-only registry [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_handler_registry_contract_is_complete_without_importing_sdk',
+            'test_handlers_route_sdk_events_through_kernel_only_router',
+            'test_handlers_reject_forbidden_authority_and_raw_audio_fields',
+            'direct_provider_call',
+            'audio_bytes',
+        ] as $token) {
+            if (! str_contains($pythonSdkHandlersTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_sdk_handlers.py: AP-687 SDK handler registry must be tested fail-closed [{$token}]";
             }
         }
 
@@ -3214,7 +3442,14 @@ class KernelArchitectureStaticScanner
             'build_product_loop_check',
             'daemon_started',
             'production_promotion_blocked',
+            'sdk_probe_import_safe',
+            'sdk_handler_blueprint_available',
+            'complete_handler_registry',
+            'handler_registry_contract',
+            'handler_blueprint',
+            'fix_sdk_handler_blueprint_contract',
             'auto_promotion_allowed',
+            'fix_sdk_probe_contract',
             'submit_daemon_implementation_review',
         ] as $token) {
             if (! str_contains($pythonProductLoopCheck, $token)) {
@@ -3225,11 +3460,43 @@ class KernelArchitectureStaticScanner
         foreach ([
             'test_product_loop_check_aggregates_wired_gates_without_starting_daemon',
             'test_product_loop_check_never_treats_mock_kernel_as_product_ready',
+            'test_product_loop_check_blocks_if_sdk_probe_contract_was_bypassed',
             'daemon_started',
             'production_promotion_blocked',
+            'sdk_probe_import_safe',
+            'sdk_handler_blueprint_available',
+            'test_product_loop_check_blocks_if_sdk_handler_blueprint_is_missing',
+            'fix_sdk_handler_blueprint_contract',
+            'fix_sdk_probe_contract',
         ] as $token) {
             if (! str_contains($pythonProductLoopCheckTest, $token)) {
                 $violations[] = "runtimes/python/voice_realtime/tests/test_product_loop_check.py: AP-687 product loop check must be tested fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'metadata.version',
+            'package_checks',
+            'missing_imports',
+            'sdk_imported',
+            'import_probe_only',
+            'probe_policy',
+        ] as $token) {
+            if (! str_contains($pythonSdkStatus, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/sdk_status.py: AP-687 SDK status must be import-safe and expose package compatibility checks [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_sdk_check_reports_package_checks_without_importing_sdk',
+            'sdk_imported',
+            'import_probe_only',
+            'package_checks',
+            'missing_imports',
+            'probe_policy',
+        ] as $token) {
+            if (! str_contains($pythonSdkStatusTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_sdk_status.py: AP-687 SDK status probe contract must be tested [{$token}]";
             }
         }
 

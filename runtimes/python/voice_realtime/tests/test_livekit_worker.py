@@ -7,7 +7,7 @@ from atlas_voice_agent.agent_runtime import AtlasVoiceAgentRuntime
 from atlas_voice_agent.contract import AtlasVoiceRuntimeContract
 from atlas_voice_agent.kernel_client import AtlasKernelClient
 from atlas_voice_agent.livekit_boundary import LiveKitAgentBoundary
-from atlas_voice_agent.livekit_worker import AtlasLiveKitWorker, LiveKitWorkerError
+from atlas_voice_agent.livekit_worker import AtlasLiveKitWorker, LiveKitWorkerError, _worker_return_payload
 from atlas_voice_agent.main import create_livekit_worker
 from atlas_voice_agent.turn_payload import UnsafeVoicePayload
 
@@ -45,10 +45,31 @@ class WorkerTransport:
             return {
                 "status": "turn_accepted_scaffold",
                 "turn": {
+                    "operation_envelope": {
+                        "envelope_id": "env_worker_1",
+                    },
                     "decision_receipt": {
                         "receipt_id": "receipt_worker_1",
+                        "receipt_hash": "hash_worker_1",
                         "dry_run": True,
                     },
+                },
+                "evidence_ledger": {
+                    "decided": {
+                        "event_id": "evt_voice_decided",
+                    },
+                    "transcribed": {
+                        "event_id": "evt_voice_transcribed",
+                    },
+                },
+            }
+
+        if url.endswith("/turn/synthesized"):
+            return {
+                "status": "turn_synthesis_recorded",
+                "turn": {"turn_id": "voice_turn"},
+                "evidence_ledger": {
+                    "event_id": "evt_voice_synthesized",
                 },
             }
 
@@ -124,7 +145,16 @@ class AtlasLiveKitWorkerTest(unittest.TestCase):
 
         self.assertEqual("turn_accepted_scaffold", turn.status)
         self.assertEqual("receipt_worker_1", turn.payload["receipt_id"])
-        self.assertEqual("ok", synthesized.status)
+        self.assertEqual("atlas.voice_realtime.worker_return.v1", turn.payload["schema_version"])
+        self.assertEqual("env_worker_1", turn.payload["envelope_id"])
+        self.assertEqual("hash_worker_1", turn.payload["decision_receipt_hash"])
+        self.assertEqual(["evt_voice_decided", "evt_voice_transcribed"], turn.payload["evidence_refs"])
+        self.assertEqual({}, turn.payload["artifacts"])
+        self.assertEqual({}, turn.payload["metrics"])
+        self.assertEqual([], turn.payload["errors"])
+        self.assertEqual("turn_synthesis_recorded", synthesized.status)
+        self.assertEqual("hash_worker_1", synthesized.payload["decision_receipt_hash"])
+        self.assertEqual(["evt_voice_synthesized"], synthesized.payload["evidence_refs"])
         self.assertEqual("ok", ended.status)
         self.assertEqual(0, subject.active_session_count())
         self.assertEqual(0, subject.accepted_turn_count("voice_session"))
@@ -235,6 +265,15 @@ class AtlasLiveKitWorkerTest(unittest.TestCase):
                 "metadata": {"api_secret": "nested-secret"},
             })
 
+        with self.assertRaises(UnsafeVoicePayload):
+            subject.handle_event({
+                "event_kind": "transcribed_turn",
+                "session_id": "voice_session",
+                "turn_id": "voice_turn",
+                "transcript": "try bypass",
+                "metadata": {"memory_write": {"kind": "voice_note"}},
+            })
+
         subject.handle_event({
             "event_kind": "transcribed_turn",
             "session_id": "voice_session",
@@ -307,6 +346,34 @@ class AtlasLiveKitWorkerTest(unittest.TestCase):
         })
 
         self.assertEqual("ok", played.status)
+
+    def test_worker_return_contract_fails_closed_for_missing_or_unsafe_fields(self) -> None:
+        valid_payload = {
+            "schema_version": "atlas.voice_realtime.worker_return.v1",
+            "envelope_id": "env_worker_1",
+            "decision_receipt_hash": "hash_worker_1",
+            "artifacts": {},
+            "metrics": {},
+            "evidence_refs": ["evt_voice_decided"],
+            "errors": [],
+        }
+
+        self.assertEqual(valid_payload, _worker_return_payload(valid_payload))
+
+        missing_evidence_refs = dict(valid_payload)
+        missing_evidence_refs.pop("evidence_refs")
+        with self.assertRaises(LiveKitWorkerError):
+            _worker_return_payload(missing_evidence_refs)
+
+        unsafe_artifact = dict(valid_payload)
+        unsafe_artifact["artifacts"] = {"kernel_response": {"response_text": "raw output must not cross worker boundary"}}
+        with self.assertRaises(UnsafeVoicePayload):
+            _worker_return_payload(unsafe_artifact)
+
+        invalid_evidence_refs = dict(valid_payload)
+        invalid_evidence_refs["evidence_refs"] = [123]
+        with self.assertRaises(LiveKitWorkerError):
+            _worker_return_payload(invalid_evidence_refs)
 
 
 if __name__ == "__main__":

@@ -125,6 +125,18 @@ final class AtlasVoiceRivalsRunner
                 'forbidden_key_count' => 1,
                 'forbidden_keys' => ['runtime_certification_unavailable'],
             ],
+            'product_loop_check' => $certification['artifacts']['product_loop_check'] ?? [
+                'schema_version' => 'atlas.voice_realtime.product_loop_check.v1',
+                'status' => 'unavailable',
+                'daemon_started' => false,
+                'next_action' => 'run_voice_product_loop_check',
+            ],
+            'product_loop_gate' => $certification['gates']['product_loop_check_available'] ?? [
+                'passed' => false,
+                'schema_version' => 'atlas.voice_realtime.product_loop_check.v1',
+                'daemon_started' => false,
+                'reason' => 'product_loop_check_unavailable',
+            ],
             'production_promotion_gate' => $certification['production_promotion_gate'] ?? [
                 'schema_version' => 'atlas.voice_realtime.production_promotion_gate.v1',
                 'status' => 'blocked',

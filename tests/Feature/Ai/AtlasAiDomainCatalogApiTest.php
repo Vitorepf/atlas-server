@@ -54,6 +54,25 @@ class AtlasAiDomainCatalogApiTest extends TestCase
         }
     }
 
+    public function test_domain_catalog_api_keeps_voice_review_flow_ready_for_read_only_surfaces(): void
+    {
+        $response = $this->getJson('/ai/domains?flow=programming.review', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'ok')
+            ->assertJsonPath('filters.flow', 'programming.review')
+            ->assertJsonPath('summary.domains', 1)
+            ->assertJsonPath('summary.flows', 1)
+            ->assertJsonPath('summary.ready_domains', 1)
+            ->assertJsonPath('domains.0.id', 'programming')
+            ->assertJsonPath('domains.0.onboarding.status', 'ready')
+            ->assertJsonPath('flows.0.id', 'programming.review')
+            ->assertJsonPath('flows.0.autonomy', 'low')
+            ->assertJsonPath('flows.0.background_allowed', false)
+            ->assertJsonPath('flows.0.destructive_requires_approval', true);
+
+        $this->assertTrue($response->json('validation.valid'));
+    }
+
     public function test_domain_catalog_api_rejects_unknown_maturity_filter(): void
     {
         $this->getJson('/ai/domains?maturity=experimental', $this->headers)

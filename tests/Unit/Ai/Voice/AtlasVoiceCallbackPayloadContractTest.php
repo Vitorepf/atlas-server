@@ -105,6 +105,28 @@ final class AtlasVoiceCallbackPayloadContractTest extends TestCase
         $this->assertContains('prohibited_field:diagnostics.nested.provider_api_key', $result['errors']);
     }
 
+    public function test_sensitive_fields_nested_inside_allowed_optional_fields_are_rejected(): void
+    {
+        $result = app(AtlasVoiceCallbackPayloadContract::class)->validate('transcript_final', [
+            'session_id' => 'voice_session_01HYSAFE000000000000000001',
+            'turn_id' => 'turn_01HYSAFE000000000000000001',
+            'transcript' => 'agenda retorno com o cliente',
+            'domain_hint' => [
+                'name' => 'sales',
+                'provider_api_key' => 'sk-redacted',
+            ],
+            'flow_hint' => [
+                'token' => 'livekit-redacted',
+            ],
+        ]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertSame('invalid_payload', $result['status']);
+        $this->assertSame([], $result['unknown_fields']);
+        $this->assertContains('prohibited_field:domain_hint.provider_api_key', $result['errors']);
+        $this->assertContains('prohibited_field:flow_hint.token', $result['errors']);
+    }
+
     /**
      * @return array<string,mixed>
      */

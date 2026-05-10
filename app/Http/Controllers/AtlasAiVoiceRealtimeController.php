@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeCertificationService;
+use App\Services\Ai\Voice\AtlasVoiceRuntimeEventNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,6 +15,7 @@ final class AtlasAiVoiceRealtimeController extends Controller
         private readonly AtlasVoiceRealtimeService $voice,
         private readonly AtlasVoiceRivalsRunner $rivals,
         private readonly AtlasVoiceRuntimeCertificationService $certification,
+        private readonly AtlasVoiceRuntimeEventNormalizer $runtimeEvents,
     ) {}
 
     public function health(Request $request): JsonResponse
@@ -84,6 +86,33 @@ final class AtlasAiVoiceRealtimeController extends Controller
         ]);
 
         return response()->json($this->certification->certify($data));
+    }
+
+    public function normalizeRuntimeEvent(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'event' => ['nullable', 'array'],
+            'event_kind' => ['nullable', 'string', 'max:120'],
+            'callback_kind' => ['nullable', 'string', 'max:120'],
+            'callback' => ['nullable', 'string', 'max:120'],
+            'payload' => ['nullable', 'array'],
+        ]);
+
+        $event = isset($data['event']) && is_array($data['event'])
+            ? $data['event']
+            : $request->all();
+
+        return response()->json($this->runtimeEvents->normalize($event));
+    }
+
+    public function normalizeRuntimeEventSequence(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'events' => ['required', 'array', 'max:100'],
+            'events.*' => ['required', 'array'],
+        ]);
+
+        return response()->json($this->runtimeEvents->normalizeSequence($data['events']));
     }
 
     public function start(Request $request): JsonResponse

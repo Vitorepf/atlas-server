@@ -49,6 +49,7 @@ final class AtlasVoiceRuntimeCertificationService
         $callbackSequence = $this->runCallbackSequenceSmoke($runtime, $baseUrl);
         $productionLoop = $this->runProductionLoopSmoke($runtime, $baseUrl);
         $workerStart = $this->runWorkerStartCheck($runtime, $baseUrl);
+        $productLoopCheck = $this->runProductLoopCheck($runtime, $baseUrl);
         $foundation = $this->foundation->readiness();
         $tokenIssuer = $this->tokens->readiness();
 
@@ -58,6 +59,7 @@ final class AtlasVoiceRuntimeCertificationService
             'callback_sequence' => $this->certificationArtifact($callbackSequence, ['callback_sequence']),
             'production_loop_smoke' => $this->certificationArtifact($productionLoop, ['bridge_contract', 'results']),
             'worker_start_check' => $this->certificationArtifact($workerStart, ['worker_plan', 'activation_contract', 'production_loop_plan', 'sdk_wiring_contract']),
+            'product_loop_check' => $this->certificationArtifact($productLoopCheck, ['callback_loop', 'production_loop_plan', 'worker_start']),
             'livekit_token_issuer' => $this->certificationArtifact($tokenIssuer, []),
         ];
         $forbiddenArtifactKeys = $this->forbiddenArtifactKeys($artifacts);
@@ -84,17 +86,42 @@ final class AtlasVoiceRuntimeCertificationService
                 'passed' => ($productionLoop['status'] ?? null) === 'production_loop_smoke_completed'
                     && (int) ($productionLoop['active_session_count'] ?? 1) === 0
                     && ($productionLoop['daemon_started'] ?? true) === false
-                    && ($productionLoop['sdk_imported'] ?? true) === false,
+                    && ($productionLoop['sdk_imported'] ?? true) === false
+                    && data_get($productionLoop, 'kernel_normalizer_contract_report.status') === 'valid'
+                    && data_get($productionLoop, 'bridge_contract_report.status') === 'valid'
+                    && data_get($productionLoop, 'handler_registry_contract_report.status') === 'valid'
+                    && data_get($productionLoop, 'worker_return_contract.status') === 'valid',
                 'status' => $productionLoop['status'] ?? 'unknown',
                 'active_session_count' => $productionLoop['active_session_count'] ?? null,
                 'daemon_started' => $productionLoop['daemon_started'] ?? null,
                 'sdk_imported' => $productionLoop['sdk_imported'] ?? null,
+                'kernel_normalizer_contract_status' => data_get($productionLoop, 'kernel_normalizer_contract_report.status'),
+                'kernel_normalizer_event_count' => data_get($productionLoop, 'kernel_normalizer_contract_report.event_count'),
+                'bridge_contract_status' => data_get($productionLoop, 'bridge_contract_report.status'),
+                'bridge_supported_callback_count' => data_get($productionLoop, 'bridge_contract_report.supported_callback_count'),
+                'handler_registry_contract_status' => data_get($productionLoop, 'handler_registry_contract_report.status'),
+                'handler_registry_handler_count' => data_get($productionLoop, 'handler_registry_contract_report.handler_count'),
+                'worker_return_contract_status' => data_get($productionLoop, 'worker_return_contract.status'),
+                'worker_return_contract_checked_count' => data_get($productionLoop, 'worker_return_contract.checked_result_count'),
             ],
             'worker_start_blocked_safely' => [
                 'passed' => str_starts_with($workerStatus, 'blocked_') && ($workerStart['started'] ?? true) === false,
                 'status' => $workerStatus,
                 'started' => $workerStart['started'] ?? null,
                 'reason' => $workerStart['reason'] ?? null,
+            ],
+            'product_loop_check_available' => [
+                'passed' => ($productLoopCheck['schema_version'] ?? null) === 'atlas.voice_realtime.product_loop_check.v1'
+                    && ($productLoopCheck['daemon_started'] ?? true) === false
+                    && data_get($productLoopCheck, 'gates.sdk_probe_import_safe') === true
+                    && data_get($productLoopCheck, 'gates.sdk_handler_blueprint_available') === true
+                    && data_get($productLoopCheck, 'gates.production_promotion_blocked') === true,
+                'schema_version' => $productLoopCheck['schema_version'] ?? null,
+                'status' => $productLoopCheck['status'] ?? 'unknown',
+                'daemon_started' => $productLoopCheck['daemon_started'] ?? null,
+                'sdk_probe_import_safe' => data_get($productLoopCheck, 'gates.sdk_probe_import_safe'),
+                'sdk_handler_blueprint_available' => data_get($productLoopCheck, 'gates.sdk_handler_blueprint_available'),
+                'production_promotion_blocked' => data_get($productLoopCheck, 'gates.production_promotion_blocked'),
             ],
             'certification_artifacts_sanitized' => [
                 'passed' => $forbiddenArtifactKeys === [],
@@ -116,6 +143,7 @@ final class AtlasVoiceRuntimeCertificationService
             callbackSequence: $callbackSequence,
             productionLoop: $productionLoop,
             workerStart: $workerStart,
+            productLoopCheck: $productLoopCheck,
             tokenIssuer: $tokenIssuer,
         );
 
@@ -150,6 +178,7 @@ final class AtlasVoiceRuntimeCertificationService
      * @param  array<string,mixed>  $callbackSequence
      * @param  array<string,mixed>  $productionLoop
      * @param  array<string,mixed>  $workerStart
+     * @param  array<string,mixed>  $productLoopCheck
      * @param  array<string,mixed>  $tokenIssuer
      * @return array<string,mixed>
      */
@@ -160,6 +189,7 @@ final class AtlasVoiceRuntimeCertificationService
         array $callbackSequence,
         array $productionLoop,
         array $workerStart,
+        array $productLoopCheck,
         array $tokenIssuer,
     ): array {
         $machineGates = [
@@ -189,8 +219,36 @@ final class AtlasVoiceRuntimeCertificationService
             'production_loop_smoke_passed' => [
                 'passed' => ($productionLoop['status'] ?? null) === 'production_loop_smoke_completed'
                     && ($productionLoop['daemon_started'] ?? true) === false
-                    && ($productionLoop['sdk_imported'] ?? true) === false,
+                    && ($productionLoop['sdk_imported'] ?? true) === false
+                    && data_get($productionLoop, 'kernel_normalizer_contract_report.status') === 'valid'
+                    && data_get($productionLoop, 'bridge_contract_report.status') === 'valid'
+                    && data_get($productionLoop, 'handler_registry_contract_report.status') === 'valid'
+                    && data_get($productionLoop, 'worker_return_contract.status') === 'valid',
                 'status' => $productionLoop['status'] ?? 'unknown',
+                'kernel_normalizer_contract_status' => data_get($productionLoop, 'kernel_normalizer_contract_report.status'),
+                'bridge_contract_status' => data_get($productionLoop, 'bridge_contract_report.status'),
+                'handler_registry_contract_status' => data_get($productionLoop, 'handler_registry_contract_report.status'),
+                'worker_return_contract_status' => data_get($productionLoop, 'worker_return_contract.status'),
+            ],
+            'sdk_probe_import_safe' => [
+                'passed' => data_get($workerStart, 'worker_plan.sdk_status.sdk_imported') === false
+                    && data_get($workerStart, 'worker_plan.sdk_status.import_probe_only') === true,
+                'sdk_imported' => data_get($workerStart, 'worker_plan.sdk_status.sdk_imported'),
+                'import_probe_only' => data_get($workerStart, 'worker_plan.sdk_status.import_probe_only'),
+                'status' => data_get($workerStart, 'worker_plan.sdk_status.status', 'unknown'),
+            ],
+            'product_loop_check_available' => [
+                'passed' => ($productLoopCheck['schema_version'] ?? null) === 'atlas.voice_realtime.product_loop_check.v1'
+                    && ($productLoopCheck['daemon_started'] ?? true) === false
+                    && data_get($productLoopCheck, 'gates.sdk_probe_import_safe') === true
+                    && data_get($productLoopCheck, 'gates.sdk_handler_blueprint_available') === true
+                    && data_get($productLoopCheck, 'gates.production_promotion_blocked') === true,
+                'schema_version' => $productLoopCheck['schema_version'] ?? null,
+                'status' => $productLoopCheck['status'] ?? 'unknown',
+                'daemon_started' => $productLoopCheck['daemon_started'] ?? null,
+                'sdk_probe_import_safe' => data_get($productLoopCheck, 'gates.sdk_probe_import_safe'),
+                'sdk_handler_blueprint_available' => data_get($productLoopCheck, 'gates.sdk_handler_blueprint_available'),
+                'production_promotion_blocked' => data_get($productLoopCheck, 'gates.production_promotion_blocked'),
             ],
             'worker_start_still_blocked_until_real_loop' => [
                 'passed' => str_starts_with((string) ($workerStart['status'] ?? ''), 'blocked_')
@@ -252,6 +310,7 @@ final class AtlasVoiceRuntimeCertificationService
                 'livekit_agents_sdk_preflight',
                 'livekit_token_issuer_readiness',
                 'production_loop_smoke',
+                'product_loop_check',
                 'rivals_voice_comparison',
                 'privacy_eclipse_review',
             ],
@@ -278,6 +337,9 @@ final class AtlasVoiceRuntimeCertificationService
         }
         if (in_array('livekit_token_issuer_ready', $failed, true)) {
             return 'configure_livekit_token_issuer';
+        }
+        if (in_array('product_loop_check_available', $failed, true)) {
+            return 'run_voice_product_loop_check';
         }
 
         return 'fix_voice_production_promotion_gates';
@@ -400,6 +462,45 @@ final class AtlasVoiceRuntimeCertificationService
             $decoded = $this->runPython(['--env-file', $envPath, '--start-worker']);
             $payload = $this->sanitize($decoded);
             $payload['command'] = 'PYTHONPATH=runtimes/python/voice_realtime python3 -m atlas_voice_agent.main --env-file <generated> --start-worker';
+
+            return $payload;
+        } finally {
+            @unlink($bootstrapPath);
+            @unlink($envPath);
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runProductLoopCheck(string $runtime, string $baseUrl): array
+    {
+        $bootstrapPath = tempnam(sys_get_temp_dir(), 'atlas-voice-bootstrap-');
+        $envPath = tempnam(sys_get_temp_dir(), 'atlas-voice-env-');
+        if ($bootstrapPath === false || $envPath === false) {
+            return $this->failed('atlas.voice_realtime.product_loop_check.v1', $runtime, 'could_not_create_temp_product_loop_files');
+        }
+
+        $bootstrap = $this->voice->runtimeBootstrapManifest([
+            'runtime' => $runtime,
+            'base_url' => $baseUrl,
+        ]);
+        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        file_put_contents($envPath, implode("\n", [
+            'ATLAS_BASE_URL='.$baseUrl,
+            'ATLAS_TOKEN=product-loop-token',
+            'ATLAS_VOICE_BOOTSTRAP='.$bootstrapPath,
+            'LIVEKIT_URL=http://livekit.test',
+            'LIVEKIT_API_KEY=product-loop-key',
+            'LIVEKIT_API_SECRET=product-loop-secret',
+            'ATLAS_VOICE_STT_PROVIDER=configurable',
+            'ATLAS_VOICE_TTS_PROVIDER=configurable',
+        ]));
+
+        try {
+            $decoded = $this->runPython(['--env-file', $envPath, '--product-loop-check']);
+            $payload = $this->sanitize($decoded);
+            $payload['command'] = 'PYTHONPATH=runtimes/python/voice_realtime python3 -m atlas_voice_agent.main --env-file <generated> --product-loop-check';
 
             return $payload;
         } finally {

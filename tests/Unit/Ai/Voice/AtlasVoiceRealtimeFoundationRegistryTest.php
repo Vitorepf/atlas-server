@@ -51,7 +51,13 @@ final class AtlasVoiceRealtimeFoundationRegistryTest extends TestCase
 
         $this->assertContains('authorized_voice_adapter', data_get($payload, 'integration_boundaries.may_connect_next'));
         $this->assertContains('existing_atlas_voice_realtime_service_methods', data_get($payload, 'integration_boundaries.may_connect_next'));
+        $this->assertContains('existing_python_livekit_bridge_after_contract_parity_review', data_get($payload, 'integration_boundaries.may_connect_next'));
+        $this->assertNotContains('evidence_ledger_write', data_get($payload, 'integration_boundaries.may_connect_next'));
+        $this->assertNotContains('policy_override', data_get($payload, 'integration_boundaries.may_connect_next'));
+        $this->assertNotContains('provider_direct_execution', data_get($payload, 'integration_boundaries.may_connect_next'));
         $this->assertContains('provider_direct_execution', data_get($payload, 'integration_boundaries.must_not_connect_here'));
+        $this->assertContains('tool_direct_execution', data_get($payload, 'integration_boundaries.must_not_connect_here'));
+        $this->assertContains('memory_write', data_get($payload, 'integration_boundaries.must_not_connect_here'));
         $this->assertContains('evidence_ledger_write', data_get($payload, 'integration_boundaries.must_not_connect_here'));
         $this->assertContains('policy_override', data_get($payload, 'integration_boundaries.must_not_connect_here'));
     }

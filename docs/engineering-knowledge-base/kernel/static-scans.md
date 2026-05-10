@@ -74,8 +74,8 @@ Each scan should return:
 - The same AP-201 boundary also covers shell helpers, Laravel Process and Symfony Process so runtime escapes cannot hide behind process wrappers.
 - Provider vertical launch promoted to default model/domain-ready must fail AP-178.
 - Voice runtime certification exposing `access_token`, `raw_audio`, raw response text, tool calls or provider secrets must fail AP-185.
-- Voice Python runtime importing provider SDKs, shelling out, logging raw audio/tokens, accepting nested SDK secret metadata or reporting `runtime_failed` before a Kernel-accepted turn must fail AP-686.
-- Voice runtime production promotion without SDK-ready, token issuer-ready, namespace-safe bootstrap, production-loop smoke and human review must fail AP-687.
+- Voice Python runtime importing provider SDKs, shelling out, logging raw audio/tokens, accepting nested SDK secret/authority metadata, omitting runtime return `evidence_refs`, or reporting `runtime_failed` before a Kernel-accepted turn must fail AP-686.
+- Voice runtime production promotion without SDK-ready, token issuer-ready, namespace-safe bootstrap, product-loop check exposed to Rivals, production-loop smoke and human review must fail AP-687.
 - Local RAG benchmark promoted to Graph RAG/Python without `proposal_only`, review and future AP must fail AP-683.
 - External graph candidates promoted beyond read-only Architecture Operations review must fail AP-684.
 - Constelacao Lente 1 promoted to Command Sky, lineage, Graph RAG or operational chrome before 30-day usage review must fail AP-685.

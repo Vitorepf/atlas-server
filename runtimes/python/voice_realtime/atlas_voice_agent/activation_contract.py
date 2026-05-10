@@ -17,6 +17,7 @@ def build_activation_contract(
     boundary_created: bool = False,
     mock_kernel: bool = False,
     callback_loop_wired: bool = False,
+    production_sdk_loop_wired: bool = False,
 ) -> Mapping[str, Any]:
     """Publish the full activation gate for the real LiveKit worker."""
 
@@ -36,6 +37,7 @@ def build_activation_contract(
         "settings_loaded": settings_loaded,
         "boundary_created": boundary_created,
         "callback_loop_wired": callback_loop_wired,
+        "production_sdk_loop_wired": production_sdk_loop_wired,
         "real_kernel_required": not mock_kernel,
         "worker_plan_allows_start": bool(worker_plan.get("activation", {}).get("can_start_long_running_worker")),
         "kernel_only_guardrails": bool(worker_plan.get("guardrails", {}).get("kernel_decides"))
@@ -66,6 +68,7 @@ def build_activation_contract(
             "sdk_callback_direct_to_provider",
             "sdk_callback_direct_to_tool",
             "start_worker_before_callback_loop_wired",
+            "start_worker_before_production_sdk_loop_wired",
             "persist_raw_audio_or_token",
         ],
         "next_action": _next_action(gates, preflight, worker_plan),
@@ -83,6 +86,8 @@ def _next_action(
         return "load_runtime_settings_and_kernel_boundary"
     if not gates["callback_loop_wired"]:
         return "wire_real_sdk_callback_loop"
+    if not gates["production_sdk_loop_wired"]:
+        return "wire_production_sdk_loop"
     if not gates["real_kernel_required"]:
         return "use_real_kernel_not_mock"
     if not gates["worker_plan_allows_start"]:

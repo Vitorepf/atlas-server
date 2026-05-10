@@ -16,6 +16,7 @@ from .callback_payload import (
 )
 from .callback_contract import REQUIRED_CALLBACK_METHODS, REQUIRED_CALLBACK_PAYLOAD_SCHEMAS
 from .contract import AtlasVoiceRuntimeContract, ContractViolation
+from .kernel_event_normalizer import KernelRuntimeEventNormalizerGuard, kernel_normalizer_contract_report
 from .livekit_boundary import LiveKitAgentBoundary, LiveKitTurnContext
 from .livekit_callback_loop import inspect_callback_loop_contract
 from .livekit_callback_router import LiveKitCallbackRouter
@@ -24,6 +25,7 @@ from .livekit_production_loop_runner import LiveKitProductionLoopRunner
 from .livekit_runtime_entrypoint import start_livekit_agents_worker
 from .livekit_sdk_adapter import LiveKitSdkAdapter
 from .livekit_sdk_event_bridge import LiveKitSdkEventBridge
+from .livekit_sdk_handlers import LiveKitSdkHandlerRegistry, build_livekit_sdk_handler_contract
 from .livekit_sdk_wiring_contract import build_livekit_sdk_wiring_contract
 from .livekit_session import LiveKitVoiceSession
 from .livekit_worker import AtlasLiveKitWorker, LiveKitWorkerError, LiveKitWorkerResult
@@ -60,10 +62,12 @@ __all__ = [
     "LiveKitProductionLoopRunner",
     "LiveKitSdkAdapter",
     "LiveKitSdkEventBridge",
+    "LiveKitSdkHandlerRegistry",
     "LiveKitTurnContext",
     "LiveKitWorkerError",
     "LiveKitWorkerResult",
     "LiveKitVoiceSession",
+    "KernelRuntimeEventNormalizerGuard",
     "MockKernelTransport",
     "REQUIRED_CALLBACK_METHODS",
     "REQUIRED_CALLBACK_PAYLOAD_SCHEMAS",
@@ -73,10 +77,12 @@ __all__ = [
     "build_livekit_worker_plan",
     "build_activation_contract",
     "build_livekit_sdk_wiring_contract",
+    "build_livekit_sdk_handler_contract",
     "build_product_loop_check",
     "build_production_loop_plan",
     "inspect_callback_loop_contract",
     "inspect_livekit_sdk",
+    "kernel_normalizer_contract_report",
     "run_runtime_preflight",
     "start_livekit_agents_worker",
 ]

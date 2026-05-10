@@ -36,6 +36,26 @@ final class AtlasVoiceRuntimeEventNormalizerTest extends TestCase
         $this->assertArrayNotHasKey('ignored_nested_runtime_object', data_get($result, 'callback_event.payload'));
     }
 
+    public function test_dropped_runtime_fields_cannot_hide_forbidden_voice_material(): void
+    {
+        $result = app(AtlasVoiceRuntimeEventNormalizer::class)->normalize([
+            'event_kind' => 'transcribed_turn',
+            'session_id' => 'voice_session_runtime_secret',
+            'turn_id' => 'turn_runtime_secret',
+            'transcript' => 'resumo permitido',
+            'debug_blob' => [
+                'raw_audio' => 'base64-redacted',
+            ],
+        ]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertSame('invalid_event', $result['status']);
+        $this->assertContains('debug_blob', $result['dropped_fields']);
+        $this->assertContains('forbidden_runtime_field:debug_blob.raw_audio', $result['errors']);
+        $this->assertSame('resumo permitido', data_get($result, 'callback_event.payload.transcript'));
+        $this->assertArrayNotHasKey('debug_blob', data_get($result, 'callback_event.payload'));
+    }
+
     public function test_runtime_event_sequence_normalizes_then_passes_sequence_contract(): void
     {
         $result = app(AtlasVoiceRuntimeEventNormalizer::class)->normalizeSequence($this->fixtures()['valid_sequence']);

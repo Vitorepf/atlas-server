@@ -20,6 +20,9 @@ capabilities:
   - native_mac_agent
   - local_ai_performance_strategy
   - content_intelligence_curation
+  - research_intelligence_runtime
+  - spec_operating_system
+  - self_construction_os
   - qualitative_levels_roadmap
   - canonical_architecture_index
   - atlas_ai_master_architecture
@@ -52,6 +55,11 @@ decisions:
   - Toda IA nova deve ler Atlas AI Runtime Language Boundaries antes de propor Python, Go, Swift, microservico, worker externo ou daemon.
   - Toda IA nova deve ler Atlas AI Local Performance Memory Strategy antes de propor RAG local, modelos locais, cache, reranker, Graph RAG, KV cache ou uso dos 48GB RAM.
   - Toda IA nova deve ler Atlas AI Content Intelligence And Knowledge Curation antes de propor YouTube ingestion, feed/RSS, scraping, source reputation, blacklist ou promocao de conteudo para memoria.
+  - Toda IA nova deve ler Atlas AI Research Intelligence And Self-Improvement Runtime antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, implementacao baseada em pesquisa ou aceleracao de autoaprimoramento.
+  - Toda IA nova deve ler Atlas AI Spec Operating System antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts, MCP SDD, context packages, data model ou fluxo de one-shot implementation.
+  - Toda IA nova deve ler Atlas AI Self-Construction OS antes de alterar self-programming, Meta-SDD, maturity ladder, build graph, priority engine, autonomous loop, safety contract ou qualquer fluxo do Atlas construindo Atlas.
+  - Toda IA nova deve usar `php artisan atlas:ai:self-construction --json` para consultar o estado read-only/advisory antes de planejar autoimplementacao.
+  - Toda IA nova deve ler Atlas AI Cognitive Runtime antes de alterar memoria, busca de contexto, sessoes longas, compactacao automatica, handoff cognitivo ou auditoria de qualidade.
   - Toda IA nova deve ler Cognitive Immune Learning Kernel antes de alterar captura, promocao de memoria, embeddings, Constelacao, delete ou filtros contra ruido.
   - Toda IA nova deve ler External Graph Harness antes de usar Graphify, Graph RAG externo, AST graph externo ou qualquer output de grafo como candidato para Code Intelligence.
   - Toda IA nova deve ler Atlas AI Qualitative Levels Roadmap antes de propor outro patamar, co-estrategista, ambiente, Curator auto-mutavel ou memoria longitudinal.
@@ -79,6 +87,56 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
   - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
+  - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
+  - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
+  - docs/engineering-knowledge-base/self-construction/constitution.md
+  - docs/engineering-knowledge-base/self-construction/meta-sdd-contract.md
+  - docs/engineering-knowledge-base/self-construction/capability-maturity-ladder.md
+  - docs/engineering-knowledge-base/self-construction/build-graph.md
+  - docs/engineering-knowledge-base/self-construction/implementation-priority-engine.md
+  - docs/engineering-knowledge-base/self-construction/autonomous-implementation-loop.md
+  - docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md
+  - docs/engineering-knowledge-base/self-construction/quality-bar-and-metrics.md
+  - docs/engineering-knowledge-base/self-construction/failure-modes.md
+  - docs/engineering-knowledge-base/self-construction/builder-persona-and-handoff.md
+  - docs/engineering-knowledge-base/self-construction/runtime-implementation-roadmap.md
+  - docs/ap/AP-691-atlas-self-construction-os-contract.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-operating-system.md
+  - docs/engineering-knowledge-base/research-self-improvement/evidence-lake-and-citation-health.md
+  - docs/engineering-knowledge-base/research-self-improvement/source-connectors-and-capture.md
+  - docs/engineering-knowledge-base/research-self-improvement/multi-agent-research-roles.md
+  - docs/engineering-knowledge-base/research-self-improvement/scheduled-research-and-triggers.md
+  - docs/engineering-knowledge-base/research-self-improvement/reporting-and-publication-contract.md
+  - docs/engineering-knowledge-base/research-self-improvement/private-connectors-security-and-stack.md
+  - docs/engineering-knowledge-base/research-self-improvement/source-quality-and-trust-ladder.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-pipeline.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-to-docs-promotion.md
+  - docs/engineering-knowledge-base/research-self-improvement/implementation-planning-and-rollout.md
+  - docs/engineering-knowledge-base/research-self-improvement/continuous-self-improvement-loop.md
+  - docs/engineering-knowledge-base/research-self-improvement/schemas-and-packets.md
+  - docs/engineering-knowledge-base/research-self-improvement/metrics-and-evals.md
+  - docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md
+  - docs/engineering-knowledge-base/research-self-improvement/failure-modes.md
+  - docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+  - docs/ap/AP-689-research-self-improvement-runtime-contract.md
+  - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
+  - docs/engineering-knowledge-base/spec-operating-system/context-discovery-and-business-context.md
+  - docs/engineering-knowledge-base/spec-operating-system/spec-compiler-and-critic.md
+  - docs/engineering-knowledge-base/spec-operating-system/plan-task-and-receipt-contract.md
+  - docs/engineering-knowledge-base/spec-operating-system/spec-graph-and-traceability.md
+  - docs/engineering-knowledge-base/spec-operating-system/autonomy-and-clarification-policy.md
+  - docs/engineering-knowledge-base/spec-operating-system/drift-detector-and-learning.md
+  - docs/engineering-knowledge-base/spec-operating-system/templates-and-schemas.md
+  - docs/engineering-knowledge-base/spec-operating-system/implementation-roadmap.md
+  - docs/ap/AP-690-atlas-spec-operating-system-contract.md
+  - docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md
+  - docs/engineering-knowledge-base/cognitive-runtime/schemas-and-packets.md
+  - docs/engineering-knowledge-base/cognitive-runtime/enterprise-excellence-checklist.md
+  - docs/engineering-knowledge-base/cognitive-runtime/retrieval-benchmark.md
+  - docs/engineering-knowledge-base/cognitive-runtime/state-of-art-research-map.md
+  - docs/engineering-knowledge-base/cognitive-runtime/runbook.md
+  - docs/engineering-knowledge-base/cognitive-runtime/failure-modes.md
+  - docs/ap/AP-688-cognitive-runtime-72h-contract.md
   - docs/engineering-knowledge-base/atlas-ai-business-contexts.md
   - docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md
   - docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md
@@ -156,6 +214,9 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
 1. `atlas-ai-runtime-language-boundaries.md` quando envolver Python, Go, Swift ou runtime externo
 1. `atlas-ai-local-performance-memory-strategy.md` quando envolver 48GB RAM, RAG local, rerank, cache, modelos locais ou Graph RAG
 1. `atlas-ai-content-intelligence-curation.md` quando envolver YouTube, RSS, scraping, source quality, blacklist ou promocao de conteudo
+1. `atlas-ai-research-self-improvement-runtime.md` quando envolver pesquisa longa, source quality, promocao para docs, planejamento automatico, implementacao baseada em pesquisa ou autoaprimoramento
+1. `atlas-ai-spec-operating-system.md` quando envolver SDD, spec compiler, one-shot implementation, task compiler, spec graph, drift detector ou execucao governada por Decision Receipt
+1. `atlas-ai-cognitive-runtime.md` quando envolver memoria governada, busca de contexto, sessoes longas, compactacao automatica, 72h de alta performance ou auditoria cognitiva
 1. `memory/cognitive-immune-learning-kernel.md` quando envolver captura, ruido, promocao de memoria, embeddings, Constelacao, delete ou aprendizado seletivo
 1. `code-intelligence/external-graph-harness.md` quando envolver Graphify, grafo externo, AST graph externo, import de `graph.json` ou relacoes surpreendentes de codigo
 1. `atlas-ai-business-contexts.md` quando envolver Blackink, empresa futura, product domain, business context ou app mobile routing domain

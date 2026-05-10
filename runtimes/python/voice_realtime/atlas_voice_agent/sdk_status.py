@@ -3,9 +3,9 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from importlib import metadata
 from pathlib import Path
 from typing import Any, Mapping
-from importlib import metadata
 
 from .contract import AtlasVoiceRuntimeContract
 
@@ -33,8 +33,8 @@ def inspect_livekit_sdk(contract: AtlasVoiceRuntimeContract) -> Mapping[str, Any
         for package in packages
         if isinstance(package, Mapping)
     ]
-    livekit_available = importlib.util.find_spec("livekit") is not None
-    agents_available = importlib.util.find_spec("livekit.agents") is not None if livekit_available else False
+    livekit_available = _safe_find_spec("livekit") is not None
+    agents_available = _safe_find_spec("livekit.agents") is not None if livekit_available else False
     missing_imports = [
         str(check["import"])
         for check in package_checks
@@ -82,7 +82,7 @@ def _package_check(package: Mapping[str, Any]) -> Mapping[str, Any]:
     import_name = str(package.get("import") or "").strip()
     pip_name = str(package.get("pip") or import_name).strip()
     minimum_version = package.get("minimum_version")
-    spec = importlib.util.find_spec(import_name) if import_name else None
+    spec = _safe_find_spec(import_name) if import_name else None
     version = _installed_version(pip_name)
 
     return {
@@ -104,4 +104,11 @@ def _installed_version(pip_name: str) -> str | None:
     try:
         return metadata.version(pip_name)
     except metadata.PackageNotFoundError:
+        return None
+
+
+def _safe_find_spec(import_name: str) -> Any | None:
+    try:
+        return importlib.util.find_spec(import_name)
+    except (ImportError, AttributeError, ValueError):
         return None

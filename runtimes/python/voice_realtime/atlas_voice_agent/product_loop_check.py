@@ -38,7 +38,26 @@ def build_product_loop_check(
         production_sdk_loop_wired=True,
     )
 
-    machine_ready = worker_start.get("status") == "blocked_unimplemented_start"
+    sdk_status = worker_start.get("worker_plan", {}).get("sdk_status", {})
+    sdk_probe_import_safe = (
+        sdk_status.get("sdk_imported") is False
+        and sdk_status.get("import_probe_only") is True
+    )
+    sdk_handler_blueprint_available = (
+        str(production_loop.get("sdk_wiring_contract", {}).get("status") or "") == "wired"
+        and production_loop.get("sdk_wiring_contract", {}).get("complete_handler_registry") is True
+        and isinstance(production_loop.get("sdk_wiring_contract", {}).get("handler_registry_contract"), Mapping)
+        and production_loop.get("sdk_wiring_contract", {}).get("wiring_invariants") != []
+        and all(
+            isinstance(handler, Mapping) and isinstance(handler.get("handler_blueprint"), Mapping)
+            for handler in production_loop.get("sdk_wiring_contract", {}).get("required_handlers", [])
+        )
+    )
+    machine_ready = (
+        worker_start.get("status") == "blocked_unimplemented_start"
+        and sdk_probe_import_safe
+        and sdk_handler_blueprint_available
+    )
 
     return {
         "schema_version": "atlas.voice_realtime.product_loop_check.v1",
@@ -56,10 +75,12 @@ def build_product_loop_check(
             "production_sdk_loop_wired": bool(production_loop.get("production_sdk_loop_wired")),
             "worker_start_still_blocked": worker_start.get("started") is False,
             "production_promotion_blocked": worker_start.get("production_promotion", {}).get("auto_promotion_allowed") is False,
+            "sdk_probe_import_safe": sdk_probe_import_safe,
+            "sdk_handler_blueprint_available": sdk_handler_blueprint_available,
             "direct_provider_forbidden": worker_start.get("guardrails", {}).get("direct_provider_call_allowed") is False,
             "raw_audio_forbidden": worker_start.get("guardrails", {}).get("raw_audio_persistence_allowed") is False,
         },
-        "next_action": _next_action(worker_start),
+        "next_action": _next_action(worker_start, sdk_probe_import_safe, sdk_handler_blueprint_available),
         "guardrails": {
             "direct_provider_call_allowed": False,
             "direct_tool_execution_allowed": False,
@@ -70,7 +91,16 @@ def build_product_loop_check(
     }
 
 
-def _next_action(worker_start: Mapping[str, Any]) -> str:
+def _next_action(
+    worker_start: Mapping[str, Any],
+    sdk_probe_import_safe: bool,
+    sdk_handler_blueprint_available: bool,
+) -> str:
+    if not sdk_probe_import_safe:
+        return "fix_sdk_probe_contract"
+    if not sdk_handler_blueprint_available:
+        return "fix_sdk_handler_blueprint_contract"
+
     status = str(worker_start.get("status") or "")
     if status == "blocked_missing_sdk":
         return "install_livekit_agents_sdk"

@@ -104,6 +104,8 @@ $registerAtlasVoiceRoutes = static function (): void {
     Route::get('/ai/voice/runtime/bootstrap', [AtlasAiVoiceRealtimeController::class, 'bootstrap']);
     Route::get('/ai/voice/runtime/dependencies', [AtlasAiVoiceRealtimeController::class, 'dependencies']);
     Route::get('/ai/voice/runtime/certification', [AtlasAiVoiceRealtimeController::class, 'runtimeCertification']);
+    Route::post('/ai/voice/runtime/events/normalize', [AtlasAiVoiceRealtimeController::class, 'normalizeRuntimeEvent']);
+    Route::post('/ai/voice/runtime/events/normalize-sequence', [AtlasAiVoiceRealtimeController::class, 'normalizeRuntimeEventSequence']);
     Route::post('/ai/voice/session/start', [AtlasAiVoiceRealtimeController::class, 'start']);
     Route::post('/ai/voice/session/end', [AtlasAiVoiceRealtimeController::class, 'end']);
     Route::post('/ai/voice/wake-word', [AtlasAiVoiceRealtimeController::class, 'wakeWord']);

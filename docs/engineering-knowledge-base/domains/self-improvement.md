@@ -21,6 +21,7 @@ decisions:
   - Self-Improvement e dominio implemented/ready, nao apenas conceito de curadoria.
   - O dominio opera sobre evidencias, metrics, ledger, KB, code intelligence, tool evidence e benchmark corpus.
   - O dominio pode propor melhorias, mas mudancas estruturais continuam exigindo gates, review e approval humano quando o risco pedir.
+  - Pesquisa de alto nivel, source quality e promocao para docs sao governadas por Atlas AI Research Intelligence And Self-Improvement Runtime antes de virarem implementacao.
   - Curator dedicado e um possivel refinamento futuro; hoje a curadoria operacional implementada vive em self_improvement.
 maintenance:
   - Atualize este documento quando flows self_improvement, gates, scheduler, surfaces ou evidence sources mudarem.
@@ -31,6 +32,21 @@ related_paths:
   - app/Console/Commands/AtlasAiSelfImproveCommand.php
   - docs/engineering-knowledge-base/domains/self-improvement-flows.md
   - docs/engineering-knowledge-base/domains/self-improvement-runtime.md
+  - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-operating-system.md
+  - docs/engineering-knowledge-base/research-self-improvement/evidence-lake-and-citation-health.md
+  - docs/engineering-knowledge-base/research-self-improvement/multi-agent-research-roles.md
+  - docs/engineering-knowledge-base/research-self-improvement/scheduled-research-and-triggers.md
+  - docs/engineering-knowledge-base/research-self-improvement/reporting-and-publication-contract.md
+  - docs/engineering-knowledge-base/research-self-improvement/private-connectors-security-and-stack.md
+  - docs/engineering-knowledge-base/research-self-improvement/source-quality-and-trust-ladder.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-pipeline.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-to-docs-promotion.md
+  - docs/engineering-knowledge-base/research-self-improvement/continuous-self-improvement-loop.md
+  - docs/engineering-knowledge-base/research-self-improvement/schemas-and-packets.md
+  - docs/engineering-knowledge-base/research-self-improvement/metrics-and-evals.md
+  - docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md
+  - docs/ap/AP-689-research-self-improvement-runtime-contract.md
   - docs/engineering-knowledge-base/archive/source-material/domains-self-improvement-full-2026-05-08.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
@@ -45,6 +61,11 @@ catalogo como dominio operacional de primeira classe.
 O dominio nao substitui review humano, PR, migrations, docs canonicos ou gates
 arquiteturais. Ele cria evidencia, findings e proposals para que o Atlas evolua
 com rastreabilidade.
+
+Pesquisa de estado-da-arte e aceleracao de evolucao usam
+`atlas-ai-research-self-improvement-runtime.md` como lei superior da frente:
+fonte primaria, evidencia, documentacao canonica e plano validado vêm antes de
+implementacao estrutural.
 
 ## Flows
 

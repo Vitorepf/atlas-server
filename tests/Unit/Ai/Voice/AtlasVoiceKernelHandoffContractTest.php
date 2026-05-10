@@ -42,6 +42,33 @@ final class AtlasVoiceKernelHandoffContractTest extends TestCase
         $this->assertStringStartsWith('voice_realtime:turn_decision_request:transcript_final:voice_session_handoff_001:turn_handoff_001:', data_get($result, 'handoff.dedupe_key'));
     }
 
+    public function test_turn_handoff_hash_and_dedupe_are_stable_across_payload_key_order(): void
+    {
+        $contract = app(AtlasVoiceKernelHandoffContract::class);
+        $first = $contract->prepareEvent([
+            'event_kind' => 'transcribed_turn',
+            'session_id' => 'voice_session_handoff_stable',
+            'turn_id' => 'turn_handoff_stable',
+            'transcript' => 'preciso revisar AP-687',
+            'domain_hint' => 'programming',
+            'flow_hint' => 'programming.implementation',
+        ]);
+        $second = $contract->prepareEvent([
+            'flow_hint' => 'programming.implementation',
+            'domain_hint' => 'programming',
+            'transcript' => 'preciso revisar AP-687',
+            'turn_id' => 'turn_handoff_stable',
+            'session_id' => 'voice_session_handoff_stable',
+            'event_kind' => 'transcribed_turn',
+        ]);
+
+        $this->assertTrue($first['valid'], json_encode($first['errors']));
+        $this->assertTrue($second['valid'], json_encode($second['errors']));
+        $this->assertSame(data_get($first, 'handoff.canonical_event_hash'), data_get($second, 'handoff.canonical_event_hash'));
+        $this->assertSame(data_get($first, 'handoff.dedupe_key'), data_get($second, 'handoff.dedupe_key'));
+        $this->assertTrue(data_get($first, 'handoff.requirements.decision_receipt_required'));
+    }
+
     public function test_runtime_callback_prepares_report_handoff_requiring_existing_receipt(): void
     {
         $result = app(AtlasVoiceKernelHandoffContract::class)->prepareEvent($this->fixtures()['callback_event']);

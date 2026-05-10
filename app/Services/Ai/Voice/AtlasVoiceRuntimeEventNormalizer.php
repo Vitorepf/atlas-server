@@ -138,6 +138,7 @@ final class AtlasVoiceRuntimeEventNormalizer
             'dropped_fields' => $this->droppedFields($callback, $event),
             'forbidden_fields_found' => $forbidden,
             'payload_validation' => $payloadResult,
+            'contract' => $this->contract(),
         ];
     }
 

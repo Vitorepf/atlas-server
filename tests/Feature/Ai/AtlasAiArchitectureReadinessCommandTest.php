@@ -34,6 +34,9 @@ class AtlasAiArchitectureReadinessCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(5, count(data_get($payload, 'safe_next_blocks', [])));
         $this->assertSame(1, data_get($payload, 'safe_next_blocks.0.order'));
         $this->assertSame('Voice Realtime product loop', data_get($payload, 'safe_next_blocks.0.block'));
+        $this->assertStringContainsString('sem provider direto', data_get($payload, 'safe_next_blocks.0.dod_minimum'));
+        $this->assertStringContainsString('VOICE_* real', data_get($payload, 'safe_next_blocks.0.dod_minimum'));
+        $this->assertStringContainsString('review humano', data_get($payload, 'safe_next_blocks.0.dod_minimum'));
         $this->assertSame('atlas.architecture_operations.v1', data_get($payload, 'architecture_operations.schema_version'));
         $this->assertSame(['id' => 'architecture_readiness'], data_get($payload, 'architecture_operations.filters'));
         $this->assertSame('architecture_readiness', data_get($payload, 'architecture_operations.commands.0.id'));

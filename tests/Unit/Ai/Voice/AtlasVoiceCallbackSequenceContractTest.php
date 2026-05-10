@@ -80,6 +80,40 @@ final class AtlasVoiceCallbackSequenceContractTest extends TestCase
         $this->assertSame('invalid_payload', data_get($result, 'events.1.payload_status'));
     }
 
+    public function test_participant_left_is_terminal_even_when_later_payload_is_valid(): void
+    {
+        $result = app(AtlasVoiceCallbackSequenceContract::class)->validate([
+            [
+                'callback' => 'participant_joined',
+                'payload' => [
+                    'session_id' => 'voice_session_sequence_terminal',
+                    'participant_identity' => 'mobile:vitor',
+                    'room_name' => 'atlas-voice-sequence',
+                ],
+            ],
+            [
+                'callback' => 'participant_left',
+                'payload' => [
+                    'session_id' => 'voice_session_sequence_terminal',
+                    'reason' => 'client_disconnected',
+                ],
+            ],
+            [
+                'callback' => 'transcript_final',
+                'payload' => [
+                    'session_id' => 'voice_session_sequence_terminal',
+                    'turn_id' => 'turn_after_left',
+                    'transcript' => 'depois do encerramento',
+                ],
+            ],
+        ]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertSame('invalid_sequence', $result['status']);
+        $this->assertContains('event_2:event_after_participant_left', $result['errors']);
+        $this->assertSame('valid', data_get($result, 'events.2.payload_status'));
+    }
+
     public function test_empty_sequence_fails_closed(): void
     {
         $result = app(AtlasVoiceCallbackSequenceContract::class)->validate([]);

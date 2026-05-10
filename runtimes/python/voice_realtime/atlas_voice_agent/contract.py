@@ -61,6 +61,16 @@ class AtlasVoiceRuntimeContract:
         "bypass_evidence_ledger",
         "create_parallel_context_store",
     }
+    REQUIRED_RUNTIME_RETURN_FIELDS = {
+        "schema_version",
+        "envelope_id",
+        "decision_receipt_hash",
+        "status",
+        "artifacts",
+        "metrics",
+        "evidence_refs",
+        "errors",
+    }
 
     @classmethod
     def from_manifest(cls, manifest: Mapping[str, Any]) -> "AtlasVoiceRuntimeContract":
@@ -110,6 +120,13 @@ class AtlasVoiceRuntimeContract:
                 f"missing runtime_invocation_contract.forbidden_runtime_authority: {sorted(missing_forbidden_authority)}"
             )
 
+        runtime_return_fields = set(self._get("runtime_invocation_contract.return_contract") or [])
+        missing_runtime_return_fields = self.REQUIRED_RUNTIME_RETURN_FIELDS - runtime_return_fields
+        if missing_runtime_return_fields:
+            raise ContractViolation(
+                f"missing runtime_invocation_contract.return_contract: {sorted(missing_runtime_return_fields)}"
+            )
+
         required_env = set(self._get("required_env") or [])
         missing_env = self.REQUIRED_ENV - required_env
         if missing_env:
@@ -128,6 +145,8 @@ class AtlasVoiceRuntimeContract:
             "kernel.rivals_url",
             "kernel.wake_word_url",
             "kernel.turn_url",
+            "kernel.runtime_event_normalizer_url",
+            "kernel.runtime_event_sequence_normalizer_url",
             "kernel.callbacks.turn_synthesized",
             "kernel.callbacks.turn_played",
             "kernel.callbacks.turn_interrupted",
@@ -172,6 +191,14 @@ class AtlasVoiceRuntimeContract:
     @property
     def turn_url(self) -> str:
         return str(self._get("kernel.turn_url"))
+
+    @property
+    def runtime_event_normalizer_url(self) -> str:
+        return str(self._get("kernel.runtime_event_normalizer_url"))
+
+    @property
+    def runtime_event_sequence_normalizer_url(self) -> str:
+        return str(self._get("kernel.runtime_event_sequence_normalizer_url"))
 
     @property
     def synthesized_url(self) -> str:

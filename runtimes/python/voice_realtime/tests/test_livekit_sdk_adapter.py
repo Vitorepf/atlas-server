@@ -217,6 +217,14 @@ class LiveKitSdkAdapterTest(unittest.TestCase):
                 "metadata": {"livekit_token": "nested-token"},
             })
 
+        with self.assertRaises(UnsafeVoicePayload):
+            subject.on_transcript_final({
+                "session_id": "voice_session",
+                "turn_id": "voice_turn",
+                "transcript": "try bypass",
+                "metadata": {"direct_tool_execution": {"name": "shell"}},
+            })
+
 
 if __name__ == "__main__":
     unittest.main()

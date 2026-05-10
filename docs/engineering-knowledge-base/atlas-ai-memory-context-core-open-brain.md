@@ -34,6 +34,13 @@ maintenance:
   - Preserve historical material in archive/source-material, never by expanding this index.
   - Run docs-health, architecture-validate, sync and index-code after changes.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md
+  - docs/engineering-knowledge-base/cognitive-runtime/schemas-and-packets.md
+  - docs/engineering-knowledge-base/cognitive-runtime/enterprise-excellence-checklist.md
+  - docs/engineering-knowledge-base/cognitive-runtime/retrieval-benchmark.md
+  - docs/engineering-knowledge-base/cognitive-runtime/state-of-art-research-map.md
+  - docs/engineering-knowledge-base/cognitive-runtime/runbook.md
+  - docs/engineering-knowledge-base/cognitive-runtime/failure-modes.md
   - docs/engineering-knowledge-base/memory/README.md
   - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
   - docs/engineering-knowledge-base/memory/contracts.md
@@ -62,6 +69,7 @@ It is source material only. Active contracts live in the child specs below.
 |---|---|
 | What is Atlas memory? | `memory/contracts.md` |
 | How does Atlas prevent noisy capture from becoming memory/context? | `memory/cognitive-immune-learning-kernel.md` |
+| What is the integrated priority/DoD for memory, retrieval, 72h sessions and compaction? | `atlas-ai-cognitive-runtime.md` |
 | How is context selected for prompts? | `memory/retrieval-and-context.md` |
 | How does Open Brain expose context to tools/MCP/HTTP? | `memory/open-brain-mcp.md` |
 | How do operators run, debug and maintain memory? | `memory-core-runbook.md` |

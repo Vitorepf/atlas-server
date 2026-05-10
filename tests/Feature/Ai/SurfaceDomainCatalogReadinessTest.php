@@ -90,6 +90,34 @@ class SurfaceDomainCatalogReadinessTest extends TestCase
         $this->assertSame('programming.repair', data_get($payload, 'surface_selection.payload_patch.flow_id'));
     }
 
+    public function test_cli_catalog_preview_accepts_voice_alias_for_review_flow(): void
+    {
+        $exit = Artisan::call('atlas:ai:domains', [
+            '--select' => true,
+            '--surface' => 'voice',
+            '--mode' => 'programming',
+            '--task' => 'review',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame('ok', data_get($payload, 'surface_selection.status'));
+        $this->assertSame('voice_realtime', data_get($payload, 'surface_selection.surface_id'));
+        $this->assertSame('ux_mapping', data_get($payload, 'surface_selection.selection_source'));
+        $this->assertSame('programming', data_get($payload, 'surface_selection.domain.id'));
+        $this->assertSame('programming.review', data_get($payload, 'surface_selection.flow.id'));
+        $this->assertSame('low', data_get($payload, 'surface_selection.safety.autonomy'));
+        $this->assertTrue(data_get($payload, 'surface_selection.surface_hints.accepts_explicit_domain_flow_selection'));
+        $this->assertContains(
+            'programming.review',
+            data_get($payload, 'surface_selection.surface_hints.supported_flow_ids')
+        );
+        $this->assertSame('programming.review', data_get($payload, 'surface_selection.payload_patch.flow_id'));
+    }
+
     public function test_architecture_validation_exposes_onboarding_summary_for_release_gates(): void
     {
         $exit = Artisan::call('atlas:ai:architecture-validate', [

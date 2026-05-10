@@ -141,6 +141,7 @@ class AtlasAiArchitectureValidateApiTest extends TestCase
         $this->assertContains('ap175_feature_placement_architecture_operations_contract', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap176_architecture_readiness_snapshot', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap200_ap_agent_workflow_contracts', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertContains('ap687_voice_realtime_production_promotion_gate', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap145_documentation_health_curator_review', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap134_decision_receipt_hash_runtime_guard', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap135_decision_receipt_determinism_test', $response->json('kernel.static_scan.summary.valid_keys'));
@@ -168,6 +169,8 @@ class AtlasAiArchitectureValidateApiTest extends TestCase
         $this->assertContains('ap160_agent_behavior_curator_filter_surface', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap161_agent_behavior_recurring_schedule', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap162_agent_behavior_proposal_governance', $response->json('kernel.static_scan.summary.valid_keys'));
+        $this->assertTrue($response->json('kernel.static_scan.ap687_voice_realtime_production_promotion_gate.valid'));
+        $this->assertSame([], $response->json('kernel.static_scan.ap687_voice_realtime_production_promotion_gate.violations'));
         $this->assertSame([], $response->json('kernel.static_scan.summary.failed_keys'));
         $this->assertSame([], $response->json('kernel.static_scan.ap35_surface_adapter_parity_map_coverage.unmapped_adapters'));
     }

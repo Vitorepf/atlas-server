@@ -406,12 +406,16 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('rivals_endpoint', '/ai/voice/rivals')
             ->assertJsonPath('runtime_dependencies_endpoint', '/ai/voice/runtime/dependencies')
             ->assertJsonPath('runtime_certification_endpoint', '/ai/voice/runtime/certification')
+            ->assertJsonPath('runtime_event_normalizer_endpoint', '/ai/voice/runtime/events/normalize')
+            ->assertJsonPath('runtime_event_sequence_normalizer_endpoint', '/ai/voice/runtime/events/normalize-sequence')
             ->assertJsonPath('mobile_session_start_endpoint', '/v1/mobile/ai/voice/session/start')
             ->assertJsonPath('mobile_session_end_endpoint', '/v1/mobile/ai/voice/session/end')
             ->assertJsonPath('mobile_readiness_endpoint', '/v1/mobile/ai/voice/readiness')
             ->assertJsonPath('mobile_rivals_endpoint', '/v1/mobile/ai/voice/rivals')
             ->assertJsonPath('mobile_runtime_dependencies_endpoint', '/v1/mobile/ai/voice/runtime/dependencies')
             ->assertJsonPath('mobile_runtime_certification_endpoint', '/v1/mobile/ai/voice/runtime/certification')
+            ->assertJsonPath('mobile_runtime_event_normalizer_endpoint', '/v1/mobile/ai/voice/runtime/events/normalize')
+            ->assertJsonPath('mobile_runtime_event_sequence_normalizer_endpoint', '/v1/mobile/ai/voice/runtime/events/normalize-sequence')
             ->assertJsonPath('wake_word_endpoint', '/ai/voice/wake-word')
             ->assertJsonPath('mobile_wake_word_endpoint', '/v1/mobile/ai/voice/wake-word')
             ->assertJsonPath('turn_endpoint', '/ai/voice/turn')
@@ -455,6 +459,84 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
                 ->where('slo_stages.1', 'voice.turn_to_first_audio')
                 ->etc()
             );
+    }
+
+    public function test_voice_runtime_event_normalizer_is_available_without_execution(): void
+    {
+        $this->postJson('/ai/voice/runtime/events/normalize', [
+            'event_kind' => 'transcribed_turn',
+            'session_id' => 'voice_session_normalize',
+            'turn_id' => 'voice_turn_normalize',
+            'transcript' => 'continue a implementacao',
+            'debug_blob' => ['raw_audio' => 'base64-forbidden'],
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.voice_realtime.runtime_event_normalizer.v1')
+            ->assertJsonPath('status', 'invalid_event')
+            ->assertJsonPath('valid', false)
+            ->assertJsonPath('callback', 'transcript_final')
+            ->assertJsonPath('callback_event.payload.session_id', 'voice_session_normalize')
+            ->assertJsonPath('callback_event.payload.turn_id', 'voice_turn_normalize')
+            ->assertJsonPath('callback_event.payload.transcript', 'continue a implementacao')
+            ->assertJsonPath('contract.guardrails.runtime_execution_enabled', false)
+            ->assertJsonPath('contract.guardrails.provider_execution_enabled', false)
+            ->assertJsonPath('contract.guardrails.raw_audio_persistence_allowed', false)
+            ->assertJson(fn ($json) => $json
+                ->where('errors.0', 'forbidden_runtime_field:debug_blob.raw_audio')
+                ->where('dropped_fields.0', 'debug_blob')
+                ->etc()
+            );
+    }
+
+    public function test_voice_runtime_event_sequence_normalizer_is_available_on_mobile_gateway(): void
+    {
+        $token = $this->mobileDeviceToken();
+
+        $this->postJson('/v1/mobile/ai/voice/runtime/events/normalize-sequence', [
+            'events' => [
+                [
+                    'event_kind' => 'room_connected',
+                    'session_id' => 'voice_session_sequence',
+                    'participant_identity' => 'mobile:vitor',
+                    'room_name' => 'atlas-voice-sequence',
+                ],
+                [
+                    'event_kind' => 'transcribed_turn',
+                    'session_id' => 'voice_session_sequence',
+                    'turn_id' => 'voice_turn_sequence',
+                    'transcript' => 'continue',
+                ],
+                [
+                    'event_kind' => 'synthesized',
+                    'session_id' => 'voice_session_sequence',
+                    'turn_id' => 'voice_turn_sequence',
+                    'response_text_hash' => hash('sha256', 'ok'),
+                ],
+                [
+                    'event_kind' => 'played',
+                    'session_id' => 'voice_session_sequence',
+                    'turn_id' => 'voice_turn_sequence',
+                    'played_duration_ms' => 250,
+                ],
+                [
+                    'event_kind' => 'room_disconnected',
+                    'session_id' => 'voice_session_sequence',
+                ],
+            ],
+        ], [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.voice_realtime.runtime_event_normalizer.v1')
+            ->assertJsonPath('status', 'normalized_sequence')
+            ->assertJsonPath('valid', true)
+            ->assertJsonPath('normalized_events.0.callback', 'participant_joined')
+            ->assertJsonPath('normalized_events.1.callback', 'transcript_final')
+            ->assertJsonPath('normalized_events.2.callback', 'tts_synthesized')
+            ->assertJsonPath('normalized_events.3.callback', 'audio_played')
+            ->assertJsonPath('normalized_events.4.callback', 'participant_left')
+            ->assertJsonPath('sequence_validation.status', 'valid')
+            ->assertJsonPath('contract.guardrails.runtime_execution_enabled', false);
     }
 
     public function test_voice_runtime_contract_and_bootstrap_reject_unknown_runtime(): void
@@ -535,11 +617,17 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('kernel_only', true)
             ->assertJsonPath('mobile_first', true)
             ->assertJsonPath('daemon_started', false)
-            ->assertJsonPath('summary.gate_count', 6)
+            ->assertJsonPath('summary.gate_count', 7)
             ->assertJsonPath('summary.failed_gates', 0)
             ->assertJsonPath('gates.foundation_registry_ready.passed', true)
             ->assertJsonPath('gates.foundation_registry_ready.next_allowed_step', 'connect_through_authorized_adapter_with_existing_kernel_methods')
             ->assertJsonPath('gates.worker_start_blocked_safely.passed', true)
+            ->assertJsonPath('gates.product_loop_check_available.passed', true)
+            ->assertJsonPath('gates.product_loop_check_available.schema_version', 'atlas.voice_realtime.product_loop_check.v1')
+            ->assertJsonPath('gates.product_loop_check_available.daemon_started', false)
+            ->assertJsonPath('gates.product_loop_check_available.sdk_probe_import_safe', true)
+            ->assertJsonPath('gates.product_loop_check_available.sdk_handler_blueprint_available', true)
+            ->assertJsonPath('gates.product_loop_check_available.production_promotion_blocked', true)
             ->assertJsonPath('gates.certification_artifacts_sanitized.passed', true)
             ->assertJsonPath('gates.certification_artifacts_sanitized.forbidden_key_count', 0)
             ->assertJsonPath('production_promotion_gate.schema_version', 'atlas.voice_realtime.production_promotion_gate.v1')
@@ -553,14 +641,41 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('production_promotion_gate.review_packet.status', 'blocked_until_machine_gates_pass')
             ->assertJsonPath('production_promotion_gate.review_packet.required_decision_receipt', true)
             ->assertJsonPath('production_promotion_gate.review_packet.required_rollback_plan.0', 'disable_livekit_token_issuer')
-            ->assertJsonPath('production_promotion_gate.review_packet.required_evidence.4', 'rivals_voice_comparison')
+            ->assertJsonPath('production_promotion_gate.review_packet.required_evidence.4', 'product_loop_check')
+            ->assertJsonPath('production_promotion_gate.review_packet.required_evidence.5', 'rivals_voice_comparison')
             ->assertJsonPath('production_promotion_gate.review_packet.forbidden_actions.4', 'bypass_kernel_decision_receipt')
+            ->assertJsonPath('production_promotion_gate.machine_gates.sdk_probe_import_safe.passed', true)
+            ->assertJsonPath('production_promotion_gate.machine_gates.sdk_probe_import_safe.sdk_imported', false)
+            ->assertJsonPath('production_promotion_gate.machine_gates.sdk_probe_import_safe.import_probe_only', true)
+            ->assertJsonPath('production_promotion_gate.machine_gates.product_loop_check_available.passed', true)
+            ->assertJsonPath('production_promotion_gate.machine_gates.product_loop_check_available.schema_version', 'atlas.voice_realtime.product_loop_check.v1')
+            ->assertJsonPath('production_promotion_gate.machine_gates.product_loop_check_available.daemon_started', false)
+            ->assertJsonPath('production_promotion_gate.machine_gates.product_loop_check_available.sdk_probe_import_safe', true)
+            ->assertJsonPath('production_promotion_gate.machine_gates.product_loop_check_available.sdk_handler_blueprint_available', true)
+            ->assertJsonPath('production_promotion_gate.machine_gates.product_loop_check_available.production_promotion_blocked', true)
+            ->assertJsonPath('gates.production_loop_smoke_passed.bridge_contract_status', 'valid')
+            ->assertJsonPath('production_promotion_gate.machine_gates.production_loop_smoke_passed.bridge_contract_status', 'valid')
+            ->assertJsonPath('gates.production_loop_smoke_passed.handler_registry_contract_status', 'valid')
+            ->assertJsonPath('production_promotion_gate.machine_gates.production_loop_smoke_passed.handler_registry_contract_status', 'valid')
+            ->assertJsonPath('gates.production_loop_smoke_passed.worker_return_contract_status', 'valid')
+            ->assertJsonPath('production_promotion_gate.machine_gates.production_loop_smoke_passed.worker_return_contract_status', 'valid')
             ->assertJsonPath('production_promotion_gate.next_action', 'rerun_runtime_certification_with_require_sdk')
             ->assertJsonPath('next_action', 'rerun_runtime_certification_with_require_sdk')
             ->assertJsonPath('artifacts.livekit_token_issuer.schema_version', 'atlas.voice_realtime.livekit_token_issuer_readiness.v1')
             ->assertJsonPath('artifacts.livekit_token_issuer.secrets_exposed', false)
+            ->assertJsonPath('artifacts.product_loop_check.schema_version', 'atlas.voice_realtime.product_loop_check.v1')
+            ->assertJsonPath('artifacts.product_loop_check.status', 'blocked')
+            ->assertJsonPath('artifacts.product_loop_check.next_action', 'install_livekit_agents_sdk')
+            ->assertJsonPath('artifacts.product_loop_check.daemon_started', false)
+            ->assertJsonPath('artifacts.production_loop_smoke.bridge_contract_report.schema_version', 'atlas.voice_realtime.bridge_contract_report.v1')
+            ->assertJsonPath('artifacts.production_loop_smoke.bridge_contract_report.status', 'valid')
+            ->assertJsonPath('artifacts.production_loop_smoke.handler_registry_contract_report.schema_version', 'atlas.voice_realtime.handler_registry_contract_report.v1')
+            ->assertJsonPath('artifacts.production_loop_smoke.handler_registry_contract_report.status', 'valid')
+            ->assertJsonPath('artifacts.production_loop_smoke.worker_return_contract.schema_version', 'atlas.voice_realtime.worker_return_contract_report.v1')
+            ->assertJsonPath('artifacts.production_loop_smoke.worker_return_contract.status', 'valid')
             ->assertJsonMissingPath('artifacts.foundation_registry.summary')
             ->assertJsonMissingPath('artifacts.worker_start_check.worker_plan')
+            ->assertJsonMissingPath('artifacts.product_loop_check.worker_start')
             ->assertJsonMissingPath('artifacts.production_loop_smoke.results');
     }
 
@@ -625,10 +740,14 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('kernel.rivals_url', 'http://atlas.test/ai/voice/rivals')
             ->assertJsonPath('kernel.runtime_dependencies_url', 'http://atlas.test/ai/voice/runtime/dependencies')
             ->assertJsonPath('kernel.runtime_certification_url', 'http://atlas.test/ai/voice/runtime/certification')
+            ->assertJsonPath('kernel.runtime_event_normalizer_url', 'http://atlas.test/ai/voice/runtime/events/normalize')
+            ->assertJsonPath('kernel.runtime_event_sequence_normalizer_url', 'http://atlas.test/ai/voice/runtime/events/normalize-sequence')
             ->assertJsonPath('kernel.mobile_readiness_url', 'http://atlas.test/v1/mobile/ai/voice/readiness')
             ->assertJsonPath('kernel.mobile_rivals_url', 'http://atlas.test/v1/mobile/ai/voice/rivals')
             ->assertJsonPath('kernel.mobile_runtime_dependencies_url', 'http://atlas.test/v1/mobile/ai/voice/runtime/dependencies')
             ->assertJsonPath('kernel.mobile_runtime_certification_url', 'http://atlas.test/v1/mobile/ai/voice/runtime/certification')
+            ->assertJsonPath('kernel.mobile_runtime_event_normalizer_url', 'http://atlas.test/v1/mobile/ai/voice/runtime/events/normalize')
+            ->assertJsonPath('kernel.mobile_runtime_event_sequence_normalizer_url', 'http://atlas.test/v1/mobile/ai/voice/runtime/events/normalize-sequence')
             ->assertJsonPath('kernel.wake_word_url', 'http://atlas.test/ai/voice/wake-word')
             ->assertJsonPath('kernel.mobile_wake_word_url', 'http://atlas.test/v1/mobile/ai/voice/wake-word')
             ->assertJsonPath('kernel.turn_url', 'http://atlas.test/ai/voice/turn')
@@ -1105,6 +1224,13 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('gates.required_events_present', true)
             ->assertJsonPath('gates.latency_slo_clean', true)
             ->assertJsonPath('gates.rivals_voice_ready', true)
+            ->assertJsonPath('product_loop_check.schema_version', 'atlas.voice_realtime.product_loop_check_reference.v1')
+            ->assertJsonPath('product_loop_check.status', 'available_as_runtime_contract')
+            ->assertJsonPath('product_loop_check.command', 'php artisan atlas:ai:voice product-loop-check --json')
+            ->assertJsonPath('product_loop_check.promotion_allowed', false)
+            ->assertJsonPath('product_loop_check.auto_promotion_allowed', false)
+            ->assertJsonPath('product_loop_check.daemon_started', false)
+            ->assertJsonPath('product_loop_check.required_gates.4', 'sdk_probe_import_safe')
             ->assertJsonPath('review_signal.recommended_action', 'voice_readiness_can_enter_rivals_voice');
     }
 
@@ -1141,6 +1267,13 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('runtime_certification.status', 'certified_scaffold')
             ->assertJsonPath('runtime_certification.summary.failed_gates', 0)
             ->assertJsonPath('runtime_certification.artifact_sanitization.passed', true)
+            ->assertJsonPath('runtime_certification.product_loop_check.schema_version', 'atlas.voice_realtime.product_loop_check.v1')
+            ->assertJsonPath('runtime_certification.product_loop_check.status', 'blocked')
+            ->assertJsonPath('runtime_certification.product_loop_check.daemon_started', false)
+            ->assertJsonPath('runtime_certification.product_loop_gate.passed', true)
+            ->assertJsonPath('runtime_certification.product_loop_gate.sdk_probe_import_safe', true)
+            ->assertJsonPath('runtime_certification.product_loop_gate.sdk_handler_blueprint_available', true)
+            ->assertJsonPath('runtime_certification.product_loop_gate.production_promotion_blocked', true)
             ->assertJsonPath('production_promotion_gate.status', 'blocked')
             ->assertJsonPath('production_promotion_gate.human_review_required', true)
             ->assertJsonPath('production_promotion_gate.promotion_allowed', false)
@@ -1260,6 +1393,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('schema_version', 'atlas.voice.readiness.v1')
             ->assertJsonPath('status', 'attention')
             ->assertJsonPath('gates.required_events_present', false)
+            ->assertJsonPath('product_loop_check.command', 'php artisan atlas:ai:voice product-loop-check --json')
             ->assertJsonPath('review_signal.recommended_action', 'complete_voice_required_events_before_rivals_voice');
     }
 

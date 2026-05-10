@@ -140,12 +140,14 @@ class AiObservabilityKernelSloTest extends TestCase
         $this->assertContains('php artisan atlas:ai:self-improvement-schedule-report --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:inbox-action-report --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:ledger <id> --json', $commands);
+        $this->assertContains('php artisan atlas:ai:voice product-loop-check --json', $commands);
         $this->assertContains('architecture_operations', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('session_bootstrap', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('feature_placement', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('provider_release_review', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('provider_release_curator_review', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_product_loop_check', $response->json('architecture_operations.operation_ids'));
 
         $commandsById = collect($response->json('architecture_operations.commands'))->keyBy('id');
         $this->assertSame('/ai/session-bootstrap', data_get($commandsById, 'session_bootstrap.api_endpoint'));
@@ -153,6 +155,8 @@ class AiObservabilityKernelSloTest extends TestCase
         $this->assertSame('/ai/docs-split-plan', data_get($commandsById, 'documentation_split_plan.api_endpoint'));
         $this->assertSame('provider_evolution', data_get($commandsById, 'provider_release_review.kind'));
         $this->assertSame('/ai/provider-release-review', data_get($commandsById, 'provider_release_review.api_endpoint'));
+        $this->assertSame('runtime_contract', data_get($commandsById, 'voice_realtime_product_loop_check.kind'));
+        $this->assertSame('cli', data_get($commandsById, 'voice_realtime_product_loop_check.surface'));
     }
 
     public function test_observability_payload_includes_provider_performance_summary(): void

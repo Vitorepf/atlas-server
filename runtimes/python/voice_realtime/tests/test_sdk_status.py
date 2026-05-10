@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from atlas_voice_agent.contract import AtlasVoiceRuntimeContract
 from atlas_voice_agent.sdk_status import inspect_livekit_sdk, load_dependency_manifest
@@ -45,6 +47,29 @@ class SdkStatusTest(unittest.TestCase):
         if payload["status"] == "missing_optional_dependency":
             self.assertIn("livekit.agents", payload["missing_imports"])
             self.assertEqual("install_livekit_agents_sdk", payload["next_action"])
+
+    def test_sdk_check_fails_closed_when_livekit_parent_import_probe_raises(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        sys.modules.pop("livekit", None)
+        sys.modules.pop("livekit.agents", None)
+
+        def broken_find_spec(import_name: str):
+            if import_name.startswith("livekit"):
+                raise ImportError("missing parent package")
+
+            return None
+
+        with patch("atlas_voice_agent.sdk_status.importlib.util.find_spec", side_effect=broken_find_spec):
+            payload = inspect_livekit_sdk(contract)
+
+        self.assertEqual("missing_optional_dependency", payload["status"])
+        self.assertFalse(payload["sdk_imported"])
+        self.assertTrue(payload["import_probe_only"])
+        self.assertEqual(["livekit.agents"], payload["missing_imports"])
+        self.assertFalse(payload["packages"]["livekit"])
+        self.assertFalse(payload["packages"]["livekit.agents"])
+        self.assertNotIn("livekit", sys.modules)
+        self.assertNotIn("livekit.agents", sys.modules)
 
     def test_load_dependency_manifest_rejects_non_object_payload(self) -> None:
         handle = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
