@@ -8,18 +8,48 @@ from .daemon_supervisor import evaluate_daemon_supervisor
 from .managed_env_writer import execute_managed_env_write
 from .supervised_launch_execution import (
     LAUNCH_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+    FINAL_START_EXECUTOR_AUTHORIZATION_SCHEMA_VERSION,
+    FINAL_START_EXECUTOR_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_EXECUTOR_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_DRY_RUN_PLAN_SCHEMA_VERSION,
+    GUARDED_START_ACTIVATION_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_FINAL_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_HUMAN_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_POLICY_PATCH_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_POLICY_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_RUNTIME_HANDOFF_PLAN_SCHEMA_VERSION,
+    GUARDED_START_SIMULATION_PLAN_SCHEMA_VERSION,
+    GUARDED_START_EXECUTOR_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
     PRE_START_HEALTH_CHECKS_AUTHORIZATION_SCHEMA_VERSION,
+    REAL_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
     REAL_START_ADAPTER_AUTHORIZATION_SCHEMA_VERSION,
     REAL_START_ADAPTER_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
     REAL_START_ENABLEMENT_GATE_AUTHORIZATION_SCHEMA_VERSION,
     REVIEWED_REAL_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+    REVIEWED_GUARDED_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
     REVIEWED_SUBPROCESS_START_AUTHORIZATION_SCHEMA_VERSION,
     RUNTIME_POLICY_ENABLEMENT_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    SUPERVISED_START_EXECUTION_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
     SUBPROCESS_START_AUTHORIZATION_SCHEMA_VERSION,
     execute_pre_start_health_checks,
     inspect_real_start_adapter_enablement_gate,
     inspect_real_start_adapter_disabled_by_default,
     inspect_real_start_adapter_review_contract,
+    inspect_final_start_executor_disabled_by_default,
+    inspect_final_start_executor_enablement_gate,
+    inspect_guarded_start_dry_run_contract,
+    inspect_guarded_start_activation_contract,
+    inspect_guarded_start_final_enablement_gate_contract,
+    inspect_guarded_start_human_review_contract,
+    inspect_guarded_start_policy_enablement_contract,
+    inspect_guarded_start_policy_patch_review_contract,
+    inspect_guarded_start_runtime_handoff_contract,
+    inspect_guarded_start_simulation_contract,
+    inspect_guarded_start_executor_disabled_by_default,
+    inspect_guarded_start_executor_enablement_gate,
+    inspect_reviewed_guarded_start_execution_contract,
+    inspect_real_start_execution_contract,
+    inspect_supervised_start_execution_review,
     inspect_reviewed_subprocess_start_execution,
     inspect_reviewed_real_start_execution_contract,
     inspect_runtime_policy_enablement_review,
@@ -181,6 +211,295 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 "decision_receipt_id": "decision_receipt_pre_start_smoke_reviewed_real_start_execution",
             },
         )
+        final_start_executor_disabled = inspect_final_start_executor_disabled_by_default(
+            reviewed_real_start_execution_contract=reviewed_real_start_execution_contract,
+            final_start_executor_authorization={
+                "schema_version": FINAL_START_EXECUTOR_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_final_start_executor_disabled_contract",
+                "final_start_executor_contract_allowed": True,
+                "start_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "single_start_per_receipt_required": True,
+                "final_pre_start_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "rollback_rehearsal_required": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_final_start_executor",
+            },
+        )
+        final_start_executor_enablement_gate = inspect_final_start_executor_enablement_gate(
+            final_start_executor_disabled=final_start_executor_disabled,
+            final_start_executor_enablement_authorization={
+                "schema_version": FINAL_START_EXECUTOR_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_final_start_executor_enablement_gate",
+                "final_start_executor_enablement_gate_allowed": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "final_pre_start_receipt_attached": True,
+                "reviewed_bundle_hash": "e"*64,
+                "single_start_per_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "rollback_rehearsal_passed": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_final_start_enablement",
+            },
+        )
+        supervised_start_execution_review = inspect_supervised_start_execution_review(
+            final_start_executor_enablement_gate=final_start_executor_enablement_gate,
+            supervised_start_review_authorization={
+                "schema_version": SUPERVISED_START_EXECUTION_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_supervised_start_execution_review",
+                "supervised_start_execution_review_allowed": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "technical_review_completed": True,
+                "current_bundle_reviewed": True,
+                "reviewed_bundle_hash": "f"*64,
+                "final_pre_start_receipt_required": True,
+                "single_start_per_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "rollback_rehearsal_required": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_supervised_start_review",
+            },
+        )
+        real_start_execution_contract = inspect_real_start_execution_contract(
+            supervised_start_execution_review=supervised_start_execution_review,
+            real_start_execution_authorization={
+                "schema_version": REAL_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_real_start_execution_contract",
+                "real_start_execution_contract_allowed": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "technical_review_completed": True,
+                "current_bundle_reviewed": True,
+                "reviewed_bundle_hash": "g"*64,
+                "final_pre_start_receipt_attached": True,
+                "single_start_per_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "rollback_rehearsal_passed": True,
+                "pid_file_guard_required": True,
+                "startup_timeout_required": True,
+                "stdout_stderr_sanitization_required": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_real_start_execution_contract",
+            },
+        )
+        guarded_start_executor_disabled = inspect_guarded_start_executor_disabled_by_default(
+            real_start_execution_contract=real_start_execution_contract,
+            guarded_start_executor_authorization={
+                "schema_version": GUARDED_START_EXECUTOR_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_executor_disabled_contract",
+                "guarded_start_executor_contract_allowed": True,
+                "guarded_start_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "pid_file_guard_required": True,
+                "startup_timeout_required": True,
+                "stdout_stderr_sanitization_required": True,
+                "single_start_per_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "rollback_rehearsal_required": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_disabled",
+            },
+        )
+        guarded_start_executor_enablement_gate = inspect_guarded_start_executor_enablement_gate(
+            guarded_start_executor_disabled=guarded_start_executor_disabled,
+            guarded_start_executor_enablement_authorization={
+                "schema_version": GUARDED_START_EXECUTOR_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_executor_enablement_gate",
+                "guarded_start_executor_enablement_gate_allowed": True,
+                "guarded_start_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "reviewed_bundle_hash": "h"*64,
+                "final_pre_start_receipt_attached": True,
+                "single_start_per_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "rollback_rehearsal_passed": True,
+                "pid_file_guard_required": True,
+                "startup_timeout_required": True,
+                "stdout_stderr_sanitization_required": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_enablement",
+            },
+        )
+        reviewed_guarded_start_execution_contract = inspect_reviewed_guarded_start_execution_contract(
+            guarded_start_executor_enablement_gate=guarded_start_executor_enablement_gate,
+            reviewed_guarded_start_authorization={
+                "schema_version": REVIEWED_GUARDED_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_reviewed_guarded_start_execution_contract",
+                "reviewed_guarded_start_execution_allowed": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "technical_review_completed": True,
+                "current_bundle_reviewed": True,
+                "reviewed_bundle_hash": "i"*64,
+                "final_pre_start_receipt_attached": True,
+                "single_start_per_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "rollback_rehearsal_passed": True,
+                "pid_file_guard_required": True,
+                "startup_timeout_required": True,
+                "stdout_stderr_sanitization_required": True,
+                "dry_run_execution_plan_attached": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_reviewed_guarded_start_execution",
+            },
+        )
+        guarded_start_dry_run_contract = inspect_guarded_start_dry_run_contract(
+            reviewed_guarded_start_execution_contract=reviewed_guarded_start_execution_contract,
+            guarded_start_dry_run_plan={
+                "schema_version": GUARDED_START_DRY_RUN_PLAN_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_dry_run_contract",
+                "dry_run_only": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "simulated_pid_file_guard_passed": True,
+                "simulated_startup_timeout_ms": 5000,
+                "stdout_stderr_sanitization_simulated": True,
+                "post_start_ready_event_simulated": True,
+                "rollback_rehearsal_reference_attached": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_dry_run",
+            },
+        )
+        guarded_start_simulation_contract = inspect_guarded_start_simulation_contract(
+            guarded_start_dry_run_contract=guarded_start_dry_run_contract,
+            guarded_start_simulation_plan={
+                "schema_version": GUARDED_START_SIMULATION_PLAN_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_simulation_contract",
+                "simulation_only": True,
+                "dry_run_only": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "synthetic_lifecycle_simulated": True,
+                "synthetic_ready_probe_passed": True,
+                "synthetic_exit_code": 0,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_simulation",
+            },
+        )
+        guarded_start_runtime_handoff_contract = inspect_guarded_start_runtime_handoff_contract(
+            guarded_start_simulation_contract=guarded_start_simulation_contract,
+            guarded_start_runtime_handoff_plan={
+                "schema_version": GUARDED_START_RUNTIME_HANDOFF_PLAN_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_runtime_handoff_contract",
+                "runtime_handoff_contract_allowed": True,
+                "runtime_family": "python_ai_data",
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "kernel_runtime_invocation_contract_attached": True,
+                "evidence_sink_attached": True,
+                "rollback_plan_attached": True,
+                "policy_patch_review_required": True,
+                "human_review_required": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_runtime_handoff",
+            },
+        )
+        guarded_start_policy_patch_review_contract = inspect_guarded_start_policy_patch_review_contract(
+            guarded_start_runtime_handoff_contract=guarded_start_runtime_handoff_contract,
+            policy_patch_review_authorization={
+                "schema_version": GUARDED_START_POLICY_PATCH_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_policy_patch_review_contract",
+                "policy_patch_review_contract_allowed": True,
+                "runtime_policy_start_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "policy_patch_diff_attached": True,
+                "policy_patch_dry_run_passed": True,
+                "rollback_plan_attached": True,
+                "human_review_required": True,
+                "decision_receipt_required": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_policy_patch_review",
+            },
+        )
+        guarded_start_human_review_contract = inspect_guarded_start_human_review_contract(
+            guarded_start_policy_patch_review_contract=guarded_start_policy_patch_review_contract,
+            human_review_authorization={
+                "schema_version": GUARDED_START_HUMAN_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_human_review_contract",
+                "human_review_contract_allowed": True,
+                "human_review_completed": True,
+                "operator_approved_policy_patch": True,
+                "runtime_policy_start_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "rollback_plan_reviewed": True,
+                "decision_receipt_required": True,
+                "final_enablement_gate_required": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_human_review",
+            },
+        )
+        guarded_start_final_enablement_gate = inspect_guarded_start_final_enablement_gate_contract(
+            guarded_start_human_review_contract=guarded_start_human_review_contract,
+            final_enablement_authorization={
+                "schema_version": GUARDED_START_FINAL_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_final_enablement_gate",
+                "final_enablement_gate_allowed": True,
+                "runtime_policy_start_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "human_review_contract_attached": True,
+                "final_pre_start_receipt_attached": True,
+                "single_start_per_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "rollback_rehearsal_passed": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_final_enablement",
+            },
+        )
+        guarded_start_policy_enablement_contract = inspect_guarded_start_policy_enablement_contract(
+            guarded_start_final_enablement_gate=guarded_start_final_enablement_gate,
+            policy_enablement_authorization={
+                "schema_version": GUARDED_START_POLICY_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_policy_enablement_contract",
+                "policy_enablement_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "final_enablement_gate_attached": True,
+                "human_review_contract_attached": True,
+                "rollback_plan_attached": True,
+                "single_start_per_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "policy_revoke_supported": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_policy_enablement",
+            },
+        )
+        guarded_start_activation_contract = inspect_guarded_start_activation_contract(
+            guarded_start_policy_enablement_contract=guarded_start_policy_enablement_contract,
+            activation_authorization={
+                "schema_version": GUARDED_START_ACTIVATION_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_activation_contract",
+                "activation_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "policy_enablement_contract_attached": True,
+                "final_enablement_gate_attached": True,
+                "human_review_contract_attached": True,
+                "activation_window_declared": True,
+                "operator_activation_review_required": True,
+                "post_start_observability_required": True,
+                "rollback_plan_attached": True,
+                "policy_revoke_supported": True,
+                "single_start_per_receipt_required": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_activation",
+            },
+        )
 
         payload = {
             "schema_version": SCHEMA_VERSION,
@@ -193,6 +512,21 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 runtime_policy_enablement_review,
                 real_start_adapter_review_contract,
                 reviewed_real_start_execution_contract,
+                final_start_executor_disabled,
+                final_start_executor_enablement_gate,
+                supervised_start_execution_review,
+                real_start_execution_contract,
+                guarded_start_executor_disabled,
+                guarded_start_executor_enablement_gate,
+                reviewed_guarded_start_execution_contract,
+                guarded_start_dry_run_contract,
+                guarded_start_simulation_contract,
+                guarded_start_runtime_handoff_contract,
+                guarded_start_policy_patch_review_contract,
+                guarded_start_human_review_contract,
+                guarded_start_final_enablement_gate,
+                guarded_start_policy_enablement_contract,
+                guarded_start_activation_contract,
             ),
             "surface_id": "voice_realtime",
             "runtime_id": "livekit_agents_sdk",
@@ -217,6 +551,21 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
             "runtime_policy_enablement_review": runtime_policy_enablement_review,
             "real_start_adapter_review_contract": real_start_adapter_review_contract,
             "reviewed_real_start_execution_contract": reviewed_real_start_execution_contract,
+            "final_start_executor_disabled": final_start_executor_disabled,
+            "final_start_executor_enablement_gate": final_start_executor_enablement_gate,
+            "supervised_start_execution_review": supervised_start_execution_review,
+            "real_start_execution_contract": real_start_execution_contract,
+            "guarded_start_executor_disabled": guarded_start_executor_disabled,
+            "guarded_start_executor_enablement_gate": guarded_start_executor_enablement_gate,
+            "reviewed_guarded_start_execution_contract": reviewed_guarded_start_execution_contract,
+            "guarded_start_dry_run_contract": guarded_start_dry_run_contract,
+            "guarded_start_simulation_contract": guarded_start_simulation_contract,
+            "guarded_start_runtime_handoff_contract": guarded_start_runtime_handoff_contract,
+            "guarded_start_policy_patch_review_contract": guarded_start_policy_patch_review_contract,
+            "guarded_start_human_review_contract": guarded_start_human_review_contract,
+            "guarded_start_final_enablement_gate": guarded_start_final_enablement_gate,
+            "guarded_start_policy_enablement_contract": guarded_start_policy_enablement_contract,
+            "guarded_start_activation_contract": guarded_start_activation_contract,
             "gates": {
                 "managed_env_placeholder_written": env_write.get("env_file_written") is True,
                 "managed_env_target_redacted": True,
@@ -229,6 +578,21 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 "runtime_policy_enablement_review_ready": runtime_policy_enablement_review.get("status") == "ready_for_real_start_adapter_review",
                 "real_start_adapter_review_contract_ready": real_start_adapter_review_contract.get("status") == "ready_for_reviewed_real_start_execution_contract",
                 "reviewed_real_start_execution_contract_ready": reviewed_real_start_execution_contract.get("status") == "ready_for_start_execution_implementation",
+                "final_start_executor_disabled_ready": final_start_executor_disabled.get("status") == "ready_disabled_by_default",
+                "final_start_executor_enablement_gate_ready": final_start_executor_enablement_gate.get("status") == "ready_for_supervised_start_execution_review",
+                "supervised_start_execution_review_ready": supervised_start_execution_review.get("status") == "ready_for_real_start_execution_contract",
+                "real_start_execution_contract_ready": real_start_execution_contract.get("status") == "ready_for_guarded_start_executor_implementation",
+                "guarded_start_executor_disabled_ready": guarded_start_executor_disabled.get("status") == "ready_disabled_by_default",
+                "guarded_start_executor_enablement_gate_ready": guarded_start_executor_enablement_gate.get("status") == "ready_for_reviewed_guarded_start_execution",
+                "reviewed_guarded_start_execution_contract_ready": reviewed_guarded_start_execution_contract.get("status") == "ready_for_guarded_start_dry_run_contract",
+                "guarded_start_dry_run_contract_ready": guarded_start_dry_run_contract.get("status") == "ready_for_guarded_start_simulation",
+                "guarded_start_simulation_contract_ready": guarded_start_simulation_contract.get("status") == "ready_for_guarded_start_runtime_handoff",
+                "guarded_start_runtime_handoff_contract_ready": guarded_start_runtime_handoff_contract.get("status") == "ready_for_guarded_start_policy_patch_review",
+                "guarded_start_policy_patch_review_contract_ready": guarded_start_policy_patch_review_contract.get("status") == "ready_for_guarded_start_human_review",
+                "guarded_start_human_review_contract_ready": guarded_start_human_review_contract.get("status") == "ready_for_guarded_start_final_enablement_gate",
+                "guarded_start_final_enablement_gate_ready": guarded_start_final_enablement_gate.get("status") == "ready_for_guarded_start_policy_enablement_contract",
+                "guarded_start_policy_enablement_contract_ready": guarded_start_policy_enablement_contract.get("status") == "ready_for_guarded_start_activation_contract",
+                "guarded_start_activation_contract_ready": guarded_start_activation_contract.get("status") == "ready_for_guarded_start_execution_attempt_contract",
                 "process_launch_disabled": True,
                 "provider_calls_forbidden": True,
                 "tool_calls_forbidden": True,
@@ -245,6 +609,21 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 "VOICE_DAEMON_RUNTIME_POLICY_ENABLEMENT_REVIEW_EVALUATED",
                 "VOICE_DAEMON_REAL_START_ADAPTER_REVIEW_CONTRACT_EVALUATED",
                 "VOICE_DAEMON_REVIEWED_REAL_START_EXECUTION_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_FINAL_START_EXECUTOR_DECLARED",
+                "VOICE_DAEMON_FINAL_START_ENABLEMENT_GATE_EVALUATED",
+                "VOICE_DAEMON_SUPERVISED_START_EXECUTION_REVIEWED",
+                "VOICE_DAEMON_REAL_START_EXECUTION_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_EXECUTOR_DECLARED",
+                "VOICE_DAEMON_GUARDED_START_ENABLEMENT_GATE_EVALUATED",
+                "VOICE_DAEMON_REVIEWED_GUARDED_START_EXECUTION_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_DRY_RUN_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_SIMULATION_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_RUNTIME_HANDOFF_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_POLICY_PATCH_REVIEW_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_HUMAN_REVIEW_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_FINAL_ENABLEMENT_GATE_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_POLICY_ENABLEMENT_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_ACTIVATION_CONTRACT_EVALUATED",
                 "VOICE_DAEMON_SUBPROCESS_START_BLOCKED",
             ],
         }
@@ -327,6 +706,21 @@ def _status(
     runtime_policy_enablement_review: Mapping[str, Any] | None = None,
     real_start_adapter_review_contract: Mapping[str, Any] | None = None,
     reviewed_real_start_execution_contract: Mapping[str, Any] | None = None,
+    final_start_executor_disabled: Mapping[str, Any] | None = None,
+    final_start_executor_enablement_gate: Mapping[str, Any] | None = None,
+    supervised_start_execution_review: Mapping[str, Any] | None = None,
+    real_start_execution_contract: Mapping[str, Any] | None = None,
+    guarded_start_executor_disabled: Mapping[str, Any] | None = None,
+    guarded_start_executor_enablement_gate: Mapping[str, Any] | None = None,
+    reviewed_guarded_start_execution_contract: Mapping[str, Any] | None = None,
+    guarded_start_dry_run_contract: Mapping[str, Any] | None = None,
+    guarded_start_simulation_contract: Mapping[str, Any] | None = None,
+    guarded_start_runtime_handoff_contract: Mapping[str, Any] | None = None,
+    guarded_start_policy_patch_review_contract: Mapping[str, Any] | None = None,
+    guarded_start_human_review_contract: Mapping[str, Any] | None = None,
+    guarded_start_final_enablement_gate: Mapping[str, Any] | None = None,
+    guarded_start_policy_enablement_contract: Mapping[str, Any] | None = None,
+    guarded_start_activation_contract: Mapping[str, Any] | None = None,
 ) -> str:
     if (
         pre_start_health_checks.get("status") == "passed_no_process_start"
@@ -354,6 +748,66 @@ def _status(
         and (
             reviewed_real_start_execution_contract is None
             or reviewed_real_start_execution_contract.get("status") == "ready_for_start_execution_implementation"
+        )
+        and (
+            final_start_executor_disabled is None
+            or final_start_executor_disabled.get("status") == "ready_disabled_by_default"
+        )
+        and (
+            final_start_executor_enablement_gate is None
+            or final_start_executor_enablement_gate.get("status") == "ready_for_supervised_start_execution_review"
+        )
+        and (
+            supervised_start_execution_review is None
+            or supervised_start_execution_review.get("status") == "ready_for_real_start_execution_contract"
+        )
+        and (
+            real_start_execution_contract is None
+            or real_start_execution_contract.get("status") == "ready_for_guarded_start_executor_implementation"
+        )
+        and (
+            guarded_start_executor_disabled is None
+            or guarded_start_executor_disabled.get("status") == "ready_disabled_by_default"
+        )
+        and (
+            guarded_start_executor_enablement_gate is None
+            or guarded_start_executor_enablement_gate.get("status") == "ready_for_reviewed_guarded_start_execution"
+        )
+        and (
+            reviewed_guarded_start_execution_contract is None
+            or reviewed_guarded_start_execution_contract.get("status") == "ready_for_guarded_start_dry_run_contract"
+        )
+        and (
+            guarded_start_dry_run_contract is None
+            or guarded_start_dry_run_contract.get("status") == "ready_for_guarded_start_simulation"
+        )
+        and (
+            guarded_start_simulation_contract is None
+            or guarded_start_simulation_contract.get("status") == "ready_for_guarded_start_runtime_handoff"
+        )
+        and (
+            guarded_start_runtime_handoff_contract is None
+            or guarded_start_runtime_handoff_contract.get("status") == "ready_for_guarded_start_policy_patch_review"
+        )
+        and (
+            guarded_start_policy_patch_review_contract is None
+            or guarded_start_policy_patch_review_contract.get("status") == "ready_for_guarded_start_human_review"
+        )
+        and (
+            guarded_start_human_review_contract is None
+            or guarded_start_human_review_contract.get("status") == "ready_for_guarded_start_final_enablement_gate"
+        )
+        and (
+            guarded_start_final_enablement_gate is None
+            or guarded_start_final_enablement_gate.get("status") == "ready_for_guarded_start_policy_enablement_contract"
+        )
+        and (
+            guarded_start_policy_enablement_contract is None
+            or guarded_start_policy_enablement_contract.get("status") == "ready_for_guarded_start_activation_contract"
+        )
+        and (
+            guarded_start_activation_contract is None
+            or guarded_start_activation_contract.get("status") == "ready_for_guarded_start_execution_attempt_contract"
         )
     ):
         return "passed_no_process_start"

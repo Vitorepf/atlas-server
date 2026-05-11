@@ -20,10 +20,11 @@ decisions:
   - It indexes a future non-execution chain only after the decision record final non-execution report template is ready.
   - It must not persist an archive index, report as persistence, accept persistence, allow persistence, persist a decision record, record a decision, notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize later cycle, reuse prior authorization, execute disable, mutate writer state, create writer files, write ledger, merge or dispatch.
 maintenance:
-  - Update before adding any durable writer candidate or archive persistence surface.
+  - Update before adding any human review packet, durable writer candidate or archive persistence surface.
 related_paths:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-final-non-execution-report-template.md
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-follow-up-observability-template.md
+  - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-human-review-packet-template.md
 owner: atlas-ai
 layer: 0.8-self-construction
 line_limit: 200
@@ -79,6 +80,7 @@ It must keep:
 - `decision_record_persistence_rejection_persisted=false`;
 - `decision_record_final_non_execution_report_persisted=false`;
 - `decision_record_archive_index_persisted=false`;
+- `decision_record_human_review_packet_persisted=false`;
 - `prior_authorization_reuse_allowed=false`;
 - `later_cycle_authorized=false`;
 - `human_notified=false`;
@@ -142,6 +144,14 @@ This template may describe future output names only:
 - later-cycle authorization durable writer candidate hash.
 
 None of these outputs are persisted or dispatched by this command.
+
+## Human Review Packet Handoff
+
+The next read-only surface may shape a human review packet from this archive
+index. That handoff must still keep `human_notified=false`,
+`human_task_created=false`, `manual_decision_requested=false`,
+`manual_decision_response_recorded=false`, and
+`decision_record_human_review_packet_persisted=false`.
 
 ## Human Meaning
 

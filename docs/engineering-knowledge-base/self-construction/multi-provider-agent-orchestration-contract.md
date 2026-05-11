@@ -17,6 +17,7 @@ capabilities:
   - governed_implementation
 decisions:
   - "Five Codex" is an operator shorthand; the architecture target is multiple providers consuming the same contract.
+  - Multi-provider work should coordinate through Obras Shared Workspace; provider chats are adapters, not shared state.
   - Atlas owns packet truth, scope, gates, evidence and completion; providers are replaceable executors.
   - Provider adapters may translate instructions but must not widen authority.
   - Evidence must be normalized before Atlas accepts completion from any provider.
@@ -24,6 +25,7 @@ maintenance:
   - Update before adding provider-specific start packets, automated dispatch, provider routing for implementation or evidence normalization runtime.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
+  - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md
   - docs/engineering-knowledge-base/self-construction/work-splitter-contract.md
   - docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md
@@ -54,6 +56,16 @@ Evidence is normalized before completion.
 
 Codex-specific surfaces are current operational adapters. They do not define the
 architecture boundary.
+
+## Shared Workspace Boundary
+
+The canonical shared office for multi-provider construction is Obras Shared
+Workspace. For Programming and Atlas Forge, call the specialization Forge
+Workspace.
+
+Providers should not pass long context to each other as the source of truth.
+They consume provider-specific packets and return normalized artifacts to the
+workspace. Atlas validates the workspace artifacts, not chat momentum.
 
 ## Universal Agent Contract
 

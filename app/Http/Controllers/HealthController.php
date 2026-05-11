@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AiYoutubeIngestion;
 use App\Models\TranscriptionJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\ExecutableFinder;
 
 class HealthController extends Controller
 {
@@ -40,6 +42,7 @@ class HealthController extends Controller
 
         $storage = $this->storageHealth();
         $transcription = $this->transcriptionHealth();
+        $youtube = $this->youtubeHealth($dbConnected);
 
         return response()->json([
             'status' => 'ok',
@@ -54,6 +57,7 @@ class HealthController extends Controller
                 ],
                 'storage' => $storage,
                 'transcription' => $transcription,
+                'youtube_ingestion' => $youtube,
                 'transcription_jobs' => $transcriptionJobs,
                 'scheduler' => [
                     'configured' => true,
@@ -61,6 +65,7 @@ class HealthController extends Controller
                 ],
                 'queue' => [
                     'connection' => config('queue.default'),
+                    'youtube_queue' => (string) config('atlas.youtube.queue', 'transcription'),
                     'transcription_queue' => 'transcription',
                     'note' => 'Queue worker must run composer queue or php artisan queue:work.',
                 ],
@@ -112,6 +117,69 @@ class HealthController extends Controller
             'ffmpeg_path' => $ffmpegPath,
             'ffmpeg_exists' => is_file($ffmpegPath),
             'ffmpeg_executable' => is_executable($ffmpegPath),
+        ];
+    }
+
+    private function youtubeHealth(bool $dbConnected): array
+    {
+        $summary = [
+            'ready' => 0,
+            'processing' => 0,
+            'failed' => 0,
+            'unavailable' => 0,
+        ];
+        $recent = [];
+
+        if ($dbConnected && Schema::hasTable('ai_youtube_ingestions')) {
+            $counts = AiYoutubeIngestion::query()
+                ->selectRaw('status, count(*) as aggregate')
+                ->groupBy('status')
+                ->pluck('aggregate', 'status');
+
+            foreach ($summary as $status => $_) {
+                $summary[$status] = (int) ($counts[$status] ?? 0);
+            }
+            $summary['unavailable'] = collect($counts)
+                ->reject(fn (mixed $_, string $status): bool => in_array($status, ['ready', 'processing'], true))
+                ->sum(fn (mixed $count): int => (int) $count);
+
+            $recent = AiYoutubeIngestion::query()
+                ->latest('last_ingested_at')
+                ->limit(5)
+                ->get(['video_id', 'title', 'channel', 'status', 'audio_fallback_status', 'chunk_count', 'transcript_chars', 'ingestion_ms', 'last_ingested_at'])
+                ->map(fn (AiYoutubeIngestion $item): array => [
+                    'video_id' => $item->video_id,
+                    'title' => $item->title,
+                    'channel' => $item->channel,
+                    'status' => $item->status,
+                    'audio_fallback_status' => $item->audio_fallback_status,
+                    'chunk_count' => $item->chunk_count,
+                    'transcript_chars' => $item->transcript_chars,
+                    'ingestion_ms' => $item->ingestion_ms,
+                    'last_ingested_at' => $item->last_ingested_at?->toJSON(),
+                ])
+                ->all();
+        }
+
+        $configuredYtDlp = (string) config('atlas.youtube.yt_dlp_binary', '');
+        $resolvedYtDlp = $configuredYtDlp !== '' && is_file($configuredYtDlp) && is_executable($configuredYtDlp)
+            ? $configuredYtDlp
+            : (new ExecutableFinder)->find('yt-dlp');
+
+        return [
+            'enabled' => (bool) config('atlas.youtube.enabled', true),
+            'data_api_enabled' => (bool) config('atlas.youtube.data_api_enabled', false),
+            'defer_audio_fallback' => (bool) config('atlas.youtube.defer_audio_fallback', true),
+            'audio_fallback_enabled' => (bool) config('atlas.youtube.audio_fallback_enabled', false) || (bool) config('atlas.transcription.enabled', false),
+            'yt_dlp_binary' => $resolvedYtDlp ?: 'missing',
+            'yt_dlp_configured_binary' => $configuredYtDlp !== '' ? $configuredYtDlp : null,
+            'whisper_timeout_seconds' => (int) config('atlas.transcription.timeout_seconds', 3600),
+            'processing_lock_minutes' => (int) config('atlas.youtube.processing_lock_minutes', 90),
+            'audio_download_timeout_seconds' => (int) config('atlas.youtube.audio_download_timeout_seconds', 300),
+            'audio_download_retries' => (int) config('atlas.youtube.audio_download_retries', 2),
+            'caption_download_retries' => (int) config('atlas.youtube.caption_download_retries', 2),
+            'summary' => $summary,
+            'recent' => $recent,
         ];
     }
 }

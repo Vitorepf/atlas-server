@@ -17,6 +17,8 @@ return [
             ? rtrim(env('WHISPER_MODELS_DIR', '/opt/whisper-models'), '/').'/ggml-large-v3-turbo.bin'
             : '/opt/whisper-models/ggml-large-v3-turbo.bin',
         'engine' => 'whisper-cpp-large-v3-turbo',
+        'timeout_seconds' => (int) env('WHISPER_TIMEOUT_SECONDS', 3600),
+        'normalize_timeout_seconds' => (int) env('WHISPER_NORMALIZE_TIMEOUT_SECONDS', 300),
     ],
 
     'youtube' => [
@@ -24,6 +26,7 @@ return [
         'data_api_enabled' => (bool) env('ATLAS_YOUTUBE_DATA_API_ENABLED', false),
         'data_api_key' => env('YOUTUBE_DATA_API_KEY'),
         'data_api_daily_unit_limit' => (int) env('ATLAS_YOUTUBE_DATA_API_DAILY_UNIT_LIMIT', 500),
+        'queue' => env('ATLAS_YOUTUBE_QUEUE', 'transcription'),
         'cache_enabled' => (bool) env('ATLAS_YOUTUBE_CACHE_ENABLED', true),
         'cache_ttl_days' => (int) env('ATLAS_YOUTUBE_CACHE_TTL_DAYS', 30),
         'yt_dlp_binary' => env('ATLAS_YOUTUBE_YTDLP_BINARY'),
@@ -36,8 +39,12 @@ return [
         'max_transcript_chars' => (int) env('ATLAS_YOUTUBE_MAX_TRANSCRIPT_CHARS', 120000),
         'audio_fallback_enabled' => (bool) env('ATLAS_YOUTUBE_AUDIO_FALLBACK_ENABLED', (bool) env('TRANSCRIPTION_ENABLED', false)),
         'defer_audio_fallback' => (bool) env('ATLAS_YOUTUBE_DEFER_AUDIO_FALLBACK', true),
-        'processing_lock_minutes' => (int) env('ATLAS_YOUTUBE_PROCESSING_LOCK_MINUTES', 60),
+        'processing_lock_minutes' => (int) env('ATLAS_YOUTUBE_PROCESSING_LOCK_MINUTES', 90),
         'audio_download_timeout_seconds' => (int) env('ATLAS_YOUTUBE_AUDIO_DOWNLOAD_TIMEOUT_SECONDS', 300),
+        'audio_download_retries' => (int) env('ATLAS_YOUTUBE_AUDIO_DOWNLOAD_RETRIES', 2),
+        'caption_download_retries' => (int) env('ATLAS_YOUTUBE_CAPTION_DOWNLOAD_RETRIES', 2),
+        'caption_download_retry_sleep_ms' => (int) env('ATLAS_YOUTUBE_CAPTION_DOWNLOAD_RETRY_SLEEP_MS', 700),
+        'audio_transcription_realtime_ratio' => (float) env('ATLAS_YOUTUBE_AUDIO_TRANSCRIPTION_REALTIME_RATIO', 0.65),
         'max_audio_duration_seconds' => (int) env('ATLAS_YOUTUBE_MAX_AUDIO_DURATION_SECONDS', 7200),
     ],
 
@@ -453,6 +460,8 @@ return [
         'timeout_seconds' => (int) env('ATLAS_AI_TIMEOUT_SECONDS', 600),
         'max_attempts' => (int) env('ATLAS_AI_MAX_ATTEMPTS', 1),
         'retry_delay_seconds' => (int) env('ATLAS_AI_RETRY_DELAY_SECONDS', 300),
+        'decision_receipt_ttl_seconds' => (int) env('ATLAS_AI_DECISION_RECEIPT_TTL_SECONDS', 7200),
+        'decision_receipt_refresh_window_seconds' => (int) env('ATLAS_AI_DECISION_RECEIPT_REFRESH_WINDOW_SECONDS', 21600),
         'context_note_limit' => (int) env('ATLAS_AI_CONTEXT_NOTE_LIMIT', 5),
         'context_excerpt_chars' => (int) env('ATLAS_AI_CONTEXT_EXCERPT_CHARS', 1200),
         'memory_registry_limit' => (int) env('ATLAS_AI_MEMORY_REGISTRY_LIMIT', 8),

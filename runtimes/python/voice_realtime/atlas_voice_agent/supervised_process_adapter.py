@@ -8,6 +8,28 @@ from .managed_env_writer import (
 )
 from .supervised_process_adapter_packet import validate_supervised_process_adapter_packet
 from .supervised_launch_execution import (
+    FINAL_START_EXECUTOR_DISABLED_SCHEMA_VERSION,
+    FINAL_START_EXECUTOR_ENABLEMENT_GATE_SCHEMA_VERSION,
+    GUARDED_START_ACTIVATION_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_ACTIVATION_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_DRY_RUN_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_DRY_RUN_PLAN_SCHEMA_VERSION,
+    GUARDED_START_FINAL_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_FINAL_ENABLEMENT_GATE_SCHEMA_VERSION,
+    GUARDED_START_HUMAN_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_HUMAN_REVIEW_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_POLICY_PATCH_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_POLICY_PATCH_REVIEW_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_POLICY_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_POLICY_ENABLEMENT_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_RUNTIME_HANDOFF_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_RUNTIME_HANDOFF_PLAN_SCHEMA_VERSION,
+    GUARDED_START_SIMULATION_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_SIMULATION_PLAN_SCHEMA_VERSION,
+    GUARDED_START_EXECUTOR_DISABLED_SCHEMA_VERSION,
+    GUARDED_START_EXECUTOR_ENABLEMENT_GATE_SCHEMA_VERSION,
+    REVIEWED_GUARDED_START_EXECUTION_CONTRACT_SCHEMA_VERSION,
+    REAL_START_EXECUTION_CONTRACT_SCHEMA_VERSION,
     REAL_START_ADAPTER_DISABLED_SCHEMA_VERSION,
     REAL_START_ADAPTER_REVIEW_CONTRACT_SCHEMA_VERSION,
     REAL_START_ENABLEMENT_GATE_SCHEMA_VERSION,
@@ -15,9 +37,25 @@ from .supervised_launch_execution import (
     REVIEWED_SUBPROCESS_START_EXECUTION_SCHEMA_VERSION,
     RUNTIME_POLICY_ENABLEMENT_REVIEW_SCHEMA_VERSION,
     SCHEMA_VERSION as SUPERVISED_LAUNCH_EXECUTION_SCHEMA_VERSION,
+    SUPERVISED_START_EXECUTION_REVIEW_SCHEMA_VERSION,
     inspect_real_start_adapter_enablement_gate,
     inspect_real_start_adapter_disabled_by_default,
     inspect_real_start_adapter_review_contract,
+    inspect_final_start_executor_disabled_by_default,
+    inspect_final_start_executor_enablement_gate,
+    inspect_guarded_start_activation_contract,
+    inspect_guarded_start_dry_run_contract,
+    inspect_guarded_start_final_enablement_gate_contract,
+    inspect_guarded_start_human_review_contract,
+    inspect_guarded_start_policy_enablement_contract,
+    inspect_guarded_start_policy_patch_review_contract,
+    inspect_guarded_start_runtime_handoff_contract,
+    inspect_guarded_start_simulation_contract,
+    inspect_guarded_start_executor_disabled_by_default,
+    inspect_guarded_start_executor_enablement_gate,
+    inspect_reviewed_guarded_start_execution_contract,
+    inspect_real_start_execution_contract,
+    inspect_supervised_start_execution_review,
     inspect_reviewed_subprocess_start_execution,
     inspect_reviewed_real_start_execution_contract,
     inspect_runtime_policy_enablement_review,
@@ -88,6 +126,178 @@ class AtlasVoiceSupervisedProcessAdapter:
         reviewed_real_start_execution_contract = inspect_reviewed_real_start_execution_contract(
             real_start_adapter_review_contract=real_start_adapter_review_contract,
         )
+        final_start_executor_disabled = inspect_final_start_executor_disabled_by_default(
+            reviewed_real_start_execution_contract=reviewed_real_start_execution_contract,
+        )
+        final_start_executor_enablement_gate = inspect_final_start_executor_enablement_gate(
+            final_start_executor_disabled=final_start_executor_disabled,
+        )
+        supervised_start_execution_review = inspect_supervised_start_execution_review(
+            final_start_executor_enablement_gate=final_start_executor_enablement_gate,
+        )
+        real_start_execution_contract = inspect_real_start_execution_contract(
+            supervised_start_execution_review=supervised_start_execution_review,
+        )
+        guarded_start_executor_disabled = inspect_guarded_start_executor_disabled_by_default(
+            real_start_execution_contract=real_start_execution_contract,
+        )
+        guarded_start_executor_enablement_gate = inspect_guarded_start_executor_enablement_gate(
+            guarded_start_executor_disabled=guarded_start_executor_disabled,
+        )
+        reviewed_guarded_start_execution_contract = inspect_reviewed_guarded_start_execution_contract(
+            guarded_start_executor_enablement_gate=guarded_start_executor_enablement_gate,
+        )
+        guarded_start_dry_run_contract = inspect_guarded_start_dry_run_contract(
+            reviewed_guarded_start_execution_contract=reviewed_guarded_start_execution_contract,
+            guarded_start_dry_run_plan={
+                "schema_version": GUARDED_START_DRY_RUN_PLAN_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_dry_run_contract",
+                "dry_run_only": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "simulated_pid_file_guard_passed": True,
+                "simulated_startup_timeout_ms": 5000,
+                "stdout_stderr_sanitization_simulated": True,
+                "post_start_ready_event_simulated": True,
+                "rollback_rehearsal_reference_attached": True,
+                "decision_receipt_id": "decision_receipt_process_adapter_guarded_start_dry_run",
+            },
+        )
+        guarded_start_simulation_contract = inspect_guarded_start_simulation_contract(
+            guarded_start_dry_run_contract=guarded_start_dry_run_contract,
+            guarded_start_simulation_plan={
+                "schema_version": GUARDED_START_SIMULATION_PLAN_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_simulation_contract",
+                "simulation_only": True,
+                "dry_run_only": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "synthetic_lifecycle_simulated": True,
+                "synthetic_ready_probe_passed": True,
+                "synthetic_exit_code": 0,
+                "decision_receipt_id": "decision_receipt_process_adapter_guarded_start_simulation",
+            },
+        )
+        guarded_start_runtime_handoff_contract = inspect_guarded_start_runtime_handoff_contract(
+            guarded_start_simulation_contract=guarded_start_simulation_contract,
+            guarded_start_runtime_handoff_plan={
+                "schema_version": GUARDED_START_RUNTIME_HANDOFF_PLAN_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_runtime_handoff_contract",
+                "runtime_handoff_contract_allowed": True,
+                "runtime_family": "python_ai_data",
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "kernel_runtime_invocation_contract_attached": True,
+                "evidence_sink_attached": True,
+                "rollback_plan_attached": True,
+                "policy_patch_review_required": True,
+                "human_review_required": True,
+                "decision_receipt_id": "decision_receipt_process_adapter_guarded_start_runtime_handoff",
+            },
+        )
+        guarded_start_policy_patch_review_contract = inspect_guarded_start_policy_patch_review_contract(
+            guarded_start_runtime_handoff_contract=guarded_start_runtime_handoff_contract,
+            policy_patch_review_authorization={
+                "schema_version": GUARDED_START_POLICY_PATCH_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_policy_patch_review_contract",
+                "policy_patch_review_contract_allowed": True,
+                "runtime_policy_start_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "policy_patch_diff_attached": True,
+                "policy_patch_dry_run_passed": True,
+                "rollback_plan_attached": True,
+                "human_review_required": True,
+                "decision_receipt_required": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_process_adapter_guarded_start_policy_patch_review",
+            },
+        )
+        guarded_start_human_review_contract = inspect_guarded_start_human_review_contract(
+            guarded_start_policy_patch_review_contract=guarded_start_policy_patch_review_contract,
+            human_review_authorization={
+                "schema_version": GUARDED_START_HUMAN_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_human_review_contract",
+                "human_review_contract_allowed": True,
+                "human_review_completed": True,
+                "operator_approved_policy_patch": True,
+                "runtime_policy_start_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "rollback_plan_reviewed": True,
+                "decision_receipt_required": True,
+                "final_enablement_gate_required": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_process_adapter_guarded_start_human_review",
+            },
+        )
+        guarded_start_final_enablement_gate = inspect_guarded_start_final_enablement_gate_contract(
+            guarded_start_human_review_contract=guarded_start_human_review_contract,
+            final_enablement_authorization={
+                "schema_version": GUARDED_START_FINAL_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_final_enablement_gate",
+                "final_enablement_gate_allowed": True,
+                "runtime_policy_start_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "human_review_contract_attached": True,
+                "final_pre_start_receipt_attached": True,
+                "single_start_per_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "rollback_rehearsal_passed": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_process_adapter_guarded_start_final_enablement",
+            },
+        )
+        guarded_start_policy_enablement_contract = inspect_guarded_start_policy_enablement_contract(
+            guarded_start_final_enablement_gate=guarded_start_final_enablement_gate,
+            policy_enablement_authorization={
+                "schema_version": GUARDED_START_POLICY_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_policy_enablement_contract",
+                "policy_enablement_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "final_enablement_gate_attached": True,
+                "human_review_contract_attached": True,
+                "rollback_plan_attached": True,
+                "single_start_per_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "policy_revoke_supported": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_process_adapter_guarded_start_policy_enablement",
+            },
+        )
+        guarded_start_activation_contract = inspect_guarded_start_activation_contract(
+            guarded_start_policy_enablement_contract=guarded_start_policy_enablement_contract,
+            activation_authorization={
+                "schema_version": GUARDED_START_ACTIVATION_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_activation_contract",
+                "activation_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "policy_enablement_contract_attached": True,
+                "final_enablement_gate_attached": True,
+                "human_review_contract_attached": True,
+                "activation_window_declared": True,
+                "operator_activation_review_required": True,
+                "post_start_observability_required": True,
+                "rollback_plan_attached": True,
+                "policy_revoke_supported": True,
+                "single_start_per_receipt_required": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_process_adapter_guarded_start_activation",
+            },
+        )
 
         return validate_supervised_process_adapter_packet({
             "schema_version": SCHEMA_VERSION,
@@ -121,6 +331,21 @@ class AtlasVoiceSupervisedProcessAdapter:
                 "inspect_runtime_policy_enablement_review",
                 "inspect_real_start_adapter_review_contract",
                 "inspect_reviewed_real_start_execution_contract",
+                "inspect_final_start_executor_disabled_by_default",
+                "inspect_final_start_executor_enablement_gate",
+                "inspect_supervised_start_execution_review",
+                "inspect_real_start_execution_contract",
+                "inspect_guarded_start_executor_disabled_by_default",
+                "inspect_guarded_start_executor_enablement_gate",
+                "inspect_reviewed_guarded_start_execution_contract",
+                "inspect_guarded_start_dry_run_contract",
+                "inspect_guarded_start_simulation_contract",
+                "inspect_guarded_start_runtime_handoff_contract",
+                "inspect_guarded_start_policy_patch_review_contract",
+                "inspect_guarded_start_human_review_contract",
+                "inspect_guarded_start_final_enablement_gate_contract",
+                "inspect_guarded_start_policy_enablement_contract",
+                "inspect_guarded_start_activation_contract",
             ],
             "gates": {
                 "supervisor_execution_ready": ready,
@@ -231,6 +456,212 @@ class AtlasVoiceSupervisedProcessAdapter:
                     and reviewed_real_start_execution_contract.get("subprocess_module_imported") is False
                     and reviewed_real_start_execution_contract.get("livekit_sdk_imported") is False
                 ),
+                "final_start_executor_disabled_available": (
+                    final_start_executor_disabled.get("schema_version") == FINAL_START_EXECUTOR_DISABLED_SCHEMA_VERSION
+                    and final_start_executor_disabled.get("final_start_executor_contract_implemented") is True
+                    and final_start_executor_disabled.get("final_start_executor_enabled") is False
+                    and final_start_executor_disabled.get("runtime_policy_start_enabled") is False
+                    and final_start_executor_disabled.get("real_start_adapter_enabled") is False
+                    and final_start_executor_disabled.get("start_execution_allowed") is False
+                    and final_start_executor_disabled.get("real_subprocess_start_implemented") is False
+                    and final_start_executor_disabled.get("process_launch_attempted") is False
+                    and final_start_executor_disabled.get("daemon_started") is False
+                    and final_start_executor_disabled.get("subprocess_module_imported") is False
+                    and final_start_executor_disabled.get("livekit_sdk_imported") is False
+                ),
+                "final_start_executor_enablement_gate_available": (
+                    final_start_executor_enablement_gate.get("schema_version") == FINAL_START_EXECUTOR_ENABLEMENT_GATE_SCHEMA_VERSION
+                    and final_start_executor_enablement_gate.get("final_start_executor_enablement_gate_implemented") is True
+                    and final_start_executor_enablement_gate.get("final_start_executor_enabled") is False
+                    and final_start_executor_enablement_gate.get("runtime_policy_start_enabled") is False
+                    and final_start_executor_enablement_gate.get("real_start_adapter_enabled") is False
+                    and final_start_executor_enablement_gate.get("start_execution_allowed") is False
+                    and final_start_executor_enablement_gate.get("real_subprocess_start_implemented") is False
+                    and final_start_executor_enablement_gate.get("process_launch_attempted") is False
+                    and final_start_executor_enablement_gate.get("daemon_started") is False
+                    and final_start_executor_enablement_gate.get("subprocess_module_imported") is False
+                    and final_start_executor_enablement_gate.get("livekit_sdk_imported") is False
+                ),
+                "supervised_start_execution_review_available": (
+                    supervised_start_execution_review.get("schema_version") == SUPERVISED_START_EXECUTION_REVIEW_SCHEMA_VERSION
+                    and supervised_start_execution_review.get("supervised_start_execution_review_implemented") is True
+                    and supervised_start_execution_review.get("final_start_executor_enabled") is False
+                    and supervised_start_execution_review.get("runtime_policy_start_enabled") is False
+                    and supervised_start_execution_review.get("real_start_adapter_enabled") is False
+                    and supervised_start_execution_review.get("start_execution_allowed") is False
+                    and supervised_start_execution_review.get("real_subprocess_start_implemented") is False
+                    and supervised_start_execution_review.get("process_launch_attempted") is False
+                    and supervised_start_execution_review.get("daemon_started") is False
+                    and supervised_start_execution_review.get("subprocess_module_imported") is False
+                    and supervised_start_execution_review.get("livekit_sdk_imported") is False
+                ),
+                "real_start_execution_contract_available": (
+                    real_start_execution_contract.get("schema_version") == REAL_START_EXECUTION_CONTRACT_SCHEMA_VERSION
+                    and real_start_execution_contract.get("real_start_execution_contract_implemented") is True
+                    and real_start_execution_contract.get("guarded_start_executor_implemented") is False
+                    and real_start_execution_contract.get("final_start_executor_enabled") is False
+                    and real_start_execution_contract.get("runtime_policy_start_enabled") is False
+                    and real_start_execution_contract.get("real_start_adapter_enabled") is False
+                    and real_start_execution_contract.get("start_execution_allowed") is False
+                    and real_start_execution_contract.get("real_subprocess_start_implemented") is False
+                    and real_start_execution_contract.get("process_launch_attempted") is False
+                    and real_start_execution_contract.get("daemon_started") is False
+                    and real_start_execution_contract.get("subprocess_module_imported") is False
+                    and real_start_execution_contract.get("livekit_sdk_imported") is False
+                ),
+                "guarded_start_executor_disabled_available": (
+                    guarded_start_executor_disabled.get("schema_version") == GUARDED_START_EXECUTOR_DISABLED_SCHEMA_VERSION
+                    and guarded_start_executor_disabled.get("guarded_start_executor_contract_implemented") is True
+                    and guarded_start_executor_disabled.get("guarded_start_executor_enabled") is False
+                    and guarded_start_executor_disabled.get("guarded_start_executor_implemented") is False
+                    and guarded_start_executor_disabled.get("final_start_executor_enabled") is False
+                    and guarded_start_executor_disabled.get("runtime_policy_start_enabled") is False
+                    and guarded_start_executor_disabled.get("real_start_adapter_enabled") is False
+                    and guarded_start_executor_disabled.get("start_execution_allowed") is False
+                    and guarded_start_executor_disabled.get("real_subprocess_start_implemented") is False
+                    and guarded_start_executor_disabled.get("process_launch_attempted") is False
+                    and guarded_start_executor_disabled.get("daemon_started") is False
+                    and guarded_start_executor_disabled.get("subprocess_module_imported") is False
+                    and guarded_start_executor_disabled.get("livekit_sdk_imported") is False
+                ),
+                "guarded_start_executor_enablement_gate_available": (
+                    guarded_start_executor_enablement_gate.get("schema_version") == GUARDED_START_EXECUTOR_ENABLEMENT_GATE_SCHEMA_VERSION
+                    and guarded_start_executor_enablement_gate.get("guarded_start_executor_enablement_gate_implemented") is True
+                    and guarded_start_executor_enablement_gate.get("guarded_start_executor_enabled") is False
+                    and guarded_start_executor_enablement_gate.get("guarded_start_executor_implemented") is False
+                    and guarded_start_executor_enablement_gate.get("final_start_executor_enabled") is False
+                    and guarded_start_executor_enablement_gate.get("runtime_policy_start_enabled") is False
+                    and guarded_start_executor_enablement_gate.get("real_start_adapter_enabled") is False
+                    and guarded_start_executor_enablement_gate.get("start_execution_allowed") is False
+                    and guarded_start_executor_enablement_gate.get("real_subprocess_start_implemented") is False
+                    and guarded_start_executor_enablement_gate.get("process_launch_attempted") is False
+                    and guarded_start_executor_enablement_gate.get("daemon_started") is False
+                    and guarded_start_executor_enablement_gate.get("subprocess_module_imported") is False
+                    and guarded_start_executor_enablement_gate.get("livekit_sdk_imported") is False
+                ),
+                "reviewed_guarded_start_execution_contract_available": (
+                    reviewed_guarded_start_execution_contract.get("schema_version") == REVIEWED_GUARDED_START_EXECUTION_CONTRACT_SCHEMA_VERSION
+                    and reviewed_guarded_start_execution_contract.get("reviewed_guarded_start_execution_contract_implemented") is True
+                    and reviewed_guarded_start_execution_contract.get("guarded_start_executor_enabled") is False
+                    and reviewed_guarded_start_execution_contract.get("guarded_start_executor_implemented") is False
+                    and reviewed_guarded_start_execution_contract.get("final_start_executor_enabled") is False
+                    and reviewed_guarded_start_execution_contract.get("runtime_policy_start_enabled") is False
+                    and reviewed_guarded_start_execution_contract.get("real_start_adapter_enabled") is False
+                    and reviewed_guarded_start_execution_contract.get("start_execution_allowed") is False
+                    and reviewed_guarded_start_execution_contract.get("real_subprocess_start_implemented") is False
+                    and reviewed_guarded_start_execution_contract.get("process_launch_attempted") is False
+                    and reviewed_guarded_start_execution_contract.get("daemon_started") is False
+                    and reviewed_guarded_start_execution_contract.get("subprocess_module_imported") is False
+                    and reviewed_guarded_start_execution_contract.get("livekit_sdk_imported") is False
+                ),
+                "guarded_start_dry_run_contract_available": (
+                    guarded_start_dry_run_contract.get("schema_version") == GUARDED_START_DRY_RUN_CONTRACT_SCHEMA_VERSION
+                    and guarded_start_dry_run_contract.get("guarded_start_dry_run_contract_implemented") is True
+                    and guarded_start_dry_run_contract.get("dry_run_only") is True
+                    and guarded_start_dry_run_contract.get("guarded_start_executor_enabled") is False
+                    and guarded_start_dry_run_contract.get("guarded_start_executor_implemented") is False
+                    and guarded_start_dry_run_contract.get("start_execution_allowed") is False
+                    and guarded_start_dry_run_contract.get("real_subprocess_start_implemented") is False
+                    and guarded_start_dry_run_contract.get("process_launch_attempted") is False
+                    and guarded_start_dry_run_contract.get("daemon_started") is False
+                    and guarded_start_dry_run_contract.get("subprocess_module_imported") is False
+                    and guarded_start_dry_run_contract.get("livekit_sdk_imported") is False
+                ),
+                "guarded_start_simulation_contract_available": (
+                    guarded_start_simulation_contract.get("schema_version") == GUARDED_START_SIMULATION_CONTRACT_SCHEMA_VERSION
+                    and guarded_start_simulation_contract.get("guarded_start_simulation_contract_implemented") is True
+                    and guarded_start_simulation_contract.get("simulation_only") is True
+                    and guarded_start_simulation_contract.get("dry_run_only") is True
+                    and guarded_start_simulation_contract.get("guarded_start_executor_enabled") is False
+                    and guarded_start_simulation_contract.get("guarded_start_executor_implemented") is False
+                    and guarded_start_simulation_contract.get("start_execution_allowed") is False
+                    and guarded_start_simulation_contract.get("real_subprocess_start_implemented") is False
+                    and guarded_start_simulation_contract.get("process_launch_attempted") is False
+                    and guarded_start_simulation_contract.get("daemon_started") is False
+                    and guarded_start_simulation_contract.get("subprocess_module_imported") is False
+                    and guarded_start_simulation_contract.get("livekit_sdk_imported") is False
+                ),
+                "guarded_start_runtime_handoff_contract_available": (
+                    guarded_start_runtime_handoff_contract.get("schema_version") == GUARDED_START_RUNTIME_HANDOFF_CONTRACT_SCHEMA_VERSION
+                    and guarded_start_runtime_handoff_contract.get("guarded_start_runtime_handoff_contract_implemented") is True
+                    and guarded_start_runtime_handoff_contract.get("runtime_handoff_contract_only") is True
+                    and guarded_start_runtime_handoff_contract.get("guarded_start_executor_enabled") is False
+                    and guarded_start_runtime_handoff_contract.get("guarded_start_executor_implemented") is False
+                    and guarded_start_runtime_handoff_contract.get("start_execution_allowed") is False
+                    and guarded_start_runtime_handoff_contract.get("real_subprocess_start_implemented") is False
+                    and guarded_start_runtime_handoff_contract.get("process_launch_attempted") is False
+                    and guarded_start_runtime_handoff_contract.get("daemon_started") is False
+                    and guarded_start_runtime_handoff_contract.get("subprocess_module_imported") is False
+                    and guarded_start_runtime_handoff_contract.get("livekit_sdk_imported") is False
+                ),
+                "guarded_start_policy_patch_review_contract_available": (
+                    guarded_start_policy_patch_review_contract.get("schema_version") == GUARDED_START_POLICY_PATCH_REVIEW_CONTRACT_SCHEMA_VERSION
+                    and guarded_start_policy_patch_review_contract.get("guarded_start_policy_patch_review_contract_implemented") is True
+                    and guarded_start_policy_patch_review_contract.get("policy_patch_review_only") is True
+                    and guarded_start_policy_patch_review_contract.get("guarded_start_executor_enabled") is False
+                    and guarded_start_policy_patch_review_contract.get("guarded_start_executor_implemented") is False
+                    and guarded_start_policy_patch_review_contract.get("runtime_policy_start_enabled") is False
+                    and guarded_start_policy_patch_review_contract.get("start_execution_allowed") is False
+                    and guarded_start_policy_patch_review_contract.get("real_subprocess_start_implemented") is False
+                    and guarded_start_policy_patch_review_contract.get("process_launch_attempted") is False
+                    and guarded_start_policy_patch_review_contract.get("daemon_started") is False
+                    and guarded_start_policy_patch_review_contract.get("subprocess_module_imported") is False
+                    and guarded_start_policy_patch_review_contract.get("livekit_sdk_imported") is False
+                ),
+                "guarded_start_human_review_contract_available": (
+                    guarded_start_human_review_contract.get("schema_version") == GUARDED_START_HUMAN_REVIEW_CONTRACT_SCHEMA_VERSION
+                    and guarded_start_human_review_contract.get("guarded_start_human_review_contract_implemented") is True
+                    and guarded_start_human_review_contract.get("human_review_contract_only") is True
+                    and guarded_start_human_review_contract.get("guarded_start_executor_enabled") is False
+                    and guarded_start_human_review_contract.get("guarded_start_executor_implemented") is False
+                    and guarded_start_human_review_contract.get("runtime_policy_start_enabled") is False
+                    and guarded_start_human_review_contract.get("start_execution_allowed") is False
+                    and guarded_start_human_review_contract.get("real_subprocess_start_implemented") is False
+                    and guarded_start_human_review_contract.get("process_launch_attempted") is False
+                    and guarded_start_human_review_contract.get("daemon_started") is False
+                    and guarded_start_human_review_contract.get("subprocess_module_imported") is False
+                    and guarded_start_human_review_contract.get("livekit_sdk_imported") is False
+                ),
+                "guarded_start_final_enablement_gate_available": (
+                    guarded_start_final_enablement_gate.get("schema_version") == GUARDED_START_FINAL_ENABLEMENT_GATE_SCHEMA_VERSION
+                    and guarded_start_final_enablement_gate.get("guarded_start_final_enablement_gate_implemented") is True
+                    and guarded_start_final_enablement_gate.get("final_enablement_gate_only") is True
+                    and guarded_start_final_enablement_gate.get("guarded_start_executor_enabled") is False
+                    and guarded_start_final_enablement_gate.get("guarded_start_executor_implemented") is False
+                    and guarded_start_final_enablement_gate.get("runtime_policy_start_enabled") is False
+                    and guarded_start_final_enablement_gate.get("start_execution_allowed") is False
+                    and guarded_start_final_enablement_gate.get("real_subprocess_start_implemented") is False
+                    and guarded_start_final_enablement_gate.get("process_launch_attempted") is False
+                    and guarded_start_final_enablement_gate.get("daemon_started") is False
+                    and guarded_start_final_enablement_gate.get("subprocess_module_imported") is False
+                    and guarded_start_final_enablement_gate.get("livekit_sdk_imported") is False
+                ),
+                "guarded_start_policy_enablement_contract_available": (
+                    guarded_start_policy_enablement_contract.get("schema_version") == GUARDED_START_POLICY_ENABLEMENT_CONTRACT_SCHEMA_VERSION
+                    and guarded_start_policy_enablement_contract.get("guarded_start_policy_enablement_contract_implemented") is True
+                    and guarded_start_policy_enablement_contract.get("policy_enablement_contract_only") is True
+                    and guarded_start_policy_enablement_contract.get("guarded_start_executor_enabled") is False
+                    and guarded_start_policy_enablement_contract.get("guarded_start_executor_implemented") is False
+                    and guarded_start_policy_enablement_contract.get("start_execution_allowed") is False
+                    and guarded_start_policy_enablement_contract.get("real_subprocess_start_implemented") is False
+                    and guarded_start_policy_enablement_contract.get("process_launch_attempted") is False
+                    and guarded_start_policy_enablement_contract.get("daemon_started") is False
+                    and guarded_start_policy_enablement_contract.get("subprocess_module_imported") is False
+                    and guarded_start_policy_enablement_contract.get("livekit_sdk_imported") is False
+                ),
+                "guarded_start_activation_contract_available": (
+                    guarded_start_activation_contract.get("schema_version") == GUARDED_START_ACTIVATION_CONTRACT_SCHEMA_VERSION
+                    and guarded_start_activation_contract.get("guarded_start_activation_contract_implemented") is True
+                    and guarded_start_activation_contract.get("activation_contract_only") is True
+                    and guarded_start_activation_contract.get("guarded_start_executor_enabled") is False
+                    and guarded_start_activation_contract.get("guarded_start_executor_implemented") is False
+                    and guarded_start_activation_contract.get("start_execution_allowed") is False
+                    and guarded_start_activation_contract.get("real_subprocess_start_implemented") is False
+                    and guarded_start_activation_contract.get("process_launch_attempted") is False
+                    and guarded_start_activation_contract.get("daemon_started") is False
+                    and guarded_start_activation_contract.get("subprocess_module_imported") is False
+                    and guarded_start_activation_contract.get("livekit_sdk_imported") is False
+                ),
                 "provider_calls_forbidden": True,
                 "tool_calls_forbidden": True,
             },
@@ -245,6 +676,21 @@ class AtlasVoiceSupervisedProcessAdapter:
             "runtime_policy_enablement_review": runtime_policy_enablement_review,
             "real_start_adapter_review_contract": real_start_adapter_review_contract,
             "reviewed_real_start_execution_contract": reviewed_real_start_execution_contract,
+            "final_start_executor_disabled": final_start_executor_disabled,
+            "final_start_executor_enablement_gate": final_start_executor_enablement_gate,
+            "supervised_start_execution_review": supervised_start_execution_review,
+            "real_start_execution_contract": real_start_execution_contract,
+            "guarded_start_executor_disabled": guarded_start_executor_disabled,
+            "guarded_start_executor_enablement_gate": guarded_start_executor_enablement_gate,
+            "reviewed_guarded_start_execution_contract": reviewed_guarded_start_execution_contract,
+            "guarded_start_dry_run_contract": guarded_start_dry_run_contract,
+            "guarded_start_simulation_contract": guarded_start_simulation_contract,
+            "guarded_start_runtime_handoff_contract": guarded_start_runtime_handoff_contract,
+            "guarded_start_policy_patch_review_contract": guarded_start_policy_patch_review_contract,
+            "guarded_start_human_review_contract": guarded_start_human_review_contract,
+            "guarded_start_final_enablement_gate": guarded_start_final_enablement_gate,
+            "guarded_start_policy_enablement_contract": guarded_start_policy_enablement_contract,
+            "guarded_start_activation_contract": guarded_start_activation_contract,
             "health_snapshot": self.capture_health_snapshot(
                 supervisor_execution=supervisor_execution,
                 lifecycle_state="preflight" if ready else "planned",
@@ -264,6 +710,21 @@ class AtlasVoiceSupervisedProcessAdapter:
                 "VOICE_DAEMON_RUNTIME_POLICY_ENABLEMENT_REVIEW_EVALUATED",
                 "VOICE_DAEMON_REAL_START_ADAPTER_REVIEW_CONTRACT_EVALUATED",
                 "VOICE_DAEMON_REVIEWED_REAL_START_EXECUTION_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_FINAL_START_EXECUTOR_DECLARED",
+                "VOICE_DAEMON_FINAL_START_ENABLEMENT_GATE_EVALUATED",
+                "VOICE_DAEMON_SUPERVISED_START_EXECUTION_REVIEWED",
+                "VOICE_DAEMON_REAL_START_EXECUTION_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_EXECUTOR_DECLARED",
+                "VOICE_DAEMON_GUARDED_START_ENABLEMENT_GATE_EVALUATED",
+                "VOICE_DAEMON_REVIEWED_GUARDED_START_EXECUTION_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_DRY_RUN_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_SIMULATION_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_RUNTIME_HANDOFF_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_POLICY_PATCH_REVIEW_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_HUMAN_REVIEW_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_FINAL_ENABLEMENT_GATE_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_POLICY_ENABLEMENT_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_ACTIVATION_CONTRACT_EVALUATED",
                 "VOICE_DAEMON_START_BLOCKED",
             ],
             "next_action": "implement_subprocess_start_contract_prerequisites" if ready else "fix_supervised_process_adapter_prerequisites",

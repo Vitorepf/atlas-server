@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use RuntimeException;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -57,8 +58,13 @@ class WhisperTranscriber
             }
 
             $process = new Process($args);
-            $process->setTimeout(600);
-            $process->run();
+            $timeout = max(600, (int) config('atlas.transcription.timeout_seconds', 1800));
+            $process->setTimeout($timeout);
+            try {
+                $process->run();
+            } catch (ProcessTimedOutException) {
+                throw new RuntimeException("Whisper transcription timed out after {$timeout}s.");
+            }
 
             if (! $process->isSuccessful()) {
                 throw new RuntimeException($this->processError($process, 'Whisper transcription failed.'));
@@ -96,8 +102,13 @@ class WhisperTranscriber
             'pcm_s16le',
             $outputPath,
         ]);
-        $process->setTimeout(120);
-        $process->run();
+        $timeout = max(120, (int) config('atlas.transcription.normalize_timeout_seconds', 300));
+        $process->setTimeout($timeout);
+        try {
+            $process->run();
+        } catch (ProcessTimedOutException) {
+            throw new RuntimeException("Audio normalization timed out after {$timeout}s.");
+        }
 
         if (! $process->isSuccessful()) {
             throw new RuntimeException($this->processError($process, 'Audio normalization failed.'));

@@ -191,6 +191,49 @@ class YouTubeKnowledgeIngestionService
         ]));
     }
 
+    public function markBackgroundIngestionFailed(string $url, Throwable $exception): void
+    {
+        if (! Schema::hasTable('ai_youtube_ingestions')) {
+            return;
+        }
+
+        $videoId = $this->videoIdFromUrl($url);
+        if ($videoId === null) {
+            return;
+        }
+
+        $stored = AiYoutubeIngestion::query()->where('video_id', $videoId)->first();
+        if (! $stored || $stored->status === 'ready') {
+            $this->clearProcessingLock(['url' => $url, 'status' => 'failed']);
+
+            return;
+        }
+
+        $diagnostics = is_array($stored->diagnostics ?? null) ? $stored->diagnostics : [];
+        $message = Str::limit($exception->getMessage(), 500, '');
+
+        $stored->update([
+            'status' => 'failed',
+            'reason' => $message !== ''
+                ? 'YouTube audio transcription failed in background: '.$message
+                : 'YouTube audio transcription failed in background.',
+            'audio_fallback_status' => 'failed',
+            'diagnostics' => array_filter([
+                ...$diagnostics,
+                'processing' => null,
+                'audio_fallback' => [
+                    'status' => 'failed',
+                    'reason' => $message,
+                    'exception_class' => $exception::class,
+                    'failed_at' => now()->toIso8601String(),
+                ],
+            ], fn (mixed $value): bool => $value !== null && $value !== []),
+            'last_ingested_at' => now(),
+        ]);
+
+        $this->clearProcessingLock(['url' => $stored->url, 'status' => 'failed']);
+    }
+
     /**
      * @return array<int,array<string,mixed>>
      */
@@ -199,6 +242,10 @@ class YouTubeKnowledgeIngestionService
         $trimmed = trim($body);
         if ($trimmed === '') {
             return [];
+        }
+
+        if (str_starts_with($trimmed, 'WEBVTT')) {
+            return $this->parseVttSegments($trimmed);
         }
 
         if ($ext === 'json3' || str_starts_with($trimmed, '{')) {
@@ -368,6 +415,7 @@ class YouTubeKnowledgeIngestionService
                 'chunks' => $stored->chunks ?? [],
                 'transcript_chars' => $stored->transcript_chars,
                 'audio_fallback' => $audioFallback,
+                'diagnostics' => $diagnostics,
                 'cache_hit' => true,
                 'stored_hit' => true,
                 'limits' => [
@@ -385,18 +433,39 @@ class YouTubeKnowledgeIngestionService
         }
 
         if ($allowProcessing && $stored->status === 'processing') {
+            if ($this->storedProcessingIsStale($stored)) {
+                $stored->update([
+                    'status' => 'processing_stale',
+                    'reason' => 'YouTube audio transcription exceeded the processing window and will be retried.',
+                    'audio_fallback_status' => 'stale',
+                    'last_ingested_at' => now(),
+                ]);
+                $this->clearProcessingLock(['url' => $stored->url, 'status' => 'processing_stale']);
+
+                return null;
+            }
+
+            $metadata = $stored->metadata ?? [];
+            $diagnostics = is_array($stored->diagnostics ?? null) ? $stored->diagnostics : [];
+            $processing = $this->processingDiagnostics(
+                $metadata,
+                $stored->last_ingested_at?->getTimestamp() ?? $stored->updated_at?->getTimestamp(),
+            );
+
             return [
                 'url' => $stored->url,
                 'status' => 'processing',
                 'reason' => $stored->reason ?: 'YouTube audio transcription is still processing.',
                 'ingestion_ms' => $this->elapsedMs($startedAt),
-                'metadata' => $stored->metadata ?? [],
+                'metadata' => $metadata,
                 'caption' => $stored->caption,
                 'chunks' => [],
                 'audio_fallback' => [
                     'status' => 'queued',
                     'reason' => 'Whisper audio fallback is running in background.',
                 ],
+                'processing' => $processing,
+                'diagnostics' => array_merge($diagnostics, ['processing' => $processing]),
                 'limits' => [
                     'max_transcript_chars' => (int) config('atlas.youtube.max_transcript_chars', 120000),
                     'chunk_seconds' => (int) config('atlas.youtube.chunk_seconds', 300),
@@ -481,6 +550,7 @@ class YouTubeKnowledgeIngestionService
                 'status' => 'queued',
                 'reason' => 'Whisper audio fallback is running in background.',
             ],
+            'processing' => $this->processingDiagnostics($this->publicMetadata($metadata)),
             'ingestion_ms' => $this->elapsedMs($startedAt),
         ]);
 
@@ -488,8 +558,10 @@ class YouTubeKnowledgeIngestionService
 
         $videoId = $this->videoIdFromUrl($url);
         $queueKey = $videoId ? 'atlas:youtube:processing:'.$videoId : 'atlas:youtube:processing:'.sha1($url);
-        if (Cache::add($queueKey, true, now()->addMinutes(max(5, (int) config('atlas.youtube.processing_lock_minutes', 60))))) {
-            ProcessYouTubeIngestionJob::dispatch($url);
+        $lockMinutes = max(5, (int) config('atlas.youtube.processing_lock_minutes', 90));
+        if (Cache::add($queueKey, true, now()->addMinutes($lockMinutes))) {
+            ProcessYouTubeIngestionJob::dispatch($url)
+                ->onQueue((string) config('atlas.youtube.queue', 'transcription'));
         }
 
         return $result;
@@ -526,6 +598,17 @@ class YouTubeKnowledgeIngestionService
         $caption = is_array($result['caption'] ?? null) ? $result['caption'] : null;
         $chunks = is_array($result['chunks'] ?? null) ? $result['chunks'] : [];
         $audioFallback = is_array($result['audio_fallback'] ?? null) ? $result['audio_fallback'] : [];
+        $processing = is_array($result['processing'] ?? null) ? $result['processing'] : null;
+        $diagnostics = is_array($result['diagnostics'] ?? null) ? $result['diagnostics'] : [];
+        $diagnostics = array_filter([
+            ...$diagnostics,
+            'schema_version' => 1,
+            'segment_count' => $result['segment_count'] ?? null,
+            'limits' => $result['limits'] ?? null,
+            'cached_at' => $result['cached_at'] ?? null,
+            'processing' => $processing,
+            'audio_fallback' => $audioFallback ?: null,
+        ], fn (mixed $value): bool => $value !== null && $value !== []);
 
         AiYoutubeIngestion::query()->updateOrCreate(
             ['video_id' => $videoId],
@@ -546,13 +629,7 @@ class YouTubeKnowledgeIngestionService
                 'metadata' => $metadata,
                 'caption' => $caption,
                 'chunks' => $chunks,
-                'diagnostics' => [
-                    'schema_version' => 1,
-                    'segment_count' => $result['segment_count'] ?? null,
-                    'limits' => $result['limits'] ?? null,
-                    'cached_at' => $result['cached_at'] ?? null,
-                    'audio_fallback' => $audioFallback ?: null,
-                ],
+                'diagnostics' => $diagnostics,
                 'last_ingested_at' => now(),
             ],
         );
@@ -579,6 +656,63 @@ class YouTubeKnowledgeIngestionService
         }
 
         Cache::forget('atlas:youtube:processing:'.$videoId);
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     * @return array<string,mixed>
+     */
+    private function processingDiagnostics(array $metadata, ?int $startedAt = null): array
+    {
+        $duration = isset($metadata['duration_seconds'])
+            ? (int) $metadata['duration_seconds']
+            : (isset($metadata['duration']) ? (int) $metadata['duration'] : null);
+        $eta = $this->estimatedAudioFallbackSeconds($duration);
+        $elapsed = $startedAt ? max(0, time() - $startedAt) : 0;
+        $progress = $eta > 0
+            ? min(0.88, round($elapsed / $eta, 2))
+            : null;
+
+        return [
+            'stage' => 'audio_transcription',
+            'status' => 'processing',
+            'progress' => $progress,
+            'elapsed_seconds' => $elapsed,
+            'estimated_total_seconds' => $eta,
+            'estimated_remaining_seconds' => $eta > 0 ? max(30, $eta - $elapsed) : null,
+            'message' => 'Transcrevendo o audio do YouTube em background.',
+            'retry_after_seconds' => 45,
+        ];
+    }
+
+    private function estimatedAudioFallbackSeconds(?int $durationSeconds): ?int
+    {
+        if ($durationSeconds === null || $durationSeconds <= 0) {
+            return null;
+        }
+
+        $ratio = (float) config('atlas.youtube.audio_transcription_realtime_ratio', 0.65);
+        $ratio = min(1.5, max(0.1, $ratio));
+
+        return max(60, (int) ceil($durationSeconds * $ratio) + 45);
+    }
+
+    private function storedProcessingIsStale(AiYoutubeIngestion $stored): bool
+    {
+        $startedAt = $stored->last_ingested_at ?? $stored->updated_at;
+        if (! $startedAt) {
+            return false;
+        }
+
+        return $startedAt->getTimestamp() < (time() - $this->processingStaleAfterSeconds());
+    }
+
+    private function processingStaleAfterSeconds(): int
+    {
+        $lockSeconds = max(5, (int) config('atlas.youtube.processing_lock_minutes', 90)) * 60;
+        $jobSeconds = 5400;
+
+        return max($lockSeconds, $jobSeconds) + 300;
     }
 
     /**
@@ -964,22 +1098,65 @@ class YouTubeKnowledgeIngestionService
             throw new \RuntimeException('Caption URL is empty.');
         }
 
-        $captionUrl = $url;
-        if (($ext === '' || $ext === 'json3') && ! str_contains($captionUrl, 'fmt=')) {
-            $captionUrl .= (str_contains($captionUrl, '?') ? '&' : '?').'fmt=json3';
+        $attempts = max(1, (int) config('atlas.youtube.caption_download_retries', 2) + 1);
+        $sleepMs = max(100, (int) config('atlas.youtube.caption_download_retry_sleep_ms', 700));
+        $lastStatus = null;
+
+        foreach ($this->captionDownloadUrls($url, $ext) as $captionUrl) {
+            for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+                $response = Http::timeout(max(5, (int) config('atlas.youtube.timeout_seconds', 35)))
+                    ->withHeaders([
+                        'Accept' => '*/*',
+                        'Accept-Language' => 'pt-BR,pt;q=0.9,en;q=0.8',
+                        'Referer' => 'https://www.youtube.com/',
+                        'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+                    ])
+                    ->get($captionUrl);
+
+                if ($response->ok()) {
+                    return $response->body();
+                }
+
+                $lastStatus = $response->status();
+                if (! in_array($lastStatus, [408, 425, 429, 500, 502, 503, 504], true)) {
+                    break;
+                }
+
+                if ($attempt < $attempts) {
+                    usleep(min(3_000_000, $sleepMs * 1000 * $attempt));
+                }
+            }
         }
 
-        $response = Http::timeout(max(5, (int) config('atlas.youtube.timeout_seconds', 35)))
-            ->withHeaders([
-                'User-Agent' => 'Mozilla/5.0 AtlasAI/1.0',
-            ])
-            ->get($captionUrl);
+        throw new \RuntimeException('Caption download failed with HTTP '.($lastStatus ?? 'unknown').'.');
+    }
 
-        if (! $response->ok()) {
-            throw new \RuntimeException('Caption download failed with HTTP '.$response->status().'.');
+    /**
+     * @return array<int,string>
+     */
+    private function captionDownloadUrls(string $url, string $ext): array
+    {
+        $formats = match ($ext) {
+            'vtt' => ['vtt', 'json3'],
+            'srv1', 'srv2', 'srv3', 'xml' => [$ext, 'json3', 'vtt'],
+            default => ['json3', 'vtt'],
+        };
+
+        return collect($formats)
+            ->map(fn (string $format): string => $this->captionUrlWithFormat($url, $format))
+            ->prepend($url)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function captionUrlWithFormat(string $url, string $format): string
+    {
+        if (str_contains($url, 'fmt=')) {
+            return (string) preg_replace('/([?&])fmt=[^&]*/', '$1fmt='.$format, $url);
         }
 
-        return $response->body();
+        return $url.(str_contains($url, '?') ? '&' : '?').'fmt='.$format;
     }
 
     /**
@@ -1019,24 +1196,9 @@ class YouTubeKnowledgeIngestionService
 
         try {
             $outputTemplate = $workDir.'/audio.%(ext)s';
-            $process = new Process([
-                ...$command,
-                '-f',
-                'ba/bestaudio/best[acodec!=none]/best',
-                '--no-playlist',
-                '--no-warnings',
-                '-o',
-                $outputTemplate,
-                $url,
-            ]);
-            $process->setTimeout(max(30, (int) config('atlas.youtube.audio_download_timeout_seconds', 300)));
-            $process->run();
-
-            if (! $process->isSuccessful()) {
-                return [
-                    'status' => 'download_failed',
-                    'reason' => $this->processError($process, 'YouTube audio download failed.'),
-                ];
+            $download = $this->downloadYoutubeAudio($command, $url, $outputTemplate);
+            if (($download['status'] ?? null) !== 'ready') {
+                return $download;
             }
 
             $audioPath = collect(glob($workDir.'/audio.*') ?: [])
@@ -1075,16 +1237,82 @@ class YouTubeKnowledgeIngestionService
                 'timestamp_source' => 'estimated',
                 'segment_count' => count($segments),
                 'transcript_chars' => mb_strlen($text),
+                'download_attempts' => $download['attempts'] ?? 1,
                 'chunks' => $chunks,
             ];
         } catch (Throwable $e) {
+            $message = $e->getMessage();
+
             return [
-                'status' => 'failed',
-                'reason' => Str::limit($e->getMessage(), 220, ''),
+                'status' => str_contains(Str::lower($message), 'timed out') ? 'timeout' : 'failed',
+                'reason' => Str::limit($message, 220, ''),
             ];
         } finally {
             $this->removeDirectory($workDir);
         }
+    }
+
+    /**
+     * @param  array<int,string>  $command
+     * @return array<string,mixed>
+     */
+    private function downloadYoutubeAudio(array $command, string $url, string $outputTemplate): array
+    {
+        $attempts = max(1, (int) config('atlas.youtube.audio_download_retries', 2) + 1);
+        $lastReason = null;
+
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            $process = new Process([
+                ...$command,
+                '-f',
+                'ba/bestaudio/best[acodec!=none]/best',
+                '--no-playlist',
+                '--no-warnings',
+                '--retries',
+                '3',
+                '--fragment-retries',
+                '3',
+                '-o',
+                $outputTemplate,
+                $url,
+            ]);
+            $process->setTimeout(max(30, (int) config('atlas.youtube.audio_download_timeout_seconds', 300)));
+            $process->run();
+
+            if ($process->isSuccessful()) {
+                return [
+                    'status' => 'ready',
+                    'attempts' => $attempt,
+                ];
+            }
+
+            $lastReason = $this->processError($process, 'YouTube audio download failed.');
+            if ($attempt < $attempts && $this->isRetryableDownloadError($lastReason)) {
+                usleep(min(3_000_000, 400_000 * $attempt));
+                continue;
+            }
+
+            break;
+        }
+
+        return [
+            'status' => 'download_failed',
+            'reason' => $lastReason ?: 'YouTube audio download failed.',
+            'attempts' => $attempts,
+            'retryable' => $lastReason ? $this->isRetryableDownloadError($lastReason) : null,
+        ];
+    }
+
+    private function isRetryableDownloadError(string $reason): bool
+    {
+        $text = Str::of($reason)->lower()->value();
+
+        return str_contains($text, 'http error 429')
+            || str_contains($text, 'http error 403')
+            || str_contains($text, 'too many requests')
+            || str_contains($text, 'temporarily unavailable')
+            || str_contains($text, 'timed out')
+            || str_contains($text, 'timeout');
     }
 
     private function audioFallbackEnabled(): bool

@@ -43,6 +43,7 @@ related_paths:
   - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
   - docs/engineering-knowledge-base/domains/programming-surfaces.md
   - docs/engineering-knowledge-base/domains/programming-repair-contract.md
+  - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/archive/source-material/domains-programming-full-2026-05-08.md
 ---
 
@@ -120,6 +121,24 @@ Programming flows devem declarar gates proporcionais ao risco:
 `programming.visual` e `programming.forge` devem preferir executor/harness
 capaz de produzir evidence auditavel. `programming.review` pode usar executor
 simples quando o output for somente findings.
+
+## Forge Workspace
+
+`programming.forge` must use Forge Workspace for heavy or multi-provider work.
+Forge Workspace is the Programming specialization of Obras Shared Workspace.
+
+It owns the shared programming office:
+
+- mother contract and spec;
+- provider-specific context packs;
+- work packets and allowed/forbidden files;
+- artifact bus for Gemini, Claude, Codex, local agents and future providers;
+- scope/collision map;
+- integration queue and evidence normalization.
+
+Providers may specialize, but they must not relay loose context to each other as
+the source of truth. Codex implements, Claude plans/reviews, Gemini scouts and
+local agents validate through workspace artifacts governed by Atlas.
 
 ## Specialist Profiles
 

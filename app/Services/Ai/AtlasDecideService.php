@@ -490,6 +490,7 @@ class AtlasDecideService
         ]);
 
         return $this->slo->measure('decide.issue', fn (): array => $this->receipts->issue($envelope, [
+            'ttl_seconds' => max(30, (int) config('atlas.ai.decision_receipt_ttl_seconds', 7200)),
             'dry_run' => (bool) data_get($payload, 'dry_run', false),
             'signed_by' => 'atlas.decide.v2',
             'domain' => $domain,

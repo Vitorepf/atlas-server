@@ -74,6 +74,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/failure-modes.md
   - docs/engineering-knowledge-base/self-construction/builder-persona-and-handoff.md
   - docs/engineering-knowledge-base/self-construction/runtime-implementation-roadmap.md
+  - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
   - docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md
@@ -206,6 +207,11 @@ construction: Codex, Claude, Gemini, local agents and future tools can all
 consume the same Atlas packet, work in disjoint scopes and return normalized
 evidence. Codex-specific command names are current operational surfaces, not a
 limit of the architecture.
+
+For Atlas building Atlas, the canonical shared office is Obras Shared Workspace.
+When the work is Programming/Forge-heavy, call that specialization Forge
+Workspace. Self-Construction OS supplies governance and packets; Obras Shared
+Workspace holds shared state, artifact exchange, status and integration.
 ## Integration With Existing Atlas
 Self-Construction OS depends on:
 - Documentation OS for canonical law;
@@ -264,5 +270,5 @@ All commands below are read-only and keep `execution_allowed=false`.
 | `php artisan atlas:ai:self-construction --parallel-session-plan --json` | Plans up to five AI session slots without claims or dispatch. |
 | `php artisan atlas:ai:self-construction --collision-matrix --json` | Proves packet overlap and parallel safety without claims or dispatch. |
 | `php artisan atlas:ai:self-construction --dependency-unlock-plan --json` | Shows which completed packets would unlock later work without mutating queue state. |
-| `php artisan atlas:ai:self-construction --multi-session-readiness-gate --json` / `--single-session-instruction-packet --json` | Decides parallel readiness, then emits one safe AI instruction. |
+| `php artisan atlas:ai:self-construction --multi-session-readiness-gate --json` / `--single-session-instruction-packet --json` / `--forge-workspace-status --json` / `--agent-launch-plan --json` / `--agent-start-packet --json` / `--agent-execution-status --json` / `--agent-integration-report --json` / `--agent-merge-readiness --json` / `--agent-final-review-packet --json` / `--agent-review-decision-template --json` / `--agent-review-receipt-draft --json` / `--agent-review-signature-request --json` / `--agent-review-post-signature-runbook --json` / `--agent-review-merge-action-template --json` / `--agent-review-merge-preflight --json` / `--agent-review-merge-action-draft --json` / `--agent-review-merge-receipt-draft --json` / `--agent-review-merge-signature-request --json` / `--agent-review-merge-post-signature-runbook --json` / `--agent-review-merge-execution-checklist --json` / `--agent-review-merge-authorization-template --json` / `--agent-review-merge-authorization-receipt-draft --json` / `--agent-review-merge-authorization-signature-request --json` / `--agent-review-merge-authorization-post-signature-runbook --json` / `--agent-review-merge-final-authorization-preflight --json` | Projects Forge Workspace, starts agents and prepares governed review/decision/receipt/signature/post-signature/merge authorization chain. |
 None of these surfaces signs, patches, approves, persists approval, mutates policy, touches hot runtime files or enables autonomous self-programming.

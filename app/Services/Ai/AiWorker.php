@@ -67,6 +67,10 @@ class AiWorker
         private readonly AtlasRepairOrchestrator $repairOrchestrator,
         private readonly RepairRequestFactory $repairRequests,
         private readonly ProviderUsagePayload $providerUsage,
+        private readonly AtlasFinalResponseSanitizer $finalResponses,
+        private readonly AiDecisionReceiptRefreshService $decisionReceiptRefresh,
+        private readonly YouTubeKnowledgeIngestionService $youtubeKnowledge,
+        private readonly AiPromptBuilder $prompts,
     ) {}
 
     public function runNext(?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
@@ -77,6 +81,79 @@ class AiWorker
     public function runNextForTrace(string $traceId, ?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
     {
         return $this->runNextMatching($traceId, $providerOverride, $workerId, $onStream);
+    }
+
+    private function refreshReadyYouTubePrompt(AiJob $job): AiJob
+    {
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $videos = data_get($payload, 'youtube_ingestion.videos', []);
+        if (! is_array($videos) || $videos === []) {
+            return $job;
+        }
+
+        $hasProcessingVideo = collect($videos)
+            ->contains(fn (mixed $video): bool => is_array($video) && ($video['status'] ?? null) === 'processing');
+        if (! $hasProcessingVideo || trim((string) $job->input_text) === '') {
+            return $job;
+        }
+
+        try {
+            $fresh = $this->youtubeKnowledge->ingestFromInput((string) $job->input_text, [
+                'defer_audio_fallback' => true,
+            ]);
+        } catch (\Throwable) {
+            return $job;
+        }
+
+        $freshVideos = data_get($fresh, 'videos', []);
+        if (! is_array($freshVideos) || $freshVideos === []) {
+            return $job;
+        }
+
+        $hasReadyVideo = collect($freshVideos)
+            ->contains(fn (mixed $video): bool => is_array($video) && ($video['status'] ?? null) === 'ready');
+        if (! $hasReadyVideo) {
+            return $job;
+        }
+
+        $payload['youtube_ingestion'] = $fresh;
+        $prompt = $this->prompts->build((string) $job->input_text, [
+            'provider' => $job->provider,
+            'model' => $job->model,
+            'source_type' => $job->trace?->source_type,
+            'payload' => $payload,
+        ]);
+        $metadata = is_array($job->metadata) ? $job->metadata : [];
+        $metadata['youtube_ingestion'] = $fresh;
+        $metadata['task_request'] = $prompt->taskRequest;
+        $metadata['context_pack'] = $prompt->contextPack;
+        $metadata['open_brain_injection'] = $prompt->openBrainInjection;
+        $metadata['execution_plan'] = $prompt->executionPlan;
+        $metadata['skills_activated'] = $prompt->activatedSkills;
+
+        $job->forceFill([
+            'prompt' => $prompt->prompt,
+            'context_refs' => $prompt->contextRefs,
+            'payload' => $payload,
+            'metadata' => $metadata,
+        ])->save();
+
+        if ($job->trace) {
+            $traceMetadata = is_array($job->trace->metadata) ? $job->trace->metadata : [];
+            $traceMetadata['youtube_ingestion'] = $fresh;
+            $traceMetadata['task_request'] = $prompt->taskRequest;
+            $traceMetadata['context_pack'] = $prompt->contextPack;
+            $traceMetadata['open_brain_injection'] = $prompt->openBrainInjection;
+            $traceMetadata['execution_plan'] = $prompt->executionPlan;
+            $traceMetadata['skills_activated'] = $prompt->activatedSkills;
+            $job->trace->forceFill([
+                'prompt_hash' => hash('sha256', $prompt->prompt),
+                'context_refs' => $prompt->contextRefs,
+                'metadata' => $traceMetadata,
+            ])->save();
+        }
+
+        return $job->refresh();
     }
 
     private function runNextMatching(?string $traceId = null, ?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
@@ -108,27 +185,38 @@ class AiWorker
         }
         $job = $this->applyExpiredAtlasScoutDependency($job);
         $job = $this->applyProgrammingProviderPolicyRuntime($job);
+        $job = $this->refreshReadyYouTubePrompt($job);
         if ($violation = $this->decisionReceipts->violationForJob($job, $providerKey, $job->model)) {
-            $violationPayload = $violation->toArray();
-            $attempt = $this->createAttempt($job, $workerId, $providerKey);
-            $this->emitStreamEvent($job, $attempt, 'policy', 'decision_receipt_blocked', $violation->message, [
-                'decision_receipt_enforcement' => $violationPayload,
-            ], null, $onStream);
+            if ($violation->errorCode === 'decision_receipt_expired') {
+                $refreshedJob = $this->decisionReceiptRefresh->refreshExpiredBeforeProviderCall($job);
+                if ($refreshedJob instanceof AiJob) {
+                    $job = $refreshedJob;
+                    $violation = $this->decisionReceipts->violationForJob($job, $providerKey, $job->model);
+                }
+            }
 
-            return $this->completeAttempt($job, $attempt, new AiProviderResult(
-                ok: false,
-                output: '',
-                command: [],
-                exitCode: null,
-                durationMs: 0,
-                stdout: '',
-                stderr: '',
-                errorCode: $violation->errorCode,
-                errorMessage: $violation->message,
-                metadata: [
+            if ($violation) {
+                $violationPayload = $violation->toArray();
+                $attempt = $this->createAttempt($job, $workerId, $providerKey);
+                $this->emitStreamEvent($job, $attempt, 'policy', 'decision_receipt_blocked', $violation->message, [
                     'decision_receipt_enforcement' => $violationPayload,
-                ],
-            ), $workerId);
+                ], null, $onStream);
+
+                return $this->completeAttempt($job, $attempt, new AiProviderResult(
+                    ok: false,
+                    output: '',
+                    command: [],
+                    exitCode: null,
+                    durationMs: 0,
+                    stdout: '',
+                    stderr: '',
+                    errorCode: $violation->errorCode,
+                    errorMessage: $violation->message,
+                    metadata: [
+                        'decision_receipt_enforcement' => $violationPayload,
+                    ],
+                ), $workerId);
+            }
         }
         if ($kernelPipelineViolation = $this->kernelPipelines->violationForJob($job)) {
             $attempt = $this->createAttempt($job, $workerId, $providerKey);
@@ -430,7 +518,7 @@ class AiWorker
         $traceSource = (string) ($job->trace?->source_type ?? '');
         $payload = $job->payload ?? [];
 
-        if (in_array($traceSource, ['scheduled', 'system'], true)) {
+        if ($traceSource === 'scheduled') {
             return true;
         }
 
@@ -1330,6 +1418,7 @@ class AiWorker
 
     private function completeAttempt(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $workerId): AiJob
     {
+        $result = $this->sanitizeProviderResultForOperator($result);
         $responseHash = $result->output !== '' ? hash('sha256', $result->output) : null;
         $attemptStatus = $result->ok ? 'succeeded' : ($result->errorCode === 'timeout' ? 'timeout' : 'failed');
         $job->refresh();
@@ -1779,6 +1868,33 @@ class AiWorker
         }
 
         return $job->refresh()->load(['trace', 'attemptHistory']);
+    }
+
+    private function sanitizeProviderResultForOperator(AiProviderResult $result): AiProviderResult
+    {
+        if ($result->output === '') {
+            return $result;
+        }
+
+        [$output, $sanitization] = $this->finalResponses->sanitize($result->output);
+        if (($sanitization['changed'] ?? false) !== true) {
+            return $result;
+        }
+
+        return new AiProviderResult(
+            ok: $result->ok,
+            output: $output,
+            command: $result->command,
+            exitCode: $result->exitCode,
+            durationMs: $result->durationMs,
+            stdout: $result->stdout,
+            stderr: $result->stderr,
+            errorCode: $result->errorCode,
+            errorMessage: $result->errorMessage,
+            metadata: array_merge($result->metadata, [
+                'final_response_sanitization' => $sanitization,
+            ]),
+        );
     }
 
     private function applyPermissionRuntime(AiJob $job, AiPermissionDecision $permission): AiJob

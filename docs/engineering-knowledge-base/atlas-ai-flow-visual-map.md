@@ -20,6 +20,7 @@ decisions:
   - Business Contexts como Blackink ficam fora do Domain Plane.
   - Capability, harness, runtime e linguagem nao sao Atlas AI Domains.
   - AtlasVault/Obsidian e Human Knowledge Surface, nao fonte operacional crua.
+  - Obras Shared Workspace e o escritorio compartilhado canonico para trabalho longo ou multi-provider.
   - Evidence, AP-99, calibration e Learning retornam por policy/proposal/Decide.
 maintenance:
   - Manter abaixo de 280 linhas.
@@ -33,6 +34,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
   - docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md
   - docs/engineering-knowledge-base/atlas-ai-scenario-simulation-harness.md
+  - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/domains/README.md
 ---
 
@@ -85,6 +87,7 @@ Surface
 | Domain Plane | Programming, Finance, Personal Development, Self-Improvement | Capacidade cognitiva/operacional |
 | Domain/Profile/Flow | dominio + sistema operacional vertical + processo | Resolve antes do Decide |
 | Context Builder | Open Brain, Memory, KB, Code Intelligence, AtlasVault sync | Contexto com hash, budget e privacy |
+| Obras Shared Workspace | contratos, packets, artifact bus, status, integracao | Escritorio compartilhado; nao decide nem substitui Forge |
 | Policy / Profile | permissao, privacidade, autonomia, custo, gates | Regras concretas da chamada |
 | Atlas Decide | modelo, provider, fallback, evidence contract | Compila decisao; nao executa |
 | Decision Receipt | contrato assinado, dry-run, limites, auditoria | Autoriza runtime |
@@ -99,34 +102,19 @@ Surface
 Desenhe como dominios ready/current:
 
 ```text
-Programming
-Finance
-Personal Development
-Self-Improvement
+Programming; Finance; Personal Development; Self-Improvement
 ```
 
 Desenhe como scaffold/future, com etiqueta diferente:
 
 ```text
-Marketing
-Research
-Operations / Strategic Decision
-Health
-Writing / Learning
+Marketing; Research; Operations / Strategic Decision; Health; Writing / Learning
 ```
 
 Nao desenhar como dominio:
 
 ```text
-Blackink
-MiroFish
-Frontend
-Swift
-Python
-Go
-AtlasVault
-Super Tool Runtime
-Scenario Simulation
+Blackink; MiroFish; Frontend; Swift; Python; Go; AtlasVault; Super Tool Runtime; Scenario Simulation
 ```
 
 Eles sao business context, source material/capability, specialist profile,
@@ -137,13 +125,7 @@ runtimes, human surface, tool runtime e harness.
 Divida `Runtime / Executor` em:
 
 ```text
-Laravel Kernel / Maestro
-Provider Drivers: Claude, Codex, Gemini, OpenAI, local
-Super Tool Runtime
-Engineering Harness / Forge Runner
-Python AI/Data Runtime
-Go Edge/Concurrency Runtime
-Swift Native Mac Runtime
+Laravel Kernel / Maestro; Provider Drivers: Claude, Codex, Gemini, OpenAI, local; Super Tool Runtime; Engineering Harness / Forge Runner; Python AI/Data Runtime; Go Edge/Concurrency Runtime; Swift Native Mac Runtime
 ```
 
 Regra: Python, Go e Swift executam capacidades especializadas; nao decidem
@@ -163,6 +145,19 @@ Dynamic Compute Market
 ```
 
 Use status visual: `active`, `scaffold` ou `future`.
+
+## Obras Shared Workspace
+
+Para trabalho longo, pesado ou multi-provider, adicione uma caixa lateral:
+
+```text
+Obras Shared Workspace
+contracts, packets, artifact bus, status, integration
+```
+
+Esse e o nome canonico do escritorio compartilhado. Em Programming, sua
+especializacao e `Forge Workspace`. Ele alimenta Context Builder e Runtime com
+artefatos governados, mas Kernel/Decide continuam sendo autoridade.
 
 ## Evidence And Learning
 
@@ -228,6 +223,8 @@ flowchart TD
     D --> PF["Domain / Profile / Flow"]
     PF --> Ctx["Context Builder"]
     Ctx --> P["Policy / Profile"]
+    OSW["Obras Shared Workspace"] <--> Ctx
+    OSW -. packets/artifacts .-> X
     P --> AD["Atlas Decide"]
     AD --> DR["Decision Receipt"]
     DR --> X["Runtime / Executor"]
@@ -268,13 +265,8 @@ flowchart TD
 
 ## Checklist Da Imagem V3
 
-1. Mover `Atlas Decide` para depois de `Context Builder` e `Policy/Profile`.
-2. Adicionar `Business Context` fora do Domain Plane.
-3. Adicionar `Domain/Profile/Flow`.
-4. Marcar Marketing como `scaffold/future`.
-5. Separar Runtime por Laravel/Python/Go/Swift.
-6. Mostrar Capability/Harness Shelf sem transformar harness em dominio.
-7. Adicionar AP-99, read models e outcome calibration no lado de Evidence.
-8. Manter AtlasVault como Human Knowledge Surface com sync governado.
-9. Adicionar Documentation OS como trilho de governanca.
-10. Atualizar rodape com os principios acima.
+1. Atlas Decide vem depois de Context Builder e Policy/Profile.
+2. Business Context fica fora do Domain Plane; Domain/Profile/Flow e obrigatorio.
+3. Runtime separa Laravel/Python/Go/Swift, providers e Forge sem tornar harness em dominio.
+4. Evidence mostra AP-99, read models, calibration, learning e human review.
+5. AtlasVault e Human Knowledge Surface; Documentation OS orienta; Obras Shared Workspace aparece como escritorio compartilhado quando ha trabalho longo ou multi-provider.

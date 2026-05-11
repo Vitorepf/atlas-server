@@ -44,6 +44,7 @@ related_paths:
   - docs/engineering-knowledge-base/spec-operating-system/
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
+  - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/obras/
   - docs/ap/AP-692-atlas-obras-operating-system-contract.md
   - docs/engineering-knowledge-base/self-construction/
@@ -67,7 +68,7 @@ Layer 0.8 Self-Construction OS / governed self-programming
 Layer 1   Kernel contracts: envelope, receipt, ledger, SDKs, tests, SLOs
 Layer 1.5 Runtime boundaries: Laravel, Python, Go, Swift
 Layer 2   Master Architecture: product, planes, domains, roadmap
-Layer 2.2 Obras Operating System: production primitive, ObraOS, Foundry, Sovereign OS
+Layer 2.2 Obras Operating System: production primitive, Obras Shared Workspace, ObraOS, Foundry, Sovereign OS
 Layer 2.5 Qualitative levels: P1-P7, co-strategist, Rivals Strategy
 Layer 3   Operating topology: pipeline, core-vs-domain, operating system
 Layer 4   Domain specs and focused domain playbooks
@@ -90,6 +91,7 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | SDD context packages and projections | `spec-operating-system/context-packages-and-projections.md` |
 | Self-Construction OS / governed self-programming | `atlas-ai-self-construction-os.md` |
 | Obras Operating System / production primitive | `atlas-ai-obras-operating-system.md` |
+| Obras Shared Workspace / Forge Workspace | `obras/shared-workspace-and-forge.md` |
 | Universal pipeline | `atlas-ai-pipeline.md` |
 | Cognitive Runtime: memory, retrieval, 72h sessions and compaction | `atlas-ai-cognitive-runtime.md` |
 | Memory noise immunity and promotion | `memory/cognitive-immune-learning-kernel.md` |

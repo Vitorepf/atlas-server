@@ -40,6 +40,7 @@ operating system:
 ## Required Docs
 
 - `docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md`
+- `docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md`
 - `docs/engineering-knowledge-base/obras/patamares-l0-l5.md`
 - `docs/engineering-knowledge-base/obras/contracts-and-invariants.md`
 - `docs/engineering-knowledge-base/obras/data-model-and-production-graph.md`
@@ -51,6 +52,9 @@ operating system:
 ## Acceptance Criteria
 
 - Docs define Obras as a transversal production primitive, not a TCC feature.
+- Docs define Obras Shared Workspace as the canonical shared production office
+  for multi-provider work, and Forge Workspace as its Programming/Atlas Forge
+  specialization.
 - Docs define the official short and strong definitions of Obra.
 - Docs preserve all L0-L5 maturity levels and their completion criteria.
 - Docs define implementation invariants, MVP acceptance, anti-patterns and

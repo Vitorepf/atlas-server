@@ -17,11 +17,13 @@ capabilities:
 decisions:
   - L0 implementation must not block L2-L5 maturity.
   - Every Obra must remain an artifact-production system, not a renamed project, note or folder.
+  - Obras Shared Workspace is mandatory for multi-provider or parallel-agent production work.
   - Promotion between levels requires evidence, not UI presence.
 maintenance:
   - Update before changing Obras implementation contracts, level promotion rules, persistence boundaries or MVP acceptance criteria.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
+  - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/obras/patamares-l0-l5.md
   - docs/engineering-knowledge-base/obras/data-model-and-production-graph.md
   - docs/engineering-knowledge-base/obras/metrics-risks-and-excellence.md
@@ -44,6 +46,8 @@ These rules must hold from the first MVP:
 - Obra state lives in structured persistence, not only Markdown files.
 - Markdown export is allowed, but cannot be the only source of truth.
 - Every AI action inside an Obra must be traceable to Obra id and intent.
+- Multi-provider work inside an Obra must use Obras Shared Workspace.
+- Provider outputs must return as artifacts, not as unstructured chat handoffs.
 - No Obra may be called complete without output or explicit closure.
 - No Foundry claim may exist without asset classification.
 - No Sovereign claim may exist without autonomy and constraint review.
@@ -132,6 +136,8 @@ Forbidden implementations:
 - output without evidence;
 - gates as static checklist with no run history;
 - AI sessions that cannot say which Obra, node, sources and decisions were used.
+- multi-provider programming where providers relay context to each other without
+  shared packets, artifact ids, scope map and evidence.
 
 ## Relationship To Existing Systems
 

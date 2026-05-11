@@ -18,6 +18,8 @@ capabilities:
   - atlas_sovereign_os
 decisions:
   - Obras is not a TCC feature and not a folder; it is a transversal production primitive.
+  - Obras Shared Workspace is the canonical shared office for multi-provider production work.
+  - Forge Workspace is the Programming/Atlas Forge specialization of Obras Shared Workspace.
   - Obras complements Documentation OS, Memory, Postgres, Obsidian/Vault, Evidence Ledger, SDD and AP governance.
   - The MVP may be small, but the ontology must not block L5 Sovereign OS.
   - Every Obra must have objective, type, status, next step, structure, quality gates and output intent.
@@ -25,6 +27,7 @@ maintenance:
   - Read before creating product flows for long intellectual work, TCCs, books, strategic plans, technical docs, Atlas construction or portfolio strategy.
   - Update when Obra levels, lifecycle, data model, quality gates, AI harness, Foundry or Sovereign governance changes.
 related_paths:
+  - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/obras/patamares-l0-l5.md
   - docs/engineering-knowledge-base/obras/contracts-and-invariants.md
   - docs/engineering-knowledge-base/obras/data-model-and-production-graph.md
@@ -117,6 +120,7 @@ Obras must not replace existing systems:
 | Evidence Ledger | Append-only proof and audit |
 | Self-Construction OS | Atlas building Atlas |
 | Obras | Operational unit where knowledge, decisions and execution become deliverables |
+| Obras Shared Workspace | Shared office where providers collaborate through artifacts, packets, evidence and integration |
 
 The key:
 
@@ -125,6 +129,30 @@ Memory remembers.
 Docs govern.
 Obras produce.
 ```
+
+## Canonical Shared Workspace
+
+The official name for the shared office inside this flow is:
+
+```text
+Obras Shared Workspace
+```
+
+Portuguese label:
+
+```text
+Workspace Compartilhado de Obras
+```
+
+For Programming/Atlas Forge, the specialization is:
+
+```text
+Forge Workspace = Obras Shared Workspace for Programming.
+```
+
+This replaces ad hoc provider handoff chains. Gemini, Claude, Codex, local
+agents and future providers should exchange governed artifacts through the
+workspace, not loose chat context.
 
 ## Maturity Ladder
 

@@ -59,6 +59,7 @@ decisions:
   - Toda IA nova deve ler Atlas AI Spec Operating System antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts, MCP SDD, context packages, data model ou fluxo de one-shot implementation.
   - Toda IA nova deve ler Atlas AI Self-Construction OS antes de alterar self-programming, Meta-SDD, maturity ladder, build graph, priority engine, autonomous loop, safety contract ou qualquer fluxo do Atlas construindo Atlas.
   - Toda IA nova que va implementar em paralelo deve ler o Multi-Provider Agent Orchestration Contract: Codex, Claude, Gemini, agentes locais e futuros providers consomem o mesmo pacote universal; adapters nao podem ampliar escopo.
+  - Toda IA nova deve ler Obras Shared Workspace antes de alterar Atlas Forge, colaboracao multi-provider, artifact bus, provider context packs, escopos paralelos, integration queue ou qualquer tentativa de transformar providers em time.
   - Toda IA nova deve usar `php artisan atlas:ai:self-construction --json` para consultar o estado read-only/advisory antes de planejar autoimplementacao.
   - Toda IA nova deve ler Atlas AI Obras Operating System antes de propor TCC, pesquisa longa, livro, curso, projeto intelectual, portfolio estrategico, Foundry, Sovereign OS ou qualquer workspace persistente de producao.
   - Toda IA nova deve ler Atlas AI Cognitive Runtime antes de alterar memoria, busca de contexto, sessoes longas, compactacao automatica, handoff cognitivo ou auditoria de qualidade.
@@ -92,6 +93,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
+  - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/obras/patamares-l0-l5.md
   - docs/engineering-knowledge-base/obras/contracts-and-invariants.md
   - docs/engineering-knowledge-base/obras/data-model-and-production-graph.md

@@ -76,6 +76,43 @@ class AiQualityActionServiceTest extends TestCase
         $this->assertSame('queued', $actions->first()->status);
     }
 
+    public function test_rewrite_prompt_sanitizes_raw_provider_stream_from_previous_response(): void
+    {
+        $trace = $this->trace();
+        $trace->update([
+            'operator_input' => 'https://youtu.be/CODgq6sMNQ4 me diga tudo sobre isso',
+            'response_text' => implode("\n", [
+                json_encode([
+                    'type' => 'system',
+                    'subtype' => 'init',
+                    'session_id' => '8332bd81-b24a-4cd2-9335-cd161a5dd9ff',
+                    'tools' => ['Bash', 'Read'],
+                    'permissionMode' => 'bypassPermissions',
+                ], JSON_THROW_ON_ERROR),
+                json_encode([
+                    'type' => 'result',
+                    'result' => "## Claude Code vs HackTheBox\n\nResposta final limpa.",
+                    'modelUsage' => ['claude-sonnet' => ['inputTokens' => 123]],
+                ], JSON_THROW_ON_ERROR),
+            ]),
+        ]);
+        $evaluation = $this->evaluation($trace->refresh(), [
+            ['code' => 'internal_context_leak', 'severity' => 'high'],
+        ]);
+        $action = app(AiQualityActionService::class)
+            ->planFor($trace->refresh(), $evaluation, autoRun: false)
+            ->first();
+
+        $reflection = new \ReflectionMethod(AiQualityActionService::class, 'remediationInput');
+        $prompt = $reflection->invoke(app(AiQualityActionService::class), $action, $trace->refresh());
+
+        $this->assertStringContainsString("## Claude Code vs HackTheBox\n\nResposta final limpa.", $prompt);
+        $this->assertStringNotContainsString('"type":"system"', $prompt);
+        $this->assertStringNotContainsString('session_id', $prompt);
+        $this->assertStringNotContainsString('permissionMode', $prompt);
+        $this->assertStringNotContainsString('modelUsage', $prompt);
+    }
+
     public function test_verification_action_carries_agent_behavior_findings_for_review(): void
     {
         $trace = $this->trace([

@@ -67,6 +67,7 @@ class AtlasAiSelfConstructionCommand extends Command
         {--collision-matrix : Generate a read-only packet collision matrix for parallel safety}
         {--dependency-unlock-plan : Preview which completed packets would unlock blocked work}
         {--multi-session-readiness-gate : Decide whether multiple AI sessions may safely proceed}
+        {--forge-workspace-status : Project the canonical read-only Forge Workspace for Atlas Self-Construction OS}
         {--single-session-instruction-packet : Generate the canonical read-only instruction packet for one AI session}
         {--codex-launch-plan : Generate a read-only launch plan with up to five Codex start commands}
         {--codex-execution-status : Generate a read-only execution status monitor for parallel Codex sessions}
@@ -195,6 +196,59 @@ class AtlasAiSelfConstructionCommand extends Command
         {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-follow-up-observability-template : Generate a read-only later-cycle authorization decision record follow-up observability template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record persistence rejection}
         {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-final-non-execution-report-template : Generate a read-only later-cycle authorization decision record final non-execution report template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record follow-up observability}
         {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-archive-index-template : Generate a read-only later-cycle authorization decision record archive index template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record final non-execution report}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-human-review-packet-template : Generate a read-only later-cycle authorization decision record human review packet template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record archive index}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-durable-writer-candidate-template : Generate a read-only later-cycle authorization decision record durable writer candidate template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record human review packet}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-writer-activation-request-template : Generate a read-only later-cycle authorization decision record writer activation request template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record durable writer candidate}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-writer-activation-receipt-template : Generate a read-only later-cycle authorization decision record writer activation receipt template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record writer activation request}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-post-activation-observability-template : Generate a read-only later-cycle authorization decision record post-activation observability template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record writer activation receipt}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-writer-activation-rejection-template : Generate a read-only later-cycle authorization decision record writer activation rejection template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record post-activation observability}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-final-activation-non-execution-report-template : Generate a read-only later-cycle authorization decision record final activation non-execution report template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record writer activation rejection}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-archive-index-template : Generate a read-only later-cycle authorization decision record activation archive index template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record final activation non-execution report}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-human-review-packet-template : Generate a read-only later-cycle authorization decision record activation human review packet template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation archive index}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-durable-writer-candidate-template : Generate a read-only later-cycle authorization decision record activation durable writer candidate template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation human review packet}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-writer-activation-request-template : Generate a read-only later-cycle authorization decision record activation writer activation request template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation durable writer candidate}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-writer-activation-receipt-template : Generate a read-only later-cycle authorization decision record activation writer activation receipt template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation writer activation request}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-post-activation-observability-template : Generate a read-only later-cycle authorization decision record activation post-activation observability template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation writer activation receipt}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-writer-activation-rejection-template : Generate a read-only later-cycle authorization decision record activation writer activation rejection template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation post-activation observability}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-final-activation-non-execution-report-template : Generate a read-only later-cycle authorization decision record activation final activation non-execution report template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation writer activation rejection}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-archive-closure-index-template : Generate a read-only later-cycle authorization decision record activation archive closure index template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation final activation non-execution report}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-closeout-packet-template : Generate a read-only later-cycle authorization decision record activation closeout packet template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation archive closure index}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-readiness-reconciliation-template : Generate a read-only later-cycle authorization decision record activation readiness reconciliation template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation closeout packet}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-governance-summary-template : Generate a read-only later-cycle authorization decision record activation governance summary template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation readiness reconciliation}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-operator-readiness-digest-template : Generate a read-only later-cycle authorization decision record activation operator readiness digest template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation governance summary}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-handoff-digest-template : Generate a read-only later-cycle authorization decision record activation handoff digest template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation operator readiness digest}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-bootstrap-summary-template : Generate a read-only later-cycle authorization decision record activation session bootstrap summary template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation handoff digest}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-preflight-digest-template : Generate a read-only later-cycle authorization decision record activation session preflight digest template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation session bootstrap summary}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-scope-guard-template : Generate a read-only later-cycle authorization decision record activation session scope guard template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation session preflight digest}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-work-intake-preview-template : Generate a read-only later-cycle authorization decision record activation session work intake preview template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation session scope guard}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-task-candidate-outline-template : Generate a read-only later-cycle authorization decision record activation session task candidate outline template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation session work intake preview}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-packet-draft-preview-template : Generate a read-only later-cycle authorization decision record activation session packet draft preview template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation session task candidate outline}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-packet-scope-preview-template : Generate a read-only later-cycle authorization decision record activation session packet scope preview template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet draft preview}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-packet-start-contract-preview-template : Generate a read-only later-cycle authorization decision record activation session packet start contract preview template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet scope preview}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-session-operator-prompt-preview-template : Generate a read-only later-cycle authorization decision record activation session session operator prompt preview template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet start contract preview}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-session-ready-check-preview-template : Generate a read-only later-cycle authorization decision record activation session session ready check preview template for a future writer re-enable fresh authorization new cycle disable execution later-cycle authorization decision record activation session session operator prompt preview}
+        {--agent-launch-plan : Generate a read-only provider-neutral launch plan with up to five agent start commands}
+        {--agent-execution-status : Generate a read-only provider-neutral execution status monitor for Forge Workspace agents}
+        {--agent-integration-report : Generate a read-only provider-neutral integration report for completed Forge Workspace packets}
+        {--agent-merge-readiness : Evaluate read-only provider-neutral merge review readiness for completed Forge Workspace packets}
+        {--agent-final-review-packet : Generate a read-only provider-neutral final review packet for the Forge Workspace integrator}
+        {--agent-review-decision-template : Generate a read-only provider-neutral Forge Workspace review decision template}
+        {--agent-review-receipt-draft : Generate a read-only unsigned provider-neutral Forge Workspace review receipt draft}
+        {--agent-review-signature-request : Generate a read-only provider-neutral signature request for the Forge Workspace receipt draft}
+        {--agent-review-post-signature-runbook : Generate a read-only provider-neutral post-signature runbook for the Forge Workspace review flow}
+        {--agent-review-merge-action-template : Generate a read-only provider-neutral explicit merge action template for the Forge Workspace review flow}
+        {--agent-review-merge-preflight : Evaluate read-only provider-neutral preflight for a future explicit Forge Workspace merge action}
+        {--agent-review-merge-action-draft : Generate a read-only provider-neutral explicit Forge Workspace merge action draft without executing it}
+        {--agent-review-merge-receipt-draft : Generate a read-only unsigned provider-neutral Forge Workspace merge receipt draft without authorizing merge}
+        {--agent-review-merge-signature-request : Generate a read-only provider-neutral signature request for the Forge Workspace merge receipt draft}
+        {--agent-review-merge-post-signature-runbook : Generate a read-only provider-neutral post-signature runbook for the Forge Workspace merge flow}
+        {--agent-review-merge-execution-checklist : Generate a read-only provider-neutral pre-execution checklist for a future Forge Workspace merge action}
+        {--agent-review-merge-authorization-template : Generate a read-only provider-neutral authorization template for a future Forge Workspace merge action}
+        {--agent-review-merge-authorization-receipt-draft : Generate a read-only unsigned provider-neutral authorization receipt draft for a future Forge Workspace merge action}
+        {--agent-review-merge-authorization-signature-request : Generate a read-only provider-neutral signature request for the Forge Workspace merge authorization receipt draft}
+        {--agent-review-merge-authorization-post-signature-runbook : Generate a read-only provider-neutral post-signature runbook for the Forge Workspace merge authorization flow}
+        {--agent-review-merge-final-authorization-preflight : Evaluate read-only provider-neutral final authorization preflight before any future Forge Workspace merge executor}
+        {--agent-start-packet : Durably claim the next packet and emit the canonical provider-neutral agent start contract}
         {--codex-start-packet : Durably claim the next packet and emit the canonical Codex session start contract}
         {--reservation-status : Read durable local packet reservation ledger status}
         {--claim-next-packet : Durably claim the next available Work Splitter packet and return scoped bootstrap instructions}
@@ -228,12 +282,66 @@ class AtlasAiSelfConstructionCommand extends Command
         $payload = match (true) {
             (bool) $this->option('release-packet') => $readiness->releasePacket($options),
             (bool) $this->option('complete-packet') => $readiness->completePacket($options),
+            (bool) $this->option('agent-review-merge-final-authorization-preflight') => $readiness->agentReviewMergeFinalAuthorizationPreflight($options),
+            (bool) $this->option('agent-review-merge-authorization-post-signature-runbook') => $readiness->agentReviewMergeAuthorizationPostSignatureRunbook($options),
+            (bool) $this->option('agent-review-merge-authorization-signature-request') => $readiness->agentReviewMergeAuthorizationSignatureRequest($options),
+            (bool) $this->option('agent-review-merge-authorization-receipt-draft') => $readiness->agentReviewMergeAuthorizationReceiptDraft($options),
+            (bool) $this->option('agent-review-merge-authorization-template') => $readiness->agentReviewMergeAuthorizationTemplate($options),
+            (bool) $this->option('agent-review-merge-execution-checklist') => $readiness->agentReviewMergeExecutionChecklist($options),
+            (bool) $this->option('agent-review-merge-post-signature-runbook') => $readiness->agentReviewMergePostSignatureRunbook($options),
+            (bool) $this->option('agent-review-merge-signature-request') => $readiness->agentReviewMergeSignatureRequest($options),
+            (bool) $this->option('agent-review-merge-receipt-draft') => $readiness->agentReviewMergeReceiptDraft($options),
+            (bool) $this->option('agent-review-merge-action-draft') => $readiness->agentReviewMergeActionDraft($options),
+            (bool) $this->option('agent-review-merge-preflight') => $readiness->agentReviewMergePreflight($options),
+            (bool) $this->option('agent-review-merge-action-template') => $readiness->agentReviewMergeActionTemplate($options),
+            (bool) $this->option('agent-review-post-signature-runbook') => $readiness->agentReviewPostSignatureRunbook($options),
+            (bool) $this->option('agent-review-signature-request') => $readiness->agentReviewSignatureRequest($options),
+            (bool) $this->option('agent-review-receipt-draft') => $readiness->agentReviewReceiptDraft($options),
+            (bool) $this->option('agent-review-decision-template') => $readiness->agentReviewDecisionTemplate($options),
+            (bool) $this->option('agent-final-review-packet') => $readiness->agentFinalReviewPacket($options),
+            (bool) $this->option('agent-merge-readiness') => $readiness->agentMergeReadiness($options),
+            (bool) $this->option('agent-integration-report') => $readiness->agentIntegrationReport($options),
+            (bool) $this->option('agent-execution-status') => $readiness->agentExecutionStatus($options),
+            (bool) $this->option('agent-launch-plan') => $readiness->agentLaunchPlan($options),
+            (bool) $this->option('agent-start-packet') => $readiness->agentStartPacket($options),
             (bool) $this->option('codex-start-packet') => $readiness->codexStartPacket($options),
             (bool) $this->option('claim-next-packet') => $readiness->claimNextPacket($options),
             (bool) $this->option('claim-packet') => $readiness->claimPacket($options),
             (bool) $this->option('reservation-status') => $readiness->reservationStatus($options),
             (bool) $this->option('scope-validator') => $readiness->scopeValidator($options),
             (bool) $this->option('single-session-instruction-packet') => $readiness->singleSessionInstructionPacket($options),
+            (bool) $this->option('forge-workspace-status') => $readiness->forgeWorkspaceStatus($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-session-ready-check-preview-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionSessionReadyCheckPreviewTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-session-operator-prompt-preview-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionSessionOperatorPromptPreviewTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-packet-start-contract-preview-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketStartContractPreviewTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-packet-scope-preview-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketScopePreviewTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-packet-draft-preview-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketDraftPreviewTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-task-candidate-outline-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionTaskCandidateOutlineTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-work-intake-preview-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionWorkIntakePreviewTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-scope-guard-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionScopeGuardTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-preflight-digest-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPreflightDigestTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-bootstrap-summary-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionBootstrapSummaryTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-handoff-digest-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationHandoffDigestTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-operator-readiness-digest-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationOperatorReadinessDigestTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-governance-summary-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationGovernanceSummaryTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-readiness-reconciliation-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationReadinessReconciliationTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-closeout-packet-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationCloseoutPacketTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-archive-closure-index-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationArchiveClosureIndexTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-final-activation-non-execution-report-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationFinalActivationNonExecutionReportTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-writer-activation-rejection-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationWriterActivationRejectionTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-post-activation-observability-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationPostActivationObservabilityTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-writer-activation-receipt-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationWriterActivationReceiptTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-writer-activation-request-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationWriterActivationRequestTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-durable-writer-candidate-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationDurableWriterCandidateTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-human-review-packet-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationHumanReviewPacketTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-archive-index-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationArchiveIndexTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-final-activation-non-execution-report-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordFinalActivationNonExecutionReportTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-writer-activation-rejection-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordWriterActivationRejectionTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-post-activation-observability-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordPostActivationObservabilityTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-writer-activation-receipt-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordWriterActivationReceiptTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-writer-activation-request-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordWriterActivationRequestTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-durable-writer-candidate-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordDurableWriterCandidateTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-human-review-packet-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordHumanReviewPacketTemplate($options),
             (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-archive-index-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordArchiveIndexTemplate($options),
             (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-final-non-execution-report-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordFinalNonExecutionReportTemplate($options),
             (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-follow-up-observability-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordFollowUpObservabilityTemplate($options),
@@ -457,6 +565,284 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Claim persisted', data_get($payload, 'claim_persisted') ? 'yes' : 'no');
             $this->components->twoColumnDetail('Packet', (string) data_get($payload, 'packet_id'));
             $this->components->twoColumnDetail('Start hash', (string) data_get($payload, 'start_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-launch-plan')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'plan.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Launchable agents', (string) data_get($payload, 'plan.launchable_count'));
+            $this->components->twoColumnDetail('Plan hash', (string) data_get($payload, 'plan_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-start-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Claim persisted', data_get($payload, 'claim_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Agent role', (string) data_get($payload, 'contract.provider.role'));
+            $this->components->twoColumnDetail('Packet', (string) data_get($payload, 'packet_id'));
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'contract.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-execution-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'monitor.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Active', (string) data_get($payload, 'monitor.counts.claimed'));
+            $this->components->twoColumnDetail('Completed', (string) data_get($payload, 'monitor.counts.completed'));
+            $this->components->twoColumnDetail('Monitor hash', (string) data_get($payload, 'monitor_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-integration-report')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'report.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Integration status', (string) data_get($payload, 'report.integration_status'));
+            $this->components->twoColumnDetail('Ready to review', (string) data_get($payload, 'report.counts.ready_to_review'));
+            $this->components->twoColumnDetail('Report hash', (string) data_get($payload, 'report_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-merge-readiness')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'readiness.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Merge review status', (string) data_get($payload, 'readiness.merge_review_status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'readiness.blocking_count'));
+            $this->components->twoColumnDetail('Readiness hash', (string) data_get($payload, 'readiness_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-final-review-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'packet.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Review status', (string) data_get($payload, 'packet.review_status'));
+            $this->components->twoColumnDetail('Decision required', data_get($payload, 'packet.decision_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-decision-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Decision status', (string) data_get($payload, 'template.decision_status'));
+            $this->components->twoColumnDetail('Recording allowed', data_get($payload, 'template.decision_recording_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'receipt.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'receipt.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'signature_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature present', data_get($payload, 'signature_request.signature_present') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Signable hash', (string) data_get($payload, 'signable_payload_hash'));
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'runbook.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'runbook.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'runbook.step_count'));
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-action-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Merge action status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Explicit action required', data_get($payload, 'template.explicit_merge_action_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-action-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'draft.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Draft status', (string) data_get($payload, 'draft.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'draft.default_decision'));
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Draft hash', (string) data_get($payload, 'draft_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'receipt.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'receipt.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'signature_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature present', data_get($payload, 'signature_request.signature_present') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'runbook.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'runbook.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-execution-checklist')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'checklist.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Checklist status', (string) data_get($payload, 'checklist.status'));
+            $this->components->twoColumnDetail('External authorization required', data_get($payload, 'checklist.external_authorization_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Checklist hash', (string) data_get($payload, 'checklist_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-authorization-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'template.default_decision'));
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-authorization-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'receipt.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'receipt.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-authorization-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'signature_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature present', data_get($payload, 'signature_request.signature_present') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-authorization-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'runbook.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'runbook.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-final-authorization-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Authorization ready', data_get($payload, 'preflight.authorization_ready') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 
@@ -1996,6 +2382,378 @@ class AtlasAiSelfConstructionCommand extends Command
             return self::SUCCESS;
         }
 
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-human-review-packet-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record human review packet status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_human_review_packet.status'));
+            $this->components->twoColumnDetail('Review section count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_human_review_packet.review_section_count'));
+            $this->components->twoColumnDetail('Human notified', data_get($payload, 'human_notified') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record human review packet hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_human_review_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-durable-writer-candidate-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record durable writer candidate status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_durable_writer_candidate.status'));
+            $this->components->twoColumnDetail('Candidate boundary count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_durable_writer_candidate.candidate_boundary_count'));
+            $this->components->twoColumnDetail('Writer implementation allowed', data_get($payload, 'writer_implementation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record durable writer candidate hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_durable_writer_candidate_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-writer-activation-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record writer activation request status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_writer_activation_request.status'));
+            $this->components->twoColumnDetail('Activation prerequisite count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_writer_activation_request.activation_prerequisite_count'));
+            $this->components->twoColumnDetail('Writer activation requested', data_get($payload, 'writer_activation_requested') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record writer activation request hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_writer_activation_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-writer-activation-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record writer activation receipt status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_writer_activation_receipt.status'));
+            $this->components->twoColumnDetail('Receipt assertion count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_writer_activation_receipt.receipt_assertion_count'));
+            $this->components->twoColumnDetail('Writer activation receipt persisted', data_get($payload, 'decision_record_writer_activation_receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record writer activation receipt hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_writer_activation_receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-post-activation-observability-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record post-activation observability status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_activation_observability.status'));
+            $this->components->twoColumnDetail('Observation signal count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_activation_observability.observation_signal_count'));
+            $this->components->twoColumnDetail('Post-activation observation persisted', data_get($payload, 'decision_record_post_activation_observability_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record post-activation observability hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_activation_observability_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-writer-activation-rejection-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record writer activation rejection status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_writer_activation_rejection.status'));
+            $this->components->twoColumnDetail('Rejection reason count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_writer_activation_rejection.rejection_reason_count'));
+            $this->components->twoColumnDetail('Writer activation rejected', data_get($payload, 'writer_activation_rejected') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record writer activation rejection hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_writer_activation_rejection_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-final-activation-non-execution-report-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record final activation non-execution report status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_activation_non_execution_report.status'));
+            $this->components->twoColumnDetail('Final report assertion count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_activation_non_execution_report.final_report_assertion_count'));
+            $this->components->twoColumnDetail('Final activation non-execution report persisted', data_get($payload, 'decision_record_final_activation_non_execution_report_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record final activation non-execution report hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_activation_non_execution_report_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-archive-index-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation archive index status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_archive_index.status'));
+            $this->components->twoColumnDetail('Activation archive entry count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_archive_index.activation_archive_entry_count'));
+            $this->components->twoColumnDetail('Activation archive index persisted', data_get($payload, 'decision_record_activation_archive_index_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation archive index hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_archive_index_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-human-review-packet-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation human review packet status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_human_review_packet.status'));
+            $this->components->twoColumnDetail('Activation review section count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_human_review_packet.activation_review_section_count'));
+            $this->components->twoColumnDetail('Activation human review packet persisted', data_get($payload, 'decision_record_activation_human_review_packet_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation human review packet hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_human_review_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-durable-writer-candidate-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation durable writer candidate status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_durable_writer_candidate.status'));
+            $this->components->twoColumnDetail('Activation candidate boundary count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_durable_writer_candidate.activation_candidate_boundary_count'));
+            $this->components->twoColumnDetail('Activation durable writer candidate persisted', data_get($payload, 'decision_record_activation_durable_writer_candidate_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation durable writer candidate hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_durable_writer_candidate_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-writer-activation-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation writer activation request status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_request.status'));
+            $this->components->twoColumnDetail('Activation request prerequisite count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_request.activation_request_prerequisite_count'));
+            $this->components->twoColumnDetail('Activation writer activation requested', data_get($payload, 'writer_activation_requested') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation writer activation request hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-writer-activation-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation writer activation receipt status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_receipt.status'));
+            $this->components->twoColumnDetail('Activation receipt assertion count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_receipt.activation_receipt_assertion_count'));
+            $this->components->twoColumnDetail('Activation writer activation receipt persisted', data_get($payload, 'decision_record_activation_writer_activation_receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation writer activation receipt hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-post-activation-observability-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation post-activation observability status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_post_activation_observability.status'));
+            $this->components->twoColumnDetail('Activation observation signal count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_post_activation_observability.activation_observation_signal_count'));
+            $this->components->twoColumnDetail('Activation post-activation observation persisted', data_get($payload, 'decision_record_activation_post_activation_observability_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation post-activation observability hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_post_activation_observability_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-writer-activation-rejection-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation writer activation rejection status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_rejection.status'));
+            $this->components->twoColumnDetail('Activation rejection reason count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_rejection.activation_rejection_reason_count'));
+            $this->components->twoColumnDetail('Activation writer activation rejected', data_get($payload, 'writer_activation_rejected') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation writer activation rejection hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_rejection_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-final-activation-non-execution-report-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation final activation non-execution report status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_final_activation_non_execution_report.status'));
+            $this->components->twoColumnDetail('Activation final report assertion count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_final_activation_non_execution_report.activation_final_report_assertion_count'));
+            $this->components->twoColumnDetail('Activation final activation non-execution report persisted', data_get($payload, 'decision_record_activation_final_activation_non_execution_report_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation final activation non-execution report hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_final_activation_non_execution_report_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-archive-closure-index-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation archive closure index status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_archive_closure_index.status'));
+            $this->components->twoColumnDetail('Activation archive closure entry count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_archive_closure_index.activation_archive_closure_entry_count'));
+            $this->components->twoColumnDetail('Activation archive closure index persisted', data_get($payload, 'decision_record_activation_archive_closure_index_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation archive closure index hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_archive_closure_index_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-closeout-packet-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation closeout packet status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_closeout_packet.status'));
+            $this->components->twoColumnDetail('Activation closeout section count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_closeout_packet.activation_closeout_section_count'));
+            $this->components->twoColumnDetail('Activation closeout packet persisted', data_get($payload, 'decision_record_activation_closeout_packet_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation closeout packet hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_closeout_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-readiness-reconciliation-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation readiness reconciliation status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_readiness_reconciliation.status'));
+            $this->components->twoColumnDetail('Activation reconciliation check count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_readiness_reconciliation.activation_reconciliation_check_count'));
+            $this->components->twoColumnDetail('Activation readiness reconciliation persisted', data_get($payload, 'decision_record_activation_readiness_reconciliation_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation readiness reconciliation hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_readiness_reconciliation_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-governance-summary-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation governance summary status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_governance_summary.status'));
+            $this->components->twoColumnDetail('Activation governance summary section count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_governance_summary.activation_governance_summary_section_count'));
+            $this->components->twoColumnDetail('Activation governance summary persisted', data_get($payload, 'decision_record_activation_governance_summary_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation governance summary hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_governance_summary_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-operator-readiness-digest-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation operator readiness digest status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_operator_readiness_digest.status'));
+            $this->components->twoColumnDetail('Activation operator digest item count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_operator_readiness_digest.activation_operator_digest_item_count'));
+            $this->components->twoColumnDetail('Activation operator readiness digest persisted', data_get($payload, 'decision_record_activation_operator_readiness_digest_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation operator readiness digest hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_operator_readiness_digest_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-handoff-digest-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation handoff digest status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_handoff_digest.status'));
+            $this->components->twoColumnDetail('Activation handoff digest item count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_handoff_digest.activation_handoff_digest_item_count'));
+            $this->components->twoColumnDetail('Activation handoff digest persisted', data_get($payload, 'decision_record_activation_handoff_digest_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation handoff digest hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_handoff_digest_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-bootstrap-summary-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session bootstrap summary status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_bootstrap_summary.status'));
+            $this->components->twoColumnDetail('Activation session bootstrap item count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_bootstrap_summary.activation_session_bootstrap_item_count'));
+            $this->components->twoColumnDetail('Activation session bootstrap summary persisted', data_get($payload, 'decision_record_activation_session_bootstrap_summary_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session bootstrap summary hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_bootstrap_summary_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-preflight-digest-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session preflight digest status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_preflight_digest.status'));
+            $this->components->twoColumnDetail('Activation session preflight check count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_preflight_digest.activation_session_preflight_check_count'));
+            $this->components->twoColumnDetail('Activation session preflight digest persisted', data_get($payload, 'decision_record_activation_session_preflight_digest_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session preflight digest hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_preflight_digest_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-scope-guard-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session scope guard status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_scope_guard.status'));
+            $this->components->twoColumnDetail('Activation session scope guard rule count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_scope_guard.activation_session_scope_guard_rule_count'));
+            $this->components->twoColumnDetail('Activation session scope guard persisted', data_get($payload, 'decision_record_activation_session_scope_guard_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session scope guard hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_scope_guard_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-work-intake-preview-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session work intake preview status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview.status'));
+            $this->components->twoColumnDetail('Activation session work intake preview item count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview.activation_session_work_intake_preview_item_count'));
+            $this->components->twoColumnDetail('Activation session work intake preview persisted', data_get($payload, 'decision_record_activation_session_work_intake_preview_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session work intake preview hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-task-candidate-outline-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session task candidate outline status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline.status'));
+            $this->components->twoColumnDetail('Activation session task candidate outline count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline.activation_session_task_candidate_outline_count'));
+            $this->components->twoColumnDetail('Activation session task candidate outline persisted', data_get($payload, 'decision_record_activation_session_task_candidate_outline_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session task candidate outline hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-packet-draft-preview-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session packet draft preview status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview.status'));
+            $this->components->twoColumnDetail('Activation session packet draft preview count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview.activation_session_packet_draft_preview_count'));
+            $this->components->twoColumnDetail('Activation session packet draft preview persisted', data_get($payload, 'decision_record_activation_session_packet_draft_preview_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session packet draft preview hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-packet-scope-preview-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session packet scope preview status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview.status'));
+            $this->components->twoColumnDetail('Activation session packet scope preview rule count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview.activation_session_packet_scope_preview_rule_count'));
+            $this->components->twoColumnDetail('Activation session packet scope preview persisted', data_get($payload, 'decision_record_activation_session_packet_scope_preview_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session packet scope preview hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-packet-start-contract-preview-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session packet start contract preview status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview.status'));
+            $this->components->twoColumnDetail('Activation session packet start contract preview item count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview.activation_session_packet_start_contract_preview_item_count'));
+            $this->components->twoColumnDetail('Activation session packet start contract preview persisted', data_get($payload, 'decision_record_activation_session_packet_start_contract_preview_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session packet start contract preview hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-session-operator-prompt-preview-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session session operator prompt preview status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview.status'));
+            $this->components->twoColumnDetail('Activation session session operator prompt preview item count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview.activation_session_session_operator_prompt_preview_item_count'));
+            $this->components->twoColumnDetail('Activation session session operator prompt preview persisted', data_get($payload, 'decision_record_activation_session_session_operator_prompt_preview_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session session operator prompt preview hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-session-ready-check-preview-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session session ready check preview status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview.status'));
+            $this->components->twoColumnDetail('Activation session session ready check preview item count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview.activation_session_session_ready_check_preview_item_count'));
+            $this->components->twoColumnDetail('Activation session session ready check preview persisted', data_get($payload, 'decision_record_activation_session_session_ready_check_preview_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization decision record activation session session ready check preview hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
         if ((bool) $this->option('release-packet')) {
             $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
             $this->components->twoColumnDetail('Released', data_get($payload, 'release.released') ? 'yes' : 'no');
@@ -2336,6 +3094,19 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Decision', (string) data_get($payload, 'gate.decision'));
             $this->components->twoColumnDetail('Multi-session allowed', data_get($payload, 'multi_session_allowed') ? 'yes' : 'no');
             $this->components->twoColumnDetail('Gate hash', (string) data_get($payload, 'gate_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('forge-workspace-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'workspace.canonical_name'));
+            $this->components->twoColumnDetail('Specialization', (string) data_get($payload, 'workspace.specialization'));
+            $this->components->twoColumnDetail('Recommended packet', (string) data_get($payload, 'workspace.state.recommended_packet_id'));
+            $this->components->twoColumnDetail('Workspace hash', (string) data_get($payload, 'workspace_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

@@ -16,6 +16,7 @@ class AiQualityActionService
         private readonly AiGatewayService $gateway,
         private readonly AuditLogService $audit,
         private readonly FairClaudePolicy $fairClaude,
+        private readonly AtlasFinalResponseSanitizer $finalResponses,
     ) {}
 
     /**
@@ -320,7 +321,7 @@ class AiQualityActionService
     private function remediationInput(AiQualityAction $action, AiTrace $trace): string
     {
         $originalInput = trim((string) $trace->operator_input);
-        $badResponse = trim((string) $trace->response_text);
+        $badResponse = $this->finalResponses->forOperator((string) $trace->response_text);
         $flags = collect($action->flags ?? [])->implode(', ');
 
         return match ($action->action_type) {

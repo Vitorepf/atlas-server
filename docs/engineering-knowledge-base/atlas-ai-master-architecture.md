@@ -36,6 +36,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
+  - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
 ---
 
 # Atlas AI Master Architecture
@@ -68,6 +69,7 @@ driver, benchmark, skill, connector or recipe.
 | Runtime | Laravel, Python, Go, Swift, providers, harnesses, tools | `master-architecture/runtime-evidence-learning.md` |
 | Evidence | Ledger, projections, packets, replay, audit | `master-architecture/runtime-evidence-learning.md` |
 | Learning | memory signals, quality score, Curator proposals | `master-architecture/runtime-evidence-learning.md` |
+| Production Workspace | Obras Shared Workspace, Forge Workspace, packets, artifacts, integration queue | `obras/shared-workspace-and-forge.md` |
 | Human Knowledge | AtlasVault/Obsidian, review, identity, synthesis | knowledge governance docs |
 | Surface | CLI, App, Mobile, API, MCP, Voice | pipeline and surface docs |
 
@@ -89,10 +91,11 @@ Surface -> Input -> Envelope -> Intent -> Business Context -> Domain/Profile/Flo
 4. Domain does not bypass Policy.
 5. Runtime does not execute without Decision Receipt.
 6. AtlasVault is curated human knowledge, not raw operational truth.
-7. Business/project context is not a cognitive domain.
-8. Everything repeated becomes Core.
-9. Everything important becomes Evidence.
-10. Curator does not auto-apply critical behavior without review.
+7. Obras Shared Workspace coordinates provider collaboration; it does not decide.
+8. Business/project context is not a cognitive domain.
+9. Everything repeated becomes Core.
+10. Everything important becomes Evidence.
+11. Curator does not auto-apply critical behavior without review.
 
 ## Read Next
 
@@ -101,4 +104,5 @@ Surface -> Input -> Envelope -> Intent -> Business Context -> Domain/Profile/Flo
 | Plane authority and Control Plane | `master-architecture/planes-and-authority.md` |
 | Adding a new domain | `master-architecture/domain-onboarding.md` |
 | Runtime, Evidence and Learning | `master-architecture/runtime-evidence-learning.md` |
+| Shared workspace for multi-provider production | `obras/shared-workspace-and-forge.md` |
 | How Atlas wins provider launches | `master-architecture/competitive-strategy.md` |

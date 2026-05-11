@@ -20,6 +20,7 @@ return new class extends Migration
                     'retry_with_continuity',
                     'rewrite_for_operator',
                     'escalate_to_council',
+                    'fair_claude_repair',
                     'request_verification',
                     'enforce_atlas_identity',
                     'operator_review'

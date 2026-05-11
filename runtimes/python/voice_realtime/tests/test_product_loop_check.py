@@ -184,6 +184,21 @@ class ProductLoopCheckTest(unittest.TestCase):
         self.assertTrue(payload["gates"]["runtime_policy_enablement_review_available"])
         self.assertTrue(payload["gates"]["real_start_adapter_review_contract_available"])
         self.assertTrue(payload["gates"]["reviewed_real_start_execution_contract_available"])
+        self.assertTrue(payload["gates"]["final_start_executor_disabled_available"])
+        self.assertTrue(payload["gates"]["final_start_executor_enablement_gate_available"])
+        self.assertTrue(payload["gates"]["supervised_start_execution_review_available"])
+        self.assertTrue(payload["gates"]["real_start_execution_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_executor_disabled_available"])
+        self.assertTrue(payload["gates"]["guarded_start_executor_enablement_gate_available"])
+        self.assertTrue(payload["gates"]["reviewed_guarded_start_execution_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_dry_run_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_simulation_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_runtime_handoff_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_policy_patch_review_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_human_review_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_final_enablement_gate_available"])
+        self.assertTrue(payload["gates"]["guarded_start_policy_enablement_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_activation_contract_available"])
         self.assertFalse(payload["gates"]["production_review_receipt_valid"])
         self.assertFalse(payload["gates"]["daemon_implementation_review_valid"])
         self.assertFalse(payload["gates"]["boolean_approval_is_sufficient"])
@@ -373,6 +388,54 @@ class ProductLoopCheckTest(unittest.TestCase):
         )
         self.assertFalse(
             payload["daemon_supervisor_execution"]["supervised_process_adapter"]["reviewed_real_start_execution_contract"]["daemon_started"]
+        )
+        self.assertEqual(
+            "atlas.voice_realtime.final_start_executor_disabled.v1",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["final_start_executor_disabled"]["schema_version"],
+        )
+        self.assertTrue(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["final_start_executor_disabled"]["final_start_executor_contract_implemented"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["final_start_executor_disabled"]["final_start_executor_enabled"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["final_start_executor_disabled"]["process_launch_attempted"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["final_start_executor_disabled"]["daemon_started"]
+        )
+        self.assertEqual(
+            "atlas.voice_realtime.final_start_executor_enablement_gate.v1",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["final_start_executor_enablement_gate"]["schema_version"],
+        )
+        self.assertTrue(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["final_start_executor_enablement_gate"]["final_start_executor_enablement_gate_implemented"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["final_start_executor_enablement_gate"]["final_start_executor_enabled"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["final_start_executor_enablement_gate"]["process_launch_attempted"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["final_start_executor_enablement_gate"]["daemon_started"]
+        )
+        self.assertEqual(
+            "atlas.voice_realtime.supervised_start_execution_review.v1",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["supervised_start_execution_review"]["schema_version"],
+        )
+        self.assertTrue(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["supervised_start_execution_review"]["supervised_start_execution_review_implemented"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["supervised_start_execution_review"]["start_execution_allowed"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["supervised_start_execution_review"]["process_launch_attempted"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["supervised_start_execution_review"]["daemon_started"]
         )
 
         if payload["worker_start"]["status"] == "blocked_pending_human_review":

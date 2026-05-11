@@ -25,6 +25,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-follow-up-observability-template.md
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-rejection-template.md
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-archive-index-template.md
+  - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-human-review-packet-template.md
 owner: atlas-ai
 layer: 0.8-self-construction
 line_limit: 200

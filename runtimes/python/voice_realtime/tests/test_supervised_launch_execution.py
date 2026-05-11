@@ -10,8 +10,34 @@ from atlas_voice_agent.managed_env_writer import (
     inspect_managed_env_writer,
 )
 from atlas_voice_agent.supervised_launch_execution import (
+    FINAL_START_EXECUTOR_AUTHORIZATION_SCHEMA_VERSION,
+    FINAL_START_EXECUTOR_DISABLED_SCHEMA_VERSION,
+    FINAL_START_EXECUTOR_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+    FINAL_START_EXECUTOR_ENABLEMENT_GATE_SCHEMA_VERSION,
+    GUARDED_START_ACTIVATION_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_ACTIVATION_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_EXECUTOR_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_DRY_RUN_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_DRY_RUN_PLAN_SCHEMA_VERSION,
+    GUARDED_START_FINAL_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_FINAL_ENABLEMENT_GATE_SCHEMA_VERSION,
+    GUARDED_START_HUMAN_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_HUMAN_REVIEW_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_POLICY_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_POLICY_ENABLEMENT_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_RUNTIME_HANDOFF_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_RUNTIME_HANDOFF_PLAN_SCHEMA_VERSION,
+    GUARDED_START_POLICY_PATCH_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_POLICY_PATCH_REVIEW_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_SIMULATION_CONTRACT_SCHEMA_VERSION,
+    GUARDED_START_SIMULATION_PLAN_SCHEMA_VERSION,
+    GUARDED_START_EXECUTOR_DISABLED_SCHEMA_VERSION,
+    GUARDED_START_EXECUTOR_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_EXECUTOR_ENABLEMENT_GATE_SCHEMA_VERSION,
     LAUNCH_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
     PRE_START_HEALTH_CHECKS_AUTHORIZATION_SCHEMA_VERSION,
+    REAL_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+    REAL_START_EXECUTION_CONTRACT_SCHEMA_VERSION,
     REAL_START_ADAPTER_AUTHORIZATION_SCHEMA_VERSION,
     REAL_START_ADAPTER_DISABLED_SCHEMA_VERSION,
     REAL_START_ADAPTER_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
@@ -20,6 +46,8 @@ from atlas_voice_agent.supervised_launch_execution import (
     REAL_START_ENABLEMENT_GATE_SCHEMA_VERSION,
     REVIEWED_REAL_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
     REVIEWED_REAL_START_EXECUTION_CONTRACT_SCHEMA_VERSION,
+    REVIEWED_GUARDED_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+    REVIEWED_GUARDED_START_EXECUTION_CONTRACT_SCHEMA_VERSION,
     REVIEWED_SUBPROCESS_START_AUTHORIZATION_SCHEMA_VERSION,
     REVIEWED_SUBPROCESS_START_EXECUTION_SCHEMA_VERSION,
     RUNTIME_POLICY_ENABLEMENT_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
@@ -27,10 +55,27 @@ from atlas_voice_agent.supervised_launch_execution import (
     SCHEMA_VERSION,
     SUBPROCESS_START_AUTHORIZATION_SCHEMA_VERSION,
     SUBPROCESS_START_CONTRACT_SCHEMA_VERSION,
+    SUPERVISED_START_EXECUTION_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    SUPERVISED_START_EXECUTION_REVIEW_SCHEMA_VERSION,
     execute_pre_start_health_checks,
     inspect_real_start_adapter_enablement_gate,
     inspect_real_start_adapter_disabled_by_default,
     inspect_real_start_adapter_review_contract,
+    inspect_final_start_executor_disabled_by_default,
+    inspect_final_start_executor_enablement_gate,
+    inspect_guarded_start_activation_contract,
+    inspect_guarded_start_executor_disabled_by_default,
+    inspect_guarded_start_executor_enablement_gate,
+    inspect_guarded_start_dry_run_contract,
+    inspect_guarded_start_final_enablement_gate_contract,
+    inspect_guarded_start_human_review_contract,
+    inspect_guarded_start_policy_enablement_contract,
+    inspect_guarded_start_policy_patch_review_contract,
+    inspect_guarded_start_runtime_handoff_contract,
+    inspect_guarded_start_simulation_contract,
+    inspect_reviewed_guarded_start_execution_contract,
+    inspect_real_start_execution_contract,
+    inspect_supervised_start_execution_review,
     inspect_reviewed_real_start_execution_contract,
     inspect_reviewed_subprocess_start_execution,
     inspect_runtime_policy_enablement_review,
@@ -158,6 +203,295 @@ def valid_reviewed_real_start_execution_authorization() -> dict[str, object]:
     }
 
 
+def valid_final_start_executor_authorization() -> dict[str, object]:
+    return {
+        "schema_version": FINAL_START_EXECUTOR_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_final_start_executor_disabled_contract",
+        "final_start_executor_contract_allowed": True,
+        "start_enabled": False,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "single_start_per_receipt_required": True,
+        "final_pre_start_receipt_required": True,
+        "post_start_ready_event_required": True,
+        "rollback_rehearsal_required": True,
+        "decision_receipt_id": "decision_receipt_final_start_executor_disabled_1",
+    }
+
+
+def valid_final_start_executor_enablement_authorization() -> dict[str, object]:
+    return {
+        "schema_version": FINAL_START_EXECUTOR_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_final_start_executor_enablement_gate",
+        "final_start_executor_enablement_gate_allowed": True,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "final_pre_start_receipt_attached": True,
+        "reviewed_bundle_hash": "e"*64,
+        "single_start_per_receipt_required": True,
+        "post_start_ready_event_required": True,
+        "rollback_rehearsal_passed": True,
+        "decision_receipt_id": "decision_receipt_final_start_executor_enablement_1",
+    }
+
+
+def valid_supervised_start_execution_review_authorization() -> dict[str, object]:
+    return {
+        "schema_version": SUPERVISED_START_EXECUTION_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_supervised_start_execution_review",
+        "supervised_start_execution_review_allowed": True,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "technical_review_completed": True,
+        "current_bundle_reviewed": True,
+        "reviewed_bundle_hash": "f"*64,
+        "final_pre_start_receipt_required": True,
+        "single_start_per_receipt_required": True,
+        "post_start_ready_event_required": True,
+        "rollback_rehearsal_required": True,
+        "decision_receipt_id": "decision_receipt_supervised_start_execution_review_1",
+    }
+
+
+def valid_real_start_execution_authorization() -> dict[str, object]:
+    return {
+        "schema_version": REAL_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_real_start_execution_contract",
+        "real_start_execution_contract_allowed": True,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "technical_review_completed": True,
+        "current_bundle_reviewed": True,
+        "reviewed_bundle_hash": "g"*64,
+        "final_pre_start_receipt_attached": True,
+        "single_start_per_receipt_required": True,
+        "post_start_ready_event_required": True,
+        "rollback_rehearsal_passed": True,
+        "pid_file_guard_required": True,
+        "startup_timeout_required": True,
+        "stdout_stderr_sanitization_required": True,
+        "decision_receipt_id": "decision_receipt_real_start_execution_contract_1",
+    }
+
+
+def valid_guarded_start_executor_authorization() -> dict[str, object]:
+    return {
+        "schema_version": GUARDED_START_EXECUTOR_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_guarded_start_executor_disabled_contract",
+        "guarded_start_executor_contract_allowed": True,
+        "guarded_start_enabled": False,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "pid_file_guard_required": True,
+        "startup_timeout_required": True,
+        "stdout_stderr_sanitization_required": True,
+        "single_start_per_receipt_required": True,
+        "post_start_ready_event_required": True,
+        "rollback_rehearsal_required": True,
+        "decision_receipt_id": "decision_receipt_guarded_start_executor_disabled_1",
+    }
+
+
+def valid_guarded_start_executor_enablement_authorization() -> dict[str, object]:
+    return {
+        "schema_version": GUARDED_START_EXECUTOR_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_guarded_start_executor_enablement_gate",
+        "guarded_start_executor_enablement_gate_allowed": True,
+        "guarded_start_enabled": False,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "reviewed_bundle_hash": "h"*64,
+        "final_pre_start_receipt_attached": True,
+        "single_start_per_receipt_required": True,
+        "post_start_ready_event_required": True,
+        "rollback_rehearsal_passed": True,
+        "pid_file_guard_required": True,
+        "startup_timeout_required": True,
+        "stdout_stderr_sanitization_required": True,
+        "decision_receipt_id": "decision_receipt_guarded_start_executor_enablement_1",
+    }
+
+
+def valid_reviewed_guarded_start_execution_authorization() -> dict[str, object]:
+    return {
+        "schema_version": REVIEWED_GUARDED_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_reviewed_guarded_start_execution_contract",
+        "reviewed_guarded_start_execution_allowed": True,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "technical_review_completed": True,
+        "current_bundle_reviewed": True,
+        "reviewed_bundle_hash": "i"*64,
+        "final_pre_start_receipt_attached": True,
+        "single_start_per_receipt_required": True,
+        "post_start_ready_event_required": True,
+        "rollback_rehearsal_passed": True,
+        "pid_file_guard_required": True,
+        "startup_timeout_required": True,
+        "stdout_stderr_sanitization_required": True,
+        "dry_run_execution_plan_attached": True,
+        "decision_receipt_id": "decision_receipt_reviewed_guarded_start_execution_1",
+    }
+
+
+def valid_guarded_start_dry_run_plan() -> dict[str, object]:
+    return {
+        "schema_version": GUARDED_START_DRY_RUN_PLAN_SCHEMA_VERSION,
+        "status": "approved_for_guarded_start_dry_run_contract",
+        "dry_run_only": True,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "simulated_pid_file_guard_passed": True,
+        "simulated_startup_timeout_ms": 5000,
+        "stdout_stderr_sanitization_simulated": True,
+        "post_start_ready_event_simulated": True,
+        "rollback_rehearsal_reference_attached": True,
+        "decision_receipt_id": "decision_receipt_guarded_start_dry_run_1",
+    }
+
+
+def valid_guarded_start_simulation_plan() -> dict[str, object]:
+    return {
+        "schema_version": GUARDED_START_SIMULATION_PLAN_SCHEMA_VERSION,
+        "status": "approved_for_guarded_start_simulation_contract",
+        "simulation_only": True,
+        "dry_run_only": True,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "synthetic_lifecycle_simulated": True,
+        "synthetic_ready_probe_passed": True,
+        "synthetic_exit_code": 0,
+        "decision_receipt_id": "decision_receipt_guarded_start_simulation_1",
+    }
+
+
+def valid_guarded_start_runtime_handoff_plan() -> dict[str, object]:
+    return {
+        "schema_version": GUARDED_START_RUNTIME_HANDOFF_PLAN_SCHEMA_VERSION,
+        "status": "approved_for_guarded_start_runtime_handoff_contract",
+        "runtime_handoff_contract_allowed": True,
+        "runtime_family": "python_ai_data",
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "kernel_runtime_invocation_contract_attached": True,
+        "evidence_sink_attached": True,
+        "rollback_plan_attached": True,
+        "policy_patch_review_required": True,
+        "human_review_required": True,
+        "decision_receipt_id": "decision_receipt_guarded_start_runtime_handoff_1",
+    }
+
+
+def valid_guarded_start_policy_patch_review_authorization() -> dict[str, object]:
+    return {
+        "schema_version": GUARDED_START_POLICY_PATCH_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_guarded_start_policy_patch_review_contract",
+        "policy_patch_review_contract_allowed": True,
+        "runtime_policy_start_enabled": False,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "policy_patch_diff_attached": True,
+        "policy_patch_dry_run_passed": True,
+        "rollback_plan_attached": True,
+        "human_review_required": True,
+        "decision_receipt_required": True,
+        "reviewed_policy_patch_hash": "j"*64,
+        "decision_receipt_id": "decision_receipt_guarded_start_policy_patch_review_1",
+    }
+
+
+def valid_guarded_start_human_review_authorization() -> dict[str, object]:
+    return {
+        "schema_version": GUARDED_START_HUMAN_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_guarded_start_human_review_contract",
+        "human_review_contract_allowed": True,
+        "human_review_completed": True,
+        "operator_approved_policy_patch": True,
+        "runtime_policy_start_enabled": False,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "rollback_plan_reviewed": True,
+        "decision_receipt_required": True,
+        "final_enablement_gate_required": True,
+        "reviewed_policy_patch_hash": "j"*64,
+        "decision_receipt_id": "decision_receipt_guarded_start_human_review_1",
+    }
+
+
+def valid_guarded_start_final_enablement_authorization() -> dict[str, object]:
+    return {
+        "schema_version": GUARDED_START_FINAL_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_guarded_start_final_enablement_gate",
+        "final_enablement_gate_allowed": True,
+        "runtime_policy_start_enabled": False,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "human_review_contract_attached": True,
+        "final_pre_start_receipt_attached": True,
+        "single_start_per_receipt_required": True,
+        "post_start_ready_event_required": True,
+        "rollback_rehearsal_passed": True,
+        "reviewed_policy_patch_hash": "j"*64,
+        "decision_receipt_id": "decision_receipt_guarded_start_final_enablement_1",
+    }
+
+
+def valid_guarded_start_policy_enablement_authorization() -> dict[str, object]:
+    return {
+        "schema_version": GUARDED_START_POLICY_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_guarded_start_policy_enablement_contract",
+        "policy_enablement_contract_allowed": True,
+        "runtime_policy_start_enabled": True,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "final_enablement_gate_attached": True,
+        "human_review_contract_attached": True,
+        "rollback_plan_attached": True,
+        "single_start_per_receipt_required": True,
+        "post_start_ready_event_required": True,
+        "policy_revoke_supported": True,
+        "reviewed_policy_patch_hash": "j"*64,
+        "decision_receipt_id": "decision_receipt_guarded_start_policy_enablement_1",
+    }
+
+
+def valid_guarded_start_activation_authorization() -> dict[str, object]:
+    return {
+        "schema_version": GUARDED_START_ACTIVATION_AUTHORIZATION_SCHEMA_VERSION,
+        "status": "approved_for_guarded_start_activation_contract",
+        "activation_contract_allowed": True,
+        "runtime_policy_start_enabled": True,
+        "start_execution_allowed": False,
+        "process_launch_allowed": False,
+        "subprocess_module_import_allowed": False,
+        "policy_enablement_contract_attached": True,
+        "final_enablement_gate_attached": True,
+        "human_review_contract_attached": True,
+        "activation_window_declared": True,
+        "operator_activation_review_required": True,
+        "post_start_observability_required": True,
+        "rollback_plan_attached": True,
+        "policy_revoke_supported": True,
+        "single_start_per_receipt_required": True,
+        "reviewed_policy_patch_hash": "j"*64,
+        "decision_receipt_id": "decision_receipt_guarded_start_activation_1",
+    }
+
+
 def full_launch_authorization_contract() -> dict[str, object]:
     contract = launch_authorization_contract()
     contract["required_pre_start_checks"] = [
@@ -276,6 +610,118 @@ def ready_real_start_adapter_review_contract() -> dict[str, object]:
     return dict(inspect_real_start_adapter_review_contract(
         runtime_policy_enablement_review=ready_runtime_policy_enablement_review(),
         real_start_review_authorization=valid_real_start_adapter_review_authorization(),
+    ))
+
+
+def ready_reviewed_real_start_execution_contract() -> dict[str, object]:
+    return dict(inspect_reviewed_real_start_execution_contract(
+        real_start_adapter_review_contract=ready_real_start_adapter_review_contract(),
+        reviewed_real_start_authorization=valid_reviewed_real_start_execution_authorization(),
+    ))
+
+
+def ready_final_start_executor_disabled() -> dict[str, object]:
+    return dict(inspect_final_start_executor_disabled_by_default(
+        reviewed_real_start_execution_contract=ready_reviewed_real_start_execution_contract(),
+        final_start_executor_authorization=valid_final_start_executor_authorization(),
+    ))
+
+
+def ready_final_start_executor_enablement_gate() -> dict[str, object]:
+    return dict(inspect_final_start_executor_enablement_gate(
+        final_start_executor_disabled=ready_final_start_executor_disabled(),
+        final_start_executor_enablement_authorization=valid_final_start_executor_enablement_authorization(),
+    ))
+
+
+def ready_supervised_start_execution_review() -> dict[str, object]:
+    return dict(inspect_supervised_start_execution_review(
+        final_start_executor_enablement_gate=ready_final_start_executor_enablement_gate(),
+        supervised_start_review_authorization=valid_supervised_start_execution_review_authorization(),
+    ))
+
+
+def ready_real_start_execution_contract() -> dict[str, object]:
+    return dict(inspect_real_start_execution_contract(
+        supervised_start_execution_review=ready_supervised_start_execution_review(),
+        real_start_execution_authorization=valid_real_start_execution_authorization(),
+    ))
+
+
+def ready_guarded_start_executor_disabled() -> dict[str, object]:
+    return dict(inspect_guarded_start_executor_disabled_by_default(
+        real_start_execution_contract=ready_real_start_execution_contract(),
+        guarded_start_executor_authorization=valid_guarded_start_executor_authorization(),
+    ))
+
+
+def ready_guarded_start_executor_enablement_gate() -> dict[str, object]:
+    return dict(inspect_guarded_start_executor_enablement_gate(
+        guarded_start_executor_disabled=ready_guarded_start_executor_disabled(),
+        guarded_start_executor_enablement_authorization=valid_guarded_start_executor_enablement_authorization(),
+    ))
+
+
+def ready_reviewed_guarded_start_execution_contract() -> dict[str, object]:
+    return dict(inspect_reviewed_guarded_start_execution_contract(
+        guarded_start_executor_enablement_gate=ready_guarded_start_executor_enablement_gate(),
+        reviewed_guarded_start_authorization=valid_reviewed_guarded_start_execution_authorization(),
+    ))
+
+
+def ready_guarded_start_dry_run_contract() -> dict[str, object]:
+    return dict(inspect_guarded_start_dry_run_contract(
+        reviewed_guarded_start_execution_contract=ready_reviewed_guarded_start_execution_contract(),
+        guarded_start_dry_run_plan=valid_guarded_start_dry_run_plan(),
+    ))
+
+
+def ready_guarded_start_simulation_contract() -> dict[str, object]:
+    return dict(inspect_guarded_start_simulation_contract(
+        guarded_start_dry_run_contract=ready_guarded_start_dry_run_contract(),
+        guarded_start_simulation_plan=valid_guarded_start_simulation_plan(),
+    ))
+
+
+def ready_guarded_start_runtime_handoff_contract() -> dict[str, object]:
+    return dict(inspect_guarded_start_runtime_handoff_contract(
+        guarded_start_simulation_contract=ready_guarded_start_simulation_contract(),
+        guarded_start_runtime_handoff_plan=valid_guarded_start_runtime_handoff_plan(),
+    ))
+
+
+def ready_guarded_start_policy_patch_review_contract() -> dict[str, object]:
+    return dict(inspect_guarded_start_policy_patch_review_contract(
+        guarded_start_runtime_handoff_contract=ready_guarded_start_runtime_handoff_contract(),
+        policy_patch_review_authorization=valid_guarded_start_policy_patch_review_authorization(),
+    ))
+
+
+def ready_guarded_start_human_review_contract() -> dict[str, object]:
+    return dict(inspect_guarded_start_human_review_contract(
+        guarded_start_policy_patch_review_contract=ready_guarded_start_policy_patch_review_contract(),
+        human_review_authorization=valid_guarded_start_human_review_authorization(),
+    ))
+
+
+def ready_guarded_start_final_enablement_gate_contract() -> dict[str, object]:
+    return dict(inspect_guarded_start_final_enablement_gate_contract(
+        guarded_start_human_review_contract=ready_guarded_start_human_review_contract(),
+        final_enablement_authorization=valid_guarded_start_final_enablement_authorization(),
+    ))
+
+
+def ready_guarded_start_policy_enablement_contract() -> dict[str, object]:
+    return dict(inspect_guarded_start_policy_enablement_contract(
+        guarded_start_final_enablement_gate=ready_guarded_start_final_enablement_gate_contract(),
+        policy_enablement_authorization=valid_guarded_start_policy_enablement_authorization(),
+    ))
+
+
+def ready_guarded_start_activation_contract() -> dict[str, object]:
+    return dict(inspect_guarded_start_activation_contract(
+        guarded_start_policy_enablement_contract=ready_guarded_start_policy_enablement_contract(),
+        activation_authorization=valid_guarded_start_activation_authorization(),
     ))
 
 
@@ -756,6 +1202,657 @@ class SupervisedLaunchExecutionTest(unittest.TestCase):
         self.assertFalse(payload["process_launch_attempted"])
         self.assertEqual("fix_reviewed_real_start_execution_contract_prerequisites", payload["next_action"])
 
+    def test_final_start_executor_is_ready_but_disabled_by_default(self) -> None:
+        payload = inspect_final_start_executor_disabled_by_default(
+            reviewed_real_start_execution_contract=ready_reviewed_real_start_execution_contract(),
+            final_start_executor_authorization=valid_final_start_executor_authorization(),
+        )
+
+        self.assertEqual(FINAL_START_EXECUTOR_DISABLED_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.final_start_executor_authorization.v1",
+            FINAL_START_EXECUTOR_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_disabled_by_default", payload["status"])
+        self.assertTrue(payload["final_start_executor_contract_implemented"])
+        self.assertFalse(payload["final_start_executor_enabled"])
+        self.assertFalse(payload["runtime_policy_start_enabled"])
+        self.assertFalse(payload["real_start_adapter_enabled"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["real_subprocess_start_implemented"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["subprocess_module_imported"])
+        self.assertFalse(payload["livekit_sdk_imported"])
+        self.assertTrue(payload["gates"]["reviewed_real_start_execution_contract_ready"])
+        self.assertTrue(payload["gates"]["final_start_executor_authorization_ready"])
+        self.assertTrue(payload["gates"]["start_disabled_by_default"])
+        self.assertTrue(payload["gates"]["single_start_per_receipt_required"])
+        self.assertIn("single_start_attempt_per_fresh_receipt", payload["required_final_start_controls"])
+        self.assertIn("VOICE_DAEMON_FINAL_START_EXECUTOR_DECLARED", payload["evidence_events"])
+        self.assertEqual("implement_final_start_executor_enablement_gate", payload["next_action"])
+
+    def test_final_start_executor_blocks_if_authorization_enables_start(self) -> None:
+        payload = inspect_final_start_executor_disabled_by_default(
+            reviewed_real_start_execution_contract=ready_reviewed_real_start_execution_contract(),
+            final_start_executor_authorization={
+                **valid_final_start_executor_authorization(),
+                "start_enabled": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["reviewed_real_start_execution_contract_ready"])
+        self.assertFalse(payload["gates"]["final_start_executor_authorization_ready"])
+        self.assertFalse(payload["final_start_executor_enabled"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertEqual("fix_final_start_executor_disabled_prerequisites", payload["next_action"])
+
+    def test_final_start_executor_enablement_gate_is_ready_without_enabling_start(self) -> None:
+        payload = inspect_final_start_executor_enablement_gate(
+            final_start_executor_disabled=ready_final_start_executor_disabled(),
+            final_start_executor_enablement_authorization=valid_final_start_executor_enablement_authorization(),
+        )
+
+        self.assertEqual(FINAL_START_EXECUTOR_ENABLEMENT_GATE_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.final_start_executor_enablement_authorization.v1",
+            FINAL_START_EXECUTOR_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_for_supervised_start_execution_review", payload["status"])
+        self.assertTrue(payload["final_start_executor_enablement_gate_implemented"])
+        self.assertFalse(payload["final_start_executor_enabled"])
+        self.assertFalse(payload["runtime_policy_start_enabled"])
+        self.assertFalse(payload["real_start_adapter_enabled"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["real_subprocess_start_implemented"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["subprocess_module_imported"])
+        self.assertFalse(payload["livekit_sdk_imported"])
+        self.assertTrue(payload["gates"]["final_start_executor_disabled_ready"])
+        self.assertTrue(payload["gates"]["final_start_executor_enablement_authorization_ready"])
+        self.assertTrue(payload["gates"]["reviewed_bundle_hash_required"])
+        self.assertTrue(payload["gates"]["rollback_rehearsal_passed"])
+        self.assertIn("reviewed_bundle_hash_bound_to_current_evidence", payload["required_enablement_controls"])
+        self.assertIn("VOICE_DAEMON_FINAL_START_ENABLEMENT_GATE_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_supervised_start_execution_review", payload["next_action"])
+
+    def test_final_start_executor_enablement_gate_blocks_without_bundle_hash(self) -> None:
+        payload = inspect_final_start_executor_enablement_gate(
+            final_start_executor_disabled=ready_final_start_executor_disabled(),
+            final_start_executor_enablement_authorization={
+                **valid_final_start_executor_enablement_authorization(),
+                "reviewed_bundle_hash": "too-short",
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["final_start_executor_disabled_ready"])
+        self.assertFalse(payload["gates"]["final_start_executor_enablement_authorization_ready"])
+        self.assertFalse(payload["gates"]["reviewed_bundle_hash_required"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertEqual("fix_final_start_executor_enablement_gate_prerequisites", payload["next_action"])
+
+    def test_supervised_start_execution_review_is_ready_without_enabling_start(self) -> None:
+        payload = inspect_supervised_start_execution_review(
+            final_start_executor_enablement_gate=ready_final_start_executor_enablement_gate(),
+            supervised_start_review_authorization=valid_supervised_start_execution_review_authorization(),
+        )
+
+        self.assertEqual(SUPERVISED_START_EXECUTION_REVIEW_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.supervised_start_execution_review_authorization.v1",
+            SUPERVISED_START_EXECUTION_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_for_real_start_execution_contract", payload["status"])
+        self.assertTrue(payload["supervised_start_execution_review_implemented"])
+        self.assertFalse(payload["final_start_executor_enabled"])
+        self.assertFalse(payload["runtime_policy_start_enabled"])
+        self.assertFalse(payload["real_start_adapter_enabled"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["real_subprocess_start_implemented"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["subprocess_module_imported"])
+        self.assertFalse(payload["livekit_sdk_imported"])
+        self.assertTrue(payload["gates"]["final_start_executor_enablement_gate_ready"])
+        self.assertTrue(payload["gates"]["supervised_start_review_authorization_ready"])
+        self.assertTrue(payload["gates"]["technical_review_required"])
+        self.assertTrue(payload["gates"]["current_bundle_review_required"])
+        self.assertIn("technical_review_completed_for_current_bundle", payload["required_review_controls"])
+        self.assertIn("VOICE_DAEMON_SUPERVISED_START_EXECUTION_REVIEWED", payload["evidence_events"])
+        self.assertEqual("implement_real_start_execution_contract", payload["next_action"])
+
+    def test_supervised_start_execution_review_blocks_if_authorization_allows_start(self) -> None:
+        payload = inspect_supervised_start_execution_review(
+            final_start_executor_enablement_gate=ready_final_start_executor_enablement_gate(),
+            supervised_start_review_authorization={
+                **valid_supervised_start_execution_review_authorization(),
+                "start_execution_allowed": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["final_start_executor_enablement_gate_ready"])
+        self.assertFalse(payload["gates"]["supervised_start_review_authorization_ready"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertEqual("fix_supervised_start_execution_review_prerequisites", payload["next_action"])
+
+    def test_real_start_execution_contract_is_ready_without_starting_or_importing(self) -> None:
+        payload = inspect_real_start_execution_contract(
+            supervised_start_execution_review=ready_supervised_start_execution_review(),
+            real_start_execution_authorization=valid_real_start_execution_authorization(),
+        )
+
+        self.assertEqual(REAL_START_EXECUTION_CONTRACT_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.real_start_execution_authorization.v1",
+            REAL_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_for_guarded_start_executor_implementation", payload["status"])
+        self.assertTrue(payload["real_start_execution_contract_implemented"])
+        self.assertFalse(payload["guarded_start_executor_implemented"])
+        self.assertFalse(payload["final_start_executor_enabled"])
+        self.assertFalse(payload["runtime_policy_start_enabled"])
+        self.assertFalse(payload["real_start_adapter_enabled"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["real_subprocess_start_implemented"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["subprocess_module_imported"])
+        self.assertFalse(payload["livekit_sdk_imported"])
+        self.assertTrue(payload["gates"]["supervised_start_execution_review_ready"])
+        self.assertTrue(payload["gates"]["real_start_execution_authorization_ready"])
+        self.assertTrue(payload["gates"]["pid_file_guard_required"])
+        self.assertTrue(payload["gates"]["startup_timeout_required"])
+        self.assertTrue(payload["gates"]["stdout_stderr_sanitization_required"])
+        self.assertIn("guarded_subprocess_import_only_inside_executor", payload["required_execution_controls"])
+        self.assertIn("VOICE_DAEMON_REAL_START_EXECUTION_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_guarded_start_executor_disabled_by_default", payload["next_action"])
+
+    def test_real_start_execution_contract_blocks_if_authorization_allows_process_launch(self) -> None:
+        payload = inspect_real_start_execution_contract(
+            supervised_start_execution_review=ready_supervised_start_execution_review(),
+            real_start_execution_authorization={
+                **valid_real_start_execution_authorization(),
+                "process_launch_allowed": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["supervised_start_execution_review_ready"])
+        self.assertFalse(payload["gates"]["real_start_execution_authorization_ready"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertEqual("fix_real_start_execution_contract_prerequisites", payload["next_action"])
+
+    def test_real_start_execution_contract_blocks_without_bundle_hash(self) -> None:
+        payload = inspect_real_start_execution_contract(
+            supervised_start_execution_review=ready_supervised_start_execution_review(),
+            real_start_execution_authorization={
+                **valid_real_start_execution_authorization(),
+                "reviewed_bundle_hash": "too-short",
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertFalse(payload["gates"]["real_start_execution_authorization_ready"])
+        self.assertFalse(payload["gates"]["reviewed_bundle_hash_required"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertEqual("fix_real_start_execution_contract_prerequisites", payload["next_action"])
+
+    def test_guarded_start_executor_disabled_is_ready_without_starting(self) -> None:
+        payload = inspect_guarded_start_executor_disabled_by_default(
+            real_start_execution_contract=ready_real_start_execution_contract(),
+            guarded_start_executor_authorization=valid_guarded_start_executor_authorization(),
+        )
+
+        self.assertEqual(GUARDED_START_EXECUTOR_DISABLED_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_executor_authorization.v1",
+            GUARDED_START_EXECUTOR_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_disabled_by_default", payload["status"])
+        self.assertTrue(payload["guarded_start_executor_contract_implemented"])
+        self.assertFalse(payload["guarded_start_executor_enabled"])
+        self.assertFalse(payload["guarded_start_executor_implemented"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["subprocess_module_imported"])
+        self.assertTrue(payload["gates"]["real_start_execution_contract_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_executor_authorization_ready"])
+        self.assertTrue(payload["gates"]["guarded_executor_disabled_by_default"])
+        self.assertIn("guarded_executor_disabled_by_default", payload["required_disabled_controls"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_EXECUTOR_DECLARED", payload["evidence_events"])
+        self.assertEqual("implement_guarded_start_executor_enablement_gate", payload["next_action"])
+
+    def test_guarded_start_executor_disabled_blocks_if_authorization_enables_start(self) -> None:
+        payload = inspect_guarded_start_executor_disabled_by_default(
+            real_start_execution_contract=ready_real_start_execution_contract(),
+            guarded_start_executor_authorization={
+                **valid_guarded_start_executor_authorization(),
+                "guarded_start_enabled": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["real_start_execution_contract_ready"])
+        self.assertFalse(payload["gates"]["guarded_start_executor_authorization_ready"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertEqual("fix_guarded_start_executor_disabled_prerequisites", payload["next_action"])
+
+    def test_guarded_start_executor_enablement_gate_is_ready_without_enabling_start(self) -> None:
+        payload = inspect_guarded_start_executor_enablement_gate(
+            guarded_start_executor_disabled=ready_guarded_start_executor_disabled(),
+            guarded_start_executor_enablement_authorization=valid_guarded_start_executor_enablement_authorization(),
+        )
+
+        self.assertEqual(GUARDED_START_EXECUTOR_ENABLEMENT_GATE_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_executor_enablement_authorization.v1",
+            GUARDED_START_EXECUTOR_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_for_reviewed_guarded_start_execution", payload["status"])
+        self.assertTrue(payload["guarded_start_executor_enablement_gate_implemented"])
+        self.assertFalse(payload["guarded_start_executor_enabled"])
+        self.assertFalse(payload["guarded_start_executor_implemented"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["subprocess_module_imported"])
+        self.assertTrue(payload["gates"]["guarded_start_executor_disabled_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_executor_enablement_authorization_ready"])
+        self.assertTrue(payload["gates"]["reviewed_bundle_hash_required"])
+        self.assertIn("reviewed_bundle_hash_bound_to_current_evidence", payload["required_enablement_controls"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_ENABLEMENT_GATE_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_reviewed_guarded_start_execution_contract", payload["next_action"])
+
+    def test_guarded_start_executor_enablement_gate_blocks_if_authorization_allows_start(self) -> None:
+        payload = inspect_guarded_start_executor_enablement_gate(
+            guarded_start_executor_disabled=ready_guarded_start_executor_disabled(),
+            guarded_start_executor_enablement_authorization={
+                **valid_guarded_start_executor_enablement_authorization(),
+                "start_execution_allowed": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["guarded_start_executor_disabled_ready"])
+        self.assertFalse(payload["gates"]["guarded_start_executor_enablement_authorization_ready"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertEqual("fix_guarded_start_executor_enablement_gate_prerequisites", payload["next_action"])
+
+    def test_reviewed_guarded_start_execution_contract_is_ready_without_starting(self) -> None:
+        payload = inspect_reviewed_guarded_start_execution_contract(
+            guarded_start_executor_enablement_gate=ready_guarded_start_executor_enablement_gate(),
+            reviewed_guarded_start_authorization=valid_reviewed_guarded_start_execution_authorization(),
+        )
+
+        self.assertEqual(REVIEWED_GUARDED_START_EXECUTION_CONTRACT_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.reviewed_guarded_start_execution_authorization.v1",
+            REVIEWED_GUARDED_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_for_guarded_start_dry_run_contract", payload["status"])
+        self.assertTrue(payload["reviewed_guarded_start_execution_contract_implemented"])
+        self.assertFalse(payload["guarded_start_executor_enabled"])
+        self.assertFalse(payload["guarded_start_executor_implemented"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["subprocess_module_imported"])
+        self.assertTrue(payload["gates"]["guarded_start_executor_enablement_gate_ready"])
+        self.assertTrue(payload["gates"]["reviewed_guarded_start_execution_authorization_ready"])
+        self.assertTrue(payload["gates"]["dry_run_execution_plan_attached"])
+        self.assertIn("dry_run_execution_plan_attached_before_any_start", payload["required_reviewed_execution_controls"])
+        self.assertIn("VOICE_DAEMON_REVIEWED_GUARDED_START_EXECUTION_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_guarded_start_dry_run_contract", payload["next_action"])
+
+    def test_reviewed_guarded_start_execution_contract_blocks_without_dry_run_plan(self) -> None:
+        payload = inspect_reviewed_guarded_start_execution_contract(
+            guarded_start_executor_enablement_gate=ready_guarded_start_executor_enablement_gate(),
+            reviewed_guarded_start_authorization={
+                **valid_reviewed_guarded_start_execution_authorization(),
+                "dry_run_execution_plan_attached": False,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["guarded_start_executor_enablement_gate_ready"])
+        self.assertFalse(payload["gates"]["reviewed_guarded_start_execution_authorization_ready"])
+        self.assertFalse(payload["gates"]["dry_run_execution_plan_attached"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertEqual("fix_reviewed_guarded_start_execution_contract_prerequisites", payload["next_action"])
+
+    def test_guarded_start_dry_run_contract_is_ready_without_starting(self) -> None:
+        payload = inspect_guarded_start_dry_run_contract(
+            reviewed_guarded_start_execution_contract=ready_reviewed_guarded_start_execution_contract(),
+            guarded_start_dry_run_plan=valid_guarded_start_dry_run_plan(),
+        )
+
+        self.assertEqual(GUARDED_START_DRY_RUN_CONTRACT_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual("atlas.voice_realtime.guarded_start_dry_run_plan.v1", GUARDED_START_DRY_RUN_PLAN_SCHEMA_VERSION)
+        self.assertEqual("ready_for_guarded_start_simulation", payload["status"])
+        self.assertTrue(payload["guarded_start_dry_run_contract_implemented"])
+        self.assertTrue(payload["dry_run_only"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["subprocess_module_imported"])
+        self.assertTrue(payload["gates"]["reviewed_guarded_start_execution_contract_ready"])
+        self.assertTrue(payload["gates"]["dry_run_plan_ready"])
+        self.assertTrue(payload["gates"]["dry_run_only_enforced"])
+        self.assertIn("pid_file_guard_simulated_before_process_boundary", payload["required_dry_run_controls"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_DRY_RUN_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_guarded_start_simulation_contract", payload["next_action"])
+
+    def test_guarded_start_dry_run_contract_blocks_when_plan_allows_start(self) -> None:
+        payload = inspect_guarded_start_dry_run_contract(
+            reviewed_guarded_start_execution_contract=ready_reviewed_guarded_start_execution_contract(),
+            guarded_start_dry_run_plan={
+                **valid_guarded_start_dry_run_plan(),
+                "dry_run_only": False,
+                "start_execution_allowed": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["reviewed_guarded_start_execution_contract_ready"])
+        self.assertFalse(payload["gates"]["dry_run_plan_ready"])
+        self.assertTrue(payload["gates"]["dry_run_only_enforced"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertEqual("fix_guarded_start_dry_run_contract_prerequisites", payload["next_action"])
+
+    def test_guarded_start_simulation_contract_is_ready_without_starting(self) -> None:
+        payload = inspect_guarded_start_simulation_contract(
+            guarded_start_dry_run_contract=ready_guarded_start_dry_run_contract(),
+            guarded_start_simulation_plan=valid_guarded_start_simulation_plan(),
+        )
+
+        self.assertEqual(GUARDED_START_SIMULATION_CONTRACT_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual("atlas.voice_realtime.guarded_start_simulation_plan.v1", GUARDED_START_SIMULATION_PLAN_SCHEMA_VERSION)
+        self.assertEqual("ready_for_guarded_start_runtime_handoff", payload["status"])
+        self.assertTrue(payload["guarded_start_simulation_contract_implemented"])
+        self.assertTrue(payload["simulation_only"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["subprocess_module_imported"])
+        self.assertTrue(payload["gates"]["guarded_start_dry_run_contract_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_simulation_plan_ready"])
+        self.assertTrue(payload["gates"]["simulation_only_enforced"])
+        self.assertIn("synthetic_ready_probe_before_real_daemon", payload["required_simulation_controls"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_SIMULATION_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_guarded_start_runtime_handoff_contract", payload["next_action"])
+
+    def test_guarded_start_simulation_contract_blocks_when_plan_allows_start(self) -> None:
+        payload = inspect_guarded_start_simulation_contract(
+            guarded_start_dry_run_contract=ready_guarded_start_dry_run_contract(),
+            guarded_start_simulation_plan={
+                **valid_guarded_start_simulation_plan(),
+                "simulation_only": False,
+                "start_execution_allowed": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["guarded_start_dry_run_contract_ready"])
+        self.assertFalse(payload["gates"]["guarded_start_simulation_plan_ready"])
+        self.assertTrue(payload["gates"]["simulation_only_enforced"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertEqual("fix_guarded_start_simulation_contract_prerequisites", payload["next_action"])
+
+    def test_guarded_start_runtime_handoff_contract_is_ready_without_starting(self) -> None:
+        payload = inspect_guarded_start_runtime_handoff_contract(
+            guarded_start_simulation_contract=ready_guarded_start_simulation_contract(),
+            guarded_start_runtime_handoff_plan=valid_guarded_start_runtime_handoff_plan(),
+        )
+
+        self.assertEqual(GUARDED_START_RUNTIME_HANDOFF_CONTRACT_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_runtime_handoff_plan.v1",
+            GUARDED_START_RUNTIME_HANDOFF_PLAN_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_for_guarded_start_policy_patch_review", payload["status"])
+        self.assertTrue(payload["guarded_start_runtime_handoff_contract_implemented"])
+        self.assertTrue(payload["runtime_handoff_contract_only"])
+        self.assertEqual("python_ai_data", payload["runtime_family"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["subprocess_module_imported"])
+        self.assertTrue(payload["gates"]["guarded_start_simulation_contract_ready"])
+        self.assertTrue(payload["gates"]["handoff_plan_ready"])
+        self.assertTrue(payload["gates"]["policy_patch_review_required"])
+        self.assertIn("kernel_runtime_invocation_contract_before_policy_patch", payload["required_handoff_controls"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_RUNTIME_HANDOFF_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_guarded_start_policy_patch_review_contract", payload["next_action"])
+
+    def test_guarded_start_runtime_handoff_contract_blocks_when_plan_allows_start(self) -> None:
+        payload = inspect_guarded_start_runtime_handoff_contract(
+            guarded_start_simulation_contract=ready_guarded_start_simulation_contract(),
+            guarded_start_runtime_handoff_plan={
+                **valid_guarded_start_runtime_handoff_plan(),
+                "start_execution_allowed": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["guarded_start_simulation_contract_ready"])
+        self.assertFalse(payload["gates"]["handoff_plan_ready"])
+        self.assertTrue(payload["gates"]["runtime_handoff_contract_only"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertEqual("fix_guarded_start_runtime_handoff_prerequisites", payload["next_action"])
+
+    def test_guarded_start_policy_patch_review_contract_is_ready_without_enabling_policy(self) -> None:
+        payload = inspect_guarded_start_policy_patch_review_contract(
+            guarded_start_runtime_handoff_contract=ready_guarded_start_runtime_handoff_contract(),
+            policy_patch_review_authorization=valid_guarded_start_policy_patch_review_authorization(),
+        )
+
+        self.assertEqual(GUARDED_START_POLICY_PATCH_REVIEW_CONTRACT_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_policy_patch_review_authorization.v1",
+            GUARDED_START_POLICY_PATCH_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_for_guarded_start_human_review", payload["status"])
+        self.assertTrue(payload["guarded_start_policy_patch_review_contract_implemented"])
+        self.assertTrue(payload["policy_patch_review_only"])
+        self.assertFalse(payload["runtime_policy_start_enabled"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_runtime_handoff_contract_ready"])
+        self.assertTrue(payload["gates"]["policy_patch_review_authorization_ready"])
+        self.assertTrue(payload["gates"]["policy_patch_dry_run_passed"])
+        self.assertIn("policy_patch_diff_reviewed_before_enablement", payload["required_policy_patch_controls"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_POLICY_PATCH_REVIEW_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_guarded_start_human_review_contract", payload["next_action"])
+
+    def test_guarded_start_policy_patch_review_contract_blocks_when_policy_would_enable_start(self) -> None:
+        payload = inspect_guarded_start_policy_patch_review_contract(
+            guarded_start_runtime_handoff_contract=ready_guarded_start_runtime_handoff_contract(),
+            policy_patch_review_authorization={
+                **valid_guarded_start_policy_patch_review_authorization(),
+                "runtime_policy_start_enabled": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["guarded_start_runtime_handoff_contract_ready"])
+        self.assertFalse(payload["gates"]["policy_patch_review_authorization_ready"])
+        self.assertTrue(payload["gates"]["policy_patch_review_only"])
+        self.assertFalse(payload["runtime_policy_start_enabled"])
+        self.assertEqual("fix_guarded_start_policy_patch_review_prerequisites", payload["next_action"])
+
+    def test_guarded_start_human_review_contract_is_ready_without_enabling_start(self) -> None:
+        payload = inspect_guarded_start_human_review_contract(
+            guarded_start_policy_patch_review_contract=ready_guarded_start_policy_patch_review_contract(),
+            human_review_authorization=valid_guarded_start_human_review_authorization(),
+        )
+
+        self.assertEqual(GUARDED_START_HUMAN_REVIEW_CONTRACT_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_human_review_authorization.v1",
+            GUARDED_START_HUMAN_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_for_guarded_start_final_enablement_gate", payload["status"])
+        self.assertTrue(payload["guarded_start_human_review_contract_implemented"])
+        self.assertTrue(payload["human_review_contract_only"])
+        self.assertFalse(payload["runtime_policy_start_enabled"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_policy_patch_review_contract_ready"])
+        self.assertTrue(payload["gates"]["human_review_authorization_ready"])
+        self.assertTrue(payload["gates"]["policy_patch_hash_matches"])
+        self.assertIn("final_enablement_gate_before_any_start", payload["required_human_review_controls"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_HUMAN_REVIEW_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_guarded_start_final_enablement_gate_contract", payload["next_action"])
+
+    def test_guarded_start_human_review_contract_blocks_on_hash_mismatch(self) -> None:
+        payload = inspect_guarded_start_human_review_contract(
+            guarded_start_policy_patch_review_contract=ready_guarded_start_policy_patch_review_contract(),
+            human_review_authorization={
+                **valid_guarded_start_human_review_authorization(),
+                "reviewed_policy_patch_hash": "k"*64,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["guarded_start_policy_patch_review_contract_ready"])
+        self.assertFalse(payload["gates"]["human_review_authorization_ready"])
+        self.assertFalse(payload["gates"]["policy_patch_hash_matches"])
+        self.assertTrue(payload["gates"]["human_review_contract_only"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertEqual("fix_guarded_start_human_review_prerequisites", payload["next_action"])
+
+    def test_guarded_start_final_enablement_gate_contract_is_ready_without_enabling_policy(self) -> None:
+        payload = inspect_guarded_start_final_enablement_gate_contract(
+            guarded_start_human_review_contract=ready_guarded_start_human_review_contract(),
+            final_enablement_authorization=valid_guarded_start_final_enablement_authorization(),
+        )
+
+        self.assertEqual(GUARDED_START_FINAL_ENABLEMENT_GATE_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_final_enablement_authorization.v1",
+            GUARDED_START_FINAL_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_for_guarded_start_policy_enablement_contract", payload["status"])
+        self.assertTrue(payload["guarded_start_final_enablement_gate_implemented"])
+        self.assertTrue(payload["final_enablement_gate_only"])
+        self.assertFalse(payload["runtime_policy_start_enabled"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_human_review_contract_ready"])
+        self.assertTrue(payload["gates"]["final_enablement_authorization_ready"])
+        self.assertTrue(payload["gates"]["policy_patch_hash_matches"])
+        self.assertIn("single_start_per_receipt_before_policy_enablement", payload["required_final_enablement_controls"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_FINAL_ENABLEMENT_GATE_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_guarded_start_policy_enablement_contract", payload["next_action"])
+
+    def test_guarded_start_final_enablement_gate_contract_blocks_when_policy_is_enabled(self) -> None:
+        payload = inspect_guarded_start_final_enablement_gate_contract(
+            guarded_start_human_review_contract=ready_guarded_start_human_review_contract(),
+            final_enablement_authorization={
+                **valid_guarded_start_final_enablement_authorization(),
+                "runtime_policy_start_enabled": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["guarded_start_human_review_contract_ready"])
+        self.assertFalse(payload["gates"]["final_enablement_authorization_ready"])
+        self.assertTrue(payload["gates"]["final_enablement_gate_only"])
+        self.assertFalse(payload["runtime_policy_start_enabled"])
+        self.assertEqual("fix_guarded_start_final_enablement_prerequisites", payload["next_action"])
+
+    def test_guarded_start_policy_enablement_contract_enables_policy_without_starting(self) -> None:
+        payload = inspect_guarded_start_policy_enablement_contract(
+            guarded_start_final_enablement_gate=ready_guarded_start_final_enablement_gate_contract(),
+            policy_enablement_authorization=valid_guarded_start_policy_enablement_authorization(),
+        )
+
+        self.assertEqual(GUARDED_START_POLICY_ENABLEMENT_CONTRACT_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_policy_enablement_authorization.v1",
+            GUARDED_START_POLICY_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_for_guarded_start_activation_contract", payload["status"])
+        self.assertTrue(payload["guarded_start_policy_enablement_contract_implemented"])
+        self.assertTrue(payload["policy_enablement_contract_only"])
+        self.assertTrue(payload["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_executor_enabled"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_final_enablement_gate_ready"])
+        self.assertTrue(payload["gates"]["policy_enablement_authorization_ready"])
+        self.assertTrue(payload["gates"]["policy_revoke_supported"])
+        self.assertIn("policy_switch_without_process_start", payload["required_policy_enablement_controls"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_POLICY_ENABLEMENT_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_guarded_start_activation_contract", payload["next_action"])
+
+    def test_guarded_start_policy_enablement_contract_blocks_when_start_is_allowed(self) -> None:
+        payload = inspect_guarded_start_policy_enablement_contract(
+            guarded_start_final_enablement_gate=ready_guarded_start_final_enablement_gate_contract(),
+            policy_enablement_authorization={
+                **valid_guarded_start_policy_enablement_authorization(),
+                "start_execution_allowed": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["guarded_start_final_enablement_gate_ready"])
+        self.assertFalse(payload["gates"]["policy_enablement_authorization_ready"])
+        self.assertFalse(payload["runtime_policy_start_enabled"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertEqual("fix_guarded_start_policy_enablement_prerequisites", payload["next_action"])
+
+    def test_guarded_start_activation_contract_attaches_without_starting(self) -> None:
+        payload = inspect_guarded_start_activation_contract(
+            guarded_start_policy_enablement_contract=ready_guarded_start_policy_enablement_contract(),
+            activation_authorization=valid_guarded_start_activation_authorization(),
+        )
+
+        self.assertEqual(GUARDED_START_ACTIVATION_CONTRACT_SCHEMA_VERSION, payload["schema_version"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_activation_authorization.v1",
+            GUARDED_START_ACTIVATION_AUTHORIZATION_SCHEMA_VERSION,
+        )
+        self.assertEqual("ready_for_guarded_start_execution_attempt_contract", payload["status"])
+        self.assertTrue(payload["guarded_start_activation_contract_implemented"])
+        self.assertTrue(payload["activation_contract_only"])
+        self.assertTrue(payload["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_executor_enabled"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertFalse(payload["process_launch_attempted"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_policy_enablement_contract_ready"])
+        self.assertTrue(payload["gates"]["activation_authorization_ready"])
+        self.assertTrue(payload["gates"]["operator_activation_review_required"])
+        self.assertIn("activation_window_before_execution_attempt_contract", payload["required_activation_controls"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_ACTIVATION_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertEqual("implement_guarded_start_execution_attempt_contract", payload["next_action"])
+
+    def test_guarded_start_activation_contract_blocks_when_process_launch_is_allowed(self) -> None:
+        payload = inspect_guarded_start_activation_contract(
+            guarded_start_policy_enablement_contract=ready_guarded_start_policy_enablement_contract(),
+            activation_authorization={
+                **valid_guarded_start_activation_authorization(),
+                "process_launch_allowed": True,
+            },
+        )
+
+        self.assertEqual("blocked", payload["status"])
+        self.assertTrue(payload["gates"]["guarded_start_policy_enablement_contract_ready"])
+        self.assertFalse(payload["gates"]["activation_authorization_ready"])
+        self.assertFalse(payload["runtime_policy_start_enabled"])
+        self.assertFalse(payload["start_execution_allowed"])
+        self.assertEqual("fix_guarded_start_activation_prerequisites", payload["next_action"])
+
     def test_pre_start_health_checks_smoke_passes_without_process_start_or_secret_path_leak(self) -> None:
         payload = build_pre_start_health_checks_smoke()
 
@@ -791,6 +1888,21 @@ class SupervisedLaunchExecutionTest(unittest.TestCase):
         self.assertTrue(payload["gates"]["runtime_policy_enablement_review_ready"])
         self.assertTrue(payload["gates"]["real_start_adapter_review_contract_ready"])
         self.assertTrue(payload["gates"]["reviewed_real_start_execution_contract_ready"])
+        self.assertTrue(payload["gates"]["final_start_executor_disabled_ready"])
+        self.assertTrue(payload["gates"]["final_start_executor_enablement_gate_ready"])
+        self.assertTrue(payload["gates"]["supervised_start_execution_review_ready"])
+        self.assertTrue(payload["gates"]["real_start_execution_contract_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_executor_disabled_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_executor_enablement_gate_ready"])
+        self.assertTrue(payload["gates"]["reviewed_guarded_start_execution_contract_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_dry_run_contract_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_simulation_contract_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_runtime_handoff_contract_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_policy_patch_review_contract_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_human_review_contract_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_final_enablement_gate_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_policy_enablement_contract_ready"])
+        self.assertTrue(payload["gates"]["guarded_start_activation_contract_ready"])
         self.assertEqual(
             "ready_disabled_by_default",
             payload["real_start_adapter_disabled"]["status"],
@@ -811,6 +1923,72 @@ class SupervisedLaunchExecutionTest(unittest.TestCase):
             "ready_for_start_execution_implementation",
             payload["reviewed_real_start_execution_contract"]["status"],
         )
+        self.assertEqual(
+            "ready_disabled_by_default",
+            payload["final_start_executor_disabled"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_supervised_start_execution_review",
+            payload["final_start_executor_enablement_gate"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_real_start_execution_contract",
+            payload["supervised_start_execution_review"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_guarded_start_executor_implementation",
+            payload["real_start_execution_contract"]["status"],
+        )
+        self.assertEqual(
+            "ready_disabled_by_default",
+            payload["guarded_start_executor_disabled"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_reviewed_guarded_start_execution",
+            payload["guarded_start_executor_enablement_gate"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_guarded_start_dry_run_contract",
+            payload["reviewed_guarded_start_execution_contract"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_guarded_start_simulation",
+            payload["guarded_start_dry_run_contract"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_guarded_start_runtime_handoff",
+            payload["guarded_start_simulation_contract"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_guarded_start_policy_patch_review",
+            payload["guarded_start_runtime_handoff_contract"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_guarded_start_human_review",
+            payload["guarded_start_policy_patch_review_contract"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_guarded_start_final_enablement_gate",
+            payload["guarded_start_human_review_contract"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_guarded_start_policy_enablement_contract",
+            payload["guarded_start_final_enablement_gate"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_guarded_start_activation_contract",
+            payload["guarded_start_policy_enablement_contract"]["status"],
+        )
+        self.assertEqual(
+            "ready_for_guarded_start_execution_attempt_contract",
+            payload["guarded_start_activation_contract"]["status"],
+        )
+        self.assertTrue(payload["guarded_start_policy_enablement_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_policy_enablement_contract"]["start_execution_allowed"])
+        self.assertFalse(payload["guarded_start_policy_enablement_contract"]["daemon_started"])
+        self.assertTrue(payload["guarded_start_activation_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_activation_contract"]["start_execution_allowed"])
+        self.assertFalse(payload["guarded_start_activation_contract"]["daemon_started"])
         self.assertIn("VOICE_DAEMON_PRE_START_HEALTH_CHECKS_EVALUATED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_REVIEWED_SUBPROCESS_START_EVALUATED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_REAL_START_ADAPTER_DECLARED", payload["evidence_events"])
@@ -818,6 +1996,21 @@ class SupervisedLaunchExecutionTest(unittest.TestCase):
         self.assertIn("VOICE_DAEMON_RUNTIME_POLICY_ENABLEMENT_REVIEW_EVALUATED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_REAL_START_ADAPTER_REVIEW_CONTRACT_EVALUATED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_REVIEWED_REAL_START_EXECUTION_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_FINAL_START_EXECUTOR_DECLARED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_FINAL_START_ENABLEMENT_GATE_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_SUPERVISED_START_EXECUTION_REVIEWED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_REAL_START_EXECUTION_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_EXECUTOR_DECLARED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_ENABLEMENT_GATE_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_REVIEWED_GUARDED_START_EXECUTION_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_DRY_RUN_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_SIMULATION_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_RUNTIME_HANDOFF_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_POLICY_PATCH_REVIEW_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_HUMAN_REVIEW_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_FINAL_ENABLEMENT_GATE_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_POLICY_ENABLEMENT_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_ACTIVATION_CONTRACT_EVALUATED", payload["evidence_events"])
 
 
 if __name__ == "__main__":

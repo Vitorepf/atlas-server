@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai;
 use App\Models\AiJob;
 use App\Models\AiRouterDecision;
 use App\Models\AiTrace;
+use App\Models\AiYoutubeIngestion;
 use App\Models\AiWorkerEvent;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\AiPermissionDecision;
@@ -15,6 +16,8 @@ use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\AiWorker;
 use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
+use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineContract;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineStage;
@@ -481,6 +484,228 @@ class AiWorkerProviderChoiceTest extends TestCase
         ], $events->pluck('event_type')->all());
     }
 
+    public function test_worker_refreshes_gateway_receipt_expired_before_provider_execution(): void
+    {
+        config()->set('atlas.ai.decision_receipt_ttl_seconds', 7200);
+
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'source_type' => 'app',
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'analise video',
+            'status' => 'queued',
+        ]);
+
+        $envelope = app(OperationEnvelopeFactory::class)->create([
+            'operator' => [
+                'operator_id' => 'vitor',
+                'tenant_id' => 'vitor',
+                'workspace' => base_path(),
+                'default_privacy' => 'normal',
+            ],
+            'origin' => [
+                'surface_id' => 'mobile_app',
+                'surface_version' => 'test',
+                'session_id' => 'session-refresh',
+            ],
+            'input' => [
+                'text' => 'analise video',
+                'attachments' => [],
+            ],
+        ]);
+
+        $expiredReceipt = app(DecisionReceiptIssuer::class)->issue($envelope, [
+            'expires_at' => now()->subSecond()->toISOString(),
+            'dry_run' => false,
+            'domain' => 'research',
+            'flow' => 'research.video',
+            'risk' => 'medium',
+            'provider_selection' => [
+                'primary' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'selection_mode' => 'auto_best_allowed',
+            ],
+        ])->toArray();
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'analise video',
+            'prompt' => 'prompt',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'payload' => [
+                'app_surface' => 'mobile_app',
+                'task_type' => 'research',
+                'decision_receipt' => [
+                    'schema_version' => 2,
+                    'selected_provider' => 'codex_cli',
+                    'selected_model' => 'gpt-5.5',
+                    'receipt_v2' => $expiredReceipt,
+                ],
+            ],
+            'metadata' => [
+                'decision_receipt' => [
+                    'schema_version' => 2,
+                    'selected_provider' => 'codex_cli',
+                    'selected_model' => 'gpt-5.5',
+                    'receipt_v2' => $expiredReceipt,
+                ],
+            ],
+        ]);
+
+        $this->mockProviderManagerWith(new AiProviderResult(
+            ok: true,
+            output: 'resposta pronta',
+            command: ['codex'],
+            exitCode: 0,
+            durationMs: 10,
+            stdout: 'resposta pronta',
+            stderr: '',
+        ));
+
+        app(AiWorker::class)->runNext(workerId: 'worker-refresh');
+
+        $job->refresh();
+        $this->assertSame('succeeded', $job->status);
+        $this->assertSame('resposta pronta', $job->result_text);
+        $this->assertSame('refreshed', data_get($job->metadata, 'decision_receipt_refresh.status'));
+        $this->assertNotSame(
+            $expiredReceipt['receipt_id'],
+            data_get($job->metadata, 'decision_receipt.receipt_v2.receipt_id'),
+        );
+        $this->assertTrue(now()->lessThan(data_get($job->metadata, 'decision_receipt.receipt_v2.expires_at')));
+    }
+
+    public function test_worker_rebuilds_stale_youtube_processing_prompt_when_transcript_is_ready(): void
+    {
+        if (! Schema::hasTable('ai_youtube_ingestions')) {
+            Schema::create('ai_youtube_ingestions', function (Blueprint $table): void {
+                $table->uuid('id')->primary();
+                $table->string('video_id', 32)->unique();
+                $table->text('url');
+                $table->text('title')->nullable();
+                $table->string('channel')->nullable();
+                $table->string('status', 48)->index();
+                $table->text('reason')->nullable();
+                $table->string('metadata_source', 96)->nullable()->index();
+                $table->string('caption_kind', 64)->nullable();
+                $table->string('caption_language', 24)->nullable();
+                $table->string('audio_fallback_status', 64)->nullable()->index();
+                $table->unsignedInteger('chunk_count')->default(0);
+                $table->unsignedInteger('transcript_chars')->default(0);
+                $table->unsignedInteger('ingestion_ms')->nullable();
+                $table->boolean('cache_hit')->default(false);
+                $table->json('metadata')->nullable();
+                $table->json('caption')->nullable();
+                $table->json('chunks')->nullable();
+                $table->json('diagnostics')->nullable();
+                $table->timestamp('last_ingested_at')->nullable()->index();
+                $table->timestamps();
+            });
+        }
+
+        $url = 'https://www.youtube.com/watch?v=ytReady12345';
+        AiYoutubeIngestion::query()->create([
+            'video_id' => 'ytReady12345',
+            'url' => $url,
+            'title' => 'Arquitetura multi agente',
+            'channel' => 'Atlas Test',
+            'status' => 'ready',
+            'caption_kind' => 'whisper_audio',
+            'caption_language' => 'pt',
+            'audio_fallback_status' => 'ready',
+            'chunk_count' => 1,
+            'transcript_chars' => 44,
+            'metadata' => [
+                'id' => 'ytReady12345',
+                'title' => 'Arquitetura multi agente',
+                'channel' => 'Atlas Test',
+                'duration_seconds' => 120,
+            ],
+            'caption' => [
+                'language' => 'pt',
+                'kind' => 'whisper_audio',
+                'timestamp_source' => 'estimated',
+            ],
+            'chunks' => [[
+                'index' => 0,
+                'start' => 0,
+                'end' => 60,
+                'start_label' => '0:00',
+                'end_label' => '1:00',
+                'text' => 'Transcricao pronta com conteudo do video.',
+            ]],
+            'diagnostics' => [],
+            'last_ingested_at' => now(),
+        ]);
+
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'source_type' => 'app',
+            'agent_slug' => 'orquestrador',
+            'operator_input' => $url.' me diga tudo',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => $url.' me diga tudo',
+            'prompt' => 'prompt antigo dizendo que ainda esta processando',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'payload' => [
+                'youtube_ingestion' => [
+                    'status' => 'processing',
+                    'videos' => [[
+                        'url' => $url,
+                        'status' => 'processing',
+                        'metadata' => ['title' => 'Arquitetura multi agente'],
+                    ]],
+                ],
+                'decision_receipt' => [
+                    'receipt_v2' => [
+                        'envelope_id' => 'env_youtube_stale_prompt',
+                        'receipt_id' => 'rcpt_youtube_stale_prompt',
+                        'schema_version' => 'atlas.decide.v2',
+                        'expires_at' => now()->addMinutes(10)->toISOString(),
+                        'dry_run' => false,
+                        'provider_selection' => [
+                            'primary' => 'codex_cli',
+                            'model' => 'gpt-5.5',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->mockProviderManagerWithPromptAssertion(function (string $prompt): void {
+            $this->assertStringContainsString('<transcript_chunk', $prompt);
+            $this->assertStringContainsString('Transcricao pronta com conteudo do video.', $prompt);
+            $this->assertStringContainsString('Titulo original:', $prompt);
+            $this->assertStringContainsString('nao use esse titulo cru como heading principal', $prompt);
+            $this->assertStringContainsString('mapa por timestamps', $prompt);
+            $this->assertStringContainsString('qualidade da fonte/transcricao', $prompt);
+            $this->assertStringNotContainsString('prompt antigo dizendo que ainda esta processando', $prompt);
+        });
+
+        app(AiWorker::class)->runNext(workerId: 'worker-youtube-refresh');
+
+        $job->refresh();
+        $this->assertSame('succeeded', $job->status);
+        $this->assertSame('ready', data_get($job->payload, 'youtube_ingestion.videos.0.status'));
+        $this->assertStringContainsString('<transcript_chunk', $job->prompt);
+    }
+
     public function test_worker_blocks_provider_mismatch_decision_receipt_before_provider_execution(): void
     {
         $trace = AiTrace::create([
@@ -839,6 +1064,62 @@ class AiWorkerProviderChoiceTest extends TestCase
             public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
             {
                 return $this->result;
+            }
+
+            public function health(): AiProviderHealthCheck
+            {
+                return new AiProviderHealthCheck('codex_cli', 'online', 'mock');
+            }
+        };
+
+        $manager = $this->createMock(AiProviderManager::class);
+        $manager->method('get')->willReturn($provider);
+        $manager->method('keys')->willReturn(['claude_cli', 'codex_cli']);
+        $this->app->instance(AiProviderManager::class, $manager);
+
+        $allowedDecision = new AiPermissionDecision(
+            allowed: true,
+            mode: 'read',
+            workspace: base_path(),
+            codexSandbox: 'read-only',
+            capabilities: ['read_files'],
+            reasons: ['test mock'],
+        );
+
+        $permissions = $this->createMock(AiPermissionEngine::class);
+        $permissions->method('authorizeJob')->willReturn($allowedDecision);
+        $this->app->instance(AiPermissionEngine::class, $permissions);
+    }
+
+    private function mockProviderManagerWithPromptAssertion(callable $assertPrompt): void
+    {
+        $provider = new class($assertPrompt) implements AiProvider
+        {
+            public function __construct(private readonly mixed $assertPrompt) {}
+
+            public function key(): string
+            {
+                return 'codex_cli';
+            }
+
+            public function run(AiJob $job, string $prompt): AiProviderResult
+            {
+                ($this->assertPrompt)($prompt);
+
+                return new AiProviderResult(
+                    ok: true,
+                    output: 'resposta com transcricao pronta',
+                    command: ['codex'],
+                    exitCode: 0,
+                    durationMs: 10,
+                    stdout: 'resposta com transcricao pronta',
+                    stderr: '',
+                );
+            }
+
+            public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+            {
+                return $this->run($job, $prompt);
             }
 
             public function health(): AiProviderHealthCheck

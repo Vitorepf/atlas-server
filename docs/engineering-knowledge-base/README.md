@@ -53,6 +53,8 @@ capabilities:
   - programming_power_tools_catalog
   - fair_claude_benchmark
   - atlas_supercharged_routing
+  - obras_shared_workspace
+  - forge_workspace
   - programming_domain
   - domain_specs_index
   - self_improvement_domain
@@ -74,6 +76,7 @@ decisions:
   - Atlas AI Research Intelligence And Self-Improvement Runtime define pesquisa de maximo nivel, source quality, promocao para docs, planejamento, implementacao validada e autoaprimoramento governado como frente P0 de evolucao do Atlas.
   - Atlas AI Spec Operating System define SDD como capacidade interna: intencao simples vira spec operacional, plano, tasks, Decision Receipt, execucao governada, evidencia, drift detection, learning proposal, data model, agentes internos, MCP governado e context packages versionados.
   - Atlas AI Self-Construction OS define como Atlas constroi Atlas: pesquisa, documentacao, Meta-SDD, prioridade, execucao governada, evidencia, drift, learning e maturidade sem criar arquitetura paralela; sua camada multi-provider permite Codex, Claude, Gemini, agentes locais e futuros providers consumirem o mesmo contrato de implementacao.
+  - Obras Shared Workspace e o nome canonico do escritorio compartilhado de producao: contratos, packets, artifact bus, status, evidence e integration queue para trabalho longo ou multi-provider; Forge Workspace e sua especializacao em Programming/Atlas Forge.
   - Atlas AI Cognitive Runtime define memoria, busca de contexto, sessoes longas de 72h, compactacao automatica e auditoria cognitiva como frente P0 do sistema nervoso central do Atlas.
   - Atlas AI Qualitative Levels Roadmap formaliza os patamares P1-P7 e a fila governada para co-estrategista, Rivals Strategy e Curator evolutivo.
   - Atlas AI Canonical Architecture Index define a hierarquia oficial entre Constitution, Kernel, Master Architecture, Topology e Domain Specs.
@@ -108,6 +111,7 @@ maintenance:
   - Leia atlas-ai-spec-operating-system.md antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts ou fluxo de one-shot implementation.
   - Leia atlas-ai-self-construction-os.md antes de alterar self-programming, Meta-SDD, prioridade de construcao, maturity ladder, build graph, loop autonomo, safety contract ou qualquer tentativa do Atlas construir Atlas.
   - Leia self-construction/multi-provider-agent-orchestration-contract.md antes de criar work splitter, start packet, evidence normalizer, provider adapter ou fluxo com varias IAs implementando em paralelo.
+  - Leia obras/shared-workspace-and-forge.md antes de alterar Atlas Forge, colaboracao multi-provider, artifact bus, provider context packs, integration queue, scope map ou qualquer tentativa de transformar providers em time.
   - Leia atlas-ai-cognitive-runtime.md antes de alterar memoria governada, busca de contexto, long sessions, compactacao automatica, handoff cognitivo, Open Brain quality metrics ou auditoria cognitiva.
   - Leia atlas-ai-business-contexts.md antes de tratar Blackink, empresas futuras, product domains, app mobile routing domain, captura empresarial ou privacidade de empresa em producao.
   - Leia atlas-ai-agent-behavior-contract.md antes de alterar prompts de agentes, provider identity fragments, Programming Domain, Review Mode, worker prompts ou gates contra overengineering/diff lateral.
@@ -345,6 +349,7 @@ detalhe de modulo com docs/testes.
 | `atlas-ai-agent-behavior-contract.md` | Contrato governado para transformar principios tipo Karpathy em comportamento verificavel de agentes, providers, Programming e Quality Gates |
 | `atlas-ai-model-selection-strategy.md` | Contrato canonico de Atlas Decide para escolher provider/modelo por tarefa, flow, specialist profile, AP-99, custo, latencia e policy |
 | `domains/programming-frontend-superpower.md` | Contrato alvo para frontend/design harness, asset protocol, visual gates, Huashu evaluation e AP-99 frontend |
+| `obras/shared-workspace-and-forge.md` | Contrato canonico do Obras Shared Workspace e do Forge Workspace: escritorio compartilhado para providers colaborarem por packets, artifacts, evidence e integration queue |
 | `atlas-ai-qualitative-levels-roadmap.md` | Roadmap canonico curto dos patamares P1-P7, co-estrategista, Rivals Strategy e fila QL governada |
 | `START_HERE.md` | Ponto de entrada para humanos e IAs |
 | `atlas-ai-canonical-architecture-index.md` | Indice oficial da hierarquia entre Constitution, Kernel, Master Architecture, Topology e Domain Specs |

@@ -72,7 +72,7 @@ RIZE_SESSIONS_PAGE_INFO_PATH=sessions.pageInfo
 Em outro terminal, para processar transcricoes:
 
 ```bash
-php artisan queue:work --queue=transcription,default --tries=3 --timeout=600
+php artisan queue:work --queue=transcription,default --tries=3 --timeout=5400
 ```
 
 ## Atlas AI Gateway

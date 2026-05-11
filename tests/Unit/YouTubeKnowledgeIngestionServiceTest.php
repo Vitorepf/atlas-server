@@ -3,11 +3,15 @@
 namespace Tests\Unit;
 
 use App\Jobs\ProcessYouTubeIngestionJob;
+use App\Models\AiYoutubeIngestion;
 use App\Services\Ai\YouTubeKnowledgeIngestionService;
 use App\Services\WhisperTranscriber;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 use Tests\TestCase;
 
 class YouTubeKnowledgeIngestionServiceTest extends TestCase
@@ -39,6 +43,22 @@ VTT, 'vtt');
         $this->assertSame(1.0, $segments[0]['start']);
         $this->assertSame('Hello & welcome.', $segments[0]['text']);
         $this->assertSame('This is a test.', $segments[1]['text']);
+    }
+
+    public function test_parses_vtt_body_even_when_track_is_marked_json3(): void
+    {
+        $service = app(YouTubeKnowledgeIngestionService::class);
+
+        $segments = $service->parseCaptionPayload(<<<'VTT'
+WEBVTT
+
+00:00:02.000 --> 00:00:05.000
+Fallback VTT text.
+VTT, 'json3');
+
+        $this->assertCount(1, $segments);
+        $this->assertSame(2.0, $segments[0]['start']);
+        $this->assertSame('Fallback VTT text.', $segments[0]['text']);
     }
 
     public function test_parses_json3_captions_and_chunks_with_labels(): void
@@ -401,7 +421,155 @@ XML, 'json3');
         $this->assertSame('processing', $result['status']);
         $this->assertSame('processing', data_get($result, 'videos.0.status'));
         $this->assertSame('queued', data_get($result, 'videos.0.audio_fallback.status'));
-        Queue::assertPushed(ProcessYouTubeIngestionJob::class);
+        $this->assertSame('audio_transcription', data_get($result, 'videos.0.processing.stage'));
+        $this->assertSame('processing', data_get($result, 'videos.0.processing.status'));
+        $this->assertSame(104, data_get($result, 'videos.0.processing.estimated_total_seconds'));
+        $this->assertSame(45, data_get($result, 'videos.0.processing.retry_after_seconds'));
+        Queue::assertPushedOn('transcription', ProcessYouTubeIngestionJob::class);
+    }
+
+    public function test_retries_stale_background_processing_instead_of_returning_stuck_status(): void
+    {
+        Queue::fake();
+        Cache::flush();
+        config([
+            'atlas.youtube.data_api_enabled' => false,
+            'atlas.youtube.yt_dlp_binary' => '/definitely/missing/yt-dlp',
+            'atlas.youtube.audio_fallback_enabled' => true,
+            'atlas.youtube.processing_lock_minutes' => 90,
+        ]);
+        if (! Schema::hasTable('ai_youtube_ingestions')) {
+            Schema::create('ai_youtube_ingestions', function (Blueprint $table): void {
+                $table->uuid('id')->primary();
+                $table->string('video_id', 32)->unique();
+                $table->text('url');
+                $table->text('title')->nullable();
+                $table->string('channel')->nullable();
+                $table->string('status', 48)->index();
+                $table->text('reason')->nullable();
+                $table->string('metadata_source', 96)->nullable()->index();
+                $table->string('caption_kind', 64)->nullable();
+                $table->string('caption_language', 24)->nullable();
+                $table->string('audio_fallback_status', 64)->nullable()->index();
+                $table->unsignedInteger('chunk_count')->default(0);
+                $table->unsignedInteger('transcript_chars')->default(0);
+                $table->unsignedInteger('ingestion_ms')->nullable();
+                $table->boolean('cache_hit')->default(false);
+                $table->json('metadata')->nullable();
+                $table->json('caption')->nullable();
+                $table->json('chunks')->nullable();
+                $table->json('diagnostics')->nullable();
+                $table->timestamp('last_ingested_at')->nullable()->index();
+                $table->timestamps();
+            });
+        }
+
+        AiYoutubeIngestion::query()->create([
+            'video_id' => 'abc123XYZ09',
+            'url' => 'https://www.youtube.com/watch?v=abc123XYZ09',
+            'title' => 'Processamento antigo',
+            'channel' => 'Canal Atlas',
+            'status' => 'processing',
+            'reason' => 'Old background processing.',
+            'audio_fallback_status' => 'queued',
+            'metadata' => [
+                'id' => 'abc123XYZ09',
+                'title' => 'Processamento antigo',
+                'channel' => 'Canal Atlas',
+                'duration_seconds' => 90,
+            ],
+            'chunks' => [],
+            'diagnostics' => [
+                'processing' => [
+                    'stage' => 'audio_transcription',
+                    'status' => 'processing',
+                    'progress' => 0,
+                ],
+            ],
+            'last_ingested_at' => now()->subHours(3),
+            'created_at' => now()->subHours(3),
+            'updated_at' => now()->subHours(3),
+        ]);
+
+        $player = [
+            'videoDetails' => [
+                'videoId' => 'abc123XYZ09',
+                'title' => 'Video reprocessado',
+                'author' => 'Canal Atlas',
+                'lengthSeconds' => '90',
+            ],
+        ];
+
+        Http::fake([
+            'www.youtube.com/watch*' => Http::response('<script>var ytInitialPlayerResponse = '.json_encode($player, JSON_THROW_ON_ERROR).';</script>'),
+        ]);
+
+        $result = app(YouTubeKnowledgeIngestionService::class)
+            ->ingestFromInput('Resumo https://www.youtube.com/watch?v=abc123XYZ09', [
+                'defer_audio_fallback' => true,
+            ]);
+
+        $this->assertSame('processing', data_get($result, 'videos.0.status'));
+        $this->assertSame('Video reprocessado', data_get($result, 'videos.0.metadata.title'));
+        Queue::assertPushedOn('transcription', ProcessYouTubeIngestionJob::class);
+    }
+
+    public function test_marks_background_audio_fallback_failure_and_clears_processing_lock(): void
+    {
+        Cache::flush();
+        if (! Schema::hasTable('ai_youtube_ingestions')) {
+            Schema::create('ai_youtube_ingestions', function (Blueprint $table): void {
+                $table->uuid('id')->primary();
+                $table->string('video_id', 32)->unique();
+                $table->text('url');
+                $table->text('title')->nullable();
+                $table->string('channel')->nullable();
+                $table->string('status', 48)->index();
+                $table->text('reason')->nullable();
+                $table->string('metadata_source', 96)->nullable()->index();
+                $table->string('caption_kind', 64)->nullable();
+                $table->string('caption_language', 24)->nullable();
+                $table->string('audio_fallback_status', 64)->nullable()->index();
+                $table->unsignedInteger('chunk_count')->default(0);
+                $table->unsignedInteger('transcript_chars')->default(0);
+                $table->unsignedInteger('ingestion_ms')->nullable();
+                $table->boolean('cache_hit')->default(false);
+                $table->json('metadata')->nullable();
+                $table->json('caption')->nullable();
+                $table->json('chunks')->nullable();
+                $table->json('diagnostics')->nullable();
+                $table->timestamp('last_ingested_at')->nullable()->index();
+                $table->timestamps();
+            });
+        }
+
+        $url = 'https://www.youtube.com/watch?v=failedABC12';
+        Cache::put('atlas:youtube:processing:failedABC12', true, now()->addHour());
+        AiYoutubeIngestion::query()->create([
+            'video_id' => 'failedABC12',
+            'url' => $url,
+            'title' => 'Video com falha',
+            'channel' => 'Canal Atlas',
+            'status' => 'processing',
+            'reason' => 'Whisper audio fallback is running in background.',
+            'audio_fallback_status' => 'queued',
+            'metadata' => ['id' => 'failedABC12', 'title' => 'Video com falha'],
+            'chunks' => [],
+            'diagnostics' => ['processing' => ['status' => 'processing']],
+            'last_ingested_at' => now(),
+        ]);
+
+        app(YouTubeKnowledgeIngestionService::class)->markBackgroundIngestionFailed(
+            $url,
+            new RuntimeException('Whisper transcription timed out after 3600s.'),
+        );
+
+        $stored = AiYoutubeIngestion::query()->where('video_id', 'failedABC12')->firstOrFail();
+
+        $this->assertSame('failed', $stored->status);
+        $this->assertSame('failed', $stored->audio_fallback_status);
+        $this->assertStringContainsString('timed out', $stored->reason);
+        $this->assertFalse(Cache::has('atlas:youtube:processing:failedABC12'));
     }
 
     public function test_attempts_audio_fallback_when_no_caption_track_exists(): void

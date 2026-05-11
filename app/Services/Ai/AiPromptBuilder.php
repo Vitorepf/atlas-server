@@ -721,7 +721,8 @@ TXT;
             'REGRA CRITICA: quando o pedido for sobre o conteudo do video e a transcricao estiver indisponivel, e proibido substituir o video por blog post, GitHub README, site oficial, artigos, conhecimento geral ou pesquisa externa, a menos que o operador peca explicitamente fontes externas. Entregue apenas metadados seguros e a lacuna.',
             'Se o status for processing, diga de forma curta que o Atlas esta transcrevendo o audio em background e que o operador pode reenviar o mesmo link em instantes para receber a analise completa.',
             'Se um <youtube_video> tiver status diferente de ready, nao diga "tenho o suficiente para analise" e nao produza analise do conteudo falado.',
-            'Quando o pedido for aprender/resumir um video, separe naturalmente: resumo executivo, mapa por timestamps, ideias para o operador, candidatos para memoria do Atlas e proximas acoes.',
+            'Idioma de saida: responda em portugues brasileiro quando o operador escrever em portugues. Se o titulo oficial do video estiver em outro idioma, nao use esse titulo cru como heading principal; crie um titulo curto em portugues para a resposta e cite o original separadamente como "Titulo original: ...". Preserve nomes proprios, marcas, produtos e termos tecnicos quando a traducao prejudicar precisao.',
+            'Quando o pedido for amplo ("me diga tudo", "analise", "disseca", "me fala sobre", "resuma completo"), entregue uma analise completa e estruturada, nao apenas um resumo curto. Inclua, no minimo: qualidade da fonte/transcricao, resumo executivo, mapa por timestamps, pontos importantes, exemplos demonstrados, implicacoes para o operador/Atlas, candidatos para memoria e proximas acoes concretas. So seja ultra-curto se o operador pedir explicitamente resposta curta.',
         ];
 
         foreach (array_slice($videos, 0, 2) as $index => $video) {
@@ -769,6 +770,13 @@ TXT;
             if (($video['status'] ?? null) !== 'ready') {
                 $reason = htmlspecialchars((string) ($video['reason'] ?? 'transcricao indisponivel'), ENT_QUOTES, 'UTF-8');
                 $lines[] = "<ingestion_gap>{$reason}</ingestion_gap>";
+                $processing = is_array($video['processing'] ?? null) ? $video['processing'] : [];
+                if ($processing !== []) {
+                    $stage = htmlspecialchars((string) ($processing['stage'] ?? 'processing'), ENT_QUOTES, 'UTF-8');
+                    $eta = is_scalar($processing['estimated_remaining_seconds'] ?? null) ? (string) $processing['estimated_remaining_seconds'] : '';
+                    $progress = is_scalar($processing['progress'] ?? null) ? (string) $processing['progress'] : '';
+                    $lines[] = "<processing_status stage=\"{$stage}\" progress=\"{$progress}\" eta_seconds=\"{$eta}\">transcricao em background</processing_status>";
+                }
                 $lines[] = '</youtube_video>';
                 continue;
             }

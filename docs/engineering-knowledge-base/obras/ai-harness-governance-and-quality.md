@@ -17,11 +17,13 @@ capabilities:
   - governed_ai_execution
 decisions:
   - AI inside Obras must operate against Obra context, not loose chat context.
+  - Multi-provider AI inside Obras must use Obras Shared Workspace and artifact exchange, not provider-to-provider loose handoff.
   - Critical Obras require evidence, gates, permissions and human checkpoints.
 maintenance:
   - Update before changing Obra AI actions, gates, policy, providers, evidence or approval rules.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
+  - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md
 owner: atlas-ai
@@ -206,3 +208,22 @@ Every AI session inside an Obra records:
 - output created.
 
 This is what separates Obras from a chat.
+
+## Shared Workspace Rule
+
+For long work, programming work or multi-provider work, AI sessions inside an
+Obra must coordinate through Obras Shared Workspace.
+
+The workspace owns:
+
+- canonical context;
+- provider-specific context packs;
+- work packets;
+- artifact bus;
+- scope/collision map;
+- integration queue;
+- evidence normalization.
+
+Providers may specialize, but they must not pass authority through informal
+chat. Gemini may scout, Claude may plan or review, Codex may implement and a
+local agent may validate, but each output must return as a workspace artifact.

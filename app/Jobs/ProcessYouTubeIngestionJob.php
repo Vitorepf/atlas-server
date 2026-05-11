@@ -6,6 +6,7 @@ use App\Services\Ai\YouTubeKnowledgeIngestionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Throwable;
 
 class ProcessYouTubeIngestionJob implements ShouldQueue
 {
@@ -13,7 +14,7 @@ class ProcessYouTubeIngestionJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 1200;
+    public int $timeout = 5400;
 
     public function __construct(
         public readonly string $url,
@@ -34,5 +35,10 @@ class ProcessYouTubeIngestionJob implements ShouldQueue
         $youtube->ingestUrl($this->url, [
             'defer_audio_fallback' => false,
         ]);
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        app(YouTubeKnowledgeIngestionService::class)->markBackgroundIngestionFailed($this->url, $exception);
     }
 }
