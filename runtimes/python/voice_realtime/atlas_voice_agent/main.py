@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from .agent_runtime import AtlasVoiceAgentRuntime
 from .activation_contract import build_activation_contract
 from .contract import AtlasVoiceRuntimeContract
+from .daemon_supervisor import evaluate_daemon_supervisor
 from .kernel_client import AtlasKernelClient, PostJson
 from .livekit_boundary import LiveKitAgentBoundary
 from .livekit_callback_loop import inspect_callback_loop_contract
@@ -139,6 +140,16 @@ def load_production_promotion_review(path: Path) -> Mapping[str, Any]:
     return payload
 
 
+def load_daemon_implementation_review(path: Path) -> Mapping[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    if not isinstance(payload, Mapping):
+        raise ValueError("daemon implementation review must be a JSON object")
+
+    return payload
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Atlas Voice Realtime runtime scaffold")
     parser.add_argument("--bootstrap", help="Path to Kernel bootstrap manifest JSON")
@@ -151,12 +162,14 @@ def main() -> int:
     parser.add_argument("--worker-plan", action="store_true", help="Describe fail-closed LiveKit worker activation plan and exit")
     parser.add_argument("--production-loop-plan", action="store_true", help="Describe real LiveKit SDK loop wiring plan without starting a worker")
     parser.add_argument("--product-loop-check", action="store_true", help="Aggregate callback, SDK loop and worker-start gates without starting a daemon")
+    parser.add_argument("--daemon-supervisor-check", action="store_true", help="Evaluate the fail-closed daemon supervisor boundary without starting a process")
     parser.add_argument("--activation-contract", action="store_true", help="Publish full preflight + worker-plan activation contract and exit")
     parser.add_argument("--start-worker", action="store_true", help="Attempt governed LiveKit worker startup; returns blocked JSON until all gates pass")
     parser.add_argument("--callback-loop-wired", action="store_true", help="Declare the governed callback router is wired for fail-closed activation checks")
     parser.add_argument("--production-sdk-loop-wired", action="store_true", help="Declare the real LiveKit SDK loop is wired for fail-closed production checks")
     parser.add_argument("--production-promotion-approved", action="store_true", help="Legacy declaration only; a review file is required for actual promotion approval")
     parser.add_argument("--production-promotion-review-file", help="Path to human production-promotion review receipt JSON")
+    parser.add_argument("--daemon-implementation-review-file", help="Path to daemon implementation review receipt JSON")
     parser.add_argument("--scripted-events", help="Run a token-safe scripted worker event JSON file and exit")
     parser.add_argument("--callback-event", help="Route one normalized LiveKit SDK callback JSON file and exit")
     parser.add_argument("--callback-events", help="Route a normalized LiveKit SDK callback sequence JSON file and exit")
@@ -240,6 +253,10 @@ def main() -> int:
             load_production_promotion_review(Path(args.production_promotion_review_file))
             if args.production_promotion_review_file else None
         )
+        daemon_implementation_review = (
+            load_daemon_implementation_review(Path(args.daemon_implementation_review_file))
+            if args.daemon_implementation_review_file else None
+        )
         print(json.dumps(build_product_loop_check(
             contract,
             env_file=Path(args.env_file) if args.env_file else None,
@@ -248,7 +265,32 @@ def main() -> int:
             boundary_created=boundary_created,
             mock_kernel=args.mock_kernel,
             production_promotion_review=production_promotion_review,
+            daemon_implementation_review=daemon_implementation_review,
         ), indent=2))
+
+    if args.daemon_supervisor_check:
+        production_promotion_review = (
+            load_production_promotion_review(Path(args.production_promotion_review_file))
+            if args.production_promotion_review_file else None
+        )
+        daemon_implementation_review = (
+            load_daemon_implementation_review(Path(args.daemon_implementation_review_file))
+            if args.daemon_implementation_review_file else None
+        )
+        worker_start = start_livekit_agents_worker(
+            contract,
+            env_file=Path(args.env_file) if args.env_file else None,
+            env=None if args.env else {},
+            settings_loaded=settings is not None,
+            boundary_created=boundary_created,
+            mock_kernel=args.mock_kernel,
+            callback_loop_wired=args.callback_loop_wired,
+            production_sdk_loop_wired=args.production_sdk_loop_wired,
+            production_promotion_approved=args.production_promotion_approved,
+            production_promotion_review=production_promotion_review,
+            daemon_implementation_review=daemon_implementation_review,
+        )
+        print(json.dumps(evaluate_daemon_supervisor(worker_start), indent=2))
 
     if args.activation_contract:
         print(json.dumps(build_activation_contract(
@@ -266,6 +308,10 @@ def main() -> int:
             load_production_promotion_review(Path(args.production_promotion_review_file))
             if args.production_promotion_review_file else None
         )
+        daemon_implementation_review = (
+            load_daemon_implementation_review(Path(args.daemon_implementation_review_file))
+            if args.daemon_implementation_review_file else None
+        )
         print(json.dumps(start_livekit_agents_worker(
             contract,
             env_file=Path(args.env_file) if args.env_file else None,
@@ -277,6 +323,7 @@ def main() -> int:
             production_sdk_loop_wired=args.production_sdk_loop_wired,
             production_promotion_approved=args.production_promotion_approved,
             production_promotion_review=production_promotion_review,
+            daemon_implementation_review=daemon_implementation_review,
         ), indent=2))
 
     if args.callback_loop_check:

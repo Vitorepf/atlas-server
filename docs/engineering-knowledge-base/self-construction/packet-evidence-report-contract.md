@@ -1,0 +1,116 @@
+---
+id: atlas-ai-self-construction-packet-evidence-report-contract
+type: engineering_knowledge
+title: Atlas Self-Construction Packet Evidence Report Contract
+status: active
+category: architecture
+priority: 100
+summary: Contract for deciding whether a selected implementation packet has enough evidence to be completed.
+tags:
+  - atlas-ai
+  - self-construction
+  - evidence
+  - packet-completion
+capabilities:
+  - self_construction_os
+  - implementation_evidence
+  - packet_completion_review
+decisions:
+  - Packet completion is blocked unless evidence, gates and scope validation agree.
+  - External hot blockers must be reported separately from packet-owned failures.
+  - A narrative "done" response is never sufficient evidence.
+maintenance:
+  - Update before implementing packet completion review, evidence ledger writes or multi-agent done states.
+related_paths:
+  - docs/engineering-knowledge-base/self-construction/packet-consumption-runbook-contract.md
+  - docs/engineering-knowledge-base/self-construction/scope-validator-contract.md
+  - docs/engineering-knowledge-base/self-construction/assignment-and-claim-contract.md
+  - docs/ap/AP-691-atlas-self-construction-os-contract.md
+owner: atlas-ai
+layer: 0.8-self-construction
+line_limit: 220
+---
+
+# Atlas Self-Construction Packet Evidence Report Contract
+
+Packet Evidence Report decides whether a selected packet can be considered
+complete.
+
+## Purpose
+
+It must compare:
+
+- selected packet;
+- assignment preview;
+- runbook;
+- scope validator;
+- required gates;
+- evidence items;
+- external blockers.
+
+## Non Goals
+
+- Do not write to Evidence Ledger yet.
+- Do not mark packet completed persistently.
+- Do not override failed gates.
+- Do not ignore hot external files.
+- Do not create a durable claim.
+
+## Report Schema
+
+```json
+{
+  "schema_version": "atlas.self_construction_packet_evidence_report.v1",
+  "report_id": "EVIDENCE-REPORT-YYYYMMDD-0001",
+  "selected_packet_id": "AIP-SPLIT-...",
+  "status": "completion_ready | blocked",
+  "execution_allowed": false,
+  "completion_allowed": false,
+  "gate_results": [],
+  "evidence_results": [],
+  "blocking_reasons": [],
+  "external_blockers": [],
+  "required_next_action": "string"
+}
+```
+
+## Completion Rules
+
+Completion is allowed only when:
+
+- selected packet exists;
+- runbook exists;
+- Scope Validator passes;
+- required gates are present;
+- required evidence is present;
+- no forbidden, unknown or hot external file is owned by the packet;
+- residual risk is low or accepted by review.
+
+## Blocked States
+
+The report must block completion when:
+
+- Scope Validator is blocked;
+- tests are missing or failed;
+- architecture validation failed;
+- docs-health failed;
+- `git diff --check` failed;
+- required evidence is missing;
+- external hot files are mixed with packet-owned scope.
+
+## Read-Only Phase
+
+Current implementation may only emit:
+
+```text
+completion_allowed=false
+evidence_ledger_write_allowed=false
+status=blocked when current worktree contains hot external blockers
+```
+
+Durable completion requires a future packet reservation/evidence ledger AP.
+
+## Completion Criteria
+
+This contract is complete when another AI can inspect the report and know if its
+packet is complete, blocked, or needs review without trusting free-form text.

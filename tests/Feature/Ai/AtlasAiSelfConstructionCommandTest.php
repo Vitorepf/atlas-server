@@ -3,10 +3,25 @@
 namespace Tests\Feature\Ai;
 
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionCommandTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        File::deleteDirectory(storage_path('app/atlas/self-construction/reservations'));
+    }
+
+    protected function tearDown(): void
+    {
+        File::deleteDirectory(storage_path('app/atlas/self-construction/reservations'));
+
+        parent::tearDown();
+    }
+
     public function test_command_returns_self_construction_readiness_as_json(): void
     {
         $exit = Artisan::call('atlas:ai:self-construction', [
@@ -1144,5 +1159,2975 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertStringContainsString('Forbidden scopes', $output);
         $this->assertStringContainsString('Boundary hash', $output);
         $this->assertStringContainsString('Ownership boundary is ready', $output);
+    }
+
+    public function test_command_returns_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_ai_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('packet_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_ai_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'packet.execution_allowed'));
+        $this->assertTrue(data_get($payload, 'packet.requires_human_signature'));
+        $this->assertSame('AIP-SELF-CONSTRUCTION-READ-ONLY-0001', data_get($payload, 'packet.packet_id'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'packet_hash'));
+        $this->assertContains('docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md', data_get($payload, 'packet.context_docs'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'packet.forbidden_files'));
+        $this->assertContains('php artisan atlas:ai:self-construction --scope-validator --json', data_get($payload, 'packet.required_gates'));
+        $this->assertContains('implementation_packet_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_implementation_packet(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--implementation-packet' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Packet hash', $output);
+        $this->assertStringContainsString('AI Implementation Packet is ready', $output);
+    }
+
+    public function test_command_returns_work_splitter_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--work-splitter' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_work_splitter.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('split_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_work_splitter', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertSame(5, data_get($payload, 'packet_count'));
+        $this->assertGreaterThanOrEqual(2, data_get($payload, 'withheld_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'split_hash'));
+        $this->assertContains('work_splitter_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+
+        $packetIds = collect(data_get($payload, 'split.packets'))->pluck('packet_id')->all();
+        $withheldIds = collect(data_get($payload, 'split.withheld_work'))->pluck('id')->all();
+
+        $this->assertContains('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', $packetIds);
+        $this->assertContains('AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002', $packetIds);
+        $this->assertContains('AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003', $packetIds);
+        $this->assertContains('AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004', $packetIds);
+        $this->assertContains('AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005', $packetIds);
+        $this->assertContains('voice_runtime_packet_withheld', $withheldIds);
+        $this->assertContains('kernel_scanner_packet_withheld', $withheldIds);
+    }
+
+    public function test_command_human_output_lists_work_splitter(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--work-splitter' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Split hash', $output);
+        $this->assertStringContainsString('Work Splitter emits disjoint read-only packets', $output);
+    }
+
+    public function test_command_returns_scope_validator_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--scope-validator' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_scope_validator.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), ['pass', 'blocked']);
+        $this->assertSame('read_only_scope_validator', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'validator_hash'));
+        $this->assertIsArray(data_get($payload, 'validator.changed_files'));
+        $this->assertIsArray(data_get($payload, 'validator.blocking_violations'));
+        $this->assertIsInt(data_get($payload, 'summary.changed_count'));
+        $this->assertSame('implementation_packet', data_get($payload, 'validator.packet_scope_source'));
+        $this->assertContains('scope_validator_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_returns_packet_scoped_scope_validator_as_json(): void
+    {
+        $packetId = 'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004';
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--scope-validator' => true,
+            '--packet' => $packetId,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_scope_validator.v1', data_get($payload, 'schema_version'));
+        $this->assertSame($packetId, data_get($payload, 'validator.packet_id'));
+        $this->assertSame($packetId, data_get($payload, 'validator.requested_packet_id'));
+        $this->assertSame('work_splitter_packet', data_get($payload, 'validator.packet_scope_source'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'validator_hash'));
+        $this->assertContains('scope_validator_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_scope_validator(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--scope-validator' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Validator hash', $output);
+        $this->assertStringContainsString('Scope Validator', $output);
+    }
+
+    public function test_command_returns_assignment_preview_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--assignment-preview' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_assignment_preview.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('claim_preview_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_assignment_preview', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'assignment.execution_allowed'));
+        $this->assertSame('preview_only_not_persisted', data_get($payload, 'assignment.claim_state'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'assignment.selected_packet_id'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'assignment_hash'));
+        $this->assertContains('php artisan atlas:ai:self-construction --scope-validator --json', data_get($payload, 'assignment.required_first_commands'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'assignment.forbidden_files'));
+        $this->assertContains('assignment_preview_does_not_persist_claim', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('assignment_preview_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_assignment_preview(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--assignment-preview' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Selected packet', $output);
+        $this->assertStringContainsString('Assignment hash', $output);
+        $this->assertStringContainsString('Assignment preview selected one safe packet', $output);
+    }
+
+    public function test_command_returns_packet_runbook_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--packet-runbook' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_packet_consumption_runbook.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('runbook_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_packet_consumption_runbook', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'runbook.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'runbook.claim_persisted'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'runbook.selected_packet_id'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'runbook_hash'));
+        $this->assertContains('php artisan atlas:ai:self-construction --scope-validator --packet=AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001 --json', data_get($payload, 'runbook.required_gates'));
+        $this->assertContains('scope_validator_output', data_get($payload, 'runbook.required_evidence'));
+        $this->assertContains('state_scope_validator_status', data_get($payload, 'runbook.final_response_contract'));
+        $this->assertContains('packet_runbook_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+
+        $stepIds = collect(data_get($payload, 'runbook.steps'))->pluck('id')->all();
+
+        $this->assertContains('inspect_worktree', $stepIds);
+        $this->assertContains('confirm_scope', $stepIds);
+        $this->assertContains('return_evidence', $stepIds);
+    }
+
+    public function test_command_human_output_lists_packet_runbook(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--packet-runbook' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Runbook hash', $output);
+        $this->assertStringContainsString('Packet runbook is ready', $output);
+    }
+
+    public function test_command_returns_packet_evidence_report_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--packet-evidence-report' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_packet_evidence_report.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_packet_evidence_report', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'completion_allowed'));
+        $this->assertFalse(data_get($payload, 'report.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'report.completion_allowed'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'report.selected_packet_id'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'report_hash'));
+        $this->assertContains('packet_evidence_report_does_not_mark_completed', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('packet_evidence_report_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+
+        $gateIds = collect(data_get($payload, 'report.gate_results'))->pluck('id')->all();
+        $evidenceIds = collect(data_get($payload, 'report.evidence_results'))->pluck('id')->all();
+
+        $this->assertContains('scope_validator_passed', $gateIds);
+        $this->assertContains('scope_validator_output', $evidenceIds);
+        $this->assertIsArray(data_get($payload, 'report.blocking_reasons'));
+    }
+
+    public function test_command_human_output_lists_packet_evidence_report(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--packet-evidence-report' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Report status', $output);
+        $this->assertStringContainsString('Report hash', $output);
+        $this->assertStringContainsString('Packet evidence report', $output);
+    }
+
+    public function test_command_returns_packet_completion_gate_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--packet-completion-gate' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_packet_completion_gate.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_packet_completion_gate', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'completion_allowed'));
+        $this->assertFalse(data_get($payload, 'gate.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'gate.completion_allowed'));
+        $this->assertFalse(data_get($payload, 'gate.durable_completion_written'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'gate.selected_packet_id'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'gate_hash'));
+        $this->assertContains(data_get($payload, 'gate.decision'), ['block', 'request_human_review']);
+        $this->assertContains('packet_completion_gate_does_not_mark_completed', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('packet_completion_gate_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('evidence_results', data_get($payload, 'gate.inspected_fields'));
+    }
+
+    public function test_command_human_output_lists_packet_completion_gate(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--packet-completion-gate' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Decision', $output);
+        $this->assertStringContainsString('Gate hash', $output);
+        $this->assertStringContainsString('Packet completion gate', $output);
+    }
+
+    public function test_command_returns_reservation_ledger_preview_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--reservation-ledger-preview' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_reservation_ledger_preview.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('reservation_preview_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_reservation_ledger_preview', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'completion_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'reservation_persisted'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'reservation.selected_packet_id'));
+        $this->assertSame('preview_only_not_persisted', data_get($payload, 'reservation.claim_state'));
+        $this->assertFalse(data_get($payload, 'reservation.claim_persisted'));
+        $this->assertFalse(data_get($payload, 'reservation.ledger_write_allowed'));
+        $this->assertNull(data_get($payload, 'reservation.lease_expires_at'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'reservation_hash'));
+        $this->assertContains('one_active_reservation_per_packet', data_get($payload, 'reservation.collision_policy'));
+        $this->assertContains('block_when_packet_hash_changes', data_get($payload, 'reservation.stale_policy'));
+        $this->assertContains('approved_reservation_ledger_ap', data_get($payload, 'reservation.future_persistence_requires'));
+        $this->assertContains('reservation_ledger_preview_does_not_persist_claim', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('reservation_ledger_preview_does_not_write_ledger', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('reservation_ledger_preview_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_reservation_ledger_preview(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--reservation-ledger-preview' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Selected packet', $output);
+        $this->assertStringContainsString('Reservation hash', $output);
+        $this->assertStringContainsString('Reservation ledger preview is ready', $output);
+    }
+
+    public function test_command_returns_ai_session_bootstrap_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--ai-session-bootstrap' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_ai_session_bootstrap.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('bootstrap_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_ai_session_bootstrap', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'completion_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_persisted'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'bootstrap.selected_packet_id'));
+        $this->assertSame('blocked', data_get($payload, 'bootstrap.scope_validator_status'));
+        $this->assertSame('blocked', data_get($payload, 'bootstrap.completion_gate_status'));
+        $this->assertFalse(data_get($payload, 'bootstrap.claim_persisted'));
+        $this->assertFalse(data_get($payload, 'bootstrap.ledger_write_allowed'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'bootstrap_hash'));
+        $this->assertContains('php artisan atlas:ai:self-construction --ai-session-bootstrap --packet=AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001 --json', data_get($payload, 'bootstrap.required_first_commands'));
+        $this->assertContains('scope_validator_blocked', data_get($payload, 'bootstrap.stop_conditions'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'bootstrap.forbidden_hot_scopes'));
+        $this->assertSame('atlas.self_construction_reservation_ledger_preview.v1', data_get($payload, 'bootstrap.payload_refs.reservation_schema'));
+        $this->assertContains('ai_session_bootstrap_does_not_persist_claim', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('ai_session_bootstrap_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_ai_session_bootstrap(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--ai-session-bootstrap' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Claim persisted', $output);
+        $this->assertStringContainsString('Selected packet', $output);
+        $this->assertStringContainsString('Bootstrap hash', $output);
+        $this->assertStringContainsString('AI session bootstrap is ready', $output);
+    }
+
+    public function test_command_returns_reservation_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--reservation-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_reservation_status.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('reservation_ledger_ready', data_get($payload, 'status'));
+        $this->assertSame('durable_local_reservation_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertTrue(data_get($payload, 'ledger.ledger_available'));
+        $this->assertSame(0, data_get($payload, 'ledger.active_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'ledger_hash'));
+    }
+
+    public function test_command_human_output_lists_reservation_status(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--reservation-status' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Active reservations', $output);
+        $this->assertStringContainsString('Completed reservations', $output);
+        $this->assertStringContainsString('Ledger hash', $output);
+        $this->assertStringContainsString('Durable local reservation ledger is available', $output);
+    }
+
+    public function test_command_claims_packet_and_queue_marks_it_claimed(): void
+    {
+        $packetId = 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001';
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $claim = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_claim_packet.v1', data_get($claim, 'schema_version'));
+        $this->assertSame('claimed', data_get($claim, 'status'));
+        $this->assertTrue(data_get($claim, 'claim_persisted'));
+        $this->assertTrue(data_get($claim, 'claim.event_appended'));
+        $this->assertSame($packetId, data_get($claim, 'claim.packet_id'));
+        $this->assertSame('codex-a', data_get($claim, 'claim.actor'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($claim, 'claim_hash'));
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--packet-queue' => true,
+            '--json' => true,
+        ]);
+
+        $queue = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $entry = collect(data_get($queue, 'queue.entries'))->firstWhere('packet_id', $packetId);
+
+        $this->assertSame(4, data_get($queue, 'queue.available_count'));
+        $this->assertSame(1, data_get($queue, 'queue.claimed_count'));
+        $this->assertSame('claimed', data_get($entry, 'queue_state'));
+        $this->assertSame('codex-a', data_get($entry, 'active_reservation_actor'));
+    }
+
+    public function test_command_claims_next_packet_with_scoped_start_packet(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--claim-next-packet' => true,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_claim_next_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('claimed', data_get($payload, 'status'));
+        $this->assertSame('durable_local_claim_next_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertTrue(data_get($payload, 'claim_persisted'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'packet_id'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'start.packet_id'));
+        $this->assertSame('codex-a', data_get($payload, 'start.actor'));
+        $this->assertContains('docs/engineering-knowledge-base/atlas-ai-self-construction-os.md', data_get($payload, 'start.allowed_files'));
+        $this->assertContains('php artisan atlas:ai:self-construction --scope-validator --packet=AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001 --json', data_get($payload, 'start.required_first_commands'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'start_hash'));
+    }
+
+    public function test_command_human_output_lists_claim_next_packet(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--claim-next-packet' => true,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Claim persisted', $output);
+        $this->assertStringContainsString('Packet', $output);
+        $this->assertStringContainsString('Start hash', $output);
+        $this->assertStringContainsString('Next packet was durably claimed', $output);
+    }
+
+    public function test_command_returns_codex_launch_plan_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-launch-plan' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_launch_plan.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('codex_launch_plan_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_launch_plan', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_persisted'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(5, data_get($payload, 'plan.max_sessions'));
+        $this->assertSame(5, data_get($payload, 'plan.launchable_count'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'plan.sessions.0.expected_packet_id'));
+        $this->assertSame('codex-1', data_get($payload, 'plan.sessions.0.actor'));
+        $this->assertStringContainsString('--codex-start-packet --actor=codex-1 --session=self-construction-session-1 --json', data_get($payload, 'plan.sessions.0.command'));
+        $this->assertContains('codex_launch_plan_does_not_claim_packets', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'plan_hash'));
+    }
+
+    public function test_command_human_output_lists_codex_launch_plan(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-launch-plan' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Launchable sessions', $output);
+        $this->assertStringContainsString('Plan hash', $output);
+        $this->assertStringContainsString('Codex launch plan is ready', $output);
+    }
+
+    public function test_command_codex_launch_plan_does_not_claim_packets(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--codex-launch-plan' => true,
+            '--json' => true,
+        ]);
+
+        $launchPlan = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--reservation-status' => true,
+            '--json' => true,
+        ]);
+
+        $status = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(5, data_get($launchPlan, 'plan.launchable_count'));
+        $this->assertSame(0, data_get($status, 'ledger.active_count'));
+        $this->assertSame(0, data_get($status, 'ledger.event_count'));
+    }
+
+    public function test_command_returns_codex_execution_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-execution-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_execution_status.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('codex_execution_status_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_execution_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_persisted'));
+        $this->assertFalse(data_get($payload, 'completion_persisted'));
+        $this->assertSame(5, data_get($payload, 'monitor.counts.available'));
+        $this->assertSame(0, data_get($payload, 'monitor.counts.claimed'));
+        $this->assertSame(0, data_get($payload, 'monitor.counts.completed'));
+        $this->assertSame(5, data_get($payload, 'monitor.counts.launchable'));
+        $this->assertSame('launch_available_codex_sessions', data_get($payload, 'monitor.recommended_next_action'));
+        $this->assertContains('codex_execution_status_does_not_claim_packets', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'monitor_hash'));
+    }
+
+    public function test_command_codex_execution_status_reports_claimed_sessions(): void
+    {
+        $packetId = 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001';
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-execution-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(4, data_get($payload, 'monitor.counts.available'));
+        $this->assertSame(1, data_get($payload, 'monitor.counts.claimed'));
+        $this->assertSame($packetId, data_get($payload, 'monitor.claimed_sessions.0.packet_id'));
+        $this->assertSame('codex-a', data_get($payload, 'monitor.claimed_sessions.0.actor'));
+        $this->assertSame('wait_for_active_sessions_or_review_their_final_response_contracts', data_get($payload, 'monitor.recommended_next_action'));
+    }
+
+    public function test_command_human_output_lists_codex_execution_status(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-execution-status' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Active', $output);
+        $this->assertStringContainsString('Completed', $output);
+        $this->assertStringContainsString('Monitor hash', $output);
+        $this->assertStringContainsString('Codex execution status is ready', $output);
+    }
+
+    public function test_command_returns_codex_integration_report_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-integration-report' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_integration_report.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('codex_integration_report_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_integration_report', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'completion_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertSame('nothing_completed_yet', data_get($payload, 'report.integration_status'));
+        $this->assertSame(0, data_get($payload, 'report.counts.ready_to_review'));
+        $this->assertSame(5, data_get($payload, 'report.counts.missing_packets'));
+        $this->assertContains('codex_integration_report_does_not_approve_code', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('packet_completion_is_not_code_approval', data_get($payload, 'report.approval_boundaries'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'report_hash'));
+    }
+
+    public function test_command_codex_integration_report_lists_completed_packets(): void
+    {
+        $packetId = 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001';
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--complete-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--reason' => 'packet_scope_finished',
+            '--evidence-hash' => str_repeat('a', 64),
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-integration-report' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'report.counts.ready_to_review'));
+        $this->assertSame(4, data_get($payload, 'report.counts.missing_packets'));
+        $this->assertSame($packetId, data_get($payload, 'report.ready_to_review_packets.0.packet_id'));
+        $this->assertSame('codex-a', data_get($payload, 'report.ready_to_review_packets.0.actor'));
+        $this->assertSame(str_repeat('a', 64), data_get($payload, 'report.ready_to_review_packets.0.evidence_hash'));
+        $this->assertContains('inspect_diff_for_allowed_files_only', data_get($payload, 'report.ready_to_review_packets.0.review_expectations'));
+        $this->assertSame('partial_completion_review_available', data_get($payload, 'report.integration_status'));
+    }
+
+    public function test_command_human_output_lists_codex_integration_report(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-integration-report' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Integration status', $output);
+        $this->assertStringContainsString('Ready to review', $output);
+        $this->assertStringContainsString('Report hash', $output);
+        $this->assertStringContainsString('Codex integration report is ready', $output);
+    }
+
+    public function test_command_returns_codex_merge_readiness_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-merge-readiness' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_merge_readiness.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('blocked_for_merge_review', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_merge_readiness', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame(0, data_get($payload, 'readiness.ready_packet_count'));
+        $this->assertSame(5, data_get($payload, 'readiness.missing_packet_count'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'readiness.blocking_count'));
+        $this->assertContains('codex_merge_readiness_does_not_merge', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('merge_readiness_is_not_merge_approval', data_get($payload, 'readiness.merge_boundaries'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'readiness_hash'));
+    }
+
+    public function test_command_returns_codex_merge_readiness_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-merge-readiness' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('ready_for_human_merge_review', data_get($payload, 'status'));
+        $this->assertSame('ready_for_human_merge_review', data_get($payload, 'readiness.merge_review_status'));
+        $this->assertSame(5, data_get($payload, 'readiness.ready_packet_count'));
+        $this->assertSame(0, data_get($payload, 'readiness.missing_packet_count'));
+        $this->assertSame(0, data_get($payload, 'readiness.blocking_count'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertSame('perform_human_or_governed_receipt_review_before_merge', data_get($payload, 'readiness.recommended_next_action'));
+    }
+
+    public function test_command_human_output_lists_codex_merge_readiness(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-merge-readiness' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Merge review status', $output);
+        $this->assertStringContainsString('Blocking count', $output);
+        $this->assertStringContainsString('Readiness hash', $output);
+        $this->assertStringContainsString('Codex merge readiness is blocked', $output);
+    }
+
+    public function test_command_returns_codex_final_review_packet_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-final-review-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_final_review_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('blocked_before_final_review', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_final_review_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertTrue(data_get($payload, 'packet.decision_required'));
+        $this->assertSame(0, data_get($payload, 'packet.ready_packet_count'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'packet.blocking_count'));
+        $this->assertContains('final_review_packet_is_not_approval', data_get($payload, 'packet.review_boundaries'));
+        $this->assertContains('codex_final_review_packet_does_not_merge', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'packet_hash'));
+    }
+
+    public function test_command_returns_codex_final_review_packet_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-final-review-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('final_review_packet_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_for_principal_integrator_review', data_get($payload, 'packet.review_status'));
+        $this->assertSame(5, data_get($payload, 'packet.ready_packet_count'));
+        $this->assertSame(0, data_get($payload, 'packet.blocking_count'));
+        $this->assertContains('confirm_each_packet_diff_only_touches_allowed_files', data_get($payload, 'packet.principal_integrator_checklist'));
+        $this->assertContains('php artisan atlas:ai:architecture-validate --json', data_get($payload, 'packet.required_review_gates'));
+        $this->assertSame('request_changes', data_get($payload, 'packet.decision_slots.0.default'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+    }
+
+    public function test_command_human_output_lists_codex_final_review_packet(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-final-review-packet' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Review status', $output);
+        $this->assertStringContainsString('Decision required', $output);
+        $this->assertStringContainsString('Packet hash', $output);
+        $this->assertStringContainsString('Codex final review packet is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_decision_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-decision-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_decision_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('blocked_before_review_decision_template', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_decision_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertFalse(data_get($payload, 'template.decision_recording_allowed'));
+        $this->assertSame('request_changes', data_get($payload, 'template.default_decision'));
+        $this->assertContains('principal_integrator_name', data_get($payload, 'template.required_inputs'));
+        $this->assertContains('decision_template_does_not_record_decision', data_get($payload, 'template.boundaries'));
+        $this->assertContains('codex_review_decision_template_does_not_merge', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'template_hash'));
+    }
+
+    public function test_command_returns_codex_review_decision_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-decision-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('review_decision_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_for_manual_decision', data_get($payload, 'template.decision_status'));
+        $this->assertSame(5, data_get($payload, 'template.ready_packet_count'));
+        $this->assertSame(0, data_get($payload, 'template.blocking_count'));
+        $this->assertContains('approve_for_merge', data_get($payload, 'template.allowed_decisions'));
+        $this->assertContains('all_required_review_gates_passed', data_get($payload, 'template.approval_preconditions'));
+        $this->assertSame('request_changes', data_get($payload, 'template.default_safe_decision_policy.when_any_precondition_is_missing'));
+        $this->assertFalse(data_get($payload, 'template.decision_recording_allowed'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+    }
+
+    public function test_command_human_output_lists_codex_review_decision_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-decision-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Decision status', $output);
+        $this->assertStringContainsString('Recording allowed', $output);
+        $this->assertStringContainsString('Template hash', $output);
+        $this->assertStringContainsString('Codex review decision template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_receipt_draft_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-receipt-draft' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_receipt_draft.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('blocked_before_review_receipt_draft', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_receipt_draft', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertTrue(data_get($payload, 'receipt.signature_required'));
+        $this->assertFalse(data_get($payload, 'receipt.signature_valid'));
+        $this->assertSame('request_changes', data_get($payload, 'receipt.default_decision'));
+        $this->assertContains('receipt_draft_is_unsigned', data_get($payload, 'receipt.non_authorizing_invariants'));
+        $this->assertContains('codex_review_receipt_draft_does_not_merge', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'receipt_hash'));
+    }
+
+    public function test_command_returns_codex_review_receipt_draft_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-receipt-draft' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('review_receipt_draft_ready', data_get($payload, 'status'));
+        $this->assertSame('draft_ready_for_signature_review', data_get($payload, 'receipt.status'));
+        $this->assertContains('principal_integrator', data_get($payload, 'receipt.signer_roles'));
+        $this->assertContains('all_required_review_gates_passed', data_get($payload, 'receipt.approval_preconditions'));
+        $this->assertContains('php artisan atlas:ai:self-construction --codex-review-decision-template --json', data_get($payload, 'receipt.verification_commands'));
+        $this->assertSame('principal_integrator_completes_and_signs_receipt_in_future_governed_surface', data_get($payload, 'receipt.next_required_action'));
+        $this->assertFalse(data_get($payload, 'receipt.signature_valid'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+    }
+
+    public function test_command_human_output_lists_codex_review_receipt_draft(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-receipt-draft' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Receipt status', $output);
+        $this->assertStringContainsString('Signature required', $output);
+        $this->assertStringContainsString('Receipt hash', $output);
+        $this->assertStringContainsString('Codex review receipt draft is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_signature_request_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-signature-request' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_signature_request.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('blocked_before_review_signature_request', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_signature_request', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_request.signature_present'));
+        $this->assertFalse(data_get($payload, 'signature_request.signature_valid'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertContains('signature_request_is_not_signature', data_get($payload, 'signature_request.non_authorizing_invariants'));
+        $this->assertContains('codex_review_signature_request_does_not_merge', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'signable_payload_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'request_hash'));
+    }
+
+    public function test_command_returns_codex_review_signature_request_pending_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-signature-request' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('review_signature_pending', data_get($payload, 'status'));
+        $this->assertSame('pending_principal_integrator_signature', data_get($payload, 'signature_request.status'));
+        $this->assertSame('principal_integrator_explicit_review_decision', data_get($payload, 'signable_payload.requested_signature_type'));
+        $this->assertContains('principal_integrator', data_get($payload, 'signature_request.required_signer_roles'));
+        $this->assertContains('approve_for_merge', data_get($payload, 'signable_payload.allowed_decisions'));
+        $this->assertContains('auto_merge_without_explicit_human_merge_action', data_get($payload, 'signable_payload.still_forbidden_after_signature'));
+        $this->assertFalse(data_get($payload, 'signature_request.signature_present'));
+        $this->assertFalse(data_get($payload, 'signature_request.signature_valid'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+    }
+
+    public function test_command_human_output_lists_codex_review_signature_request(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-signature-request' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Signature status', $output);
+        $this->assertStringContainsString('Signature present', $output);
+        $this->assertStringContainsString('Signable hash', $output);
+        $this->assertStringContainsString('Codex review signature request is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_post_signature_runbook_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-post-signature-runbook' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_post_signature_runbook.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('blocked_before_post_signature_runbook', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_post_signature_runbook', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertTrue(data_get($payload, 'runbook.signature_required'));
+        $this->assertFalse(data_get($payload, 'runbook.auto_merge_allowed'));
+        $this->assertContains('post_signature_runbook_does_not_merge', data_get($payload, 'runbook.non_authorizing_invariants'));
+        $this->assertContains('codex_review_post_signature_runbook_does_not_merge', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'runbook_hash'));
+    }
+
+    public function test_command_returns_codex_review_post_signature_runbook_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-post-signature-runbook' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('post_signature_runbook_ready', data_get($payload, 'status'));
+        $this->assertSame('waiting_for_valid_signature', data_get($payload, 'runbook.status'));
+        $this->assertSame(4, data_get($payload, 'runbook.step_count'));
+        $this->assertContains('valid_signature_against_signable_payload_hash', data_get($payload, 'runbook.required_before_any_merge_action'));
+        $this->assertContains('explicit_manual_or_governed_merge_action_created', data_get($payload, 'runbook.required_before_any_merge_action'));
+        $this->assertContains('auto_merge_from_runbook', data_get($payload, 'runbook.still_forbidden'));
+        $this->assertFalse(data_get($payload, 'runbook.signature_valid'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+    }
+
+    public function test_command_human_output_lists_codex_review_post_signature_runbook(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-post-signature-runbook' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Runbook status', $output);
+        $this->assertStringContainsString('Signature required', $output);
+        $this->assertStringContainsString('Runbook hash', $output);
+        $this->assertStringContainsString('Codex review post-signature runbook is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_action_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-action-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_action_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('blocked_before_merge_action_template', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_action_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertTrue(data_get($payload, 'template.explicit_merge_action_required'));
+        $this->assertFalse(data_get($payload, 'template.auto_merge_allowed'));
+        $this->assertSame('request_changes', data_get($payload, 'template.default_decision'));
+        $this->assertContains('valid_signature_against_signable_payload_hash', data_get($payload, 'template.required_before_merge'));
+        $this->assertContains('merge_action_template_does_not_merge', data_get($payload, 'template.merge_boundaries'));
+        $this->assertContains('codex_review_merge_action_template_does_not_merge', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'template_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_action_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-action-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_action_template_ready', data_get($payload, 'status'));
+        $this->assertSame('waiting_for_explicit_signed_merge_action', data_get($payload, 'template.status'));
+        $this->assertTrue(data_get($payload, 'template.explicit_merge_action_required'));
+        $this->assertFalse(data_get($payload, 'template.signature_validated_by_this_template'));
+        $this->assertFalse(data_get($payload, 'template.merge_allowed'));
+        $this->assertFalse(data_get($payload, 'template.approval_granted'));
+        $this->assertContains('selected_decision_is_approve_for_merge', data_get($payload, 'template.required_before_merge'));
+        $this->assertContains('human_merge_confirmation', data_get($payload, 'template.required_inputs'));
+        $this->assertContains('merge', data_get($payload, 'template.allowed_merge_decisions'));
+        $this->assertContains('request_changes', data_get($payload, 'template.allowed_merge_decisions'));
+        $this->assertContains('abort', data_get($payload, 'template.allowed_merge_decisions'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_action_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-action-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Merge action status', $output);
+        $this->assertStringContainsString('Explicit action required', $output);
+        $this->assertStringContainsString('Template hash', $output);
+        $this->assertStringContainsString('Codex review merge action template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_preflight_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_preflight_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertGreaterThan(0, data_get($payload, 'preflight.blocking_count'));
+        $this->assertContains('valid_signature_against_signable_payload_hash', data_get($payload, 'preflight.required_external_evidence_before_merge'));
+        $this->assertContains('auto_merge_from_preflight', data_get($payload, 'preflight.still_forbidden'));
+        $this->assertContains('codex_review_merge_preflight_does_not_merge', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'preflight_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_preflight_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_preflight_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_for_explicit_merge_action_review', data_get($payload, 'preflight.status'));
+        $this->assertSame(0, data_get($payload, 'preflight.blocking_count'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertContains('prepare_separate_governed_merge_action', data_get($payload, 'preflight.next_allowed_actions'));
+        $this->assertContains('signature_validation_by_preflight', data_get($payload, 'preflight.still_forbidden'));
+        $this->assertArrayHasKey('merge_action_template_hash', data_get($payload, 'preflight.source_hashes'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_preflight(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-preflight' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Preflight status', $output);
+        $this->assertStringContainsString('Blocking count', $output);
+        $this->assertStringContainsString('Preflight hash', $output);
+        $this->assertStringContainsString('Codex review merge preflight is blocked', $output);
+    }
+
+    public function test_command_returns_codex_start_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-start-packet' => true,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_start_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('codex_start_packet_ready', data_get($payload, 'status'));
+        $this->assertSame('durable_local_codex_start_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertTrue(data_get($payload, 'claim_persisted'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'packet_id'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'contract.packet_id'));
+        $this->assertSame('codex-a', data_get($payload, 'contract.actor'));
+        $this->assertStringContainsString('continua a implementação', data_get($payload, 'contract.one_line_user_prompt'));
+        $this->assertStringContainsString('durably claimed packet', data_get($payload, 'contract.operator_prompt'));
+        $this->assertMatchesRegularExpression('/^RES-[A-F0-9]{20}$/', data_get($payload, 'contract.claim.reservation_id'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'contract.claim.claim_hash'));
+        $this->assertContains('docs/engineering-knowledge-base/atlas-ai-self-construction-os.md', data_get($payload, 'contract.scope.allowed_files'));
+        $this->assertSame(
+            'php artisan atlas:ai:self-construction --ai-session-bootstrap --packet=AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001 --json',
+            data_get($payload, 'contract.bootstrap_command')
+        );
+        $this->assertSame(
+            'php artisan atlas:ai:self-construction --scope-validator --packet=AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001 --json',
+            data_get($payload, 'contract.scope_validator_command')
+        );
+        $this->assertStringContainsString(
+            'php artisan atlas:ai:self-construction --complete-packet --packet=AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            data_get($payload, 'contract.completion_command')
+        );
+        $this->assertStringContainsString(
+            '--evidence-hash=<sha256-of-final-evidence>',
+            data_get($payload, 'contract.completion_command')
+        );
+        $this->assertContains('touch_only_allowed_files', data_get($payload, 'contract.implementation_rules'));
+        $this->assertContains('state_scope_validator_status', data_get($payload, 'contract.final_response_contract'));
+        $this->assertContains('scope_validator_output', data_get($payload, 'contract.required_evidence'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'contract_hash'));
+    }
+
+    public function test_command_human_output_lists_codex_start_packet(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-start-packet' => true,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Claim persisted', $output);
+        $this->assertStringContainsString('Packet', $output);
+        $this->assertStringContainsString('Contract hash', $output);
+        $this->assertStringContainsString('Codex start packet is ready', $output);
+    }
+
+    public function test_command_blocks_codex_start_packet_when_no_packets_remain(): void
+    {
+        for ($index = 1; $index <= 5; $index++) {
+            Artisan::call('atlas:ai:self-construction', [
+                '--codex-start-packet' => true,
+                '--actor' => 'codex-'.$index,
+                '--session' => 'session-'.$index,
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-start-packet' => true,
+            '--actor' => 'codex-extra',
+            '--session' => 'session-extra',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('blocked', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'claim_persisted'));
+        $this->assertNull(data_get($payload, 'packet_id'));
+        $this->assertContains('no_available_packet', data_get($payload, 'contract.blocking_reasons'));
+        $this->assertSame(5, data_get($payload, 'contract.queue_state.claimed_count'));
+    }
+
+    public function test_command_claims_next_packet_without_reusing_claimed_packet(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--claim-next-packet' => true,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $first = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--claim-next-packet' => true,
+            '--actor' => 'codex-b',
+            '--session' => 'session-b',
+            '--json' => true,
+        ]);
+
+        $second = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($first, 'packet_id'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002', data_get($second, 'packet_id'));
+        $this->assertTrue(data_get($first, 'claim_persisted'));
+        $this->assertTrue(data_get($second, 'claim_persisted'));
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--packet-queue' => true,
+            '--json' => true,
+        ]);
+
+        $queue = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(3, data_get($queue, 'queue.available_count'));
+        $this->assertSame(2, data_get($queue, 'queue.claimed_count'));
+    }
+
+    public function test_command_blocks_claim_next_when_no_packets_remain(): void
+    {
+        for ($index = 1; $index <= 5; $index++) {
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-next-packet' => true,
+                '--actor' => 'codex-'.$index,
+                '--session' => 'session-'.$index,
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--claim-next-packet' => true,
+            '--actor' => 'codex-extra',
+            '--session' => 'session-extra',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('blocked', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'claim_persisted'));
+        $this->assertNull(data_get($payload, 'packet_id'));
+        $this->assertContains('no_available_packet', data_get($payload, 'start.blocking_reasons'));
+        $this->assertSame(0, data_get($payload, 'start.available_count'));
+        $this->assertSame(5, data_get($payload, 'start.claimed_count'));
+    }
+
+    public function test_command_blocks_duplicate_packet_claim_and_releases_owner_claim(): void
+    {
+        $packetId = 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001';
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-b',
+            '--session' => 'session-b',
+            '--json' => true,
+        ]);
+
+        $duplicate = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('blocked', data_get($duplicate, 'status'));
+        $this->assertFalse(data_get($duplicate, 'claim_persisted'));
+        $this->assertContains('packet_already_claimed', data_get($duplicate, 'claim.blocking_reasons'));
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--release-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--reason' => 'test_release',
+            '--json' => true,
+        ]);
+
+        $release = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('released', data_get($release, 'status'));
+        $this->assertTrue(data_get($release, 'release.released'));
+        $this->assertSame('test_release', data_get($release, 'release.reservation.release_reason'));
+    }
+
+    public function test_command_completes_owner_packet_and_queue_marks_it_completed(): void
+    {
+        $packetId = 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001';
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--complete-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--reason' => 'focused_tests_passed',
+            '--evidence-hash' => str_repeat('a', 64),
+            '--json' => true,
+        ]);
+
+        $completion = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_complete_packet.v1', data_get($completion, 'schema_version'));
+        $this->assertSame('completed', data_get($completion, 'status'));
+        $this->assertSame('durable_local_packet_completion', data_get($completion, 'mode'));
+        $this->assertFalse(data_get($completion, 'execution_allowed'));
+        $this->assertFalse(data_get($completion, 'completion_allowed'));
+        $this->assertTrue(data_get($completion, 'completion_persisted'));
+        $this->assertFalse(data_get($completion, 'approval_granted'));
+        $this->assertTrue(data_get($completion, 'completion.completed'));
+        $this->assertSame($packetId, data_get($completion, 'completion.packet_id'));
+        $this->assertSame(str_repeat('a', 64), data_get($completion, 'completion.reservation.completion_evidence_hash'));
+        $this->assertContains('complete_packet_does_not_approve_code', data_get($completion, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($completion, 'completion_hash'));
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--packet-queue' => true,
+            '--json' => true,
+        ]);
+
+        $queue = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $entry = collect(data_get($queue, 'queue.entries'))->firstWhere('packet_id', $packetId);
+
+        $this->assertSame(1, data_get($queue, 'queue.completed_count'));
+        $this->assertSame(4, data_get($queue, 'queue.available_count'));
+        $this->assertSame(0, data_get($queue, 'queue.claimed_count'));
+        $this->assertSame('completed', data_get($entry, 'queue_state'));
+        $this->assertSame('codex-a', data_get($entry, 'completion_actor'));
+    }
+
+    public function test_command_blocks_completed_packet_from_being_claimed_again(): void
+    {
+        $packetId = 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001';
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+        Artisan::call('atlas:ai:self-construction', [
+            '--complete-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-b',
+            '--session' => 'session-b',
+            '--json' => true,
+        ]);
+
+        $claim = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('blocked', data_get($claim, 'status'));
+        $this->assertFalse(data_get($claim, 'claim_persisted'));
+        $this->assertContains('packet_already_completed', data_get($claim, 'claim.blocking_reasons'));
+    }
+
+    public function test_command_blocks_packet_completion_by_non_owner(): void
+    {
+        $packetId = 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001';
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--complete-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-b',
+            '--session' => 'session-b',
+            '--json' => true,
+        ]);
+
+        $completion = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('blocked', data_get($completion, 'status'));
+        $this->assertFalse(data_get($completion, 'completion_persisted'));
+        $this->assertContains('actor_or_session_not_owner', data_get($completion, 'completion.blocking_reasons'));
+    }
+
+    public function test_command_human_output_lists_complete_packet(): void
+    {
+        $packetId = 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001';
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--complete-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Completed', $output);
+        $this->assertStringContainsString('Completion hash', $output);
+        $this->assertStringContainsString('Packet reservation was durably marked completed', $output);
+    }
+
+    public function test_command_reservation_status_reports_completed_packets(): void
+    {
+        $packetId = 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001';
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+        Artisan::call('atlas:ai:self-construction', [
+            '--complete-packet' => true,
+            '--packet' => $packetId,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--reservation-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(0, data_get($payload, 'ledger.active_count'));
+        $this->assertSame(1, data_get($payload, 'ledger.completed_count'));
+        $this->assertSame($packetId, data_get($payload, 'ledger.completed_reservations.0.packet_id'));
+        $this->assertSame('completed', data_get($payload, 'ledger.completed_reservations.0.state'));
+    }
+
+    public function test_command_returns_packet_queue_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--packet-queue' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_packet_queue.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('packet_queue_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_packet_queue', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'completion_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_persisted'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'queue_write_allowed'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'queue.recommended_packet_id'));
+        $this->assertSame(7, data_get($payload, 'queue.entry_count'));
+        $this->assertSame(5, data_get($payload, 'queue.available_count'));
+        $this->assertSame(0, data_get($payload, 'queue.blocked_count'));
+        $this->assertSame(0, data_get($payload, 'queue.claimed_count'));
+        $this->assertSame(2, data_get($payload, 'queue.withheld_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'queue_hash'));
+
+        $states = collect(data_get($payload, 'queue.entries'))->pluck('queue_state')->all();
+
+        $this->assertContains('available', $states);
+        $this->assertContains('withheld', $states);
+        $this->assertSame('php artisan atlas:ai:self-construction --ai-session-bootstrap --packet=AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001 --json', data_get($payload, 'queue.entries.0.required_bootstrap_command'));
+        $this->assertContains('packet_queue_does_not_persist_claim', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('packet_queue_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('packet_queue_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_packet_queue(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--packet-queue' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Claim persisted', $output);
+        $this->assertStringContainsString('Queue entries', $output);
+        $this->assertStringContainsString('Queue hash', $output);
+        $this->assertStringContainsString('Packet queue is ready', $output);
+    }
+
+    public function test_command_returns_parallel_session_plan_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--parallel-session-plan' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_parallel_session_plan.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('parallel_session_plan_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_parallel_session_plan', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'completion_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_persisted'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(5, data_get($payload, 'plan.max_session_slots'));
+        $this->assertSame(5, data_get($payload, 'plan.slot_count'));
+        $this->assertSame(5, data_get($payload, 'plan.preview_assignable_count'));
+        $this->assertSame(0, data_get($payload, 'plan.idle_slot_count'));
+        $this->assertSame(0, data_get($payload, 'plan.blocked_packet_count'));
+        $this->assertSame(2, data_get($payload, 'plan.withheld_packet_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'plan_hash'));
+
+        $states = collect(data_get($payload, 'plan.slots'))->pluck('state')->all();
+
+        $this->assertContains('preview_assignable', $states);
+        $this->assertNotContains('idle_no_safe_packet', $states);
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'plan.slots.0.packet_id'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005', data_get($payload, 'plan.slots.4.packet_id'));
+        $this->assertSame('php artisan atlas:ai:self-construction --ai-session-bootstrap --packet=AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001 --json', data_get($payload, 'plan.slots.0.bootstrap_command'));
+        $this->assertContains('parallel_session_plan_does_not_persist_claim', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('parallel_session_plan_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('parallel_session_plan_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_parallel_session_plan(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--parallel-session-plan' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Dispatch allowed', $output);
+        $this->assertStringContainsString('Session slots', $output);
+        $this->assertStringContainsString('Plan hash', $output);
+        $this->assertStringContainsString('Parallel session plan is ready', $output);
+    }
+
+    public function test_command_returns_collision_matrix_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--collision-matrix' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_collision_matrix.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('collision_matrix_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_collision_matrix', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'completion_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_persisted'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(7, data_get($payload, 'matrix.entry_count'));
+        $this->assertSame(21, data_get($payload, 'matrix.pair_count'));
+        $this->assertSame(10, data_get($payload, 'matrix.safe_pair_count'));
+        $this->assertSame(11, data_get($payload, 'matrix.blocked_pair_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'matrix_hash'));
+
+        $decisions = collect(data_get($payload, 'matrix.pairs'))->pluck('decision')->all();
+        $safePair = collect(data_get($payload, 'matrix.pairs'))->firstWhere('decision', 'parallel_safe');
+
+        $this->assertContains('parallel_safe', $decisions);
+        $this->assertContains('blocked', $decisions);
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($safePair, 'left_packet_id'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002', data_get($safePair, 'right_packet_id'));
+        $this->assertContains('collision_matrix_does_not_persist_claim', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('collision_matrix_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('collision_matrix_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_collision_matrix(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--collision-matrix' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Pair count', $output);
+        $this->assertStringContainsString('Blocked pairs', $output);
+        $this->assertStringContainsString('Matrix hash', $output);
+        $this->assertStringContainsString('Collision matrix is ready', $output);
+    }
+
+    public function test_command_returns_dependency_unlock_plan_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--dependency-unlock-plan' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_dependency_unlock_plan.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('dependency_unlock_plan_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_dependency_unlock_plan', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'completion_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_persisted'));
+        $this->assertFalse(data_get($payload, 'completion_persisted'));
+        $this->assertFalse(data_get($payload, 'state_mutation_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame([
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ], data_get($payload, 'plan.available_packet_ids'));
+        $this->assertSame(0, data_get($payload, 'plan.blocked_packet_count'));
+        $this->assertSame(0, data_get($payload, 'plan.unlock_edge_count'));
+        $this->assertSame(2, data_get($payload, 'plan.withheld_packet_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'plan_hash'));
+
+        $this->assertContains('dependency_unlock_plan_does_not_mutate_queue', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('dependency_unlock_plan_does_not_persist_completion', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('dependency_unlock_plan_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_dependency_unlock_plan(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--dependency-unlock-plan' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Blocked packets', $output);
+        $this->assertStringContainsString('Unlock edges', $output);
+        $this->assertStringContainsString('Plan hash', $output);
+        $this->assertStringContainsString('Dependency unlock plan is ready', $output);
+    }
+
+    public function test_command_returns_multi_session_readiness_gate_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--multi-session-readiness-gate' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_multi_session_readiness_gate.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('multi_session_readiness_gate_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_multi_session_readiness_gate', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'completion_allowed'));
+        $this->assertFalse(data_get($payload, 'multi_session_allowed'));
+        $this->assertTrue(data_get($payload, 'parallel_preview_allowed'));
+        $this->assertTrue(data_get($payload, 'single_session_preview_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('ready_for_multi_session_preview', data_get($payload, 'gate.decision'));
+        $this->assertFalse(data_get($payload, 'gate.multi_session_allowed'));
+        $this->assertTrue(data_get($payload, 'gate.single_session_preview_allowed'));
+        $this->assertTrue(data_get($payload, 'gate.parallel_preview_allowed'));
+        $this->assertSame('continue_parallel_preview_with_packet_scoped_bootstrap', data_get($payload, 'gate.safe_next_instruction'));
+        $this->assertSame(5, data_get($payload, 'gate.counts.preview_assignable_packets'));
+        $this->assertSame(2, data_get($payload, 'gate.counts.withheld_packets'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'gate_hash'));
+        $this->assertSame([], data_get($payload, 'gate.blocking_reasons'));
+        $this->assertContains('hot_external_work_withheld_from_cold_lane', data_get($payload, 'gate.non_blocking_warnings'));
+        $this->assertContains('multi_session_readiness_gate_does_not_start_sessions', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('multi_session_readiness_gate_does_not_write_ledger', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('multi_session_readiness_gate_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_multi_session_readiness_gate(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--multi-session-readiness-gate' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Decision', $output);
+        $this->assertStringContainsString('Multi-session allowed', $output);
+        $this->assertStringContainsString('Gate hash', $output);
+        $this->assertStringContainsString('Multi-session readiness gate is ready', $output);
+    }
+
+    public function test_command_returns_single_session_instruction_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--single-session-instruction-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_single_session_instruction_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('single_session_instruction_packet_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_single_session_instruction_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'completion_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_persisted'));
+        $this->assertFalse(data_get($payload, 'reservation_persisted'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'instruction.selected_packet_id'));
+        $this->assertSame('continue_parallel_preview_with_packet_scoped_bootstrap', data_get($payload, 'instruction.safe_next_instruction'));
+        $this->assertStringContainsString('Continue exactly one Self-Construction session', data_get($payload, 'instruction.operator_instruction'));
+        $this->assertContains('php artisan atlas:ai:self-construction --ai-session-bootstrap --packet=AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001 --json', data_get($payload, 'instruction.required_first_commands'));
+        $this->assertContains('docs/engineering-knowledge-base/atlas-ai-self-construction-os.md', data_get($payload, 'instruction.allowed_files'));
+        $this->assertContains('php artisan atlas:ai:self-construction --scope-validator --packet=AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001 --json', data_get($payload, 'instruction.required_gates'));
+        $this->assertContains('php artisan atlas:ai:architecture-validate --json', data_get($payload, 'instruction.required_gates'));
+        $this->assertContains('scope_validator_output', data_get($payload, 'instruction.required_evidence'));
+        $this->assertNotContains('durable_reservation_ledger_missing', data_get($payload, 'instruction.stop_conditions'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'instruction_hash'));
+        $this->assertContains('single_session_instruction_packet_does_not_start_session', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('single_session_instruction_packet_does_not_persist_claim', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('single_session_instruction_packet_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_single_session_instruction_packet(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--single-session-instruction-packet' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Selected packet', $output);
+        $this->assertStringContainsString('Safe next', $output);
+        $this->assertStringContainsString('Instruction hash', $output);
+        $this->assertStringContainsString('Single-session instruction packet is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_ledger_plan_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-ledger-plan' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_ledger_implementation_plan.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_ledger_plan_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_ledger_implementation_plan', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'migration_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('durable_reservation_ledger_missing', data_get($payload, 'plan.blocker_removed_when_complete'));
+        $this->assertSame(3, data_get($payload, 'plan.storage_object_count'));
+        $this->assertContains('atlas_self_construction_reservations', array_column(data_get($payload, 'plan.storage_objects'), 'name'));
+        $this->assertContains('claimed', data_get($payload, 'plan.claim_states'));
+        $this->assertContains('reject_allowed_file_overlap_with_active_reservations', data_get($payload, 'plan.atomic_claim_sequence'));
+        $this->assertContains('one_active_reservation_per_packet', data_get($payload, 'plan.required_invariants'));
+        $this->assertContains('blocks_duplicate_packet_claim', data_get($payload, 'plan.required_tests'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'plan.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'plan_hash'));
+        $this->assertContains('durable_reservation_ledger_plan_does_not_create_migrations', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_ledger_plan_does_not_write_ledger', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_ledger_plan_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_ledger_plan(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-ledger-plan' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Storage objects', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Plan hash', $output);
+        $this->assertStringContainsString('Durable reservation ledger implementation plan is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_ap_candidate_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-ap-candidate' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_ap_candidate.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_ap_candidate_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_ap_candidate', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'migration_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertTrue(data_get($payload, 'operator_approval_required'));
+        $this->assertSame('durable_reservation_ledger_missing', data_get($payload, 'candidate.blocker_target'));
+        $this->assertSame(4, data_get($payload, 'candidate.packet_count'));
+        $this->assertContains('DR-AP-STORAGE-0001', array_column(data_get($payload, 'candidate.packets'), 'packet_id'));
+        $this->assertContains('DR-AP-READINESS-0004', array_column(data_get($payload, 'candidate.packets'), 'packet_id'));
+        $this->assertContains('dispatch_still_disabled', data_get($payload, 'candidate.promotion_gates'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'candidate.global_forbidden_scopes'));
+        $this->assertSame('review_ap_candidate_before_any_storage_or_migration_work', data_get($payload, 'candidate.next_safe_action'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'candidate_hash'));
+        $this->assertContains('durable_reservation_ap_candidate_does_not_create_migrations', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_ap_candidate_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_ap_candidate_requires_operator_approval', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_ap_candidate(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-ap-candidate' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('AP id', $output);
+        $this->assertStringContainsString('Packet count', $output);
+        $this->assertStringContainsString('Candidate hash', $output);
+        $this->assertStringContainsString('Durable reservation AP candidate is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_approval_request_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-approval-request' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_approval_request.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_approval_request_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_approval_request', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'migration_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('not_approved_read_only_request', data_get($payload, 'request.approval_status'));
+        $this->assertSame(4, data_get($payload, 'request.required_signer_count'));
+        $this->assertContains('architecture_governor', data_get($payload, 'request.required_signers'));
+        $this->assertContains('approve_storage_and_migration_scope', data_get($payload, 'request.operator_decisions_required'));
+        $this->assertContains('dispatch_enabled_in_same_ap', data_get($payload, 'request.approval_blockers'));
+        $this->assertContains('architecture_validate_output', data_get($payload, 'request.required_evidence'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'request.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'request_hash'));
+        $this->assertContains('durable_reservation_approval_request_does_not_grant_approval', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_approval_request_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_approval_request_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_approval_request(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-approval-request' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Approval status', $output);
+        $this->assertStringContainsString('Required signers', $output);
+        $this->assertStringContainsString('Request hash', $output);
+        $this->assertStringContainsString('Durable reservation approval request is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_approval_decision_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-approval-decision' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_approval_decision_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_approval_decision_template_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_approval_decision_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'decision_signed'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'migration_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('template_not_signed', data_get($payload, 'decision.decision_status'));
+        $this->assertContains('approved_for_scoped_implementation', data_get($payload, 'decision.allowed_decisions'));
+        $this->assertSame(4, data_get($payload, 'decision.signer_slot_count'));
+        $this->assertContains('dispatch_requires_separate_future_ap', data_get($payload, 'decision.post_decision_limits'));
+        $this->assertContains('request_hash_changed', data_get($payload, 'decision.expiry_checks'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'decision.forbidden_scope'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'decision_hash'));
+        $this->assertContains('durable_reservation_approval_decision_template_does_not_grant_approval', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_approval_decision_template_does_not_sign_decision', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_approval_decision_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_approval_decision_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-approval-decision' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Decision status', $output);
+        $this->assertStringContainsString('Signer slots', $output);
+        $this->assertStringContainsString('Decision hash', $output);
+        $this->assertStringContainsString('Durable reservation approval decision template is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_post_approval_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-post-approval-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_post_approval_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_post_approval_preflight_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_post_approval_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'preflight_passed'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'migration_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_signed_approval', data_get($payload, 'preflight.decision'));
+        $this->assertSame(2, data_get($payload, 'preflight.blocking_check_count'));
+        $this->assertContains('signed_approval_decision', data_get($payload, 'preflight.required_before_implementation'));
+        $this->assertContains('dispatch_remains_disabled', data_get($payload, 'preflight.implementation_limits_after_pass'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'preflight.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'preflight_hash'));
+        $this->assertContains('durable_reservation_post_approval_preflight_does_not_create_migrations', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_post_approval_preflight_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_post_approval_preflight_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_post_approval_preflight(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-post-approval-preflight' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Preflight decision', $output);
+        $this->assertStringContainsString('Blocking checks', $output);
+        $this->assertStringContainsString('Preflight hash', $output);
+        $this->assertStringContainsString('Durable reservation post-approval preflight is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_implementation_packet_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'migration_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_post_approval_preflight_passes', data_get($payload, 'packet.packet_status'));
+        $this->assertSame(4, data_get($payload, 'packet.work_packet_count'));
+        $this->assertContains('php artisan atlas:ai:self-construction --durable-reservation-post-approval-preflight --json', data_get($payload, 'packet.required_first_commands'));
+        $this->assertContains('post_approval_preflight_not_passed', data_get($payload, 'packet.stop_conditions'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'packet.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'packet_hash'));
+        $this->assertContains('durable_reservation_implementation_packet_does_not_create_migrations', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_implementation_packet_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_implementation_packet_requires_passed_preflight', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_implementation_packet(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-implementation-packet' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Packet status', $output);
+        $this->assertStringContainsString('Work packets', $output);
+        $this->assertStringContainsString('Packet hash', $output);
+        $this->assertStringContainsString('Durable reservation implementation packet is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_storage_schema_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-storage-schema' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_storage_schema.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_storage_schema_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_storage_schema', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'migration_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_post_approval_preflight_passes', data_get($payload, 'storage_schema.schema_status'));
+        $this->assertSame(2, data_get($payload, 'storage_schema.table_count'));
+        $this->assertContains('atlas_self_construction_reservation_events', array_column(data_get($payload, 'storage_schema.tables'), 'name'));
+        $this->assertContains('atlas_self_construction_reservations', array_column(data_get($payload, 'storage_schema.tables'), 'name'));
+        $this->assertContains('one_active_claim_per_packet', data_get($payload, 'storage_schema.invariants'));
+        $this->assertContains('active_allowed_file_overlap_blocks_new_claim', data_get($payload, 'storage_schema.invariants'));
+        $this->assertContains('storage_schema_command_does_not_create_migrations_or_write_storage', data_get($payload, 'storage_schema.required_tests'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'storage_schema.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'schema_hash'));
+        $this->assertContains('durable_reservation_storage_schema_does_not_create_migrations', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_storage_schema_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_storage_schema(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-storage-schema' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Schema status', $output);
+        $this->assertStringContainsString('Tables', $output);
+        $this->assertStringContainsString('Schema hash', $output);
+        $this->assertStringContainsString('Durable reservation storage schema is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_repository_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-repository-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_repository_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_repository_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_repository_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'repository_write_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_storage_schema_and_preflight_pass', data_get($payload, 'repository_contract.contract_status'));
+        $this->assertSame(9, data_get($payload, 'repository_contract.method_count'));
+        $this->assertContains('claim', array_column(data_get($payload, 'repository_contract.methods'), 'name'));
+        $this->assertContains('complete', array_column(data_get($payload, 'repository_contract.methods'), 'name'));
+        $this->assertContains('packet_already_claimed', data_get($payload, 'repository_contract.errors'));
+        $this->assertContains('event_chain_mismatch', data_get($payload, 'repository_contract.errors'));
+        $this->assertContains('append_event_before_projection_update', data_get($payload, 'repository_contract.transaction_rules'));
+        $this->assertContains('repository_contract_command_does_not_persist_claims_or_write_storage', data_get($payload, 'repository_contract.required_tests'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'repository_contract.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'contract_hash'));
+        $this->assertContains('durable_reservation_repository_contract_does_not_create_repository', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_repository_contract_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_repository_contract(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-repository-contract' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Contract status', $output);
+        $this->assertStringContainsString('Methods', $output);
+        $this->assertStringContainsString('Contract hash', $output);
+        $this->assertStringContainsString('Durable reservation repository contract is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_collision_guard_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-collision-guard' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_collision_guard.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_collision_guard_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_collision_guard', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'claim_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_repository_and_projection_exist', data_get($payload, 'collision_guard.guard_status'));
+        $this->assertSame(6, data_get($payload, 'collision_guard.blocking_decision_count'));
+        $this->assertContains('candidate_allowed_files', data_get($payload, 'collision_guard.inputs'));
+        $this->assertContains('hot_scope_forbidden', data_get($payload, 'collision_guard.blocking_decisions'));
+        $this->assertContains('active_file_overlap', data_get($payload, 'collision_guard.blocking_decisions'));
+        $this->assertContains('require_human_review', data_get($payload, 'collision_guard.decision_states'));
+        $this->assertContains('collision_guard_command_does_not_persist_claims_or_write_storage', data_get($payload, 'collision_guard.required_tests'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'collision_guard.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'guard_hash'));
+        $this->assertContains('durable_reservation_collision_guard_does_not_create_detector', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_collision_guard_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_collision_guard(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-collision-guard' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Guard status', $output);
+        $this->assertStringContainsString('Blocking decisions', $output);
+        $this->assertStringContainsString('Guard hash', $output);
+        $this->assertStringContainsString('Durable reservation collision guard is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_lease_lifecycle_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-lease-lifecycle' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_lease_lifecycle.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_lease_lifecycle_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_lease_lifecycle', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'claim_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_repository_projection_and_collision_guard_exist', data_get($payload, 'lease_lifecycle.lifecycle_status'));
+        $this->assertSame(7, data_get($payload, 'lease_lifecycle.state_count'));
+        $this->assertContains('claimed', data_get($payload, 'lease_lifecycle.states'));
+        $this->assertContains('expired', data_get($payload, 'lease_lifecycle.states'));
+        $this->assertContains('claimed_to_renewed', data_get($payload, 'lease_lifecycle.transitions'));
+        $this->assertContains('expired_or_released_leases_cannot_complete', data_get($payload, 'lease_lifecycle.timing_rules'));
+        $this->assertContains('lease_lifecycle_command_does_not_persist_claims_or_write_storage', data_get($payload, 'lease_lifecycle.required_tests'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'lease_lifecycle.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'lifecycle_hash'));
+        $this->assertContains('durable_reservation_lease_lifecycle_does_not_create_lifecycle_runtime', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_lease_lifecycle_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_lease_lifecycle(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-lease-lifecycle' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Lifecycle status', $output);
+        $this->assertStringContainsString('States', $output);
+        $this->assertStringContainsString('Lifecycle hash', $output);
+        $this->assertStringContainsString('Durable reservation lease lifecycle is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_readiness_projection_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-readiness-projection' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_readiness_projection.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_readiness_projection_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_readiness_projection', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'claim_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_durable_projection_exists', data_get($payload, 'readiness_projection.projection_status'));
+        $this->assertSame(7, data_get($payload, 'readiness_projection.queue_state_count'));
+        $this->assertContains('active_reservations', data_get($payload, 'readiness_projection.inputs'));
+        $this->assertContains('blocked_by_collision', data_get($payload, 'readiness_projection.queue_states'));
+        $this->assertContains('safe_single_session_fallback_instruction', data_get($payload, 'readiness_projection.outputs'));
+        $this->assertContains('multi_session_readiness_gate', data_get($payload, 'readiness_projection.integration_targets'));
+        $this->assertContains('readiness_projection_command_does_not_persist_claims_or_write_storage', data_get($payload, 'readiness_projection.required_tests'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'readiness_projection.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'projection_hash'));
+        $this->assertContains('durable_reservation_readiness_projection_does_not_create_projection_runtime', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_readiness_projection_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_readiness_projection(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-readiness-projection' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Projection status', $output);
+        $this->assertStringContainsString('Queue states', $output);
+        $this->assertStringContainsString('Projection hash', $output);
+        $this->assertStringContainsString('Durable reservation readiness projection is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_implementation_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-implementation-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $contractHashIds = array_column(data_get($payload, 'implementation_preflight.contract_hashes'), 'id');
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_implementation_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_implementation_preflight_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_implementation_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'migration_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_signed_approval_and_contract_hashes_pass', data_get($payload, 'implementation_preflight.preflight_status'));
+        $this->assertSame(7, data_get($payload, 'implementation_preflight.contract_hash_count'));
+        $this->assertContains('post_approval_preflight', $contractHashIds);
+        $this->assertContains('implementation_packet', $contractHashIds);
+        $this->assertContains('storage_schema', $contractHashIds);
+        $this->assertContains('repository_contract', $contractHashIds);
+        $this->assertContains('collision_guard', $contractHashIds);
+        $this->assertContains('lease_lifecycle', $contractHashIds);
+        $this->assertContains('readiness_projection', $contractHashIds);
+        $this->assertContains('php artisan atlas:ai:self-construction --traceability --json', data_get($payload, 'implementation_preflight.required_gates'));
+        $this->assertContains('dispatch_requested', data_get($payload, 'implementation_preflight.blocking_conditions'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'implementation_preflight.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'preflight_hash'));
+        $this->assertContains('durable_reservation_implementation_preflight_does_not_create_migrations', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_implementation_preflight_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_implementation_preflight(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-implementation-preflight' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Preflight status', $output);
+        $this->assertStringContainsString('Contract hashes', $output);
+        $this->assertStringContainsString('Preflight hash', $output);
+        $this->assertStringContainsString('Durable reservation implementation preflight is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_migration_blueprint_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-migration-blueprint' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $tableNames = array_column(data_get($payload, 'migration_blueprint.tables'), 'name');
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_migration_blueprint.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_migration_blueprint_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_migration_blueprint', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'migration_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_signed_preflight_and_migration_scope_approval', data_get($payload, 'migration_blueprint.blueprint_status'));
+        $this->assertSame(2, data_get($payload, 'migration_blueprint.table_count'));
+        $this->assertContains('atlas_self_construction_reservation_events', $tableNames);
+        $this->assertContains('atlas_self_construction_reservations', $tableNames);
+        $this->assertContains('create_atlas_self_construction_reservation_events_table', data_get($payload, 'migration_blueprint.migration_files'));
+        $this->assertContains('drop_atlas_self_construction_reservations', data_get($payload, 'migration_blueprint.rollback_order'));
+        $this->assertContains('migration_blueprint_command_does_not_create_migrations_or_write_storage', data_get($payload, 'migration_blueprint.required_tests'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'migration_blueprint.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'blueprint_hash'));
+        $this->assertContains('durable_reservation_migration_blueprint_does_not_create_migration_files', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_migration_blueprint_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_migration_blueprint(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-migration-blueprint' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Blueprint status', $output);
+        $this->assertStringContainsString('Tables', $output);
+        $this->assertStringContainsString('Blueprint hash', $output);
+        $this->assertStringContainsString('Durable reservation migration blueprint is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_repository_blueprint_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-repository-blueprint' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_repository_blueprint.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_repository_blueprint_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_repository_blueprint', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'migration_allowed_now'));
+        $this->assertFalse(data_get($payload, 'runtime_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_migration_blueprint_and_repository_scope_approval', data_get($payload, 'repository_blueprint.blueprint_status'));
+        $this->assertSame(7, data_get($payload, 'repository_blueprint.class_count'));
+        $this->assertSame(9, data_get($payload, 'repository_blueprint.method_count'));
+        $this->assertContains('App\Services\Ai\SelfConstruction\Reservations\DurableReservationRepository', data_get($payload, 'repository_blueprint.classes'));
+        $this->assertContains('claim', data_get($payload, 'repository_blueprint.methods'));
+        $this->assertContains('packet_hash_stale', data_get($payload, 'repository_blueprint.error_codes'));
+        $this->assertContains('repository_methods_never_dispatch_work', data_get($payload, 'repository_blueprint.transaction_rules'));
+        $this->assertContains('repository_blueprint_command_does_not_create_php_files_or_write_storage', data_get($payload, 'repository_blueprint.required_tests'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'repository_blueprint.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'blueprint_hash'));
+        $this->assertContains('durable_reservation_repository_blueprint_does_not_create_php_files', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_repository_blueprint_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_repository_blueprint(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-repository-blueprint' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Blueprint status', $output);
+        $this->assertStringContainsString('Classes', $output);
+        $this->assertStringContainsString('Blueprint hash', $output);
+        $this->assertStringContainsString('Durable reservation repository blueprint is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_collision_guard_blueprint_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-collision-guard-blueprint' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_collision_guard_blueprint.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_collision_guard_blueprint_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_collision_guard_blueprint', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'runtime_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_repository_blueprint_and_guard_scope_approval', data_get($payload, 'collision_guard_blueprint.blueprint_status'));
+        $this->assertSame(6, data_get($payload, 'collision_guard_blueprint.blocker_count'));
+        $this->assertSame(7, data_get($payload, 'collision_guard_blueprint.output_count'));
+        $this->assertContains('candidate_allowed_files', data_get($payload, 'collision_guard_blueprint.inputs'));
+        $this->assertContains('hot_scope_forbidden', data_get($payload, 'collision_guard_blueprint.blockers'));
+        $this->assertContains('active_file_overlap', data_get($payload, 'collision_guard_blueprint.blockers'));
+        $this->assertContains('allow_claim', data_get($payload, 'collision_guard_blueprint.decision_states'));
+        $this->assertContains('conflicting_file_paths', data_get($payload, 'collision_guard_blueprint.outputs'));
+        $this->assertContains('collision_guard_blueprint_command_does_not_create_php_files_or_write_storage', data_get($payload, 'collision_guard_blueprint.required_tests'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'collision_guard_blueprint.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'blueprint_hash'));
+        $this->assertContains('durable_reservation_collision_guard_blueprint_does_not_create_php_files', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_collision_guard_blueprint_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_collision_guard_blueprint(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-collision-guard-blueprint' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Blueprint status', $output);
+        $this->assertStringContainsString('Blockers', $output);
+        $this->assertStringContainsString('Blueprint hash', $output);
+        $this->assertStringContainsString('Durable reservation collision guard blueprint is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_lease_lifecycle_blueprint_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-lease-lifecycle-blueprint' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_lease_lifecycle_blueprint.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_lease_lifecycle_blueprint_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_lease_lifecycle_blueprint', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'runtime_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_collision_guard_blueprint_and_lifecycle_scope_approval', data_get($payload, 'lease_lifecycle_blueprint.blueprint_status'));
+        $this->assertSame(7, data_get($payload, 'lease_lifecycle_blueprint.state_count'));
+        $this->assertSame(10, data_get($payload, 'lease_lifecycle_blueprint.transition_count'));
+        $this->assertContains('claimed', data_get($payload, 'lease_lifecycle_blueprint.states'));
+        $this->assertContains('released_or_expired_to_claimed_by_new_owner', data_get($payload, 'lease_lifecycle_blueprint.transitions'));
+        $this->assertContains('completion_requires_same_owner_active_lease_and_passing_completion_gate', data_get($payload, 'lease_lifecycle_blueprint.timing_rules'));
+        $this->assertContains('lease_lifecycle_blueprint_command_does_not_create_php_files_or_write_storage', data_get($payload, 'lease_lifecycle_blueprint.required_tests'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'lease_lifecycle_blueprint.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'blueprint_hash'));
+        $this->assertContains('durable_reservation_lease_lifecycle_blueprint_does_not_create_php_files', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_lease_lifecycle_blueprint_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_lease_lifecycle_blueprint(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-lease-lifecycle-blueprint' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Blueprint status', $output);
+        $this->assertStringContainsString('States', $output);
+        $this->assertStringContainsString('Blueprint hash', $output);
+        $this->assertStringContainsString('Durable reservation lease lifecycle blueprint is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_readiness_projection_blueprint_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-readiness-projection-blueprint' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_readiness_projection_blueprint.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_readiness_projection_blueprint_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_readiness_projection_blueprint', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'runtime_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_lease_lifecycle_blueprint_and_projection_scope_approval', data_get($payload, 'readiness_projection_blueprint.blueprint_status'));
+        $this->assertSame(7, data_get($payload, 'readiness_projection_blueprint.queue_state_count'));
+        $this->assertSame(7, data_get($payload, 'readiness_projection_blueprint.output_count'));
+        $this->assertContains('active_reservations', data_get($payload, 'readiness_projection_blueprint.inputs'));
+        $this->assertContains('blocked_by_dependency', data_get($payload, 'readiness_projection_blueprint.queue_states'));
+        $this->assertContains('safe_single_session_fallback_instruction', data_get($payload, 'readiness_projection_blueprint.outputs'));
+        $this->assertContains('multi_session_readiness_gate', data_get($payload, 'readiness_projection_blueprint.integration_targets'));
+        $this->assertContains('readiness_projection_blueprint_command_does_not_create_php_files_or_write_storage', data_get($payload, 'readiness_projection_blueprint.required_tests'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'readiness_projection_blueprint.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'blueprint_hash'));
+        $this->assertContains('durable_reservation_readiness_projection_blueprint_does_not_create_php_files', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_readiness_projection_blueprint_does_not_write_storage', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_readiness_projection_blueprint(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-readiness-projection-blueprint' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Blueprint status', $output);
+        $this->assertStringContainsString('Queue states', $output);
+        $this->assertStringContainsString('Blueprint hash', $output);
+        $this->assertStringContainsString('Durable reservation readiness projection blueprint is ready', $output);
+    }
+
+    public function test_command_returns_durable_reservation_runtime_build_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-runtime-build-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_durable_reservation_runtime_build_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('durable_reservation_runtime_build_packet_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_durable_reservation_runtime_build_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'implementation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'runtime_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'migration_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_allowed_now'));
+        $this->assertFalse(data_get($payload, 'storage_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blocked_until_signed_approval_preflight_and_runtime_scope_approval', data_get($payload, 'runtime_build_packet.build_status'));
+        $this->assertSame(5, data_get($payload, 'runtime_build_packet.source_blueprint_count'));
+        $this->assertSame(8, data_get($payload, 'runtime_build_packet.slice_count'));
+        $this->assertSame(8, data_get($payload, 'runtime_build_packet.future_file_count'));
+        $this->assertContains('readiness_projection_blueprint', array_column(data_get($payload, 'runtime_build_packet.source_blueprints'), 'id'));
+        $this->assertContains('durable_reservation_repository', data_get($payload, 'runtime_build_packet.implementation_slices'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/Reservations/DurableReservationRepository.php', data_get($payload, 'runtime_build_packet.future_files'));
+        $this->assertContains('php artisan atlas:ai:architecture-validate --json', data_get($payload, 'runtime_build_packet.required_gates'));
+        $this->assertContains('blueprint_hash_drift', data_get($payload, 'runtime_build_packet.stop_conditions'));
+        $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'runtime_build_packet.forbidden_scopes'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'build_packet_hash'));
+        $this->assertContains('durable_reservation_runtime_build_packet_does_not_create_migrations', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('durable_reservation_runtime_build_packet_does_not_create_php_files', data_get($payload, 'non_execution_guarantees'));
+    }
+
+    public function test_command_human_output_lists_durable_reservation_runtime_build_packet(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--durable-reservation-runtime-build-packet' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Build status', $output);
+        $this->assertStringContainsString('Slices', $output);
+        $this->assertStringContainsString('Build hash', $output);
+        $this->assertStringContainsString('Durable reservation runtime build packet is ready', $output);
     }
 }

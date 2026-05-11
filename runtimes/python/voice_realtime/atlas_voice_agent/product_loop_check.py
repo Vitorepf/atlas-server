@@ -7,6 +7,7 @@ from .contract import AtlasVoiceRuntimeContract
 from .livekit_callback_loop import inspect_callback_loop_contract
 from .livekit_runtime_entrypoint import start_livekit_agents_worker
 from .livekit_production_loop import build_production_loop_plan
+from .daemon_supervisor import evaluate_daemon_supervisor
 
 
 def build_product_loop_check(
@@ -18,6 +19,7 @@ def build_product_loop_check(
     boundary_created: bool = False,
     mock_kernel: bool = False,
     production_promotion_review: Mapping[str, Any] | None = None,
+    daemon_implementation_review: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any]:
     """Aggregate the governed product-loop readiness without starting a daemon."""
 
@@ -38,6 +40,7 @@ def build_product_loop_check(
         callback_loop_wired=True,
         production_sdk_loop_wired=True,
         production_promotion_review=production_promotion_review,
+        daemon_implementation_review=daemon_implementation_review,
     )
 
     sdk_status = worker_start.get("worker_plan", {}).get("sdk_status", {})
@@ -67,17 +70,83 @@ def build_product_loop_check(
             for handler in production_loop.get("sdk_wiring_contract", {}).get("required_handlers", [])
         )
     )
+    supervised_start_plan = worker_start.get("supervised_start_plan")
+    daemon_supervisor_preflight_available = isinstance(
+        supervised_start_plan, Mapping
+    ) and isinstance(supervised_start_plan.get("supervisor_preflight"), Mapping)
+    daemon_supervisor_execution = evaluate_daemon_supervisor(worker_start)
+    daemon_supervisor_execution_available = (
+        daemon_supervisor_execution.get("schema_version")
+        == "atlas.voice_realtime.daemon_supervisor_execution.v1"
+        and daemon_supervisor_execution.get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("daemon_started") is False
+    )
+    daemon_process_adapter_blueprint_available = (
+        daemon_supervisor_execution_available
+        and daemon_supervisor_execution.get("process_adapter_blueprint", {}).get("schema_version")
+        == "atlas.voice_realtime.daemon_process_adapter_blueprint.v1"
+        and daemon_supervisor_execution.get("process_adapter_blueprint", {}).get("launch_allowed") is False
+        and daemon_supervisor_execution.get("process_adapter_blueprint", {}).get("process_launch_attempted") is False
+    )
+    supervised_process_adapter_available = (
+        daemon_process_adapter_blueprint_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("schema_version")
+        == "atlas.voice_realtime.supervised_process_adapter.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("launch_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("daemon_started") is False
+    )
+    managed_env_contract_available = (
+        supervised_process_adapter_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("managed_environment_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.managed_env_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("managed_environment_contract", {}).get("env_file_write_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("managed_environment_contract", {}).get("secret_values_present_in_output") is False
+    )
+    launch_authorization_contract_available = (
+        managed_env_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("launch_authorization_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.launch_authorization_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("launch_authorization_contract", {}).get("launch_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("launch_authorization_contract", {}).get("process_launch_attempted") is False
+    )
+    launch_authorization_contract_ready = (
+        launch_authorization_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("launch_authorization_contract", {}).get("status")
+        == "authorized_for_implementation_not_launch"
+    )
+    managed_env_writer_contract_available = (
+        launch_authorization_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("managed_env_writer", {}).get("schema_version")
+        == "atlas.voice_realtime.managed_env_writer.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("managed_env_writer", {}).get("writer_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("managed_env_writer", {}).get("write_execution_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("managed_env_writer", {}).get("env_file_write_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("managed_env_writer", {}).get("secret_values_present_in_output") is False
+    )
     machine_ready = (
-        worker_start.get("status") in ["blocked_pending_human_review", "blocked_unimplemented_start"]
+        worker_start.get("status") in [
+            "blocked_pending_human_review",
+            "blocked_pending_daemon_implementation_review",
+            "blocked_unimplemented_start",
+        ]
         and sdk_probe_import_safe
         and sdk_handler_blueprint_available
         and sdk_kernel_normalizer_required
+        and daemon_supervisor_preflight_available
+        and daemon_supervisor_execution_available
+        and daemon_process_adapter_blueprint_available
+        and supervised_process_adapter_available
+        and managed_env_contract_available
+        and launch_authorization_contract_available
+        and managed_env_writer_contract_available
     )
     review_receipt_valid = worker_start.get("production_promotion", {}).get("review_receipt_valid") is True
+    daemon_review_receipt_valid = worker_start.get("daemon_implementation", {}).get("review_receipt_valid") is True
 
     return {
         "schema_version": "atlas.voice_realtime.product_loop_check.v1",
-        "status": _status(machine_ready, review_receipt_valid),
+        "status": _status(machine_ready, review_receipt_valid, daemon_review_receipt_valid),
         "surface_id": "voice_realtime",
         "runtime_id": "livekit_agents_sdk",
         "kernel_only": True,
@@ -86,6 +155,8 @@ def build_product_loop_check(
         "callback_loop": callback_loop,
         "production_loop_plan": production_loop,
         "worker_start": worker_start,
+        "supervised_start_plan": supervised_start_plan,
+        "daemon_supervisor_execution": daemon_supervisor_execution,
         "gates": {
             "callback_loop_wired": bool(callback_loop.get("worker_start_callback_loop_wired")),
             "production_sdk_loop_wired": bool(production_loop.get("production_sdk_loop_wired")),
@@ -95,6 +166,19 @@ def build_product_loop_check(
             "sdk_handler_blueprint_available": sdk_handler_blueprint_available,
             "sdk_kernel_normalizer_required": sdk_kernel_normalizer_required,
             "production_review_receipt_valid": review_receipt_valid,
+            "daemon_implementation_review_valid": daemon_review_receipt_valid,
+            "supervised_start_plan_available": isinstance(supervised_start_plan, Mapping),
+            "daemon_supervisor_contract_available": isinstance(supervised_start_plan, Mapping) and isinstance(supervised_start_plan.get("supervisor_contract"), Mapping),
+            "daemon_supervisor_health_snapshot_available": isinstance(supervised_start_plan, Mapping) and isinstance(supervised_start_plan.get("supervisor_health_snapshot"), Mapping),
+            "daemon_supervisor_preflight_available": daemon_supervisor_preflight_available,
+            "daemon_supervisor_execution_available": daemon_supervisor_execution_available,
+            "daemon_supervisor_process_launch_disabled": daemon_supervisor_execution.get("gates", {}).get("process_launch_disabled") is True,
+            "daemon_process_adapter_blueprint_available": daemon_process_adapter_blueprint_available,
+            "supervised_process_adapter_available": supervised_process_adapter_available,
+            "managed_env_contract_available": managed_env_contract_available,
+            "launch_authorization_contract_available": launch_authorization_contract_available,
+            "launch_authorization_contract_ready": launch_authorization_contract_ready,
+            "managed_env_writer_contract_available": managed_env_writer_contract_available,
             "boolean_approval_is_sufficient": worker_start.get("production_promotion", {}).get("boolean_approval_is_sufficient") is True,
             "direct_provider_forbidden": worker_start.get("guardrails", {}).get("direct_provider_call_allowed") is False,
             "raw_audio_forbidden": worker_start.get("guardrails", {}).get("raw_audio_persistence_allowed") is False,
@@ -115,13 +199,15 @@ def build_product_loop_check(
 }
 
 
-def _status(machine_ready: bool, review_receipt_valid: bool) -> str:
+def _status(machine_ready: bool, review_receipt_valid: bool, daemon_review_receipt_valid: bool) -> str:
     if not machine_ready:
         return "blocked"
     if not review_receipt_valid:
         return "ready_for_human_review"
+    if not daemon_review_receipt_valid:
+        return "ready_for_daemon_implementation_review"
 
-    return "ready_for_daemon_implementation_review"
+    return "ready_for_supervised_start_implementation"
 
 
 def _next_action(
@@ -150,7 +236,9 @@ def _next_action(
         return str(worker_start.get("activation_next_action") or "fix_activation_contract")
     if status == "blocked_pending_human_review":
         return "submit_voice_production_promotion_for_human_review"
-    if status == "blocked_unimplemented_start":
+    if status == "blocked_pending_daemon_implementation_review":
         return "submit_daemon_implementation_review"
+    if status == "blocked_unimplemented_start":
+        return "implement_supervised_daemon_start"
 
     return "fix_voice_product_loop_gates"

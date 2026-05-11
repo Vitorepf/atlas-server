@@ -59,6 +59,7 @@ decisions:
   - Toda IA nova deve ler Atlas AI Spec Operating System antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts, MCP SDD, context packages, data model ou fluxo de one-shot implementation.
   - Toda IA nova deve ler Atlas AI Self-Construction OS antes de alterar self-programming, Meta-SDD, maturity ladder, build graph, priority engine, autonomous loop, safety contract ou qualquer fluxo do Atlas construindo Atlas.
   - Toda IA nova deve usar `php artisan atlas:ai:self-construction --json` para consultar o estado read-only/advisory antes de planejar autoimplementacao.
+  - Toda IA nova deve ler Atlas AI Obras Operating System antes de propor TCC, pesquisa longa, livro, curso, projeto intelectual, portfolio estrategico, Foundry, Sovereign OS ou qualquer workspace persistente de producao.
   - Toda IA nova deve ler Atlas AI Cognitive Runtime antes de alterar memoria, busca de contexto, sessoes longas, compactacao automatica, handoff cognitivo ou auditoria de qualidade.
   - Toda IA nova deve ler Cognitive Immune Learning Kernel antes de alterar captura, promocao de memoria, embeddings, Constelacao, delete ou filtros contra ruido.
   - Toda IA nova deve ler External Graph Harness antes de usar Graphify, Graph RAG externo, AST graph externo ou qualquer output de grafo como candidato para Code Intelligence.
@@ -89,7 +90,50 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
+  - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
+  - docs/engineering-knowledge-base/obras/patamares-l0-l5.md
+  - docs/engineering-knowledge-base/obras/contracts-and-invariants.md
+  - docs/engineering-knowledge-base/obras/data-model-and-production-graph.md
+  - docs/engineering-knowledge-base/obras/ai-harness-governance-and-quality.md
+  - docs/engineering-knowledge-base/obras/product-ux-and-use-cases.md
+  - docs/engineering-knowledge-base/obras/metrics-risks-and-excellence.md
+  - docs/engineering-knowledge-base/obras/implementation-roadmap.md
+  - docs/ap/AP-692-atlas-obras-operating-system-contract.md
   - docs/engineering-knowledge-base/self-construction/constitution.md
+  - docs/engineering-knowledge-base/self-construction/structural-contract-gate.md
+  - docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md
+  - docs/engineering-knowledge-base/self-construction/work-splitter-contract.md
+  - docs/engineering-knowledge-base/self-construction/scope-validator-contract.md
+  - docs/engineering-knowledge-base/self-construction/assignment-and-claim-contract.md
+  - docs/engineering-knowledge-base/self-construction/packet-consumption-runbook-contract.md
+  - docs/engineering-knowledge-base/self-construction/packet-evidence-report-contract.md
+  - docs/engineering-knowledge-base/self-construction/packet-completion-gate-contract.md
+  - docs/engineering-knowledge-base/self-construction/reservation-ledger-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-ledger-implementation-plan.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-ap-candidate.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-approval-request.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-approval-decision-template.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-post-approval-preflight.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-packet.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-storage-schema.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-repository-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-lease-lifecycle-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-preflight-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-migration-blueprint-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-repository-blueprint-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-blueprint-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-lease-lifecycle-blueprint-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-blueprint-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-runtime-build-packet-contract.md
+  - docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md
+  - docs/engineering-knowledge-base/self-construction/packet-queue-contract.md
+  - docs/engineering-knowledge-base/self-construction/parallel-session-plan-contract.md
+  - docs/engineering-knowledge-base/self-construction/collision-matrix-contract.md
+  - docs/engineering-knowledge-base/self-construction/dependency-unlock-plan-contract.md
+  - docs/engineering-knowledge-base/self-construction/multi-session-readiness-gate-contract.md
+  - docs/engineering-knowledge-base/self-construction/single-session-instruction-packet-contract.md
   - docs/engineering-knowledge-base/self-construction/meta-sdd-contract.md
   - docs/engineering-knowledge-base/self-construction/capability-maturity-ladder.md
   - docs/engineering-knowledge-base/self-construction/build-graph.md

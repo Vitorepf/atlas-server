@@ -5,8 +5,10 @@ from typing import Any, Mapping
 
 from .activation_contract import build_activation_contract
 from .contract import AtlasVoiceRuntimeContract
+from .daemon_implementation_review import validate_daemon_implementation_review
 from .livekit_production_loop import build_production_loop_plan
 from .production_promotion_review import validate_production_promotion_review
+from .supervised_start_plan import build_supervised_start_plan
 from .worker_plan import build_livekit_worker_plan
 
 
@@ -22,6 +24,7 @@ def start_livekit_agents_worker(
     production_sdk_loop_wired: bool = False,
     production_promotion_approved: bool = False,
     production_promotion_review: Mapping[str, Any] | None = None,
+    daemon_implementation_review: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any]:
     """Fail-closed entrypoint for the future long-running LiveKit worker.
 
@@ -55,6 +58,8 @@ def start_livekit_agents_worker(
     )
     review_check = validate_production_promotion_review(production_promotion_review)
     review_approved = review_check.get("valid") is True
+    daemon_review_check = validate_daemon_implementation_review(daemon_implementation_review)
+    daemon_review_approved = daemon_review_check.get("valid") is True
     sdk_status = str(plan.get("sdk_status", {}).get("status") or "unknown")
     can_start = bool(plan.get("activation", {}).get("can_start_long_running_worker"))
 
@@ -82,9 +87,20 @@ def start_livekit_agents_worker(
     elif not review_approved:
         status = "blocked_pending_human_review"
         reason = "Machine gates passed, but production promotion still requires a valid human review receipt, Decision Receipt and rollback plan."
+    elif not daemon_review_approved:
+        status = "blocked_pending_daemon_implementation_review"
+        reason = "Production promotion review is valid, but daemon implementation still requires a separate reviewed receipt before supervised startup can be considered."
     else:
         status = "blocked_unimplemented_start"
-        reason = "Human review receipt is valid, but daemon startup remains disabled until production loop implementation is committed."
+        reason = "Promotion and daemon implementation receipts are valid, but daemon startup remains disabled until supervised start execution is explicitly implemented."
+
+    supervised_start_plan = build_supervised_start_plan(
+        worker_start_status=status,
+        production_review_valid=review_approved,
+        daemon_implementation_review_valid=daemon_review_approved,
+        activation_contract=activation_contract,
+        production_loop_plan=production_loop_plan,
+    )
 
     return {
         "schema_version": "atlas.voice_realtime.worker_start.v1",
@@ -97,6 +113,7 @@ def start_livekit_agents_worker(
         "production_sdk_loop_wired": production_sdk_loop_wired,
         "production_promotion_approved": production_promotion_approved,
         "production_promotion_review_valid": review_approved,
+        "daemon_implementation_review_valid": daemon_review_approved,
         "started": False,
         "reason": reason,
         "worker_plan": plan,
@@ -104,6 +121,7 @@ def start_livekit_agents_worker(
         "production_loop_plan": production_loop_plan,
         "sdk_wiring_contract": production_loop_plan.get("sdk_wiring_contract"),
         "activation_next_action": activation_contract.get("next_action"),
+        "supervised_start_plan": supervised_start_plan,
         "production_promotion": {
             "required": True,
             "gate_schema_version": "atlas.voice_realtime.production_promotion_gate.v1",
@@ -117,6 +135,18 @@ def start_livekit_agents_worker(
             "review_check": review_check,
             "auto_promotion_allowed": False,
             "next_action": "run_runtime_certify_with_require_sdk_then_submit_human_review",
+        },
+        "daemon_implementation": {
+            "required": True,
+            "gate_schema_version": "atlas.voice_realtime.daemon_implementation_gate.v1",
+            "review_required": True,
+            "decision_receipt_required": True,
+            "supervised_start_required": True,
+            "review_receipt_valid": daemon_review_approved,
+            "review_check": daemon_review_check,
+            "start_allowed_by_review": False,
+            "supervised_start_ready_status": "ready_for_supervised_start_implementation",
+            "next_action": "submit_daemon_implementation_review",
         },
         "guardrails": {
             "direct_provider_call_allowed": False,

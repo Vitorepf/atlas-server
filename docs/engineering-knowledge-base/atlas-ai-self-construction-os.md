@@ -29,6 +29,40 @@ related_paths:
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php
   - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
   - docs/engineering-knowledge-base/self-construction/constitution.md
+  - docs/engineering-knowledge-base/self-construction/structural-contract-gate.md
+  - docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md
+  - docs/engineering-knowledge-base/self-construction/work-splitter-contract.md
+  - docs/engineering-knowledge-base/self-construction/scope-validator-contract.md
+  - docs/engineering-knowledge-base/self-construction/assignment-and-claim-contract.md
+  - docs/engineering-knowledge-base/self-construction/packet-consumption-runbook-contract.md
+  - docs/engineering-knowledge-base/self-construction/packet-evidence-report-contract.md
+  - docs/engineering-knowledge-base/self-construction/packet-completion-gate-contract.md
+  - docs/engineering-knowledge-base/self-construction/reservation-ledger-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-ledger-implementation-plan.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-ap-candidate.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-approval-request.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-approval-decision-template.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-post-approval-preflight.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-packet.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-storage-schema.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-repository-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-lease-lifecycle-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-preflight-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-migration-blueprint-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-repository-blueprint-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-blueprint-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-lease-lifecycle-blueprint-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-blueprint-contract.md
+  - docs/engineering-knowledge-base/self-construction/durable-reservation-runtime-build-packet-contract.md
+  - docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md
+  - docs/engineering-knowledge-base/self-construction/packet-queue-contract.md
+  - docs/engineering-knowledge-base/self-construction/parallel-session-plan-contract.md
+  - docs/engineering-knowledge-base/self-construction/collision-matrix-contract.md
+  - docs/engineering-knowledge-base/self-construction/dependency-unlock-plan-contract.md
+  - docs/engineering-knowledge-base/self-construction/multi-session-readiness-gate-contract.md
+  - docs/engineering-knowledge-base/self-construction/single-session-instruction-packet-contract.md
   - docs/engineering-knowledge-base/self-construction/meta-sdd-contract.md
   - docs/engineering-knowledge-base/self-construction/capability-maturity-ladder.md
   - docs/engineering-knowledge-base/self-construction/build-graph.md
@@ -47,13 +81,8 @@ owner: atlas-ai
 layer: 0.8-self-construction
 line_limit: 260
 ---
-
 # Atlas AI Self-Construction OS
-
-Atlas Self-Construction OS is the law for Atlas building Atlas.
-
-The goal is not "AI writes code". The goal is:
-
+The goal is not "AI writes code". The goal:
 ```text
 Atlas detects the right gap
 -> researches at source-backed quality
@@ -66,22 +95,17 @@ Atlas detects the right gap
 -> proposes learning
 -> improves its future construction ability
 ```
-
-This is how Atlas can become powerful without becoming chaotic.
-
 ## Hard Laws
-
 - No self-programming without SDD.
 - No SDD without context and source-of-truth docs.
+- No structural core implementation before contract documentation.
 - No Atlas core mutation without Decision Receipt.
 - No result without evidence.
 - No learning that changes critical behavior without proposal/review.
 - No parallel architecture, memory, runtime, provider or daemon outside AP law.
 - No implementation priority based on novelty, hype or surface beauty.
 - No "complete" claim unless docs, code, tests, evidence and drift checks agree.
-
 ## What This Layer Adds
-
 Spec Operating System teaches Atlas how to turn a request into implementation.
 Self-Construction OS teaches Atlas how to evolve the system that performs that
 implementation.
@@ -94,11 +118,8 @@ Self-Construction OS:
   system gap -> research -> docs -> meta-spec -> phased build -> validation
   -> drift -> learning -> maturity promotion
 ```
-
 ## The Highest Form
-
-The most advanced Atlas is not merely self-coding. The highest form is governed
-self-construction:
+The most advanced Atlas is not merely self-coding. The highest form is governed self-construction:
 
 ```text
 research-backed
@@ -115,12 +136,25 @@ rollback-capable
 
 Autoprogramming without this layer is dangerous. Autoprogramming with this
 layer becomes compounding engineering power.
-
 ## Authority Map
-
 | Area | Doc |
 |---|---|
 | Constitution | `self-construction/constitution.md` |
+| Structural contract gate | `self-construction/structural-contract-gate.md` |
+| AI implementation packet | `self-construction/ai-implementation-packet-contract.md` |
+| Work splitter | `self-construction/work-splitter-contract.md` |
+| Scope validator | `self-construction/scope-validator-contract.md` |
+| Assignment and claim | `self-construction/assignment-and-claim-contract.md` |
+| Packet consumption runbook | `self-construction/packet-consumption-runbook-contract.md` |
+| Packet evidence report | `self-construction/packet-evidence-report-contract.md` |
+| Packet completion gate | `self-construction/packet-completion-gate-contract.md` |
+| Reservation ledger / AP | `self-construction/reservation-ledger-contract.md`, `self-construction/durable-reservation-ledger-implementation-plan.md`, `self-construction/durable-reservation-ap-candidate.md`, `self-construction/durable-reservation-approval-request.md`, `self-construction/durable-reservation-approval-decision-template.md`, `self-construction/durable-reservation-post-approval-preflight.md`, `self-construction/durable-reservation-implementation-packet.md`, `self-construction/durable-reservation-storage-schema.md`, `self-construction/durable-reservation-repository-contract.md`, `self-construction/durable-reservation-collision-guard-contract.md`, `self-construction/durable-reservation-lease-lifecycle-contract.md`, `self-construction/durable-reservation-readiness-projection-contract.md`, `self-construction/durable-reservation-implementation-preflight-contract.md`, `self-construction/durable-reservation-migration-blueprint-contract.md`, `self-construction/durable-reservation-repository-blueprint-contract.md`, `self-construction/durable-reservation-collision-guard-blueprint-contract.md`, `self-construction/durable-reservation-lease-lifecycle-blueprint-contract.md`, `self-construction/durable-reservation-readiness-projection-blueprint-contract.md`, `self-construction/durable-reservation-runtime-build-packet-contract.md` |
+| AI session bootstrap | `self-construction/ai-session-bootstrap-contract.md` |
+| Packet queue | `self-construction/packet-queue-contract.md` |
+| Parallel session plan | `self-construction/parallel-session-plan-contract.md` |
+| Collision matrix | `self-construction/collision-matrix-contract.md` |
+| Dependency unlock plan | `self-construction/dependency-unlock-plan-contract.md` |
+| Multi-session readiness / single instruction | `self-construction/multi-session-readiness-gate-contract.md`, `self-construction/single-session-instruction-packet-contract.md` |
 | Meta-SDD | `self-construction/meta-sdd-contract.md` |
 | Maturity levels | `self-construction/capability-maturity-ladder.md` |
 | Build dependencies | `self-construction/build-graph.md` |
@@ -129,11 +163,8 @@ layer becomes compounding engineering power.
 | Safety contract | `self-construction/self-programming-safety-contract.md` |
 | Quality bar | `self-construction/quality-bar-and-metrics.md` |
 | Failure modes | `self-construction/failure-modes.md` |
-| Builder persona | `self-construction/builder-persona-and-handoff.md` |
-| Runtime roadmap | `self-construction/runtime-implementation-roadmap.md` |
-
+| Builder persona / runtime roadmap | `self-construction/builder-persona-and-handoff.md`, `self-construction/runtime-implementation-roadmap.md` |
 ## Core Loop
-
 ```text
 1. Detect gap or opportunity.
 2. Classify layer and risk.
@@ -149,15 +180,11 @@ layer becomes compounding engineering power.
 12. Propose learning.
 13. Promote maturity only if metrics prove it.
 ```
-
 ## Maturity Target
-
 Atlas is elite when a new AI session can ask:
-
 ```text
 What is the most important next construction step?
 ```
-
 and Atlas can answer with:
 
 - current layer;
@@ -171,11 +198,8 @@ and Atlas can answer with:
 - rollback;
 - evidence expected;
 - residual risk.
-
 ## Integration With Existing Atlas
-
 Self-Construction OS depends on:
-
 - Documentation OS for canonical law;
 - Knowledge Governance for source truth;
 - Cognitive Runtime for memory, retrieval and long sessions;
@@ -186,16 +210,10 @@ Self-Construction OS depends on:
 - Architecture Validate and docs-health for structural integrity.
 
 ## Completion Signal
-
-This layer is complete as documentation when any capable AI can implement Atlas
-construction work without relying on conversation memory. It is complete as
-runtime only when Atlas can run the autonomous loop with scoped patches,
-validated gates, evidence, drift detection and proposal-first learning.
-
+This layer is complete as documentation when any capable AI can implement Atlas construction work without relying on conversation memory. It is complete as
+runtime only when Atlas can run the autonomous loop with scoped patches, validated gates, evidence, drift detection and proposal-first learning.
 ## Current Runtime Surface
-
 All commands below are read-only and keep `execution_allowed=false`.
-
 | Command | Purpose |
 |---|---|
 | `php artisan atlas:ai:self-construction --json` | Readiness, docs, maturity, build graph, priority bias and safety contract. |
@@ -225,6 +243,18 @@ All commands below are read-only and keep `execution_allowed=false`.
 | `php artisan atlas:ai:self-construction --continuation-token --json` | Emits a compact audited resume token with must-run and must-not-touch constraints. |
 | `php artisan atlas:ai:self-construction --ownership-boundary --json` | Declares cold allowed files, hot forbidden scopes and required operator behavior. |
 | `php artisan atlas:ai:self-construction --phase-ledger --json` | Summarizes phase status, hard blocks and promotion boundaries. |
-
-None of these surfaces signs, patches, approves, persists approval, mutates
-policy, touches hot runtime files or enables autonomous self-programming.
+| `php artisan atlas:ai:self-construction --implementation-packet --json` | Emits a read-only packet so another AI can continue one bounded block. |
+| `php artisan atlas:ai:self-construction --work-splitter --json` | Emits disjoint read-only packets for parallel AI sessions and withholds hot work. |
+| `php artisan atlas:ai:self-construction --scope-validator --json` | Classifies current diff against packet scope before any completion claim. |
+| `php artisan atlas:ai:self-construction --assignment-preview --json` | Selects one safe packet for one AI session without persisting a claim. |
+| `php artisan atlas:ai:self-construction --packet-runbook --json` | Emits ordered consumption steps, gates and evidence for the selected packet. |
+| `php artisan atlas:ai:self-construction --packet-evidence-report --json` | Reviews packet evidence and blocks completion when gates or scope are unsafe. |
+| `php artisan atlas:ai:self-construction --packet-completion-gate --json` | Converts packet evidence into a blocked/review/candidate completion decision. |
+| `php artisan atlas:ai:self-construction --reservation-ledger-preview --json` / `--durable-reservation-ledger-plan --json` / `--durable-reservation-ap-candidate --json` / `--durable-reservation-approval-request --json` / `--durable-reservation-approval-decision --json` / `--durable-reservation-post-approval-preflight --json` / `--durable-reservation-implementation-packet --json` / `--durable-reservation-storage-schema --json` / `--durable-reservation-repository-contract --json` / `--durable-reservation-collision-guard --json` / `--durable-reservation-lease-lifecycle --json` / `--durable-reservation-readiness-projection --json` / `--durable-reservation-implementation-preflight --json` / `--durable-reservation-migration-blueprint --json` / `--durable-reservation-repository-blueprint --json` / `--durable-reservation-collision-guard-blueprint --json` / `--durable-reservation-lease-lifecycle-blueprint --json` / `--durable-reservation-readiness-projection-blueprint --json` / `--durable-reservation-runtime-build-packet --json` | Plans durable reservation approval, implementation contracts and blueprints without writes. |
+| `php artisan atlas:ai:self-construction --ai-session-bootstrap --json` | Bundles packet, reservation, runbook, scope and gates for a new AI session. |
+| `php artisan atlas:ai:self-construction --packet-queue --json` | Lists available, blocked and withheld packets without changing state. |
+| `php artisan atlas:ai:self-construction --parallel-session-plan --json` | Plans up to five AI session slots without claims or dispatch. |
+| `php artisan atlas:ai:self-construction --collision-matrix --json` | Proves packet overlap and parallel safety without claims or dispatch. |
+| `php artisan atlas:ai:self-construction --dependency-unlock-plan --json` | Shows which completed packets would unlock later work without mutating queue state. |
+| `php artisan atlas:ai:self-construction --multi-session-readiness-gate --json` / `--single-session-instruction-packet --json` | Decides parallel readiness, then emits one safe AI instruction. |
+None of these surfaces signs, patches, approves, persists approval, mutates policy, touches hot runtime files or enables autonomous self-programming.

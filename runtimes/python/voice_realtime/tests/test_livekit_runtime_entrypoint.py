@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from atlas_voice_agent.contract import AtlasVoiceRuntimeContract
+from atlas_voice_agent.daemon_implementation_review import SCHEMA_VERSION as DAEMON_REVIEW_SCHEMA_VERSION
 from atlas_voice_agent.livekit_runtime_entrypoint import start_livekit_agents_worker
 from atlas_voice_agent.production_promotion_review import SCHEMA_VERSION
 
@@ -30,6 +31,34 @@ def valid_review() -> dict[str, object]:
             "persist_raw_audio",
         ],
         "auto_promotion_allowed": False,
+    }
+
+
+def valid_daemon_review() -> dict[str, object]:
+    return {
+        "schema_version": DAEMON_REVIEW_SCHEMA_VERSION,
+        "status": "approved",
+        "surface_id": "voice_realtime",
+        "runtime_id": "livekit_agents_sdk",
+        "decision_receipt_id": "decision_receipt_voice_daemon_1",
+        "implementation_ref": "commit:voice-daemon-reviewed",
+        "reviewed_by": "vitor",
+        "reviewed_at": "2026-05-10T12:30:00Z",
+        "rollback_plan": [
+            "disable_livekit_worker_launch",
+            "stop_livekit_worker",
+            "revert_runtime_policy",
+        ],
+        "forbidden_actions_acknowledged": [
+            "bypass_kernel_decision_receipt",
+            "direct_provider_call_from_daemon",
+            "persist_raw_audio",
+            "start_without_supervisor",
+        ],
+        "supervised_start_required": True,
+        "kernel_decision_receipt_required": True,
+        "direct_provider_call_allowed": False,
+        "raw_audio_persistence_allowed": False,
     }
 
 
@@ -64,6 +93,15 @@ class LiveKitRuntimeEntrypointTest(unittest.TestCase):
         self.assertFalse(payload["production_promotion"]["review_receipt_valid"])
         self.assertFalse(payload["production_promotion"]["boolean_approval_is_sufficient"])
         self.assertFalse(payload["production_promotion"]["auto_promotion_allowed"])
+        self.assertFalse(payload["daemon_implementation_review_valid"])
+        self.assertFalse(payload["daemon_implementation"]["review_receipt_valid"])
+        self.assertFalse(payload["daemon_implementation"]["start_allowed_by_review"])
+        self.assertEqual(
+            "atlas.voice_realtime.supervised_start_plan.v1",
+            payload["supervised_start_plan"]["schema_version"],
+        )
+        self.assertFalse(payload["supervised_start_plan"]["start_allowed"])
+        self.assertFalse(payload["supervised_start_plan"]["daemon_started"])
         self.assertEqual(
             "atlas.voice_realtime.activation_contract.v1",
             payload["activation_contract"]["schema_version"],
@@ -225,7 +263,7 @@ class LiveKitRuntimeEntrypointTest(unittest.TestCase):
         if payload["worker_plan"]["sdk_status"]["status"] == "ready":
             self.assertEqual("blocked_pending_human_review", payload["status"])
 
-    def test_start_worker_accepts_valid_review_receipt_but_still_blocks_until_daemon_committed(self) -> None:
+    def test_start_worker_accepts_valid_review_receipt_but_still_blocks_until_daemon_review(self) -> None:
         contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
         worker_plan = {
             "schema_version": "atlas.voice_realtime.worker_plan.v1",
@@ -247,7 +285,16 @@ class LiveKitRuntimeEntrypointTest(unittest.TestCase):
             "status": "wired",
             "production_sdk_loop_wired": True,
             "worker_start_callback_loop_wired": True,
-            "sdk_wiring_contract": {"schema_version": "atlas.voice_realtime.sdk_wiring_contract.v1", "status": "wired"},
+            "sdk_wiring_contract": {
+                "schema_version": "atlas.voice_realtime.sdk_wiring_contract.v1",
+                "status": "wired",
+                "guardrails": {
+                    "kernel_event_normalizer_required_for_real_loop": True,
+                },
+                "required_components": {
+                    "kernel_event_normalizer": "KernelRuntimeEventNormalizerGuard",
+                },
+            },
         }
 
         with patch("atlas_voice_agent.livekit_runtime_entrypoint.build_livekit_worker_plan", return_value=worker_plan), \
@@ -270,6 +317,70 @@ class LiveKitRuntimeEntrypointTest(unittest.TestCase):
         self.assertTrue(payload["production_promotion"]["human_review_approved"])
         self.assertTrue(payload["production_promotion"]["review_receipt_valid"])
         self.assertFalse(payload["production_promotion"]["auto_promotion_allowed"])
+        self.assertFalse(payload["daemon_implementation_review_valid"])
+        self.assertFalse(payload["daemon_implementation"]["review_receipt_valid"])
+        self.assertEqual("blocked_pending_daemon_implementation_review", payload["supervised_start_plan"]["status"])
+        self.assertFalse(payload["supervised_start_plan"]["start_allowed"])
+        self.assertEqual("blocked_pending_daemon_implementation_review", payload["status"])
+
+    def test_start_worker_accepts_daemon_review_receipt_but_still_does_not_start(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        worker_plan = {
+            "schema_version": "atlas.voice_realtime.worker_plan.v1",
+            "status": "ready_to_start_worker",
+            "sdk_status": {"status": "ready"},
+            "activation": {"can_start_long_running_worker": True},
+        }
+        activation_contract = {
+            "schema_version": "atlas.voice_realtime.activation_contract.v1",
+            "status": "ready_to_start_worker",
+            "next_action": "start_worker",
+            "gates": {
+                "callback_loop_wired": True,
+                "production_sdk_loop_wired": True,
+            },
+        }
+        production_loop_plan = {
+            "schema_version": "atlas.voice_realtime.production_loop_plan.v1",
+            "status": "wired",
+            "production_sdk_loop_wired": True,
+            "worker_start_callback_loop_wired": True,
+            "sdk_wiring_contract": {
+                "schema_version": "atlas.voice_realtime.sdk_wiring_contract.v1",
+                "status": "wired",
+                "guardrails": {
+                    "kernel_event_normalizer_required_for_real_loop": True,
+                },
+                "required_components": {
+                    "kernel_event_normalizer": "KernelRuntimeEventNormalizerGuard",
+                },
+            },
+        }
+
+        with patch("atlas_voice_agent.livekit_runtime_entrypoint.build_livekit_worker_plan", return_value=worker_plan), \
+            patch("atlas_voice_agent.livekit_runtime_entrypoint.build_activation_contract", return_value=activation_contract), \
+            patch("atlas_voice_agent.livekit_runtime_entrypoint.build_production_loop_plan", return_value=production_loop_plan):
+            payload = start_livekit_agents_worker(
+                contract,
+                env={},
+                settings_loaded=True,
+                boundary_created=True,
+                callback_loop_wired=True,
+                production_sdk_loop_wired=True,
+                production_promotion_review=valid_review(),
+                daemon_implementation_review=valid_daemon_review(),
+                mock_kernel=False,
+            )
+
+        self.assertFalse(payload["started"])
+        self.assertTrue(payload["production_promotion_review_valid"])
+        self.assertTrue(payload["daemon_implementation_review_valid"])
+        self.assertTrue(payload["daemon_implementation"]["review_receipt_valid"])
+        self.assertFalse(payload["daemon_implementation"]["start_allowed_by_review"])
+        self.assertEqual("ready_for_supervised_start_implementation", payload["supervised_start_plan"]["status"])
+        self.assertEqual("implement_supervised_daemon_start", payload["supervised_start_plan"]["next_action"])
+        self.assertFalse(payload["supervised_start_plan"]["start_allowed"])
+        self.assertFalse(payload["supervised_start_plan"]["execution_implemented"])
         self.assertEqual("blocked_unimplemented_start", payload["status"])
 
 

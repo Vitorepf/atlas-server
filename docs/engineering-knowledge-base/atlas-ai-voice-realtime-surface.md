@@ -212,11 +212,63 @@ O gate `certification_artifacts_sanitized` e obrigatorio em CLI, API interna, mo
 
 O gate tambem exige `sdk_kernel_normalizer_required=true`: o `sdk_wiring_contract` declara `KernelRuntimeEventNormalizerGuard`, `validate_every_sdk_event_through_kernel_normalizer`, `kernel_event_normalizer_required_for_real_loop=true` e cada handler blueprint passa por `KernelRuntimeEventNormalizerGuard.assert_event_valid` antes do router/worker.
 
-`product-loop-check` publica `ready_for_human_review` quando machine gates passam sem receipt; so publica `ready_for_daemon_implementation_review` com `production_review_receipt_valid=true`, `boolean_approval_is_sufficient=false` e `daemon_started=false`.
+`daemon-supervisor-check`: artefato `atlas.voice_realtime.daemon_supervisor_execution.v1`. Ele é a fronteira unica para futura execucao persistente, mas hoje roda em `supervised_contract_only`, sem processo: `process_launch_attempted=false`, `daemon_started=false`, `start_allowed=false` e `process_adapter_implemented=false`. Ele publica `process_adapter_blueprint` (`atlas.voice_realtime.daemon_process_adapter_blueprint.v1`) com argv sanitizado, env keys obrigatorias, segredos nao logaveis, health checks e rollback; `launch_allowed=false`.
 
-`runtime-certify` publica `artifacts.product_loop_check`, gate `product_loop_check_available`, resumo Rivals e review packet: passa quando conserva `daemon_started=false`, prova `sdk_probe_import_safe=true`, `sdk_handler_blueprint_available=true`, `sdk_kernel_normalizer_required=true` e `production_promotion_blocked=true`. `status=blocked` por falta de SDK/token issuer e scaffold seguro, nao autorizacao para daemon.
+`product-loop-check` publica `ready_for_human_review` quando machine gates passam sem receipt; so publica `ready_for_daemon_implementation_review` com `production_review_receipt_valid=true`, `boolean_approval_is_sufficient=false` e `daemon_started=false`; so publica `ready_for_supervised_start_implementation` quando `daemon_implementation_review_valid=true` tambem estiver presente.
 
-`worker-start` separa `blocked_pending_human_review` de `blocked_unimplemented_start`: wiring completo sem review vira review humano obrigatorio; `--production-promotion-approved` e apenas declaracao legada e nao aprova nada sem `--production-promotion-review-file` valido. O receipt exige `decision_receipt_id`, rollback plan, forbidden-action ack, `review_receipt_valid=true`, `boolean_approval_is_sufficient=false` e ainda conserva `started=false` enquanto o loop LiveKit real nao estiver commitado.
+`runtime-certify` publica `artifacts.product_loop_check`, gate `product_loop_check_available`, resumo Rivals e review packet: passa quando conserva `daemon_started=false`, prova `sdk_probe_import_safe=true`, `sdk_handler_blueprint_available=true`, `sdk_kernel_normalizer_required=true`, `daemon_supervisor_health_snapshot_available=true`, `daemon_supervisor_preflight_available=true`, `daemon_supervisor_execution_available=true`, `daemon_supervisor_process_launch_disabled=true`, `daemon_process_adapter_blueprint_available=true` e `production_promotion_blocked=true`. `status=blocked` por falta de SDK/token issuer e scaffold seguro, nao autorizacao para daemon.
+
+`worker-start` separa `blocked_pending_human_review`, `blocked_pending_daemon_implementation_review` e `blocked_unimplemented_start`: wiring completo sem review vira review humano; review humano sem review tecnico vira implementacao bloqueada; `--production-promotion-approved` e legado e nao aprova nada sem receipts validos. O receipt exige `decision_receipt_id`, rollback, forbidden-action ack, `review_receipt_valid=true`, `daemon_implementation_review_valid=true`, `boolean_approval_is_sufficient=false` e conserva `started=false` ate o loop LiveKit real.
+
+`supervised_start_plan` (`atlas.voice_realtime.supervised_start_plan.v1`) e o
+handoff final antes de daemon: mesmo em `ready_for_supervised_start_implementation`,
+`start_allowed=false`, `execution_implemented=false` e supervisor real continuam
+obrigatorios. O plano inclui `supervisor_contract`
+(`atlas.voice_realtime.daemon_supervisor_contract.v1`) com lifecycle, health
+checks, rollback, restart policy fail-closed e eventos `VOICE_DAEMON_*`; isso
+documenta o daemon futuro sem autorizar processo persistente agora. O mesmo
+payload inclui `supervisor_health_snapshot`
+(`atlas.voice_realtime.daemon_supervisor_health_snapshot.v1`), observacional,
+com `daemon_started=false`, checks planejados e blocked reasons; e
+`supervisor_preflight` (`atlas.voice_realtime.daemon_supervisor_preflight.v1`)
+como contrato de execucao futura, sempre sem launch nesta fase.
+
+`daemon_supervisor_execution` (`atlas.voice_realtime.daemon_supervisor_execution.v1`)
+chega a `ready_for_process_adapter_implementation` quando os dois receipts e o
+preflight estao validos; ainda assim apenas orienta
+`implement_reviewed_process_adapter`, sem launch, provider direto ou audio cru.
+O blueprint de adapter dentro dele (`atlas.voice_realtime.daemon_process_adapter_blueprint.v1`)
+e a proxima unidade implementavel: deve virar subprocess supervisionado apenas
+depois de testes de launch/stop/rollback e review, conservando segredos fora do
+output e nunca chamando provider/tool diretamente.
+
+`supervised_process_adapter` (`atlas.voice_realtime.supervised_process_adapter.v1`)
+e o shell executavel fail-closed: implementa prepare/health/start/stop/rollback
+como contrato revisavel, mas `start_worker_process` retorna
+`blocked_launch_not_implemented`, `process_launch_attempted=false`,
+`daemon_started=false`, `subprocess_module_imported=false` e
+`livekit_sdk_imported=false`. Ele tambem publica
+`managed_environment_contract` (`atlas.voice_realtime.managed_env_contract.v1`)
+com refs de env/segredo, manifesto sanitizado e `env_file_write_attempted=false`;
+nenhum `.env` e escrito nesta fase e nenhum valor secreto aparece no output.
+Tambem publica `launch_authorization_contract`
+(`atlas.voice_realtime.launch_authorization_contract.v1`) com
+`launch_allowed=false`, `process_launch_attempted=false`, receipts exigidos e
+pre-start checks obrigatorios; e autorizacao para implementar o proximo passo,
+nao para iniciar daemon.
+
+Tambem publica `managed_env_writer`
+(`atlas.voice_realtime.managed_env_writer.v1`). Esse writer valida placeholders
+e manifesto redigido, mas conserva `managed_env_writer_contract_available`,
+`write_execution_implemented=false`, `env_file_write_attempted=false`,
+`secret_values_present_in_output=false` e proibe escrever `.env`, logar segredo
+ou iniciar processo apos render.
+
+`execute_managed_env_write` e a fronteira de escrita revisada: exige
+`atlas.voice_realtime.managed_env_write_authorization.v1`, aceita somente
+arquivo `atlas-voice-*.env`, escreve placeholders com permissao `0600`, retorna
+`atlas.voice_realtime.managed_env_write_execution.v1` com `content_sha256` e
+mantem `process_launch_attempted=false` e `daemon_started=false`.
 
 `sdk-check`: probe de compatibilidade, nao import de runtime. Retorna `sdk_imported=false`, `import_probe_only=true`, `package_checks`, `missing_imports`, versao instalada quando existir e policy do `runtime-dependencies.json`.
 

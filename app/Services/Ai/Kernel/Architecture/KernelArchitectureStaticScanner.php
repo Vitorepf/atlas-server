@@ -2902,6 +2902,16 @@ class KernelArchitectureStaticScanner
         $pythonMockKernelTestPath = base_path('runtimes/python/voice_realtime/tests/test_mock_kernel.py');
         $pythonRuntimeEntrypointPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/livekit_runtime_entrypoint.py');
         $pythonRuntimeEntrypointTestPath = base_path('runtimes/python/voice_realtime/tests/test_livekit_runtime_entrypoint.py');
+        $pythonSupervisedStartPlanPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/supervised_start_plan.py');
+        $pythonSupervisedStartPlanTestPath = base_path('runtimes/python/voice_realtime/tests/test_supervised_start_plan.py');
+        $pythonDaemonImplementationReviewPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/daemon_implementation_review.py');
+        $pythonDaemonImplementationReviewTestPath = base_path('runtimes/python/voice_realtime/tests/test_daemon_implementation_review.py');
+        $pythonDaemonSupervisorPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/daemon_supervisor.py');
+        $pythonDaemonSupervisorTestPath = base_path('runtimes/python/voice_realtime/tests/test_daemon_supervisor.py');
+        $pythonSupervisedProcessAdapterPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/supervised_process_adapter.py');
+        $pythonSupervisedProcessAdapterTestPath = base_path('runtimes/python/voice_realtime/tests/test_supervised_process_adapter.py');
+        $pythonManagedEnvWriterPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/managed_env_writer.py');
+        $pythonManagedEnvWriterTestPath = base_path('runtimes/python/voice_realtime/tests/test_managed_env_writer.py');
         $pythonActivationContractPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/activation_contract.py');
         $pythonActivationContractTestPath = base_path('runtimes/python/voice_realtime/tests/test_activation_contract.py');
         $pythonSdkHandlersPath = base_path('runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_handlers.py');
@@ -2938,6 +2948,16 @@ class KernelArchitectureStaticScanner
         $pythonMockKernelTest = File::exists($pythonMockKernelTestPath) ? File::get($pythonMockKernelTestPath) : '';
         $pythonRuntimeEntrypoint = File::exists($pythonRuntimeEntrypointPath) ? File::get($pythonRuntimeEntrypointPath) : '';
         $pythonRuntimeEntrypointTest = File::exists($pythonRuntimeEntrypointTestPath) ? File::get($pythonRuntimeEntrypointTestPath) : '';
+        $pythonSupervisedStartPlan = File::exists($pythonSupervisedStartPlanPath) ? File::get($pythonSupervisedStartPlanPath) : '';
+        $pythonSupervisedStartPlanTest = File::exists($pythonSupervisedStartPlanTestPath) ? File::get($pythonSupervisedStartPlanTestPath) : '';
+        $pythonDaemonImplementationReview = File::exists($pythonDaemonImplementationReviewPath) ? File::get($pythonDaemonImplementationReviewPath) : '';
+        $pythonDaemonImplementationReviewTest = File::exists($pythonDaemonImplementationReviewTestPath) ? File::get($pythonDaemonImplementationReviewTestPath) : '';
+        $pythonDaemonSupervisor = File::exists($pythonDaemonSupervisorPath) ? File::get($pythonDaemonSupervisorPath) : '';
+        $pythonDaemonSupervisorTest = File::exists($pythonDaemonSupervisorTestPath) ? File::get($pythonDaemonSupervisorTestPath) : '';
+        $pythonSupervisedProcessAdapter = File::exists($pythonSupervisedProcessAdapterPath) ? File::get($pythonSupervisedProcessAdapterPath) : '';
+        $pythonSupervisedProcessAdapterTest = File::exists($pythonSupervisedProcessAdapterTestPath) ? File::get($pythonSupervisedProcessAdapterTestPath) : '';
+        $pythonManagedEnvWriter = File::exists($pythonManagedEnvWriterPath) ? File::get($pythonManagedEnvWriterPath) : '';
+        $pythonManagedEnvWriterTest = File::exists($pythonManagedEnvWriterTestPath) ? File::get($pythonManagedEnvWriterTestPath) : '';
         $pythonActivationContract = File::exists($pythonActivationContractPath) ? File::get($pythonActivationContractPath) : '';
         $pythonActivationContractTest = File::exists($pythonActivationContractTestPath) ? File::get($pythonActivationContractTestPath) : '';
         $pythonSdkHandlers = File::exists($pythonSdkHandlersPath) ? File::get($pythonSdkHandlersPath) : '';
@@ -3114,10 +3134,18 @@ class KernelArchitectureStaticScanner
             'review_receipt_valid',
             'boolean_approval_is_sufficient',
             'validate_production_promotion_review',
+            'validate_daemon_implementation_review',
+            'build_supervised_start_plan',
+            'supervised_start_plan',
+            'daemon_implementation',
+            'blocked_pending_daemon_implementation_review',
+            'ready_for_supervised_start_implementation',
+            'start_allowed_by_review',
             'auto_promotion_allowed',
             'worker_start_without_production_promotion_allowed',
             'callback_loop_wired',
             'production_sdk_loop_wired',
+            'supervised_start_plan',
         ] as $token) {
             if (! str_contains($pythonRuntimeEntrypoint, $token)) {
                 $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/livekit_runtime_entrypoint.py: AP-687 worker start must expose production promotion and human review guardrails [{$token}]";
@@ -3135,12 +3163,266 @@ class KernelArchitectureStaticScanner
             'auto_promotion_allowed',
             'test_start_worker_blocks_fully_wired_product_loop_until_human_review',
             'test_start_worker_requires_review_receipt_not_boolean_flag',
-            'test_start_worker_accepts_valid_review_receipt_but_still_blocks_until_daemon_committed',
+            'test_start_worker_accepts_valid_review_receipt_but_still_blocks_until_daemon_review',
+            'test_start_worker_accepts_daemon_review_receipt_but_still_does_not_start',
+            'daemon_implementation_review_valid',
+            'supervised_start_plan',
+            'ready_for_supervised_start_implementation',
+            'start_allowed_by_review',
+            'blocked_pending_daemon_implementation_review',
             'blocked_pending_human_review',
             'production_sdk_loop_wired',
         ] as $token) {
             if (! str_contains($pythonRuntimeEntrypointTest, $token)) {
                 $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_runtime_entrypoint.py: AP-687 worker start production promotion guardrails must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.voice_realtime.supervised_start_plan.v1',
+            'atlas.voice_realtime.daemon_supervisor_contract.v1',
+            'atlas.voice_realtime.daemon_supervisor_health_snapshot.v1',
+            'atlas.voice_realtime.daemon_supervisor_preflight.v1',
+            'build_supervised_start_plan',
+            'ready_for_supervised_start_implementation',
+            'start_allowed',
+            'execution_implemented',
+            'supervisor_required',
+            'supervisor_contract',
+            'supervisor_health_snapshot',
+            'supervisor_preflight',
+            'lifecycle_states',
+            'callback_router_roundtrip',
+            'kernel_event_normalizer_roundtrip',
+            'restart_without_decision_receipt',
+            'revoke_livekit_session_leases',
+            'VOICE_DAEMON_SUPERVISOR_PLANNED',
+            'VOICE_DAEMON_HEALTH_CHECK_PLANNED',
+            'VOICE_DAEMON_PREFLIGHT_CHECKED',
+            'worker_process_launch_disabled',
+            'kernel_event_normalizer_required',
+            'direct_provider_call_allowed',
+            'raw_audio_persistence_allowed',
+            'start_without_supervisor_allowed',
+            'unbounded_restart_loop_allowed',
+            'implement_supervised_daemon_start',
+        ] as $token) {
+            if (! str_contains($pythonSupervisedStartPlan, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/supervised_start_plan.py: AP-687 supervised daemon start plan must remain fail-closed before real process launch [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_blocks_until_human_review',
+            'test_blocks_until_daemon_implementation_review',
+            'test_ready_for_implementation_still_does_not_start',
+            'test_kernel_normalizer_is_required',
+            'ready_for_supervised_start_implementation',
+            'daemon_supervisor_contract.v1',
+            'daemon_supervisor_health_snapshot.v1',
+            'daemon_supervisor_preflight.v1',
+            'callback_router_roundtrip',
+            'restart_without_decision_receipt',
+            'ready_for_supervisor_implementation',
+            'ready_for_supervisor_execution_implementation',
+            'worker_process_launch_disabled',
+            'blocked_kernel_normalizer_contract',
+        ] as $token) {
+            if (! str_contains($pythonSupervisedStartPlanTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_supervised_start_plan.py: AP-687 supervised start plan must be tested fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.voice_realtime.daemon_implementation_review.v1',
+            'atlas.voice_realtime.daemon_implementation_review_check.v1',
+            'validate_daemon_implementation_review',
+            'implementation_ref',
+            'disable_livekit_worker_launch',
+            'direct_provider_call_from_daemon',
+            'start_without_supervisor',
+            'supervised_start_required_must_be_true',
+            'direct_provider_call_allowed_must_be_false',
+            'raw_audio_persistence_allowed_must_be_false',
+        ] as $token) {
+            if (! str_contains($pythonDaemonImplementationReview, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/daemon_implementation_review.py: AP-687 daemon implementation review must be a separate fail-closed receipt [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_valid_daemon_implementation_review_is_approved_and_sanitized',
+            'test_missing_daemon_implementation_review_is_not_approved',
+            'test_rejects_review_without_required_rollback_actions',
+            'test_rejects_direct_provider_or_raw_audio_shortcut',
+            'test_rejects_nested_secret_keys_in_daemon_review',
+            'commit:voice-daemon-reviewed',
+            'direct_provider_call_from_daemon',
+            'start_without_supervisor',
+        ] as $token) {
+            if (! str_contains($pythonDaemonImplementationReviewTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_daemon_implementation_review.py: AP-687 daemon implementation review receipt must be tested [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.voice_realtime.daemon_supervisor_execution.v1',
+            'atlas.voice_realtime.daemon_process_adapter_blueprint.v1',
+            'AtlasVoiceDaemonSupervisor',
+            'evaluate_daemon_supervisor',
+            'ready_for_process_adapter_implementation',
+            'supervised_contract_only',
+            'process_adapter_blueprint',
+            'argv_template',
+            'required_env_keys',
+            'secret_safe_output_policy',
+            'launch_allowed',
+            'VOICE_DAEMON_PROCESS_ADAPTER_BLUEPRINTED',
+            'supervised_process_adapter',
+            'inspect_supervised_process_adapter',
+            'atlas.voice_realtime.supervised_process_adapter.v1',
+            'process_launch_attempted',
+            'daemon_started',
+            'process_adapter_implemented',
+            'start_allowed',
+            'VOICE_DAEMON_SUPERVISOR_EVALUATED',
+            'VOICE_DAEMON_START_BLOCKED',
+            'process_launch_allowed_by_this_contract',
+            'implement_reviewed_process_adapter',
+        ] as $token) {
+            if (! str_contains($pythonDaemonSupervisor, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/daemon_supervisor.py: AP-687 daemon supervisor execution boundary must exist and remain fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_ready_worker_reaches_process_adapter_boundary_without_launch',
+            'test_blocks_when_receipts_are_missing',
+            'test_blocks_when_preflight_is_not_ready',
+            'atlas.voice_realtime.daemon_supervisor_execution.v1',
+            'atlas.voice_realtime.daemon_process_adapter_blueprint.v1',
+            'ready_for_process_adapter_implementation',
+            'process_adapter_blueprint',
+            'launch_allowed',
+            'supervised_process_adapter',
+            'atlas.voice_realtime.supervised_process_adapter.v1',
+            'process_launch_attempted',
+            'daemon_started',
+            'process_adapter_implemented',
+            'process_launch_allowed_by_this_contract',
+        ] as $token) {
+            if (! str_contains($pythonDaemonSupervisorTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_daemon_supervisor.py: AP-687 daemon supervisor execution boundary must be tested fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.voice_realtime.supervised_process_adapter.v1',
+            'AtlasVoiceSupervisedProcessAdapter',
+            'inspect_supervised_process_adapter',
+            'reviewed_shell_no_launch',
+            'blocked_launch_not_implemented',
+            'subprocess_module_imported',
+            'livekit_sdk_imported',
+            'start_worker_process',
+            'stop_worker_process',
+            'rollback',
+            'atlas.voice_realtime.managed_env_contract.v1',
+            'managed_environment_contract',
+            'env_file_write_attempted',
+            'secret_values_present_in_output',
+            'write_env_file_in_contract_shell',
+            'atlas.voice_realtime.launch_authorization_contract.v1',
+            'launch_authorization_contract',
+            'authorize_launch',
+            'start_process_from_authorization_contract',
+            'atlas.voice_realtime.managed_env_writer.v1',
+            'managed_env_writer',
+            'managed_env_writer_contract_available',
+            'execute_managed_env_write',
+            'VOICE_DAEMON_PROCESS_ADAPTER_INSPECTED',
+            'VOICE_DAEMON_MANAGED_ENV_CONTRACT_DECLARED',
+            'VOICE_DAEMON_LAUNCH_AUTHORIZATION_DECLARED',
+            'VOICE_DAEMON_MANAGED_ENV_WRITER_EVALUATED',
+            'process_launch_attempted',
+            'daemon_started',
+            'launch_allowed',
+        ] as $token) {
+            if (! str_contains($pythonSupervisedProcessAdapter, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/supervised_process_adapter.py: AP-687 supervised process adapter shell must exist and remain fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_inspects_ready_supervisor_without_launching_process',
+            'test_blocks_when_supervisor_execution_is_not_ready',
+            'atlas.voice_realtime.supervised_process_adapter.v1',
+            'blocked_launch_not_implemented',
+            'subprocess_module_imported',
+            'process_launch_attempted',
+            'daemon_started',
+            'VOICE_DAEMON_PROCESS_ADAPTER_INSPECTED',
+            'atlas.voice_realtime.managed_env_contract.v1',
+            'managed_environment_contract',
+            'env_file_write_attempted',
+            'secret_values_present_in_output',
+            'VOICE_DAEMON_MANAGED_ENV_CONTRACT_DECLARED',
+            'atlas.voice_realtime.launch_authorization_contract.v1',
+            'launch_authorization_contract',
+            'VOICE_DAEMON_LAUNCH_AUTHORIZATION_DECLARED',
+            'atlas.voice_realtime.managed_env_writer.v1',
+            'managed_env_writer',
+            'managed_env_writer_contract_available',
+            'VOICE_DAEMON_MANAGED_ENV_WRITER_EVALUATED',
+        ] as $token) {
+            if (! str_contains($pythonSupervisedProcessAdapterTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_supervised_process_adapter.py: AP-687 supervised process adapter shell must be tested fail-closed [{$token}]";
+            }
+        }
+
+        foreach ([
+            'atlas.voice_realtime.managed_env_writer.v1',
+            'inspect_managed_env_writer',
+            'contract_only_no_file_write',
+            'execute_managed_env_write',
+            'atlas.voice_realtime.managed_env_write_authorization.v1',
+            'atlas.voice_realtime.managed_env_write_execution.v1',
+            'writer_contract_implemented',
+            'write_execution_available',
+            'write_execution_implemented',
+            'env_file_write_attempted',
+            'written_placeholder_env',
+            'content_sha256',
+            'os.chmod(target_path, 0o600)',
+            'secret_values_present_in_output',
+            'redacted_env_manifest',
+            'write_env_file_from_writer_contract',
+            'VOICE_DAEMON_MANAGED_ENV_WRITER_EVALUATED',
+            'VOICE_DAEMON_MANAGED_ENV_WRITE_BLOCKED',
+            'start_process_after_env_render',
+        ] as $token) {
+            if (! str_contains($pythonManagedEnvWriter, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/managed_env_writer.py: AP-687 managed env writer contract must exist without writing env files [{$token}]";
+            }
+        }
+
+        foreach ([
+            'test_writer_contract_is_ready_without_writing_env_file_or_leaking_secret',
+            'test_writer_blocks_unsafe_manifest_values',
+            'test_execute_managed_env_write_requires_explicit_authorization',
+            'test_execute_managed_env_write_writes_placeholder_only_file_without_starting_process',
+            'test_execute_managed_env_write_blocks_unsafe_target_path',
+            'atlas.voice_realtime.managed_env_writer.v1',
+            'atlas.voice_realtime.managed_env_write_execution.v1',
+            'write_execution_implemented',
+            'env_file_write_attempted',
+            'secret_values_present_in_output',
+            'write_env_file_from_writer_contract',
+            'literal-secret-value',
+            '0o600',
+        ] as $token) {
+            if (! str_contains($pythonManagedEnvWriterTest, $token)) {
+                $violations[] = "runtimes/python/voice_realtime/tests/test_managed_env_writer.py: AP-687 managed env writer contract must be tested fail-closed [{$token}]";
             }
         }
 
@@ -3183,7 +3465,16 @@ class KernelArchitectureStaticScanner
             'callback-loop-wired',
             'production-sdk-loop-wired',
             'production-promotion-review-file',
+            'daemon-implementation-review-file',
+            'Daemon review valid',
+            'Supervised start plan',
+            'Supervised start allowed',
+            'Supervisor health snapshot',
+            'Supervisor daemon started',
+            'Daemon supervisor execution',
+            'Daemon supervisor launch attempted',
             'product-loop-check',
+            'daemon-supervisor-check',
         ] as $token) {
             if (! str_contains($command, $token)) {
                 $violations[] = "app/Console/Commands/AtlasAiVoiceRealtimeCommand.php: AP-687 CLI must surface production promotion status and human review requirement [{$token}]";
@@ -3249,6 +3540,39 @@ class KernelArchitectureStaticScanner
             'product_loop_check_available',
             'sdk_handler_blueprint_available',
             'sdk_kernel_normalizer_required',
+            'daemon_supervisor_contract_available',
+            'daemon_supervisor_health_snapshot_available',
+            'daemon_supervisor_preflight_available',
+            'daemon_supervisor_execution_available',
+            'daemon_supervisor_process_launch_disabled',
+            'daemon_process_adapter_blueprint_available',
+            'supervised_process_adapter_available',
+            'managed_env_contract_available',
+            'launch_authorization_contract_available',
+            'launch_authorization_contract_ready',
+            'managed_env_writer_contract_available',
+            'daemon_supervisor_execution_schema_version',
+            'daemon_supervisor_execution_process_launch_attempted',
+            'daemon_supervisor_execution_start_allowed',
+            'daemon_process_adapter_blueprint_schema_version',
+            'daemon_process_adapter_blueprint_launch_allowed',
+            'supervised_process_adapter_schema_version',
+            'supervised_process_adapter_process_launch_attempted',
+            'managed_env_contract_schema_version',
+            'managed_env_contract_write_attempted',
+            'managed_env_contract_secret_values_present',
+            'launch_authorization_contract_schema_version',
+            'launch_authorization_contract_launch_allowed',
+            'launch_authorization_contract_process_launch_attempted',
+            'managed_env_writer_schema_version',
+            'managed_env_writer_write_execution_available',
+            'managed_env_writer_write_execution_implemented',
+            'managed_env_writer_write_attempted',
+            'supervisor_health_snapshot_schema_version',
+            'supervisor_health_snapshot_daemon_started',
+            'supervisor_preflight_schema_version',
+            'supervisor_preflight_process_launch_attempted',
+            'daemon_implementation_review_valid',
             'artifacts.product_loop_check',
             'product-loop-secret',
         ] as $token) {
@@ -3268,17 +3592,61 @@ class KernelArchitectureStaticScanner
             'test_command_exposes_worker_start_check_with_product_loop_wired_but_still_blocked',
             'test_command_exposes_worker_start_check_with_review_flag_without_starting_daemon',
             'test_command_exposes_worker_start_check_with_review_receipt_without_starting_daemon',
+            'test_command_exposes_worker_start_check_with_daemon_review_receipt_without_starting_daemon',
             'test_command_exposes_product_loop_check_with_review_receipt_without_starting_daemon',
+            'test_command_exposes_product_loop_check_with_daemon_review_receipt_without_starting_daemon',
+            'test_command_exposes_daemon_supervisor_check_without_process_launch',
+            'test_command_human_output_lists_daemon_supervisor_check',
             'test_command_exposes_product_loop_check_as_json',
             'test_command_human_output_lists_product_loop_check',
             'test_command_human_output_lists_readiness_product_loop_reference',
             'atlas.voice_realtime.product_loop_check.v1',
             'atlas.voice_realtime.product_loop_check_reference.v1',
             '--product-loop-check',
+            '--daemon-supervisor-check',
             '--callback-loop-wired',
             '--production-sdk-loop-wired',
             '--production-promotion-review-file',
+            '--daemon-implementation-review-file',
             'production_review_receipt_valid',
+            'daemon_implementation_review_valid',
+            'supervised_start_plan.schema_version',
+            'supervised_start_plan.supervisor_contract.schema_version',
+            'supervised_start_plan.supervisor_health_snapshot.schema_version',
+            'supervised_start_plan.supervisor_preflight.schema_version',
+            'supervised_start_plan.start_allowed',
+            'supervised_start_plan.supervisor_contract.process_launch_implemented',
+            'supervised_start_plan.supervisor_health_snapshot.daemon_started',
+            'supervised_start_plan.supervisor_preflight.process_launch_attempted',
+            'daemon_supervisor_execution_available',
+            'daemon_supervisor_process_launch_disabled',
+            'daemon_process_adapter_blueprint_available',
+            'supervised_process_adapter_available',
+            'managed_env_contract_available',
+            'launch_authorization_contract_available',
+            'launch_authorization_contract_ready',
+            'managed_env_writer_contract_available',
+            'daemon_supervisor_execution_schema_version',
+            'daemon_supervisor_execution_process_launch_attempted',
+            'daemon_supervisor_execution_start_allowed',
+            'daemon_process_adapter_blueprint_schema_version',
+            'daemon_process_adapter_blueprint_launch_allowed',
+            'supervised_process_adapter_schema_version',
+            'supervised_process_adapter_process_launch_attempted',
+            'managed_env_contract_schema_version',
+            'managed_env_contract_write_attempted',
+            'managed_env_contract_secret_values_present',
+            'launch_authorization_contract_schema_version',
+            'launch_authorization_contract_launch_allowed',
+            'launch_authorization_contract_process_launch_attempted',
+            'managed_env_writer_schema_version',
+            'managed_env_writer_write_execution_available',
+            'managed_env_writer_write_execution_implemented',
+            'managed_env_writer_write_attempted',
+            'Supervised start plan',
+            'Supervised start allowed',
+            'Supervisor health snapshot',
+            'Supervisor daemon started',
             'review_receipt_valid',
             'boolean_approval_is_sufficient',
             'sdk_imported',
@@ -3332,6 +3700,18 @@ class KernelArchitectureStaticScanner
             'sdk_probe_import_safe',
             'sdk_handler_blueprint_available',
             'sdk_kernel_normalizer_required',
+            'managed_env_contract_available',
+            'atlas.voice_realtime.managed_env_contract.v1',
+            'launch_authorization_contract_available',
+            'launch_authorization_contract_ready',
+            'atlas.voice_realtime.launch_authorization_contract.v1',
+            'managed_env_writer_contract_available',
+            'atlas.voice_realtime.managed_env_writer.v1',
+            'env_file_write_attempted=false',
+            'secret_values_present_in_output=false',
+            'daemon_implementation_review_valid',
+            'ready_for_supervised_start_implementation',
+            'blocked_pending_daemon_implementation_review',
             'production_sdk_loop_wired',
             'atlas.voice_realtime.product_loop_check.v1',
             'sdk_imported=false',
@@ -3363,6 +3743,12 @@ class KernelArchitectureStaticScanner
             'product_loop_check_available',
             'sdk_handler_blueprint_available',
             'sdk_kernel_normalizer_required',
+            'atlas.voice_realtime.managed_env_contract.v1',
+            'atlas.voice_realtime.launch_authorization_contract.v1',
+            'env_file_write_attempted=false',
+            'daemon_implementation_review_valid',
+            'ready_for_supervised_start_implementation',
+            'blocked_pending_daemon_implementation_review',
             'production_sdk_loop_wired',
         ] as $token) {
             if (! str_contains($doc, $token)) {
@@ -3490,9 +3876,27 @@ class KernelArchitectureStaticScanner
             'auto_promotion_allowed',
             'fix_sdk_probe_contract',
             'production_review_receipt_valid',
+            'daemon_implementation_review_valid',
+            'supervised_start_plan',
+            'supervised_start_plan_available',
+            'daemon_supervisor_contract_available',
+            'daemon_supervisor_health_snapshot_available',
+            'daemon_supervisor_preflight_available',
+            'daemon_supervisor_execution_available',
+            'daemon_supervisor_process_launch_disabled',
+            'daemon_process_adapter_blueprint_available',
+            'supervised_process_adapter_available',
+            'managed_env_contract_available',
+            'launch_authorization_contract_available',
+            'launch_authorization_contract_ready',
+            'managed_env_writer_contract_available',
+            'evaluate_daemon_supervisor',
             'boolean_approval_is_sufficient',
             'ready_for_human_review',
+            'ready_for_daemon_implementation_review',
+            'ready_for_supervised_start_implementation',
             'submit_daemon_implementation_review',
+            'implement_supervised_daemon_start',
         ] as $token) {
             if (! str_contains($pythonProductLoopCheck, $token)) {
                 $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/product_loop_check.py: AP-687 product loop check must aggregate readiness without starting daemon [{$token}]";
@@ -3511,9 +3915,32 @@ class KernelArchitectureStaticScanner
             'test_product_loop_check_blocks_if_sdk_handler_blueprint_is_missing',
             'test_product_loop_check_blocks_if_kernel_normalizer_is_not_required',
             'test_product_loop_check_reaches_daemon_review_only_with_valid_review_receipt',
+            'test_product_loop_check_reaches_supervised_start_only_with_daemon_review_receipt',
             'production_review_receipt_valid',
+            'daemon_implementation_review_valid',
+            'supervised_start_plan_available',
+            'daemon_supervisor_contract_available',
+            'daemon_supervisor_health_snapshot_available',
+            'daemon_supervisor_preflight_available',
+            'daemon_supervisor_execution_available',
+            'daemon_supervisor_process_launch_disabled',
+            'daemon_process_adapter_blueprint_available',
+            'supervised_process_adapter_available',
+            'managed_env_contract_available',
+            'launch_authorization_contract_available',
+            'launch_authorization_contract_ready',
+            'managed_env_writer_contract_available',
+            'atlas.voice_realtime.daemon_supervisor_execution.v1',
+            'atlas.voice_realtime.supervised_process_adapter.v1',
+            'atlas.voice_realtime.managed_env_contract.v1',
+            'atlas.voice_realtime.launch_authorization_contract.v1',
+            'atlas.voice_realtime.managed_env_writer.v1',
+            'atlas.voice_realtime.supervised_start_plan.v1',
+            'atlas.voice_realtime.daemon_supervisor_preflight.v1',
             'boolean_approval_is_sufficient',
             'ready_for_human_review',
+            'ready_for_daemon_implementation_review',
+            'ready_for_supervised_start_implementation',
             'fix_sdk_handler_blueprint_contract',
             'fix_sdk_kernel_normalizer_contract',
             'fix_sdk_probe_contract',

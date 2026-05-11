@@ -52,6 +52,7 @@ Atlas must not:
 
 - mutate core policy without AP and review;
 - create parallel Kernel, memory, provider, runtime or daemon;
+- implement structural core subsystems before their contract docs exist;
 - treat chat memory as source of truth;
 - auto-promote research directly into runtime;
 - bypass Decision Receipt, Evidence Ledger or architecture validation;
@@ -90,6 +91,21 @@ A self-construction operation must declare:
 - rollback;
 - evidence;
 - residual risk.
+
+## Structural Contract Gate
+
+Structural core systems must be documentation-first. This includes AI
+Implementation Packet, Work Splitter, Scope Validator, Evidence Ledger, Spec
+Drift Detector, Memory OS, Research OS, SDD Core and Self-Construction Runtime.
+
+Mandatory order:
+
+```text
+contract doc -> schema -> invariants -> examples -> gates -> read-only runtime
+```
+
+If an AI is about to implement a structural subsystem and the contract is not
+complete, it must stop coding and write the contract first.
 
 ## Human Gate Rules
 
